@@ -74,7 +74,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected final String suffix;
     protected final String defaultUrl;
     protected final JdbcDialect jdbcDialect;
-    protected static final Set<String> SYS_DATABASES = new HashSet<>();
+    protected final Set<String> sysDatabases = new HashSet<>();
 
     public AbstractJdbcCatalog(
             String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
@@ -176,7 +176,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             StringBuilder fullTableName = new StringBuilder();
             while (rs.next()) {
                 for (int i = 0; i < rs.getMetaData().getColumnCount(); i++) {
-                    fullTableName.append(rs.getString(i)).append("\\.");
+                    fullTableName.append(rs.getString(i)).append(".");
                 }
             }
 
@@ -448,11 +448,11 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     protected Set<String> getSysDatabases() {
-        return SYS_DATABASES;
+        return sysDatabases;
     }
 
     protected Map<String, String> buildConnectorOptions(TablePath tablePath) {

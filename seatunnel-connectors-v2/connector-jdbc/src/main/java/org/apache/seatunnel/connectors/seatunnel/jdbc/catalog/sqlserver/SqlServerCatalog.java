@@ -34,16 +34,13 @@ import java.util.Map;
 
 public class SqlServerCatalog extends AbstractJdbcCatalog {
 
-    static {
-        SYS_DATABASES.add("master");
-        SYS_DATABASES.add("tempdb");
-        SYS_DATABASES.add("model");
-        SYS_DATABASES.add("msdb");
-    }
-
     public SqlServerCatalog(
             String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
         super(catalogName, username, pwd, urlInfo);
+        sysDatabases.add("master");
+        sysDatabases.add("tempdb");
+        sysDatabases.add("model");
+        sysDatabases.add("msdb");
     }
 
     @Override

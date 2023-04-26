@@ -66,11 +66,6 @@ public class StarRocksCatalog extends AbstractJdbcCatalog {
     private final JdbcUrlUtil.UrlInfo urlInfo;
     private static final Logger LOG = LoggerFactory.getLogger(StarRocksCatalog.class);
 
-    static {
-        SYS_DATABASES.add("information_schema");
-        SYS_DATABASES.add("_statistics_");
-    }
-
     public StarRocksCatalog(String catalogName, String username, String pwd, String defaultUrl) {
 
         super(catalogName, username, pwd, JdbcUrlUtil.getUrlInfo(defaultUrl));
@@ -87,6 +82,9 @@ public class StarRocksCatalog extends AbstractJdbcCatalog {
         this.catalogName = catalogName;
         this.username = username;
         this.pwd = pwd;
+
+        sysDatabases.add("information_schema");
+        sysDatabases.add("_statistics_");
     }
 
     @Override
