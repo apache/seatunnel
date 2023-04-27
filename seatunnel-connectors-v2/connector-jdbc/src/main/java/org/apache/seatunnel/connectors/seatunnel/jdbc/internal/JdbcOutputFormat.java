@@ -155,7 +155,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     public synchronized void flush() throws IOException {
-        checkFlushException();
+        if (flushException != null) {
+            return;
+        }
         final int sleepMs = 1000;
         for (int i = 0; i <= jdbcConnectionConfig.getMaxRetries(); i++) {
             try {
