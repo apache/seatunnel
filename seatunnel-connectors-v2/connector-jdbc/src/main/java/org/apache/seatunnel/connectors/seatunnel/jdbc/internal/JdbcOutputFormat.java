@@ -126,7 +126,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         return exec;
     }
 
-    private void checkFlushException() {
+    public void checkFlushException() {
         if (flushException != null) {
             throw new JdbcConnectorException(
                     CommonErrorCode.FLUSH_DATA_FAILED,
