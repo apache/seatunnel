@@ -100,6 +100,7 @@ public class KingBaseDataTypeConvertor implements DataTypeConvertor<String> {
     private static final String PG_CHARACTER_ARRAY = "_CHARACTER";
     private static final String PG_CHARACTER_VARYING = "VARCHAR";
     private static final String PG_CHARACTER_VARYING_ARRAY = "_VARCHAR";
+    private static final String PG_INTERVAL = "INTERVAL";
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
@@ -151,12 +152,14 @@ public class KingBaseDataTypeConvertor implements DataTypeConvertor<String> {
             case PG_CHARACTER:
             case PG_CHARACTER_VARYING:
             case PG_TEXT:
+            case PG_INTERVAL:
                 return BasicType.STRING_TYPE;
             case PG_CHAR_ARRAY:
             case PG_CHARACTER_ARRAY:
             case PG_CHARACTER_VARYING_ARRAY:
             case PG_TEXT_ARRAY:
                 return ArrayType.STRING_ARRAY_TYPE;
+            case PG_TIMESTAMPTZ:
             case PG_TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case PG_TIME:
@@ -166,7 +169,6 @@ public class KingBaseDataTypeConvertor implements DataTypeConvertor<String> {
 
             case PG_TIMESTAMP_ARRAY:
             case PG_NUMERIC_ARRAY:
-            case PG_TIMESTAMPTZ:
             case PG_TIMESTAMPTZ_ARRAY:
             case PG_TIME_ARRAY:
             case PG_DATE_ARRAY:

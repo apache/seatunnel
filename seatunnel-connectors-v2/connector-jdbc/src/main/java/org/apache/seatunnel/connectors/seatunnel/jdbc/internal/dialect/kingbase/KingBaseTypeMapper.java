@@ -84,6 +84,7 @@ public class KingBaseTypeMapper implements JdbcDialectTypeMapper {
     private static final String PG_CHARACTER_ARRAY = "_CHARACTER";
     private static final String PG_CHARACTER_VARYING = "VARCHAR";
     private static final String PG_CHARACTER_VARYING_ARRAY = "_VARCHAR";
+    private static final String PG_INTERVAL = "INTERVAL";
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
@@ -135,6 +136,7 @@ public class KingBaseTypeMapper implements JdbcDialectTypeMapper {
             case PG_CHARACTER:
             case PG_CHARACTER_VARYING:
             case PG_TEXT:
+            case PG_INTERVAL:
                 return BasicType.STRING_TYPE;
             case PG_CHAR_ARRAY:
             case PG_CHARACTER_ARRAY:
@@ -142,6 +144,7 @@ public class KingBaseTypeMapper implements JdbcDialectTypeMapper {
             case PG_TEXT_ARRAY:
                 return ArrayType.STRING_ARRAY_TYPE;
             case PG_TIMESTAMP:
+            case PG_TIMESTAMPTZ:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case PG_TIME:
                 return LocalTimeType.LOCAL_TIME_TYPE;
@@ -150,7 +153,6 @@ public class KingBaseTypeMapper implements JdbcDialectTypeMapper {
 
             case PG_TIMESTAMP_ARRAY:
             case PG_NUMERIC_ARRAY:
-            case PG_TIMESTAMPTZ:
             case PG_TIMESTAMPTZ_ARRAY:
             case PG_TIME_ARRAY:
             case PG_DATE_ARRAY:
