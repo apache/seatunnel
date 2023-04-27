@@ -119,6 +119,9 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public void close() throws CatalogException {
+        if (defaultConnection == null) {
+            return;
+        }
         try {
             defaultConnection.close();
         } catch (SQLException e) {

@@ -37,7 +37,7 @@ import java.util.regex.Pattern;
  * Interface for reading and writing table metadata from SeaTunnel. Each connector need to contain
  * the implementation of Catalog.
  */
-public interface Catalog {
+public interface Catalog extends AutoCloseable {
 
     default Optional<Factory> getFactory() {
         return Optional.empty();

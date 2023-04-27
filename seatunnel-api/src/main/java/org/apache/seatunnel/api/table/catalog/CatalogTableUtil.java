@@ -121,16 +121,17 @@ public class CatalogTableUtil implements Serializable {
                         factoryId);
         return optionalCatalog
                 .map(
-                        catalog -> {
+                        c -> {
                             long startTime = System.currentTimeMillis();
-                            catalog.open();
-                            List<CatalogTable> catalogTables = catalog.getTables(catalogConfig);
-                            catalog.close();
-                            log.info(
-                                    String.format(
-                                            "Get catalog tables, cost time: %d",
-                                            System.currentTimeMillis() - startTime));
-                            return catalogTables;
+                            try (Catalog catalog = c) {
+                                catalog.open();
+                                List<CatalogTable> catalogTables = catalog.getTables(catalogConfig);
+                                log.info(
+                                        String.format(
+                                                "Get catalog tables, cost time: %d",
+                                                System.currentTimeMillis() - startTime));
+                                return catalogTables;
+                            }
                         })
                 .orElse(Collections.emptyList());
     }
