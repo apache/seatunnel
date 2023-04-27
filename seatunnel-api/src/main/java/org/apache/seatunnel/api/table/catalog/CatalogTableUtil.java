@@ -99,16 +99,12 @@ public class CatalogTableUtil implements Serializable {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
         Map<String, String> catalogOptions =
                 readonlyConfig.getOptional(CatalogOptions.CATALOG_OPTIONS).orElse(new HashMap<>());
-        // TODO: fallback key
-        String factoryId =
-                catalogOptions.getOrDefault(
-                        CommonOptions.FACTORY_ID.key(),
-                        readonlyConfig.get(CommonOptions.PLUGIN_NAME));
+
         Map<String, Object> catalogAllOptions = new HashMap<>();
         catalogAllOptions.putAll(readonlyConfig.toMap());
         catalogAllOptions.putAll(catalogOptions);
         ReadonlyConfig catalogConfig = ReadonlyConfig.fromMap(catalogAllOptions);
-
+        String factoryId = catalogConfig.get(CommonOptions.FACTORY_ID);
         // Highest priority: specified schema
         Map<String, String> schemaMap = readonlyConfig.get(CatalogTableUtil.SCHEMA);
         if (schemaMap != null && schemaMap.size() > 0) {
