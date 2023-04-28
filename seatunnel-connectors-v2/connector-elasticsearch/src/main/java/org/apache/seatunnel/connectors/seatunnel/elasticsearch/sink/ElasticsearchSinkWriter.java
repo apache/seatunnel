@@ -65,8 +65,7 @@ public class ElasticsearchSinkWriter
             SeaTunnelRowType seaTunnelRowType,
             Config pluginConfig,
             int maxBatchSize,
-            int maxRetryCount,
-            List<ElasticsearchSinkState> elasticsearchStates) {
+            int maxRetryCount) {
         this.context = context;
         this.maxBatchSize = maxBatchSize;
 
