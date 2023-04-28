@@ -21,7 +21,9 @@ import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.translation.serialization.BaseRowConverter;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.translation.serialization.RowConverter;
 
 import org.apache.spark.unsafe.types.UTF8String;
 
@@ -29,22 +31,44 @@ import scala.Tuple2;
 import scala.collection.immutable.HashMap;
 import scala.collection.mutable.WrappedArray;
 
+import java.io.IOException;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class SeaTunnelRowConverter extends BaseRowConverter {
+public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
     public SeaTunnelRowConverter(SeaTunnelDataType<?> dataType) {
         super(dataType);
     }
 
     @Override
+    public SeaTunnelRow convert(SeaTunnelRow seaTunnelRow) throws IOException {
+        validate(seaTunnelRow);
+        return (SeaTunnelRow) convert(seaTunnelRow, dataType);
+    }
+
     protected Object convert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;
         }
         switch (dataType.getSqlType()) {
+            case ROW:
+                SeaTunnelRow seaTunnelRow = (SeaTunnelRow) field;
+                SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
+                return convert(seaTunnelRow, rowType);
+            case DATE:
+                return Date.valueOf((LocalDate) field);
+            case TIMESTAMP:
+                return Timestamp.valueOf((LocalDateTime) field);
+            case TIME:
+                return Time.valueOf((LocalTime) field);
             case STRING:
                 return field.toString();
             case MAP:
@@ -62,18 +86,28 @@ public class SeaTunnelRowConverter extends BaseRowConverter {
                 // except string, now only support convert boolean int tinyint smallint bigint float
                 // double, because SeaTunnel Array only support these types
                 return convertArray((Object[]) field, (ArrayType<?, ?>) dataType);
+            default:
+                if (field instanceof scala.Some) {
+                    return ((scala.Some<?>) field).get();
+                }
+                return field;
         }
-        field = super.convert(field, dataType);
-        if (field instanceof scala.Some) {
-            return ((scala.Some<?>) field).get();
-        }
-        return field;
     }
 
-    private scala.collection.immutable.HashMap<Object, Object> convertMap(
-            Map<?, ?> mapData, MapType<?, ?> mapType) {
-        scala.collection.immutable.HashMap<Object, Object> newMap =
-                new scala.collection.immutable.HashMap<>();
+    private SeaTunnelRow convert(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
+        int arity = rowType.getTotalFields();
+        Object[] values = new Object[arity];
+        for (int i = 0; i < arity; i++) {
+            Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(i));
+            if (fieldValue != null) {
+                values[i] = fieldValue;
+            }
+        }
+        return new SeaTunnelRow(values);
+    }
+
+    private HashMap<Object, Object> convertMap(Map<?, ?> mapData, MapType<?, ?> mapType) {
+        HashMap<Object, Object> newMap = new HashMap<>();
         if (mapData.size() == 0) {
             return newMap;
         }
@@ -102,19 +136,41 @@ public class SeaTunnelRowConverter extends BaseRowConverter {
     }
 
     @Override
+    public SeaTunnelRow reconvert(SeaTunnelRow engineRow) throws IOException {
+        return (SeaTunnelRow) reconvert(engineRow, dataType);
+    }
+
     protected Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;
         }
         switch (dataType.getSqlType()) {
+            case ROW:
+                return reconvert((SeaTunnelRow) field, (SeaTunnelRowType) dataType);
+            case DATE:
+                return ((Date) field).toLocalDate();
+            case TIMESTAMP:
+                return ((Timestamp) field).toLocalDateTime();
+            case TIME:
+                return ((Time) field).toLocalTime();
             case STRING:
                 return field.toString();
             case MAP:
                 return reconvertMap((HashMap.HashTrieMap) field, (MapType<?, ?>) dataType);
             case ARRAY:
                 return reconvertArray((WrappedArray.ofRef) field, (ArrayType<?, ?>) dataType);
+            default:
+                return field;
         }
-        return super.reconvert(field, dataType);
+    }
+
+    protected SeaTunnelRow reconvert(SeaTunnelRow engineRow, SeaTunnelRowType rowType) {
+        int num = engineRow.getFields().length;
+        Object[] fields = new Object[num];
+        for (int i = 0; i < num; i++) {
+            fields[i] = reconvert(engineRow.getFields()[i], rowType.getFieldType(i));
+        }
+        return new SeaTunnelRow(fields);
     }
 
     private Map<Object, Object> reconvertMap(
