@@ -32,18 +32,19 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Slf4j
-public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
+public class BaseRowConverter extends RowConverter<SeaTunnelRow> {
 
-    public SeaTunnelRowConverter(SeaTunnelDataType<?> dataType) {
+    public BaseRowConverter(SeaTunnelDataType<?> dataType) {
         super(dataType);
     }
 
     @Override
     public SeaTunnelRow convert(SeaTunnelRow seaTunnelRow) throws IOException {
+        validate(seaTunnelRow);
         return (SeaTunnelRow) convert(seaTunnelRow, dataType);
     }
 
-    private static Object convert(Object field, SeaTunnelDataType<?> dataType) {
+    protected Object convert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;
         }
@@ -71,7 +72,7 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         return field;
     }
 
-    private static SeaTunnelRow convert(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
+    private SeaTunnelRow convert(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
         int arity = rowType.getTotalFields();
         Object[] values = new Object[arity];
         for (int i = 0; i < arity; i++) {
@@ -88,7 +89,7 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         return (SeaTunnelRow) reconvert(engineRow, dataType);
     }
 
-    private static Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
+    protected Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;
         }
@@ -115,7 +116,7 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         return field;
     }
 
-    private static SeaTunnelRow reconvert(SeaTunnelRow engineRow, SeaTunnelRowType rowType) {
+    protected SeaTunnelRow reconvert(SeaTunnelRow engineRow, SeaTunnelRowType rowType) {
         int num = engineRow.getFields().length;
         Object[] fields = new Object[num];
         for (int i = 0; i < num; i++) {

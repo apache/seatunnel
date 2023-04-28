@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
-import org.apache.seatunnel.translation.serialization.SeaTunnelRowConverter;
+import org.apache.seatunnel.translation.spark.serialization.SeaTunnelRowConverter;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.api.java.function.MapPartitionsFunction;
