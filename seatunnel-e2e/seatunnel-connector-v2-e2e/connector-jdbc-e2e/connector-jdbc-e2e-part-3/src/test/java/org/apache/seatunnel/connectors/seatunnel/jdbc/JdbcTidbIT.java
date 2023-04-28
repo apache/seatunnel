@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.e2e.common.container.EngineType;
-import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -50,9 +49,9 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 @DisabledOnContainer(
-        value = {TestContainerId.FLINK_1_13},
-        type = {EngineType.SEATUNNEL, EngineType.SPARK},
-        disabledReason = "TODO: SeaTunnel engine e2e test isn't completed")
+        value = {},
+        type = {EngineType.SPARK},
+        disabledReason = "TODO: Spark has jar conflicts. ")
 public class JdbcTidbIT extends AbstractJdbcIT {
 
     private static final String IMAGE = "pingcap/tidb:v6.5.1";
