@@ -35,11 +35,11 @@ public class MongoSingleCollectionProvider implements MongoClientProvider {
 
     private final String defaultCollection;
 
-    private transient MongoClient client;
+    private MongoClient client;
 
-    private transient MongoDatabase database;
+    private MongoDatabase database;
 
-    private transient MongoCollection<BsonDocument> collection;
+    private MongoCollection<BsonDocument> collection;
 
     public MongoSingleCollectionProvider(
             String connectionString, String defaultDatabase, String defaultCollection) {
@@ -80,12 +80,6 @@ public class MongoSingleCollectionProvider implements MongoClientProvider {
             }
         }
         return collection;
-    }
-
-    @Override
-    public MongoClient recreateClient() {
-        close();
-        return getClient();
     }
 
     @Override

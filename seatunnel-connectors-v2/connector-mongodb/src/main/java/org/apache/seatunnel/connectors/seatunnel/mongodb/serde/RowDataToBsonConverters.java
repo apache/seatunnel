@@ -244,9 +244,9 @@ public class RowDataToBsonConverters implements Serializable {
                     }
                 };
             case ARRAY:
-                return createArrayConverter((ArrayType) type);
+                return createArrayConverter((ArrayType<?, ?>) type);
             case MAP:
-                MapType mapType = (MapType) type;
+                MapType<?, ?> mapType = (MapType<?, ?>) type;
                 return createMapConverter(
                         mapType.toString(), mapType.getKeyType(), mapType.getValueType());
             case ROW:
@@ -276,11 +276,6 @@ public class RowDataToBsonConverters implements Serializable {
         };
     }
 
-    public static SerializableFunction<Object, BsonValue> createFieldDataConverter(
-            SeaTunnelDataType<?> type) {
-        return createNullSafeInternalConverter(type);
-    }
-
     private static SerializableFunction<Object, BsonValue> createMapConverter(
             String typeSummary, SeaTunnelDataType<?> keyType, SeaTunnelDataType<?> valueType) {
         if (!SqlType.STRING.equals(keyType.getSqlType())) {
@@ -298,7 +293,7 @@ public class RowDataToBsonConverters implements Serializable {
 
             @Override
             public BsonValue apply(Object value) {
-                Map<String, ?> mapData = (Map) value;
+                Map<String, ?> mapData = (Map<String, ?>) value;
                 final BsonDocument document = new BsonDocument();
                 for (Map.Entry<String, ?> entry : mapData.entrySet()) {
                     String fieldName = entry.getKey();

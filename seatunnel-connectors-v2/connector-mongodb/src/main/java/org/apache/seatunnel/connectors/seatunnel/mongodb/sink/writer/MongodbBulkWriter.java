@@ -30,6 +30,9 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbSinkS
 import org.bson.BsonDocument;
 
 import com.mongodb.MongoException;
+import com.mongodb.client.model.BulkWriteOptions;
+import com.mongodb.client.model.InsertOneModel;
+import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.model.WriteModel;
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,6 +59,8 @@ public class MongodbBulkWriter
     private long bulkActions;
 
     private List<WriteModel<BsonDocument>> bulkRequests;
+
+    private List<BsonDocument> documentBulks = new ArrayList<>();
 
     private int maxRetries;
 
@@ -120,14 +125,26 @@ public class MongodbBulkWriter
     @Override
     public Optional<MongodbCommitInfo> prepareCommit() throws IOException {
         if (transactionEnable) {
-            return Optional.of(new MongodbCommitInfo(bulkRequests));
+            for (WriteModel<BsonDocument> bulkRequest : bulkRequests) {
+                if (bulkRequest instanceof InsertOneModel) {
+                    documentBulks.add(
+                            (BsonDocument) ((InsertOneModel<?>) bulkRequest).getDocument());
+                }
+                if (bulkRequest instanceof UpdateOneModel) {
+                    documentBulks.add((BsonDocument) ((UpdateOneModel<?>) bulkRequest).getUpdate());
+                }
+            }
+
+            return Optional.of(new MongodbCommitInfo(documentBulks));
         }
         return Optional.empty();
     }
 
     @Override
     public void close() throws IOException {
-        doBulkWrite();
+        if (!transactionEnable) {
+            doBulkWrite();
+        }
         if (collectionProvider != null) {
             collectionProvider.close();
         }
@@ -155,7 +172,9 @@ public class MongodbBulkWriter
                                         lastSendTime = System.currentTimeMillis();
                                         collectionProvider
                                                 .getDefaultCollection()
-                                                .bulkWrite(bulkRequests);
+                                                .bulkWrite(
+                                                        bulkRequests,
+                                                        new BulkWriteOptions().ordered(true));
                                         bulkRequests.clear();
                                         return true;
                                     } catch (MongoException e) {

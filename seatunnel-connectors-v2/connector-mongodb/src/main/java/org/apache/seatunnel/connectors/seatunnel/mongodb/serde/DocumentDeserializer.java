@@ -21,14 +21,7 @@ import org.bson.BsonDocument;
 
 import java.io.Serializable;
 
-/** DocumentDeserializer deserialize {@link BsonDocument} into POJOs or other Java objects . */
 public interface DocumentDeserializer<T> extends Serializable {
 
-    /**
-     * Serialize input Java objects into {@link BsonDocument}.
-     *
-     * @param bsonDocument The input {@link BsonDocument}.
-     * @return The serialized object.
-     */
     T deserialize(BsonDocument bsonDocument);
 }

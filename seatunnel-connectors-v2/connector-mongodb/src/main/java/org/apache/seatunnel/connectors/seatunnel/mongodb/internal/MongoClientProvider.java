@@ -49,13 +49,6 @@ public interface MongoClientProvider extends Serializable {
      */
     MongoCollection<BsonDocument> getDefaultCollection();
 
-    /**
-     * Recreate a client. Used typically when a connection is timed out or lost.
-     *
-     * @return A new {@link MongoClient}.
-     */
-    MongoClient recreateClient();
-
     /** Close the underlying MongoDB connection. */
     void close();
 }

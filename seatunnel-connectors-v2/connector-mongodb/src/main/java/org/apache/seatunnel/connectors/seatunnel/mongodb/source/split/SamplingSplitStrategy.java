@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source.split;
 
+import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -25,8 +28,6 @@ import org.bson.BsonDocument;
 import org.bson.BsonString;
 import org.bson.Document;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.Sorts;
@@ -34,9 +35,9 @@ import com.mongodb.client.model.Sorts;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
-import static java.util.stream.Collectors.toList;
 
 public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
 
@@ -70,8 +71,8 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
     @Override
     public List<MongoSplit> split() {
         ImmutablePair<Long, Long> numAndAvgSize = getDocumentNumAndAvgSize();
-        long count = numAndAvgSize.left;
-        long avgSize = numAndAvgSize.right;
+        long count = numAndAvgSize.getLeft();
+        long avgSize = numAndAvgSize.getRight();
 
         long numDocumentsPerSplit = sizePerSplit / avgSize;
         int numSplits = (int) Math.ceil((double) count / numDocumentsPerSplit);
@@ -86,9 +87,10 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
                             0, matchQuery, projection, splitKey, null, null));
         }
         List<BsonDocument> samples = sampleCollection(numSamples);
-        if (samples.size() == 0) {
+        if (samples.isEmpty()) {
             return Collections.emptyList();
         }
+
         List<Object> rightBoundaries =
                 IntStream.range(0, samples.size())
                         .filter(
@@ -96,7 +98,7 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
                                         i % samplesPerSplit == 0
                                                 || !matchQuery.isEmpty() && i == count - 1)
                         .mapToObj(i -> samples.get(i).get(splitKey))
-                        .collect(toList());
+                        .collect(Collectors.toList());
 
         return createSplits(splitKey, rightBoundaries);
     }
@@ -108,12 +110,20 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         Document res = clientProvider.getDefaultDatabase().runCommand(statsCmd);
         long total = res.getInteger("count");
         Object avgDocumentBytes = res.get("avgObjSize");
-        long avgObjSize = 0L;
-        if (avgDocumentBytes instanceof Integer) {
-            avgObjSize = ((Integer) avgDocumentBytes).longValue();
-        } else if (avgDocumentBytes instanceof Double) {
-            avgObjSize = ((Double) avgDocumentBytes).longValue();
-        }
+        long avgObjSize =
+                Optional.ofNullable(avgDocumentBytes)
+                        .map(
+                                docBytes -> {
+                                    if (docBytes instanceof Integer) {
+                                        return ((Integer) docBytes).longValue();
+                                    } else if (docBytes instanceof Double) {
+                                        return ((Double) docBytes).longValue();
+                                    } else {
+                                        return 0L;
+                                    }
+                                })
+                        .orElse(0L);
+
         if (matchQuery == null || matchQuery.isEmpty()) {
             return ImmutablePair.of(total, avgObjSize);
         } else {
@@ -139,13 +149,22 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         if (rightBoundaries.size() == 0) {
             return Collections.emptyList();
         }
-        List<MongoSplit> splits = Lists.newArrayList();
-        for (int i = 0; i < rightBoundaries.size(); i++) {
-            Object min = i > 0 ? rightBoundaries.get(i - 1) : null;
-            splits.add(
-                    MongoSplitUtils.createMongoSplit(
-                            i, matchQuery, projection, splitKey, min, rightBoundaries.get(i)));
-        }
+
+        List<MongoSplit> splits =
+                IntStream.range(0, rightBoundaries.size())
+                        .mapToObj(
+                                index -> {
+                                    Object min = index > 0 ? rightBoundaries.get(index - 1) : null;
+                                    return MongoSplitUtils.createMongoSplit(
+                                            index,
+                                            matchQuery,
+                                            projection,
+                                            splitKey,
+                                            min,
+                                            rightBoundaries.get(index));
+                                })
+                        .collect(Collectors.toList());
+
         Object lastBoundary = rightBoundaries.get(rightBoundaries.size() - 1);
         splits.add(
                 MongoSplitUtils.createMongoSplit(

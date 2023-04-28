@@ -19,10 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.commit;
 
 import org.bson.BsonDocument;
 
-import com.mongodb.bulk.BulkWriteResult;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.TransactionBody;
-import com.mongodb.client.model.WriteModel;
+import com.mongodb.client.result.InsertManyResult;
 
 import java.io.Serializable;
 import java.util.List;
@@ -31,17 +30,17 @@ public class CommittableTransaction implements TransactionBody<Integer>, Seriali
 
     protected final MongoCollection<BsonDocument> collection;
 
-    protected List<WriteModel<BsonDocument>> bufferedDocuments;
+    protected List<BsonDocument> bufferedDocuments;
 
     public CommittableTransaction(
-            MongoCollection<BsonDocument> collection, List<WriteModel<BsonDocument>> documents) {
+            MongoCollection<BsonDocument> collection, List<BsonDocument> documents) {
         this.collection = collection;
         this.bufferedDocuments = documents;
     }
 
     @Override
     public Integer execute() {
-        BulkWriteResult bulkWriteResult = collection.bulkWrite(bufferedDocuments);
-        return bulkWriteResult.getInserts().size();
+        InsertManyResult insertManyResult = collection.insertMany(bufferedDocuments);
+        return insertManyResult.getInsertedIds().size();
     }
 }

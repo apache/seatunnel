@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source.reader;
 
+import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -28,7 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit
 
 import org.bson.BsonDocument;
 
-import com.google.common.base.Preconditions;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCursor;
 import lombok.extern.slf4j.Slf4j;

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source.enumerator;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
@@ -24,7 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientPro
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplitStrategy;
 
-import com.google.common.collect.Lists;
 import com.mongodb.MongoNamespace;
 import lombok.extern.slf4j.Slf4j;
 
