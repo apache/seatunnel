@@ -84,7 +84,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     // ----------------------------------------------------------------------------
     // kafka
-    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:latest";
+    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
     private static final String KAFKA_TOPIC = "test-canal-sink";
 

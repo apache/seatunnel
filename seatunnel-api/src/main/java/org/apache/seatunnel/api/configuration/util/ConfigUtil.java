@@ -142,9 +142,8 @@ public class ConfigUtil {
                             ((ParameterizedType) typeReference.getType()).getRawType())) {
                 try {
                     log.warn(
-                            String.format(
-                                    "Option '%s' is a List, and it is recommended to configure it as [\"string1\",\"string2\"]; we will only use ',' to split the String into a list.",
-                                    option.key()));
+                            "Option '{}' is a List, and it is recommended to configure it as [\"string1\",\"string2\"]; we will only use ',' to split the String into a list.",
+                            option.key());
                     return (T)
                             convertToList(
                                     rawValue,

@@ -11,8 +11,8 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 
 - ../`seatunnel-connectors-v2`                                         connector-v2代码实现
 - ../`seatunnel-translation`                                           connector-v2的翻译层 
-- ../seatunnel-e2e/`seatunnel-flink-connector-v2-e2e`                  flink上运行的端到端testcase
-- ../seatunnel-e2e/`seatunnel-spark-connector-v2-e2e`                  spark上运行的端到端testcase
+- ../`seatunnel-transform-v2`                                          transform-v2代码实现
+- ../seatunnel-e2e/`seatunnel-connector-v2-e2e`                        connector-v2端到端测试
 - ../seatunnel-examples/`seatunnel-flink-connector-v2-example`         seatunnel connector-v2的flink local运行的实例
 - ../seatunnel-examples/`seatunnel-spark-connector-v2-example`         seatunnel connector-v2的spark local运行的实例
 
