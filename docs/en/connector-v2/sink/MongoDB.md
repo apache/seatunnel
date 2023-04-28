@@ -17,7 +17,7 @@ Key featuresl
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
@@ -64,7 +64,7 @@ Tips:
 Connector Options
 -----------------
 
-| Option                | Required | Default | Type     | Description                                                                                                    |
+|        Option         | Required | Default |   Type   |                                                  Description                                                   |
 |-----------------------|----------|---------|----------|----------------------------------------------------------------------------------------------------------------|
 | uri                   | required | (none)  | String   | The MongoDB connection uri.                                                                                    |
 | database              | required | (none)  | String   | The name of MongoDB database to read or write.                                                                 |
@@ -76,7 +76,6 @@ Connector Options
 | retry.interval        | optional | 1000    | Duration | Specifies the retry time interval if writing records to database failed, the unit is millisecond.              |
 | upsert-enable         | optional | false   | Boolean  | Whether to write documents via upsert mode.                                                                    |
 | upsert-key            | optional | (none)  | List     | The primary keys for upsert. Only valid in upsert mode. Keys are in `["id","name",...]` format for properties. |
-| transaction-enable    | optional | false   | Boolean  | Turn on the Mongodb transaction to ensure the atomicity of the write and update operation through 2pc.         |
 
 How to create a MongoDB Data synchronization jobs
 -------------------------------------------------
@@ -185,6 +184,13 @@ sink {
 }
 ```
 
+**Why is it not recommended to use transactions for operation?**
+
+Although MongoDB has fully supported multi-document transactions since version 4.2, it doesn't mean that everyone should use them recklessly.
+Transactions are equivalent to locks, node coordination, additional overhead, and performance impact.
+Instead, the principle for using transactions should be: avoid using them if possible.
+The necessity for using transactions can be greatly avoided by designing systems rationally.
+
 **Idempotent Writes**
 
 By specifying a clear primary key and using the upsert method, exactly-once write semantics can be achieved.
@@ -200,35 +206,6 @@ sink {
     collection = "users"
     upsert-enable = true
     upsert-key = ["name","status"]
-    schema = {
-      fields {
-        _id = string
-        name = string
-        status = string
-      }
-    }
-  }
-}
-```
-
-**Why is it not recommended to use transactions for operation?**
-
-Although MongoDB has fully supported multi-document transactions since version 4.2, it doesn't mean that everyone should use them recklessly.
-Transactions are equivalent to locks, node coordination, additional overhead, and performance impact.
-Instead, the principle for using transactions should be: avoid using them if possible.
-The necessity for using transactions can be greatly avoided by designing systems rationally.
-
-**Use transactions for insertion and update operations**
-
-```bash
-sink {
-  MongoDB {
-    uri = "mongodb://user:password@127.0.0.1:27017"
-    database = "test_db"
-    collection = "users"
-    upsert-enable = true
-    transaction-enable = true
-    upsert-key = ["name"]
     schema = {
       fields {
         _id = string

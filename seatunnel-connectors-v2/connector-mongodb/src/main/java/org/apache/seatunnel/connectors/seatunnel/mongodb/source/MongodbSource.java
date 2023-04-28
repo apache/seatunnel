@@ -30,13 +30,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoColloctionProviders;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbCollectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentRowDataDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.config.MongodbReadOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.enumerator.MongodbSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.source.reader.MongoReader;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.reader.MongodbReader;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.SamplingSplitStrategy;
@@ -56,7 +56,7 @@ public class MongodbSource
 
     private static final long serialVersionUID = 1L;
 
-    private MongoClientProvider clientProvider;
+    private MongodbClientProvider clientProvider;
 
     private DocumentDeserializer<SeaTunnelRow> deserializer;
 
@@ -80,7 +80,7 @@ public class MongodbSource
             String database = pluginConfig.getString(MongodbConfig.DATABASE.key());
             String collection = pluginConfig.getString(MongodbConfig.COLLECTION.key());
             clientProvider =
-                    MongoColloctionProviders.getBuilder()
+                    MongodbCollectionProvider.getBuilder()
                             .connectionString(connection)
                             .database(database)
                             .collection(collection)
@@ -95,7 +95,9 @@ public class MongodbSource
                 new DocumentRowDataDeserializer(
                         rowType.getFieldNames(),
                         rowType,
-                        pluginConfig.getBoolean(MongodbConfig.FLAT_SYNC_STRING.key()));
+                        pluginConfig.hasPath(MongodbConfig.FLAT_SYNC_STRING.key())
+                                ? pluginConfig.getBoolean(MongodbConfig.FLAT_SYNC_STRING.key())
+                                : MongodbConfig.FLAT_SYNC_STRING.defaultValue());
         splitStrategy =
                 SamplingSplitStrategy.builder()
                         .setMatchQuery(
@@ -152,7 +154,7 @@ public class MongodbSource
     @Override
     public SourceReader<SeaTunnelRow, MongoSplit> createReader(SourceReader.Context readerContext)
             throws Exception {
-        return new MongoReader(readerContext, clientProvider, deserializer, mongodbReadOptions);
+        return new MongodbReader(readerContext, clientProvider, deserializer, mongodbReadOptions);
     }
 
     @Override

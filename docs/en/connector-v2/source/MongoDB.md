@@ -71,7 +71,7 @@ tips：
 Connector Options
 -----------------
 
-|        Option        | Required | Default          |  Type   |                                                                                                                                                  Description                                                                                                                                                   |
+|        Option        | Required |     Default      |  Type   |                                                                                                                                                  Description                                                                                                                                                   |
 |----------------------|----------|------------------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | uri                  | required | (none)           | String  | The MongoDB connection uri.                                                                                                                                                                                                                                                                                    |
 | database             | required | (none)           | String  | The name of MongoDB database to read or write.                                                                                                                                                                                                                                                                 |
@@ -110,11 +110,8 @@ source {
         c_array = "array<int>"
         c_string = string
         c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
         c_int = int
         c_bigint = bigint
-        c_float = float
         c_double = double
         c_bytes = bytes
         c_date = date
@@ -125,11 +122,8 @@ source {
           c_array = "array<int>"
           c_string = string
           c_boolean = boolean
-          c_tinyint = tinyint
-          c_smallint = smallint
           c_int = int
           c_bigint = bigint
-          c_float = float
           c_double = double
           c_bytes = bytes
           c_date = date
@@ -287,6 +281,7 @@ source {
 ```
 
 **Flat Sync String**
+
 By utilizing `flat.sync-string`, only one field attribute value can be set, and the field type must be a String.
 This operation will perform a string mapping on a single MongoDB data entry.
 

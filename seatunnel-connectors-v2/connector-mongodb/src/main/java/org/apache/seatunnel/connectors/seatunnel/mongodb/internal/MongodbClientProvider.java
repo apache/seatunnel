@@ -15,32 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.commit;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.internal;
 
 import org.bson.BsonDocument;
 
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.TransactionBody;
-import com.mongodb.client.result.InsertManyResult;
+import com.mongodb.client.MongoDatabase;
 
 import java.io.Serializable;
-import java.util.List;
 
-public class CommittableTransaction implements TransactionBody<Integer>, Serializable {
+/** Provided for initiate and recreate {@link MongoClient}. */
+public interface MongodbClientProvider extends Serializable {
 
-    protected final MongoCollection<BsonDocument> collection;
+    /**
+     * Create one or get the current {@link MongoClient}.
+     *
+     * @return Current {@link MongoClient}.
+     */
+    MongoClient getClient();
 
-    protected List<BsonDocument> bufferedDocuments;
+    /**
+     * Get the default database.
+     *
+     * @return Current {@link MongoDatabase}.
+     */
+    MongoDatabase getDefaultDatabase();
 
-    public CommittableTransaction(
-            MongoCollection<BsonDocument> collection, List<BsonDocument> documents) {
-        this.collection = collection;
-        this.bufferedDocuments = documents;
-    }
+    /**
+     * Get the default collection.
+     *
+     * @return Current {@link MongoCollection}.
+     */
+    MongoCollection<BsonDocument> getDefaultCollection();
 
-    @Override
-    public Integer execute() {
-        InsertManyResult insertManyResult = collection.insertMany(bufferedDocuments);
-        return insertManyResult.getInsertedIds().size();
-    }
+    /** Close the underlying MongoDB connection. */
+    void close();
 }

@@ -22,7 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplitStrategy;
 
@@ -34,6 +34,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /** MongoSplitEnumerator generates {@link MongoSplit} according to partition strategies. */
 @Slf4j
@@ -44,20 +47,20 @@ public class MongodbSplitEnumerator
 
     private final Context<MongoSplit> context;
 
-    private final MongoClientProvider clientProvider;
+    private final MongodbClientProvider clientProvider;
 
     private final MongoSplitStrategy strategy;
 
     public MongodbSplitEnumerator(
             Context<MongoSplit> context,
-            MongoClientProvider clientProvider,
+            MongodbClientProvider clientProvider,
             MongoSplitStrategy strategy) {
         this(context, clientProvider, strategy, Collections.emptyList());
     }
 
     public MongodbSplitEnumerator(
             Context<MongoSplit> context,
-            MongoClientProvider clientProvider,
+            MongodbClientProvider clientProvider,
             MongoSplitStrategy strategy,
             List<MongoSplit> splits) {
         this.context = context;
@@ -70,19 +73,24 @@ public class MongodbSplitEnumerator
     public void open() {}
 
     @Override
-    public void run() throws Exception {
+    public synchronized void run() throws Exception {
         log.info("Starting MongoSplitEnumerator.");
+        Set<Integer> readers = context.registeredReaders();
         pendingSplits.addAll(strategy.split());
         MongoNamespace namespace = clientProvider.getDefaultCollection().getNamespace();
         log.info(
                 "Added {} pending splits for namespace {}.",
                 pendingSplits.size(),
                 namespace.getFullName());
-        assignSplits(context.registeredReaders());
+        assignSplits(readers);
     }
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        if (clientProvider != null) {
+            clientProvider.close();
+        }
+    }
 
     @Override
     public void addSplitsBack(List<MongoSplit> splits, int subtaskId) {
@@ -124,20 +132,36 @@ public class MongodbSplitEnumerator
 
     private synchronized void assignSplits(Collection<Integer> readers) {
         log.debug("Assign pendingSplits to readers {}", readers);
-        for (int subtaskId : readers) {
-            log.info("Received split request from taskId {}.", subtaskId);
-            if (pendingSplits.size() > 0) {
-                MongoSplit nextSplit = pendingSplits.remove(0);
-                context.assignSplit(subtaskId, nextSplit);
-                log.info(
-                        "Assigned split {} to subtask {}, remaining splits: {}.",
-                        nextSplit.splitId(),
-                        subtaskId,
-                        pendingSplits.size());
-            } else {
-                log.info("No more splits can be assign, signal subtask {}.", subtaskId);
-                context.signalNoMoreSplits(subtaskId);
-            }
-        }
+        int numReaders = readers.size();
+
+        Map<Integer, List<MongoSplit>> splitsBySubtaskId =
+                pendingSplits.stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        split -> getSplitOwner(split.splitId(), numReaders)));
+
+        readers.forEach(subtaskId -> assignSplitsToSubtask(subtaskId, splitsBySubtaskId));
+
+        pendingSplits.clear();
+        readers.forEach(context::signalNoMoreSplits);
+    }
+
+    private void assignSplitsToSubtask(
+            Integer subtaskId, Map<Integer, List<MongoSplit>> splitsBySubtaskId) {
+        log.info("Received split request from taskId {}.", subtaskId);
+
+        List<MongoSplit> assignedSplits =
+                splitsBySubtaskId.getOrDefault(subtaskId, Collections.emptyList());
+
+        context.assignSplit(subtaskId, assignedSplits);
+        log.info(
+                "Assigned {} splits to subtask {}, remaining splits: {}.",
+                assignedSplits.size(),
+                subtaskId,
+                pendingSplits.size() - assignedSplits.size());
+    }
+
+    private static int getSplitOwner(String tp, int numReaders) {
+        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
     }
 }

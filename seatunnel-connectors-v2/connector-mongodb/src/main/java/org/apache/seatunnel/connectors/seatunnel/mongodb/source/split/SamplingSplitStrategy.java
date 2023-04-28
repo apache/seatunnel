@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.source.split;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
-import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientProvider;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -41,7 +41,7 @@ import java.util.stream.IntStream;
 
 public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
 
-    private final MongoClientProvider clientProvider;
+    private final MongodbClientProvider clientProvider;
 
     private final String splitKey;
 
@@ -54,7 +54,7 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
     private final long sizePerSplit;
 
     SamplingSplitStrategy(
-            MongoClientProvider clientProvider,
+            MongodbClientProvider clientProvider,
             String splitKey,
             BsonDocument matchQuery,
             BsonDocument projection,
@@ -177,7 +177,7 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
     }
 
     public static class Builder {
-        private MongoClientProvider clientProvider;
+        private MongodbClientProvider clientProvider;
 
         private String splitKey;
 
@@ -208,7 +208,7 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
             this.sizePerSplit = DEFAULT_SIZE_PER_SPLIT;
         }
 
-        public Builder setClientProvider(MongoClientProvider clientProvider) {
+        public Builder setClientProvider(MongodbClientProvider clientProvider) {
             this.clientProvider = clientProvider;
             return this;
         }

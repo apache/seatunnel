@@ -51,7 +51,7 @@ public class RowDataDocumentSerializer implements DocumentSerializer<SeaTunnelRo
     }
 
     @Override
-    public WriteModel<BsonDocument> serialize(SeaTunnelRow row) {
+    public WriteModel<BsonDocument> serializeToWriteModel(SeaTunnelRow row) {
         final BsonDocument bsonDocument = rowDataToBsonConverter.convert(row);
         if (isUpsertEnable) {
             Bson filter = generateFilter(filterConditions.apply(bsonDocument));

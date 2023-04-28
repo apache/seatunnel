@@ -20,36 +20,27 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.serialization.DefaultSerializer;
-import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataDocumentSerializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataToBsonConverters;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.commit.MongodbSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config.MongodbWriterOptions;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbAggregatedCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbSinkState;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.writer.MongodbBulkWriter;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.writer.MongodbWriter;
 
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
 @AutoService(SeaTunnelSink.class)
-public class MongodbSink
-        implements SeaTunnelSink<
-                SeaTunnelRow, MongodbSinkState, MongodbCommitInfo, MongodbAggregatedCommitInfo> {
+public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private MongodbWriterOptions options;
 
@@ -97,12 +88,7 @@ public class MongodbSink
                                     pluginConfig.hasPath(MongodbConfig.RETRY_INTERVAL.key())
                                             ? pluginConfig.getLong(
                                                     MongodbConfig.RETRY_INTERVAL.key())
-                                            : MongodbConfig.RETRY_INTERVAL.defaultValue())
-                            .withTransactionEnable(
-                                    pluginConfig.hasPath(MongodbConfig.TRANSACTION_ENABLE.key())
-                                            ? pluginConfig.getBoolean(
-                                                    MongodbConfig.TRANSACTION_ENABLE.key())
-                                            : MongodbConfig.TRANSACTION_ENABLE.defaultValue());
+                                            : MongodbConfig.RETRY_INTERVAL.defaultValue());
             this.options = builder.build();
         }
     }
@@ -123,46 +109,13 @@ public class MongodbSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, MongodbCommitInfo, MongodbSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
-        return new MongodbBulkWriter(
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
+            throws IOException {
+        return new MongodbWriter(
                 new RowDataDocumentSerializer(
                         RowDataToBsonConverters.createConverter(seaTunnelRowType),
                         options,
                         new MongoKeyExtractor(options)),
                 options);
-    }
-
-    @Override
-    public SinkWriter<SeaTunnelRow, MongodbCommitInfo, MongodbSinkState> restoreWriter(
-            SinkWriter.Context context, List<MongodbSinkState> states) throws IOException {
-        return new MongodbBulkWriter(
-                new RowDataDocumentSerializer(
-                        RowDataToBsonConverters.createConverter(seaTunnelRowType),
-                        options,
-                        new MongoKeyExtractor(options)),
-                options,
-                states);
-    }
-
-    @Override
-    public Optional<Serializer<MongodbSinkState>> getWriterStateSerializer() {
-        return Optional.of(new DefaultSerializer<>());
-    }
-
-    @Override
-    public Optional<SinkAggregatedCommitter<MongodbCommitInfo, MongodbAggregatedCommitInfo>>
-            createAggregatedCommitter() throws IOException {
-        return Optional.of(new MongodbSinkAggregatedCommitter(options));
-    }
-
-    @Override
-    public Optional<Serializer<MongodbAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
-    }
-
-    @Override
-    public Optional<Serializer<MongodbCommitInfo>> getCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
     }
 }

@@ -148,10 +148,4 @@ public class MongodbConfig {
                     .noDefaultValue()
                     .withDescription(
                             "The primary keys for upsert. Only valid in upsert mode. Keys are in csv format for properties.");
-
-    public static final Option<Boolean> TRANSACTION_ENABLE =
-            Options.key("transaction-enable")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription("Turn on the transaction submission of mongodb.");
 }

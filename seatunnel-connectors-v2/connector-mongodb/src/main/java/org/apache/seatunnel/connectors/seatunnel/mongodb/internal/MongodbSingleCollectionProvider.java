@@ -27,7 +27,7 @@ import com.mongodb.client.MongoDatabase;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class MongoSingleCollectionProvider implements MongoClientProvider {
+public class MongodbSingleCollectionProvider implements MongodbClientProvider {
 
     private final String connectionString;
 
@@ -41,7 +41,7 @@ public class MongoSingleCollectionProvider implements MongoClientProvider {
 
     private MongoCollection<BsonDocument> collection;
 
-    public MongoSingleCollectionProvider(
+    public MongodbSingleCollectionProvider(
             String connectionString, String defaultDatabase, String defaultCollection) {
         Preconditions.checkNotNull(connectionString);
         Preconditions.checkNotNull(defaultDatabase);

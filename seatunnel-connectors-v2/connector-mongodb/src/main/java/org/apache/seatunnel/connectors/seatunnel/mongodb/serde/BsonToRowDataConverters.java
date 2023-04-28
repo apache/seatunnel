@@ -29,6 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnec
 import org.bson.BsonDocument;
 import org.bson.BsonType;
 import org.bson.BsonValue;
+import org.bson.json.JsonMode;
+import org.bson.json.JsonWriterSettings;
 import org.bson.types.Decimal128;
 
 import java.io.Serializable;
@@ -384,7 +386,9 @@ public class BsonToRowDataConverters implements Serializable {
             return bsonValue.asObjectId().getValue().toHexString();
         }
         if (bsonValue.isDocument()) {
-            return bsonValue.asDocument().toJson(DEFAULT_JSON_WRITER_SETTINGS);
+            return bsonValue
+                    .asDocument()
+                    .toJson(JsonWriterSettings.builder().outputMode(JsonMode.RELAXED).build());
         }
         return new BsonDocument(ENCODE_VALUE_FIELD, bsonValue).toJson(DEFAULT_JSON_WRITER_SETTINGS);
     }

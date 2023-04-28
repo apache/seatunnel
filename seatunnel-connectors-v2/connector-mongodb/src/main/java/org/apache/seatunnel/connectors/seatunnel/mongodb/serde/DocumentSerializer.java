@@ -25,5 +25,5 @@ import java.io.Serializable;
 
 public interface DocumentSerializer<T> extends Serializable {
 
-    WriteModel<BsonDocument> serialize(T object);
+    WriteModel<BsonDocument> serializeToWriteModel(T object);
 }

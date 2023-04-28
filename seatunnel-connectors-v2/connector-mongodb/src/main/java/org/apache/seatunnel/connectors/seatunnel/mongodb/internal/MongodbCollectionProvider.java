@@ -19,8 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.internal;
 
 import com.google.common.base.Preconditions;
 
-/** A builder class for creating {@link MongoClientProvider}. */
-public class MongoColloctionProviders {
+/** A builder class for creating {@link MongodbClientProvider}. */
+public class MongodbCollectionProvider {
 
     public static Builder getBuilder() {
         return new Builder();
@@ -49,11 +49,11 @@ public class MongoColloctionProviders {
             return this;
         }
 
-        public MongoClientProvider build() {
+        public MongodbClientProvider build() {
             Preconditions.checkNotNull(connectionString, "Connection string must not be null");
             Preconditions.checkNotNull(database, "Database must not be null");
             Preconditions.checkNotNull(collection, "Collection must not be null");
-            return new MongoSingleCollectionProvider(connectionString, database, collection);
+            return new MongodbSingleCollectionProvider(connectionString, database, collection);
         }
     }
 }

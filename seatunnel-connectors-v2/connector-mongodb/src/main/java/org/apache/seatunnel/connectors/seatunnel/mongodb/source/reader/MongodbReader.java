@@ -19,11 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.source.reader;
 
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 
-import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongoClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.config.MongodbReadOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
@@ -39,12 +38,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 
 /** MongoReader reads MongoDB by splits (queries). */
 @Slf4j
-public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
+public class MongodbReader implements SourceReader<SeaTunnelRow, MongoSplit> {
 
     private final Queue<MongoSplit> pendingSplits;
 
@@ -52,23 +51,25 @@ public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
 
     private final SourceReader.Context context;
 
-    private final MongoClientProvider clientProvider;
+    private final MongodbClientProvider clientProvider;
 
-    private transient MongoCursor<BsonDocument> cursor;
+    private MongoCursor<BsonDocument> cursor;
 
     private MongoSplit currentSplit;
 
     private final MongodbReadOptions readOptions;
 
-    public MongoReader(
+    private volatile boolean noMoreSplit;
+
+    public MongodbReader(
             SourceReader.Context context,
-            MongoClientProvider clientProvider,
+            MongodbClientProvider clientProvider,
             DocumentDeserializer<SeaTunnelRow> deserializer,
             MongodbReadOptions mongodbReadOptions) {
         this.deserializer = deserializer;
         this.context = context;
         this.clientProvider = clientProvider;
-        pendingSplits = new LinkedBlockingQueue<>();
+        pendingSplits = new ConcurrentLinkedDeque<>();
         this.readOptions = mongodbReadOptions;
     }
 
@@ -109,12 +110,12 @@ public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
                     SeaTunnelRow deserialize = deserializer.deserialize(cursor.next());
                     output.collect(deserialize);
                 }
-                if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
-                    closeCurrentSplit();
-                    // signal to the source that we have reached the end of the data.
-                    log.info("Closed the bounded mongodb source");
-                    context.signalNoMoreElement();
-                }
+                closeCurrentSplit();
+            }
+            if (noMoreSplit && pendingSplits.isEmpty()) {
+                // signal to the source that we have reached the end of the data.
+                log.info("Closed the bounded mongodb source");
+                context.signalNoMoreElement();
             }
         }
     }
@@ -133,6 +134,7 @@ public class MongoReader implements SourceReader<SeaTunnelRow, MongoSplit> {
     @Override
     public void handleNoMoreSplits() {
         log.info("receive no more splits message, this reader will not add new split.");
+        noMoreSplit = true;
     }
 
     @Override

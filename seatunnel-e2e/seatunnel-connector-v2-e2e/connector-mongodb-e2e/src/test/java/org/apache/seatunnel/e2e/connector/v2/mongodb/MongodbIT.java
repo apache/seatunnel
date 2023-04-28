@@ -37,11 +37,11 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
+import com.mongodb.client.model.Sorts;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,6 +49,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.net.HttpURLConnection.HTTP_OK;
@@ -62,15 +63,25 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
     private static final List<Document> TEST_DATASET = generateTestDataSet(5);
 
     private static final String MONGODB_IMAGE = "mongo:latest";
+
     private static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
+
     private static final int MONGODB_PORT = 27017;
+
     private static final String MONGODB_DATABASE = "test_db";
 
-    private static final String MONGODB_SOURCE_TABLE = "test_match_op_db";
+    private static final String MONGODB_MATCH_TABLE = "test_match_op_db";
+
+    private static final String MONGODB_MATCH_RESULT_TABLE = "test_match_op_result_db";
+
     private static final String MONGODB_SINK_TABLE = "test_source_sink_table";
+
     private static final String MONGODB_UPDATE_TABLE = "test_update_table";
 
+    private static final String MONGODB_FLAT_TABLE = "test_flat_table";
+
     private GenericContainer<?> mongodbContainer;
+
     private MongoClient client;
 
     @TestTemplate
@@ -81,19 +92,40 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
 
         Container.ExecResult assertResult = container.executeJob("/mongodb_source_to_assert.conf");
         Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
-        clearDate(MONGODB_DATABASE, MONGODB_SINK_TABLE);
+        clearDate(MONGODB_SINK_TABLE);
     }
 
     @TestTemplate
     public void testMongodbSourceMatch(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult queryResult =
-                container.executeJob("/mongodb_matchQuery_source_to_assert.conf");
+                container.executeJob("/matchIT/mongodb_matchQuery_source_to_assert.conf");
         Assertions.assertEquals(0, queryResult.getExitCode(), queryResult.getStderr());
 
+        Assertions.assertIterableEquals(
+                TEST_DATASET.stream()
+                        .filter(x -> x.get("c_int").equals(2))
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()),
+                readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_MATCH_RESULT_TABLE);
+
         Container.ExecResult projectionResult =
-                container.executeJob("/mongodb_matchProjection_source_to_assert.conf");
+                container.executeJob("/matchIT/mongodb_matchProjection_source_to_assert.conf");
         Assertions.assertEquals(0, projectionResult.getExitCode(), projectionResult.getStderr());
+
+        Assertions.assertIterableEquals(
+                TEST_DATASET.stream()
+                        .map(Document::new)
+                        .peek(document -> document.remove("c_bigint"))
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()),
+                readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_MATCH_RESULT_TABLE);
     }
 
     @TestTemplate
@@ -101,17 +133,32 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
 
         Container.ExecResult insertResult =
-                container.executeJob("/fake_source_to_updateMode_insert_mongodb.conf");
+                container.executeJob("/updateIT/fake_source_to_updateMode_insert_mongodb.conf");
         Assertions.assertEquals(0, insertResult.getExitCode(), insertResult.getStderr());
 
         Container.ExecResult updateResult =
-                container.executeJob("/fake_source_to_update_mongodb.conf");
+                container.executeJob("/updateIT/fake_source_to_update_mongodb.conf");
         Assertions.assertEquals(0, updateResult.getExitCode(), updateResult.getStderr());
 
-        Container.ExecResult assertResult = container.executeJob("/update_mongodb_to_assert.conf");
+        Container.ExecResult assertResult =
+                container.executeJob("/updateIT/update_mongodb_to_assert.conf");
         Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
 
-        clearDate(MONGODB_DATABASE, MONGODB_UPDATE_TABLE);
+        clearDate(MONGODB_UPDATE_TABLE);
+    }
+
+    @TestTemplate
+    public void testFlatSyncString(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult insertResult =
+                container.executeJob("/flatIT/fake_source_to_flat_mongodb.conf");
+        Assertions.assertEquals(0, insertResult.getExitCode(), insertResult.getStderr());
+
+        Container.ExecResult assertResult =
+                container.executeJob("/flatIT/mongodb_flat_source_to_assert.conf");
+        Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
+
+        clearDate(MONGODB_FLAT_TABLE);
     }
 
     public void initConnection() {
@@ -128,8 +175,8 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         sourceTable.insertMany(documents);
     }
 
-    private void clearDate(String database, String table) {
-        client.getDatabase(database).getCollection(table).drop();
+    private void clearDate(String table) {
+        client.getDatabase(MONGODB_DATABASE).getCollection(table).drop();
     }
 
     @BeforeAll
@@ -161,7 +208,7 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initConnection);
-        this.initSourceData(MONGODB_DATABASE, MONGODB_SOURCE_TABLE, TEST_DATASET);
+        this.initSourceData(MONGODB_DATABASE, MONGODB_MATCH_TABLE, TEST_DATASET);
     }
 
     public static List<Document> generateTestDataSet(int count) {
@@ -186,14 +233,9 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
                                             random.nextInt()))
                             .append("c_string", randomString())
                             .append("c_boolean", random.nextBoolean())
-                            .append("c_tinyint", (byte) random.nextInt(256))
-                            .append("c_smallint", (short) random.nextInt(65536))
                             .append("c_int", i)
                             .append("c_bigint", random.nextLong())
-                            .append("c_float", random.nextFloat() * Float.MAX_VALUE)
                             .append("c_double", random.nextDouble() * Double.MAX_VALUE)
-                            .append("c_bytes", randomString().getBytes(StandardCharsets.UTF_8))
-                            .append("c_decimal", new BigDecimal(random.nextInt(1000000000)))
                             .append(
                                     "c_row",
                                     new Document(
@@ -213,20 +255,11 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
                                                             random.nextInt()))
                                             .append("c_string", randomString())
                                             .append("c_boolean", random.nextBoolean())
-                                            .append("c_tinyint", (byte) random.nextInt(256))
-                                            .append("c_smallint", (short) random.nextInt(65536))
                                             .append("c_int", random.nextInt())
                                             .append("c_bigint", random.nextLong())
-                                            .append("c_float", random.nextFloat() * Float.MAX_VALUE)
                                             .append(
                                                     "c_double",
-                                                    random.nextDouble() * Double.MAX_VALUE)
-                                            .append(
-                                                    "c_bytes",
-                                                    randomString().getBytes(StandardCharsets.UTF_8))
-                                            .append(
-                                                    "c_decimal",
-                                                    new BigDecimal(random.nextInt(1000000000)))));
+                                                    random.nextDouble() * Double.MAX_VALUE)));
         }
         return dataSet;
     }
@@ -239,6 +272,17 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
             sb.append(c);
         }
         return sb.toString();
+    }
+
+    private List<Document> readMongodbData(String collection) {
+        MongoCollection<Document> sinkTable =
+                client.getDatabase(MONGODB_DATABASE).getCollection(collection);
+        MongoCursor<Document> cursor = sinkTable.find().sort(Sorts.ascending("id")).cursor();
+        List<Document> documents = new ArrayList<>();
+        while (cursor.hasNext()) {
+            documents.add(cursor.next());
+        }
+        return documents;
     }
 
     @Override

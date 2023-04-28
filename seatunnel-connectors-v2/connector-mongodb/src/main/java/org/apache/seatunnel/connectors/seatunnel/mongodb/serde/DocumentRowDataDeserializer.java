@@ -36,6 +36,7 @@ public class DocumentRowDataDeserializer implements DocumentDeserializer<SeaTunn
     private final SeaTunnelDataType<?>[] fieldTypes;
 
     private final BsonToRowDataConverters bsonConverters;
+
     private final Boolean flatSyncString;
 
     public DocumentRowDataDeserializer(
