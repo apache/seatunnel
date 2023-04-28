@@ -89,6 +89,12 @@ if [ -e "${CONF_DIR}/log4j2.properties" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-server"
 fi
 
+# Server Debug Config
+# Usage instructions:
+# If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
+# port in your IDE. After that, you can happily debug your code.
+# JAVA_OPTS="${JAVA_OPTS} -Xrunjdwp:server=y,transport=dt_socket,address=8000,suspend=n"
+
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 
 ST_TMPDIR=`java -cp ${CLASS_PATH} org.apache.seatunnel.core.starter.seatunnel.jvm.TempDirectory`

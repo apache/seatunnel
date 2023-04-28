@@ -19,6 +19,7 @@
 - [Hbase] Add hbase sink connector #4049
 - [Github] Add Github source connector #4155
 - [CDC] Support export debezium-json format to kafka #4339
+- [GoogleFirestore] Support Google Firestore sink #4304
 - [RocketMQ] Add RocketMQ source and sink connector #4007
 - [Jdbc] Add vertica connector #4303
 - [FILE-OBS] Add Huawei Cloud OBS connector #4577
@@ -87,4 +88,5 @@
 ## Test
 ### E2E
 - [SqlServer CDC] fix SqlServerCDC IT failure #3807
+- [Container Version] Fix risk of unreproducible test cases #4591
 
