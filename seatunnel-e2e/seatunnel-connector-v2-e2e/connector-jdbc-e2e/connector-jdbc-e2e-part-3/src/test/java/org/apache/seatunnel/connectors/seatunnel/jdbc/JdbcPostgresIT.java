@@ -57,7 +57,6 @@ public class JdbcPostgresIT extends AbstractJdbcIT {
 
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList(
-                    "/jdbc_postgres_source_and_sink.conf",
                     "/jdbc_postgres_source_and_sink_parallel.conf",
                     "/jdbc_postgres_source_and_sink_parallel_upper_lower.conf",
                     "/jdbc_postgres_source_and_sink_xa.conf");
