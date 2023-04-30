@@ -90,6 +90,8 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_HOST = "kafka_e2e";
 
+    private static final int KAFKA_PORT = 9097;
+
     private static KafkaContainer KAFKA_CONTAINER;
 
     private KafkaConsumer<String, String> kafkaConsumer;
@@ -163,6 +165,9 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
+        KAFKA_CONTAINER.setPortBindings(
+                com.google.common.collect.Lists.newArrayList(
+                        String.format("%s:%s", KAFKA_PORT, KAFKA_PORT)));
     }
 
     private void createPostgreSQLContainer() throws ClassNotFoundException {
@@ -330,8 +335,14 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     @Override
     public void tearDown() {
-        MYSQL_CONTAINER.close();
-        KAFKA_CONTAINER.close();
-        CANAL_CONTAINER.close();
+        if (MYSQL_CONTAINER != null) {
+            MYSQL_CONTAINER.close();
+        }
+        if (KAFKA_CONTAINER != null) {
+            KAFKA_CONTAINER.close();
+        }
+        if (CANAL_CONTAINER != null) {
+            CANAL_CONTAINER.close();
+        }
     }
 }

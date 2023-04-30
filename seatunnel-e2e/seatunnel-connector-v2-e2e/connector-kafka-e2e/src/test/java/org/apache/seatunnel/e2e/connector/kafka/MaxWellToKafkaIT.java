@@ -80,13 +80,13 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
 
     // ----------------------------------------------------------------------------
     // kafka
-    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.1.7";
+    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
     private static final String KAFKA_TOPIC = "test-maxwell-sink";
 
     private static final String KAFKA_HOST = "kafka_e2e_maxwell";
 
-    private static final int KAFKA_PORT = 9096;
+    private static final int KAFKA_PORT = 9098;
 
     private static KafkaContainer KAFKA_CONTAINER;
 
@@ -213,6 +213,7 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initKafkaConsumer);
         inventoryDatabase.createAndInitialize();
+        Thread.sleep(10 * 1000);
     }
 
     @TestTemplate
@@ -330,9 +331,17 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
 
     @Override
     public void tearDown() {
-        MYSQL_CONTAINER.close();
-        KAFKA_CONTAINER.close();
-        MAXWELL_CONTAINER.close();
-        POSTGRESQL_CONTAINER.close();
+        if (MYSQL_CONTAINER != null) {
+            MYSQL_CONTAINER.close();
+        }
+        if (KAFKA_CONTAINER != null) {
+            KAFKA_CONTAINER.close();
+        }
+        if (MAXWELL_CONTAINER != null) {
+            MAXWELL_CONTAINER.close();
+        }
+        if (POSTGRESQL_CONTAINER != null) {
+            POSTGRESQL_CONTAINER.close();
+        }
     }
 }
