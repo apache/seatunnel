@@ -283,4 +283,19 @@ public class ReadableConfigTest {
                                 .listType(Double.class)
                                 .noDefaultValue()));
     }
+
+    @Test
+    public void testFallbackKey() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("user", "ashulin");
+        final Option<String> usernameOption =
+                Options.key("username").stringType().noDefaultValue().withFallbackKeys("user");
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(map);
+        Assertions.assertEquals("ashulin", readonlyConfig.get(usernameOption));
+        Assertions.assertNull(
+                readonlyConfig.get(Options.key("username").stringType().noDefaultValue()));
+        map.put("username", "ark");
+        readonlyConfig = ReadonlyConfig.fromMap(map);
+        Assertions.assertEquals("ark", readonlyConfig.get(usernameOption));
+    }
 }

@@ -246,6 +246,12 @@ problems encountered by users.
 |---------------|---------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | S3RedShift-01 | Aggregate committer error | S3Redshift Sink Connector will write data to s3 and then move file to the target s3 path. And then use `Copy` action copy the data to Redshift. Please check the error log and find out the specific reason. |
 
+## Google Firestore Connector Error Codes
+
+|     code     |          description          |                                                                     solution                                                                      |
+|--------------|-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| FIRESTORE-01 | Close Firestore client failed | When users encounter this error code, it is usually there are some problems with closing the Firestore client, please check the Firestore is work |
+
 ## FilterFieldTransform Error Codes
 
 |           code            |      description       |        solution         |
