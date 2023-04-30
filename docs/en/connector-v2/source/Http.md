@@ -17,23 +17,24 @@ Used to read data from Http.
 
 ## Options
 
-|            name             |  type  | required | default value |
-|-----------------------------|--------|----------|---------------|
-| url                         | String | Yes      | -             |
-| schema                      | Config | No       | -             |
-| schema.fields               | Config | No       | -             |
-| json_field                  | Config | No       | -             |
-| content_json                | String | No       | -             |
-| format                      | String | No       | json          |
-| method                      | String | No       | get           |
-| headers                     | Map    | No       | -             |
-| params                      | Map    | No       | -             |
-| body                        | String | No       | -             |
-| poll_interval_ms            | int    | No       | -             |
-| retry                       | int    | No       | -             |
-| retry_backoff_multiplier_ms | int    | No       | 100           |
-| retry_backoff_max_ms        | int    | No       | 10000         |
-| common-options              |        | No       | -             |
+|            name             |  type   | required | default value |
+|-----------------------------|---------|----------|---------------|
+| url                         | String  | Yes      | -             |
+| schema                      | Config  | No       | -             |
+| schema.fields               | Config  | No       | -             |
+| json_field                  | Config  | No       | -             |
+| content_json                | String  | No       | -             |
+| format                      | String  | No       | json          |
+| method                      | String  | No       | get           |
+| headers                     | Map     | No       | -             |
+| params                      | Map     | No       | -             |
+| body                        | String  | No       | -             |
+| poll_interval_ms            | int     | No       | -             |
+| retry                       | int     | No       | -             |
+| retry_backoff_multiplier_ms | int     | No       | 100           |
+| retry_backoff_max_ms        | int     | No       | 10000         |
+| common-options              |         | No       | -             |
+| enableMultiLines            | boolean | No       | false         |
 
 ### url [String]
 
