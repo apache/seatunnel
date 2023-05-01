@@ -21,7 +21,6 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
@@ -43,9 +42,10 @@ import java.util.Collections;
 import java.util.stream.Stream;
 
 @DisabledOnContainer(
-        value = {TestContainerId.SPARK_2_4},
-        type = {EngineType.SEATUNNEL, EngineType.SPARK},
-        disabledReason = "The apache-compress version is not compatible with apache-poi")
+        value = {},
+        type = {EngineType.SPARK},
+        disabledReason =
+                "1.The apache-compress version is not compatible with apache-poi. 2.Spark Engine is not compatible with commons-net")
 @Slf4j
 public class FtpFileIT extends TestSuiteBase implements TestResource {
 
@@ -70,6 +70,12 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                         .withNetwork(NETWORK)
                         .withExposedPorts(FTP_PORT)
                         .withNetworkAliases(ftp_CONTAINER_HOST)
+                        .withEnv("FILE_OPEN_MODE", "0666")
+                        .withEnv("WRITE_ENABLE", "YES")
+                        .withEnv("ALLOW_WRITEABLE_CHROOT", "YES")
+                        .withEnv("ANONYMOUS_ENABLE", "YES")
+                        .withEnv("LOCAL_ENABLE", "YES")
+                        .withEnv("LOCAL_UMASK", "000")
                         .withEnv("FTP_USER", USERNAME)
                         .withEnv("FTP_PASS", PASSWORD)
                         .withEnv("PASV_ADDRESS", "0.0.0.0")
@@ -87,17 +93,19 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
 
         ftpContainer.copyFileToContainer(
                 MountableFile.forHostPath(jsonPath),
-                "/home/vsftpd/seatunnel/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json");
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json");
         ftpContainer.copyFileToContainer(
                 MountableFile.forHostPath(textPath),
-                "/home/vsftpd/seatunnel/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt");
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt");
         ftpContainer.copyFileToContainer(
                 MountableFile.forHostPath(excelPath),
-                "/home/vsftpd/seatunnel/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx");
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx");
+        ftpContainer.execInContainer("sh", "-c", "chmod -R 777 /home/vsftpd/seatunnel/");
+        ftpContainer.execInContainer("sh", "-c", "chown -R ftp:ftp /home/vsftpd/seatunnel/");
     }
 
     @TestTemplate
-    public void testftpFileReadAndWrite(TestContainer container)
+    public void testFtpFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         // test write ftp excel file
         Container.ExecResult excelWriteResult =
@@ -136,6 +144,14 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         Container.ExecResult jsonReadResult =
                 container.executeJob("/json/ftp_file_json_to_assert.conf");
         Assertions.assertEquals(0, jsonReadResult.getExitCode());
+        // test write ftp parquet file
+        Container.ExecResult parquetWriteResult =
+                container.executeJob("/parquet/fake_to_ftp_file_parquet.conf");
+        Assertions.assertEquals(0, parquetWriteResult.getExitCode());
+        // test write ftp orc file
+        Container.ExecResult orcWriteResult =
+                container.executeJob("/orc/fake_to_ftp_file_orc.conf");
+        Assertions.assertEquals(0, orcWriteResult.getExitCode());
     }
 
     @AfterAll
