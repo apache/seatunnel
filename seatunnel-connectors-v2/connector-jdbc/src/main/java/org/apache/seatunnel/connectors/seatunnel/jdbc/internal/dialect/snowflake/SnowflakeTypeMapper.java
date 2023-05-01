@@ -17,11 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.snowflake;
 
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.*;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -71,6 +68,8 @@ public class SnowflakeTypeMapper implements JdbcDialectTypeMapper {
     private static final String SNOWFLAKE_GEOGRAPHY = "GEOGRAPHY";
     private static final String SNOWFLAKE_GEOMETRY = "GEOMETRY";
 
+    private static final String SNOWFLAKE_ARRAY = "ARRAY";
+
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
@@ -106,14 +105,14 @@ public class SnowflakeTypeMapper implements JdbcDialectTypeMapper {
             case SNOWFLAKE_VARCHAR:
             case SNOWFLAKE_STRING:
             case SNOWFLAKE_TEXT:
+                return BasicType.STRING_TYPE;
             case SNOWFLAKE_BINARY:
             case SNOWFLAKE_VARBINARY:
-                return BasicType.STRING_TYPE;
-            case SNOWFLAKE_DATE:
-                return LocalTimeType.LOCAL_DATE_TYPE;
             case SNOWFLAKE_GEOGRAPHY:
             case SNOWFLAKE_GEOMETRY:
                 return PrimitiveByteArrayType.INSTANCE;
+            case SNOWFLAKE_DATE:
+                return LocalTimeType.LOCAL_DATE_TYPE;
             case SNOWFLAKE_TIME:
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case SNOWFLAKE_DATE_TIME:
@@ -122,6 +121,8 @@ public class SnowflakeTypeMapper implements JdbcDialectTypeMapper {
             case SNOWFLAKE_TIMESTAMP_NTZ:
             case SNOWFLAKE_TIMESTAMP_TZ:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+//            case SNOWFLAKE_ARRAY:
+//                return mappingListType((Types.ListType) snowflakeType);
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
                 throw new UnsupportedOperationException(
@@ -130,4 +131,26 @@ public class SnowflakeTypeMapper implements JdbcDialectTypeMapper {
                                 snowflakeType, jdbcColumnName));
         }
     }
+
+//    private static ArrayType mappingListType(Types.ListType listType) {
+//        switch (listType.elementType().typeId()) {
+//            case BOOLEAN:
+//                return ArrayType.BOOLEAN_ARRAY_TYPE;
+//            case INTEGER:
+//                return ArrayType.INT_ARRAY_TYPE;
+//            case LONG:
+//                return ArrayType.LONG_ARRAY_TYPE;
+//            case FLOAT:
+//                return ArrayType.FLOAT_ARRAY_TYPE;
+//            case DOUBLE:
+//                return ArrayType.DOUBLE_ARRAY_TYPE;
+//            case STRING:
+//                return ArrayType.STRING_ARRAY_TYPE;
+//            default:
+//                throw new IcebergConnectorException(
+//                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+//                        "Unsupported iceberg list element type: "
+//                                + listType.elementType().typeId());
+//        }
+//    }
 }
