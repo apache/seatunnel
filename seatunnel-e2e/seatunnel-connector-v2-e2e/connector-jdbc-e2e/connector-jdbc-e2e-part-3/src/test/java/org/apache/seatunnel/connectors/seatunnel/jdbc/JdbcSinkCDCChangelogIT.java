@@ -56,7 +56,7 @@ import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.SEATUNNEL},
+        type = {EngineType.SPARK},
         disabledReason = "Spark engine will lose the row kind of record")
 @Slf4j
 public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResource {

@@ -428,6 +428,7 @@ public class MultipleTableJobConfigParser {
         SeaTunnelTransform<?> transform =
                 FactoryUtil.createAndPrepareTransform(
                         catalogTable, readonlyConfig, classLoader, factoryId);
+        transform.setJobContext(jobConfig.getJobContext());
         long id = idGenerator.getNextId();
         String actionName =
                 JobConfigParser.createTransformActionName(
@@ -440,7 +441,6 @@ public class MultipleTableJobConfigParser {
                 tableId,
                 Collections.singletonList(
                         new Tuple2<>(transform.getProducedCatalogTable(), transformAction)));
-        return;
     }
 
     public static SeaTunnelDataType<?> getProducedType(Action action) {
@@ -592,6 +592,7 @@ public class MultipleTableJobConfigParser {
         SeaTunnelSink<?, ?, ?, ?> sink =
                 FactoryUtil.createAndPrepareSink(
                         catalogTable, readonlyConfig, classLoader, factoryId);
+        sink.setJobContext(jobConfig.getJobContext());
         SinkConfig actionConfig =
                 new SinkConfig(catalogTable.getTableId().toTablePath().toString());
         long id = idGenerator.getNextId();
