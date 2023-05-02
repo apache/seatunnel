@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,20 +16,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.snowflake;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.snowflake;
 
+
+import com.google.auto.service.AutoService;
+import org.apache.commons.collections4.MapUtils;
+import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
+import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.*;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import lombok.extern.slf4j.Slf4j;
+import java.util.Collections;
+import java.util.Map;
 
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-@Slf4j
-public class SnowflakeTypeMapper implements JdbcDialectTypeMapper {
+@AutoService(DataTypeConvertor.class)
+public class SnowflakeDataTypeConvertor implements DataTypeConvertor<String> {
 
+    public static final String PRECISION = "precision";
+    public static final String SCALE = "scale";
+    public static final Integer DEFAULT_PRECISION = 10;
+    public static final Integer DEFAULT_SCALE = 0;
+    
     /* ============================ data types ===================== */
     private static final String SNOWFLAKE_NUMBER = "NUMBER";
     private static final String SNOWFLAKE_DECIMAL = "DECIMAL";
@@ -72,12 +81,15 @@ public class SnowflakeTypeMapper implements JdbcDialectTypeMapper {
     private static final String SNOWFLAKE_OBJECT = "OBJECT";
 
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
-        String snowflakeType = metadata.getColumnTypeName(colIndex).toUpperCase();
-        int precision = metadata.getPrecision(colIndex);
-        int scale = metadata.getScale(colIndex);
-        switch (snowflakeType) {
+    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
+        return toSeaTunnelType(connectorDataType, Collections.emptyMap());
+    }
+
+    @Override
+    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
+        checkNotNull(connectorDataType, "redshiftType cannot be null");
+
+        switch (connectorDataType) {
             case SNOWFLAKE_SMALLINT:
             case SNOWFLAKE_TINYINT:
             case SNOWFLAKE_BYTEINT:
@@ -90,6 +102,9 @@ public class SnowflakeTypeMapper implements JdbcDialectTypeMapper {
             case SNOWFLAKE_DECIMAL:
             case SNOWFLAKE_NUMERIC:
             case SNOWFLAKE_NUMBER:
+                Integer precision =
+                        MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
+                Integer scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
                 return new DecimalType(precision, scale);
             case SNOWFLAKE_REAL:
             case SNOWFLAKE_FLOAT4:
@@ -125,11 +140,54 @@ public class SnowflakeTypeMapper implements JdbcDialectTypeMapper {
             case SNOWFLAKE_TIMESTAMP_TZ:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
-                final String jdbcColumnName = metadata.getColumnName(colIndex);
                 throw new UnsupportedOperationException(
                         String.format(
-                                "Doesn't support SNOWFLAKE type '%s' on column '%s'  yet.",
-                                snowflakeType, jdbcColumnName));
+                                "Doesn't support SNOWFLAKE type '%s' yet.",
+                                connectorDataType));
         }
+        
+    }
+
+    @Override
+    public String toConnectorType(SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties) throws DataTypeConvertException {
+        checkNotNull(seaTunnelDataType, "seaTunnelDataType cannot be null");
+        SqlType sqlType = seaTunnelDataType.getSqlType();
+        
+        switch (sqlType) {
+            case TINYINT:
+            case SMALLINT:
+                return SNOWFLAKE_SMALLINT;
+            case INT:
+                return SNOWFLAKE_INTEGER;
+            case BIGINT:
+                return SNOWFLAKE_BIGINT;
+            case DECIMAL:
+                return SNOWFLAKE_DECIMAL;
+            case FLOAT:
+                return SNOWFLAKE_FLOAT4;
+            case DOUBLE:
+                return SNOWFLAKE_DOUBLE_PRECISION;
+            case BOOLEAN:
+                return SNOWFLAKE_BOOLEAN;
+            case STRING:
+                return SNOWFLAKE_TEXT;
+            case DATE:
+                return SNOWFLAKE_DATE;
+            case BYTES:
+                return SNOWFLAKE_GEOMETRY;
+            case TIME:
+                return SNOWFLAKE_TIME;
+            case TIMESTAMP:
+                return SNOWFLAKE_TIMESTAMP;
+            default:
+                throw new UnsupportedOperationException(
+                        String.format(
+                                "Doesn't support SeaTunnel type '%s''  yet.", seaTunnelDataType));
+        }
+    }
+
+    @Override
+    public String getIdentity() {
+        return "SNOWFLAKE";
     }
 }
