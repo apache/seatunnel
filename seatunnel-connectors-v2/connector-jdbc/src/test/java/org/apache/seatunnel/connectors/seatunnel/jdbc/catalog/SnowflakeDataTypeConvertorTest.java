@@ -17,30 +17,36 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
-import net.snowflake.client.jdbc.SnowflakeType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.snowflake.SnowflakeDataTypeConvertor;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import net.snowflake.client.jdbc.SnowflakeType;
 
 import java.util.Collections;
 
 public class SnowflakeDataTypeConvertorTest {
-    private final SnowflakeDataTypeConvertor snowflakeDataTypeConvertor = new SnowflakeDataTypeConvertor();
+    private final SnowflakeDataTypeConvertor snowflakeDataTypeConvertor =
+            new SnowflakeDataTypeConvertor();
 
     @Test
     public void toSeaTunnelType() {
 
         Assertions.assertEquals(
                 BasicType.STRING_TYPE,
-                snowflakeDataTypeConvertor.toSeaTunnelType(SnowflakeType.TEXT.name(), Collections.emptyMap()));
+                snowflakeDataTypeConvertor.toSeaTunnelType(
+                        SnowflakeType.TEXT.name(), Collections.emptyMap()));
 
         Assertions.assertEquals(
                 BasicType.STRING_TYPE,
-                snowflakeDataTypeConvertor.toSeaTunnelType(SnowflakeType.VARIANT.name(), Collections.emptyMap()));
+                snowflakeDataTypeConvertor.toSeaTunnelType(
+                        SnowflakeType.VARIANT.name(), Collections.emptyMap()));
 
         Assertions.assertEquals(
                 BasicType.STRING_TYPE,
-                snowflakeDataTypeConvertor.toSeaTunnelType(SnowflakeType.OBJECT.name(), Collections.emptyMap()));
+                snowflakeDataTypeConvertor.toSeaTunnelType(
+                        SnowflakeType.OBJECT.name(), Collections.emptyMap()));
     }
 }

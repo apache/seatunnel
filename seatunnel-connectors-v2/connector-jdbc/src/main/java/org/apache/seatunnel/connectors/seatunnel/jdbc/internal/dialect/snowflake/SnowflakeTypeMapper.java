@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.snowflake;
 
-import org.apache.seatunnel.api.table.type.*;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -61,9 +64,9 @@ public class SnowflakeTypeMapper implements JdbcDialectTypeMapper {
     private static final String SNOWFLAKE_DATE_TIME = "DATE_TIME";
     private static final String SNOWFLAKE_TIME = "TIME";
     private static final String SNOWFLAKE_TIMESTAMP = "TIMESTAMP";
-    private static final String SNOWFLAKE_TIMESTAMP_LTZ = "TIMESTAMP_LTZ";
-    private static final String SNOWFLAKE_TIMESTAMP_NTZ = "TIMESTAMP_NTZ";
-    private static final String SNOWFLAKE_TIMESTAMP_TZ = "TIMESTAMP_TZ";
+    private static final String SNOWFLAKE_TIMESTAMP_LTZ = "TIMESTAMPLTZ";
+    private static final String SNOWFLAKE_TIMESTAMP_NTZ = "TIMESTAMPNTZ";
+    private static final String SNOWFLAKE_TIMESTAMP_TZ = "TIMESTAMPTZ";
 
     private static final String SNOWFLAKE_GEOGRAPHY = "GEOGRAPHY";
     private static final String SNOWFLAKE_GEOMETRY = "GEOMETRY";
