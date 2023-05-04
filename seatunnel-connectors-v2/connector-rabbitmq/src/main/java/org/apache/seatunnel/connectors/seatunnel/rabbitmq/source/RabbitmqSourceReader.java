@@ -54,7 +54,7 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
 
     protected final SourceReader.Context context;
     protected transient Channel channel;
-    private final boolean usesCorrelationId = true;
+    private final boolean usesCorrelationId = false;
     protected transient boolean autoAck;
 
     protected transient Set<String> correlationIdsProcessedButNotAcknowledged;
@@ -184,7 +184,10 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
                     checkpointId);
             return;
         }
-        acknowledgeDeliveryTags(pendingDeliveryTags);
+
+        if (!autoAck) {
+            acknowledgeDeliveryTags(pendingDeliveryTags);
+        }
         correlationIdsProcessedButNotAcknowledged.removeAll(pendingCorrelationIds);
     }
 

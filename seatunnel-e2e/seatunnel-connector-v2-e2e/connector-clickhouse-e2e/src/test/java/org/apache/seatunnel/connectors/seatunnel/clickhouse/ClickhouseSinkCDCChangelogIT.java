@@ -52,7 +52,7 @@ import java.util.stream.Stream;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.SEATUNNEL},
+        type = {EngineType.SPARK},
         disabledReason = "Spark engine will lose the row kind of record")
 @Slf4j
 public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestResource {
