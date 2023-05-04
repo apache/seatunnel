@@ -33,6 +33,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.ParentNotDirectoryException;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathExistsException;
 import org.apache.hadoop.fs.ftp.FTPException;
 import org.apache.hadoop.fs.ftp.FTPInputStream;
 import org.apache.hadoop.fs.permission.FsAction;
@@ -45,6 +46,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.URI;
+import java.util.Objects;
 
 /**
  * A {@link FileSystem} backed by an FTP client provided by <a
@@ -521,11 +523,19 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
         String pathName = absolute.getName();
         if (!exists(client, absolute)) {
             Path parent = absolute.getParent();
-            created = parent == null || mkdirs(client, parent, FsPermission.getDirDefault());
+            String initialWorkingDirectory = client.printWorkingDirectory();
+            created = parent == null || mkdirs(client, parent, permission);
             if (created) {
-                String parentDir = parent.toUri().getPath();
-                client.changeWorkingDirectory(parentDir);
-                created = created && client.makeDirectory(pathName);
+                String parentDir = Objects.requireNonNull(parent).toUri().getPath();
+                boolean changed = client.changeWorkingDirectory(parentDir);
+                if (!changed) {
+                    throw new PathExistsException(
+                            String.format("Failed to change working directory to: %s", parentDir));
+                }
+                created = client.makeDirectory(pathName);
+                setDirectoryPermissions(
+                        client, absolute.toString(), Integer.toOctalString(permission.toShort()));
+                client.changeWorkingDirectory(initialWorkingDirectory);
             }
         } else if (isFile(client, absolute)) {
             throw new ParentNotDirectoryException(
@@ -533,6 +543,12 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
                             "Can't make directory for path %s since it is a file.", absolute));
         }
         return created;
+    }
+
+    private static boolean setDirectoryPermissions(
+            FTPClient ftpClient, String directoryPath, String permissions) throws IOException {
+        String chmodCommand = String.format("CHMOD %s %s", permissions, directoryPath);
+        return ftpClient.sendSiteCommand(chmodCommand);
     }
 
     /**
