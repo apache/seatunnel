@@ -24,20 +24,18 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 
-import org.postgis.PGgeography;
-import org.postgis.PGgeometry;
-
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.Locale;
 import java.util.Optional;
 
 public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
-    private static final String PG_GEOMETRY = "geometry";
-    private static final String PG_GEOGRAPHY = "geography";
+    private static final String PG_GEOMETRY = "GEOMETRY";
+    private static final String PG_GEOGRAPHY = "GEOGRAPHY";
 
     @Override
     public String converterName() {
@@ -51,14 +49,16 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         for (int fieldIndex = 0; fieldIndex < typeInfo.getTotalFields(); fieldIndex++) {
             SeaTunnelDataType<?> seaTunnelDataType = typeInfo.getFieldType(fieldIndex);
             int resultSetIndex = fieldIndex + 1;
-            String metaDataColumnType = rs.getMetaData().getColumnTypeName(resultSetIndex);
-            Object columnObj = rs.getObject(resultSetIndex);
+            String metaDataColumnType =
+                    rs.getMetaData().getColumnTypeName(resultSetIndex).toUpperCase(Locale.ROOT);
             switch (seaTunnelDataType.getSqlType()) {
                 case STRING:
-                    if (metaDataColumnType.equals(PG_GEOMETRY)) {
-                        fields[fieldIndex] = ((PGgeometry) columnObj).getValue();
-                    } else if (metaDataColumnType.equals(PG_GEOGRAPHY)) {
-                        fields[fieldIndex] = ((PGgeography) columnObj).getValue();
+                    if (metaDataColumnType.equals(PG_GEOMETRY)
+                            || metaDataColumnType.equals(PG_GEOGRAPHY)) {
+                        fields[fieldIndex] =
+                                rs.getObject(resultSetIndex) == null
+                                        ? null
+                                        : rs.getObject(resultSetIndex).toString();
                     } else {
                         fields[fieldIndex] = rs.getString(resultSetIndex);
                     }
