@@ -139,7 +139,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
      * @param data
      * @throws IOException
      */
-    private void dealLineData(Collector<SeaTunnelRow> output, String data) throws IOException {
+    private void collect(Collector<SeaTunnelRow> output, String data) throws IOException {
         if (contentJson != null) {
             data = JsonUtils.stringToJsonNode(getPartOfJson(data)).toString();
         }
