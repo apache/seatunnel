@@ -64,7 +64,11 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
-                    + "    `c_bit`                bit(1)                DEFAULT NULL,\n"
+                    + "    `c_bit_1`              bit(1)                DEFAULT NULL,\n"
+                    + "    `c_bit_8`              bit(8)                DEFAULT NULL,\n"
+                    + "    `c_bit_16`             bit(16)               DEFAULT NULL,\n"
+                    + "    `c_bit_32`             bit(32)               DEFAULT NULL,\n"
+                    + "    `c_bit_64`             bit(64)               DEFAULT NULL,\n"
                     + "    `c_boolean`            tinyint(1)            DEFAULT NULL,\n"
                     + "    `c_tinyint`            tinyint(4)            DEFAULT NULL,\n"
                     + "    `c_tinyint_unsigned`   tinyint(3) unsigned   DEFAULT NULL,\n"
@@ -146,7 +150,11 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
-                    "c_bit",
+                    "c_bit_1",
+                    "c_bit_8",
+                    "c_bit_16",
+                    "c_bit_32",
+                    "c_bit_64",
                     "c_boolean",
                     "c_tinyint",
                     "c_tinyint_unsigned",
@@ -187,10 +195,18 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
 
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
+            byte byteArr = Integer.valueOf(i).byteValue();
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
                                 i % 2 == 0 ? (byte) 1 : (byte) 0,
+                                new byte[] {byteArr},
+                                new byte[] {byteArr, byteArr},
+                                new byte[] {byteArr, byteArr, byteArr, byteArr},
+                                new byte[] {
+                                    byteArr, byteArr, byteArr, byteArr, byteArr, byteArr, byteArr,
+                                    byteArr
+                                },
                                 i % 2 == 0 ? Boolean.TRUE : Boolean.FALSE,
                                 i,
                                 i,
