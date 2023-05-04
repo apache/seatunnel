@@ -17,15 +17,15 @@
 
 package org.apache.seatunnel.api.table.type;
 
-import com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class MapType<K, V> implements CompositeType<Map<K, V>> {
 

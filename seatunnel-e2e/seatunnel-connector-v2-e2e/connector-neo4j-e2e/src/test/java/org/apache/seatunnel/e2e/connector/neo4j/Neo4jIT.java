@@ -60,7 +60,7 @@ import static org.neo4j.driver.Values.parameters;
 @Slf4j
 public class Neo4jIT extends TestSuiteBase implements TestResource {
 
-    private static final String CONTAINER_IMAGE = "neo4j:latest";
+    private static final String CONTAINER_IMAGE = "neo4j:5.6.0";
     private static final String CONTAINER_HOST = "neo4j-host";
     private static final int HTTP_PORT = 7474;
     private static final int BOLT_PORT = 7687;
