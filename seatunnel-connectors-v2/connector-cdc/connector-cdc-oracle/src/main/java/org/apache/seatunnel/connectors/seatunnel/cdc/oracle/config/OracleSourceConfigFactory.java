@@ -40,6 +40,12 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
     public OracleSourceConfig create(int subtask) {
         validateConfig();
 
+        try {
+            Class.forName(DRIVER_CLASS_NAME);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+
         Properties props = new Properties();
         props.setProperty("connector.class", OracleConnector.class.getCanonicalName());
         // Logical name that identifies and provides a namespace for the particular Oracle
