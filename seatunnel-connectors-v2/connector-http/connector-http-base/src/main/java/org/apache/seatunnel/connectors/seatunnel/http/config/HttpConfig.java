@@ -85,7 +85,7 @@ public class HttpConfig {
                             "SeaTunnel content field.This parameter can get some json data, and there is no need to configure each field separately.");
 
     public static final Option<Boolean> ENABLEMULTILINES =
-            Options.key("enableMultiLines")
+            Options.key("enable_multi_lines")
                     .booleanType()
                     .defaultValue(DEFAULT_ENABLEMULTILINES)
                     .withDescription(
