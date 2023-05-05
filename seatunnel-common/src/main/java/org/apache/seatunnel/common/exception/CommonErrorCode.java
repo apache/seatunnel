@@ -37,8 +37,7 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     HTTP_OPERATION_FAILED(
             "COMMON-13", "Http operation failed, such as (open, close, response) etc..."),
     KERBEROS_AUTHORIZED_FAILED("COMMON-14", "Kerberos authorized failed"),
-    CLASS_NOT_FOUND("COMMON-15", "Class load operation failed"),
-    IMPROPERLY_FORMATTED_JVM_OPTION("COMMON-16", "Encountered improperly formatted JVM option");
+    CLASS_NOT_FOUND("COMMON-15", "Class load operation failed");
 
     private final String code;
     private final String description;
