@@ -170,18 +170,19 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
     }
 
     private static Map<Object, Object> reconvertMap(
-            HashTrieMap hashTrieMap, MapType<?, ?> mapType) {
+            HashTrieMap<?, ?> hashTrieMap, MapType<?, ?> mapType) {
         if (hashTrieMap == null || hashTrieMap.size() == 0) {
             return Collections.emptyMap();
         }
-        Map<Object, Object> newMap = new LinkedHashMap<>(hashTrieMap.size());
         int num = hashTrieMap.size();
+        Map<Object, Object> newMap = new LinkedHashMap<>(num);
         SeaTunnelDataType<?> keyType = mapType.getKeyType();
         SeaTunnelDataType<?> valueType = mapType.getValueType();
-        scala.collection.immutable.List<?> list = hashTrieMap.keySet().toList();
+        scala.collection.immutable.List<?> keyList = hashTrieMap.keySet().toList();
+        scala.collection.immutable.List<?> valueList = hashTrieMap.values().toList();
         for (int i = 0; i < num; i++) {
-            Object key = list.apply(i);
-            Object value = hashTrieMap.get(key);
+            Object key = keyList.apply(i);
+            Object value = valueList.apply(i);
             key = reconvert(key, keyType);
             value = reconvert(value, valueType);
             newMap.put(key, value);
@@ -243,7 +244,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 if (field instanceof MapData) {
                     return reconvertMap((MapData) field, (MapType<?, ?>) dataType);
                 } else if (field instanceof HashTrieMap) {
-                    return reconvertMap((HashTrieMap) field, (MapType<?, ?>) dataType);
+                    return reconvertMap((HashTrieMap<?, ?>) field, (MapType<?, ?>) dataType);
                 } else {
                     throw new RuntimeException(
                             String.format(
@@ -262,7 +263,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 if (field instanceof ArrayData) {
                     return reconvertArray((ArrayData) field, (ArrayType<?, ?>) dataType);
                 } else if (field instanceof WrappedArray.ofRef) {
-                    return reconvertArray((WrappedArray.ofRef) field, (ArrayType<?, ?>) dataType);
+                    return reconvertArray(
+                            (WrappedArray.ofRef<?>) field, (ArrayType<?, ?>) dataType);
                 } else {
                     throw new RuntimeException(
                             String.format(
@@ -357,7 +359,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 && internalRowField instanceof ArrayData) {
             ArrayData arrayData = (ArrayData) internalRowField;
             if (arrayData.numElements() == 0) {
-                return new WrappedArray.ofRef(new Object[0]);
+                return new WrappedArray.ofRef<>(new Object[0]);
             }
             org.apache.spark.sql.types.ArrayType arrayType =
                     (org.apache.spark.sql.types.ArrayType) dataType;
@@ -366,7 +368,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             for (int i = 0; i < num; i++) {
                 values[i] = convertToField(values[i], arrayType.elementType());
             }
-            return new WrappedArray.ofRef(values);
+            return new WrappedArray.ofRef<>(values);
         }
         return internalRowField;
     }

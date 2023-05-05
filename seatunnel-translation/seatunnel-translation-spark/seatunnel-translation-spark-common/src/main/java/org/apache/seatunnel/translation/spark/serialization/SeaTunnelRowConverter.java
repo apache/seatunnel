@@ -28,7 +28,7 @@ import org.apache.seatunnel.translation.serialization.RowConverter;
 import org.apache.spark.unsafe.types.UTF8String;
 
 import scala.Tuple2;
-import scala.collection.immutable.HashMap;
+import scala.collection.immutable.HashMap.HashTrieMap;
 import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
@@ -54,7 +54,7 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         return (SeaTunnelRow) convert(seaTunnelRow, dataType);
     }
 
-    protected Object convert(Object field, SeaTunnelDataType<?> dataType) {
+    private Object convert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;
         }
@@ -106,8 +106,10 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         return new SeaTunnelRow(values);
     }
 
-    private HashMap<Object, Object> convertMap(Map<?, ?> mapData, MapType<?, ?> mapType) {
-        HashMap<Object, Object> newMap = new HashMap<>();
+    private scala.collection.immutable.HashMap<Object, Object> convertMap(
+            Map<?, ?> mapData, MapType<?, ?> mapType) {
+        scala.collection.immutable.HashMap<Object, Object> newMap =
+                new scala.collection.immutable.HashMap<>();
         if (mapData.size() == 0) {
             return newMap;
         }
@@ -124,15 +126,15 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         return newMap;
     }
 
-    private WrappedArray.ofRef convertArray(Object[] arrayData, ArrayType<?, ?> arrayType) {
+    private WrappedArray.ofRef<?> convertArray(Object[] arrayData, ArrayType<?, ?> arrayType) {
         if (arrayData.length == 0) {
-            return new WrappedArray.ofRef(new Object[0]);
+            return new WrappedArray.ofRef<>(new Object[0]);
         }
         int num = arrayData.length;
         for (int i = 0; i < num; i++) {
             arrayData[i] = convert(arrayData[i], arrayType.getElementType());
         }
-        return new WrappedArray.ofRef(arrayData);
+        return new WrappedArray.ofRef<>(arrayData);
     }
 
     @Override
@@ -140,7 +142,7 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         return (SeaTunnelRow) reconvert(engineRow, dataType);
     }
 
-    protected Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
+    private Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;
         }
@@ -156,15 +158,15 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
             case STRING:
                 return field.toString();
             case MAP:
-                return reconvertMap((HashMap.HashTrieMap) field, (MapType<?, ?>) dataType);
+                return reconvertMap((HashTrieMap<?, ?>) field, (MapType<?, ?>) dataType);
             case ARRAY:
-                return reconvertArray((WrappedArray.ofRef) field, (ArrayType<?, ?>) dataType);
+                return reconvertArray((WrappedArray.ofRef<?>) field, (ArrayType<?, ?>) dataType);
             default:
                 return field;
         }
     }
 
-    protected SeaTunnelRow reconvert(SeaTunnelRow engineRow, SeaTunnelRowType rowType) {
+    private SeaTunnelRow reconvert(SeaTunnelRow engineRow, SeaTunnelRowType rowType) {
         int num = engineRow.getFields().length;
         Object[] fields = new Object[num];
         for (int i = 0; i < num; i++) {
@@ -173,19 +175,27 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         return new SeaTunnelRow(fields);
     }
 
-    private Map<Object, Object> reconvertMap(
-            HashMap.HashTrieMap hashTrieMap, MapType<?, ?> mapType) {
+    /**
+     * Convert HashTrieMap to LinkedHashMap
+     *
+     * @param hashTrieMap HashTrieMap data
+     * @param mapType fields type map
+     * @return java.util.LinkedHashMap
+     * @see HashTrieMap
+     */
+    private Map<Object, Object> reconvertMap(HashTrieMap<?, ?> hashTrieMap, MapType<?, ?> mapType) {
         if (hashTrieMap == null || hashTrieMap.size() == 0) {
             return Collections.emptyMap();
         }
-        Map<Object, Object> newMap = new LinkedHashMap<>(hashTrieMap.size());
         int num = hashTrieMap.size();
+        Map<Object, Object> newMap = new LinkedHashMap<>(num);
         SeaTunnelDataType<?> keyType = mapType.getKeyType();
         SeaTunnelDataType<?> valueType = mapType.getValueType();
-        scala.collection.immutable.List<?> list = hashTrieMap.keySet().toList();
+        scala.collection.immutable.List<?> keyList = hashTrieMap.keySet().toList();
+        scala.collection.immutable.List<?> valueList = hashTrieMap.values().toList();
         for (int i = 0; i < num; i++) {
-            Object key = list.apply(i);
-            Object value = hashTrieMap.get(key);
+            Object key = keyList.apply(i);
+            Object value = valueList.apply(i);
             key = reconvert(key, keyType);
             value = reconvert(value, valueType);
             newMap.put(key, value);
@@ -193,6 +203,14 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         return newMap;
     }
 
+    /**
+     * Convert WrappedArray.ofRef to Objects array
+     *
+     * @param arrayData WrappedArray.ofRef data
+     * @param arrayType fields type array
+     * @return Objects array
+     * @see WrappedArray.ofRef
+     */
     private Object reconvertArray(WrappedArray.ofRef<?> arrayData, ArrayType<?, ?> arrayType) {
         if (arrayData == null || arrayData.size() == 0) {
             return Collections.emptyList().toArray();
