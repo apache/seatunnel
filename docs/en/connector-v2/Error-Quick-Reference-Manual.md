@@ -35,7 +35,6 @@ problems encountered by users.
 | COMMON-13 | Http operation failed, such as (open, close, response) etc...          | When users encounter this error code, it maybe some http requests failed, please check your network environment                                                                                    |
 | COMMON-14 | Kerberos authorized failed                                             | When users encounter this error code, it maybe some The Kerberos authorized is misconfigured                                                                                                       |
 | COMMON-15 | Class load operation failed                                            | When users encounter this error code, it maybe some The corresponding jar does not exist, or the type is not supported                                                                             |
-| COMMON-16 | Encountered improperly formatted JVM option                            | When users encounter this error code, it maybe some The JVM option formatted improperly                                                                                                            |
 
 ## Assert Connector Error Codes
 
