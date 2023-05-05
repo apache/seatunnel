@@ -39,17 +39,17 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 public class OssWriter implements IFileWriter<IMapFileData> {
-    FileSystem fs;
-    Path parentPath;
-    Path path;
-    Serializer serializer;
+    private FileSystem fs;
+    private Path parentPath;
+    private Path path;
+    private Serializer serializer;
 
-    ByteBuf bf = Unpooled.buffer(1024);
+    private ByteBuf bf = Unpooled.buffer(1024);
 
     // block size
-    long blockSize = 1024 * 1024;
+    private long blockSize = 1024 * 1024;
 
-    AtomicLong index = new AtomicLong(0);
+    private AtomicLong index = new AtomicLong(0);
 
     @Override
     public void initialize(FileSystem fs, Path parentPath, Serializer serializer)
@@ -114,7 +114,6 @@ public class OssWriter implements IFileWriter<IMapFileData> {
 
     @Override
     public void close() throws Exception {
-        // No-op
         bf.clear();
         this.bf = null;
     }

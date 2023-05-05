@@ -53,6 +53,9 @@ public class IMapFileOSSStorageTest {
     static String OSS_ENDPOINT = "your oss endpoint";
     static String OSS_ACCESS_KEY_ID = "oss accessKey id";
     static String OSS_ACCESS_KEY_SECRET = "oss accessKey secret";
+    static String BUSINESS = "random";
+    static String NAMESPACE = "/seatunnel-test/2";
+    static String CLUSTER_NAME = "test-one";
     private static final Configuration CONF;
 
     private static final IMapFileStorage STORAGE;
@@ -80,9 +83,9 @@ public class IMapFileOSSStorageTest {
         properties.put(
                 "fs.oss.credentials.provider",
                 "org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider");
-        properties.put(FileConstants.FileInitProperties.BUSINESS_KEY, "random");
-        properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "/seatunnel-test/2");
-        properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, "test-one");
+        properties.put(FileConstants.FileInitProperties.BUSINESS_KEY, BUSINESS);
+        properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, NAMESPACE);
+        properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, CLUSTER_NAME);
         properties.put(WRITE_DATA_TIMEOUT_MILLISECONDS_KEY, 6000L);
 
         STORAGE.initialize(properties);

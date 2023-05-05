@@ -35,9 +35,9 @@ import java.util.EnumSet;
 
 public class HdfsWriter implements IFileWriter<IMapFileData> {
 
-    FSDataOutputStream out;
+    private FSDataOutputStream out;
 
-    Serializer serializer;
+    private Serializer serializer;
 
     @Override
     public String identifier() {

@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
@@ -143,7 +142,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         scheduledExecutorService.scheduleAtFixedRate(
                 this::updateMetricsContextInImap,
-                30 * 1000, // Wait for MapStore loading to complete
+                30, // Wait for MapStore loading to complete, wait 30s
                 seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
                 TimeUnit.SECONDS);
     }
@@ -456,20 +455,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         contextMap.putAll(finishedExecutionContexts);
         contextMap.putAll(executionContexts);
         try {
-            // Wait for MapStore loading to complete
             IMap<TaskLocation, SeaTunnelMetricsContext> map =
-                    RetryUtils.retryWithException(
-                            () -> {
-                                return nodeEngine
-                                        .getHazelcastInstance()
-                                        .getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-                            },
-                            new RetryUtils.RetryMaterial(
-                                    Constant.OPERATION_RETRY_TIME,
-                                    false,
-                                    exception -> true,
-                                    Constant.OPERATION_RETRY_SLEEP));
-
+                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
             contextMap.forEach(
                     (taskGroupLocation, taskGroupContext) -> {
                         taskGroupContext

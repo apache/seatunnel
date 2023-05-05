@@ -124,8 +124,7 @@ public class IMapFileStorage implements IMapStorage {
                                 STORAGE_TYPE_KEY, FileConfiguration.HDFS.toString()));
         this.fileConfiguration = FileConfiguration.valueOf(storageType.toUpperCase());
         // build configuration
-        AbstractConfiguration fileConfiguration =
-                this.fileConfiguration.getConfiguration(storageType);
+        AbstractConfiguration fileConfiguration = this.fileConfiguration.getConfiguration();
 
         Configuration hadoopConf = fileConfiguration.buildConfiguration(configuration);
         this.conf = hadoopConf;
