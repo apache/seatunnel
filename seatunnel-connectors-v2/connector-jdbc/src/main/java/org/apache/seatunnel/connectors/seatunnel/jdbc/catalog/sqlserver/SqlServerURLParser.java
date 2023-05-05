@@ -45,7 +45,7 @@ public class SqlServerURLParser {
         if (split.length > 1) {
             props = parseQueryParams(split[1], ";");
             serverName = props.get("serverName");
-            dbInstance = props.get("databaseName");
+            dbInstance = props.getOrDefault("databaseName", props.get("database"));
             if (props.containsKey("portNumber")) {
                 String portNumber = props.get("portNumber");
                 try {
