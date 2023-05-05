@@ -37,7 +37,7 @@ semantics (using XA transaction guarantee).
 
 |                                                          Mysql Data type                                                          |                                                                 Seatunnel Data type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| BIT<br/>INT UNSIGNED                                                                                                              | BOOLEAN                                                                                                                                             |
+| BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
 | INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                                                      | BIGINT                                                                                                                                              |
 | BIGINT UNSIGNED                                                                                                                   | DECIMAL(20,0)                                                                                                                                       |
@@ -50,7 +50,7 @@ semantics (using XA transaction guarantee).
 | DATE                                                                                                                              | DATE                                                                                                                                                |
 | TIME                                                                                                                              | TIME                                                                                                                                                |
 | DATETIME<br/>TIMESTAMP                                                                                                            | TIMESTAMP                                                                                                                                           |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR                                                             | BYTES                                                                                                                                               |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
 | GEOMETRY<br/>UNKNOWN                                                                                                              | Not supported yet                                                                                                                                   |
 
 ## Options
@@ -135,18 +135,20 @@ sink {
 > For accurate write scene we guarantee accurate once
 
 ```
-jdbc {
-    url = "jdbc:mysql://localhost:3306/test"
-    driver = "com.mysql.cj.jdbc.Driver"
-
-    max_retries = 0
-    user = "root"
-    password = "123456"
-    query = "insert into test_table(name,age) values(?,?)"
-
-    is_exactly_once = "true"
-
-    xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+sink {
+    jdbc {
+        url = "jdbc:mysql://localhost:3306/test"
+        driver = "com.mysql.cj.jdbc.Driver"
+    
+        max_retries = 0
+        user = "root"
+        password = "123456"
+        query = "insert into test_table(name,age) values(?,?)"
+    
+        is_exactly_once = "true"
+    
+        xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+    }
 }
 ```
 
@@ -155,16 +157,18 @@ jdbc {
 > CDC change data is also supported by us In this case, you need config database, table and primary_keys.
 
 ```
-jdbc {
-    url = "jdbc:mysql://localhost:3306/test"
-    driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
-    password = "123456"
-    
-    # You need to configure both database and table
-    database = test
-    table = sink_table
-    primary_keys = ["id","name"]
+source {
+    jdbc {
+        url = "jdbc:mysql://localhost:3306/test"
+        driver = "com.mysql.cj.jdbc.Driver"
+        user = "root"
+        password = "123456"
+        
+        # You need to configure both database and table
+        database = test
+        table = sink_table
+        primary_keys = ["id","name"]
+    }
 }
 ```
 

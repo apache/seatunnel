@@ -11,7 +11,6 @@
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
@@ -38,7 +37,7 @@ Read external data source data through JDBC.
 
 |                                                          Mysql Data type                                                          |                                                                 Seatunnel Data type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| BIT<br/>INT UNSIGNED                                                                                                              | BOOLEAN                                                                                                                                             |
+| BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
 | INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                                                      | BIGINT                                                                                                                                              |
 | BIGINT UNSIGNED                                                                                                                   | DECIMAL(20,0)                                                                                                                                       |
@@ -51,7 +50,7 @@ Read external data source data through JDBC.
 | DATE                                                                                                                              | DATE                                                                                                                                                |
 | TIME                                                                                                                              | TIME                                                                                                                                                |
 | DATETIME<br/>TIMESTAMP                                                                                                            | TIMESTAMP                                                                                                                                           |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR                                                             | BYTES                                                                                                                                               |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br>BIT(n)                                                   | BYTES                                                                                                                                               |
 | GEOMETRY<br/>UNKNOWN                                                                                                              | Not supported yet                                                                                                                                   |
 
 ## Options
@@ -114,18 +113,20 @@ Console {}
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
 
 ```
-Jdbc {
-    url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
-    driver = "com.mysql.cj.jdbc.Driver"
-    connection_check_timeout_sec = 100
-    user = "root"
-    password = "123456"
-    # Define query logic as required
-    query = "select * from type_bin"
-    # Parallel sharding reads fields
-    partition_column = "id"
-    # Number of fragments
-    partition_num = 10
+source {
+    Jdbc {
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        driver = "com.mysql.cj.jdbc.Driver"
+        connection_check_timeout_sec = 100
+        user = "root"
+        password = "123456"
+        # Define query logic as required
+        query = "select * from type_bin"
+        # Parallel sharding reads fields
+        partition_column = "id"
+        # Number of fragments
+        partition_num = 10
+    }
 }
 ```
 
@@ -134,20 +135,22 @@ Jdbc {
 > It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
 
 ```
-Jdbc {
-    url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
-    driver = "com.mysql.cj.jdbc.Driver"
-    connection_check_timeout_sec = 100
-    user = "root"
-    password = "123456"
-    # Define query logic as required
-    query = "select * from type_bin"
-    partition_column = "id"
-    # Read start boundary
-    partition_lower_bound = 1
-    # Read end boundary
-    partition_upper_bound = 500
-    partition_num = 10
+source {
+    Jdbc {
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        driver = "com.mysql.cj.jdbc.Driver"
+        connection_check_timeout_sec = 100
+        user = "root"
+        password = "123456"
+        # Define query logic as required
+        query = "select * from type_bin"
+        partition_column = "id"
+        # Read start boundary
+        partition_lower_bound = 1
+        # Read end boundary
+        partition_upper_bound = 500
+        partition_num = 10
+    }
 }
 ```
 
