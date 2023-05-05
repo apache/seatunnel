@@ -136,7 +136,7 @@ jdbc {
 
     is_exactly_once = "true"
 
-    xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+    xa_data_source_class_name = "com.sqlserver.cj.jdbc.SqlServerXADataSource"
 }
 ```
 
@@ -146,8 +146,8 @@ jdbc {
 
 ```
 jdbc {
-    url = "jdbc:mysql://localhost:3306/test"
-    driver = "com.mysql.cj.jdbc.Driver"
+    url = "jdbc:sqlserver://localhost:1433;databaseName=testdb"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
     user = "root"
     password = "123456"
     
