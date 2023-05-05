@@ -35,7 +35,7 @@ Used to read data from Klaviyo.
 | retry_backoff_multiplier_ms | int     | No       | 100           |
 | retry_backoff_max_ms        | int     | No       | 10000         |
 | common-options              | config  | No       | -             |
-| enableMultiLines            | boolean | No       | false         |
+| enable_multi_lines            | boolean | No       | false         |
 
 ### url [String]
 
