@@ -130,6 +130,11 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         // http persistiq
         Container.ExecResult execResult11 = container.executeJob("/persistiq_json_to_assert.conf");
         Assertions.assertEquals(0, execResult11.getExitCode());
+
+        // http httpMultiLine
+        Container.ExecResult execResult12 =
+                container.executeJob("/http_multilinejson_to_assert.conf");
+        Assertions.assertEquals(0, execResult12.getExitCode());
     }
 
     public String getMockServerConfig() {

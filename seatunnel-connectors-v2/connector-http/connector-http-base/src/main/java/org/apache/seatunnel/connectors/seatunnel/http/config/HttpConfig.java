@@ -26,6 +26,7 @@ public class HttpConfig {
     public static final String BASIC = "Basic";
     public static final int DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS = 100;
     public static final int DEFAULT_RETRY_BACKOFF_MAX_MS = 10000;
+    public static final boolean DEFAULT_ENABLE_MULTI_LINES = false;
     public static final Option<String> URL =
             Options.key("url").stringType().noDefaultValue().withDescription("Http request url");
     public static final Option<HttpRequestMethod> METHOD =
@@ -82,6 +83,13 @@ public class HttpConfig {
                     .noDefaultValue()
                     .withDescription(
                             "SeaTunnel content field.This parameter can get some json data, and there is no need to configure each field separately.");
+
+    public static final Option<Boolean> ENABLE_MULTI_LINES =
+            Options.key("enable_multi_lines")
+                    .booleanType()
+                    .defaultValue(DEFAULT_ENABLE_MULTI_LINES)
+                    .withDescription(
+                            "SeaTunnel enableMultiLines.This parameter can support http splitting response text by line.");
 
     public enum ResponseFormat {
         JSON("json");
