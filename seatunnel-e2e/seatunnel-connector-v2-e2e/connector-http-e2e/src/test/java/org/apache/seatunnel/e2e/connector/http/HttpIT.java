@@ -132,7 +132,8 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult11.getExitCode());
 
         // http httpMultiLine
-        Container.ExecResult execResult12 = container.executeJob("/http_multilinejson_to_assert.conf");
+        Container.ExecResult execResult12 =
+                container.executeJob("/http_multilinejson_to_assert.conf");
         Assertions.assertEquals(0, execResult12.getExitCode());
     }
 
