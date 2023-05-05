@@ -19,7 +19,7 @@ seatunnel:
     engine:
         backup-count: 1
         queue-type: blockingqueue
-        print-execution-info-interval: 10
+        print-execution-info-interval: 60
         operation-retry-time: 60
         operation-retry-sleep: 5000
         slot-service:
