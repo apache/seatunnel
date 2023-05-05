@@ -104,7 +104,7 @@ transform {
 }
 
 sink {
-Console {}
+    Console {}
 }
 ```
 
