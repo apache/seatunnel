@@ -88,4 +88,5 @@
 ## Test
 ### E2E
 - [SqlServer CDC] fix SqlServerCDC IT failure #3807
+- [Container Version] Fix risk of unreproducible test cases #4591
 
