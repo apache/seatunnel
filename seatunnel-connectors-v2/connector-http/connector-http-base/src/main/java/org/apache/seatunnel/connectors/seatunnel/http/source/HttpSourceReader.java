@@ -105,10 +105,10 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                         BufferedReader bufferedReader = new BufferedReader(stringReader);
                         String lineStr;
                         while ((lineStr = bufferedReader.readLine()) != null) {
-                            dealLineData(output, lineStr);
+                            collect(output, lineStr);
                         }
                     } else {
-                        dealLineData(output, content);
+                        collect(output, content);
                     }
                 }
                 return;
