@@ -164,6 +164,7 @@ sink {
         user = "root"
         password = "123456"
         
+        generate_sink_sql = true
         # You need to configure both database and table
         database = test
         table = sink_table
