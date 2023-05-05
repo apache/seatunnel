@@ -80,10 +80,10 @@ public class HttpParameter implements Serializable {
         }
         this.setRetryParameters(pluginConfig);
         // set enableMultilines
-        if (pluginConfig.hasPath(HttpConfig.ENABLEMULTILINES.key())) {
-            this.setEnableMultilines(pluginConfig.getBoolean(HttpConfig.ENABLEMULTILINES.key()));
+        if (pluginConfig.hasPath(HttpConfig.ENABLE_MULTI_LINES.key())) {
+            this.setEnableMultilines(pluginConfig.getBoolean(HttpConfig.ENABLE_MULTI_LINES.key()));
         } else {
-            this.setEnableMultilines(HttpConfig.ENABLEMULTILINES.defaultValue());
+            this.setEnableMultilines(HttpConfig.ENABLE_MULTI_LINES.defaultValue());
         }
     }
 
