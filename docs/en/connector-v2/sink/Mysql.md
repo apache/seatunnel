@@ -157,7 +157,7 @@ sink {
 > CDC change data is also supported by us In this case, you need config database, table and primary_keys.
 
 ```
-source {
+sink {
     jdbc {
         url = "jdbc:mysql://localhost:3306/test"
         driver = "com.mysql.cj.jdbc.Driver"
