@@ -33,8 +33,8 @@ Used to read data from Http.
 | retry                       | int     | No       | -             |
 | retry_backoff_multiplier_ms | int     | No       | 100           |
 | retry_backoff_max_ms        | int     | No       | 10000         |
-| common-options              |         | No       | -             |
-| enable_multi_lines            | boolean | No       | false         |
+| enable_multi_lines          | boolean | No       | false         |
+| common-options              | config  | No       | -             |
 
 ### url [String]
 
