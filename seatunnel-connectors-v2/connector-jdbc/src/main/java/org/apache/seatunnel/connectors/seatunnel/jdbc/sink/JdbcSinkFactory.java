@@ -99,18 +99,18 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         GENERATE_SINK_SQL,
                         AUTO_COMMIT,
                         SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST,
+                        PRIMARY_KEYS,
                         IS_PRIMARY_KEY_UPDATED)
-                .optional(MAX_RETRIES)
-                .optional(TABLE)
                 .conditional(
                         IS_EXACTLY_ONCE,
                         true,
                         XA_DATA_SOURCE_CLASS_NAME,
                         MAX_COMMIT_ATTEMPTS,
                         TRANSACTION_TIMEOUT_SEC)
+                .conditional(IS_EXACTLY_ONCE, false, MAX_RETRIES)
                 .conditional(GENERATE_SINK_SQL, true, DATABASE)
+                .conditional(GENERATE_SINK_SQL, true, TABLE)
                 .conditional(GENERATE_SINK_SQL, false, QUERY)
-                .conditional(SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST, true, PRIMARY_KEYS)
                 .build();
     }
 }
