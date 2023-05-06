@@ -17,24 +17,25 @@ Used to read data from Klaviyo.
 
 ## Options
 
-|            name             |  type  | required | default value |
-|-----------------------------|--------|----------|---------------|
-| url                         | String | Yes      | -             |
-| private_key                 | String | Yes      | -             |
-| revision                    | String | Yes      | -             |
-| method                      | String | No       | get           |
-| schema                      | Config | No       | -             |
-| schema.fields               | Config | No       | -             |
-| format                      | String | No       | json          |
-| params                      | Map    | No       | -             |
-| body                        | String | No       | -             |
-| json_field                  | Config | No       | -             |
-| content_json                | String | No       | -             |
-| poll_interval_ms            | int    | No       | -             |
-| retry                       | int    | No       | -             |
-| retry_backoff_multiplier_ms | int    | No       | 100           |
-| retry_backoff_max_ms        | int    | No       | 10000         |
-| common-options              | config | No       | -             |
+|            name             |  type   | required | default value |
+|-----------------------------|---------|----------|---------------|
+| url                         | String  | Yes      | -             |
+| private_key                 | String  | Yes      | -             |
+| revision                    | String  | Yes      | -             |
+| method                      | String  | No       | get           |
+| schema                      | Config  | No       | -             |
+| schema.fields               | Config  | No       | -             |
+| format                      | String  | No       | json          |
+| params                      | Map     | No       | -             |
+| body                        | String  | No       | -             |
+| json_field                  | Config  | No       | -             |
+| content_json                | String  | No       | -             |
+| poll_interval_ms            | int     | No       | -             |
+| retry                       | int     | No       | -             |
+| retry_backoff_multiplier_ms | int     | No       | 100           |
+| retry_backoff_max_ms        | int     | No       | 10000         |
+| enable_multi_lines          | boolean | No       | false         |
+| common-options              | config  | No       | -             |
 
 ### url [String]
 
