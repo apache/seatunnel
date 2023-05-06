@@ -17,13 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -102,32 +99,5 @@ public class SqlServerDialect implements JdbcDialect {
                         insertValues);
 
         return Optional.of(upsertSQL);
-    }
-
-    @Override
-    public String listDatabases() {
-        return "SELECT NAME FROM SYS.DATABASES";
-    }
-
-    @Override
-    public String listTableSql(String databaseName) {
-        return "SELECT TABLE_SCHEMA, TABLE_NAME FROM "
-                + databaseName
-                + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
-    }
-
-    @Override
-    public String getTableName(ResultSet rs) throws SQLException {
-        return rs.getString(1) + "." + rs.getString(2);
-    }
-
-    @Override
-    public String getTableName(TablePath tablePath) {
-        return tablePath.getSchemaName() + "." + tablePath.getTableName();
-    }
-
-    @Override
-    public String getUrlFromDatabaseName(String baseUrl, String databaseName, String suffix) {
-        return baseUrl + ";databaseName=" + databaseName + ";" + suffix;
     }
 }

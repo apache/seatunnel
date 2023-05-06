@@ -76,7 +76,8 @@ public class JdbcOutputFormatBuilder {
                                     table,
                                     seaTunnelRowType,
                                     primaryKeys.toArray(new String[0]),
-                                    jdbcSinkConfig.isSupportUpsertByQueryPrimaryKeyExist());
+                                    jdbcSinkConfig.isSupportUpsertByQueryPrimaryKeyExist(),
+                                    jdbcSinkConfig.isPrimaryKeyUpdated());
         }
 
         return new JdbcOutputFormat(
@@ -104,7 +105,8 @@ public class JdbcOutputFormatBuilder {
             String table,
             SeaTunnelRowType rowType,
             String[] pkNames,
-            boolean supportUpsertByQueryPrimaryKeyExist) {
+            boolean supportUpsertByQueryPrimaryKeyExist,
+            boolean isPrimaryKeyUpdated) {
         int[] pkFields = Arrays.stream(pkNames).mapToInt(rowType::indexOf).toArray();
         SeaTunnelDataType[] pkTypes =
                 Arrays.stream(pkFields)
@@ -123,7 +125,8 @@ public class JdbcOutputFormatBuilder {
                         pkNames,
                         pkTypes,
                         keyExtractor,
-                        supportUpsertByQueryPrimaryKeyExist);
+                        supportUpsertByQueryPrimaryKeyExist,
+                        isPrimaryKeyUpdated);
         return new BufferReducedBatchStatementExecutor(
                 upsertExecutor, deleteExecutor, keyExtractor, Function.identity());
     }
@@ -136,7 +139,8 @@ public class JdbcOutputFormatBuilder {
             String[] pkNames,
             SeaTunnelDataType[] pkTypes,
             Function<SeaTunnelRow, SeaTunnelRow> keyExtractor,
-            boolean supportUpsertByQueryPrimaryKeyExist) {
+            boolean supportUpsertByQueryPrimaryKeyExist,
+            boolean isPrimaryKeyUpdated) {
         Optional<String> upsertSQL =
                 dialect.getUpsertStatement(database, table, rowType.getFieldNames(), pkNames);
         if (upsertSQL.isPresent()) {
@@ -144,9 +148,17 @@ public class JdbcOutputFormatBuilder {
         }
         if (supportUpsertByQueryPrimaryKeyExist) {
             return createInsertOrUpdateByQueryExecutor(
-                    dialect, database, table, rowType, pkNames, pkTypes, keyExtractor);
+                    dialect,
+                    database,
+                    table,
+                    rowType,
+                    pkNames,
+                    pkTypes,
+                    keyExtractor,
+                    isPrimaryKeyUpdated);
         }
-        return createInsertOrUpdateExecutor(dialect, database, table, rowType, pkNames);
+        return createInsertOrUpdateExecutor(
+                dialect, database, table, rowType, pkNames, isPrimaryKeyUpdated);
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createInsertOrUpdateExecutor(
@@ -154,7 +166,8 @@ public class JdbcOutputFormatBuilder {
             String database,
             String table,
             SeaTunnelRowType rowType,
-            String[] pkNames) {
+            String[] pkNames,
+            boolean isPrimaryKeyUpdated) {
 
         return new InsertOrUpdateBatchStatementExecutor(
                 connection ->
@@ -167,7 +180,11 @@ public class JdbcOutputFormatBuilder {
                         FieldNamedPreparedStatement.prepareStatement(
                                 connection,
                                 dialect.getUpdateStatement(
-                                        database, table, rowType.getFieldNames(), pkNames),
+                                        database,
+                                        table,
+                                        rowType.getFieldNames(),
+                                        pkNames,
+                                        isPrimaryKeyUpdated),
                                 rowType.getFieldNames()),
                 rowType,
                 dialect.getRowConverter());
@@ -180,7 +197,8 @@ public class JdbcOutputFormatBuilder {
             SeaTunnelRowType rowType,
             String[] pkNames,
             SeaTunnelDataType[] pkTypes,
-            Function<SeaTunnelRow, SeaTunnelRow> keyExtractor) {
+            Function<SeaTunnelRow, SeaTunnelRow> keyExtractor,
+            boolean isPrimaryKeyUpdated) {
         SeaTunnelRowType keyRowType = new SeaTunnelRowType(pkNames, pkTypes);
         return new InsertOrUpdateBatchStatementExecutor(
                 connection ->
@@ -198,7 +216,11 @@ public class JdbcOutputFormatBuilder {
                         FieldNamedPreparedStatement.prepareStatement(
                                 connection,
                                 dialect.getUpdateStatement(
-                                        database, table, rowType.getFieldNames(), pkNames),
+                                        database,
+                                        table,
+                                        rowType.getFieldNames(),
+                                        pkNames,
+                                        isPrimaryKeyUpdated),
                                 rowType.getFieldNames()),
                 keyRowType,
                 keyExtractor,

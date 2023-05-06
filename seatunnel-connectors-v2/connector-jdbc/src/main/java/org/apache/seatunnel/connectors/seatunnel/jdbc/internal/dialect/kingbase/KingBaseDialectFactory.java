@@ -15,13 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
-public class StarRocksDialect extends MysqlDialect {
+import com.google.auto.service.AutoService;
+import lombok.NonNull;
+
+@AutoService(JdbcDialectFactory.class)
+public class KingBaseDialectFactory implements JdbcDialectFactory {
+
     @Override
-    public String dialectName() {
-        return "StarRocks";
+    public boolean acceptsURL(@NonNull String url) {
+        return url.startsWith("jdbc:kingbase8:");
+    }
+
+    @Override
+    public JdbcDialect create() {
+        return new KingBaseDialect();
     }
 }

@@ -23,6 +23,8 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
+import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfig;
@@ -64,7 +66,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.createOracleConnection;
@@ -91,26 +95,19 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private OracleErrorHandler errorHandler;
 
     public OracleSourceFetchTaskContext(
-            JdbcSourceConfig sourceConfig,
-            JdbcDataSourceDialect dataSourceDialect,
-            Collection<TableChanges.TableChange> engineHistory) {
+            JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dataSourceDialect) {
         super(sourceConfig, dataSourceDialect);
         this.connection = createOracleConnection(sourceConfig.getDbzConfiguration());
         this.metadataProvider = new OracleEventMetadataProvider();
-        this.engineHistory = engineHistory;
     }
 
     @Override
     public void configure(SourceSplitBase sourceSplitBase) {
+        registerDatabaseHistory(sourceSplitBase);
+
         // initial stateful objects
         final OracleConnectorConfig connectorConfig = getDbzConnectorConfig();
         this.topicSelector = OracleTopicSelector.defaultSelector(connectorConfig);
-
-        EmbeddedDatabaseHistory.registerHistory(
-                sourceConfig
-                        .getDbzConfiguration()
-                        .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
-                engineHistory);
 
         this.databaseSchema = OracleUtils.createOracleDatabaseSchema(connectorConfig);
         // todo logMiner or xStream
@@ -253,6 +250,27 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             OracleOffsetContext offset, OracleDatabaseSchema schema) {
         schema.initializeStorage();
         schema.recover(offset);
+    }
+
+    private void registerDatabaseHistory(SourceSplitBase sourceSplitBase) {
+        List<TableChanges.TableChange> engineHistory = new ArrayList<>();
+        // TODO: support save table schema
+        if (sourceSplitBase instanceof SnapshotSplit) {
+            SnapshotSplit snapshotSplit = (SnapshotSplit) sourceSplitBase;
+            engineHistory.add(
+                    dataSourceDialect.queryTableSchema(connection, snapshotSplit.getTableId()));
+        } else {
+            IncrementalSplit incrementalSplit = (IncrementalSplit) sourceSplitBase;
+            for (TableId tableId : incrementalSplit.getTableIds()) {
+                engineHistory.add(dataSourceDialect.queryTableSchema(connection, tableId));
+            }
+        }
+
+        EmbeddedDatabaseHistory.registerHistory(
+                sourceConfig
+                        .getDbzConfiguration()
+                        .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
+                engineHistory);
     }
 
     /** Copied from debezium for accessing here. */
