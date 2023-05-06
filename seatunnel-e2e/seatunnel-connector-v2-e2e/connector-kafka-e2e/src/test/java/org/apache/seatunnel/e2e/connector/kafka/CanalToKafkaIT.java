@@ -308,7 +308,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                 ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
                 "org.apache.kafka.common.serialization.StringDeserializer");
         prop.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        prop.put(ConsumerConfig.GROUP_ID_CONFIG, "CONF");
+        prop.put(ConsumerConfig.GROUP_ID_CONFIG, "seatunnel-canal-sink-group");
         prop.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
         kafkaConsumer = new KafkaConsumer<>(prop);
     }

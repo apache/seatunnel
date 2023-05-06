@@ -33,6 +33,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetResetStrategy;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -294,19 +295,19 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
     }
 
     private void initKafkaConsumer() {
-        Properties prop = new Properties();
-        String bootstrapServers = KAFKA_CONTAINER.getBootstrapServers();
-        prop.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        prop.put(
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_CONTAINER.getBootstrapServers());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "seatunnel-maxwell-sink-group");
+        props.put(
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                OffsetResetStrategy.EARLIEST.toString().toLowerCase());
+        props.put(
                 ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
                 "org.apache.kafka.common.serialization.StringDeserializer");
-        prop.put(
+        props.put(
                 ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
                 "org.apache.kafka.common.serialization.StringDeserializer");
-        prop.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        prop.put(ConsumerConfig.GROUP_ID_CONFIG, "CONF");
-        prop.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
-        kafkaConsumer = new KafkaConsumer<>(prop);
+        kafkaConsumer = new KafkaConsumer<>(props);
     }
 
     private void initializeJdbcTable() {
