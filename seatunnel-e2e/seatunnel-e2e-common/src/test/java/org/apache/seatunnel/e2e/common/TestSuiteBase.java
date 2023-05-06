@@ -39,8 +39,8 @@ import org.testcontainers.containers.Network;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SEATUNNEL},
-        disabledReason = "TODO: SeaTunnel engine e2e test isn't completed")
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason = "")
 public abstract class TestSuiteBase {
 
     protected static final Network NETWORK = TestContainer.NETWORK;

@@ -87,12 +87,54 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSourceToAssertSink(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob(getITTestConf());
-        Assertions.assertEquals(0, execResult.getExitCode());
-    }
+        // normal http
+        Container.ExecResult execResult1 = container.executeJob("/http_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult1.getExitCode());
 
-    public String getITTestConf() {
-        return "/http_json_to_assert.conf";
+        // http github
+        Container.ExecResult execResult2 = container.executeJob("/github_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult2.getExitCode());
+
+        // http gitlab
+        Container.ExecResult execResult3 = container.executeJob("/gitlab_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult3.getExitCode());
+
+        // http content json
+        Container.ExecResult execResult4 = container.executeJob("/http_contentjson_to_assert.conf");
+        Assertions.assertEquals(0, execResult4.getExitCode());
+
+        // http jsonpath
+        Container.ExecResult execResult5 = container.executeJob("/http_jsonpath_to_assert.conf");
+        Assertions.assertEquals(0, execResult5.getExitCode());
+
+        // http jira
+        Container.ExecResult execResult6 = container.executeJob("/jira_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult6.getExitCode());
+
+        // http klaviyo
+        Container.ExecResult execResult7 = container.executeJob("/klaviyo_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult7.getExitCode());
+
+        // http lemlist
+        Container.ExecResult execResult8 = container.executeJob("/lemlist_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult8.getExitCode());
+
+        // http notion
+        Container.ExecResult execResult9 = container.executeJob("/notion_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult9.getExitCode());
+
+        // http onesignal
+        Container.ExecResult execResult10 = container.executeJob("/onesignal_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult10.getExitCode());
+
+        // http persistiq
+        Container.ExecResult execResult11 = container.executeJob("/persistiq_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult11.getExitCode());
+
+        // http httpMultiLine
+        Container.ExecResult execResult12 =
+                container.executeJob("/http_multilinejson_to_assert.conf");
+        Assertions.assertEquals(0, execResult12.getExitCode());
     }
 
     public String getMockServerConfig() {
