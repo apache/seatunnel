@@ -73,6 +73,8 @@
 - [Maxcompute] Fix some data type parse fail #3894
 - [Doris] Fix content-length header already present #4277
 - [Iceberg] Fix iceberg source stream mode init error #4638
+- [Pulsar] Fix missing SLF4JBridgeHandler #4706 & #4118
+- [Pulsar] Fix the unreasonable shutdown of consumer #4684
 
 ### Zeta Engine
 - [Checkpoint] Fix Checkpoint Continue Trigger After Job CANCELED #3808

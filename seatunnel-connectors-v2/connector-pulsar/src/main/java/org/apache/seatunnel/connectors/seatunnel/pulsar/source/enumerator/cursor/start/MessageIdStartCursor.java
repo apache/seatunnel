@@ -30,7 +30,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class MessageIdStartCursor implements StartCursor {
     private static final long serialVersionUID = 1L;
 
-    private final MessageId messageId;
+    private MessageId messageId;
 
     /**
      * The default {@code inclusive} behavior should be controlled in {@link
@@ -60,6 +60,12 @@ public class MessageIdStartCursor implements StartCursor {
 
     @Override
     public void seekPosition(Consumer<?> consumer) throws PulsarClientException {
+        // Set "MessageId.latest" as startMessageId value, can't get any message.
+        // But set the "consumer's lastMessageId" is working,which can consume the latest message
+        // in pulsar.
+        if (MessageId.latest.equals(messageId)) {
+            messageId = consumer.getLastMessageId();
+        }
         consumer.seek(messageId);
     }
 }
