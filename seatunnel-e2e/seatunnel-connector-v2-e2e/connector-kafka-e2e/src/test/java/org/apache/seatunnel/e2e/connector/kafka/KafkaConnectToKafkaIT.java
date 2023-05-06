@@ -48,6 +48,7 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.google.common.collect.Lists;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -57,13 +58,11 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
@@ -71,7 +70,7 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.SEATUNNEL})
+        type = {EngineType.SPARK})
 public class KafkaConnectToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaConnectToKafkaIT.class);
@@ -186,14 +185,14 @@ public class KafkaConnectToKafkaIT extends TestSuiteBase implements TestResource
         Container.ExecResult execResult =
                 container.executeJob("/kafkasource_jdbc_record_to_mysql.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        Set<List<Object>> actual = new HashSet<>();
+        List<Object> actual = new ArrayList<>();
         try (Connection connection =
                 DriverManager.getConnection(
                         MYSQL_CONTAINER.getJdbcUrl(),
                         MYSQL_CONTAINER.getUsername(),
                         MYSQL_CONTAINER.getPassword())) {
             try (Statement statement = connection.createStatement()) {
-                ResultSet resultSet = statement.executeQuery("select * from jdbc_sink");
+                ResultSet resultSet = statement.executeQuery("select * from jdbc_sink order by id");
                 while (resultSet.next()) {
                     List<Object> row =
                             Arrays.asList(
@@ -205,12 +204,12 @@ public class KafkaConnectToKafkaIT extends TestSuiteBase implements TestResource
                 }
             }
         }
-        Set<List<Object>> expected =
-                Stream.<List<Object>>of(
-                                Arrays.asList(15, "test", "test", "20"),
-                                Arrays.asList(16, "test-001", "test", "30"),
-                                Arrays.asList(18, "sdc", "sdc", "sdc"))
-                        .collect(Collectors.toSet());
+
+        List<Object> expected =
+                Lists.newArrayList(
+                        Arrays.asList(15, "test", "test", "20"),
+                        Arrays.asList(16, "test-001", "test", "30"),
+                        Arrays.asList(18, "sdc", "sdc", "sdc"));
         Assertions.assertIterableEquals(expected, actual);
     }
 
@@ -220,14 +219,15 @@ public class KafkaConnectToKafkaIT extends TestSuiteBase implements TestResource
         Container.ExecResult execResult =
                 container.executeJob("/kafkasource_debezium_record_to_mysql.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        Set<List<Object>> actual = new HashSet<>();
+        List<Object> actual = new ArrayList<>();
         try (Connection connection =
                 DriverManager.getConnection(
                         MYSQL_CONTAINER.getJdbcUrl(),
                         MYSQL_CONTAINER.getUsername(),
                         MYSQL_CONTAINER.getPassword())) {
             try (Statement statement = connection.createStatement()) {
-                ResultSet resultSet = statement.executeQuery("select * from debezium_sink");
+                ResultSet resultSet =
+                        statement.executeQuery("select * from debezium_sink order by id");
                 while (resultSet.next()) {
                     List<Object> row =
                             Arrays.asList(
@@ -239,12 +239,11 @@ public class KafkaConnectToKafkaIT extends TestSuiteBase implements TestResource
                 }
             }
         }
-        Set<List<Object>> expected =
-                Stream.<List<Object>>of(
-                                Arrays.asList(15, "test", "test", "20"),
-                                Arrays.asList(16, "test-001", "test", "30"),
-                                Arrays.asList(18, "sdc", "sdc", "sdc"))
-                        .collect(Collectors.toSet());
+        List<Object> expected =
+                Lists.newArrayList(
+                        Arrays.asList(15, "test", "test", "20"),
+                        Arrays.asList(16, "test-001", "test", "30"),
+                        Arrays.asList(18, "sdc", "sdc", "sdc"));
         Assertions.assertIterableEquals(expected, actual);
     }
 
