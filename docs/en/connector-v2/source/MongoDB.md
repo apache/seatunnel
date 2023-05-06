@@ -44,14 +44,10 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 | Boolean           | BOOLEAN        |
 | Binary            | BINARY         |
 | Int32             | INTEGER        |
-| -                 | TINYINT        |
-| -                 | SMALLINT       |
 | Int64             | BIGINT         |
 | Double            | DOUBLE         |
-| -                 | FLOAT          |
 | Decimal128        | DECIMAL        |
 | Date              | Date           |
-| -                 | TIME           |
 | Timestamp         | Timestamp      |
 | Object            | ROW            |
 | Array             | ARRAY          |
@@ -89,7 +85,7 @@ Connector Options
 How to create a MongoDB Data synchronization jobs
 -------------------------------------------------
 
-The example below shows how to create a MongoDB data synchronization jobs:
+The following example demonstrates how to create a data synchronization job that reads data from MongoDB and prints it on the local client:
 
 ```bash
 # Set the basic configuration of the task to be performed

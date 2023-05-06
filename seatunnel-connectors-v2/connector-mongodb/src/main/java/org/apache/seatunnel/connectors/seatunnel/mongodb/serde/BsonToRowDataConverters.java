@@ -204,7 +204,7 @@ public class BsonToRowDataConverters implements Serializable {
             case ARRAY:
                 return createArrayConverter((ArrayType<?, ?>) type);
             case MAP:
-                MapType mapType = (MapType) type;
+                MapType<?, ?> mapType = (MapType<?, ?>) type;
                 return createMapConverter(
                         mapType.toString(), mapType.getKeyType(), mapType.getValueType());
 

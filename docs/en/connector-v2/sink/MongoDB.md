@@ -15,12 +15,8 @@ Support those engines
 Key featuresl
 -------------
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [x] [support user-defined split](../../concept/connector-v2-features.md)
+- [ ] [cdc](../../concept/connector-v2-features.md)
 
 Dependencies
 ------------
@@ -51,7 +47,6 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 | FLOAT          | Double            |
 | DECIMAL        | Decimal128        |
 | Date           | Date              |
-| TIME           | -                 |
 | Timestamp      | Timestamp[Date]   |
 | ROW            | Object            |
 | ARRAY          | Array             |
@@ -80,7 +75,7 @@ Connector Options
 How to create a MongoDB Data synchronization jobs
 -------------------------------------------------
 
-The example below shows how to create a MongoDB data synchronization jobs:
+The following example demonstrates how to create a data synchronization job that writes randomly generated data to a MongoDB database:
 
 ```bash
 # Set the basic configuration of the task to be performed
