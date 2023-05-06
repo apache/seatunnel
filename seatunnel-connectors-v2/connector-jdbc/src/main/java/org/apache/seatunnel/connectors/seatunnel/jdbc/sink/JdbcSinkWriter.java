@@ -84,6 +84,7 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
     @Override
     public Optional<XidInfo> prepareCommit() throws IOException {
         tryOpen();
+        outputFormat.checkFlushException();
         outputFormat.flush();
         try {
             if (!connectionProvider.getConnection().getAutoCommit()) {
