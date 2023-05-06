@@ -89,13 +89,20 @@ if [ -e "${CONF_DIR}/log4j2.properties" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-server"
 fi
 
+# Server Debug Config
+# Usage instructions:
+# If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
+# port in your IDE. After that, you can happily debug your code.
+# JAVA_OPTS="${JAVA_OPTS} -Xrunjdwp:server=y,transport=dt_socket,address=8000,suspend=n"
+
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 
-ST_TMPDIR=`java -cp ${CLASS_PATH} org.apache.seatunnel.core.starter.seatunnel.jvm.TempDirectory`
-# The JVM options parser produces the final JVM options to start seatunnel-engine.
-JVM_OPTIONS=`java -cp ${CLASS_PATH} org.apache.seatunnel.core.starter.seatunnel.jvm.JvmOptionsParser ${CONF_DIR}/jvm_options`
-JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTIONS//\$\{loggc\}/${ST_TMPDIR}}"
-echo "JAVA_OPTS:" ${JAVA_OPTS}
+while read line
+do
+    if [[ ! $line == \#* ]] && [ -n "$line" ]; then
+        JAVA_OPTS="$JAVA_OPTS $line"
+    fi
+done < ${APP_DIR}/config/jvm_options
 
 if [[ $DAEMON == true && $HELP == false ]]; then
  touch $OUT
@@ -103,4 +110,3 @@ if [[ $DAEMON == true && $HELP == false ]]; then
  else
  java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
 fi
-
