@@ -14,12 +14,6 @@ The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent
 
 - [x] [cdc](../../concept/connector-v2-features.md)
 
-:::tip
-
-Write data to Clickhouse can also be done using JDBC
-
-:::
-
 ## Options
 
 |                 name                  |  type   | required | default value |
