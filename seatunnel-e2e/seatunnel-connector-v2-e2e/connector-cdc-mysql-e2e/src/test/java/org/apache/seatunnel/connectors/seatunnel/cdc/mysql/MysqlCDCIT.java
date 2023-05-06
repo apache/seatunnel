@@ -66,7 +66,7 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
     private final UniqueDatabase inventoryDatabase =
             new UniqueDatabase(MYSQL_CONTAINER, MYSQL_DATABASE, "mysqluser", "mysqlpw");
 
-    // mysql statement
+    // mysql source table query sql
     private static final String SOURCE_SQL =
             "select id, cast(f_binary as char) as f_binary, cast(f_blob as char) as f_blob, cast(f_long_varbinary as char) as f_long_varbinary,"
                     + " cast(f_longblob as char) as f_longblob, cast(f_tinyblob as char) as f_tinyblob, cast(f_varbinary as char) as f_varbinary,"
@@ -75,6 +75,7 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                     + " f_text, f_tinytext, f_varchar, f_date, f_datetime, f_timestamp, f_bit1, cast(f_bit64 as char) as f_bit64, f_char,"
                     + " f_enum, cast(f_mediumblob as char) as f_mediumblob, f_long_varchar, f_real, f_time, f_tinyint, f_tinyint_unsigned,"
                     + " f_json, f_year from mysql_cdc_e2e_source_table";
+    // mysql sink table query sql
     private static final String SINK_SQL =
             "select id, cast(f_binary as char) as f_binary, cast(f_blob as char) as f_blob, cast(f_long_varbinary as char) as f_long_varbinary,"
                     + " cast(f_longblob as char) as f_longblob, cast(f_tinyblob as char) as f_tinyblob, cast(f_varbinary as char) as f_varbinary,"
@@ -82,7 +83,7 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                     + " f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double, f_double_precision, f_longtext, f_mediumtext,"
                     + " f_text, f_tinytext, f_varchar, f_date, f_datetime, f_timestamp, f_bit1, cast(f_bit64 as char) as f_bit64, f_char,"
                     + " f_enum, cast(f_mediumblob as char) as f_mediumblob, f_long_varchar, f_real, f_time, f_tinyint, f_tinyint_unsigned,"
-                    + " f_json, cast(f_year as year) from mysql_cdc_e2e_source_table";
+                    + " f_json, cast(f_year as year) from mysql_cdc_e2e_sink_table";
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         MySqlContainer mySqlContainer =
@@ -119,7 +120,7 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                 CompletableFuture.supplyAsync(
                         () -> {
                             try {
-                                container.executeJob("/mysqlcdc_to_console.conf");
+                                container.executeJob("/mysqlcdc_to_mysql.conf");
                             } catch (Exception e) {
                                 log.error("Commit task exception :" + e.getMessage());
                                 throw new RuntimeException(e);
@@ -228,6 +229,8 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
     @AfterAll
     public void tearDown() {
         // close Container
-        MYSQL_CONTAINER.close();
+        if (MYSQL_CONTAINER != null) {
+            MYSQL_CONTAINER.close();
+        }
     }
 }
