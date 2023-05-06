@@ -150,8 +150,7 @@ public interface JdbcDialect extends Serializable {
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
                         .collect(Collectors.joining(" AND "));
         return String.format(
-                "DELETE FROM %s WHERE %s",
-                tableIdentifier(database, tableName), conditionClause);
+                "DELETE FROM %s WHERE %s", tableIdentifier(database, tableName), conditionClause);
     }
 
     /**
