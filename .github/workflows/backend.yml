@@ -19,8 +19,12 @@ name: Backend
 on:
   push:
     branches:
-      - dev
+      - business-dev
+      - "v[0-9]+.[0-9]+.[0-9]+-release"
   pull_request:
+    branches:
+      - business-dev
+      - "v[0-9]+.[0-9]+.[0-9]+-release"
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
