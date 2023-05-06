@@ -296,6 +296,18 @@
   },
   {
     "httpRequest": {
+      "method" : "GET",
+      "path": "/example/httpMultiLine"
+    },
+    "httpResponse": {
+      "body": "{\"age\":22,\"name\":\"Jone\",\"salary\":1000} \r\n {\"age\":24,\"name\":\"vieech\",\"salary\":3000}",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
       "secure": true,
       "method" : "GET",
       "path": "/example/https"
