@@ -17,22 +17,23 @@ Used to read data from Github.
 
 ## Options
 
-|            name             |  type  | required | default value |
-|-----------------------------|--------|----------|---------------|
-| url                         | String | Yes      | -             |
-| access_token                | String | No       | -             |
-| method                      | String | No       | get           |
-| schema.fields               | Config | No       | -             |
-| format                      | String | No       | json          |
-| params                      | Map    | No       | -             |
-| body                        | String | No       | -             |
-| json_field                  | Config | No       | -             |
-| content_json                | String | No       | -             |
-| poll_interval_ms            | int    | No       | -             |
-| retry                       | int    | No       | -             |
-| retry_backoff_multiplier_ms | int    | No       | 100           |
-| retry_backoff_max_ms        | int    | No       | 10000         |
-| common-options              | config | No       | -             |
+|            name             |  type   | required | default value |
+|-----------------------------|---------|----------|---------------|
+| url                         | String  | Yes      | -             |
+| access_token                | String  | No       | -             |
+| method                      | String  | No       | get           |
+| schema.fields               | Config  | No       | -             |
+| format                      | String  | No       | json          |
+| params                      | Map     | No       | -             |
+| body                        | String  | No       | -             |
+| json_field                  | Config  | No       | -             |
+| content_json                | String  | No       | -             |
+| poll_interval_ms            | int     | No       | -             |
+| retry                       | int     | No       | -             |
+| retry_backoff_multiplier_ms | int     | No       | 100           |
+| retry_backoff_max_ms        | int     | No       | 10000         |
+| enable_multi_lines          | boolean | No       | false         |
+| common-options              | config  | No       | -             |
 
 ### url [String]
 
@@ -202,7 +203,7 @@ Http {
 
 Here is an example:
 
-- Test data can be found at this link [mockserver-contentjson-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-contentjson-config.json)
+- Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
 - See this link for task configuration [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
 
 ### json_field [Config]
@@ -263,7 +264,7 @@ source {
 }
 ```
 
-- Test data can be found at this link [mockserver-jsonpath-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-jsonpath-config.json)
+- Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
 - See this link for task configuration [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
 
 ### common options

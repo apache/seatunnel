@@ -144,6 +144,18 @@ public abstract class AbstractTestContainer implements TestContainer {
                     container.getDockerImageName(),
                     execResult.getStderr());
         }
+
+        if (execResult.getExitCode() != 0) {
+            LOG.info(
+                    "Execute config file: {} to Container[{}] Server Log:"
+                            + "\n==================== Server Log start ====================\n"
+                            + "{}"
+                            + "\n==================== Server Log end   ====================",
+                    configPath,
+                    container.getDockerImageName(),
+                    container.getLogs());
+        }
+
         return execResult;
     }
 }

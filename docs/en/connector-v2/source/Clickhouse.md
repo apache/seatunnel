@@ -18,12 +18,6 @@ supports query SQL and can achieve projection effect.
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-:::tip
-
-Reading data from Clickhouse can also be done using JDBC
-
-:::
-
 ## Options
 
 |      name      |  type  | required | default value |
