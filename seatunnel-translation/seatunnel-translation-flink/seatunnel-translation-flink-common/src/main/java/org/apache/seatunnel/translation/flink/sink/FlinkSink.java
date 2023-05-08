@@ -65,7 +65,7 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
             List<WriterStateT> restoredState =
                     states.stream().map(FlinkWriterState::getState).collect(Collectors.toList());
             return new FlinkSinkWriter<>(
-                    sink.restoreWriter(stContext, con'c'k),
+                    sink.restoreWriter(stContext, restoredState),
                     states.get(0).getCheckpointId() + 1,
                     sink.getConsumedType());
         }
