@@ -109,7 +109,6 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         TRANSACTION_TIMEOUT_SEC)
                 .conditional(IS_EXACTLY_ONCE, false, MAX_RETRIES)
                 .conditional(GENERATE_SINK_SQL, true, DATABASE)
-                .conditional(GENERATE_SINK_SQL, true, TABLE)
                 .conditional(GENERATE_SINK_SQL, false, QUERY)
                 .build();
     }
