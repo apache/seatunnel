@@ -367,12 +367,10 @@ public class OracleCatalog implements Catalog {
     private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
         String columnType = metadata.getColumnTypeName(colIndex);
-        int precision = metadata.getPrecision(colIndex);
-        int scale = metadata.getScale(colIndex);
-        OracleDataType oracleDataType = OracleDataTypeParser.parse(columnType);
-        return DATA_TYPE_CONVERTOR.toSeaTunnelType(
-                oracleDataType.getOracleType(),
-                OracleDataType.getDataTypeProperties(precision, scale));
+        Map<String, Object> dataTypeProperties = new HashMap<>();
+        dataTypeProperties.put(OracleDataTypeConvertor.PRECISION, metadata.getPrecision(colIndex));
+        dataTypeProperties.put(OracleDataTypeConvertor.SCALE, metadata.getScale(colIndex));
+        return DATA_TYPE_CONVERTOR.toSeaTunnelType(columnType, dataTypeProperties);
     }
 
     @SuppressWarnings("MagicNumber")
