@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.io.Serializable;
@@ -41,25 +44,82 @@ public class StreamLoadResponse implements Serializable {
 
     @Setter
     @Getter
+    @NoArgsConstructor
     public static class StreamLoadResponseBody implements Serializable {
+        @JsonProperty("TxnId")
+        @SuppressWarnings("checkstyle:MemberName")
         private Long txnId;
+
+        @JsonProperty("Label")
+        @SuppressWarnings("checkstyle:MemberName")
         private String label;
+
+        @JsonProperty("State")
+        @SuppressWarnings("checkstyle:MemberName")
         private String state;
+
+        @JsonProperty("Status")
+        @SuppressWarnings("checkstyle:MemberName")
         private String status;
+
+        @JsonProperty("ExistingJobStatus")
+        @SuppressWarnings("checkstyle:MemberName")
         private String existingJobStatus;
+
+        @JsonProperty("Message")
+        @SuppressWarnings("checkstyle:MemberName")
         private String message;
+
+        @JsonProperty("Msg")
+        @SuppressWarnings("checkstyle:MemberName")
         private String msg;
+
+        @JsonProperty("NumberTotalRows")
+        @SuppressWarnings("checkstyle:MemberName")
         private Long numberTotalRows;
+
+        @JsonProperty("NumberLoadedRows")
+        @SuppressWarnings("checkstyle:MemberName")
         private Long numberLoadedRows;
+
+        @JsonProperty("NumberFilteredRows")
+        @SuppressWarnings("checkstyle:MemberName")
         private Long numberFilteredRows;
+
+        @JsonProperty("NumberUnselectedRows")
+        @SuppressWarnings("checkstyle:MemberName")
         private Long numberUnselectedRows;
+
+        @JsonProperty("ErrorURL")
+        @SuppressWarnings("checkstyle:MemberName")
         private String errorURL;
+
+        @JsonProperty("LoadBytes")
+        @SuppressWarnings("checkstyle:MemberName")
         private Long loadBytes;
+
+        @JsonProperty("LoadTimeMs")
+        @SuppressWarnings("checkstyle:MemberName")
         private Long loadTimeMs;
+
+        @JsonProperty("BeginTxnTimeMs")
+        @SuppressWarnings("checkstyle:MemberName")
         private Long beginTxnTimeMs;
+
+        @JsonProperty("StreamLoadPlanTimeMs")
+        @SuppressWarnings("checkstyle:MemberName")
         private Long streamLoadPlanTimeMs;
+
+        @JsonProperty("ReceivedDataTimeMs")
+        @SuppressWarnings("checkstyle:MemberName")
         private Long readDataTimeMs;
+
+        @JsonProperty("WriteDataTimeMs")
+        @SuppressWarnings("checkstyle:MemberName")
         private Long writeDataTimeMs;
+
+        @JsonProperty("CommitAndPublishTimeMs")
+        @SuppressWarnings("checkstyle:MemberName")
         private Long commitAndPublishTimeMs;
     }
 }

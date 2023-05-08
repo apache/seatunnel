@@ -21,10 +21,12 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.LabelGenerator;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StarRocksSinkManager;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StarRocksSinkManagerV2;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadManager;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksCsvSerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksISerializer;
@@ -50,35 +52,55 @@ public class StarRocksSinkWriter
     private final StarRocksISerializer serializer;
     private final StreamLoadManager manager;
     private SinkConfig sinkConfig;
+    private long lastCheckpointId;
+    private LabelGenerator labelGenerator;
 
     public StarRocksSinkWriter(
+            SinkWriter.Context context,
             SinkConfig sinkConfig,
             SeaTunnelRowType seaTunnelRowType,
             List<StarRocksSinkState> starRocksSinkStates) {
+
         this.sinkConfig = sinkConfig;
         List<String> fieldNames =
                 Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
         if (sinkConfig.isEnableUpsertDelete()) {
             fieldNames.add(StarRocksSinkOP.COLUMN_KEY);
         }
-
+        labelGenerator = new LabelGenerator(sinkConfig);
         this.serializer = createSerializer(sinkConfig, seaTunnelRowType);
         this.manager =
                 sinkConfig.isEnable2PC()
-                        ? new StarRocksSinkManagerV2(sinkConfig)
-                        : new StarRocksSinkManager(sinkConfig, fieldNames);
-        // restore to re commit transaction
-        if (!starRocksSinkStates.isEmpty()) {
-            try {
-                manager.commit(starRocksSinkStates.get(0).getCheckpointId());
-            } catch (Exception e) {
-                String errorMsg =
-                        String.format(
-                                "Try to commit starRocks sinkStates %s failed",
-                                starRocksSinkStates);
-                throw new StarRocksConnectorException(
-                        CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+                        ? new StarRocksSinkManagerV2(labelGenerator, sinkConfig, context)
+                        : new StarRocksSinkManager(labelGenerator, sinkConfig, fieldNames);
+        manager.init();
+        this.lastCheckpointId =
+                starRocksSinkStates.size() != 0 ? starRocksSinkStates.get(0).getCheckpointId() : 0;
+
+        if (sinkConfig.isEnable2PC()) {
+            // restore to re commit transaction
+            if (!starRocksSinkStates.isEmpty()) {
+                log.info("restore checkpointId {}", lastCheckpointId);
+                // abort all transaction number bigger than current transaction, because they maybe
+                // already start
+                //  transaction.
+                try {
+                    for (StarRocksSinkState state : starRocksSinkStates) {
+
+                        log.info(
+                                "abort prev transaction , start lastCheckpointId : {}, getSubTaskIndex : {}",
+                                lastCheckpointId + 1,
+                                context.getIndexOfSubtask());
+                        manager.abort(lastCheckpointId + 1, context.getIndexOfSubtask());
+                    }
+
+                } catch (Exception e) {
+                    throw new StarRocksConnectorException(
+                            StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, e);
+                }
+
             }
+            manager.beginTransaction(lastCheckpointId + 1);
         }
     }
 
@@ -107,12 +129,13 @@ public class StarRocksSinkWriter
     }
 
     @Override
-    public void abortPrepare() {
+    public void abortPrepare() throws Exception {
         if (sinkConfig.isEnable2PC()) {
             manager.abort();
         }
     }
 
+    @Override
     public List<StarRocksSinkState> snapshotState(long checkpointId) throws IOException {
         if (sinkConfig.isEnable2PC()) {
             return manager.snapshot(checkpointId);

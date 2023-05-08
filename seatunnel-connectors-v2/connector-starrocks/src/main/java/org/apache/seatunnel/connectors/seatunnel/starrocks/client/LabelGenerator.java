@@ -15,43 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
+package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadResponse;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 
-import java.util.concurrent.Future;
+import java.util.UUID;
 
-public interface TableRegion {
+/** Generator label for stream load. */
+public class LabelGenerator {
+    private String labelPrefix;
+    private boolean enable2PC;
 
-    String getDatabase();
+    public LabelGenerator(SinkConfig sinkConfig) {
+        this.labelPrefix = sinkConfig.getLabelPrefix();
+        this.enable2PC = sinkConfig.isEnable2PC();
+    }
 
-    String getTable();
+    public String genLabel(long chkId, int subTaskIndex) {
+        return enable2PC
+                ? labelPrefix + "_" + chkId + "_" + subTaskIndex
+                : labelPrefix + "_" + UUID.randomUUID();
+    }
 
-    void setLabel(String label);
-
-    String getLabel();
-
-    long getCacheBytes();
-
-    byte[] read();
-
-    StreamLoadDataFormat getDataFormat();
-
-    int write(byte[] row);
-
-    boolean flush();
-
-    void callback(StreamLoadResponse response);
-
-    void callback(Throwable e);
-
-    void complete(StreamLoadResponse response);
-
-    StreamLoadEntityMeta getEntityMeta();
-
-    void setResult(Future<?> result);
-
-    Future<?> getResult();
-
-    boolean isFlushing();
+    public String genLabel() {
+        return labelPrefix + "_" + UUID.randomUUID();
+    }
 }

@@ -26,9 +26,6 @@ import java.util.Map;
 
 @SuppressWarnings("MagicNumber")
 public interface StarRocksSinkOptions {
-    public static final long KILO_BYTES_SCALE = 1024L;
-    public static final long MEGA_BYTES_SCALE = KILO_BYTES_SCALE * KILO_BYTES_SCALE;
-    public static final long GIGA_BYTES_SCALE = MEGA_BYTES_SCALE * KILO_BYTES_SCALE;
 
     Option<List<String>> NODE_URLS =
             Options.key("nodeUrls")
@@ -141,7 +138,7 @@ public interface StarRocksSinkOptions {
     Option<Long> SINK_CHUNK_LIMIT =
             Options.key("starrocks.config.chunk_limit")
                     .longType()
-                    .defaultValue(3 * GIGA_BYTES_SCALE)
+                    .defaultValue((long) 3 * 1024 * 1024 * 1024)
                     .withDescription("Data chunk size in a http request for stream load");
 
     Option<Boolean> ENABLE_2PC =
@@ -149,4 +146,10 @@ public interface StarRocksSinkOptions {
                     .booleanType()
                     .defaultValue(true)
                     .withDescription("enable 2PC while loading");
+
+    Option<Long> FLUSH_FREQUENCY_ON_EOS =
+            Options.key("flush_frequency_ms")
+                    .longType()
+                    .defaultValue(50L)
+                    .withDescription("flush frequency ON EOS semantics");
 }

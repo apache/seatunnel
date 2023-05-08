@@ -24,7 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksCo
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.committer.StarRocksCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.state.StarRocksSinkState;
 
-import com.google.common.base.Strings;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,7 +32,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -53,12 +51,15 @@ public class StarRocksSinkManager implements StreamLoadManager {
     private int batchRowCount = 0;
     private long batchBytesSize = 0;
     private final Integer batchIntervalMs;
+    private LabelGenerator labelGenerator;
 
-    public StarRocksSinkManager(SinkConfig sinkConfig, List<String> fileNames) {
+    public StarRocksSinkManager(
+            LabelGenerator labelGenerator, SinkConfig sinkConfig, List<String> fileNames) {
         this.sinkConfig = sinkConfig;
         this.batchList = new ArrayList<>();
         this.batchIntervalMs = sinkConfig.getBatchIntervalMs();
-        starrocksStreamLoadVisitor = new StarRocksStreamLoadVisitor(sinkConfig, fileNames);
+        this.starrocksStreamLoadVisitor = new StarRocksStreamLoadVisitor(sinkConfig, fileNames);
+        this.labelGenerator = labelGenerator;
     }
 
     private void tryInit() throws IOException {
@@ -119,12 +120,15 @@ public class StarRocksSinkManager implements StreamLoadManager {
         flush();
     }
 
+    @Override
+    public void beginTransaction(long checkpointId) {}
+
     public synchronized void flush() throws IOException {
         checkFlushException();
         if (batchList.isEmpty()) {
             return;
         }
-        String label = createBatchLabel();
+        String label = labelGenerator.genLabel();
         StarRocksFlushTuple tuple =
                 new StarRocksFlushTuple(label, batchBytesSize, new ArrayList<>(batchList));
         for (int i = 0; i <= sinkConfig.getMaxRetries(); i++) {
@@ -144,7 +148,7 @@ public class StarRocksSinkManager implements StreamLoadManager {
 
                 if (e instanceof StarRocksConnectorException
                         && ((StarRocksConnectorException) e).needReCreateLabel()) {
-                    String newLabel = createBatchLabel();
+                    String newLabel = labelGenerator.genLabel();
                     log.warn(
                             String.format(
                                     "Batch label changed from [%s] to [%s]",
@@ -181,7 +185,12 @@ public class StarRocksSinkManager implements StreamLoadManager {
     }
 
     @Override
-    public boolean commit(long checkpointId) {
+    public boolean commit(String transactionId) {
+        return false;
+    }
+
+    @Override
+    public boolean abort(long checkpointId, int subTaskIndex) {
         return false;
     }
 
@@ -195,13 +204,5 @@ public class StarRocksSinkManager implements StreamLoadManager {
             throw new StarRocksConnectorException(
                     StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, flushException);
         }
-    }
-
-    public String createBatchLabel() {
-        StringBuilder sb = new StringBuilder();
-        if (!Strings.isNullOrEmpty(sinkConfig.getLabelPrefix())) {
-            sb.append(sinkConfig.getLabelPrefix());
-        }
-        return sb.append(UUID.randomUUID()).toString();
     }
 }

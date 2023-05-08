@@ -37,6 +37,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksSinkStateSerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.committer.StarRocksCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.committer.StarRocksCommitInfoSerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.committer.StarRocksCommitter;
@@ -62,7 +63,6 @@ public class StarRocksSink
     private SeaTunnelRowType seaTunnelRowType;
     private SinkConfig sinkConfig;
     private DataSaveMode dataSaveMode;
-
     private CatalogTable catalogTable;
 
     public StarRocksSink(
@@ -123,13 +123,14 @@ public class StarRocksSink
     @Override
     public SinkWriter<SeaTunnelRow, StarRocksCommitInfo, StarRocksSinkState> createWriter(
             SinkWriter.Context context) {
-        return new StarRocksSinkWriter(sinkConfig, seaTunnelRowType, Collections.emptyList());
+        return new StarRocksSinkWriter(
+                context, sinkConfig, seaTunnelRowType, Collections.emptyList());
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, StarRocksCommitInfo, StarRocksSinkState> restoreWriter(
             SinkWriter.Context context, List<StarRocksSinkState> states) {
-        return new StarRocksSinkWriter(sinkConfig, seaTunnelRowType, states);
+        return new StarRocksSinkWriter(context, sinkConfig, seaTunnelRowType, states);
     }
 
     @Override
@@ -140,6 +141,11 @@ public class StarRocksSink
     @Override
     public Optional<Serializer<StarRocksCommitInfo>> getCommitInfoSerializer() {
         return Optional.of(new StarRocksCommitInfoSerializer());
+    }
+
+    @Override
+    public Optional<Serializer<StarRocksSinkState>> getWriterStateSerializer() {
+        return Optional.of(new StarRocksSinkStateSerializer());
     }
 
     @Override

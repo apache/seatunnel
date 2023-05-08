@@ -31,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.regex.Pattern;
 
 @Slf4j
 public class StreamLoadHelper {
@@ -48,6 +49,9 @@ public class StreamLoadHelper {
     public static final String RESULT_SUCCESS = "Success";
     public static final String RESULT_OK = "OK";
     public static final String RESULT_LABEL_EXISTED = "Label Already Exists";
+    public static final String RESULT_TRANSACTION_EXIST_FINISHED = "FINISHED";
+    public static final String RESULT_TRANSACTION_EXIST_RUNNING = "RUNNING";
+
     public static final String RESULT_LABEL_VISIBLE = "VISIBLE";
     public static final String RESULT_LABEL_COMMITTED = "COMMITTED";
     public static final String RESULT_LABEL_PREPARE = "PREPARE";
@@ -57,6 +61,11 @@ public class StreamLoadHelper {
     public static final String RESULT_TRANSACTION_NOT_EXISTED = "TXN_NOT_EXISTS";
     public static final String RESULT_TRANSACTION_COMMIT_TIMEOUT = "Commit Timeout";
     public static final String RESULT_TRANSACTION_PUBLISH_TIMEOUT = "Publish Timeout";
+
+    public static final Pattern LABEL_EXIST_PATTERN =
+            Pattern.compile(
+                    "errCode = 2, detailMessage = Label \\[(.*)\\] "
+                            + "has already been used, relate to txn \\[(\\d+)\\]");
     private int pos;
 
     private static final int ERROR_LOG_MAX_LENGTH = 3000;

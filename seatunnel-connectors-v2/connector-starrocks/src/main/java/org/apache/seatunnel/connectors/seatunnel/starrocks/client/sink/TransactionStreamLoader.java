@@ -20,12 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.LabelGenerator;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadResponse;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadSnapshot;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
@@ -33,6 +33,7 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -47,7 +48,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.PATH_TRANSACTION_BEGIN;
@@ -55,20 +60,24 @@ import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.St
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.PATH_TRANSACTION_PRE_COMMIT;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.PATH_TRANSACTION_ROLLBACK;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.PATH_TRANSACTION_SEND;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_COMMITTED;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_EXISTED;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_PREPARE;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_VISIBLE;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_OK;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_SUCCESS;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_TRANSACTION_EXIST_FINISHED;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_TRANSACTION_EXIST_RUNNING;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_TRANSACTION_PUBLISH_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode.FLUSH_DATA_FAILED;
 
 @Slf4j
 public class TransactionStreamLoader implements StreamLoader {
 
-    public TransactionStreamLoader(SinkConfig sinkConfig) {
-        this.sinkConfig = sinkConfig;
-    }
-
     private Header[] defaultTxnHeaders;
 
     private Header[] beginTxnHeader;
+    private Header[] sendHeader;
 
     private HttpClientBuilder clientBuilder;
 
@@ -77,27 +86,17 @@ public class TransactionStreamLoader implements StreamLoader {
     private SinkConfig sinkConfig;
     private final StreamLoadHelper streamLoadHelper = new StreamLoadHelper();
 
-    protected void initTxHeaders() {
-        Map<String, String> headers = new HashMap<>();
-        headers.put(
-                HttpHeaders.AUTHORIZATION,
-                StreamLoadHelper.getBasicAuthHeader(
-                        sinkConfig.getUsername(), sinkConfig.getPassword()));
+    private ExecutorService executorService;
+    private LabelGenerator labelGenerator;
 
-        this.defaultTxnHeaders =
-                headers.entrySet().stream()
-                        .map(entry -> new BasicHeader(entry.getKey(), entry.getValue()))
-                        .toArray(Header[]::new);
-        Map<String, String> beginHeaders = new HashMap<>(headers);
-
-        this.beginTxnHeader =
-                beginHeaders.entrySet().stream()
-                        .map(entry -> new BasicHeader(entry.getKey(), entry.getValue()))
-                        .toArray(Header[]::new);
+    public TransactionStreamLoader(SinkConfig sinkConfig, StreamLoadManager manager) {
+        this(sinkConfig);
+        this.manager = manager;
+        this.labelGenerator = new LabelGenerator(sinkConfig);
     }
 
-    public void start(SinkConfig properties, StreamLoadManager manager) {
-        this.manager = manager;
+    public TransactionStreamLoader(SinkConfig sinkConfig) {
+        this.sinkConfig = sinkConfig;
         initTxHeaders();
         clientBuilder =
                 HttpClients.custom()
@@ -108,29 +107,197 @@ public class TransactionStreamLoader implements StreamLoader {
                                         return true;
                                     }
                                 });
+
+        ThreadPoolExecutor threadPoolExecutor =
+                new ThreadPoolExecutor(
+                        10,
+                        10,
+                        10,
+                        TimeUnit.SECONDS,
+                        new LinkedBlockingQueue<>(),
+                        r -> {
+                            Thread thread =
+                                    new Thread(
+                                            null, r, "I/O client dispatch - " + UUID.randomUUID());
+                            thread.setDaemon(true);
+                            thread.setUncaughtExceptionHandler(
+                                    (t, e) -> {
+                                        log.error(
+                                                "Stream loader "
+                                                        + Thread.currentThread().getName()
+                                                        + " error",
+                                                e);
+                                        manager.callback(e);
+                                    });
+                            return thread;
+                        });
+        threadPoolExecutor.allowCoreThreadTimeOut(true);
+        this.executorService = threadPoolExecutor;
+    }
+
+    protected void initTxHeaders() {
+        Map<String, String> headers = new HashMap<>();
+        headers.put(
+                HttpHeaders.AUTHORIZATION,
+                StreamLoadHelper.getBasicAuthHeader(
+                        sinkConfig.getUsername(), sinkConfig.getPassword()));
+        this.defaultTxnHeaders =
+                headers.entrySet().stream()
+                        .map(entry -> new BasicHeader(entry.getKey(), entry.getValue()))
+                        .toArray(Header[]::new);
+
+        Map<String, String> beginHeaders = new HashMap<>(headers);
+        beginHeaders.put("timeout", "600");
+        this.beginTxnHeader =
+                beginHeaders.entrySet().stream()
+                        .map(entry -> new BasicHeader(entry.getKey(), entry.getValue()))
+                        .toArray(Header[]::new);
+
+        Map<String, String> sendHeader = new HashMap<>(headers);
+        sendHeader.put(HttpHeaders.EXPECT, "100-continue");
+        if (null != sinkConfig.getStreamLoadProps()) {
+            for (Map.Entry<String, Object> entry : sinkConfig.getStreamLoadProps().entrySet()) {
+                sendHeader.put(entry.getKey(), String.valueOf(entry.getValue()));
+            }
+        }
+        this.sendHeader =
+                sendHeader.entrySet().stream()
+                        .map(entry -> new BasicHeader(entry.getKey(), entry.getValue()))
+                        .toArray(Header[]::new);
+    }
+
+    public void start(StreamLoadManager manager) {
+        this.manager = manager;
     }
 
     @Override
     public void close() {}
 
-    public boolean begin(TableRegion region) {
-        if (region.getLabel() == null) {
-            for (int i = 0; i < 5; i++) {
-                // todo 在sink wirter的begin trasaction处添加
-                // todo region.setLabel(genLabel());
-                if (doBegin(region)) {
-                    return true;
-                } else {
-                    region.setLabel(null);
-                }
-            }
-            return false;
-        }
-        return true;
-    }
-
     @Override
     public Future<StreamLoadResponse> send(TableRegion region) {
+        return executorService.submit(() -> doSend(region));
+    }
+
+    public StreamLoadResponse doSend(TableRegion region) {
+        try {
+            String host = streamLoadHelper.getAvailableHost(sinkConfig.getNodeUrls());
+            String sendUrl = getSendUrl(host);
+            String label = region.getLabel();
+            HttpPut httpPut = new HttpPut(sendUrl);
+            httpPut.setHeaders(sendHeader);
+
+            httpPut.setConfig(
+                    RequestConfig.custom()
+                            .setExpectContinueEnabled(true)
+                            .setRedirectsEnabled(true)
+                            .build());
+            httpPut.setEntity(
+                    new StreamLoadEntity(region, region.getDataFormat(), region.getEntityMeta()));
+            httpPut.addHeader("label", label);
+            httpPut.addHeader("db", region.getDatabase());
+            httpPut.addHeader("table", region.getTable());
+
+            httpPut.setConfig(
+                    RequestConfig.custom()
+                            .setExpectContinueEnabled(true)
+                            .setRedirectsEnabled(true)
+                            .build());
+
+            log.info(
+                    "Stream loading, label : {}, request : {}, header: {}",
+                    label,
+                    httpPut,
+                    JsonUtils.toJsonString(sendHeader));
+            try (CloseableHttpClient client = clientBuilder.build()) {
+                long startNanoTime = System.nanoTime();
+                String responseBody;
+                try (CloseableHttpResponse response = client.execute(httpPut)) {
+                    responseBody =
+                            parseHttpResponse(
+                                    "load",
+                                    region.getDatabase(),
+                                    region.getTable(),
+                                    label,
+                                    response);
+                }
+
+                log.info(
+                        "Stream load completed, label : {}, database : {}, table : {}, body : {}",
+                        label,
+                        region.getDatabase(),
+                        region.getTable(),
+                        responseBody);
+
+                StreamLoadResponse streamLoadResponse = new StreamLoadResponse();
+                StreamLoadResponse.StreamLoadResponseBody streamLoadBody =
+                        JsonUtils.parseObject(
+                                responseBody, StreamLoadResponse.StreamLoadResponseBody.class);
+                streamLoadResponse.setBody(streamLoadBody);
+                String status = streamLoadBody.getStatus();
+                if (status == null) {
+                    throw new StarRocksConnectorException(
+                            FLUSH_DATA_FAILED,
+                            String.format(
+                                    "Stream load status is null. db: %s, table: %s, "
+                                            + "label: %s, response body: %s",
+                                    region.getDatabase(), region.getTable(), label, responseBody));
+                }
+
+                if (RESULT_SUCCESS.equals(status)
+                        || RESULT_OK.equals(status)
+                        || RESULT_TRANSACTION_PUBLISH_TIMEOUT.equals(status)) {
+                    streamLoadResponse.setCostNanoTime(System.nanoTime() - startNanoTime);
+                    region.complete(streamLoadResponse);
+                } else if (RESULT_LABEL_EXISTED.equals(status)) {
+                    String labelState =
+                            getLabelState(
+                                    host,
+                                    region.getDatabase(),
+                                    label,
+                                    Collections.singleton(RESULT_LABEL_PREPARE));
+                    if (RESULT_LABEL_COMMITTED.equals(labelState)
+                            || RESULT_LABEL_VISIBLE.equals(labelState)) {
+                        streamLoadResponse.setCostNanoTime(System.nanoTime() - startNanoTime);
+                        region.complete(streamLoadResponse);
+                    } else {
+                        String errorMsage =
+                                String.format(
+                                        "Stream load failed because label existed, "
+                                                + "db: %s, table: %s, label: %s, label state: %s",
+                                        region.getDatabase(), region.getTable(), label, labelState);
+                        throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsage);
+                    }
+                } else {
+                    String errorLog = getErrorLog(streamLoadBody.getErrorURL());
+                    String errorMsg =
+                            String.format(
+                                    "Stream load failed because of error, db: %s, table: %s, label: %s, "
+                                            + "\nresponseBody: %s\nerrorLog: %s",
+                                    region.getDatabase(),
+                                    region.getTable(),
+                                    label,
+                                    responseBody,
+                                    errorLog);
+                    throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
+                }
+                return streamLoadResponse;
+            } catch (StarRocksConnectorException e) {
+                throw e;
+            } catch (Exception e) {
+                String errorMsg =
+                        String.format(
+                                "Stream load failed because of unknown exception, db: %s, table: %s, "
+                                        + "label: %s",
+                                region.getDatabase(), region.getTable(), label);
+                throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg, e);
+            }
+        } catch (Exception e) {
+            log.error(
+                    "Exception happens when sending data, thread: {}",
+                    Thread.currentThread().getName(),
+                    e);
+            region.callback(e);
+        }
         return null;
     }
 
@@ -159,17 +326,17 @@ public class TransactionStreamLoader implements StreamLoader {
         return false;
     }
 
-    protected boolean doBegin(TableRegion region) {
+    @Override
+    public boolean begin(String label) {
         String host = streamLoadHelper.getAvailableHost(sinkConfig.getNodeUrls());
         String beginUrl = getBeginUrl(host);
-        String label = region.getLabel();
         log.info("Transaction start, label : {}", label);
 
         HttpPost httpPost = new HttpPost(beginUrl);
         httpPost.setHeaders(beginTxnHeader);
         httpPost.addHeader("label", label);
-        httpPost.addHeader("db", region.getDatabase());
-        httpPost.addHeader("table", region.getTable());
+        httpPost.addHeader("db", sinkConfig.getDatabase());
+        httpPost.addHeader("table", sinkConfig.getTable());
 
         httpPost.setConfig(
                 RequestConfig.custom()
@@ -177,8 +344,8 @@ public class TransactionStreamLoader implements StreamLoader {
                         .setRedirectsEnabled(true)
                         .build());
 
-        String db = region.getDatabase();
-        String table = region.getTable();
+        String db = sinkConfig.getDatabase();
+        String table = sinkConfig.getTable();
         log.info(
                 "Transaction start, db: {}, table: {}, label: {}, request : {}",
                 db,
@@ -192,8 +359,8 @@ public class TransactionStreamLoader implements StreamLoader {
                 responseBody =
                         parseHttpResponse(
                                 "begin transaction",
-                                region.getDatabase(),
-                                region.getTable(),
+                                sinkConfig.getDatabase(),
+                                sinkConfig.getTable(),
                                 label,
                                 response);
             }
@@ -221,12 +388,12 @@ public class TransactionStreamLoader implements StreamLoader {
             switch (status) {
                 case RESULT_OK:
                     return true;
-                case StreamLoadHelper.RESULT_LABEL_EXISTED:
+                case RESULT_LABEL_EXISTED:
                     return false;
                 default:
                     log.error(
                             "Transaction start failed, db : {}, label : {}",
-                            region.getDatabase(),
+                            sinkConfig.getDatabase(),
                             label);
                     return false;
             }
@@ -356,7 +523,7 @@ public class TransactionStreamLoader implements StreamLoader {
                                 label,
                                 response);
             }
-            log.info("Transaction committed, lable: {}, body : {}", label, responseBody);
+            log.info("Transaction committed, label: {}, body : {}", label, responseBody);
 
             StreamLoadResponse streamLoadResponse = new StreamLoadResponse();
             StreamLoadResponse.StreamLoadResponseBody streamLoadBody =
@@ -377,7 +544,7 @@ public class TransactionStreamLoader implements StreamLoader {
             }
 
             if (RESULT_OK.equals(status)) {
-                manager.callback(streamLoadResponse);
+                //                manager.callback(streamLoadResponse);
                 return true;
             }
 
@@ -426,6 +593,93 @@ public class TransactionStreamLoader implements StreamLoader {
             throw new StarRocksConnectorException(FLUSH_DATA_FAILED, exceptionMsg);
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void abortPreCommit(long chkID, int subTaskIndex) throws Exception {
+        long startChkID = chkID;
+        log.info("abort for chkId {}. subTaskIndex {}.", chkID, subTaskIndex);
+        while (true) {
+            try {
+                String label = new LabelGenerator(sinkConfig).genLabel(startChkID, subTaskIndex);
+                String host = streamLoadHelper.getAvailableHost(sinkConfig.getNodeUrls());
+                String beginUrl = getBeginUrl(host);
+                log.info("Transaction start, label : {}", label);
+
+                HttpPost httpPost = new HttpPost(beginUrl);
+                httpPost.setHeaders(beginTxnHeader);
+                httpPost.addHeader("label", label);
+                httpPost.addHeader("db", sinkConfig.getDatabase());
+                httpPost.addHeader("table", sinkConfig.getTable());
+
+                httpPost.setConfig(
+                        RequestConfig.custom()
+                                .setExpectContinueEnabled(true)
+                                .setRedirectsEnabled(true)
+                                .build());
+
+                String db = sinkConfig.getDatabase();
+                String table = sinkConfig.getTable();
+                log.info(
+                        "Transaction start, db: {}, table: {}, label: {}, request : {}",
+                        db,
+                        table,
+                        label,
+                        httpPost);
+                CloseableHttpClient client = clientBuilder.build();
+                String responseBody;
+                try (CloseableHttpResponse response = client.execute(httpPost)) {
+                    responseBody =
+                            parseHttpResponse(
+                                    "begin transaction",
+                                    sinkConfig.getDatabase(),
+                                    sinkConfig.getTable(),
+                                    label,
+                                    response);
+                }
+                StreamLoadResponse streamLoadResponse = new StreamLoadResponse();
+                StreamLoadResponse.StreamLoadResponseBody streamLoadBody =
+                        JsonUtils.parseObject(
+                                responseBody, StreamLoadResponse.StreamLoadResponseBody.class);
+                streamLoadResponse.setBody(streamLoadBody);
+                String status = streamLoadBody.getStatus();
+
+                if (RESULT_LABEL_EXISTED.equals(status)) {
+                    // label already exist and job finished
+                    if (RESULT_TRANSACTION_EXIST_FINISHED.equals(
+                            streamLoadBody.getExistingJobStatus())) {
+                        throw new StarRocksConnectorException(
+                                FLUSH_DATA_FAILED,
+                                "Load status is "
+                                        + RESULT_LABEL_EXISTED
+                                        + " and load job finished, "
+                                        + "change you label prefix or restore from latest savepoint!");
+                    }
+                    // job not finished, abort.
+                    if (RESULT_TRANSACTION_EXIST_RUNNING.equals(
+                            streamLoadBody.getExistingJobStatus())) {
+                        log.info("abort transaction for exist label {}", label);
+                        rollback(label);
+                    } else {
+                        throw new StarRocksConnectorException(
+                                FLUSH_DATA_FAILED,
+                                "Load Status is "
+                                        + RESULT_LABEL_EXISTED
+                                        + ", job Status is not RUNNING!"
+                                        + "response: "
+                                        + responseBody);
+                    }
+                } else {
+                    log.info("abort transaction {} for check label", label);
+                    rollback(label);
+                    break;
+                }
+                startChkID++;
+            } catch (StarRocksConnectorException e) {
+                log.warn("failed to stream load data", e);
+                throw e;
+            }
         }
     }
 
@@ -594,6 +848,41 @@ public class TransactionStreamLoader implements StreamLoader {
         }
     }
 
+    protected String getErrorLog(String errorUrl) {
+        if (errorUrl == null || !errorUrl.startsWith("http")) {
+            return null;
+        }
+
+        try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
+            HttpGet httpGet = new HttpGet(errorUrl);
+            try (CloseableHttpResponse resp = httpclient.execute(httpGet)) {
+                int code = resp.getStatusLine().getStatusCode();
+                if (200 != code) {
+                    log.warn(
+                            "Request error log failed with error code: {}, errorUrl: {}",
+                            code,
+                            errorUrl);
+                    return null;
+                }
+
+                HttpEntity respEntity = resp.getEntity();
+                if (respEntity == null) {
+                    log.warn("Request error log failed with null entity, errorUrl: {}", errorUrl);
+                    return null;
+                }
+                String errorLog = EntityUtils.toString(respEntity);
+                if (errorLog != null && errorLog.length() > 3000) {
+                    errorLog = errorLog.substring(0, 3000);
+                }
+                return errorLog;
+            }
+        } catch (Exception e) {
+            log.warn("Failed to get error log: {}.", errorUrl, e);
+            return String.format(
+                    "Failed to get error log: %s, exception message: %s", errorUrl, e.getMessage());
+        }
+    }
+
     public static String getBeginUrl(String host) {
         return host + PATH_TRANSACTION_BEGIN;
     }
@@ -612,16 +901,5 @@ public class TransactionStreamLoader implements StreamLoader {
 
     public static String getRollbackUrl(String host) {
         return host + PATH_TRANSACTION_ROLLBACK;
-    }
-
-    protected String genLabel(long chkId) {
-        if (!StringUtils.isEmpty(sinkConfig.getLabelPrefix())) {
-            return sinkConfig.isEnable2PC()
-                    ? sinkConfig.getLabelPrefix() + "_" + chkId
-                    : sinkConfig.getLabelPrefix() + "_" + System.currentTimeMillis();
-        }
-        return sinkConfig.isEnable2PC()
-                ? String.valueOf(chkId)
-                : String.valueOf(System.currentTimeMillis());
     }
 }

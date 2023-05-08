@@ -35,7 +35,7 @@ public class SinkConfig implements Serializable {
 
     public enum StreamLoadFormat {
         CSV,
-        JSON;
+        JSON
     }
 
     private List<String> nodeUrls;
@@ -57,7 +57,7 @@ public class SinkConfig implements Serializable {
     private boolean enableUpsertDelete;
     private long sinkChunkLimit;
     private boolean enable2PC;
-
+    private long flushFrequencyMs;
     private String saveModeCreateTemplate;
 
     @Getter private final Map<String, Object> streamLoadProps = new HashMap<>();
@@ -91,18 +91,30 @@ public class SinkConfig implements Serializable {
         config.getOptional(StarRocksSinkOptions.COLUMN_SEPARATOR)
                 .ifPresent(sinkConfig::setColumnSeparator);
         sinkConfig.setLoadFormat(config.get(StarRocksSinkOptions.LOAD_FORMAT));
-        config.getOptional(StarRocksSinkOptions.SINK_CHUNK_LIMIT)
-                .ifPresent(
-                        x -> {
-                            if (sinkConfig.getLoadFormat() == StreamLoadFormat.JSON) {
-                                sinkConfig.setSinkChunkLimit(
-                                        Math.min(3221225472L, sinkConfig.getSinkChunkLimit()));
-                            } else {
-                                sinkConfig.setSinkChunkLimit(
-                                        Math.min(10737418240L, sinkConfig.getSinkChunkLimit()));
-                            }
-                        });
+
+        if (!config.getOptional(StarRocksSinkOptions.SINK_CHUNK_LIMIT).isPresent()) {
+            sinkConfig.setSinkChunkLimit(
+                    sinkConfig.getLoadFormat() == StreamLoadFormat.JSON
+                            ? StarRocksSinkOptions.SINK_CHUNK_LIMIT.defaultValue()
+                            : 10737418240L);
+        }
+
+        if (sinkConfig.getLoadFormat() == StreamLoadFormat.JSON) {
+            sinkConfig.setSinkChunkLimit(
+                    Math.min(
+                            StarRocksSinkOptions.SINK_CHUNK_LIMIT.defaultValue(),
+                            sinkConfig.getSinkChunkLimit()));
+        } else {
+            sinkConfig.setSinkChunkLimit(Math.min(10737418240L, sinkConfig.getSinkChunkLimit()));
+        }
+
         config.getOptional(StarRocksSinkOptions.ENABLE_2PC).ifPresent(sinkConfig::setEnable2PC);
+        config.getOptional(StarRocksSinkOptions.FLUSH_FREQUENCY_ON_EOS)
+                .ifPresent(sinkConfig::setFlushFrequencyMs);
         return sinkConfig;
+    }
+
+    private void setFlushFrequencyMs(long flushFrequencyMs) {
+        this.flushFrequencyMs = Math.max(flushFrequencyMs, 50);
     }
 }

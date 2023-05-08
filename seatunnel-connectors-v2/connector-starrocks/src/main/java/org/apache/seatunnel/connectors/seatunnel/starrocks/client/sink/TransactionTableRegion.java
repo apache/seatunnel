@@ -23,8 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadSnap
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.LinkedList;
 import java.util.Queue;
@@ -35,6 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode.FLUSH_DATA_FAILED;
 
+@Slf4j
 public class TransactionTableRegion implements TableRegion {
 
     enum State {
@@ -42,8 +42,6 @@ public class TransactionTableRegion implements TableRegion {
         FLUSHING,
         COMMITTING
     }
-
-    private static final Logger LOG = LoggerFactory.getLogger(TransactionTableRegion.class);
 
     private final StreamLoadManager manager;
     private final StreamLoader streamLoader;
@@ -62,10 +60,9 @@ public class TransactionTableRegion implements TableRegion {
     private volatile StreamLoadEntityMeta entityMeta;
     private volatile String label;
     private volatile Future<?> responseFuture;
-    private volatile long lastWriteTimeMillis = Long.MAX_VALUE;
-
     private volatile long lastCommitTimeMills;
     private SinkConfig sinkConfig;
+    private volatile boolean flushing;
 
     public TransactionTableRegion(
             StreamLoadManager manager,
@@ -110,18 +107,8 @@ public class TransactionTableRegion implements TableRegion {
     }
 
     @Override
-    public long getFlushBytes() {
-        return flushBytes.get();
-    }
-
-    @Override
     public StreamLoadEntityMeta getEntityMeta() {
         return entityMeta;
-    }
-
-    @Override
-    public long getLastWriteTimeMillis() {
-        return lastWriteTimeMillis;
     }
 
     @Override
@@ -151,7 +138,6 @@ public class TransactionTableRegion implements TableRegion {
         }
         outBuffer.offer(row);
         cacheBytes.addAndGet(row.length);
-        lastWriteTimeMillis = System.currentTimeMillis();
         return row.length;
     }
 
@@ -165,7 +151,7 @@ public class TransactionTableRegion implements TableRegion {
         if (state.compareAndSet(State.ACTIVE, State.FLUSHING)) {
             for (; ; ) {
                 if (ctl.compareAndSet(false, true)) {
-                    LOG.info("Flush  label : {}, bytes : {}", label, cacheBytes.get());
+                    log.info("flushing region label : {}, bytes : {}", label, cacheBytes.get());
                     inBuffer = outBuffer;
                     outBuffer = null;
                     ctl.set(false);
@@ -179,6 +165,11 @@ public class TransactionTableRegion implements TableRegion {
                 state.compareAndSet(State.FLUSHING, State.ACTIVE);
                 return false;
             }
+        } else {
+            log.info(
+                    "can not flush region label : {}, bytes : {}, the region is flushing now",
+                    label,
+                    cacheBytes.get());
         }
         return false;
     }
@@ -206,7 +197,7 @@ public class TransactionTableRegion implements TableRegion {
                                     + transaction);
                 }
             } catch (Exception e) {
-                LOG.error(
+                log.error(
                         "TransactionTableRegion commit failed, db: {}, table: {}, label: {}",
                         database,
                         table,
@@ -220,7 +211,7 @@ public class TransactionTableRegion implements TableRegion {
             long commitTime = System.currentTimeMillis();
             long commitDuration = commitTime - lastCommitTimeMills;
             lastCommitTimeMills = commitTime;
-            LOG.info(
+            log.info(
                     "Success to commit transaction: {}, duration: {} ms",
                     transaction,
                     commitDuration);
@@ -246,15 +237,19 @@ public class TransactionTableRegion implements TableRegion {
         response.setFlushRows(flushRows.get());
         callback(response);
 
-        LOG.info("Stream load flushed, db: {}, table: {}, label : {}", database, table, label);
+        log.info("Stream load flushed, db: {}, table: {}, label : {}", database, table, label);
         if (!inBuffer.isEmpty()) {
-            LOG.info("Stream load continue, db: {}, table: {}, label : {}", database, table, label);
+            log.info("Stream load continue, db: {}, table: {}, label : {}", database, table, label);
             streamLoad();
             return;
         }
         if (state.compareAndSet(State.FLUSHING, State.ACTIVE)) {
-            LOG.info(
-                    "Stream load completed, db: {}, table: {}, label : {}", database, table, label);
+            log.info(
+                    "Stream load completed, db: {}, table: {}, label : {}, region cache bytes : {}",
+                    database,
+                    table,
+                    label,
+                    cacheBytes.get());
         }
     }
 
@@ -275,7 +270,7 @@ public class TransactionTableRegion implements TableRegion {
 
         StreamLoadEntityMeta chunkMeta = genEntityMeta();
         this.entityMeta = chunkMeta;
-        LOG.info(
+        log.info(
                 "Generate entity meta, db: {}, table: {}, total rows : {}, entity rows : {}, entity bytes : {}",
                 database,
                 table,
@@ -317,5 +312,32 @@ public class TransactionTableRegion implements TableRegion {
         }
 
         return new StreamLoadEntityMeta(chunkBytes, chunkRows);
+    }
+
+    public byte[] read() {
+        if (flushRows.get() == entityMeta.getRows()) {
+            flushing = false;
+            return null;
+        }
+
+        byte[] row = inBuffer.poll();
+
+        if (row == null) {
+            flushing = false;
+            return null;
+        }
+
+        if (!flushing) {
+            flushing = true;
+        }
+        cacheBytes.addAndGet(-row.length);
+        flushBytes.addAndGet(row.length);
+        flushRows.incrementAndGet();
+        return row;
+    }
+
+    @Override
+    public StreamLoadDataFormat getDataFormat() {
+        return dataFormat;
     }
 }

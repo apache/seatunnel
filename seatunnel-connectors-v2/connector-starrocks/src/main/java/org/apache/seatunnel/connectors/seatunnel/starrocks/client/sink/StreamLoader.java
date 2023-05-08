@@ -19,17 +19,16 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadResponse;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadSnapshot;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 
 import java.util.concurrent.Future;
 
 public interface StreamLoader {
 
-    void start(SinkConfig sinkConfig, StreamLoadManager manager);
+    void start(StreamLoadManager manager);
 
     void close();
 
-    boolean begin(TableRegion region);
+    boolean begin(String label);
 
     Future<StreamLoadResponse> send(TableRegion region);
 
@@ -44,4 +43,6 @@ public interface StreamLoader {
     boolean commit(StreamLoadSnapshot snapshot);
 
     boolean rollback(String label);
+
+    void abortPreCommit(long chkID, int subTaskIndex) throws Exception;
 }

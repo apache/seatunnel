@@ -41,9 +41,13 @@ public interface StreamLoadManager {
 
     Optional<StarRocksCommitInfo> prepareCommit();
 
-    boolean commit(long checkpointId);
+    boolean commit(String transactionId);
 
-    boolean abort();
+    boolean abort(long checkpointId, int subTaskIndex) throws Exception;
+
+    boolean abort() throws Exception;
 
     void close() throws IOException;
+
+    void beginTransaction(long checkpointId);
 }

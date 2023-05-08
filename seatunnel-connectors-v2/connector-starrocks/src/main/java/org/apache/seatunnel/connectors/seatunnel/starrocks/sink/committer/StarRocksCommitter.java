@@ -44,6 +44,7 @@ public class StarRocksCommitter implements SinkCommitter<StarRocksCommitInfo> {
     public List<StarRocksCommitInfo> commit(List<StarRocksCommitInfo> commitInfos)
             throws IOException {
         for (StarRocksCommitInfo commitInfo : commitInfos) {
+            log.info("begin commit transaction: {}", commitInfo.getLabel());
             commitTransaction(commitInfo);
         }
         return Collections.emptyList();
@@ -51,13 +52,15 @@ public class StarRocksCommitter implements SinkCommitter<StarRocksCommitInfo> {
 
     @Override
     public void abort(List<StarRocksCommitInfo> commitInfos) throws IOException {
+
         for (StarRocksCommitInfo commitInfo : commitInfos) {
+            log.info("abort commit transaction: {}", commitInfo.getLabel());
             abortTransaction(commitInfo);
         }
     }
 
     private void commitTransaction(StarRocksCommitInfo committable)
-            throws IOException, StarRocksConnectorException {
+            throws StarRocksConnectorException {
         streamLoader.commit(committable.getLabel());
     }
 

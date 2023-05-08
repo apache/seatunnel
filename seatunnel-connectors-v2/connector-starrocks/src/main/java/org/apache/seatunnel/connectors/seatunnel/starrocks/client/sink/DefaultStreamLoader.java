@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadResponse;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadSnapshot;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
@@ -26,15 +27,23 @@ import java.io.Serializable;
 import java.util.concurrent.Future;
 
 public class DefaultStreamLoader implements StreamLoader, Serializable {
+    private RetryUtils.RetryMaterial retryMaterial;
+    private static final long DEFAULT_SLEEP_TIME_MS = 200L;
+
+    DefaultStreamLoader(SinkConfig sinkConfig) {
+        this.retryMaterial =
+                new RetryUtils.RetryMaterial(
+                        sinkConfig.getMaxRetries(), true, exception -> true, DEFAULT_SLEEP_TIME_MS);
+    }
 
     @Override
-    public void start(SinkConfig sinkConfig, StreamLoadManager manager) {}
+    public void start(StreamLoadManager manager) {}
 
     @Override
     public void close() {}
 
     @Override
-    public boolean begin(TableRegion region) {
+    public boolean begin(String label) {
         return false;
     }
 
@@ -72,4 +81,7 @@ public class DefaultStreamLoader implements StreamLoader, Serializable {
     public boolean rollback(String label) {
         return false;
     }
+
+    @Override
+    public void abortPreCommit(long chkID, int subTaskIndex) throws Exception {}
 }
