@@ -124,14 +124,14 @@ public class PostgresUtils {
         String query =
                 String.format(
                         "SELECT MAX(%s) FROM ("
-                                + "SELECT TOP (%s) %s FROM %s WHERE %s >= ? ORDER BY %s ASC "
-                                + ") AS T",
+                                + "SELECT %s FROM %s WHERE %s >= ? ORDER BY %s ASC "
+                                + "LIMIT %s) AS T",
                         quotedColumn,
-                        chunkSize,
                         quotedColumn,
                         quote(tableId),
                         quotedColumn,
-                        quotedColumn);
+                        quotedColumn,
+                        chunkSize);
         return jdbc.prepareQueryAndMap(
                 query,
                 ps -> ps.setObject(1, includedLowerBound),
