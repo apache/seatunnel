@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunne
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -78,6 +79,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
+@DisabledOnContainer(
+        value = {},
+        disabledReason = "Override TestSuiteBase @DisabledOnContainer")
 public class KafkaIT extends TestSuiteBase implements TestResource {
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 

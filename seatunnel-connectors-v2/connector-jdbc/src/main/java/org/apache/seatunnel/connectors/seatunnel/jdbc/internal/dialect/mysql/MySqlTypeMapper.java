@@ -97,7 +97,11 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
         int scale = metadata.getScale(colIndex);
         switch (mysqlType) {
             case MYSQL_BIT:
-                return BasicType.BOOLEAN_TYPE;
+                if (precision == 1) {
+                    return BasicType.BOOLEAN_TYPE;
+                } else {
+                    return PrimitiveByteArrayType.INSTANCE;
+                }
             case MYSQL_TINYINT:
             case MYSQL_TINYINT_UNSIGNED:
             case MYSQL_SMALLINT:

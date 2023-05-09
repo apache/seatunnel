@@ -42,6 +42,7 @@ public class RocketMqContainer extends GenericContainer<RocketMqContainer> {
     public RocketMqContainer(DockerImageName image) {
         super(image);
         withExposedPorts(NAMESRV_PORT, BROKER_PORT, BROKER_PORT - 2);
+        this.withEnv("JAVA_OPT_EXT", "-Xms512m -Xmx512m");
     }
 
     @Override

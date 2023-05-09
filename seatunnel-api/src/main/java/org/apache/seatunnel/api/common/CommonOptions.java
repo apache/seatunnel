@@ -27,7 +27,8 @@ public interface CommonOptions {
             Options.key("factory")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Identifier of the SPI factory class.");
+                    .withDescription("Identifier of the SPI factory class.")
+                    .withFallbackKeys("plugin_name");
 
     Option<String> PLUGIN_NAME =
             Options.key("plugin_name")

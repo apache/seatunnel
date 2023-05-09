@@ -37,7 +37,8 @@ public class NodeEngineUtil {
                         .createInvocationBuilder(
                                 SeaTunnelServer.SERVICE_NAME,
                                 operation,
-                                nodeEngine.getMasterAddress());
+                                nodeEngine.getMasterAddress())
+                        .setAsync();
         return invocationBuilder.invoke();
     }
 
@@ -47,7 +48,8 @@ public class NodeEngineUtil {
                 nodeEngine
                         .getOperationService()
                         .createInvocationBuilder(
-                                SeaTunnelServer.SERVICE_NAME, operation, memberAddress);
+                                SeaTunnelServer.SERVICE_NAME, operation, memberAddress)
+                        .setAsync();
         return invocationBuilder.invoke();
     }
 }
