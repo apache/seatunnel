@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.SerializableFunction;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config.MongodbWriterOptions;
 
 import org.bson.BsonDocument;
 

@@ -43,7 +43,7 @@ public class MongodbSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        MongodbConfig.COLLECTION,
+                        MongodbConfig.URI,
                         MongodbConfig.DATABASE,
                         MongodbConfig.COLLECTION,
                         CatalogTableUtil.SCHEMA)

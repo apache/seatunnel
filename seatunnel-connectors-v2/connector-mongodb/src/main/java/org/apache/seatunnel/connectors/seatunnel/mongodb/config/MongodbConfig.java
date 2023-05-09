@@ -34,7 +34,7 @@ public class MongodbConfig {
     public static final JsonWriterSettings DEFAULT_JSON_WRITER_SETTINGS =
             JsonWriterSettings.builder().outputMode(JsonMode.EXTENDED).build();
 
-    public static final Option<String> CONNECTION =
+    public static final Option<String> URI =
             Options.key("uri")
                     .stringType()
                     .noDefaultValue()

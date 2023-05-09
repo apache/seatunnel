@@ -35,7 +35,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -54,8 +53,6 @@ public class MongodbReader implements SourceReader<SeaTunnelRow, MongoSplit> {
     private final MongodbClientProvider clientProvider;
 
     private MongoCursor<BsonDocument> cursor;
-
-    private MongoSplit currentSplit;
 
     private final MongodbReadOptions readOptions;
 
@@ -90,7 +87,7 @@ public class MongodbReader implements SourceReader<SeaTunnelRow, MongoSplit> {
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         synchronized (output.getCheckpointLock()) {
-            currentSplit = pendingSplits.poll();
+            MongoSplit currentSplit = pendingSplits.poll();
             if (null != currentSplit) {
                 if (cursor != null) {
                     // current split is in-progress
@@ -122,7 +119,7 @@ public class MongodbReader implements SourceReader<SeaTunnelRow, MongoSplit> {
 
     @Override
     public List<MongoSplit> snapshotState(long checkpointId) throws Exception {
-        return new ArrayList<>(Collections.singleton(currentSplit));
+        return new ArrayList<>(pendingSplits);
     }
 
     @Override

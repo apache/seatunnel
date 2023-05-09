@@ -30,8 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataDocumentSerializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataToBsonConverters;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config.MongodbWriterOptions;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.writer.MongodbWriter;
 
 import com.google.auto.service.AutoService;
 
@@ -48,10 +46,10 @@ public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        if (pluginConfig.hasPath(MongodbConfig.CONNECTION.key())
+        if (pluginConfig.hasPath(MongodbConfig.URI.key())
                 && pluginConfig.hasPath(MongodbConfig.DATABASE.key())
                 && pluginConfig.hasPath(MongodbConfig.COLLECTION.key())) {
-            String connection = pluginConfig.getString(MongodbConfig.CONNECTION.key());
+            String connection = pluginConfig.getString(MongodbConfig.URI.key());
             String database = pluginConfig.getString(MongodbConfig.DATABASE.key());
             String collection = pluginConfig.getString(MongodbConfig.COLLECTION.key());
             MongodbWriterOptions.Builder builder =

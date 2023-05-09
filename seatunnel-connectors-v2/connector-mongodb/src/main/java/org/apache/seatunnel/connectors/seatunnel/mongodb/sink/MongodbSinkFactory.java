@@ -38,7 +38,7 @@ public class MongodbSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        MongodbConfig.COLLECTION,
+                        MongodbConfig.URI,
                         MongodbConfig.DATABASE,
                         MongodbConfig.COLLECTION,
                         CatalogTableUtil.SCHEMA)

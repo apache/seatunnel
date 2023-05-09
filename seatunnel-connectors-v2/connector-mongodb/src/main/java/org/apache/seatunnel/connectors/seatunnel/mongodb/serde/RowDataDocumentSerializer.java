@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config.MongodbWriterOptions;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongodbWriterOptions;
 
 import org.bson.BsonDocument;
 import org.bson.conversions.Bson;

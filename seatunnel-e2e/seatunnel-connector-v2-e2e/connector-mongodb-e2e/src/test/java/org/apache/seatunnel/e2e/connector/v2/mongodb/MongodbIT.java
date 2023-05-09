@@ -107,9 +107,7 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
                         .filter(x -> x.get("c_int").equals(2))
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()),
-                readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
-                        .peek(e -> e.remove("_id"))
-                        .collect(Collectors.toList()));
+                readMongodbData().stream().peek(e -> e.remove("_id")).collect(Collectors.toList()));
         clearDate(MONGODB_MATCH_RESULT_TABLE);
 
         Container.ExecResult projectionResult =
@@ -122,9 +120,7 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
                         .peek(document -> document.remove("c_bigint"))
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()),
-                readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
-                        .peek(e -> e.remove("_id"))
-                        .collect(Collectors.toList()));
+                readMongodbData().stream().peek(e -> e.remove("_id")).collect(Collectors.toList()));
         clearDate(MONGODB_MATCH_RESULT_TABLE);
     }
 
@@ -168,11 +164,13 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         client = MongoClients.create(url);
     }
 
-    private void initSourceData(String database, String table, List<Document> documents) {
-        MongoCollection<Document> sourceTable = client.getDatabase(database).getCollection(table);
+    private void initSourceData() {
+        MongoCollection<Document> sourceTable =
+                client.getDatabase(MongodbIT.MONGODB_DATABASE)
+                        .getCollection(MongodbIT.MONGODB_MATCH_TABLE);
 
         sourceTable.deleteMany(new Document());
-        sourceTable.insertMany(documents);
+        sourceTable.insertMany(MongodbIT.TEST_DATASET);
     }
 
     private void clearDate(String table) {
@@ -208,7 +206,7 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initConnection);
-        this.initSourceData(MONGODB_DATABASE, MONGODB_MATCH_TABLE, TEST_DATASET);
+        this.initSourceData();
     }
 
     public static List<Document> generateTestDataSet(int count) {
@@ -274,9 +272,10 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         return sb.toString();
     }
 
-    private List<Document> readMongodbData(String collection) {
+    private List<Document> readMongodbData() {
         MongoCollection<Document> sinkTable =
-                client.getDatabase(MONGODB_DATABASE).getCollection(collection);
+                client.getDatabase(MONGODB_DATABASE)
+                        .getCollection(MongodbIT.MONGODB_MATCH_RESULT_TABLE);
         MongoCursor<Document> cursor = sinkTable.find().sort(Sorts.ascending("id")).cursor();
         List<Document> documents = new ArrayList<>();
         while (cursor.hasNext()) {

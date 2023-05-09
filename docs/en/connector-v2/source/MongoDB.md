@@ -446,5 +446,5 @@ Use the data samples synchronized with modified parameters, such as the followin
 
 ### Next Version
 
-- [Feature]Refactor mongodb source connector([4380](https://github.com/apache/incubator-seatunnel/pull/4380))
+- [Feature]Refactor mongodb source connector([4620](https://github.com/apache/incubator-seatunnel/pull/4620))
 

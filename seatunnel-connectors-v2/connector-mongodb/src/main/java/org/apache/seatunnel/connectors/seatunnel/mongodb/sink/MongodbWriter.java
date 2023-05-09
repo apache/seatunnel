@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.writer;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -23,7 +23,6 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnec
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbCollectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentSerializer;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config.MongodbWriterOptions;
 
 import org.bson.BsonDocument;
 

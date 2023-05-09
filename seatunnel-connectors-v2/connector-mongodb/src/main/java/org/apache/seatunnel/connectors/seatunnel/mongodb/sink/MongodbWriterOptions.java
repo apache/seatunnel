@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.config;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import lombok.Getter;
 
