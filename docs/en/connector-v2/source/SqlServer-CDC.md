@@ -168,18 +168,24 @@ source {
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## notice
+
 1. CDC needs to enable SQL Server Agent, which can be enabled using the following command.
+
 ```Sqlserver
 EXEC xp_servicecontrol N'querystate',N'SQLServerAGENT';
 ```
+
 2. Enable CDC at the database level.
+
 ```Sqlserver
 USE TestDB;
 GO
 EXEC sys.sp_cdc_enable_db;
 GO
 ```
+
 3. Enable CDC at the  table level.
+
 ```Sqlserver
 USE TestDB;
 EXEC sys.sp_cdc_enable_table
@@ -191,7 +197,6 @@ GO
 ```
 
 ## Example
-
 
 ```Jdbc {
 source {
