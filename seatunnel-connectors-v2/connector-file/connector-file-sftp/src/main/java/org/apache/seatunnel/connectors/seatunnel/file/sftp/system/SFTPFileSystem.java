@@ -592,7 +592,8 @@ public class SFTPFileSystem extends FileSystem {
         } finally {
             try {
                 disconnect(channel);
-            } catch (IOException ignored) {
+            } catch (IOException ioe) {
+                throw new FTPException("Failed to disconnect", ioe);
             }
         }
     }
