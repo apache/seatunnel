@@ -8,7 +8,6 @@
 > Flink <br/>
 > Seatunnel Zeta <br/>
 
-
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
@@ -27,8 +26,8 @@ Read external data source data through JDBC.
 
 ## Supported DataSource list
 
-| datasource | supported versions      | driver                                       | url                             | maven                                                        |
-| ---------- | ----------------------- | -------------------------------------------- | ------------------------------- | ------------------------------------------------------------ |
+| datasource |   supported versions    |                    driver                    |               url               |                                       maven                                       |
+|------------|-------------------------|----------------------------------------------|---------------------------------|-----------------------------------------------------------------------------------|
 | SQL Server | support version >= 2008 | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433 | [Download](https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc) |
 
 ## Database dependency
@@ -38,37 +37,37 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-| SQLserver Data type                                          | Seatunnel Data type                                          |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| BIT                                                          | BOOLEAN                                                      |
-| TINYINT<br/>SMALLINT                                         | SHORT                                                        |
-| INTEGER                                                      | INT                                                          |
-| BIGINT                                                       | LONG                                                         |
-| DECIMAL<br />NUMERIC<br />MONEY<br />SMALLMONEY              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the <br />decimal point.))) |
-| REAL                                                         | FLOAT                                                        |
-| FLOAT                                                        | DOUBLE                                                       |
-| CHAR<br />NCHAR<br />VARCHAR<br />NTEXT<br />NVARCHAR<br />TEXT | STRING                                                       |
-| DATE                                                         | LOCAL_DATE                                                   |
-| TIME                                                         | LOCAL_TIME                                                   |
-| DATETIME<br />DATETIME2<br />SMALLDATETIME<br />DATETIMEOFFSET | LOCAL_DATE_TIME                                              |
-| TIMESTAMP<br />BINARY<br />VARBINARY<br />IMAGE<br />UNKNOWN | Not supported yet                                            |
+|                       SQLserver Data type                       |                                                                    Seatunnel Data type                                                                    |
+|-----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| BIT                                                             | BOOLEAN                                                                                                                                                   |
+| TINYINT<br/>SMALLINT                                            | SHORT                                                                                                                                                     |
+| INTEGER                                                         | INT                                                                                                                                                       |
+| BIGINT                                                          | LONG                                                                                                                                                      |
+| DECIMAL<br />NUMERIC<br />MONEY<br />SMALLMONEY                 | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the <br />decimal point.))) |
+| REAL                                                            | FLOAT                                                                                                                                                     |
+| FLOAT                                                           | DOUBLE                                                                                                                                                    |
+| CHAR<br />NCHAR<br />VARCHAR<br />NTEXT<br />NVARCHAR<br />TEXT | STRING                                                                                                                                                    |
+| DATE                                                            | LOCAL_DATE                                                                                                                                                |
+| TIME                                                            | LOCAL_TIME                                                                                                                                                |
+| DATETIME<br />DATETIME2<br />SMALLDATETIME<br />DATETIMEOFFSET  | LOCAL_DATE_TIME                                                                                                                                           |
+| TIMESTAMP<br />BINARY<br />VARBINARY<br />IMAGE<br />UNKNOWN    | Not supported yet                                                                                                                                         |
 
 ## Options
 
-| name                         | type   | required | default         | Description                                                  |
-| ---------------------------- | ------ | -------- | --------------- | ------------------------------------------------------------ |
-| url                          | String | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:sqlserver://localhost:1433 |
-| driver                       | String | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use SQLserver the value is `com.microsoft.sqlserver.jdbc.SQLServerDriver`. |
-| user                         | String | No       | -               | Connection instance user name                                |
-| password                     | String | No       | -               | Connection instance password                                 |
-| query                        | String | Yes      | -               | Query statement                                              |
-| connection_check_timeout_sec | Int    | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete |
-| partition_column             | String | No       | -               | The column name for parallelism's partition, only support numeric type. |
-| partition_lower_bound        | Long   | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value. |
-| partition_upper_bound        | Long   | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value. |
-| partition_num                | Int    | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism |
+|             name             |  type  | required |     default     |                                                                                                                            Description                                                                                                                            |
+|------------------------------|--------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                          | String | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:sqlserver://localhost:1433                                                                                                                                                                                  |
+| driver                       | String | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use SQLserver the value is `com.microsoft.sqlserver.jdbc.SQLServerDriver`.                                                                                                             |
+| user                         | String | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
+| password                     | String | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
+| query                        | String | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
+| connection_check_timeout_sec | Int    | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
+| partition_column             | String | No       | -               | The column name for parallelism's partition, only support numeric type.                                                                                                                                                                                           |
+| partition_lower_bound        | Long   | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
+| partition_upper_bound        | Long   | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
+| partition_num                | Int    | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
 | fetch_size                   | Int    | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
-| common-options               |        | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details |
+| common-options               |        | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
 
 ## tips
 
