@@ -18,7 +18,7 @@
 seatunnel:
     engine:
         backup-count: 1
-        print-execution-info-interval: 2
+        print-execution-info-interval: 10
         slot-service:
             dynamic-slot: true
             slot-num: 5

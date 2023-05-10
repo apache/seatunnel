@@ -38,7 +38,9 @@ import com.jayway.jsonpath.Option;
 import com.jayway.jsonpath.ReadContext;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -98,16 +100,16 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             if (HttpResponse.STATUS_OK == response.getCode()) {
                 String content = response.getContent();
                 if (!Strings.isNullOrEmpty(content)) {
-                    if (contentJson != null) {
-                        content = JsonUtils.stringToJsonNode(getPartOfJson(content)).toString();
+                    if (this.httpParameter.isEnableMultilines()) {
+                        StringReader stringReader = new StringReader(content);
+                        BufferedReader bufferedReader = new BufferedReader(stringReader);
+                        String lineStr;
+                        while ((lineStr = bufferedReader.readLine()) != null) {
+                            collect(output, lineStr);
+                        }
+                    } else {
+                        collect(output, content);
                     }
-                    if (jsonField != null) {
-                        this.initJsonPath(jsonField);
-                        content =
-                                JsonUtils.toJsonNode(parseToMap(decodeJSON(content), jsonField))
-                                        .toString();
-                    }
-                    deserializationCollector.collect(content.getBytes(), output);
                 }
                 return;
             }
@@ -128,6 +130,17 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 }
             }
         }
+    }
+
+    private void collect(Collector<SeaTunnelRow> output, String data) throws IOException {
+        if (contentJson != null) {
+            data = JsonUtils.stringToJsonNode(getPartOfJson(data)).toString();
+        }
+        if (jsonField != null) {
+            this.initJsonPath(jsonField);
+            data = JsonUtils.toJsonNode(parseToMap(decodeJSON(data), jsonField)).toString();
+        }
+        deserializationCollector.collect(data.getBytes(), output);
     }
 
     private List<Map<String, String>> parseToMap(List<List<String>> datas, JsonField jsonField) {
