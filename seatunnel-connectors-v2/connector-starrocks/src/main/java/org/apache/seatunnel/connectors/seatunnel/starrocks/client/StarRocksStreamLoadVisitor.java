@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.PATH_STREAM_LOAD;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_FAILED;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_ABORTED;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_COMMITTED;
@@ -53,7 +54,7 @@ public class StarRocksStreamLoadVisitor {
     private static final Logger LOG = LoggerFactory.getLogger(StarRocksStreamLoadVisitor.class);
 
     private final HttpHelper httpHelper = new HttpHelper();
-    private final StreamLoadHelper streamLoadHelper = new StreamLoadHelper();
+    private final StreamLoadHelper streamLoadHelper;
 
     private static final int MAX_SLEEP_TIME = 5;
 
@@ -64,6 +65,7 @@ public class StarRocksStreamLoadVisitor {
     public StarRocksStreamLoadVisitor(SinkConfig sinkConfig, List<String> fieldNames) {
         this.sinkConfig = sinkConfig;
         this.fieldNames = fieldNames;
+        streamLoadHelper = new StreamLoadHelper(sinkConfig);
     }
 
     public Boolean doStreamLoad(StarRocksFlushTuple flushData) throws IOException {
@@ -74,13 +76,8 @@ public class StarRocksStreamLoadVisitor {
                     "None of the host in `load_url` could be connected.");
         }
         String loadUrl =
-                new StringBuilder(host)
-                        .append("/api/")
-                        .append(sinkConfig.getDatabase())
-                        .append("/")
-                        .append(sinkConfig.getTable())
-                        .append("/_stream_load")
-                        .toString();
+                String.format(PATH_STREAM_LOAD, sinkConfig.getDatabase(), sinkConfig.getTable());
+
         if (LOG.isDebugEnabled()) {
             LOG.debug(
                     String.format(

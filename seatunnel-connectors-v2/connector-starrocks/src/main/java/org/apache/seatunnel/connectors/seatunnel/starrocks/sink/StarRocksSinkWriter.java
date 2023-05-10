@@ -88,7 +88,7 @@ public class StarRocksSinkWriter
                     for (StarRocksSinkState state : starRocksSinkStates) {
 
                         log.info(
-                                "abort prev transaction , start lastCheckpointId : {}, getSubTaskIndex : {}",
+                                "abort prev transaction , start lastCheckpointId : {}, subTaskIndex : {}",
                                 lastCheckpointId + 1,
                                 context.getIndexOfSubtask());
                         manager.abort(lastCheckpointId + 1, context.getIndexOfSubtask());
@@ -98,7 +98,6 @@ public class StarRocksSinkWriter
                     throw new StarRocksConnectorException(
                             StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, e);
                 }
-
             }
             manager.beginTransaction(lastCheckpointId + 1);
         }

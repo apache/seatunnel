@@ -27,11 +27,9 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
 import org.apache.http.Header;
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -39,7 +37,6 @@ import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicHeader;
-import org.apache.http.util.EntityUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,7 +44,6 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -55,11 +51,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.PATH_TRANSACTION_BEGIN;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.PATH_TRANSACTION_COMMIT;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.PATH_TRANSACTION_PRE_COMMIT;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.PATH_TRANSACTION_ROLLBACK;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.PATH_TRANSACTION_SEND;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_COMMITTED;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_EXISTED;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_PREPARE;
@@ -84,7 +75,7 @@ public class TransactionStreamLoader implements StreamLoader {
     private StreamLoadManager manager;
 
     private SinkConfig sinkConfig;
-    private final StreamLoadHelper streamLoadHelper = new StreamLoadHelper();
+    private StreamLoadHelper streamLoadHelper;
 
     private ExecutorService executorService;
     private LabelGenerator labelGenerator;
@@ -93,6 +84,7 @@ public class TransactionStreamLoader implements StreamLoader {
         this(sinkConfig);
         this.manager = manager;
         this.labelGenerator = new LabelGenerator(sinkConfig);
+        streamLoadHelper = new StreamLoadHelper(sinkConfig);
     }
 
     public TransactionStreamLoader(SinkConfig sinkConfig) {
@@ -180,8 +172,7 @@ public class TransactionStreamLoader implements StreamLoader {
 
     public StreamLoadResponse doSend(TableRegion region) {
         try {
-            String host = streamLoadHelper.getAvailableHost(sinkConfig.getNodeUrls());
-            String sendUrl = getSendUrl(host);
+            String sendUrl = streamLoadHelper.getSendUrl(sinkConfig.getNodeUrls());
             String label = region.getLabel();
             HttpPut httpPut = new HttpPut(sendUrl);
             httpPut.setHeaders(sendHeader);
@@ -213,7 +204,7 @@ public class TransactionStreamLoader implements StreamLoader {
                 String responseBody;
                 try (CloseableHttpResponse response = client.execute(httpPut)) {
                     responseBody =
-                            parseHttpResponse(
+                            streamLoadHelper.parseHttpResponse(
                                     "load",
                                     region.getDatabase(),
                                     region.getTable(),
@@ -250,8 +241,7 @@ public class TransactionStreamLoader implements StreamLoader {
                     region.complete(streamLoadResponse);
                 } else if (RESULT_LABEL_EXISTED.equals(status)) {
                     String labelState =
-                            getLabelState(
-                                    host,
+                            streamLoadHelper.getLabelState(
                                     region.getDatabase(),
                                     label,
                                     Collections.singleton(RESULT_LABEL_PREPARE));
@@ -268,7 +258,7 @@ public class TransactionStreamLoader implements StreamLoader {
                         throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsage);
                     }
                 } else {
-                    String errorLog = getErrorLog(streamLoadBody.getErrorURL());
+                    String errorLog = streamLoadHelper.getErrorLog(streamLoadBody.getErrorURL());
                     String errorMsg =
                             String.format(
                                     "Stream load failed because of error, db: %s, table: %s, label: %s, "
@@ -328,8 +318,7 @@ public class TransactionStreamLoader implements StreamLoader {
 
     @Override
     public boolean begin(String label) {
-        String host = streamLoadHelper.getAvailableHost(sinkConfig.getNodeUrls());
-        String beginUrl = getBeginUrl(host);
+        String beginUrl = streamLoadHelper.getBeginUrl(sinkConfig.getNodeUrls());
         log.info("Transaction start, label : {}", label);
 
         HttpPost httpPost = new HttpPost(beginUrl);
@@ -357,7 +346,7 @@ public class TransactionStreamLoader implements StreamLoader {
             String responseBody;
             try (CloseableHttpResponse response = client.execute(httpPost)) {
                 responseBody =
-                        parseHttpResponse(
+                        streamLoadHelper.parseHttpResponse(
                                 "begin transaction",
                                 sinkConfig.getDatabase(),
                                 sinkConfig.getTable(),
@@ -403,9 +392,7 @@ public class TransactionStreamLoader implements StreamLoader {
     }
 
     public boolean prepare(String label) {
-        String host = streamLoadHelper.getAvailableHost(sinkConfig.getNodeUrls());
-        String prepareUrl = getPrepareUrl(host);
-
+        String prepareUrl = streamLoadHelper.getPrepareUrl(sinkConfig.getNodeUrls());
         HttpPost httpPost = new HttpPost(prepareUrl);
         httpPost.setHeaders(defaultTxnHeaders);
         httpPost.addHeader("label", label);
@@ -424,7 +411,7 @@ public class TransactionStreamLoader implements StreamLoader {
             String responseBody;
             try (CloseableHttpResponse response = client.execute(httpPost)) {
                 responseBody =
-                        parseHttpResponse(
+                        streamLoadHelper.parseHttpResponse(
                                 "prepare transaction",
                                 sinkConfig.getDatabase(),
                                 sinkConfig.getTable(),
@@ -461,8 +448,7 @@ public class TransactionStreamLoader implements StreamLoader {
                         // header,
                         // but as a protection we check the state again
                         String labelState =
-                                getLabelState(
-                                        host,
+                                streamLoadHelper.getLabelState(
                                         sinkConfig.getDatabase(),
                                         label,
                                         Collections.singleton(
@@ -495,8 +481,7 @@ public class TransactionStreamLoader implements StreamLoader {
     }
 
     public boolean commit(String label) {
-        String host = streamLoadHelper.getAvailableHost(sinkConfig.getNodeUrls());
-        String commitUrl = getCommitUrl(host);
+        String commitUrl = streamLoadHelper.getCommitUrl(sinkConfig.getNodeUrls());
 
         HttpPost httpPost = new HttpPost(commitUrl);
         httpPost.setHeaders(defaultTxnHeaders);
@@ -516,7 +501,7 @@ public class TransactionStreamLoader implements StreamLoader {
             String responseBody;
             try (CloseableHttpResponse response = client.execute(httpPost)) {
                 responseBody =
-                        parseHttpResponse(
+                        streamLoadHelper.parseHttpResponse(
                                 "commit transaction",
                                 sinkConfig.getDatabase(),
                                 sinkConfig.getTable(),
@@ -557,7 +542,8 @@ public class TransactionStreamLoader implements StreamLoader {
             //    the transaction actually success, and this commit should be successful
             // To reduce the dependency for the returned status type, always check the label state
             String labelState =
-                    getLabelState(host, sinkConfig.getDatabase(), label, Collections.emptySet());
+                    streamLoadHelper.getLabelState(
+                            sinkConfig.getDatabase(), label, Collections.emptySet());
             if (StreamLoadHelper.RESULT_LABEL_COMMITTED.equals(labelState)
                     || StreamLoadHelper.RESULT_LABEL_VISIBLE.equals(labelState)) {
                 return true;
@@ -603,8 +589,7 @@ public class TransactionStreamLoader implements StreamLoader {
         while (true) {
             try {
                 String label = new LabelGenerator(sinkConfig).genLabel(startChkID, subTaskIndex);
-                String host = streamLoadHelper.getAvailableHost(sinkConfig.getNodeUrls());
-                String beginUrl = getBeginUrl(host);
+                String beginUrl = streamLoadHelper.getBeginUrl(sinkConfig.getNodeUrls());
                 log.info("Transaction start, label : {}", label);
 
                 HttpPost httpPost = new HttpPost(beginUrl);
@@ -631,7 +616,7 @@ public class TransactionStreamLoader implements StreamLoader {
                 String responseBody;
                 try (CloseableHttpResponse response = client.execute(httpPost)) {
                     responseBody =
-                            parseHttpResponse(
+                            streamLoadHelper.parseHttpResponse(
                                     "begin transaction",
                                     sinkConfig.getDatabase(),
                                     sinkConfig.getTable(),
@@ -684,8 +669,7 @@ public class TransactionStreamLoader implements StreamLoader {
     }
 
     public boolean rollback(String label) {
-        String host = streamLoadHelper.getAvailableHost(sinkConfig.getNodeUrls());
-        String rollbackUrl = getRollbackUrl(host);
+        String rollbackUrl = streamLoadHelper.getRollbackUrl(sinkConfig.getNodeUrls());
         log.info("Transaction rollback, label : {}", label);
 
         HttpPost httpPost = new HttpPost(rollbackUrl);
@@ -698,7 +682,7 @@ public class TransactionStreamLoader implements StreamLoader {
             String responseBody;
             try (CloseableHttpResponse response = client.execute(httpPost)) {
                 responseBody =
-                        parseHttpResponse(
+                        streamLoadHelper.parseHttpResponse(
                                 "abort transaction",
                                 sinkConfig.getDatabase(),
                                 sinkConfig.getTable(),
@@ -733,173 +717,5 @@ public class TransactionStreamLoader implements StreamLoader {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    protected String getLabelState(
-            String host, String database, String label, Set<String> retryStates) throws Exception {
-        int idx = 0;
-        for (; ; ) {
-            TimeUnit.SECONDS.sleep(Math.min(++idx, 5));
-            try (CloseableHttpClient client = HttpClients.createDefault()) {
-                String url = host + "/api/" + database + "/get_load_state?label=" + label;
-                HttpGet httpGet = new HttpGet(url);
-                httpGet.addHeader(
-                        "Authorization",
-                        streamLoadHelper.getBasicAuthHeader(
-                                sinkConfig.getUsername(), sinkConfig.getPassword()));
-                httpGet.setHeader("Connection", "close");
-                try (CloseableHttpResponse response = client.execute(httpGet)) {
-                    int responseStatusCode = response.getStatusLine().getStatusCode();
-                    String entityContent = EntityUtils.toString(response.getEntity());
-                    log.info(
-                            "Response for get_load_state, label: {}, response status code: {}, response body : {}",
-                            label,
-                            responseStatusCode,
-                            entityContent);
-                    if (responseStatusCode != 200) {
-                        throw new StarRocksConnectorException(
-                                FLUSH_DATA_FAILED,
-                                String.format(
-                                        "Could not get load state because of incorrect response status code %s, "
-                                                + "label: %s, response body: %s",
-                                        responseStatusCode, label, entityContent));
-                    }
-
-                    StreamLoadResponse.StreamLoadResponseBody responseBody =
-                            JsonUtils.parseObject(
-                                    entityContent, StreamLoadResponse.StreamLoadResponseBody.class);
-                    String state = responseBody.getState();
-                    if (state == null) {
-                        log.error(
-                                "Fail to get load state, label: {}, load information: {}",
-                                label,
-                                JsonUtils.toJsonString(responseBody));
-                        throw new StarRocksConnectorException(
-                                FLUSH_DATA_FAILED,
-                                String.format(
-                                        "Could not get load state because of state is null,"
-                                                + "label: %s, load information: %s",
-                                        label, entityContent));
-                    }
-
-                    if (retryStates.contains(state)) {
-                        continue;
-                    }
-
-                    return state;
-                }
-            }
-        }
-    }
-
-    protected String parseHttpResponse(
-            String requestType,
-            String db,
-            String table,
-            String label,
-            CloseableHttpResponse response)
-            throws StarRocksConnectorException {
-        int code = response.getStatusLine().getStatusCode();
-        if (307 == code) {
-            String errorMsg =
-                    String.format(
-                            "Request %s failed because http response code is 307 which means 'Temporary Redirect'. "
-                                    + "This can happen when FE responds the request slowly , you should find the reason first. The reason may be "
-                                    + "StarRocks FE/Flink GC, network delay, or others. db: %s, table: %s, label: %s, response status line: %s",
-                            requestType, db, table, label, response.getStatusLine());
-            log.error("{}", errorMsg);
-            throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
-        } else if (200 != code) {
-            String errorMsg =
-                    String.format(
-                            "Request %s failed because http response code is not 200. db: %s, table: %s,"
-                                    + "label: %s, response status line: %s",
-                            requestType, db, table, label, response.getStatusLine());
-            log.error("{}", errorMsg);
-            throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
-        }
-
-        HttpEntity respEntity = response.getEntity();
-        if (respEntity == null) {
-            String errorMsg =
-                    String.format(
-                            "Request %s failed because response entity is null. db: %s, table: %s,"
-                                    + "label: %s, response status line: %s",
-                            requestType, db, table, label, response.getStatusLine());
-            log.error("{}", errorMsg);
-            throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
-        }
-
-        try {
-            return EntityUtils.toString(respEntity);
-        } catch (Exception e) {
-            String errorMsg =
-                    String.format(
-                            "Request %s failed because fail to convert response entity to string. "
-                                    + "db: %s, table: %s, label: %s, response status line: %s, response entity: %s",
-                            requestType,
-                            db,
-                            table,
-                            label,
-                            response.getStatusLine(),
-                            response.getEntity());
-            log.error("{}", errorMsg, e);
-            throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg, e);
-        }
-    }
-
-    protected String getErrorLog(String errorUrl) {
-        if (errorUrl == null || !errorUrl.startsWith("http")) {
-            return null;
-        }
-
-        try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
-            HttpGet httpGet = new HttpGet(errorUrl);
-            try (CloseableHttpResponse resp = httpclient.execute(httpGet)) {
-                int code = resp.getStatusLine().getStatusCode();
-                if (200 != code) {
-                    log.warn(
-                            "Request error log failed with error code: {}, errorUrl: {}",
-                            code,
-                            errorUrl);
-                    return null;
-                }
-
-                HttpEntity respEntity = resp.getEntity();
-                if (respEntity == null) {
-                    log.warn("Request error log failed with null entity, errorUrl: {}", errorUrl);
-                    return null;
-                }
-                String errorLog = EntityUtils.toString(respEntity);
-                if (errorLog != null && errorLog.length() > 3000) {
-                    errorLog = errorLog.substring(0, 3000);
-                }
-                return errorLog;
-            }
-        } catch (Exception e) {
-            log.warn("Failed to get error log: {}.", errorUrl, e);
-            return String.format(
-                    "Failed to get error log: %s, exception message: %s", errorUrl, e.getMessage());
-        }
-    }
-
-    public static String getBeginUrl(String host) {
-        return host + PATH_TRANSACTION_BEGIN;
-    }
-
-    public static String getSendUrl(String host) {
-        return host + PATH_TRANSACTION_SEND;
-    }
-
-    public static String getPrepareUrl(String host) {
-        return host + PATH_TRANSACTION_PRE_COMMIT;
-    }
-
-    public static String getCommitUrl(String host) {
-        return host + PATH_TRANSACTION_COMMIT;
-    }
-
-    public static String getRollbackUrl(String host) {
-        return host + PATH_TRANSACTION_ROLLBACK;
     }
 }
