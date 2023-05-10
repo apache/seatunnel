@@ -2,13 +2,13 @@
 
 > JDBC Mysql Source Connector
 
-## Support those engines
+## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
 > Seatunnel Zeta<br/>
 
-## Key features
+## Key Features
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
@@ -22,11 +22,11 @@
 
 Read external data source data through JDBC.
 
-## Supported DataSource list
+## Supported DataSource Info
 
-| datasource |                    supported versions                    |          driver          |                  url                  |                                   maven                                   |
+| Datasource |                    Supported versions                    |          Driver          |                  Url                  |                                   Maven                                   |
 |------------|----------------------------------------------------------|--------------------------|---------------------------------------|---------------------------------------------------------------------------|
-| mysql      | Different dependency version has different driver class. | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
+| Mysql      | Different dependency version has different driver class. | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
 
 ## Database dependency
 
@@ -53,9 +53,9 @@ Read external data source data through JDBC.
 | TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
 | GEOMETRY<br/>UNKNOWN                                                                                                              | Not supported yet                                                                                                                                   |
 
-## Options
+## Source Options
 
-|             name             |  type  | required |     default     |                                                                                                                            description                                                                                                                            |
+|             Name             |  Type  | Required |     Default     |                                                                                                                            Description                                                                                                                            |
 |------------------------------|--------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                                            |
 | driver                       | String | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                                     |
@@ -70,13 +70,13 @@ Read external data source data through JDBC.
 | fetch_size                   | Int    | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
 | common-options               |        | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
 
-## tips
+### Tips
 
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
 
 ## Task Example
 
-### simple:
+### Simple:
 
 > This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
 
@@ -108,7 +108,7 @@ sink {
 }
 ```
 
-### parallel:
+### Parallel:
 
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
 
@@ -130,7 +130,7 @@ source {
 }
 ```
 
-### parallel boundary:
+### Parallel Boundary:
 
 > It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
 

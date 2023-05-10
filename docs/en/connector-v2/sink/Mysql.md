@@ -2,13 +2,13 @@
 
 > JDBC Mysql Sink Connector
 
-## Support those engines
+## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
 > Seatunnel Zeta<br/>
 
-## Key features
+## Key Features
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
@@ -22,11 +22,11 @@
 Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
 semantics (using XA transaction guarantee).
 
-## Supported DataSource list
+## Supported DataSource Info
 
-| datasource |                    supported versions                    |          driver          |                  url                  |                                   maven                                   |
+| Datasource |                    Supported Versions                    |          Driver          |                  Url                  |                                   Maven                                   |
 |------------|----------------------------------------------------------|--------------------------|---------------------------------------|---------------------------------------------------------------------------|
-| mysql      | Different dependency version has different driver class. | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
+| Mysql      | Different dependency version has different driver class. | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
 
 ## Database dependency
 
@@ -53,9 +53,9 @@ semantics (using XA transaction guarantee).
 | TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
 | GEOMETRY<br/>UNKNOWN                                                                                                              | Not supported yet                                                                                                                                   |
 
-## Options
+## Sink Options
 
-|                   name                    |  type   | required | default value |                                                                                                                 description                                                                                                                  |
+|                   Name                    |  Type   | Required | Default Value |                                                                                                                 Description                                                                                                                  |
 |-------------------------------------------|---------|----------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -             | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                       |
 | driver                                    | String  | Yes      | -             | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                |
@@ -77,13 +77,13 @@ semantics (using XA transaction guarantee).
 | auto_commit                               | Boolean | No       | true          | Automatic transaction commit is enabled by default                                                                                                                                                                                           |
 | common-options                            |         | no       | -             | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                          |
 
-## tips
+### Tips
 
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
 
 ## Task Example
 
-### simple:
+### Simple:
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table. Before run this job, you need create database test and table test_table in your mysql. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
 
@@ -152,7 +152,7 @@ sink {
 }
 ```
 
-### CDC(Change data capture) event
+### CDC(Change Data Capture) Event
 
 > CDC change data is also supported by us In this case, you need config database, table and primary_keys.
 
