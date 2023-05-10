@@ -313,6 +313,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (MIT License) jcl-over-slf4j (org.slf4j:jcl-over-slf4j:1.7.25 - http://www.slf4j.org)
      (MIT License) animal-sniffer-annotations (org.codehaus.mojo:animal-sniffer-annotations:1.17 - https://mvnrepository.com/artifact/org.codehaus.mojo/animal-sniffer-annotations/1.17)
      (MIT License) checker-qual (org.checkerframework:checker-qual:3.10.0 - https://mvnrepository.com/)
+     (MIT License) jul-to-slf4j (org.slf4j:jul-to-slf4j:1.7.25 - http://www.slf4j.org)
 ========================================================================
 Public Domain License
 ========================================================================
