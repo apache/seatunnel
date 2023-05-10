@@ -1,19 +1,16 @@
 # MongoDB
 
-> MongoDB source connector
+> MongoDB Source Connector
 
-The MongoDB Connector provides the ability to read and write data from and to MongoDB.
-This document describes how to set up the MongoDB connector to run data reads against MongoDB.
-
-Support those engines
+Support Those Engines
 ---------------------
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-Key featuresl
--------------
+Key Features
+------------
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
@@ -22,35 +19,41 @@ Key featuresl
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
 
-Dependencies
-------------
+Description
+-----------
+
+The MongoDB Connector provides the ability to read and write data from and to MongoDB.
+This document describes how to set up the MongoDB connector to run data reads against MongoDB.
+
+Supported DataSource Info
+-------------------------
 
 In order to use the Mongodb connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| MongoDB version |                                                  dependency                                                   |
-|-----------------|---------------------------------------------------------------------------------------------------------------|
-| universal       | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-mongodb) |
+| Datasource | Supported Versions |                                                  Dependency                                                   |
+|------------|--------------------|---------------------------------------------------------------------------------------------------------------|
+| MongoDB    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-mongodb) |
 
 Data Type Mapping
 -----------------
 
 The following table lists the field data type mapping from MongoDB BSON type to Seatunnel data type.
 
-| MongoDB BSON type | Seatunnel type |
-|-------------------|----------------|
-| ObjectId          | STRING         |
-| String            | STRING         |
-| Boolean           | BOOLEAN        |
-| Binary            | BINARY         |
-| Int32             | INTEGER        |
-| Int64             | BIGINT         |
-| Double            | DOUBLE         |
-| Decimal128        | DECIMAL        |
-| Date              | Date           |
-| Timestamp         | Timestamp      |
-| Object            | ROW            |
-| Array             | ARRAY          |
+| MongoDB BSON type | Seatunnel Data type |
+|-------------------|---------------------|
+| ObjectId          | STRING              |
+| String            | STRING              |
+| Boolean           | BOOLEAN             |
+| Binary            | BINARY              |
+| Int32             | INTEGER             |
+| Int64             | BIGINT              |
+| Double            | DOUBLE              |
+| Decimal128        | DECIMAL             |
+| Date              | Date                |
+| Timestamp         | Timestamp           |
+| Object            | ROW                 |
+| Array             | ARRAY               |
 
 For specific types in MongoDB, we use Extended JSON format to map them to Seatunnel STRING type.
 
@@ -61,28 +64,29 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 | JavaScript        | {"_value": {"$code": "function() { return 10; }"}}                                           |
 | DbPointer         | {"_value": {"$dbPointer": {"$ref": "db.coll", "$id": {"$oid": "63932a00da01604af329e33c"}}}} |
 
-tips：
-1.When using the DECIMAL type in SeaTunnel, be aware that the maximum range cannot exceed 34 digits, which means you should use decimal(34, 18).
+**Tips**
 
-Connector Options
------------------
+> 1.When using the DECIMAL type in SeaTunnel, be aware that the maximum range cannot exceed 34 digits, which means you should use decimal(34, 18).<br/>
 
-|        Option        | Required |     Default      |  Type   |                                                                                                                                                  Description                                                                                                                                                   |
-|----------------------|----------|------------------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| uri                  | required | (none)           | String  | The MongoDB connection uri.                                                                                                                                                                                                                                                                                    |
-| database             | required | (none)           | String  | The name of MongoDB database to read or write.                                                                                                                                                                                                                                                                 |
-| collection           | required | (none)           | String  | The name of MongoDB collection to read or write.                                                                                                                                                                                                                                                               |
-| schema               | required | (none)           | String  | MongoDB's BSON and seatunnel data structure mapping                                                                                                                                                                                                                                                            |
-| match.query          | optional | (none)           | String  | In MongoDB, filters are used to filter documents for query operations.                                                                                                                                                                                                                                         |
-| match.projection     | optional | (none)           | String  | In MongoDB, Projection is used to control the fields contained in the query results                                                                                                                                                                                                                            |
-| partition.split-key  | optional | _id              | String  | The key of Mongodb fragmentation.                                                                                                                                                                                                                                                                              |
-| partition.split-size | optional | 64 * 1024 * 1024 | Long    | The size of Mongodb fragment.                                                                                                                                                                                                                                                                                  |
-| cursor.no-timeout    | optional | true             | Boolean | MongoDB server normally times out idle cursors after an inactivity period (10 minutes) to prevent excess memory use. Set this option to true to prevent that. However, if the application takes longer than 30 minutes to process the current batch of documents, the session is marked as expired and closed. |
-| fetch.size           | optional | 2048             | Int     | Set the number of documents obtained from the server for each batch. Setting the appropriate batch size can improve query performance and avoid the memory pressure caused by obtaining a large amount of data at one time.                                                                                    |
-| max.time-min         | optional | 600              | Long    | This parameter is a MongoDB query option that limits the maximum execution time for query operations. The value of maxTimeMin is in Minute. If the execution time of the query exceeds the specified time limit, MongoDB will terminate the operation and return an error.                                     |
-| flat.sync-string     | optional | true             | Boolean | By utilizing flatSyncString, only one field attribute value can be set, and the field type must be a String. This operation will perform a string mapping on a single MongoDB data entry.                                                                                                                      |
+Source Options
+--------------
 
-How to create a MongoDB Data synchronization jobs
+|         Name         |  Type   | Required |     Default      |                                                                                                                                                  Description                                                                                                                                                   |
+|----------------------|---------|----------|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| uri                  | String  | Yes      | -                | The MongoDB connection uri.                                                                                                                                                                                                                                                                                    |
+| database             | String  | Yes      | -                | The name of MongoDB database to read or write.                                                                                                                                                                                                                                                                 |
+| collection           | String  | Yes      | -                | The name of MongoDB collection to read or write.                                                                                                                                                                                                                                                               |
+| schema               | String  | Yes      | -                | MongoDB's BSON and seatunnel data structure mapping                                                                                                                                                                                                                                                            |
+| match.query          | String  | No       | -                | In MongoDB, filters are used to filter documents for query operations.                                                                                                                                                                                                                                         |
+| match.projection     | String  | No       | -                | In MongoDB, Projection is used to control the fields contained in the query results                                                                                                                                                                                                                            |
+| partition.split-key  | String  | No       | _id              | The key of Mongodb fragmentation.                                                                                                                                                                                                                                                                              |
+| partition.split-size | Long    | No       | 64 * 1024 * 1024 | The size of Mongodb fragment.                                                                                                                                                                                                                                                                                  |
+| cursor.no-timeout    | Boolean | No       | true             | MongoDB server normally times out idle cursors after an inactivity period (10 minutes) to prevent excess memory use. Set this option to true to prevent that. However, if the application takes longer than 30 minutes to process the current batch of documents, the session is marked as expired and closed. |
+| fetch.size           | Int     | No       | 2048             | Set the number of documents obtained from the server for each batch. Setting the appropriate batch size can improve query performance and avoid the memory pressure caused by obtaining a large amount of data at one time.                                                                                    |
+| max.time-min         | Long    | No       | 600              | This parameter is a MongoDB query option that limits the maximum execution time for query operations. The value of maxTimeMin is in Minute. If the execution time of the query exceeds the specified time limit, MongoDB will terminate the operation and return an error.                                     |
+| flat.sync-string     | Boolean | No       | true             | By utilizing flatSyncString, only one field attribute value can be set, and the field type must be a String. This operation will perform a string mapping on a single MongoDB data entry.                                                                                                                      |
+
+How to Create a MongoDB Data Synchronization Jobs
 -------------------------------------------------
 
 The following example demonstrates how to create a data synchronization job that reads data from MongoDB and prints it on the local client:
@@ -139,10 +143,10 @@ sink {
 }
 ```
 
-Parameter interpretation
+Parameter Interpretation
 ------------------------
 
-**MongoDB database connection URI examples**
+**MongoDB Database Connection URI Examples**
 
 Unauthenticated single node connection:
 

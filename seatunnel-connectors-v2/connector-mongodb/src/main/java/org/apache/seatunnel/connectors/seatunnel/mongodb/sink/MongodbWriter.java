@@ -34,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
@@ -87,6 +88,12 @@ public class MongodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     @Override
+    public Optional<Void> prepareCommit() {
+        doBulkWrite();
+        return Optional.empty();
+    }
+
+    @Override
     public void close() throws IOException {
         doBulkWrite();
         if (collectionProvider != null) {
@@ -94,7 +101,7 @@ public class MongodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
-    void doBulkWrite() throws IOException {
+    synchronized void doBulkWrite() {
         if (bulkRequests.isEmpty()) {
             // no records to write
             return;
