@@ -1,4 +1,4 @@
-# Contribute Transform Guide
+# Transform Guide
 
 This document describes how to understand, develop and contribute a transform.
 

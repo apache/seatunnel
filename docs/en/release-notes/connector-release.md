@@ -1,4 +1,4 @@
-# Connector Release Status
+# Connector Release
 
 SeaTunnel uses a grading system for connectors to help you understand what to expect from a connector:
 

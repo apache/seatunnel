@@ -3,7 +3,7 @@
 sidebar_position: 2
 -------------------
 
-# Intro to config file
+# set up a job config file
 
 In SeaTunnel, the most important thing is the Config file, through which users can customize their own data
 synchronization requirements to maximize the potential of SeaTunnel. So next, I will introduce you how to
@@ -194,3 +194,4 @@ This is much more convenient when there is only one source.
 
 If you want to know the details of this format configuration, Please
 see [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md).
+
