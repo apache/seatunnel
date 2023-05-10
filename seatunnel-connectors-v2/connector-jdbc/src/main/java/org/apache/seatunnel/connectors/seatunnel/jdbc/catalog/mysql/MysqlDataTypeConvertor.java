@@ -113,6 +113,7 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
             case INT:
             case MEDIUMINT:
             case MEDIUMINT_UNSIGNED:
+            case YEAR:
                 return BasicType.INT_TYPE;
             case INT_UNSIGNED:
             case BIGINT:

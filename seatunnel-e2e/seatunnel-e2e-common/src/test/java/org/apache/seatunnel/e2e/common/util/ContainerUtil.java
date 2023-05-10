@@ -183,7 +183,8 @@ public final class ContainerUtil {
             File targetPath = new File(currentModule.getAbsolutePath() + File.separator + "target");
             for (File file : Objects.requireNonNull(targetPath.listFiles())) {
                 if (file.getName().startsWith(currentModule.getName())
-                        && !file.getName().endsWith("javadoc.jar")) {
+                        && !file.getName().endsWith("javadoc.jar")
+                        && !file.getName().endsWith("tests.jar")) {
                     connectors.add(file);
                     return;
                 }
