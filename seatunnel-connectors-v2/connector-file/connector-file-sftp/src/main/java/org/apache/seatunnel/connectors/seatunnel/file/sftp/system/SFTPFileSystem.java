@@ -25,6 +25,8 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
+import org.apache.hadoop.fs.ftp.FTPException;
+
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
