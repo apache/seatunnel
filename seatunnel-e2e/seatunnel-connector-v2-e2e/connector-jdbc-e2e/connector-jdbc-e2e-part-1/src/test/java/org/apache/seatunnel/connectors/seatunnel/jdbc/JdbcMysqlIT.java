@@ -60,11 +60,11 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
             Lists.newArrayList(
                     "/jdbc_mysql_source_and_sink.conf",
                     "/jdbc_mysql_source_and_sink_parallel.conf",
-                    "/jdbc_mysql_source_and_sink_parallel_upper_lower.conf",
-                    "/jdbc_mysql_e2e_parallel_partition_key_type_bigint_unsigned.conf");
+                    "/jdbc_mysql_source_and_sink_parallel_upper_lower.conf");
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
+                    + "    `c_bigint_30`          BIGINT(40) unsigned   DEFAULT NULL,\n"
                     + "    `c_bit_1`              bit(1)                DEFAULT NULL,\n"
                     + "    `c_bit_8`              bit(8)                DEFAULT NULL,\n"
                     + "    `c_bit_16`             bit(16)               DEFAULT NULL,\n"
@@ -151,6 +151,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
+                    "c_bigint_30",
                     "c_bit_1",
                     "c_bit_8",
                     "c_bit_16",
@@ -195,11 +196,14 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
+        // Define a large bigint data value to test for compatibility above bigint(20)
+        BigDecimal testBigDecimalValue = new BigDecimal("2844674407371055000");
         for (int i = 0; i < 100; i++) {
             byte byteArr = Integer.valueOf(i).byteValue();
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
+                                testBigDecimalValue.add(BigDecimal.valueOf(i)),
                                 i % 2 == 0 ? (byte) 1 : (byte) 0,
                                 new byte[] {byteArr},
                                 new byte[] {byteArr, byteArr},

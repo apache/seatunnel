@@ -46,6 +46,7 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -136,8 +137,8 @@ public class JdbcSourceFactory implements TableSourceFactory {
 
     static PartitionParameter createPartitionParameter(
             JdbcSourceConfig config, String columnName, Connection connection) {
-        long max = Long.MAX_VALUE;
-        long min = Long.MIN_VALUE;
+        BigDecimal max = null;
+        BigDecimal min = null;
         if (config.getPartitionLowerBound().isPresent()
                 && config.getPartitionUpperBound().isPresent()) {
             max = config.getPartitionUpperBound().get();
@@ -156,11 +157,11 @@ public class JdbcSourceFactory implements TableSourceFactory {
                 max =
                         config.getPartitionUpperBound().isPresent()
                                 ? config.getPartitionUpperBound().get()
-                                : rs.getLong(1);
+                                : rs.getBigDecimal(1);
                 min =
                         config.getPartitionLowerBound().isPresent()
                                 ? config.getPartitionLowerBound().get()
-                                : rs.getLong(2);
+                                : rs.getBigDecimal(2);
             }
         } catch (SQLException e) {
             throw new PrepareFailException("jdbc", PluginType.SOURCE, e.toString());
