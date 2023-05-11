@@ -76,6 +76,7 @@ public class IMapFileOSSStorageTest {
         Map<String, Object> properties = new HashMap<>();
         properties.put("storage.type", "oss");
         properties.put("oss.bucket", OSS_BUCKET_NAME);
+        properties.put("block.size", 1024 * 1024 * 2);
         properties.put("fs.oss.endpoint", OSS_ENDPOINT);
         properties.put("fs.oss.accessKeyId", OSS_ACCESS_KEY_ID);
         properties.put("fs.oss.accessKeySecret", OSS_ACCESS_KEY_SECRET);

@@ -27,8 +27,18 @@ import org.apache.hadoop.conf.Configuration;
 import java.util.Map;
 
 public abstract class AbstractConfiguration {
-
+    public static final String BLOCK_SIZE = "block.size";
     protected static final String HDFS_IMPL_KEY = "impl";
+
+    private Long blockSize = 1024 * 1024L;
+
+    public Long getBlockSize() {
+        return blockSize;
+    }
+
+    public void setBlockSize(Long blockSize) {
+        this.blockSize = blockSize;
+    }
 
     /**
      * check the configuration keys
@@ -58,6 +68,9 @@ public abstract class AbstractConfiguration {
             Configuration hadoopConf, Map<String, Object> config, String prefix) {
         config.forEach(
                 (k, v) -> {
+                    if (config.containsKey(BLOCK_SIZE)) {
+                        setBlockSize(Long.parseLong(config.get(BLOCK_SIZE).toString()));
+                    }
                     if (k.startsWith(prefix)) {
                         hadoopConf.set(k, String.valueOf(v));
                     }

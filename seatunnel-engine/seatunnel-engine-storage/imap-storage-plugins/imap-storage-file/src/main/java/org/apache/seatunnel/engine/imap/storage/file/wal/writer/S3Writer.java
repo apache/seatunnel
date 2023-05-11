@@ -22,7 +22,7 @@ package org.apache.seatunnel.engine.imap.storage.file.wal.writer;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class S3Writer extends OssWriter {
+public class S3Writer extends CloudWriter {
     @Override
     public String identifier() {
         return "s3";

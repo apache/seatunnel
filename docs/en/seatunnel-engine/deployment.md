@@ -214,6 +214,7 @@ map:
            namespace: /tmp/seatunnel/imap
            clusterName: seatunnel-cluster
            storage.type: oss
+           block.size: block size(bytes)
            oss.bucket: oss://bucket name/
            fs.oss.accessKeyId: OSS access key id
            fs.oss.accessKeySecret: OSS access key secret

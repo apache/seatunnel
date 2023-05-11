@@ -47,6 +47,7 @@ import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperati
 import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.common.collect.Lists;
+import com.hazelcast.instance.impl.NodeState;
 import com.hazelcast.internal.metrics.DynamicMetricsProvider;
 import com.hazelcast.internal.metrics.MetricDescriptor;
 import com.hazelcast.internal.metrics.MetricsCollectionContext;
@@ -127,6 +128,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     private final ScheduledExecutorService scheduledExecutorService;
 
+    private CountDownLatch waitClusterStarted;
+
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
@@ -142,7 +145,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         scheduledExecutorService.scheduleAtFixedRate(
                 this::updateMetricsContextInImap,
-                30, // Wait for MapStore loading to complete, wait 30s
+                0,
                 seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
                 TimeUnit.SECONDS);
     }
@@ -455,6 +458,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         contextMap.putAll(finishedExecutionContexts);
         contextMap.putAll(executionContexts);
         try {
+            if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
+                logger.warning(
+                        String.format(
+                                "The Node is not ready yet, Node state %s,looking forward to the next "
+                                        + "scheduling",
+                                nodeEngine.getNode().getState()));
+                return;
+            }
+
             IMap<TaskLocation, SeaTunnelMetricsContext> map =
                     nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
             contextMap.forEach(

@@ -42,6 +42,7 @@ public class WALWriter implements AutoCloseable {
             Serializer serializer)
             throws IOException {
         this.writer = DiscoveryWalFileFactory.getWriter(fileConfiguration.getName());
+        this.writer.setBlockSize(fileConfiguration.getConfiguration().getBlockSize());
         this.writer.initialize(fs, parentPath, serializer);
     }
 

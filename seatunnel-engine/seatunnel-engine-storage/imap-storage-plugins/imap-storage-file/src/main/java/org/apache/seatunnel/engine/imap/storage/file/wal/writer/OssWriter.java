@@ -19,102 +19,12 @@
  */
 package org.apache.seatunnel.engine.imap.storage.file.wal.writer;
 
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
-import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
-import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
-import org.apache.seatunnel.engine.serializer.api.Serializer;
-
-import org.apache.curator.shaded.com.google.common.io.ByteStreams;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
-import java.util.concurrent.atomic.AtomicLong;
-
 @Slf4j
-public class OssWriter implements IFileWriter<IMapFileData> {
-    private FileSystem fs;
-    private Path parentPath;
-    private Path path;
-    private Serializer serializer;
-
-    private ByteBuf bf = Unpooled.buffer(1024);
-
-    // block size
-    private long blockSize = 1024 * 1024;
-
-    private AtomicLong index = new AtomicLong(0);
-
-    @Override
-    public void initialize(FileSystem fs, Path parentPath, Serializer serializer)
-            throws IOException {
-        this.fs = fs;
-        this.serializer = serializer;
-        this.parentPath = parentPath;
-        this.path = createNewPath();
-        if (fs.exists(path)) {
-            try (FSDataInputStream fsDataInputStream = fs.open(path)) {
-                bf.writeBytes(ByteStreams.toByteArray(fsDataInputStream));
-            }
-        }
-    }
-
+public class OssWriter extends CloudWriter {
     @Override
     public String identifier() {
         return "oss";
-    }
-
-    // TODO Synchronous write, asynchronous write can be added in the future
-    @Override
-    public void write(IMapFileData data) throws IOException {
-        byte[] bytes = serializer.serialize(data);
-        this.write(bytes);
-    }
-
-    private void write(byte[] bytes) {
-        try (FSDataOutputStream out = fs.create(path, true)) {
-            // Write to bytebuffer
-            byte[] data = WALDataUtils.wrapperBytes(bytes);
-            bf.writeBytes(data);
-
-            // Read all bytes
-            byte[] allBytes = new byte[bf.readableBytes()];
-            bf.readBytes(allBytes);
-
-            // write filesystem
-            out.write(allBytes);
-
-            // check and reset
-            checkAndSetNextScheduleRotation(allBytes.length);
-
-        } catch (Exception ex) {
-            throw new IMapStorageException(ex);
-        }
-    }
-
-    private void checkAndSetNextScheduleRotation(long allBytes) {
-        if (allBytes > blockSize) {
-            this.path = createNewPath();
-            this.bf.clear();
-        } else {
-            // reset index
-            bf.resetReaderIndex();
-        }
-    }
-
-    public Path createNewPath() {
-        return new Path(parentPath, index.incrementAndGet() + "-" + FILE_NAME);
-    }
-
-    @Override
-    public void close() throws Exception {
-        bf.clear();
-        this.bf = null;
     }
 }

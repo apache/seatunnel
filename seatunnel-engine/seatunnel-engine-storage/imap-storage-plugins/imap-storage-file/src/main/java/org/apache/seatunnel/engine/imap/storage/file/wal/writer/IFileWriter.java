@@ -28,10 +28,13 @@ import java.io.IOException;
 
 public interface IFileWriter<T> extends AutoCloseable {
     String FILE_NAME = "wal.txt";
+    Long DEFAULT_BLOCK_SIZE = 1024 * 1024L;
 
     String identifier();
 
     void initialize(FileSystem fs, Path parentPath, Serializer serializer) throws IOException;
+
+    default void setBlockSize(Long blockSize) {}
 
     void write(T data) throws IOException;
 }
