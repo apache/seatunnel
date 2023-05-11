@@ -202,10 +202,18 @@ public class JdbcSourceFactory implements TableSourceFactory {
     }
 
     private static boolean isNumericType(SeaTunnelDataType<?> type) {
-        // Currently, only numeric types are supported for reading partition keys
-        return type.equals(BasicType.INT_TYPE)
-                || type.equals(BasicType.LONG_TYPE)
-                || type.equals(new DecimalType(20, 0));
+        int scale = 1;
+        if (type instanceof DecimalType) {
+            scale = ((DecimalType) type).getScale() == 0 ? 0 : ((DecimalType) type).getScale();
+            if (scale != 0) {
+                throw new JdbcConnectorException(
+                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        String.format(
+                                "The current field is DecimalType containing decimals: %d Unable to support",
+                                scale));
+            }
+        }
+        return type.equals(BasicType.INT_TYPE) || type.equals(BasicType.LONG_TYPE) || scale == 0;
     }
 
     @Override
