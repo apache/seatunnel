@@ -136,6 +136,7 @@ public class SnowflakeDataTypeConvertor implements DataTypeConvertor<String> {
             case SNOWFLAKE_BINARY:
             case SNOWFLAKE_VARBINARY:
             case SNOWFLAKE_GEOGRAPHY:
+                return PrimitiveByteArrayType.INSTANCE;
             case SNOWFLAKE_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
             case SNOWFLAKE_TIME:
