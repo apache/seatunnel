@@ -28,7 +28,7 @@
     <name>SeaTunnel : Connectors V2 : Clickhouse</name>
 
     <properties>
-        <clickhouse.version>0.3.2-patch11</clickhouse.version>
+        <clickhouse.version>0.4.6</clickhouse.version>
         <sshd.scp.version>2.7.0</sshd.scp.version>
     </properties>
     <dependencies>
