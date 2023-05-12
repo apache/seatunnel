@@ -67,7 +67,7 @@ import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 @Slf4j
 public class MongodbIT extends TestSuiteBase implements TestResource {
 
-    private static final String MONGODB_IMAGE = "mongo:latest";
+    private static final String MONGODB_IMAGE = "mongo:6.0.5";
     private static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
     private static final int MONGODB_PORT = 27017;
     private static final String MONGODB_DATABASE = "test_db";

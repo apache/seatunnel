@@ -41,7 +41,7 @@ public interface EnvCommonOptions {
     Option<JobMode> JOB_MODE =
             Options.key("job.mode")
                     .enumType(JobMode.class)
-                    .noDefaultValue()
+                    .defaultValue(JobMode.BATCH)
                     .withDescription("The job mode of this job, support Batch and Stream");
 
     Option<Long> CHECKPOINT_INTERVAL =

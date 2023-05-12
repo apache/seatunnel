@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSemantics;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.SeaTunnelRowSerializer;
@@ -174,10 +175,12 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         }
 
         String topic = pluginConfig.get(TOPIC);
-        if (pluginConfig.get(PARTITION) != null) {
-            return DefaultSeaTunnelRowSerializer.create(
-                    topic, pluginConfig.get(PARTITION), seaTunnelRowType, messageFormat, delimiter);
-        } else {
+        if (pluginConfig.get(PARTITION_KEY_FIELDS) != null && pluginConfig.get(PARTITION) != null) {
+            throw new KafkaConnectorException(
+                    KafkaConnectorErrorCode.GET_TRANSACTIONMANAGER_FAILED,
+                    "Cannot select both `partiton` and `partition_key_fields`. You can configure only one of them");
+        }
+        if (pluginConfig.get(PARTITION_KEY_FIELDS) != null) {
             return DefaultSeaTunnelRowSerializer.create(
                     topic,
                     getPartitionKeyFields(pluginConfig, seaTunnelRowType),
@@ -185,6 +188,13 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                     messageFormat,
                     delimiter);
         }
+        if (pluginConfig.get(PARTITION) != null) {
+            return DefaultSeaTunnelRowSerializer.create(
+                    topic, pluginConfig.get(PARTITION), seaTunnelRowType, messageFormat, delimiter);
+        }
+        // By default, all partitions are sent randomly
+        return DefaultSeaTunnelRowSerializer.create(
+                topic, Arrays.asList(), seaTunnelRowType, messageFormat, delimiter);
     }
 
     private KafkaSemantics getKafkaSemantics(ReadonlyConfig pluginConfig) {

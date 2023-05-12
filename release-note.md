@@ -35,6 +35,7 @@
 ### E2E
 
 - [E2E] [Kafka] Fix kafka e2e testcase (#4520)
+- [Container Version] Fix risk of unreproducible test cases #4591
 
 ## Improve
 
@@ -68,10 +69,6 @@
 - [Zeta] Remove redundant code (#4489)
 - [Zeta] Remove redundancy code in validateSQL (#4506)
 - [Zeta] Improve JobMetrics fetch performance (#4467)
-
-### E2E
-
-- [E2E] [Spark] Enable spark e2e test cases (#4534)
 
 ## Feature
 
