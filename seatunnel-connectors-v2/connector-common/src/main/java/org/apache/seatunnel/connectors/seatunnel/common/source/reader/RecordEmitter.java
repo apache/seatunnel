@@ -23,11 +23,8 @@ import org.apache.seatunnel.api.source.Collector;
  * Emit a record to the downstream.
  *
  * @param <E>
- *
  * @param <T>
- *
  * @param <SplitStateT>
- *
  */
 public interface RecordEmitter<E, T, SplitStateT> {
 
@@ -35,13 +32,9 @@ public interface RecordEmitter<E, T, SplitStateT> {
      * Process and emit the records to the {@link Collector}.
      *
      * @param element
-     *
      * @param collector
-     *
      * @param splitState
-     *
      * @throws Exception
-     *
      */
     void emitRecord(E element, Collector<T> collector, SplitStateT splitState) throws Exception;
 }

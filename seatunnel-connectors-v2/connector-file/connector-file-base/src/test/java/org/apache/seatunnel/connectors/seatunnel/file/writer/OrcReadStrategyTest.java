@@ -17,40 +17,87 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.writer;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.net.URL;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 public class OrcReadStrategyTest {
 
     @Test
     public void testOrcRead() throws Exception {
-        URL resource = OrcReadStrategyTest.class.getResource("/test.orc");
-        assert resource != null;
-        String path = Paths.get(resource.toURI()).toString();
+        URL orcFile = OrcReadStrategyTest.class.getResource("/test.orc");
+        Assertions.assertNotNull(orcFile);
+        String orcFilePath = Paths.get(orcFile.toURI()).toString();
         OrcReadStrategy orcReadStrategy = new OrcReadStrategy();
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         orcReadStrategy.init(localConf);
         TestCollector testCollector = new TestCollector();
-        orcReadStrategy.read(path, testCollector);
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                orcReadStrategy.getSeaTunnelRowTypeInfo(localConf, orcFilePath);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+        System.out.println(seaTunnelRowTypeInfo);
+        orcReadStrategy.read(orcFilePath, testCollector);
+        for (SeaTunnelRow row : testCollector.getRows()) {
+            Assertions.assertEquals(row.getField(0).getClass(), Boolean.class);
+            Assertions.assertEquals(row.getField(1).getClass(), Byte.class);
+            Assertions.assertEquals(row.getField(16).getClass(), SeaTunnelRow.class);
+        }
+    }
+
+    @Test
+    public void testOrcReadProjection() throws Exception {
+        URL orcFile = OrcReadStrategyTest.class.getResource("/test.orc");
+        URL conf = OrcReadStrategyTest.class.getResource("/test_read_orc.conf");
+        Assertions.assertNotNull(orcFile);
+        Assertions.assertNotNull(conf);
+        String orcFilePath = Paths.get(orcFile.toURI()).toString();
+        String confPath = Paths.get(conf.toURI()).toString();
+        OrcReadStrategy orcReadStrategy = new OrcReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        Config pluginConfig = ConfigFactory.parseFile(new File(confPath));
+        orcReadStrategy.init(localConf);
+        orcReadStrategy.setPluginConfig(pluginConfig);
+        TestCollector testCollector = new TestCollector();
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                orcReadStrategy.getSeaTunnelRowTypeInfo(localConf, orcFilePath);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+        System.out.println(seaTunnelRowTypeInfo);
+        orcReadStrategy.read(orcFilePath, testCollector);
+        for (SeaTunnelRow row : testCollector.getRows()) {
+            Assertions.assertEquals(row.getField(0).getClass(), Byte.class);
+            Assertions.assertEquals(row.getField(1).getClass(), Boolean.class);
+        }
     }
 
     public static class TestCollector implements Collector<SeaTunnelRow> {
+
+        private final List<SeaTunnelRow> rows = new ArrayList<>();
+
+        public List<SeaTunnelRow> getRows() {
+            return rows;
+        }
 
         @SuppressWarnings("checkstyle:RegexpSingleline")
         @Override
         public void collect(SeaTunnelRow record) {
             System.out.println(record);
-            Assertions.assertEquals(record.getField(16).getClass(), SeaTunnelRow.class);
+            rows.add(record);
         }
 
         @Override

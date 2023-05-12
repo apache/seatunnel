@@ -27,21 +27,29 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
-import com.hazelcast.client.config.ClientConfig;
-import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class JobExecutionIT {
+
+    private static HazelcastInstanceImpl hazelcastInstance;
+
     @BeforeAll
     public static void beforeClass() throws Exception {
-        SeaTunnelServerStarter.createHazelcastInstance(TestUtils.getClusterName("JobExecutionIT"));
+        hazelcastInstance =
+                SeaTunnelServerStarter.createHazelcastInstance(
+                        TestUtils.getClusterName("JobExecutionIT"));
     }
 
     @Test
@@ -66,18 +74,24 @@ public class JobExecutionIT {
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv =
-            engineClient.createExecutionContext(filePath, jobConfig);
+                engineClient.createExecutionContext(filePath, jobConfig);
 
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-        CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-            return clientJobProxy.waitForJobComplete();
-        });
+        CompletableFuture<JobStatus> objectCompletableFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            return clientJobProxy.waitForJobComplete();
+                        });
 
-        Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> Assertions.assertTrue(
-                objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
-
+        Awaitility.await()
+                .atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        objectCompletableFuture.isDone()
+                                                && JobStatus.FINISHED.equals(
+                                                        objectCompletableFuture.get())));
     }
 
     @Test
@@ -91,21 +105,34 @@ public class JobExecutionIT {
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv =
-            engineClient.createExecutionContext(filePath, jobConfig);
+                engineClient.createExecutionContext(filePath, jobConfig);
 
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
         JobStatus jobStatus1 = clientJobProxy.getJobStatus();
         Assertions.assertFalse(jobStatus1.isEndState());
         ClientJobProxy finalClientJobProxy = clientJobProxy;
-        CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-            return finalClientJobProxy.waitForJobComplete();
-        });
+        CompletableFuture<JobStatus> objectCompletableFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            return finalClientJobProxy.waitForJobComplete();
+                        });
         Thread.sleep(1000);
         clientJobProxy.cancelJob();
 
-        Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> Assertions.assertTrue(
-                objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
+        Awaitility.await()
+                .atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        objectCompletableFuture.isDone()
+                                                && JobStatus.CANCELED.equals(
+                                                        objectCompletableFuture.get())));
+    }
 
+    @AfterAll
+    static void afterClass() {
+        if (hazelcastInstance != null) {
+            hazelcastInstance.shutdown();
+        }
     }
 }

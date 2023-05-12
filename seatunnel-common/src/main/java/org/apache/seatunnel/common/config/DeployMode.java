@@ -24,15 +24,11 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public enum DeployMode {
-    /**
-     * Spark
-     */
+    /** Spark */
     CLIENT("client"),
     CLUSTER("cluster"),
 
-    /**
-     * Flink
-     */
+    /** Flink */
     RUN("run"),
     RUN_APPLICATION("run-application");
 
@@ -46,8 +42,9 @@ public enum DeployMode {
         return deployMode;
     }
 
-    private static final Map<String, DeployMode> NAME_MAP = Arrays.stream(DeployMode.values())
-        .collect(Collectors.toMap(DeployMode::getDeployMode, Function.identity()));
+    private static final Map<String, DeployMode> NAME_MAP =
+            Arrays.stream(DeployMode.values())
+                    .collect(Collectors.toMap(DeployMode::getDeployMode, Function.identity()));
 
     public static Optional<DeployMode> from(String deployMode) {
         return Optional.ofNullable(NAME_MAP.get(deployMode.toLowerCase()));

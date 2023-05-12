@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
@@ -37,8 +38,7 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
 
     private TaskLocation taskID;
 
-    public RequestSplitOperation() {
-    }
+    public RequestSplitOperation() {}
 
     public RequestSplitOperation(TaskLocation taskID, TaskLocation enumeratorTaskID) {
         this.enumeratorTaskID = enumeratorTaskID;
@@ -49,13 +49,28 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
     public void run() throws Exception {
         SeaTunnelServer server = getService();
 
-        RetryUtils.retryWithException(() -> {
-            SourceSplitEnumeratorTask<?> task = server.getTaskExecutionService().getTask(enumeratorTaskID);
-            task.requestSplit(taskID.getTaskIndex());
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException &&
-                !server.taskIsEnded(enumeratorTaskID.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    ClassLoader classLoader =
+                            server.getTaskExecutionService()
+                                    .getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
+                                    .getClassLoader();
+                    ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
+                    Thread.currentThread().setContextClassLoader(classLoader);
+                    SourceSplitEnumeratorTask<?> task =
+                            server.getTaskExecutionService().getTask(enumeratorTaskID);
+                    task.requestSplit(taskID.getTaskIndex());
+                    Thread.currentThread().setContextClassLoader(oldClassLoader);
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof TaskGroupContextNotFoundException
+                                        && !server.taskIsEnded(
+                                                enumeratorTaskID.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override

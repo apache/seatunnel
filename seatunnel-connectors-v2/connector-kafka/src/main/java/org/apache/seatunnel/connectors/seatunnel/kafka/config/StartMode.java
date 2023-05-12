@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.config;
 
 public enum StartMode {
-
     EARLIEST("earliest"),
 
     GROUP_OFFSETS("group_offsets"),

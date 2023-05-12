@@ -18,13 +18,14 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 public enum CheckpointCloseReason {
-
     PIPELINE_END("Pipeline turn to end state."),
     CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
     CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
     CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown."),
     CHECKPOINT_COORDINATOR_RESET("CheckpointCoordinator reset."),
-    CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error.");
+    CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error."),
+    AGGREGATE_COMMIT_ERROR("Aggregate commit error."),
+    TASK_NOT_ALL_READY_WHEN_SAVEPOINT("Task not all ready, savepoint error");
 
     private final String message;
 

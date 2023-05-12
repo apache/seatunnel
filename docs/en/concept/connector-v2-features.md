@@ -42,7 +42,7 @@ Streaming Job Mode, The data read is unbounded and the job never stop.
 
 ### parallelism
 
-Parallelism Source Connector support config `parallelism`, every parallelism will create a task to read the data. 
+Parallelism Source Connector support config `parallelism`, every parallelism will create a task to read the data.
 In the **Parallelism Source Connector**, the source will be split into multiple splits, and then the enumerator will allocate the splits to the SourceReader for processing.
 
 ### support user-defined split

@@ -28,9 +28,12 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 public class PrintMessageTask extends AbstractSeaTunnelMessageTask<String, String> {
 
     protected PrintMessageTask(ClientMessage clientMessage, Node node, Connection connection) {
-        super(clientMessage, node, connection,
-            SeaTunnelPrintMessageCodec::decodeRequest,
-            SeaTunnelPrintMessageCodec::encodeResponse);
+        super(
+                clientMessage,
+                node,
+                connection,
+                SeaTunnelPrintMessageCodec::decodeRequest,
+                SeaTunnelPrintMessageCodec::encodeResponse);
     }
 
     @Override

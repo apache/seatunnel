@@ -37,7 +37,10 @@ public class WeChatSink extends HttpSink {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        return new HttpSinkWriter(seaTunnelRowType, super.httpParameter,
-            new WeChatBotMessageSerializationSchema(new WeChatSinkConfig(pluginConfig), seaTunnelRowType));
+        return new HttpSinkWriter(
+                seaTunnelRowType,
+                super.httpParameter,
+                new WeChatBotMessageSerializationSchema(
+                        new WeChatSinkConfig(pluginConfig), seaTunnelRowType));
     }
 }

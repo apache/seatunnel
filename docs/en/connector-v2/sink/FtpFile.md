@@ -4,7 +4,7 @@
 
 ## Description
 
-Output data to Ftp . 
+Output data to Ftp .
 
 :::tip
 
@@ -21,15 +21,16 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 By default, we use 2PC commit to ensure `exactly-once`
 
 - [x] file format
-    - [x] text
-    - [x] csv
-    - [x] parquet
-    - [x] orc
-    - [x] json
+  - [x] text
+  - [x] csv
+  - [x] parquet
+  - [x] orc
+  - [x] json
+  - [x] excel
 
-##  Options
+## Options
 
-| name                             | type    | required | default value                              | remarks                                                   |
+|               name               |  type   | required |               default value                |                          remarks                          |
 |----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
 | host                             | string  | yes      | -                                          |                                                           |
 | port                             | int     | yes      | -                                          |                                                           |
@@ -49,7 +50,10 @@ By default, we use 2PC commit to ensure `exactly-once`
 | sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns |
 | is_enable_transaction            | boolean | no       | true                                       |                                                           |
 | batch_size                       | int     | no       | 1000000                                    |                                                           |
+| compress_codec                   | string  | no       | none                                       |                                                           |
 | common-options                   | object  | no       | -                                          |                                                           |
+| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format is excel.                      |
+| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format is excel.                      |
 
 ### host [string]
 
@@ -72,6 +76,7 @@ The target ftp password is required
 The target dir path is required.
 
 ### custom_filename [boolean]
+
 Whether custom the filename
 
 ### file_name_expression [string]
@@ -89,8 +94,8 @@ Only used when `custom_filename` is `true`
 
 When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
-| Symbol | Description        |
-| ------ | ------------------ |
+| Symbol |    Description     |
+|--------|--------------------|
 | y      | Year               |
 | M      | Month              |
 | d      | Day of month       |
@@ -102,7 +107,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet`
+`text` `json` `csv` `orc` `parquet` `excel`
 
 Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
 
@@ -157,12 +162,31 @@ Only support `true` now.
 
 The maximum number of rows in a file. For SeaTunnel Engine, the number of lines in the file is determined by `batch_size` and `checkpoint.interval` jointly decide. If the value of `checkpoint.interval` is large enough, sink writer will write rows in a file until the rows in the file larger than `batch_size`. If `checkpoint.interval` is small, the sink writer will create a new file when a new checkpoint trigger.
 
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc: `lzo` `snappy` `lz4` `zlib` `none`
+- parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
+
+Tips: excel type does not support any compression format
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
 
-## Example
+### max_rows_in_memory [int]
 
+When File Format is Excel,The maximum number of data items that can be cached in the memory.
+
+### sheet_name [string]
+
+Writer the sheet of the workbook
+
+## Example
 
 For text file format simple config
 
@@ -214,14 +238,17 @@ FtpFile {
 - Add Ftp File Sink Connector
 
 ### 2.3.0-beta 2022-10-20
+
 - [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
 - [BugFix] Fix filesystem get error ([3117](https://github.com/apache/incubator-seatunnel/pull/3117))
 - [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/incubator-seatunnel/pull/3083))
 
 ### Next version
+
 - [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
-
 - [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
+- [Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+

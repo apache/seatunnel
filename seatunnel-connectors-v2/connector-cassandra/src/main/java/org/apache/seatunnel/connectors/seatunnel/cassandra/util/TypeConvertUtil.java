@@ -27,6 +27,8 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorException;
 
+import org.apache.commons.lang3.ArrayUtils;
+
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
 import com.datastax.oss.driver.api.core.cql.Row;
@@ -35,7 +37,6 @@ import com.datastax.oss.driver.internal.core.type.DefaultListType;
 import com.datastax.oss.driver.internal.core.type.DefaultMapType;
 import com.datastax.oss.driver.internal.core.type.DefaultSetType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
-import org.apache.commons.lang3.ArrayUtils;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -90,13 +91,16 @@ public class TypeConvertUtil {
             case ProtocolConstants.DataType.BLOB:
                 return ArrayType.BYTE_ARRAY_TYPE;
             case ProtocolConstants.DataType.MAP:
-                return new MapType<>(convert(((DefaultMapType) type).getKeyType()), convert(((DefaultMapType) type).getValueType()));
+                return new MapType<>(
+                        convert(((DefaultMapType) type).getKeyType()),
+                        convert(((DefaultMapType) type).getValueType()));
             case ProtocolConstants.DataType.LIST:
                 return convertToArrayType(convert(((DefaultListType) type).getElementType()));
             case ProtocolConstants.DataType.SET:
                 return convertToArrayType(convert(((DefaultSetType) type).getElementType()));
             default:
-                throw new CassandraConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                throw new CassandraConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                         "Unsupported this data type: " + type);
         }
     }
@@ -119,7 +123,8 @@ public class TypeConvertUtil {
         } else if (dataType.equals(BasicType.BOOLEAN_TYPE)) {
             return ArrayType.BOOLEAN_ARRAY_TYPE;
         } else {
-            throw new CassandraConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+            throw new CassandraConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                     "Unsupported this data type: " + dataType);
         }
     }
@@ -176,58 +181,105 @@ public class TypeConvertUtil {
                     fields[i] = row.getLocalDate(i);
                     break;
                 case ProtocolConstants.DataType.TIMESTAMP:
-                    fields[i] = Timestamp.from(Objects.requireNonNull(row.getInstant(i))).toLocalDateTime();
+                    fields[i] =
+                            Timestamp.from(Objects.requireNonNull(row.getInstant(i)))
+                                    .toLocalDateTime();
                     break;
                 case ProtocolConstants.DataType.BLOB:
-                    fields[i] = ArrayUtils.toObject(Objects.requireNonNull(row.getByteBuffer(i)).array());
+                    fields[i] =
+                            ArrayUtils.toObject(
+                                    Objects.requireNonNull(row.getByteBuffer(i)).array());
                     break;
                 case ProtocolConstants.DataType.MAP:
                     subType = metaData.get(i).getType();
-                    fields[i] = row.getMap(i, convert(((DefaultMapType) subType).getKeyType()).getTypeClass(), convert(((DefaultMapType) subType).getValueType()).getTypeClass());
+                    fields[i] =
+                            row.getMap(
+                                    i,
+                                    convert(((DefaultMapType) subType).getKeyType()).getTypeClass(),
+                                    convert(((DefaultMapType) subType).getValueType())
+                                            .getTypeClass());
                     break;
                 case ProtocolConstants.DataType.LIST:
-                    typeClass = convert(((DefaultListType) metaData.get(i).getType()).getElementType()).getTypeClass();
+                    typeClass =
+                            convert(((DefaultListType) metaData.get(i).getType()).getElementType())
+                                    .getTypeClass();
                     if (String.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getList(i, String.class)).toArray(new String[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getList(i, String.class))
+                                        .toArray(new String[0]);
                     } else if (Byte.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getList(i, Byte.class)).toArray(new Byte[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getList(i, Byte.class))
+                                        .toArray(new Byte[0]);
                     } else if (Short.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getList(i, Short.class)).toArray(new Short[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getList(i, Short.class))
+                                        .toArray(new Short[0]);
                     } else if (Integer.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getList(i, Integer.class)).toArray(new Integer[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getList(i, Integer.class))
+                                        .toArray(new Integer[0]);
                     } else if (Long.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getList(i, Long.class)).toArray(new Long[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getList(i, Long.class))
+                                        .toArray(new Long[0]);
                     } else if (Float.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getList(i, Float.class)).toArray(new Float[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getList(i, Float.class))
+                                        .toArray(new Float[0]);
                     } else if (Double.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getList(i, Double.class)).toArray(new Double[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getList(i, Double.class))
+                                        .toArray(new Double[0]);
                     } else if (Boolean.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getList(i, Boolean.class)).toArray(new Boolean[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getList(i, Boolean.class))
+                                        .toArray(new Boolean[0]);
                     } else {
-                        throw new CassandraConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        throw new CassandraConnectorException(
+                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                                 "List unsupported this data type: " + typeClass.toString());
                     }
                     break;
                 case ProtocolConstants.DataType.SET:
-                    typeClass = convert(((DefaultSetType) metaData.get(i).getType()).getElementType()).getTypeClass();
+                    typeClass =
+                            convert(((DefaultSetType) metaData.get(i).getType()).getElementType())
+                                    .getTypeClass();
                     if (String.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getSet(i, String.class)).toArray(new String[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getSet(i, String.class))
+                                        .toArray(new String[0]);
                     } else if (Byte.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getSet(i, Byte.class)).toArray(new Byte[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getSet(i, Byte.class))
+                                        .toArray(new Byte[0]);
                     } else if (Short.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getSet(i, Short.class)).toArray(new Short[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getSet(i, Short.class))
+                                        .toArray(new Short[0]);
                     } else if (Integer.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getSet(i, Integer.class)).toArray(new Integer[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getSet(i, Integer.class))
+                                        .toArray(new Integer[0]);
                     } else if (Long.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getSet(i, Long.class)).toArray(new Long[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getSet(i, Long.class))
+                                        .toArray(new Long[0]);
                     } else if (Float.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getSet(i, Float.class)).toArray(new Float[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getSet(i, Float.class))
+                                        .toArray(new Float[0]);
                     } else if (Double.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getSet(i, Double.class)).toArray(new Double[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getSet(i, Double.class))
+                                        .toArray(new Double[0]);
                     } else if (Boolean.class.equals(typeClass)) {
-                        fields[i] = Objects.requireNonNull(row.getSet(i, Boolean.class)).toArray(new Boolean[0]);
+                        fields[i] =
+                                Objects.requireNonNull(row.getSet(i, Boolean.class))
+                                        .toArray(new Boolean[0]);
                     } else {
-                        throw new CassandraConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        throw new CassandraConnectorException(
+                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                                 "List unsupported this data type: " + typeClass.toString());
                     }
                     break;
@@ -238,7 +290,8 @@ public class TypeConvertUtil {
         return new SeaTunnelRow(fields);
     }
 
-    public static BoundStatement reconvertAndInject(BoundStatement statement, int index, DataType type, Object fileValue) {
+    public static BoundStatement reconvertAndInject(
+            BoundStatement statement, int index, DataType type, Object fileValue) {
         switch (type.getProtocolCode()) {
             case ProtocolConstants.DataType.VARCHAR:
             case ProtocolConstants.DataType.ASCII:
@@ -253,9 +306,12 @@ public class TypeConvertUtil {
                 return statement;
             case ProtocolConstants.DataType.INET:
                 try {
-                    statement = statement.setInetAddress(index, InetAddress.getByName((String) fileValue));
+                    statement =
+                            statement.setInetAddress(
+                                    index, InetAddress.getByName((String) fileValue));
                 } catch (UnknownHostException e) {
-                    throw new CassandraConnectorException(CassandraConnectorErrorCode.PARSE_IP_ADDRESS_FAILED, e);
+                    throw new CassandraConnectorException(
+                            CassandraConnectorErrorCode.PARSE_IP_ADDRESS_FAILED, e);
                 }
                 return statement;
             case ProtocolConstants.DataType.TINYINT:
@@ -290,27 +346,41 @@ public class TypeConvertUtil {
                 statement = statement.setLocalDate(index, (LocalDate) fileValue);
                 return statement;
             case ProtocolConstants.DataType.TIMESTAMP:
-                statement = statement.setInstant(index, ((LocalDateTime) fileValue).atZone(ZoneId.systemDefault()).toInstant());
+                statement =
+                        statement.setInstant(
+                                index,
+                                ((LocalDateTime) fileValue)
+                                        .atZone(ZoneId.systemDefault())
+                                        .toInstant());
                 return statement;
             case ProtocolConstants.DataType.BLOB:
                 if (fileValue.getClass().equals(Object[].class)) {
                     fileValue = Arrays.stream((Object[]) fileValue).toArray(Byte[]::new);
                 }
-                statement = statement.setByteBuffer(index, ByteBuffer.wrap(ArrayUtils.toPrimitive((Byte[]) fileValue)));
+                statement =
+                        statement.setByteBuffer(
+                                index, ByteBuffer.wrap(ArrayUtils.toPrimitive((Byte[]) fileValue)));
                 return statement;
             case ProtocolConstants.DataType.MAP:
                 statement = statement.set(index, (Map<?, ?>) fileValue, Map.class);
                 return statement;
             case ProtocolConstants.DataType.LIST:
-                statement = statement.set(index, Arrays.stream((Object[]) fileValue).collect(Collectors.toList()), List.class);
+                statement =
+                        statement.set(
+                                index,
+                                Arrays.stream((Object[]) fileValue).collect(Collectors.toList()),
+                                List.class);
                 return statement;
             case ProtocolConstants.DataType.SET:
-                statement = statement.set(index, Arrays.stream((Object[]) fileValue).collect(Collectors.toSet()), Set.class);
+                statement =
+                        statement.set(
+                                index,
+                                Arrays.stream((Object[]) fileValue).collect(Collectors.toSet()),
+                                Set.class);
                 return statement;
             default:
                 statement = statement.set(index, fileValue, Object.class);
                 return statement;
         }
     }
-
 }

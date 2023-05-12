@@ -23,21 +23,21 @@ public class ArrayType<T, E> implements SeaTunnelDataType<T> {
     private static final long serialVersionUID = 2L;
 
     public static final ArrayType<String[], String> STRING_ARRAY_TYPE =
-        new ArrayType<>(String[].class, BasicType.STRING_TYPE);
+            new ArrayType<>(String[].class, BasicType.STRING_TYPE);
     public static final ArrayType<Boolean[], Boolean> BOOLEAN_ARRAY_TYPE =
-        new ArrayType<>(Boolean[].class, BasicType.BOOLEAN_TYPE);
+            new ArrayType<>(Boolean[].class, BasicType.BOOLEAN_TYPE);
     public static final ArrayType<Byte[], Byte> BYTE_ARRAY_TYPE =
-        new ArrayType<>(Byte[].class, BasicType.BYTE_TYPE);
+            new ArrayType<>(Byte[].class, BasicType.BYTE_TYPE);
     public static final ArrayType<Short[], Short> SHORT_ARRAY_TYPE =
-        new ArrayType<>(Short[].class, BasicType.SHORT_TYPE);
+            new ArrayType<>(Short[].class, BasicType.SHORT_TYPE);
     public static final ArrayType<Integer[], Integer> INT_ARRAY_TYPE =
-        new ArrayType<>(Integer[].class, BasicType.INT_TYPE);
+            new ArrayType<>(Integer[].class, BasicType.INT_TYPE);
     public static final ArrayType<Long[], Long> LONG_ARRAY_TYPE =
-        new ArrayType<>(Long[].class, BasicType.LONG_TYPE);
+            new ArrayType<>(Long[].class, BasicType.LONG_TYPE);
     public static final ArrayType<Float[], Float> FLOAT_ARRAY_TYPE =
-        new ArrayType<>(Float[].class, BasicType.FLOAT_TYPE);
+            new ArrayType<>(Float[].class, BasicType.FLOAT_TYPE);
     public static final ArrayType<Double[], Double> DOUBLE_ARRAY_TYPE =
-        new ArrayType<>(Double[].class, BasicType.DOUBLE_TYPE);
+            new ArrayType<>(Double[].class, BasicType.DOUBLE_TYPE);
 
     // --------------------------------------------------------------------------------------------
 
@@ -77,7 +77,8 @@ public class ArrayType<T, E> implements SeaTunnelDataType<T> {
             return false;
         }
         ArrayType<?, ?> that = (ArrayType<?, ?>) obj;
-        return Objects.equals(arrayClass, that.arrayClass) && Objects.equals(elementType, that.elementType);
+        return Objects.equals(arrayClass, that.arrayClass)
+                && Objects.equals(elementType, that.elementType);
     }
 
     @Override

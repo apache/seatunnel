@@ -31,8 +31,7 @@ import java.io.Serializable;
 @EqualsAndHashCode
 public final class StartupConfig implements Serializable {
     private static final long serialVersionUID = 1L;
-    @Getter
-    private final StartupMode startupMode;
+    @Getter private final StartupMode startupMode;
     private final String specificOffsetFile;
     private final Long specificOffsetPos;
     private final Long timestamp;
@@ -45,10 +44,13 @@ public final class StartupConfig implements Serializable {
                 return offsetFactory.latest();
             case INITIAL:
                 return null;
+            case SPECIFIC:
+                return offsetFactory.specific(specificOffsetFile, specificOffsetPos);
             case TIMESTAMP:
                 return offsetFactory.timestamp(timestamp);
             default:
-                throw new IllegalArgumentException(String.format("The %s mode is not supported.", startupMode));
+                throw new IllegalArgumentException(
+                        String.format("The %s mode is not supported.", startupMode));
         }
     }
 }

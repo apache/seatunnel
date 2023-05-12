@@ -25,7 +25,11 @@ import lombok.NonNull;
 
 public interface SeaTunnelClientInstance {
 
-    JobExecutionEnvironment createExecutionContext(@NonNull String filePath, @NonNull JobConfig config);
+    JobExecutionEnvironment createExecutionContext(
+            @NonNull String filePath, @NonNull JobConfig config);
+
+    JobExecutionEnvironment restoreExecutionContext(
+            @NonNull String filePath, @NonNull JobConfig config, @NonNull Long jobId);
 
     JobClient createJobClient();
 

@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.record;
 
-/**
- * Change the schema of the task and flow.
- */
+/** Change the schema of the task and flow. */
 public class SchemaBarrier implements Barrier {
     @Override
     public long getId() {

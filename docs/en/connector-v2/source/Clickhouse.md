@@ -18,15 +18,9 @@ supports query SQL and can achieve projection effect.
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-:::tip
-
-Reading data from Clickhouse can also be done using JDBC
-
-:::
-
 ## Options
 
-| name           | type   | required | default value |
+|      name      |  type  | required | default value |
 |----------------|--------|----------|---------------|
 | host           | string | yes      | -             |
 | database       | string | yes      | -             |
@@ -55,7 +49,7 @@ The query sql used to search data though Clickhouse server
 
 `ClickHouse` user password
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 

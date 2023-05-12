@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.api.configuration.util;
 
-import static org.apache.seatunnel.api.configuration.util.OptionUtil.getOptionKeys;
-
 import org.apache.seatunnel.api.configuration.Option;
 
 import lombok.Getter;
@@ -29,13 +27,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
+import static org.apache.seatunnel.api.configuration.util.OptionUtil.getOptionKeys;
+
 public interface RequiredOption {
 
     List<Option<?>> getOptions();
 
-    /**
-     * These options are mutually exclusive, allowing only one set of options to be configured.
-     */
+    /** These options are mutually exclusive, allowing only one set of options to be configured. */
     @Getter
     class ExclusiveRequiredOptions implements RequiredOption {
         private final List<Option<?>> exclusiveOptions;
@@ -67,7 +65,8 @@ public interface RequiredOption {
 
         @Override
         public String toString() {
-            return String.format("Exclusive required set options: %s", getOptionKeys(exclusiveOptions));
+            return String.format(
+                    "Exclusive required set options: %s", getOptionKeys(exclusiveOptions));
         }
 
         @Override
@@ -76,12 +75,9 @@ public interface RequiredOption {
         }
     }
 
-    /**
-     * The option is required.
-     */
+    /** The option is required. */
     class AbsolutelyRequiredOptions implements RequiredOption {
-        @Getter
-        private final List<Option<?>> requiredOption;
+        @Getter private final List<Option<?>> requiredOption;
 
         AbsolutelyRequiredOptions(List<Option<?>> requiredOption) {
             this.requiredOption = requiredOption;
@@ -110,7 +106,8 @@ public interface RequiredOption {
 
         @Override
         public String toString() {
-            return String.format("Absolutely required options: '%s'", getOptionKeys(requiredOption));
+            return String.format(
+                    "Absolutely required options: '%s'", getOptionKeys(requiredOption));
         }
 
         @Override
@@ -128,11 +125,13 @@ public interface RequiredOption {
             this.requiredOption = requiredOption;
         }
 
-        public static ConditionalRequiredOptions of(Expression expression, List<Option<?>> requiredOption) {
+        public static ConditionalRequiredOptions of(
+                Expression expression, List<Option<?>> requiredOption) {
             return new ConditionalRequiredOptions(expression, requiredOption);
         }
 
-        public static ConditionalRequiredOptions of(Condition<?> condition, List<Option<?>> requiredOption) {
+        public static ConditionalRequiredOptions of(
+                Condition<?> condition, List<Option<?>> requiredOption) {
             return new ConditionalRequiredOptions(Expression.of(condition), requiredOption);
         }
 
@@ -153,7 +152,8 @@ public interface RequiredOption {
                 return false;
             }
             ConditionalRequiredOptions that = (ConditionalRequiredOptions) obj;
-            return Objects.equals(this.expression, that.expression) && Objects.equals(this.requiredOption, that.requiredOption);
+            return Objects.equals(this.expression, that.expression)
+                    && Objects.equals(this.requiredOption, that.requiredOption);
         }
 
         @Override
@@ -163,7 +163,9 @@ public interface RequiredOption {
 
         @Override
         public String toString() {
-            return String.format("Condition expression: %s, Required options: %s", expression, getOptionKeys(requiredOption));
+            return String.format(
+                    "Condition expression: %s, Required options: %s",
+                    expression, getOptionKeys(requiredOption));
         }
 
         @Override
@@ -172,9 +174,7 @@ public interface RequiredOption {
         }
     }
 
-    /**
-     * These options are bundled, must be present or absent together.
-     */
+    /** These options are bundled, must be present or absent together. */
     class BundledRequiredOptions implements RequiredOption {
         private final List<Option<?>> requiredOption;
 

@@ -17,13 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sftp.system;
 
+import org.apache.hadoop.util.StringUtils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
-import org.apache.hadoop.util.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -33,8 +35,7 @@ import java.util.Set;
 
 public class SFTPConnectionPool {
 
-    public static final Logger LOG =
-            LoggerFactory.getLogger(SFTPFileSystem.class);
+    public static final Logger LOG = LoggerFactory.getLogger(SFTPFileSystem.class);
     // Maximum number of allowed live connections. This doesn't mean we cannot
     // have more live connections. It means that when we have more
     // live connections than this threshold, any unused connection will be
@@ -76,12 +77,9 @@ public class SFTPConnectionPool {
             idleConnections.put(info, cons);
         }
         cons.add(channel);
-
     }
 
-    /**
-     * Shutdown the connection pool and close all open connections.
-     */
+    /** Shutdown the connection pool and close all open connections. */
     synchronized void shutdown() {
         if (this.con2infoMap == null) {
             return; // already shutdown in case it is called
@@ -100,8 +98,7 @@ public class SFTPConnectionPool {
                 } catch (IOException ioe) {
                     ConnectionInfo info = con2infoMap.get(con);
                     LOG.error(
-                            "Error encountered while closing connection to " + info.getHost(),
-                            ioe);
+                            "Error encountered while closing connection to " + info.getHost(), ioe);
                 }
             }
         }
@@ -118,8 +115,8 @@ public class SFTPConnectionPool {
         this.maxConnection = maxConn;
     }
 
-    public ChannelSftp connect(String host, int port, String user,
-                               String password, String keyFile) throws IOException {
+    public ChannelSftp connect(String host, int port, String user, String password, String keyFile)
+            throws IOException {
         // get connection from pool
         ConnectionInfo info = new ConnectionInfo(host, port, user);
         ChannelSftp channel = getFromPool(info);
@@ -221,8 +218,8 @@ public class SFTPConnectionPool {
     }
 
     /**
-     * Class to capture the minimal set of information that distinguish
-     * between different connections.
+     * Class to capture the minimal set of information that distinguish between different
+     * connections.
      */
     static class ConnectionInfo {
         private String host = "";
@@ -282,7 +279,6 @@ public class SFTPConnectionPool {
             } else {
                 return false;
             }
-
         }
 
         @Override
@@ -297,6 +293,5 @@ public class SFTPConnectionPool {
             }
             return hashCode;
         }
-
     }
 }

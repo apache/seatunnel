@@ -17,30 +17,38 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hive.metastore.api.Table;
 
 public class HiveConfig {
-    public static final Option<String> TABLE_NAME = Options.key("table_name")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Hive table name");
-    public static final Option<String> METASTORE_URI = Options.key("metastore_uri")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Hive metastore uri");
-    public static final String TEXT_INPUT_FORMAT_CLASSNAME = "org.apache.hadoop.mapred.TextInputFormat";
-    public static final String TEXT_OUTPUT_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat";
-    public static final String PARQUET_INPUT_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat";
-    public static final String PARQUET_OUTPUT_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat";
-    public static final String ORC_INPUT_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat";
-    public static final String ORC_OUTPUT_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat";
+    public static final Option<String> TABLE_NAME =
+            Options.key("table_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Hive table name");
+    public static final Option<String> METASTORE_URI =
+            Options.key("metastore_uri")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Hive metastore uri");
+    public static final String TEXT_INPUT_FORMAT_CLASSNAME =
+            "org.apache.hadoop.mapred.TextInputFormat";
+    public static final String TEXT_OUTPUT_FORMAT_CLASSNAME =
+            "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat";
+    public static final String PARQUET_INPUT_FORMAT_CLASSNAME =
+            "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat";
+    public static final String PARQUET_OUTPUT_FORMAT_CLASSNAME =
+            "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat";
+    public static final String ORC_INPUT_FORMAT_CLASSNAME =
+            "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat";
+    public static final String ORC_OUTPUT_FORMAT_CLASSNAME =
+            "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat";
 
     public static Pair<String[], Table> getTableInfo(Config config) {
         String table = config.getString(TABLE_NAME.key());

@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.google.common.base.Objects;
 
 import java.io.Serializable;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CheckpointBarrier implements Barrier, Serializable {
     private final long id;
@@ -87,5 +87,4 @@ public class CheckpointBarrier implements Barrier, Serializable {
     public boolean isAuto() {
         return checkpointType.isAuto();
     }
-
 }

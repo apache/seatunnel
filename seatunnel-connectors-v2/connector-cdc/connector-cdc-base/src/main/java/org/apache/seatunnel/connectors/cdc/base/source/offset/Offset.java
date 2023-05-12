@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.offset;
 
-import lombok.Getter;
 import org.apache.kafka.connect.errors.ConnectException;
+
+import lombok.Getter;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -36,8 +37,7 @@ public abstract class Offset implements Comparable<Offset>, Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @Getter
-    protected Map<String, String> offset;
+    @Getter protected Map<String, String> offset;
 
     protected long longOffsetValue(Map<String, ?> values, String key) {
         Object obj = values.get(key);

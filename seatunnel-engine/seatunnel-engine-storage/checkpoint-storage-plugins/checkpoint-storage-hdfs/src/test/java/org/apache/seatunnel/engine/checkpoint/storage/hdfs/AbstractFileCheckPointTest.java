@@ -29,10 +29,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-public abstract  class AbstractFileCheckPointTest {
+public abstract class AbstractFileCheckPointTest {
 
     protected static HdfsStorage STORAGE;
     protected static final String JOB_ID = "chris";
+
     @Test
     public void testGetAllCheckpoints() throws CheckpointStorageException {
 
@@ -65,15 +66,17 @@ public abstract  class AbstractFileCheckPointTest {
 
     /**
      * init storage data
+     *
      * @throws CheckpointStorageException exception if init failed
      */
     protected static void initStorageData() throws CheckpointStorageException {
-        PipelineState pipelineState = PipelineState.builder()
-            .jobId(JOB_ID)
-            .pipelineId(1)
-            .checkpointId(1)
-            .states(new byte[0])
-            .build();
+        PipelineState pipelineState =
+                PipelineState.builder()
+                        .jobId(JOB_ID)
+                        .pipelineId(1)
+                        .checkpointId(1)
+                        .states(new byte[0])
+                        .build();
         STORAGE.storeCheckPoint(pipelineState);
         pipelineState.setCheckpointId(2);
         STORAGE.storeCheckPoint(pipelineState);

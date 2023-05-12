@@ -31,9 +31,12 @@ import java.util.List;
 @AllArgsConstructor
 public class CommonConfig {
 
-    public static final Option<String> NODE_URLS = Options.key("node_urls").stringType().noDefaultValue().withDescription("node urls");
-    public static final Option<String> USERNAME = Options.key("username").stringType().noDefaultValue().withDescription("username");
-    public static final Option<String> PASSWORD = Options.key("password").stringType().noDefaultValue().withDescription("password");
+    public static final Option<String> NODE_URLS =
+            Options.key("node_urls").stringType().noDefaultValue().withDescription("node urls");
+    public static final Option<String> USERNAME =
+            Options.key("username").stringType().noDefaultValue().withDescription("username");
+    public static final Option<String> PASSWORD =
+            Options.key("password").stringType().noDefaultValue().withDescription("password");
 
     private final List<String> nodeUrls;
     private final String username;

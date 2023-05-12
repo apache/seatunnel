@@ -38,6 +38,8 @@ APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
 CONF_DIR=${APP_DIR}/config
 APP_JAR=${APP_DIR}/starter/seatunnel-starter.jar
 APP_MAIN="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer"
+OUT="${APP_DIR}/logs/seatunnel-server.out"
+HELP=false
 
 if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
@@ -69,7 +71,10 @@ do
   if [[ "${i}" == *"JvmOption"* ]]; then
     JVM_OPTION="${i}"
     JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTION#*=}"
-    break
+  elif [[ "${i}" == "-d" || "${i}" == "--daemon" ]]; then
+    DAEMON=true
+  elif [[ "${i}" == "-h" || "${i}" == "--help" ]]; then
+    HELP=true
   fi
 done
 
@@ -84,8 +89,25 @@ if [ -e "${CONF_DIR}/log4j2.properties" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-server"
 fi
 
-echo "JAVA_OPTS: ${JAVA_OPTS}"
+# Server Debug Config
+# Usage instructions:
+# If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
+# port in your IDE. After that, you can happily debug your code.
+# JAVA_OPTS="${JAVA_OPTS} -Xrunjdwp:server=y,transport=dt_socket,address=8000,suspend=n"
 
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 
-java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
+while read line
+do
+    if [[ ! $line == \#* ]] && [ -n "$line" ]; then
+        JAVA_OPTS="$JAVA_OPTS $line"
+    fi
+done < ${APP_DIR}/config/jvm_options
+
+if [[ $DAEMON == true && $HELP == false ]]; then
+ touch $OUT
+ nohup java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args} > "$OUT" 200<&- 2>&1 < /dev/null &
+ else
+ java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
+fi
+

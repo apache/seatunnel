@@ -1,6 +1,7 @@
 ---
+
 sidebar_position: 3
----
+-------------------
 
 # Quick Start With Flink
 
@@ -10,15 +11,14 @@ Before starting, make sure you have downloaded and deployed SeaTunnel as describ
 
 ## Step 2: Deployment And Config Flink
 
-Please [download Flink](https://flink.apache.org/downloads.html) first(**required version >= 1.12.0 and version < 1.14.x **). For more information you could see [Getting Started: standalone](https://nightlies.apache.org/flink/flink-docs-release-1.14/docs/deployment/resource-providers/standalone/overview/)
+Please [download Flink](https://flink.apache.org/downloads.html) first(**required version >= 1.12.0**). For more information you could see [Getting Started: standalone](https://nightlies.apache.org/flink/flink-docs-release-1.14/docs/deployment/resource-providers/standalone/overview/)
 
 **Configure SeaTunnel**: Change the setting in `config/seatunnel-env.sh`, it is base on the path your engine install at [deployment](deployment.md).
 Change `FLINK_HOME` to the Flink deployment dir.
 
-
 ## Step 3: Add Job Config File to define a job
 
-Edit `config/seatunnel.streaming.conf.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
+Edit `config/v2.streaming.conf.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
 The following is an example of the configuration file, which is the same as the example application mentioned above.
 
 ```hocon
@@ -28,20 +28,33 @@ env {
 }
 
 source {
-    FakeSource {
-      result_table_name = "fake"
-      row.num = 16
-      schema = {
-        fields {
-          name = "string"
-          age = "int"
-        }
+  FakeSource {
+    result_table_name = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
       }
     }
+  }
+}
+
+transform {
+  FieldMapper {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    field_mapper = {
+      age = age
+      name = new_name
+    }
+  }
 }
 
 sink {
-  Console {}
+  Console {
+    source_table_name = "fake1"
+  }
 }
 
 ```
@@ -52,10 +65,18 @@ More information about config please check [config concept](../../concept/config
 
 You could start the application by the following commands
 
+flink version between `1.12.x` and `1.14.x`
+
 ```shell
 cd "apache-seatunnel-incubating-${version}"
-./bin/start-seatunnel-flink-connector-v2.sh --config ./config/seatunnel.streaming.conf.template
+./bin/start-seatunnel-flink-13-connector-v2.sh --config ./config/v2.streaming.conf.template
+```
 
+flink version between `1.15.x` and `1.16.x`
+
+```shell
+cd "apache-seatunnel-incubating-${version}"
+./bin/start-seatunnel-flink-15-connector-v2.sh --config ./config/v2.streaming.conf.template
 ```
 
 **See The Output**: When you run the command, you could see its output in your console. You can think this
@@ -89,4 +110,4 @@ row=16 : SGZCr, 94186144
 For now, you are already take a quick look about SeaTunnel with Flink, you could see [connector](/docs/category/connector-v2) to find all
 source and sink SeaTunnel supported. Or see [SeaTunnel With Flink](../../other-engine/flink.md) if you want to know more about SeaTunnel Run With Flink.
 
-SeaTunnel have an own engine named SeaTunnel Engine and SeaTunnel Engine is the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.
+SeaTunnel have an own engine named `Zeta` and `Zeta` is the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.

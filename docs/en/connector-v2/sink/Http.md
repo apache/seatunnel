@@ -14,17 +14,17 @@ Used to launch web hooks using data.
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 
-##  Options
+## Options
 
-| name                               | type   | required | default value |
-|------------------------------------|--------|----------|---------------|
-| url                                | String | Yes      | -             |
-| headers                            | Map    | No       | -             |
-| params                             | Map    | No       | -             |
-| retry                              | int    | No       | -             |
-| retry_backoff_multiplier_ms        | int    | No       | 100           |
-| retry_backoff_max_ms               | int    | No       | 10000         |
-| common-options                     |        | no       | -             |
+|            name             |  type  | required | default value |
+|-----------------------------|--------|----------|---------------|
+| url                         | String | Yes      | -             |
+| headers                     | Map    | No       | -             |
+| params                      | Map    | No       | -             |
+| retry                       | int    | No       | -             |
+| retry_backoff_multiplier_ms | int    | No       | 100           |
+| retry_backoff_max_ms        | int    | No       | 10000         |
+| common-options              |        | no       | -             |
 
 ### url [String]
 
@@ -72,3 +72,4 @@ Http {
 ### 2.2.0-beta 2022-09-26
 
 - Add Http Sink Connector
+

@@ -51,9 +51,8 @@ public class KeyExtractor implements Function<SeaTunnelRow, String>, Serializabl
         return builder.toString();
     }
 
-    public static Function<SeaTunnelRow, String> createKeyExtractor(SeaTunnelRowType rowType,
-                                                                    String[] primaryKeys,
-                                                                    String keyDelimiter) {
+    public static Function<SeaTunnelRow, String> createKeyExtractor(
+            SeaTunnelRowType rowType, String[] primaryKeys, String keyDelimiter) {
         if (primaryKeys == null) {
             return row -> null;
         }
@@ -68,13 +67,16 @@ public class KeyExtractor implements Function<SeaTunnelRow, String>, Serializabl
         return new KeyExtractor(fieldFormatters.toArray(new FieldFormatter[0]), keyDelimiter);
     }
 
-    private static FieldFormatter createFieldFormatter(int fieldIndex, SeaTunnelDataType fieldType) {
+    private static FieldFormatter createFieldFormatter(
+            int fieldIndex, SeaTunnelDataType fieldType) {
         return row -> {
             switch (fieldType.getSqlType()) {
                 case ROW:
                 case ARRAY:
                 case MAP:
-                    throw new ElasticsearchConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION, "Unsupported type: " + fieldType);
+                    throw new ElasticsearchConnectorException(
+                            CommonErrorCode.UNSUPPORTED_OPERATION,
+                            "Unsupported type: " + fieldType);
                 case DATE:
                     LocalDate localDate = (LocalDate) row.getField(fieldIndex);
                     return localDate.toString();

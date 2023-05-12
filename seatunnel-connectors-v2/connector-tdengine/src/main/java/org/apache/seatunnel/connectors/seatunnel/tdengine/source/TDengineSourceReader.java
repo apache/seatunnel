@@ -25,10 +25,11 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.google.common.collect.Sets;
 import com.taosdata.jdbc.TSDBDriver;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -69,13 +70,17 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
             return;
         }
         synchronized (collector.getCheckpointLock()) {
-            sourceSplits.forEach(split -> {
-                try {
-                    read(split, collector);
-                } catch (Exception e) {
-                    throw new TDengineConnectorException(CommonErrorCode.READER_OPERATION_FAILED, "TDengine split read error", e);
-                }
-            });
+            sourceSplits.forEach(
+                    split -> {
+                        try {
+                            read(split, collector);
+                        } catch (Exception e) {
+                            throw new TDengineConnectorException(
+                                    CommonErrorCode.READER_OPERATION_FAILED,
+                                    "TDengine split read error",
+                                    e);
+                        }
+                    });
         }
 
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
@@ -86,18 +91,28 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
     }
 
     @Override
-    public void open(){
-        String jdbcUrl = StringUtils.join(config.getUrl(), config.getDatabase(), "?user=", config.getUsername(), "&password=", config.getPassword());
+    public void open() {
+        String jdbcUrl =
+                StringUtils.join(
+                        config.getUrl(),
+                        config.getDatabase(),
+                        "?user=",
+                        config.getUsername(),
+                        "&password=",
+                        config.getPassword());
         Properties connProps = new Properties();
-        //todo: when TSDBDriver.PROPERTY_KEY_BATCH_LOAD set to "true",
-        // there is a exception : Caused by: java.sql.SQLException: can't create connection with server
+        // todo: when TSDBDriver.PROPERTY_KEY_BATCH_LOAD set to "true",
+        // there is a exception : Caused by: java.sql.SQLException: can't create connection with
+        // server
         // under docker network env
         // @bobo (tdengine)
         connProps.setProperty(TSDBDriver.PROPERTY_KEY_BATCH_LOAD, "false");
         try {
             conn = DriverManager.getConnection(jdbcUrl, connProps);
         } catch (SQLException e) {
-            throw new TDengineConnectorException(CommonErrorCode.READER_OPERATION_FAILED, "get TDengine connection failed:" + jdbcUrl);
+            throw new TDengineConnectorException(
+                    CommonErrorCode.READER_OPERATION_FAILED,
+                    "get TDengine connection failed:" + jdbcUrl);
         }
     }
 
@@ -108,7 +123,10 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
                 conn.close();
             }
         } catch (SQLException e) {
-            throw new TDengineConnectorException(CommonErrorCode.READER_OPERATION_FAILED, "TDengine reader connection close failed", e);
+            throw new TDengineConnectorException(
+                    CommonErrorCode.READER_OPERATION_FAILED,
+                    "TDengine reader connection close failed",
+                    e);
         }
     }
 

@@ -25,5 +25,4 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
     public String converterName() {
         return "Oracle";
     }
-
 }

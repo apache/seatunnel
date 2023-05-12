@@ -43,7 +43,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Serializable> implements BaseSourceFunction<T> {
+public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Serializable>
+        implements BaseSourceFunction<T> {
     protected static final long SLEEP_TIME_INTERVAL = 5L;
     protected final SeaTunnelSource<T, SplitT, StateT> source;
     protected final Map<Integer, List<byte[]>> restoredState;
@@ -62,14 +63,13 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
     protected final AtomicInteger completedReader = new AtomicInteger(0);
     protected transient volatile ScheduledThreadPoolExecutor executorService;
 
-    /**
-     * Flag indicating whether the consumer is still running.
-     */
+    /** Flag indicating whether the consumer is still running. */
     protected volatile boolean running = true;
 
-    public CoordinatedSource(SeaTunnelSource<T, SplitT, StateT> source,
-                             Map<Integer, List<byte[]>> restoredState,
-                             int parallelism) {
+    public CoordinatedSource(
+            SeaTunnelSource<T, SplitT, StateT> source,
+            Map<Integer, List<byte[]>> restoredState,
+            int parallelism) {
         this.source = source;
         this.restoredState = restoredState;
         this.parallelism = parallelism;
@@ -91,23 +91,26 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
         if (restoredState != null && restoredState.size() > 0) {
             StateT restoredEnumeratorState = null;
             if (restoredState.containsKey(-1)) {
-                restoredEnumeratorState = enumeratorStateSerializer.deserialize(restoredState.get(-1).get(0));
+                restoredEnumeratorState =
+                        enumeratorStateSerializer.deserialize(restoredState.get(-1).get(0));
             }
-            splitEnumerator = source.restoreEnumerator(coordinatedEnumeratorContext, restoredEnumeratorState);
-            restoredState.forEach((subtaskId, splitBytes) -> {
-                if (subtaskId == -1) {
-                    return;
-                }
-                List<SplitT> restoredSplitState = new ArrayList<>(splitBytes.size());
-                for (byte[] splitByte : splitBytes) {
-                    try {
-                        restoredSplitState.add(splitSerializer.deserialize(splitByte));
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-                restoredSplitStateMap.put(subtaskId, restoredSplitState);
-            });
+            splitEnumerator =
+                    source.restoreEnumerator(coordinatedEnumeratorContext, restoredEnumeratorState);
+            restoredState.forEach(
+                    (subtaskId, splitBytes) -> {
+                        if (subtaskId == -1) {
+                            return;
+                        }
+                        List<SplitT> restoredSplitState = new ArrayList<>(splitBytes.size());
+                        for (byte[] splitByte : splitBytes) {
+                            try {
+                                restoredSplitState.add(splitSerializer.deserialize(splitByte));
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                        restoredSplitStateMap.put(subtaskId, restoredSplitState);
+                    });
         } else {
             splitEnumerator = source.createEnumerator(coordinatedEnumeratorContext);
         }
@@ -115,7 +118,8 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
 
     private void createReaders() throws Exception {
         for (int subtaskId = 0; subtaskId < this.parallelism; subtaskId++) {
-            CoordinatedReaderContext readerContext = new CoordinatedReaderContext(this, source.getBoundedness(), subtaskId);
+            CoordinatedReaderContext readerContext =
+                    new CoordinatedReaderContext(this, source.getBoundedness(), subtaskId);
             readerContextMap.put(subtaskId, readerContext);
             readerRunningMap.put(subtaskId, new AtomicBoolean(true));
             SourceReader<T, SplitT> reader = source.createReader(readerContext);
@@ -125,39 +129,51 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
 
     @Override
     public void open() throws Exception {
-        executorService = ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(parallelism, "parallel-split-enumerator-executor");
+        executorService =
+                ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(
+                        parallelism, "parallel-split-enumerator-executor");
         splitEnumerator.open();
-        restoredSplitStateMap.forEach((subtaskId, splits) -> {
-            splitEnumerator.addSplitsBack(splits, subtaskId);
-        });
-        readerMap.entrySet().parallelStream().forEach(entry -> {
-            try {
-                entry.getValue().open();
-                splitEnumerator.registerReader(entry.getKey());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
+        restoredSplitStateMap.forEach(
+                (subtaskId, splits) -> {
+                    splitEnumerator.addSplitsBack(splits, subtaskId);
+                });
+        readerMap
+                .entrySet()
+                .parallelStream()
+                .forEach(
+                        entry -> {
+                            try {
+                                entry.getValue().open();
+                                splitEnumerator.registerReader(entry.getKey());
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
     }
 
     @Override
     public void run(Collector<T> collector) throws Exception {
-        readerMap.entrySet().parallelStream().forEach(entry -> {
-            final AtomicBoolean flag = readerRunningMap.get(entry.getKey());
-            final SourceReader<T, SplitT> reader = entry.getValue();
-            executorService.execute(() -> {
-                while (flag.get()) {
-                    try {
-                        reader.pollNext(collector);
-                        Thread.sleep(SLEEP_TIME_INTERVAL);
-                    } catch (Exception e) {
-                        running = false;
-                        flag.set(false);
-                        throw new RuntimeException(e);
-                    }
-                }
-            });
-        });
+        readerMap
+                .entrySet()
+                .parallelStream()
+                .forEach(
+                        entry -> {
+                            final AtomicBoolean flag = readerRunningMap.get(entry.getKey());
+                            final SourceReader<T, SplitT> reader = entry.getValue();
+                            executorService.execute(
+                                    () -> {
+                                        while (flag.get()) {
+                                            try {
+                                                reader.pollNext(collector);
+                                                Thread.sleep(SLEEP_TIME_INTERVAL);
+                                            } catch (Exception e) {
+                                                running = false;
+                                                flag.set(false);
+                                                throw new RuntimeException(e);
+                                            }
+                                        }
+                                    });
+                        });
         splitEnumerator.run();
         while (running) {
             Thread.sleep(SLEEP_TIME_INTERVAL);
@@ -188,22 +204,30 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
 
     @Override
     public Map<Integer, List<byte[]>> snapshotState(long checkpointId) throws Exception {
-        Map<Integer, List<byte[]>> allStates = readerMap.entrySet()
-            .parallelStream()
-            .collect(Collectors.toMap(
-                Map.Entry<Integer, SourceReader<T, SplitT>>::getKey,
-                readerEntry -> {
-                    try {
-                        List<SplitT> splitStates = readerEntry.getValue().snapshotState(checkpointId);
-                        final List<byte[]> rawValues = new ArrayList<>(splitStates.size());
-                        for (SplitT splitState : splitStates) {
-                            rawValues.add(splitSerializer.serialize(splitState));
-                        }
-                        return rawValues;
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                }));
+        Map<Integer, List<byte[]>> allStates =
+                readerMap
+                        .entrySet()
+                        .parallelStream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry<Integer, SourceReader<T, SplitT>>::getKey,
+                                        readerEntry -> {
+                                            try {
+                                                List<SplitT> splitStates =
+                                                        readerEntry
+                                                                .getValue()
+                                                                .snapshotState(checkpointId);
+                                                final List<byte[]> rawValues =
+                                                        new ArrayList<>(splitStates.size());
+                                                for (SplitT splitState : splitStates) {
+                                                    rawValues.add(
+                                                            splitSerializer.serialize(splitState));
+                                                }
+                                                return rawValues;
+                                            } catch (Exception e) {
+                                                throw new RuntimeException(e);
+                                            }
+                                        }));
         StateT enumeratorState = splitEnumerator.snapshotState(checkpointId);
         if (enumeratorState != null) {
             byte[] enumeratorStateBytes = enumeratorStateSerializer.serialize(enumeratorState);
@@ -215,25 +239,33 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         splitEnumerator.notifyCheckpointComplete(checkpointId);
-        readerMap.values().parallelStream().forEach(reader -> {
-            try {
-                reader.notifyCheckpointComplete(checkpointId);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
+        readerMap
+                .values()
+                .parallelStream()
+                .forEach(
+                        reader -> {
+                            try {
+                                reader.notifyCheckpointComplete(checkpointId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
     }
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         splitEnumerator.notifyCheckpointAborted(checkpointId);
-        readerMap.values().parallelStream().forEach(reader -> {
-            try {
-                reader.notifyCheckpointAborted(checkpointId);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
+        readerMap
+                .values()
+                .parallelStream()
+                .forEach(
+                        reader -> {
+                            try {
+                                reader.notifyCheckpointAborted(checkpointId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
     }
 
     // --------------------------------------------------------------------------------------------

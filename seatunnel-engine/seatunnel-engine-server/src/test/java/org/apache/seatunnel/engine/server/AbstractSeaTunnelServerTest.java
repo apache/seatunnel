@@ -18,14 +18,18 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
+
+import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInstance;
 
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -42,8 +46,38 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
     @BeforeAll
     public void before() {
         String name = ((T) this).getClass().getName();
-        instance = SeaTunnelServerStarter.createHazelcastInstance(
-            TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + name));
+        String yaml =
+                "hazelcast:\n"
+                        + "  cluster-name: seatunnel\n"
+                        + "  network:\n"
+                        + "    rest-api:\n"
+                        + "      enabled: true\n"
+                        + "      endpoint-groups:\n"
+                        + "        CLUSTER_WRITE:\n"
+                        + "          enabled: true\n"
+                        + "    join:\n"
+                        + "      tcp-ip:\n"
+                        + "        enabled: true\n"
+                        + "        member-list:\n"
+                        + "          - localhost\n"
+                        + "    port:\n"
+                        + "      auto-increment: true\n"
+                        + "      port-count: 100\n"
+                        + "      port: 5801\n"
+                        + "\n"
+                        + "  properties:\n"
+                        + "    hazelcast.invocation.max.retry.count: 200\n"
+                        + "    hazelcast.tcp.join.port.try.count: 30\n"
+                        + "    hazelcast.invocation.retry.pause.millis: 2000\n"
+                        + "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n"
+                        + "    hazelcast.logging.type: log4j2\n"
+                        + "    hazelcast.operation.generic.thread.count: 200\n";
+        Config hazelcastConfig = Config.loadFromString(yaml);
+        hazelcastConfig.setClusterName(
+                TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + name));
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+        instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         nodeEngine = instance.node.nodeEngine;
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
         LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
@@ -62,5 +96,11 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
         } catch (Exception e) {
             log.error(ExceptionUtils.getMessage(e));
         }
+    }
+
+    /** For tests that require a cluster restart */
+    public void restartServer() {
+        this.after();
+        this.before();
     }
 }

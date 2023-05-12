@@ -1,4 +1,3 @@
-
 # AmazonDynamoDB
 
 > Amazon DynamoDB sink connector
@@ -13,7 +12,7 @@ Write data to Amazon DynamoDB
 
 ## Options
 
-| name              | type   | required | default value |
+|       name        |  type  | required | default value |
 |-------------------|--------|----------|---------------|
 | url               | string | yes      | -             |
 | region            | string | yes      | -             |

@@ -27,9 +27,10 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
-import io.debezium.relational.TableId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.debezium.relational.TableId;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,9 +44,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Assigner for incremental split.
- */
+/** Assigner for incremental split. */
 public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAssigner {
 
     private static final Logger LOG = LoggerFactory.getLogger(IncrementalSplitAssigner.class);
@@ -58,9 +57,9 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
     private final OffsetFactory offsetFactory;
 
     /**
-     * Maximum watermark in SnapshotSplits per table.
-     * <br> Used to delete information in completedSnapshotSplitInfos, reducing state size.
-     * <br> Used to support Exactly-Once.
+     * Maximum watermark in SnapshotSplits per table. <br>
+     * Used to delete information in completedSnapshotSplitInfos, reducing state size. <br>
+     * Used to support Exactly-Once.
      */
     private final Map<TableId, Offset> tableWatermarks = new HashMap<>();
 
@@ -70,18 +69,19 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     private final Map<String, IncrementalSplit> assignedSplits = new HashMap<>();
 
+    private boolean startWithSnapshotMinimumOffset = true;
+
     public IncrementalSplitAssigner(
-        SplitAssigner.Context<C> context,
-        int incrementalParallelism,
-        OffsetFactory offsetFactory) {
+            SplitAssigner.Context<C> context,
+            int incrementalParallelism,
+            OffsetFactory offsetFactory) {
         this.context = context;
         this.incrementalParallelism = incrementalParallelism;
         this.offsetFactory = offsetFactory;
     }
 
     @Override
-    public void open() {
-    }
+    public void open() {}
 
     @Override
     public Optional<SourceSplitBase> getNext() {
@@ -96,23 +96,21 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         if (splitAssigned) {
             return Optional.empty();
         }
-        List<IncrementalSplit> incrementalSplits = createIncrementalSplits();
+        List<IncrementalSplit> incrementalSplits =
+                createIncrementalSplits(startWithSnapshotMinimumOffset);
         remainingSplits.addAll(incrementalSplits);
         splitAssigned = true;
         return getNext();
     }
 
-    /**
-     * Indicates there is no more splits available in this assigner.
-     */
+    /** Indicates there is no more splits available in this assigner. */
     public boolean noMoreSplits() {
         return getRemainingTables().isEmpty() && remainingSplits.isEmpty();
     }
 
     private Set<TableId> getRemainingTables() {
         Set<TableId> allTables = new HashSet<>(context.getCapturedTables());
-        assignedSplits.values()
-            .forEach(split -> split.getTableIds().forEach(allTables::remove));
+        assignedSplits.values().forEach(split -> split.getTableIds().forEach(allTables::remove));
         return allTables;
     }
 
@@ -124,26 +122,41 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
     @Override
     public void onCompletedSplits(List<SnapshotSplitWatermark> completedSplitWatermarks) {
         // do nothing
-        completedSplitWatermarks.forEach(watermark ->
-            context.getSplitCompletedOffsets().put(watermark.getSplitId(), watermark.getHighWatermark()));
+        completedSplitWatermarks.forEach(
+                watermark ->
+                        context.getSplitCompletedOffsets()
+                                .put(watermark.getSplitId(), watermark.getHighWatermark()));
     }
 
     @Override
     public void addSplits(Collection<SourceSplitBase> splits) {
         // we don't store the split, but will re-create incremental split later
         splits.stream()
-            .map(SourceSplitBase::asIncrementalSplit)
-            .forEach(incrementalSplit -> {
-                Offset startupOffset = incrementalSplit.getStartupOffset();
-                List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos = incrementalSplit.getCompletedSnapshotSplitInfos();
-                for (CompletedSnapshotSplitInfo info : completedSnapshotSplitInfos) {
-                    context.getSplitCompletedOffsets().put(info.getSplitId(), info.getWatermark());
-                    context.getAssignedSnapshotSplit().put(info.getSplitId(), info.asSnapshotSplit());
-                }
-                for (TableId tableId : incrementalSplit.getTableIds()) {
-                    tableWatermarks.put(tableId, startupOffset);
-                }
-            });
+                .map(SourceSplitBase::asIncrementalSplit)
+                .forEach(
+                        incrementalSplit -> {
+                            Offset startupOffset = incrementalSplit.getStartupOffset();
+                            List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos =
+                                    incrementalSplit.getCompletedSnapshotSplitInfos();
+                            for (CompletedSnapshotSplitInfo info : completedSnapshotSplitInfos) {
+                                if (!context.getCapturedTables().contains(info.getTableId())) {
+                                    continue;
+                                }
+                                context.getSplitCompletedOffsets()
+                                        .put(info.getSplitId(), info.getWatermark());
+                                context.getAssignedSnapshotSplit()
+                                        .put(info.getSplitId(), info.asSnapshotSplit());
+                            }
+                            for (TableId tableId : incrementalSplit.getTableIds()) {
+                                if (!context.getCapturedTables().contains(tableId)) {
+                                    continue;
+                                }
+                                tableWatermarks.put(tableId, startupOffset);
+                            }
+                        });
+        if (!tableWatermarks.isEmpty()) {
+            this.startWithSnapshotMinimumOffset = false;
+        }
     }
 
     @Override
@@ -158,10 +171,9 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     // ------------------------------------------------------------------------------------------
 
-    public List<IncrementalSplit> createIncrementalSplits() {
+    public List<IncrementalSplit> createIncrementalSplits(boolean startWithSnapshotMinimumOffset) {
         Set<TableId> allTables = new HashSet<>(context.getCapturedTables());
-        assignedSplits.values()
-            .forEach(split -> split.getTableIds().forEach(allTables::remove));
+        assignedSplits.values().forEach(split -> split.getTableIds().forEach(allTables::remove));
         List<TableId>[] capturedTables = new List[incrementalParallelism];
         int i = 0;
         for (TableId tableId : allTables) {
@@ -175,49 +187,54 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         i = 0;
         List<IncrementalSplit> incrementalSplits = new ArrayList<>();
         for (List<TableId> capturedTable : capturedTables) {
-            incrementalSplits.add(createIncrementalSplit(capturedTable, i++));
+            incrementalSplits.add(
+                    createIncrementalSplit(capturedTable, i++, startWithSnapshotMinimumOffset));
         }
         return incrementalSplits;
     }
 
-    private IncrementalSplit createIncrementalSplit(List<TableId> capturedTables, int index) {
+    private IncrementalSplit createIncrementalSplit(
+            List<TableId> capturedTables, int index, boolean startWithSnapshotMinimumOffset) {
         final List<SnapshotSplit> assignedSnapshotSplit =
-            context.getAssignedSnapshotSplit().values().stream()
-                .filter(split -> capturedTables.contains(split.getTableId()))
-                .sorted(Comparator.comparing(SourceSplitBase::splitId))
-                .collect(Collectors.toList());
+                context.getAssignedSnapshotSplit().values().stream()
+                        .filter(split -> capturedTables.contains(split.getTableId()))
+                        .sorted(Comparator.comparing(SourceSplitBase::splitId))
+                        .collect(Collectors.toList());
 
         Map<String, Offset> splitCompletedOffsets = context.getSplitCompletedOffsets();
         final List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos = new ArrayList<>();
         Offset minOffset = null;
         for (SnapshotSplit split : assignedSnapshotSplit) {
-            // find the min offset of change log
             Offset changeLogOffset = splitCompletedOffsets.get(split.splitId());
-            if (minOffset == null || changeLogOffset.isBefore(minOffset)) {
-                minOffset = changeLogOffset;
+            if (startWithSnapshotMinimumOffset) {
+                // find the min offset of change log
+                if (minOffset == null || changeLogOffset.isBefore(minOffset)) {
+                    minOffset = changeLogOffset;
+                }
             }
             completedSnapshotSplitInfos.add(
-                new CompletedSnapshotSplitInfo(
-                    split.splitId(),
-                    split.getTableId(),
-                    split.getSplitKeyType(),
-                    split.getSplitStart(),
-                    split.getSplitEnd(),
-                    changeLogOffset));
+                    new CompletedSnapshotSplitInfo(
+                            split.splitId(),
+                            split.getTableId(),
+                            split.getSplitKeyType(),
+                            split.getSplitStart(),
+                            split.getSplitEnd(),
+                            changeLogOffset));
         }
         for (TableId tableId : capturedTables) {
             Offset watermark = tableWatermarks.get(tableId);
-            if (minOffset == null ||
-                (watermark != null && watermark.isBefore(minOffset))) {
+            if (minOffset == null || (watermark != null && watermark.isBefore(minOffset))) {
                 minOffset = watermark;
             }
         }
         C sourceConfig = context.getSourceConfig();
         return new IncrementalSplit(
-            String.format(INCREMENTAL_SPLIT_ID, index),
-            capturedTables,
-            minOffset != null ? minOffset : sourceConfig.getStartupConfig().getStartupOffset(offsetFactory),
-            sourceConfig.getStopConfig().getStopOffset(offsetFactory),
-            completedSnapshotSplitInfos);
+                String.format(INCREMENTAL_SPLIT_ID, index),
+                capturedTables,
+                minOffset != null
+                        ? minOffset
+                        : sourceConfig.getStartupConfig().getStartupOffset(offsetFactory),
+                sourceConfig.getStopConfig().getStopOffset(offsetFactory),
+                completedSnapshotSplitInfos);
     }
 }

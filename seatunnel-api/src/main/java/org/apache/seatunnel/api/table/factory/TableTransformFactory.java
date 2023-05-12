@@ -20,7 +20,9 @@ package org.apache.seatunnel.api.table.factory;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 
 /**
- * This is an SPI interface, used to create {@link org.apache.seatunnel.api.table.connector.TableTransform}. Each plugin need to have it own implementation.
+ * This is an SPI interface, used to create {@link
+ * org.apache.seatunnel.api.table.connector.TableTransform}. Each plugin need to have it own
+ * implementation.
  */
 public interface TableTransformFactory extends Factory {
 
@@ -31,6 +33,7 @@ public interface TableTransformFactory extends Factory {
      * @return
      */
     default <T> TableTransform<T> createTransform(TableFactoryContext context) {
-        throw new UnsupportedOperationException("unsupported now");
+        throw new UnsupportedOperationException(
+                "The Factory has not been implemented and the deprecated Plugin will be used.");
     }
 }

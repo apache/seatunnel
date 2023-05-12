@@ -30,9 +30,7 @@ import java.util.List;
 @ToString
 @AllArgsConstructor
 public class IcebergEnumerationResult {
-    @NonNull
-    private final List<IcebergFileScanTaskSplit> splits;
+    @NonNull private final List<IcebergFileScanTaskSplit> splits;
     private final IcebergEnumeratorPosition fromPosition;
-    @NonNull
-    private final IcebergEnumeratorPosition toPosition;
+    @NonNull private final IcebergEnumeratorPosition toPosition;
 }

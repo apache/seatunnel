@@ -27,10 +27,9 @@ public class CheckpointStorageConfig {
 
     private String storage = ServerConfigOptions.CHECKPOINT_STORAGE_TYPE.defaultValue();
 
-    private int maxRetainedCheckpoints = ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.defaultValue();
+    private int maxRetainedCheckpoints =
+            ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.defaultValue();
 
-    /**
-     * Storage plugin instance configuration
-     */
+    /** Storage plugin instance configuration */
     private Map<String, String> storagePluginConfig = new HashMap<>();
 }

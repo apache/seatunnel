@@ -17,16 +17,17 @@
 
 package org.apache.seatunnel.engine.server.log;
 
-import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.config.Configurator;
+import org.apache.logging.log4j.core.config.LoggerConfig;
 
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpPostCommand;
 import com.hazelcast.internal.ascii.rest.HttpPostCommandProcessor;
 import com.hazelcast.internal.json.JsonObject;
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.core.config.Configurator;
-import org.apache.logging.log4j.core.config.LoggerConfig;
+
+import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 
 public class Log4j2HttpPostCommandProcessor extends HttpCommandProcessor<HttpPostCommand> {
 
@@ -36,9 +37,12 @@ public class Log4j2HttpPostCommandProcessor extends HttpCommandProcessor<HttpPos
         this(textCommandService, new HttpPostCommandProcessor(textCommandService));
     }
 
-    public Log4j2HttpPostCommandProcessor(TextCommandService textCommandService,
-                                          HttpPostCommandProcessor httpPostCommandProcessor) {
-        super(textCommandService, textCommandService.getNode().getLogger(Log4j2HttpPostCommandProcessor.class));
+    public Log4j2HttpPostCommandProcessor(
+            TextCommandService textCommandService,
+            HttpPostCommandProcessor httpPostCommandProcessor) {
+        super(
+                textCommandService,
+                textCommandService.getNode().getLogger(Log4j2HttpPostCommandProcessor.class));
         this.original = httpPostCommandProcessor;
     }
 
@@ -63,12 +67,11 @@ public class Log4j2HttpPostCommandProcessor extends HttpCommandProcessor<HttpPos
     /**
      * Request example:
      *
-     * POST {@link HttpCommandProcessor#URI_LOG_LEVEL}
+     * <p>POST {@link HttpCommandProcessor#URI_LOG_LEVEL}
      *
-     * Request Body(application/text):
+     * <p>Request Body(application/text):
      *
-     * your_username&your_password&com.example.logger1&ERROR
-     *
+     * <p>your_username&your_password&com.example.logger1&ERROR
      */
     @SuppressWarnings("MagicNumber")
     private void setLoggerLevel(HttpPostCommand request) {

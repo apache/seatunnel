@@ -24,9 +24,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorag
 
 import java.util.Map;
 
-/**
- * All checkpoint storage plugins need to implement it
- */
+/** All checkpoint storage plugins need to implement it */
 public interface CheckpointStorageFactory {
 
     /**
@@ -41,13 +39,9 @@ public interface CheckpointStorageFactory {
     /**
      * create storage plugin instance
      *
-     * @param configuration storage system config params
-     *                      key: storage system config key
-     *                      value: storage system config value
-     *                      e.g.
-     *                      key: "FS_DEFAULT_NAME_KEY"
-     *                      value: "fs.defaultFS"
-     *                      return storage plugin instance
+     * @param configuration storage system config params key: storage system config key value:
+     *     storage system config value e.g. key: "FS_DEFAULT_NAME_KEY" value: "fs.defaultFS" return
+     *     storage plugin instance
      */
     CheckpointStorage create(Map<String, String> configuration) throws CheckpointStorageException;
 }

@@ -28,24 +28,18 @@ import java.util.List;
 public class IncrementalSplit extends SourceSplitBase {
     private static final long serialVersionUID = 1L;
 
-    /**
-     * All the tables that this incremental split needs to capture.
-     */
+    /** All the tables that this incremental split needs to capture. */
     private final List<TableId> tableIds;
 
-    /**
-     * Minimum watermark for SnapshotSplits for all tables in this IncrementalSplit
-     */
+    /** Minimum watermark for SnapshotSplits for all tables in this IncrementalSplit */
     private final Offset startupOffset;
 
-    /**
-     * Obtained by configuration, may not end
-     */
+    /** Obtained by configuration, may not end */
     private final Offset stopOffset;
 
     /**
-     * SnapshotSplit information for all tables in this IncrementalSplit.
-     * <br> Used to support Exactly-Once.
+     * SnapshotSplit information for all tables in this IncrementalSplit. <br>
+     * Used to support Exactly-Once.
      */
     private final List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos;
 

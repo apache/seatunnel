@@ -17,17 +17,13 @@
 
 package org.apache.seatunnel.api.configuration;
 
-import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertToJsonString;
-import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertValue;
-import static org.apache.seatunnel.api.configuration.util.ConfigUtil.flatteningMap;
-import static org.apache.seatunnel.api.configuration.util.ConfigUtil.treeMap;
-
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.Collections;
@@ -35,13 +31,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertToJsonString;
+import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertValue;
+import static org.apache.seatunnel.api.configuration.util.ConfigUtil.flatteningMap;
+import static org.apache.seatunnel.api.configuration.util.ConfigUtil.treeMap;
+
+@Slf4j
 public class ReadonlyConfig implements Serializable {
     private static final long serialVersionUID = 1L;
     private static final ObjectMapper JACKSON_MAPPER = new ObjectMapper();
 
-    /**
-     * Stores the concrete key/value pairs of this configuration object.
-     */
+    /** Stores the concrete key/value pairs of this configuration object. */
     protected final Map<String, Object> confData;
 
     private ReadonlyConfig(Map<String, Object> confData) {
@@ -54,10 +54,10 @@ public class ReadonlyConfig implements Serializable {
 
     public static ReadonlyConfig fromConfig(Config config) {
         try {
-            return fromMap(JACKSON_MAPPER.readValue(
-                config.root().render(ConfigRenderOptions.concise()),
-                new TypeReference<Map<String, Object>>() {
-                }));
+            return fromMap(
+                    JACKSON_MAPPER.readValue(
+                            config.root().render(ConfigRenderOptions.concise()),
+                            new TypeReference<Map<String, Object>>() {}));
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Json parsing exception.", e);
         }
@@ -92,23 +92,40 @@ public class ReadonlyConfig implements Serializable {
         if (option == null) {
             throw new NullPointerException("Option not be null.");
         }
-        String[] keys = option.key().split("\\.");
-        Map<String, Object> data = this.confData;
-        Object value = null;
-        for (int i = 0; i < keys.length; i++) {
-            value = data.get(keys[i]);
-            if (i < keys.length - 1) {
-                if (!(value instanceof Map)) {
-                    return Optional.empty();
-                } else {
-                    data = (Map<String, Object>) value;
+        Object value = getValue(option.key());
+        if (value == null) {
+            for (String fallbackKey : option.getFallbackKeys()) {
+                value = getValue(fallbackKey);
+                if (value != null) {
+                    log.info(
+                            "Config uses fallback configuration key '{}' instead of key '{}'",
+                            fallbackKey,
+                            option.key());
+                    break;
                 }
             }
         }
         if (value == null) {
             return Optional.empty();
         }
-        return Optional.of(convertValue(value, option.typeReference()));
+        return Optional.of(convertValue(value, option));
+    }
+
+    private Object getValue(String key) {
+        String[] keys = key.split("\\.");
+        Map<String, Object> data = this.confData;
+        Object value = null;
+        for (int i = 0; i < keys.length; i++) {
+            value = data.get(keys[i]);
+            if (i < keys.length - 1) {
+                if (!(value instanceof Map)) {
+                    return null;
+                } else {
+                    data = (Map<String, Object>) value;
+                }
+            }
+        }
+        return value;
     }
 
     @Override

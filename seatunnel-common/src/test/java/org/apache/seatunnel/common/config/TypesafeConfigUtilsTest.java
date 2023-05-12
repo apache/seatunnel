@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.common.config;
 
-import static org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfig;
-import static org.apache.seatunnel.common.config.TypesafeConfigUtils.hasSubConfig;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
@@ -28,6 +25,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfig;
+import static org.apache.seatunnel.common.config.TypesafeConfigUtils.hasSubConfig;
 
 public class TypesafeConfigUtilsTest {
 
@@ -70,7 +70,11 @@ public class TypesafeConfigUtilsTest {
     @Test
     public void testGetConfig() {
         Config config = getConfig();
-        Assertions.assertEquals(Long.parseLong("100"), (long) TypesafeConfigUtils.getConfig(config, "l1", Long.parseLong("101")));
-        Assertions.assertEquals(Long.parseLong("100"), (long) TypesafeConfigUtils.getConfig(config, "l2", Long.parseLong("100")));
+        Assertions.assertEquals(
+                Long.parseLong("100"),
+                (long) TypesafeConfigUtils.getConfig(config, "l1", Long.parseLong("101")));
+        Assertions.assertEquals(
+                Long.parseLong("100"),
+                (long) TypesafeConfigUtils.getConfig(config, "l2", Long.parseLong("100")));
     }
 }

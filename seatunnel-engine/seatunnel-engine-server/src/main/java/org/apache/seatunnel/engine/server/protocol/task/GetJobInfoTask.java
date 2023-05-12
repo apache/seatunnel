@@ -29,9 +29,12 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 public class GetJobInfoTask extends AbstractSeaTunnelMessageTask<Long, Data> {
 
     protected GetJobInfoTask(ClientMessage clientMessage, Node node, Connection connection) {
-        super(clientMessage, node, connection,
-            SeaTunnelGetJobInfoCodec::decodeRequest,
-            SeaTunnelGetJobInfoCodec::encodeResponse);
+        super(
+                clientMessage,
+                node,
+                connection,
+                SeaTunnelGetJobInfoCodec::decodeRequest,
+                SeaTunnelGetJobInfoCodec::encodeResponse);
     }
 
     @Override

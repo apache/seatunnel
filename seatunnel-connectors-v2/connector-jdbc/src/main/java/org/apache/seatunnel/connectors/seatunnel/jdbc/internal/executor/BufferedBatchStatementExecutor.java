@@ -30,12 +30,9 @@ import java.util.function.Function;
 
 @RequiredArgsConstructor
 public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
-    @NonNull
-    private final JdbcBatchStatementExecutor<SeaTunnelRow> statementExecutor;
-    @NonNull
-    private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
-    @NonNull
-    private final List<SeaTunnelRow> buffer = new ArrayList<>();
+    @NonNull private final JdbcBatchStatementExecutor<SeaTunnelRow> statementExecutor;
+    @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
+    @NonNull private final List<SeaTunnelRow> buffer = new ArrayList<>();
 
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
@@ -63,8 +60,6 @@ public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecuto
         if (!buffer.isEmpty()) {
             executeBatch();
         }
-        if (statementExecutor != null) {
-            statementExecutor.closeStatements();
-        }
+        statementExecutor.closeStatements();
     }
 }

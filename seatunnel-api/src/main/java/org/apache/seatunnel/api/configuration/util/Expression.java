@@ -84,8 +84,8 @@ public class Expression {
         }
         Expression that = (Expression) obj;
         return Objects.equals(this.condition, that.condition)
-            && Objects.equals(this.and, that.and)
-            && Objects.equals(this.next, that.next);
+                && Objects.equals(this.and, that.and)
+                && Objects.equals(this.next, that.next);
     }
 
     @Override
@@ -100,9 +100,7 @@ public class Expression {
         boolean bracket = false;
         do {
             if (cur.condition.getCount() > 1) {
-                builder.append("(")
-                    .append(cur.condition)
-                    .append(")");
+                builder.append("(").append(cur.condition).append(")");
             } else {
                 builder.append(cur.condition);
             }

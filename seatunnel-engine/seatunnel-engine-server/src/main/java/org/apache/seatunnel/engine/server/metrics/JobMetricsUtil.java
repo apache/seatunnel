@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.engine.server.metrics;
 
-import static org.apache.seatunnel.api.common.metrics.MetricTags.ADDRESS;
-import static org.apache.seatunnel.api.common.metrics.MetricTags.MEMBER;
-
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.Measurement;
 import org.apache.seatunnel.api.common.metrics.MetricTags;
@@ -37,12 +34,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 
+import static org.apache.seatunnel.api.common.metrics.MetricTags.ADDRESS;
+import static org.apache.seatunnel.api.common.metrics.MetricTags.MEMBER;
+
 public final class JobMetricsUtil {
 
-    private JobMetricsUtil() {
-    }
+    private JobMetricsUtil() {}
 
-    public static String getTaskGroupLocationFromMetricsDescriptor(MetricDescriptor descriptor){
+    public static String getTaskGroupLocationFromMetricsDescriptor(MetricDescriptor descriptor) {
         for (int i = 0; i < descriptor.tagCount(); i++) {
             if (MetricTags.TASK_GROUP_LOCATION.equals(descriptor.tag(i))) {
                 return descriptor.tagValue(i);
@@ -77,13 +76,13 @@ public final class JobMetricsUtil {
         @Override
         public void consumeLong(MetricDescriptor descriptor, long value) {
             metrics.computeIfAbsent(descriptor.metric(), k -> new ArrayList<>())
-                   .add(measurement(descriptor, value));
+                    .add(measurement(descriptor, value));
         }
 
         @Override
         public void consumeDouble(MetricDescriptor descriptor, double value) {
             metrics.computeIfAbsent(descriptor.metric(), k -> new ArrayList<>())
-                .add(measurement(descriptor, value));
+                    .add(measurement(descriptor, value));
         }
 
         private Measurement measurement(MetricDescriptor descriptor, Object value) {

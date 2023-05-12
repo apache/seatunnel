@@ -31,7 +31,8 @@ public class HudiSourceConfig {
             Options.key("table.type")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("hudi table type. default hudi table type is cow. mor is not support yet");
+                    .withDescription(
+                            "hudi table type. default hudi table type is cow. mor is not support yet");
 
     public static final Option<String> CONF_FILES =
             Options.key("conf.files")
@@ -56,5 +57,4 @@ public class HudiSourceConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("hudi kerberos.principal.file ");
-
 }

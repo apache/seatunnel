@@ -2,8 +2,8 @@
 
 > Common parameters of source connectors
 
-| name              | type   | required | default value |
-| ----------------- | ------ | -------- | ------------- |
+|       name        |  type  | required | default value |
+|-------------------|--------|----------|---------------|
 | result_table_name | string | no       | -             |
 | parallelism       | int    | no       | -             |
 
@@ -30,4 +30,4 @@ source {
 ```
 
 > The result of the data source `FakeSourceStream` will be registered as a temporary table named `fake` . This temporary table can be used by any `Transform` or `Sink` plugin by specifying `source_table_name` .
->
+

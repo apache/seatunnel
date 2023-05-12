@@ -19,62 +19,42 @@ package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
-import org.apache.seatunnel.common.utils.function.ConsumerWithException;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
-import org.apache.seatunnel.engine.server.task.record.Barrier;
+import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
 
-import java.util.concurrent.BlockingQueue;
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
-public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>,
-        OneOutputFlowLifeCycle<Record<?>> {
+public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<?>>
+        extends AbstractFlowLifeCycle
+        implements OneInputFlowLifeCycle<Record<?>>, OneOutputFlowLifeCycle<Record<?>> {
 
-    private final BlockingQueue<Record<?>> queue;
+    private final AbstractIntermediateQueue<?> queue;
 
-    public IntermediateQueueFlowLifeCycle(SeaTunnelTask runningTask,
-                                          CompletableFuture<Void> completableFuture,
-                                          BlockingQueue<Record<?>> queue) {
+    public IntermediateQueueFlowLifeCycle(
+            SeaTunnelTask runningTask,
+            CompletableFuture<Void> completableFuture,
+            AbstractIntermediateQueue<?> queue) {
         super(runningTask, completableFuture);
         this.queue = queue;
+        queue.setIntermediateQueueFlowLifeCycle(this);
+        queue.setRunningTask(runningTask);
     }
 
     @Override
     public void received(Record<?> record) {
-        try {
-            handleRecord(record, queue::put);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        queue.received(record);
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
-        while (true) {
-            Record<?> record = queue.poll(100, TimeUnit.MILLISECONDS);
-            if (record != null) {
-                handleRecord(record, collector::collect);
-            } else {
-                break;
-            }
-        }
+        queue.collect(collector);
     }
 
-    private void handleRecord(Record<?> record, ConsumerWithException<Record<?>> consumer) throws Exception {
-        if (record.getData() instanceof Barrier) {
-            CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
-            runningTask.ack(barrier);
-            if (barrier.prepareClose()) {
-                prepareClose = true;
-            }
-            consumer.accept(record);
-        } else {
-            if (prepareClose) {
-                return;
-            }
-            consumer.accept(record);
-        }
+    @Override
+    public void close() throws IOException {
+        queue.close();
+        super.close();
     }
 }

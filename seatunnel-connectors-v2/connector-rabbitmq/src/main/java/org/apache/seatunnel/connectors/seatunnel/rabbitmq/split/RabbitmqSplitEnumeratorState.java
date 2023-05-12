@@ -19,5 +19,4 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq.split;
 
 import java.io.Serializable;
 
-public class RabbitmqSplitEnumeratorState implements Serializable {
-}
+public class RabbitmqSplitEnumeratorState implements Serializable {}

@@ -22,8 +22,8 @@ Currently, only supports hudi cow table and Snapshot Query with Batch Mode
 
 ## Options
 
-| name                    | type    | required                     | default value |
-| ----------------------- |---------|------------------------------| ------------- |
+|          name           |  type   |           required           | default value |
+|-------------------------|---------|------------------------------|---------------|
 | table.path              | string  | yes                          | -             |
 | table.type              | string  | yes                          | -             |
 | conf.files              | string  | yes                          | -             |
@@ -56,7 +56,7 @@ Currently, only supports hudi cow table and Snapshot Query with Batch Mode
 
 `kerberos.principal.file` When use kerberos,  we should set kerberos princal file such as '/home/test/test_user.keytab'.
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
@@ -82,3 +82,4 @@ source {
 ### 2.2.0-beta 2022-09-26
 
 - Add Hudi Source Connector
+

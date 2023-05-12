@@ -17,15 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.util.Objects;
+
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
 
 public class SocketSourceParameter implements Serializable {
     private final String host;

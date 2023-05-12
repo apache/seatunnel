@@ -29,8 +29,9 @@ public class LsnOffset extends Offset {
 
     private static final long serialVersionUID = 1L;
 
-    public static final LsnOffset INITIAL_OFFSET = valueOf(Lsn.valueOf(new byte[]{0}).toString());
-    public static final LsnOffset NO_STOPPING_OFFSET = valueOf(Lsn.valueOf(new byte[]{Byte.MAX_VALUE}).toString());
+    public static final LsnOffset INITIAL_OFFSET = valueOf(Lsn.valueOf(new byte[] {0}).toString());
+    public static final LsnOffset NO_STOPPING_OFFSET =
+            valueOf(Lsn.valueOf(new byte[] {Byte.MAX_VALUE}).toString());
 
     public static LsnOffset valueOf(String commitLsn) {
         return new LsnOffset(Lsn.valueOf(commitLsn), null, null);
@@ -90,7 +91,8 @@ public class LsnOffset extends Offset {
         int result = 1;
         result = prime * result + ((getCommitLsn() == null) ? 0 : getCommitLsn().hashCode());
         result = prime * result + ((getChangeLsn() == null) ? 0 : getChangeLsn().hashCode());
-        result = prime * result + ((getEventSerialNo() == null) ? 0 : getEventSerialNo().hashCode());
+        result =
+                prime * result + ((getEventSerialNo() == null) ? 0 : getEventSerialNo().hashCode());
         return result;
     }
 }

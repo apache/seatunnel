@@ -15,24 +15,25 @@ Used to read data from Gitlab.
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-##  Options
+## Options
 
-| name                        | type   | required | default value |
-| --------------------------- | ------ | -------- | ------------- |
-| url                         | String | Yes      | -             |
-| access_token                | String | Yes      | -             |
-| method                      | String | No       | get           |
-| schema.fields               | Config | No       | -             |
-| format                      | String | No       | json          |
-| params                      | Map    | No       | -             |
-| body                        | String | No       | -             |
-| json_field                  | Config | No       | -             |
-| content_json                | String | No       | -             |
-| poll_interval_ms            | int    | No       | -             |
-| retry                       | int    | No       | -             |
-| retry_backoff_multiplier_ms | int    | No       | 100           |
-| retry_backoff_max_ms        | int    | No       | 10000         |
-| common-options              | config | No       | -             |
+|            name             |  type   | required | default value |
+|-----------------------------|---------|----------|---------------|
+| url                         | String  | Yes      | -             |
+| access_token                | String  | Yes      | -             |
+| method                      | String  | No       | get           |
+| schema.fields               | Config  | No       | -             |
+| format                      | String  | No       | json          |
+| params                      | Map     | No       | -             |
+| body                        | String  | No       | -             |
+| json_field                  | Config  | No       | -             |
+| content_json                | String  | No       | -             |
+| poll_interval_ms            | int     | No       | -             |
+| retry                       | int     | No       | -             |
+| retry_backoff_multiplier_ms | int     | No       | 100           |
+| retry_backoff_max_ms        | int     | No       | 10000         |
+| enable_multi_lines          | boolean | No       | false         |
+| common-options              | config  | No       | -             |
 
 ### url [String]
 
@@ -102,7 +103,7 @@ schema {
 
 connector will generate data as the following:
 
-| code | data        | success |
+| code |    data     | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -120,9 +121,9 @@ upstream data is the following:
 
 connector will generate data as the following:
 
-| content |
-|---------|
-| {"code":  200, "data":  "get success", "success":  true}        |
+|                         content                          |
+|----------------------------------------------------------|
+| {"code":  200, "data":  "get success", "success":  true} |
 
 ### schema [Config]
 
@@ -161,6 +162,7 @@ If your return data looks something like this.
   "expensive": 10
 }
 ```
+
 You can configure `content_field = "$.store.book.*"` and the result returned looks like this:
 
 ```json
@@ -179,6 +181,7 @@ You can configure `content_field = "$.store.book.*"` and the result returned loo
   }
 ]
 ```
+
 Then you can get the desired result with a simpler schema,like
 
 ```hocon
@@ -200,7 +203,7 @@ Http {
 
 Here is an example:
 
-- Test data can be found at this link [mockserver-contentjson-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-contentjson-config.json)
+- Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
 - See this link for task configuration [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
 
 ### json_field [Config]
@@ -261,10 +264,10 @@ source {
 }
 ```
 
-- Test data can be found at this link [mockserver-jsonpath-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-jsonpath-config.json)
+- Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
 - See this link for task configuration [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
@@ -293,3 +296,4 @@ Gitlab{
 
 - Add Gitlab Source Connector
 - [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/incubator-seatunnel/pull/3510))
+

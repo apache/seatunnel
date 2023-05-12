@@ -20,12 +20,19 @@ package org.apache.seatunnel.api.transform;
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
 import org.apache.seatunnel.api.source.SeaTunnelJobAware;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.io.Serializable;
 
-public interface SeaTunnelTransform<T> extends Serializable,
-    PluginIdentifierInterface, SeaTunnelPluginLifeCycle, SeaTunnelJobAware {
+public interface SeaTunnelTransform<T>
+        extends Serializable,
+                PluginIdentifierInterface,
+                SeaTunnelPluginLifeCycle,
+                SeaTunnelJobAware {
+
+    /** call it when Transformer initialed */
+    default void open() {}
 
     /**
      * Set the data type info of input data.
@@ -42,10 +49,20 @@ public interface SeaTunnelTransform<T> extends Serializable,
     SeaTunnelDataType<T> getProducedType();
 
     /**
+     * Get the catalog table output by this transform
+     *
+     * @return
+     */
+    CatalogTable getProducedCatalogTable();
+
+    /**
      * Transform input data to {@link this#getProducedType()} types data.
      *
      * @param row the data need be transform.
      * @return transformed data.
      */
     T map(T row);
+
+    /** call it when Transformer completed */
+    default void close() {}
 }

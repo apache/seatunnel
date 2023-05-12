@@ -22,31 +22,37 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [ ] [column projection](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
-- [x] file format
+- [x] file format file
   - [x] text
   - [x] csv
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] excel
 
 ## Options
 
-| name                      | type    | required | default value       |
+|           name            |  type   | required |    default value    |
 |---------------------------|---------|----------|---------------------|
 | path                      | string  | yes      | -                   |
-| type                      | string  | yes      | -                   |
+| file_format_type          | string  | yes      | -                   |
 | fs.defaultFS              | string  | yes      | -                   |
+| read_columns              | list    | yes      | -                   |
 | hdfs_site_path            | string  | no       | -                   |
 | delimiter                 | string  | no       | \001                |
 | parse_partition_from_path | boolean | no       | true                |
 | date_format               | string  | no       | yyyy-MM-dd          |
 | datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
 | time_format               | string  | no       | HH:mm:ss            |
+| kerberos_principal        | string  | no       | -                   |
+| kerberos_keytab_path      | string  | no       | -                   |
+| skip_header_row_number    | long    | no       | 0                   |
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
+| sheet_name                | string  | no       | -                   |
 
 ### path [string]
 
@@ -66,9 +72,9 @@ For example if you read a file from path `hdfs://hadoop-cluster/tmp/seatunnel/pa
 
 Every record data from file will be added these two fields:
 
-| name           | age |
-|----------------|-----|
-| tyrantlucifer  | 26  |
+|     name      | age |
+|---------------|-----|
+| tyrantlucifer | 26  |
 
 Tips: **Do not define partition fields in schema option**
 
@@ -96,11 +102,21 @@ Time type format, used to tell connector how to convert string to time, supporte
 
 default `HH:mm:ss`
 
-### type [string]
+### skip_header_row_number [long]
+
+Skip the first few lines, but only for the txt and csv.
+
+For example, set like following:
+
+`skip_header_row_number = 2`
+
+then Seatunnel will skip the first 2 lines from source files
+
+### file_format_type [string]
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json`
+`text` `csv` `parquet` `orc` `json` `excel`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -139,7 +155,7 @@ schema {
 
 connector will generate data as the following:
 
-| code | data        | success |
+| code |    data     | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -157,12 +173,11 @@ tyrantlucifer#26#male
 
 If you do not assign data schema connector will treat the upstream data as the following:
 
-| content                |
-|------------------------|
-| tyrantlucifer#26#male  | 
+|        content        |
+|-----------------------|
+| tyrantlucifer#26#male |
 
 If you assign data schema, you should also assign the option `delimiter` too except CSV file type
-
 
 you should assign schema and delimiter as the following:
 
@@ -181,7 +196,7 @@ schema {
 
 connector will generate data as the following:
 
-| name          | age | gender |
+|     name      | age | gender |
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
@@ -193,15 +208,42 @@ Hdfs cluster address.
 
 The path of `hdfs-site.xml`, used to load ha configuration of namenodes
 
+### kerberos_principal [string]
+
+The principal of kerberos
+
+### kerberos_keytab_path [string]
+
+The keytab path of kerberos
+
 ### schema [Config]
 
 #### fields [Config]
 
 the schema fields of upstream data
 
-### common options 
+### read_columns [list]
+
+The read column list of the data source, user can use it to implement field projection.
+
+The file type supported column projection as the following shown:
+
+- text
+- json
+- csv
+- orc
+- parquet
+- excel
+
+**Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
+
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
+
+### sheet_name [string]
+
+Reader the sheet of the workbook,Only used when file_format is excel.
 
 ## Example
 
@@ -209,7 +251,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 HdfsFile {
   path = "/apps/hive/demo/student"
-  type = "parquet"
+  file_format_type = "parquet"
   fs.defaultFS = "hdfs://namenode001"
 }
 
@@ -242,3 +284,9 @@ HdfsFile {
 - [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
 - [Improve] Support extract partition from SeaTunnelRow fields ([3085](https://github.com/apache/incubator-seatunnel/pull/3085))
 - [Improve] Support parse field from file path ([2985](https://github.com/apache/incubator-seatunnel/pull/2985))
+
+### next version
+
+- [Improve] Support skip header for csv and txt files ([3900](https://github.com/apache/incubator-seatunnel/pull/3840))
+- [Improve] Support kerberos authentication ([3840](https://github.com/apache/incubator-seatunnel/pull/3840))
+

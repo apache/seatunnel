@@ -7,11 +7,9 @@ package org.apache.seatunnel.shade.com.typesafe.config;
 /**
  * A set of options related to parsing.
  *
- * <p>
- * This object is immutable, so the "setters" return a new object.
+ * <p>This object is immutable, so the "setters" return a new object.
  *
- * <p>
- * Here is an example of creating a custom {@code ConfigParseOptions}:
+ * <p>Here is an example of creating a custom {@code ConfigParseOptions}:
  *
  * <pre>
  *     ConfigParseOptions options = ConfigParseOptions.defaults()
@@ -21,10 +19,7 @@ package org.apache.seatunnel.shade.com.typesafe.config;
  */
 public final class ConfigParseOptions {
 
-    /**
-     * a.b.c
-     * a-&gt;b-&gt;c
-     */
+    /** a.b.c a-&gt;b-&gt;c */
     public static final String PATH_TOKEN_SEPARATOR = "->";
 
     final ConfigSyntax syntax;
@@ -33,8 +28,12 @@ public final class ConfigParseOptions {
     final ConfigIncluder includer;
     final ClassLoader classLoader;
 
-    private ConfigParseOptions(ConfigSyntax syntax, String originDescription, boolean allowMissing,
-                               ConfigIncluder includer, ClassLoader classLoader) {
+    private ConfigParseOptions(
+            ConfigSyntax syntax,
+            String originDescription,
+            boolean allowMissing,
+            ConfigIncluder includer,
+            ClassLoader classLoader) {
         this.syntax = syntax;
         this.originDescription = originDescription;
         this.allowMissing = allowMissing;
@@ -43,9 +42,8 @@ public final class ConfigParseOptions {
     }
 
     /**
-     * Gets an instance of {@code ConfigParseOptions} with all fields
-     * set to the default values. Start with this instance and make any
-     * changes you need.
+     * Gets an instance of {@code ConfigParseOptions} with all fields set to the default values.
+     * Start with this instance and make any changes you need.
      *
      * @return the default parse options
      */
@@ -54,8 +52,8 @@ public final class ConfigParseOptions {
     }
 
     /**
-     * Set the file format. If set to null, try to guess from any available
-     * filename extension; if guessing fails, assume {@link ConfigSyntax#CONF}.
+     * Set the file format. If set to null, try to guess from any available filename extension; if
+     * guessing fails, assume {@link ConfigSyntax#CONF}.
      *
      * @param syntax a syntax or {@code null} for best guess
      * @return options with the syntax set
@@ -64,8 +62,12 @@ public final class ConfigParseOptions {
         if (this.syntax == syntax) {
             return this;
         } else {
-            return new ConfigParseOptions(syntax, this.originDescription, this.allowMissing,
-                this.includer, this.classLoader);
+            return new ConfigParseOptions(
+                    syntax,
+                    this.originDescription,
+                    this.allowMissing,
+                    this.includer,
+                    this.classLoader);
         }
     }
 
@@ -79,11 +81,10 @@ public final class ConfigParseOptions {
     }
 
     /**
-     * Set a description for the thing being parsed. In most cases this will be
-     * set up for you to something like the filename, but if you provide just an
-     * input stream you might want to improve on it. Set to null to allow the
-     * library to come up with something automatically. This description is the
-     * basis for the {@link ConfigOrigin} of the parsed values.
+     * Set a description for the thing being parsed. In most cases this will be set up for you to
+     * something like the filename, but if you provide just an input stream you might want to
+     * improve on it. Set to null to allow the library to come up with something automatically. This
+     * description is the basis for the {@link ConfigOrigin} of the parsed values.
      *
      * @param originDescription description to put in the {@link ConfigOrigin}
      * @return options with the origin description set
@@ -92,12 +93,17 @@ public final class ConfigParseOptions {
         // findbugs complains about == here but is wrong, do not "fix"
         if (this.originDescription == originDescription) {
             return this;
-        } else if (this.originDescription != null && originDescription != null
-            && this.originDescription.equals(originDescription)) {
+        } else if (this.originDescription != null
+                && originDescription != null
+                && this.originDescription.equals(originDescription)) {
             return this;
         } else {
-            return new ConfigParseOptions(this.syntax, originDescription, this.allowMissing,
-                this.includer, this.classLoader);
+            return new ConfigParseOptions(
+                    this.syntax,
+                    originDescription,
+                    this.allowMissing,
+                    this.includer,
+                    this.classLoader);
         }
     }
 
@@ -110,9 +116,7 @@ public final class ConfigParseOptions {
         return originDescription;
     }
 
-    /**
-     * this is package-private, not public API
-     */
+    /** this is package-private, not public API */
     ConfigParseOptions withFallbackOriginDescription(String originDescription) {
         if (this.originDescription == null) {
             return setOriginDescription(originDescription);
@@ -122,10 +126,9 @@ public final class ConfigParseOptions {
     }
 
     /**
-     * Set to false to throw an exception if the item being parsed (for example
-     * a file) is missing. Set to true to just return an empty document in that
-     * case. Note that this setting applies on only to fetching the root document,
-     * it has no effect on any nested includes.
+     * Set to false to throw an exception if the item being parsed (for example a file) is missing.
+     * Set to true to just return an empty document in that case. Note that this setting applies on
+     * only to fetching the root document, it has no effect on any nested includes.
      *
      * @param allowMissing true to silently ignore missing item
      * @return options with the "allow missing" flag set
@@ -134,8 +137,12 @@ public final class ConfigParseOptions {
         if (this.allowMissing == allowMissing) {
             return this;
         } else {
-            return new ConfigParseOptions(this.syntax, this.originDescription, allowMissing,
-                this.includer, this.classLoader);
+            return new ConfigParseOptions(
+                    this.syntax,
+                    this.originDescription,
+                    allowMissing,
+                    this.includer,
+                    this.classLoader);
         }
     }
 
@@ -149,8 +156,8 @@ public final class ConfigParseOptions {
     }
 
     /**
-     * Set a {@link ConfigIncluder} which customizes how includes are handled.
-     * null means to use the default includer.
+     * Set a {@link ConfigIncluder} which customizes how includes are handled. null means to use the
+     * default includer.
      *
      * @param includer the includer to use or null for default
      * @return new version of the parse options with different includer
@@ -159,16 +166,19 @@ public final class ConfigParseOptions {
         if (this.includer == includer) {
             return this;
         } else {
-            return new ConfigParseOptions(this.syntax, this.originDescription, this.allowMissing,
-                includer, this.classLoader);
+            return new ConfigParseOptions(
+                    this.syntax,
+                    this.originDescription,
+                    this.allowMissing,
+                    includer,
+                    this.classLoader);
         }
     }
 
     /**
-     * Prepends a {@link ConfigIncluder} which customizes how
-     * includes are handled.  To prepend your includer, the
-     * library calls {@link ConfigIncluder#withFallback} on your
-     * includer to append the existing includer to it.
+     * Prepends a {@link ConfigIncluder} which customizes how includes are handled. To prepend your
+     * includer, the library calls {@link ConfigIncluder#withFallback} on your includer to append
+     * the existing includer to it.
      *
      * @param includer the includer to prepend (may not be null)
      * @return new version of the parse options with different includer
@@ -187,9 +197,8 @@ public final class ConfigParseOptions {
     }
 
     /**
-     * Appends a {@link ConfigIncluder} which customizes how
-     * includes are handled.  To append, the library calls {@link
-     * ConfigIncluder#withFallback} on the existing includer.
+     * Appends a {@link ConfigIncluder} which customizes how includes are handled. To append, the
+     * library calls {@link ConfigIncluder#withFallback} on the existing includer.
      *
      * @param includer the includer to append (may not be null)
      * @return new version of the parse options with different includer
@@ -217,25 +226,23 @@ public final class ConfigParseOptions {
     }
 
     /**
-     * Set the class loader. If set to null,
-     * {@code Thread.currentThread().getContextClassLoader()} will be used.
+     * Set the class loader. If set to null, {@code Thread.currentThread().getContextClassLoader()}
+     * will be used.
      *
-     * @param loader a class loader or {@code null} to use thread context class
-     *               loader
+     * @param loader a class loader or {@code null} to use thread context class loader
      * @return options with the class loader set
      */
     public ConfigParseOptions setClassLoader(ClassLoader loader) {
         if (this.classLoader == loader) {
             return this;
         } else {
-            return new ConfigParseOptions(this.syntax, this.originDescription, this.allowMissing,
-                this.includer, loader);
+            return new ConfigParseOptions(
+                    this.syntax, this.originDescription, this.allowMissing, this.includer, loader);
         }
     }
 
     /**
-     * Get the class loader; never returns {@code null}, if the class loader was
-     * unset, returns
+     * Get the class loader; never returns {@code null}, if the class loader was unset, returns
      * {@code Thread.currentThread().getContextClassLoader()}.
      *
      * @return class loader to use

@@ -14,15 +14,9 @@ The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent
 
 - [x] [cdc](../../concept/connector-v2-features.md)
 
-:::tip
-
-Write data to Clickhouse can also be done using JDBC
-
-:::
-
 ## Options
 
-| name                                  | type    | required | default value |
+|                 name                  |  type   | required | default value |
 |---------------------------------------|---------|----------|---------------|
 | host                                  | string  | yes      | -             |
 | database                              | string  | yes      | -             |
@@ -176,6 +170,7 @@ sink {
 - Add ClickHouse Sink Connector
 
 ### 2.3.0-beta 2022-10-20
+
 - [Improve] Clickhouse Support Int128,Int256 Type ([3067](https://github.com/apache/incubator-seatunnel/pull/3067))
 
 ### next version
@@ -183,6 +178,6 @@ sink {
 - [Improve] Clickhouse Sink support nest type and array type([3047](https://github.com/apache/incubator-seatunnel/pull/3047))
 - [Improve] Clickhouse Sink support geo type([3141](https://github.com/apache/incubator-seatunnel/pull/3141))
 - [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3653](https://github.com/apache/incubator-seatunnel/pull/3653))
-
 - [Improve] Remove Clickhouse Fields Config ([3826](https://github.com/apache/incubator-seatunnel/pull/3826))
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
+

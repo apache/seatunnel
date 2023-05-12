@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform;
 
+import org.apache.seatunnel.transform.filterrowkind.FilterRowKindTransformFactory;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -24,7 +26,8 @@ public class FilterRowKindTransformFactoryTest {
 
     @Test
     public void testOptionRule() throws Exception {
-        FilterRowKindTransformFactory filterRowKindTransformFactory = new FilterRowKindTransformFactory();
+        FilterRowKindTransformFactory filterRowKindTransformFactory =
+                new FilterRowKindTransformFactory();
         Assertions.assertNotNull(filterRowKindTransformFactory.optionRule());
     }
 }

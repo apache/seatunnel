@@ -17,17 +17,18 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
-
-import org.apache.seatunnel.api.common.metrics.Unit;
+import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.common.metrics.Meter;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.Record;
-import org.apache.seatunnel.engine.server.metrics.MetricsContext;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
 import java.io.IOException;
 import java.util.List;
+
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 
 public class SeaTunnelSourceCollector<T> implements Collector<T> {
 
@@ -35,20 +36,26 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
 
     private final List<OneInputFlowLifeCycle<Record<?>>> outputs;
 
-    private final MetricsContext metricsContext;
+    private final Counter sourceReceivedCount;
 
-    public SeaTunnelSourceCollector(Object checkpointLock, List<OneInputFlowLifeCycle<Record<?>>> outputs, MetricsContext metricsContext) {
+    private final Meter sourceReceivedQPS;
+
+    public SeaTunnelSourceCollector(
+            Object checkpointLock,
+            List<OneInputFlowLifeCycle<Record<?>>> outputs,
+            MetricsContext metricsContext) {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
-        this.metricsContext = metricsContext;
+        sourceReceivedCount = metricsContext.counter(SOURCE_RECEIVED_COUNT);
+        sourceReceivedQPS = metricsContext.meter(SOURCE_RECEIVED_QPS);
     }
 
     @Override
     public void collect(T row) {
         try {
             sendRecordToNext(new Record<>(row));
-            metricsContext.threadSafeQpsMetric(SOURCE_RECEIVED_QPS, Unit.COUNT).increment();
-            metricsContext.threadSafeMetric(SOURCE_RECEIVED_COUNT, Unit.COUNT).increment();
+            sourceReceivedCount.inc();
+            sourceReceivedQPS.markEvent();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

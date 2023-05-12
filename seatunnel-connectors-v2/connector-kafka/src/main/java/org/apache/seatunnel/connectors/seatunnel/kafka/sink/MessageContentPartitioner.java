@@ -32,7 +32,13 @@ public class MessageContentPartitioner implements Partitioner {
     }
 
     @Override
-    public int partition(String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
+    public int partition(
+            String topic,
+            Object key,
+            byte[] keyBytes,
+            Object value,
+            byte[] valueBytes,
+            Cluster cluster) {
         List<PartitionInfo> partitions = cluster.partitionsForTopic(topic);
         int numPartitions = partitions.size();
 
@@ -43,17 +49,14 @@ public class MessageContentPartitioner implements Partitioner {
                 return i;
             }
         }
-        //Choose one of the remaining partitions according to the hashcode.
-        return ((message.hashCode() & Integer.MAX_VALUE) % (numPartitions - assignPartitionsSize)) + assignPartitionsSize;
+        // Choose one of the remaining partitions according to the hashcode.
+        return ((message.hashCode() & Integer.MAX_VALUE) % (numPartitions - assignPartitionsSize))
+                + assignPartitionsSize;
     }
 
     @Override
-    public void close() {
-
-    }
+    public void close() {}
 
     @Override
-    public void configure(Map<String, ?> map) {
-
-    }
+    public void configure(Map<String, ?> map) {}
 }

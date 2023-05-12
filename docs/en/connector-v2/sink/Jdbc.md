@@ -26,18 +26,19 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 ## Options
 
-| name                                      | type    | required | default value |
+|                   name                    |  type   | required | default value |
 |-------------------------------------------|---------|----------|---------------|
 | url                                       | String  | Yes      | -             |
 | driver                                    | String  | Yes      | -             |
 | user                                      | String  | No       | -             |
 | password                                  | String  | No       | -             |
 | query                                     | String  | No       | -             |
+| database                                  | String  | No       | -             |
 | table                                     | String  | No       | -             |
 | primary_keys                              | Array   | No       | -             |
 | support_upsert_by_query_primary_key_exist | Boolean | No       | false         |
 | connection_check_timeout_sec              | Int     | No       | 30            |
-| max_retries                               | Int     | No       | 3             |
+| max_retries                               | Int     | No       | 0             |
 | batch_size                                | Int     | No       | 1000          |
 | batch_interval_ms                         | Int     | No       | 1000          |
 | is_exactly_once                           | Boolean | No       | false         |
@@ -67,9 +68,15 @@ The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/tes
 
 Use this sql write upstream input datas to database. e.g `INSERT ...`
 
+### database [string]
+
+Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.
+
+This option is mutually exclusive with `query` and has a higher priority.
+
 ### table [string]
 
-Use this `table-name` auto-generate sql and receive upstream input datas write to database.
+Use `database` and this `table-name` auto-generate sql and receive upstream input datas write to database.
 
 This option is mutually exclusive with `query` and has a higher priority.
 
@@ -79,7 +86,7 @@ This option is used to support operations such as `insert`, `delete`, and `updat
 
 ### support_upsert_by_query_primary_key_exist [boolean]
 
-Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupport upsert syntax.
+Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupported upsert syntax.
 **Note**: that this method has low performance
 
 ### connection_check_timeout_sec [int]
@@ -129,15 +136,16 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 
 ## tips
 
-In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup : 
-  1 postgres needs to set `max_prepared_transactions > 1` such as `ALTER SYSTEM set max_prepared_transactions to 10`.
-  2 mysql version need >= `8.0.29` and Non-root users need to grant `XA_RECOVER_ADMIN` permissions. such as `grant XA_RECOVER_ADMIN on test_db.* to 'user1'@'%'`.
+In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup :
+1 postgres needs to set `max_prepared_transactions > 1` such as `ALTER SYSTEM set max_prepared_transactions to 10`.
+2 mysql version need >= `8.0.29` and Non-root users need to grant `XA_RECOVER_ADMIN` permissions. such as `grant XA_RECOVER_ADMIN on test_db.* to 'user1'@'%'`.
+3 mysql can try to add `rewriteBatchedStatements=true` parameter in url for better performance.
 
 ## appendix
 
 there are some reference value for params above.
 
-| datasource | driver                                       | url                                                                | xa_data_source_class_name                          | maven                                                                                                       |
+| datasource |                    driver                    |                                url                                 |             xa_data_source_class_name              |                                                    maven                                                    |
 |------------|----------------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | MySQL      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | PostgreSQL | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                |
@@ -153,6 +161,7 @@ there are some reference value for params above.
 | Doris      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | teradata   | com.teradata.jdbc.TeraDriver                 | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test              | /                                                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                               |
 | Redshift   | com.amazon.redshift.jdbc42.Driver            | jdbc:redshift://localhost:5439/testdb                              | com.amazon.redshift.xa.RedshiftXADataSource        | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                      |
+| Vertica    | com.vertica.jdbc.Driver                      | jdbc:vertica://localhost:5433                                      | /                                                  | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar             |
 
 ## Example
 
@@ -160,7 +169,7 @@ Simple
 
 ```
 jdbc {
-    url = "jdbc:mysql://localhost/test"
+    url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
     user = "root"
     password = "123456"
@@ -174,7 +183,7 @@ Exactly-once
 ```
 jdbc {
 
-    url = "jdbc:mysql://localhost/test"
+    url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
 
     max_retries = 0
@@ -193,12 +202,13 @@ CDC(Change data capture) event
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost/test"
+        url = "jdbc:mysql://localhost:3306"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
         
-        table = sink_table
+        database = "sink_database"
+        table = "sink_table"
         primary_keys = ["key1", "key2", ...]
     }
 }
@@ -228,3 +238,6 @@ sink {
 - [Feature] Support Doris JDBC Sink
 - [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/incubator-seatunnel/pull/3615))
 - [Improve] Add config item enable upsert by query([#3708](https://github.com/apache/incubator-seatunnel/pull/3708))
+- [Improve] Add database field to sink config([#4199](https://github.com/apache/incubator-seatunnel/pull/4199))
+- [Improve] Add Vertica connector([#4303](https://github.com/apache/incubator-seatunnel/pull/4303))
+

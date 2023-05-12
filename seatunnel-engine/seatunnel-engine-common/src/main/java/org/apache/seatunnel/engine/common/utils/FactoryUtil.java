@@ -34,42 +34,50 @@ import java.util.stream.Collectors;
 @Slf4j
 public class FactoryUtil<T> {
 
-    public static <T> T discoverFactory(ClassLoader classLoader, Class<T> factoryClass, String factoryIdentifier) {
+    public static <T> T discoverFactory(
+            ClassLoader classLoader, Class<T> factoryClass, String factoryIdentifier) {
         try {
             final List<T> result = new LinkedList<>();
-            ServiceLoader.load(factoryClass, classLoader)
-                .iterator()
-                .forEachRemaining(result::add);
+            ServiceLoader.load(factoryClass, classLoader).iterator().forEachRemaining(result::add);
 
-            List<T> foundFactories = result.stream().filter(f -> factoryClass.isAssignableFrom(f.getClass()))
-                .filter(t -> {
-                    try {
-                        return t.getClass().getMethod("factoryIdentifier").invoke(t).equals(factoryIdentifier);
-                    } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                        throw new SeaTunnelEngineException("Failed to call factoryIdentifier method.");
-                    }
-                })
-                .collect(Collectors.toList());
+            List<T> foundFactories =
+                    result.stream()
+                            .filter(f -> factoryClass.isAssignableFrom(f.getClass()))
+                            .filter(
+                                    t -> {
+                                        try {
+                                            return t.getClass()
+                                                    .getMethod("factoryIdentifier")
+                                                    .invoke(t)
+                                                    .equals(factoryIdentifier);
+                                        } catch (IllegalAccessException
+                                                | InvocationTargetException
+                                                | NoSuchMethodException e) {
+                                            throw new SeaTunnelEngineException(
+                                                    "Failed to call factoryIdentifier method.");
+                                        }
+                                    })
+                            .collect(Collectors.toList());
 
             if (foundFactories.isEmpty()) {
                 throw new SeaTunnelEngineException(
-                    String.format(
-                        "Could not find any factories that implement '%s' in the classpath.",
-                        factoryClass.getName()));
+                        String.format(
+                                "Could not find any factories that implement '%s' in the classpath.",
+                                factoryClass.getName()));
             }
 
             if (foundFactories.size() > 1) {
                 throw new SeaTunnelEngineException(
-                    String.format(
-                        "Multiple factories for identifier '%s' that implement '%s' found in the classpath.\n\n"
-                            + "Ambiguous factory classes are:\n\n"
-                            + "%s",
-                        factoryIdentifier,
-                        factoryClass.getName(),
-                        foundFactories.stream()
-                            .map(f -> f.getClass().getName())
-                            .sorted()
-                            .collect(Collectors.joining("\n"))));
+                        String.format(
+                                "Multiple factories for identifier '%s' that implement '%s' found in the classpath.\n\n"
+                                        + "Ambiguous factory classes are:\n\n"
+                                        + "%s",
+                                factoryIdentifier,
+                                factoryClass.getName(),
+                                foundFactories.stream()
+                                        .map(f -> f.getClass().getName())
+                                        .sorted()
+                                        .collect(Collectors.joining("\n"))));
             }
 
             return foundFactories.get(0);
@@ -78,5 +86,4 @@ public class FactoryUtil<T> {
             throw new SeaTunnelEngineException("Could not load service provider for factories.", e);
         }
     }
-
 }

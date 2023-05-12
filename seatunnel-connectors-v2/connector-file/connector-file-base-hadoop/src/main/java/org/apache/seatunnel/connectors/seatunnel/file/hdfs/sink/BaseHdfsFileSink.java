@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -29,7 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 
 public abstract class BaseHdfsFileSink extends BaseFileSink {
 
@@ -37,14 +37,24 @@ public abstract class BaseHdfsFileSink extends BaseFileSink {
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, FS_DEFAULT_NAME_KEY);
         if (!result.isSuccess()) {
-            throw new FileConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
         super.prepare(pluginConfig);
         hadoopConf = new HadoopConf(pluginConfig.getString(FS_DEFAULT_NAME_KEY));
         if (pluginConfig.hasPath(BaseSinkConfig.HDFS_SITE_PATH.key())) {
             hadoopConf.setHdfsSitePath(pluginConfig.getString(BaseSinkConfig.HDFS_SITE_PATH.key()));
+        }
+        if (pluginConfig.hasPath(BaseSinkConfig.KERBEROS_PRINCIPAL.key())) {
+            hadoopConf.setKerberosPrincipal(
+                    pluginConfig.getString(BaseSinkConfig.KERBEROS_PRINCIPAL.key()));
+        }
+        if (pluginConfig.hasPath(BaseSinkConfig.KERBEROS_KEYTAB_PATH.key())) {
+            hadoopConf.setKerberosKeytabPath(
+                    pluginConfig.getString(BaseSinkConfig.KERBEROS_KEYTAB_PATH.key()));
         }
     }
 }

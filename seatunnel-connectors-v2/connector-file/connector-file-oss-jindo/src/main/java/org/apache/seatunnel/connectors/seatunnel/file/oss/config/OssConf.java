@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.oss.config;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 import java.util.HashMap;
 

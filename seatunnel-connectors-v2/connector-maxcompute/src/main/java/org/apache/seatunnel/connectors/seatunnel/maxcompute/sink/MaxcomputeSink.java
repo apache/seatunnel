@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -27,11 +29,10 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import com.google.auto.service.AutoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSink.class)
 public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
@@ -62,6 +63,6 @@ public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        return new MaxcomputeWriter(this.typeInfo, this.pluginConfig);
+        return new MaxcomputeWriter(this.pluginConfig);
     }
 }

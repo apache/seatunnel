@@ -33,8 +33,7 @@ public class SlotAndWorkerProfile implements IdentifiedDataSerializable {
 
     private SlotProfile slotProfile;
 
-    public SlotAndWorkerProfile() {
-    }
+    public SlotAndWorkerProfile() {}
 
     public SlotAndWorkerProfile(WorkerProfile workerProfile, SlotProfile slotProfile) {
         this.workerProfile = workerProfile;
@@ -45,9 +44,7 @@ public class SlotAndWorkerProfile implements IdentifiedDataSerializable {
         return workerProfile;
     }
 
-    /**
-     * Get slot profile of worker return. Could be null if no slot can be provided.
-     */
+    /** Get slot profile of worker return. Could be null if no slot can be provided. */
     public SlotProfile getSlotProfile() {
         return slotProfile;
     }

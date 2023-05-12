@@ -30,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TDengineTypeMapper {
 
-
     // ============================data types=====================
 
     private static final String TDENGINE_UNKNOWN = "UNKNOWN";
@@ -141,13 +140,15 @@ public class TDengineTypeMapper {
             case TDENGINE_BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
 
-            //Doesn't support yet
+                // Doesn't support yet
             case TDENGINE_GEOMETRY:
             case TDENGINE_UNKNOWN:
             default:
-                throw new TDengineConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, String.format(
-                        "Doesn't support TDENGINE type '%s' on column '%s'  yet.",
-                        tdengineType));
+                throw new TDengineConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        String.format(
+                                "Doesn't support TDENGINE type '%s' on column '%s'  yet.",
+                                tdengineType));
         }
     }
 }

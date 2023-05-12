@@ -20,9 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.index.
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.index.IndexSerializer;
 
-/**
- * index is a fixed value,not a variable
- */
+/** index is a fixed value,not a variable */
 public class FixedValueIndexSerializer implements IndexSerializer {
 
     private final String index;

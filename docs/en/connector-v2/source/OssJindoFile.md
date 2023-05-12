@@ -28,30 +28,34 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 - [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
-- [x] file format
+- [x] file format type
   - [x] text
   - [x] csv
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] excel
 
 ## Options
 
-| name                      | type    | required | default value       |
+|           name            |  type   | required |    default value    |
 |---------------------------|---------|----------|---------------------|
 | path                      | string  | yes      | -                   |
-| type                      | string  | yes      | -                   |
+| file_format_type          | string  | yes      | -                   |
 | bucket                    | string  | yes      | -                   |
 | access_key                | string  | yes      | -                   |
 | access_secret             | string  | yes      | -                   |
 | endpoint                  | string  | yes      | -                   |
+| read_columns              | list    | no       | -                   |
 | delimiter                 | string  | no       | \001                |
 | parse_partition_from_path | boolean | no       | true                |
 | date_format               | string  | no       | yyyy-MM-dd          |
 | datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
 | time_format               | string  | no       | HH:mm:ss            |
+| skip_header_row_number    | long    | no       | 0                   |
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
+| sheet_name                | string  | no       | -                   |
 
 ### path [string]
 
@@ -71,9 +75,9 @@ For example if you read a file from path `oss://hadoop-cluster/tmp/seatunnel/par
 
 Every record data from file will be added these two fields:
 
-| name           | age |
-|----------------|-----|
-| tyrantlucifer  | 26  |
+|     name      | age |
+|---------------|-----|
+| tyrantlucifer | 26  |
 
 Tips: **Do not define partition fields in schema option**
 
@@ -101,11 +105,21 @@ Time type format, used to tell connector how to convert string to time, supporte
 
 default `HH:mm:ss`
 
-### type [string]
+### skip_header_row_number [long]
+
+Skip the first few lines, but only for the txt and csv.
+
+For example, set like following:
+
+`skip_header_row_number = 2`
+
+then Seatunnel will skip the first 2 lines from source files
+
+### file_format_type [string]
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json`
+`text` `csv` `parquet` `orc` `json` `excel`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -144,7 +158,7 @@ schema {
 
 connector will generate data as the following:
 
-| code | data        | success |
+| code |    data     | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -162,9 +176,9 @@ tyrantlucifer#26#male
 
 If you do not assign data schema connector will treat the upstream data as the following:
 
-| content                |
-|------------------------|
-| tyrantlucifer#26#male  | 
+|        content        |
+|-----------------------|
+| tyrantlucifer#26#male |
 
 If you assign data schema, you should also assign the option `delimiter` too except CSV file type
 
@@ -185,7 +199,7 @@ schema {
 
 connector will generate data as the following:
 
-| name          | age | gender |
+|     name      | age | gender |
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
@@ -211,9 +225,28 @@ The endpoint of oss file system.
 
 The schema of upstream data.
 
-### common options 
+### read_columns [list]
+
+The read column list of the data source, user can use it to implement field projection.
+
+The file type supported column projection as the following shown:
+
+- text
+- json
+- csv
+- orc
+- parquet
+- excel
+
+**Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
+
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
+
+### sheet_name [string]
+
+Reader the sheet of the workbook,Only used when file_format is excel.
 
 ## Example
 
@@ -225,7 +258,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
     access_key = "xxxxxxxxxxxxxxxxx"
     access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
     endpoint = "oss-cn-beijing.aliyuncs.com"
-    type = "orc"
+    file_format_type = "orc"
   }
 
 ```
@@ -238,7 +271,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
     access_key = "xxxxxxxxxxxxxxxxx"
     access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
     endpoint = "oss-cn-beijing.aliyuncs.com"
-    type = "json"
+    file_format_type = "json"
     schema {
       fields {
         id = int 
@@ -254,3 +287,4 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ### next version
 
 - Add OSS Jindo File Source Connector
+

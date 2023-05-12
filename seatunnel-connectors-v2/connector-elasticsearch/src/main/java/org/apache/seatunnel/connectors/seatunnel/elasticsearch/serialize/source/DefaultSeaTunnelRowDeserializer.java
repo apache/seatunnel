@@ -17,15 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source;
 
-import static org.apache.seatunnel.api.table.type.BasicType.BOOLEAN_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.BYTE_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.DOUBLE_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.SHORT_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -40,18 +36,26 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.apache.seatunnel.api.table.type.BasicType.BOOLEAN_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.BYTE_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.DOUBLE_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.SHORT_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE;
 
 public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer {
 
@@ -59,19 +63,36 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
 
     private final ObjectMapper mapper = new ObjectMapper();
 
-    private final Map<Integer, DateTimeFormatter> dateTimeFormatterMap = new HashMap<Integer, DateTimeFormatter>() {
-        {
-            put("yyyy-MM-dd HH".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH"));
-            put("yyyy-MM-dd HH:mm".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-            put("yyyyMMdd HH:mm:ss".length(), DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss"));
-            put("yyyy-MM-dd HH:mm:ss".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-            put("yyyy-MM-dd HH:mm:ss.S".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"));
-            put("yyyy-MM-dd HH:mm:ss.SS".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SS"));
-            put("yyyy-MM-dd HH:mm:ss.SSS".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
-            put("yyyy-MM-dd HH:mm:ss.SSSS".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSS"));
-            put("yyyy-MM-dd HH:mm:ss.SSSSSS".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS"));
-        }
-    };
+    private final Map<Integer, DateTimeFormatter> dateTimeFormatterMap =
+            new HashMap<Integer, DateTimeFormatter>() {
+                {
+                    put("yyyy-MM-dd HH".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH"));
+                    put(
+                            "yyyy-MM-dd HH:mm".length(),
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                    put(
+                            "yyyyMMdd HH:mm:ss".length(),
+                            DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss"));
+                    put(
+                            "yyyy-MM-dd HH:mm:ss".length(),
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                    put(
+                            "yyyy-MM-dd HH:mm:ss.S".length(),
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"));
+                    put(
+                            "yyyy-MM-dd HH:mm:ss.SS".length(),
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SS"));
+                    put(
+                            "yyyy-MM-dd HH:mm:ss.SSS".length(),
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+                    put(
+                            "yyyy-MM-dd HH:mm:ss.SSSS".length(),
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSS"));
+                    put(
+                            "yyyy-MM-dd HH:mm:ss.SSSSSS".length(),
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS"));
+                }
+            };
 
     public DefaultSeaTunnelRowDeserializer(SeaTunnelRowType rowTypeInfo) {
         this.rowTypeInfo = rowTypeInfo;
@@ -90,20 +111,30 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         try {
             for (int i = 0; i < rowTypeInfo.getTotalFields(); i++) {
                 fieldName = rowTypeInfo.getFieldName(i);
-                value = rowRecord.getDoc().get(fieldName);
+                value = recursiveGet(rowRecord.getDoc(), fieldName);
                 if (value != null) {
                     seaTunnelDataType = rowTypeInfo.getFieldType(i);
-                    seaTunnelFields[i] = convertValue(seaTunnelDataType, value.toString());
+                    if (value instanceof TextNode) {
+                        seaTunnelFields[i] =
+                                convertValue(seaTunnelDataType, ((TextNode) value).textValue());
+                    } else {
+                        seaTunnelFields[i] = convertValue(seaTunnelDataType, value.toString());
+                    }
                 }
             }
         } catch (Exception ex) {
-            throw new ElasticsearchConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                String.format("error fieldName=%s,fieldValue=%s,seaTunnelDataType=%s,rowRecord=%s", fieldName, value, seaTunnelDataType, JsonUtils.toJsonString(rowRecord)), ex);
+            throw new ElasticsearchConnectorException(
+                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    String.format(
+                            "error fieldName=%s,fieldValue=%s,seaTunnelDataType=%s,rowRecord=%s",
+                            fieldName, value, seaTunnelDataType, JsonUtils.toJsonString(rowRecord)),
+                    ex);
         }
         return new SeaTunnelRow(seaTunnelFields);
     }
 
-    Object convertValue(SeaTunnelDataType<?> fieldType, String fieldValue) throws JsonProcessingException {
+    Object convertValue(SeaTunnelDataType<?> fieldType, String fieldValue)
+            throws JsonProcessingException {
         if (BOOLEAN_TYPE.equals(fieldType)) {
             return Boolean.parseBoolean(fieldValue);
         } else if (BYTE_TYPE.equals(fieldType)) {
@@ -145,8 +176,8 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             SeaTunnelDataType<?> keyType = mapType.getKeyType();
 
             SeaTunnelDataType<?> valueType = mapType.getValueType();
-            Map<String, String> stringMap = mapper.readValue(fieldValue, new TypeReference<HashMap<String, String>>() {
-            });
+            Map<String, String> stringMap =
+                    mapper.readValue(fieldValue, new TypeReference<HashMap<String, String>>() {});
             Map<Object, Object> convertMap = new HashMap<Object, Object>();
             for (Map.Entry<String, String> entry : stringMap.entrySet()) {
                 Object convertKey = convertValue(keyType, entry.getKey());
@@ -159,21 +190,43 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
             return null;
         } else {
-            throw new ElasticsearchConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unexpected value: " + fieldType);
+            throw new ElasticsearchConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unexpected value: " + fieldType);
         }
-
     }
 
     private LocalDateTime parseDate(String fieldValue) {
+        // handle strings of timestamp type
+        try {
+            long ts = Long.parseLong(fieldValue);
+            return LocalDateTime.ofInstant(Instant.ofEpochMilli(ts), ZoneId.systemDefault());
+        } catch (NumberFormatException e) {
+            // no op
+        }
         String formatDate = fieldValue.replace("T", " ");
-        if (fieldValue.length() == "yyyyMMdd".length() || fieldValue.length() == "yyyy-MM-dd".length()) {
+        if (fieldValue.length() == "yyyyMMdd".length()
+                || fieldValue.length() == "yyyy-MM-dd".length()) {
             formatDate = fieldValue + " 00:00:00";
         }
         DateTimeFormatter dateTimeFormatter = dateTimeFormatterMap.get(formatDate.length());
         if (dateTimeFormatter == null) {
-            throw new ElasticsearchConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION, "unsupported date format");
+            throw new ElasticsearchConnectorException(
+                    CommonErrorCode.UNSUPPORTED_OPERATION, "unsupported date format");
         }
         return LocalDateTime.parse(formatDate, dateTimeFormatter);
     }
-}
 
+    Object recursiveGet(Map<String, Object> collect, String keyWithRecursive) {
+        Object value = null;
+        boolean isFirst = true;
+        for (String key : keyWithRecursive.split("\\.")) {
+            if (isFirst) {
+                value = collect.get(key);
+                isFirst = false;
+            } else if (value instanceof ObjectNode) {
+                value = ((ObjectNode) value).get(key);
+            }
+        }
+        return value;
+    }
+}

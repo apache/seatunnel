@@ -2,13 +2,12 @@
 
 <img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" width="200px" height="200px" align="right" />
 
-[![Slack](https://img.shields.io/badge/slack-%23seatunnel-4f8eba?logo=slack)](https://join.slack.com/t/apacheseatunnel/shared_invite/zt-123jmewxe-RjB_DW3M3gV~xL91pZ0oVQ)
+[![Slack](https://img.shields.io/badge/slack-%23seatunnel-4f8eba?logo=slack)](https://the-asf.slack.com/archives/C053HND1D6X)
 [![Twitter Follow](https://img.shields.io/twitter/follow/ASFSeaTunnel.svg?label=Follow&logo=twitter)](https://twitter.com/ASFSeaTunnel)
 
 SeaTunnel is a very easy-to-use ultra-high-performance distributed data integration platform that supports real-time
 synchronization of massive data. It can synchronize tens of billions of data stably and efficiently every day, and has
 been used in the production of nearly 100 companies.
-
 
 ## Why do we need SeaTunnel
 
@@ -49,7 +48,7 @@ The default engine use by SeaTunnel is [SeaTunnel Engine](seatunnel-engine/about
 
 ## Connector
 
-- **Source Connectors** SeaTunnel support read data from various relational databases, graph databases, NoSQL databases, document databases, and memory databases. Various distributed file systems such as HDFS. A variety of cloud storage, such as S3 and OSS. At the same time, we also support data reading of many common SaaS services. You can access the detailed list [here](connector-v2/source). If you want, You can develop your own source connector and easily integrate it into seatunnel.  
+- **Source Connectors** SeaTunnel support read data from various relational databases, graph databases, NoSQL databases, document databases, and memory databases. Various distributed file systems such as HDFS. A variety of cloud storage, such as S3 and OSS. At the same time, we also support data reading of many common SaaS services. You can access the detailed list [here](connector-v2/source). If you want, You can develop your own source connector and easily integrate it into seatunnel.
 
 - **Transform Connector** If the schema is different between source and sink, You can use Transform Connector to change the schema read from source and make it same as the sink schema.
 

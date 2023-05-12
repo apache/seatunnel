@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
-
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -43,7 +44,8 @@ public class CheckpointFinishedOperation extends TaskOperation {
 
     private boolean successful;
 
-    public CheckpointFinishedOperation(TaskLocation taskLocation, long checkpointId, boolean successful) {
+    public CheckpointFinishedOperation(
+            TaskLocation taskLocation, long checkpointId, boolean successful) {
         super(taskLocation);
         this.checkpointId = checkpointId;
         this.successful = successful;
@@ -76,24 +78,32 @@ public class CheckpointFinishedOperation extends TaskOperation {
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(() -> {
-            try {
-                TaskGroupContext groupContext = server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation());
-                Task task = groupContext.getTaskGroup().getTask(taskLocation.getTaskID());
-                ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-                Thread.currentThread().setContextClassLoader(groupContext.getClassLoader());
-                if (successful) {
-                    task.notifyCheckpointComplete(checkpointId);
-                } else {
-                    task.notifyCheckpointAborted(checkpointId);
-                }
-                Thread.currentThread().setContextClassLoader(classLoader);
-            } catch (Exception e) {
-                sneakyThrow(e);
-            }
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException &&
-                !server.taskIsEnded(taskLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    try {
+                        TaskGroupContext groupContext =
+                                server.getTaskExecutionService()
+                                        .getExecutionContext(taskLocation.getTaskGroupLocation());
+                        Task task = groupContext.getTaskGroup().getTask(taskLocation.getTaskID());
+                        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+                        Thread.currentThread().setContextClassLoader(groupContext.getClassLoader());
+                        if (successful) {
+                            task.notifyCheckpointComplete(checkpointId);
+                        } else {
+                            task.notifyCheckpointAborted(checkpointId);
+                        }
+                        Thread.currentThread().setContextClassLoader(classLoader);
+                    } catch (Exception e) {
+                        throw new SeaTunnelEngineException(ExceptionUtils.getMessage(e));
+                    }
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof TaskGroupContextNotFoundException
+                                        && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 }

@@ -5,8 +5,8 @@
 ## Description
 
 Used to send data to Slack Channel. Both support streaming and batch mode.
-> For example, if the data from upstream is [`age: 12, name: huan`], the content send to socket server is the following: `{"name":"huan","age":17}`
 
+> For example, if the data from upstream is [`age: 12, name: huan`], the content send to socket server is the following: `{"name":"huan","age":17}`
 
 ## Key features
 
@@ -14,8 +14,8 @@ Used to send data to Slack Channel. Both support streaming and batch mode.
 
 ## Options
 
-| name           | type   | required | default value |
-| -------------- |--------|----------|---------------|
+|      name      |  type  | required | default value |
+|----------------|--------|----------|---------------|
 | webhooks_url   | String | Yes      | -             |
 | oauth_token    | String | Yes      | -             |
 | slack_channel  | String | Yes      | -             |
@@ -54,3 +54,4 @@ sink {
 ### new version
 
 - Add Slack Sink Connector
+

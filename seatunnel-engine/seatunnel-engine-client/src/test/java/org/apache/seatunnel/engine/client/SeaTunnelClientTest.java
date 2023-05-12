@@ -17,16 +17,15 @@
 
 package org.apache.seatunnel.engine.client;
 
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
-import static org.awaitility.Awaitility.await;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
+import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -34,23 +33,28 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hazelcast.client.config.ClientConfig;
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import org.apache.commons.lang3.StringUtils;
+
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.instance.impl.HazelcastInstanceFactory;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
+import static org.awaitility.Awaitility.await;
 
 @SuppressWarnings("checkstyle:MagicNumber")
 @DisabledOnOs(OS.WINDOWS)
@@ -58,27 +62,30 @@ public class SeaTunnelClientTest {
 
     private static SeaTunnelConfig SEATUNNEL_CONFIG = ConfigProvider.locateAndGetSeaTunnelConfig();
     private static HazelcastInstance INSTANCE;
-    private static SeaTunnelClient CLIENT;
 
     @BeforeAll
     public static void beforeClass() throws Exception {
-        SEATUNNEL_CONFIG.getHazelcastConfig().setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
-        INSTANCE = HazelcastInstanceFactory.newHazelcastInstance(SEATUNNEL_CONFIG.getHazelcastConfig(),
-            Thread.currentThread().getName(),
-            new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
+        SEATUNNEL_CONFIG
+                .getHazelcastConfig()
+                .setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
+        INSTANCE =
+                HazelcastInstanceFactory.newHazelcastInstance(
+                        SEATUNNEL_CONFIG.getHazelcastConfig(),
+                        Thread.currentThread().getName(),
+                        new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
     }
 
-    @BeforeEach
-    void setUp() {
+    private SeaTunnelClient createSeaTunnelClient() {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
-        CLIENT = new SeaTunnelClient(clientConfig);
+        return new SeaTunnelClient(clientConfig);
     }
 
     @Test
     public void testSayHello() {
         String msg = "Hello world";
-        String s = CLIENT.printMessageToMaster(msg);
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        String s = seaTunnelClient.printMessageToMaster(msg);
         Assertions.assertEquals(msg, s);
     }
 
@@ -87,22 +94,32 @@ public class SeaTunnelClientTest {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("fake_to_file");
+        jobConfig.setName("testExecuteJob");
 
-        JobExecutionEnvironment jobExecutionEnv = CLIENT.createExecutionContext(filePath, jobConfig);
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
 
         try {
+            JobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                return clientJobProxy.waitForJobComplete();
-            });
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                return clientJobProxy.waitForJobComplete();
+                            });
 
             await().atMost(180000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(
-                    objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            objectCompletableFuture.isDone()
+                                                    && JobStatus.FINISHED.equals(
+                                                            objectCompletableFuture.get())));
 
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
         }
     }
 
@@ -111,27 +128,44 @@ public class SeaTunnelClientTest {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("fake_to_console");
+        jobConfig.setName("testGetJobState");
 
-        JobExecutionEnvironment jobExecutionEnv = CLIENT.createExecutionContext(filePath, jobConfig);
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
 
         try {
+            JobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                return clientJobProxy.waitForJobComplete();
-            });
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                return clientJobProxy.waitForJobComplete();
+                            });
             long jobId = clientJobProxy.getJobId();
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(
-                    CLIENT.getJobDetailStatus(jobId).contains("RUNNING") && CLIENT.listJobStatus().contains("RUNNING")));
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            jobClient.getJobDetailStatus(jobId).contains("RUNNING")
+                                                    && jobClient
+                                                            .listJobStatus(true)
+                                                            .contains("RUNNING")));
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(
-                    CLIENT.getJobDetailStatus(jobId).contains("FINISHED") && CLIENT.listJobStatus().contains("FINISHED")));
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            jobClient.getJobDetailStatus(jobId).contains("FINISHED")
+                                                    && jobClient
+                                                            .listJobStatus(true)
+                                                            .contains("FINISHED")));
 
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
         }
     }
 
@@ -140,22 +174,33 @@ public class SeaTunnelClientTest {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("fake_to_console");
+        jobConfig.setName("testGetJobMetrics");
 
-        JobExecutionEnvironment jobExecutionEnv = CLIENT.createExecutionContext(filePath, jobConfig);
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
 
         try {
+            JobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig);
+
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                return clientJobProxy.waitForJobComplete();
-            });
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                return clientJobProxy.waitForJobComplete();
+                            });
             long jobId = clientJobProxy.getJobId();
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(
-                    CLIENT.getJobDetailStatus(jobId).contains("FINISHED") && CLIENT.listJobStatus().contains("FINISHED")));
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            jobClient.getJobDetailStatus(jobId).contains("FINISHED")
+                                                    && jobClient
+                                                            .listJobStatus(true)
+                                                            .contains("FINISHED")));
 
-            String jobMetrics = CLIENT.getJobMetrics(jobId);
+            String jobMetrics = jobClient.getJobMetrics(jobId);
 
             Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_COUNT));
             Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_QPS));
@@ -164,6 +209,8 @@ public class SeaTunnelClientTest {
 
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
         }
     }
 
@@ -172,21 +219,36 @@ public class SeaTunnelClientTest {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("streaming_fake_to_console");
+        jobConfig.setName("testCancelJob");
 
-        JobExecutionEnvironment jobExecutionEnv = CLIENT.createExecutionContext(filePath, jobConfig);
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
+        try {
+            JobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig);
 
-        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-        long jobId = clientJobProxy.getJobId();
+            long jobId = clientJobProxy.getJobId();
 
-        await().atMost(30000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> Assertions.assertEquals("RUNNING", CLIENT.getJobStatus(jobId)));
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING", jobClient.getJobStatus(jobId)));
 
-        CLIENT.cancelJob(jobId);
+            jobClient.cancelJob(jobId);
 
-        await().atMost(30000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> Assertions.assertEquals("CANCELED", CLIENT.getJobStatus(jobId)));
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "CANCELED", jobClient.getJobStatus(jobId)));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
+        }
     }
 
     @Test
@@ -196,31 +258,116 @@ public class SeaTunnelClientTest {
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_console");
 
-        JobExecutionEnvironment jobExecutionEnv = CLIENT.createExecutionContext(filePath, jobConfig);
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
 
         try {
+            JobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             long jobId = clientJobProxy.getJobId();
 
             // Running
-            Assertions.assertNotNull(CLIENT.getJobInfo(jobId));
+            Assertions.assertNotNull(jobClient.getJobInfo(jobId));
 
             await().atMost(180000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(
-                    CLIENT.getJobDetailStatus(jobId).contains("FINISHED") && CLIENT.listJobStatus().contains("FINISHED")));
+                    .untilAsserted(
+                            () -> {
+                                Thread.sleep(1000);
+                                System.out.println(
+                                        "======================job status:"
+                                                + jobClient.getJobDetailStatus(jobId));
+                                System.out.println(
+                                        "======================list job status:"
+                                                + jobClient.listJobStatus(true));
+                                Assertions.assertTrue(
+                                        jobClient.getJobDetailStatus(jobId).contains("FINISHED")
+                                                && jobClient
+                                                        .listJobStatus(true)
+                                                        .contains("FINISHED"));
+                            });
             // Finished
-            JobDAGInfo jobInfo = CLIENT.getJobInfo(jobId);
-            Assertions.assertTrue(StringUtils.isNotEmpty(new ObjectMapper().writeValueAsString(jobInfo)));
+            JobDAGInfo jobInfo = jobClient.getJobInfo(jobId);
+            Assertions.assertTrue(
+                    StringUtils.isNotEmpty(new ObjectMapper().writeValueAsString(jobInfo)));
 
         } catch (Exception e) {
             throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
         }
     }
 
-    @AfterEach
-    void tearDown() {
-        CLIENT.close();
+    @Test
+    public void testSavePointAndRestoreWithSavePoint() throws Exception {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("streaming_fake_to_console.conf");
+
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
+
+        try {
+            JobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig);
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+            long jobId = clientJobProxy.getJobId();
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING", jobClient.getJobStatus(jobId)));
+
+            RetryUtils.retryWithException(
+                    () -> {
+                        jobClient.savePointJob(jobId);
+                        return null;
+                    },
+                    new RetryUtils.RetryMaterial(
+                            Constant.OPERATION_RETRY_TIME,
+                            true,
+                            exception -> {
+                                // If we do savepoint for a Job which initialization has not been
+                                // completed yet, we will get an error.
+                                // In this test case, we need retry savepoint.
+                                return exception
+                                        .getCause()
+                                        .getMessage()
+                                        .contains("Task not all ready, savepoint error");
+                            },
+                            Constant.OPERATION_RETRY_SLEEP));
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "FINISHED", jobClient.getJobStatus(jobId)));
+
+            Thread.sleep(1000);
+            seaTunnelClient.restoreExecutionContext(filePath, jobConfig, jobId).execute();
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING", jobClient.getJobStatus(jobId)));
+
+            jobClient.cancelJob(jobId);
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "CANCELED", jobClient.getJobStatus(jobId)));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
+        }
     }
 
     @AfterAll

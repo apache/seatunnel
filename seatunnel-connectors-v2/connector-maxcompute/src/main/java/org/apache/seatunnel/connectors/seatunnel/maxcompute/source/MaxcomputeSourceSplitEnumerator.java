@@ -17,12 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.SPLIT_ROW;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.TunnelException;
@@ -37,29 +35,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.SPLIT_ROW;
+
 @Slf4j
-public class MaxcomputeSourceSplitEnumerator implements SourceSplitEnumerator<MaxcomputeSourceSplit, MaxcomputeSourceState> {
+public class MaxcomputeSourceSplitEnumerator
+        implements SourceSplitEnumerator<MaxcomputeSourceSplit, MaxcomputeSourceState> {
     private final Context<MaxcomputeSourceSplit> enumeratorContext;
     private final Map<Integer, Set<MaxcomputeSourceSplit>> pendingSplits;
     private Set<MaxcomputeSourceSplit> assignedSplits;
     private Config pluginConfig;
 
-    public MaxcomputeSourceSplitEnumerator(SourceSplitEnumerator.Context<MaxcomputeSourceSplit> enumeratorContext, Config pluginConfig) {
+    public MaxcomputeSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<MaxcomputeSourceSplit> enumeratorContext,
+            Config pluginConfig) {
         this.enumeratorContext = enumeratorContext;
         this.pluginConfig = pluginConfig;
         this.pendingSplits = new HashMap<>();
         this.assignedSplits = new HashSet<>();
     }
 
-    public MaxcomputeSourceSplitEnumerator(SourceSplitEnumerator.Context<MaxcomputeSourceSplit> enumeratorContext, Config pluginConfig,
-                                           MaxcomputeSourceState sourceState) {
+    public MaxcomputeSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<MaxcomputeSourceSplit> enumeratorContext,
+            Config pluginConfig,
+            MaxcomputeSourceState sourceState) {
         this(enumeratorContext, pluginConfig);
         this.assignedSplits = sourceState.getAssignedSplit();
     }
 
     @Override
-    public void open() {
-    }
+    public void open() {}
 
     @Override
     public void run() throws Exception {
@@ -68,8 +72,7 @@ public class MaxcomputeSourceSplitEnumerator implements SourceSplitEnumerator<Ma
     }
 
     @Override
-    public void close() throws IOException {
-    }
+    public void close() throws IOException {}
 
     @Override
     public void addSplitsBack(List<MaxcomputeSourceSplit> splits, int subtaskId) {
@@ -82,8 +85,7 @@ public class MaxcomputeSourceSplitEnumerator implements SourceSplitEnumerator<Ma
     }
 
     @Override
-    public void registerReader(int subtaskId) {
-    }
+    public void registerReader(int subtaskId) {}
 
     @Override
     public MaxcomputeSourceState snapshotState(long checkpointId) {
@@ -91,12 +93,10 @@ public class MaxcomputeSourceSplitEnumerator implements SourceSplitEnumerator<Ma
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-    }
+    public void notifyCheckpointComplete(long checkpointId) {}
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
-    }
+    public void handleSplitRequest(int subtaskId) {}
 
     private void discoverySplits() throws TunnelException {
         TableTunnel.DownloadSession session = MaxcomputeUtil.getDownloadSession(this.pluginConfig);
@@ -124,8 +124,7 @@ public class MaxcomputeSourceSplitEnumerator implements SourceSplitEnumerator<Ma
     private void addSplitChangeToPendingAssignments(Collection<MaxcomputeSourceSplit> newSplits) {
         for (MaxcomputeSourceSplit split : newSplits) {
             int ownerReader = split.getSplitId() % enumeratorContext.currentParallelism();
-            pendingSplits.computeIfAbsent(ownerReader, r -> new HashSet<>())
-                .add(split);
+            pendingSplits.computeIfAbsent(ownerReader, r -> new HashSet<>()).add(split);
         }
     }
 
@@ -134,14 +133,18 @@ public class MaxcomputeSourceSplitEnumerator implements SourceSplitEnumerator<Ma
         for (int pendingReader : enumeratorContext.registeredReaders()) {
             // Remove pending assignment for the reader
             final Set<MaxcomputeSourceSplit> pendingAssignmentForReader =
-                pendingSplits.remove(pendingReader);
+                    pendingSplits.remove(pendingReader);
 
             if (pendingAssignmentForReader != null && !pendingAssignmentForReader.isEmpty()) {
                 // Mark pending splits as already assigned
                 assignedSplits.addAll(pendingAssignmentForReader);
                 // Assign pending splits to reader
-                log.info("Assigning splits to readers {} {}", pendingReader, pendingAssignmentForReader);
-                enumeratorContext.assignSplit(pendingReader, new ArrayList<>(pendingAssignmentForReader));
+                log.info(
+                        "Assigning splits to readers {} {}",
+                        pendingReader,
+                        pendingAssignmentForReader);
+                enumeratorContext.assignSplit(
+                        pendingReader, new ArrayList<>(pendingAssignmentForReader));
             }
             enumeratorContext.signalNoMoreSplits(pendingReader);
         }

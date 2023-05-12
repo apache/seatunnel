@@ -26,8 +26,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
- * Converter that is responsible to convert between JDBC object and Seatunnel data
- * structure {@link SeaTunnelRow}.
+ * Converter that is responsible to convert between JDBC object and Seatunnel data structure {@link
+ * SeaTunnelRow}.
  */
 public interface JdbcRowConverter extends Serializable {
 
@@ -38,5 +38,7 @@ public interface JdbcRowConverter extends Serializable {
      */
     SeaTunnelRow toInternal(ResultSet rs, SeaTunnelRowType typeInfo) throws SQLException;
 
-    PreparedStatement toExternal(SeaTunnelRowType rowType, SeaTunnelRow row, PreparedStatement statement) throws SQLException;
+    PreparedStatement toExternal(
+            SeaTunnelRowType rowType, SeaTunnelRow row, PreparedStatement statement)
+            throws SQLException;
 }

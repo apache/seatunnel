@@ -17,9 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.FIELD_RULES;
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.ROW_RULES;
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -31,15 +30,17 @@ import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertRuleParser
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
+import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.auto.service.AutoService;
 import com.google.common.base.Throwables;
-import org.apache.commons.collections4.CollectionUtils;
 
 import java.io.IOException;
 import java.util.List;
+
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.FIELD_RULES;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.ROW_RULES;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
 
 @AutoService(SeaTunnelSink.class)
 public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
@@ -58,7 +59,8 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
+            throws IOException {
         return new AssertSinkWriter(seaTunnelRowType, assertFieldRules, assertRowRules);
     }
 
@@ -80,7 +82,9 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
         }
 
         if (CollectionUtils.isEmpty(configList) && CollectionUtils.isEmpty(rowConfigList)) {
-            Throwables.propagateIfPossible(new ConfigException.BadValue(RULES.key(), "Assert rule config is empty, please add rule config."));
+            Throwables.propagateIfPossible(
+                    new ConfigException.BadValue(
+                            RULES.key(), "Assert rule config is empty, please add rule config."));
         }
     }
 

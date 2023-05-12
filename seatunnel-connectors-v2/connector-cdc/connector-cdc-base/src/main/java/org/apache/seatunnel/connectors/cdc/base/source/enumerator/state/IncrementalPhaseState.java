@@ -19,9 +19,6 @@ package org.apache.seatunnel.connectors.cdc.base.source.enumerator.state;
 
 import lombok.Data;
 
-/**
- * A {@link PendingSplitsState} for pending incremental splits.
- */
+/** A {@link PendingSplitsState} for pending incremental splits. */
 @Data
-public class IncrementalPhaseState implements PendingSplitsState {
-}
+public class IncrementalPhaseState implements PendingSplitsState {}

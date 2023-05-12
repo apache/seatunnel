@@ -35,8 +35,8 @@ public class BinlogOffsetFactory extends OffsetFactory {
 
     private final JdbcDataSourceDialect dialect;
 
-    public BinlogOffsetFactory(MySqlSourceConfigFactory configFactory,
-                               JdbcDataSourceDialect dialect) {
+    public BinlogOffsetFactory(
+            MySqlSourceConfigFactory configFactory, JdbcDataSourceDialect dialect) {
         this.sourceConfig = configFactory.create(0);
         this.dialect = dialect;
     }

@@ -22,7 +22,8 @@ import java.sql.SQLException;
 
 public class IntInjectFunction implements ClickhouseFieldInjectFunction {
     @Override
-    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value)
+            throws SQLException {
         if (value instanceof Byte) {
             statement.setByte(index, (Byte) value);
 
@@ -31,7 +32,6 @@ public class IntInjectFunction implements ClickhouseFieldInjectFunction {
 
         } else {
             statement.setInt(index, (Integer) value);
-
         }
     }
 
@@ -43,5 +43,4 @@ public class IntInjectFunction implements ClickhouseFieldInjectFunction {
                 || "UInt16".equals(fieldType)
                 || "Int32".equals(fieldType);
     }
-
 }

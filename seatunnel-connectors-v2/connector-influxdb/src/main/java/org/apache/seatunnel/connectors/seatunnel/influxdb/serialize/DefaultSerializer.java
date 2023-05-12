@@ -23,10 +23,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 
-import com.google.common.base.Strings;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+
 import org.influxdb.dto.Point;
+
+import com.google.common.base.Strings;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -46,9 +48,12 @@ public class DefaultSerializer implements Serializer {
 
     private final TimeUnit precision;
 
-    public DefaultSerializer(SeaTunnelRowType seaTunnelRowType, TimeUnit precision, List<String> tagKeys,
-                             String timestampKey,
-                             String measurement) {
+    public DefaultSerializer(
+            SeaTunnelRowType seaTunnelRowType,
+            TimeUnit precision,
+            List<String> tagKeys,
+            String timestampKey,
+            String measurement) {
         this.measurement = measurement;
         this.seaTunnelRowType = seaTunnelRowType;
         this.timestampExtractor = createTimestampExtractor(seaTunnelRowType, timestampKey);
@@ -67,7 +72,8 @@ public class DefaultSerializer implements Serializer {
         return builder.build();
     }
 
-    private BiConsumer<SeaTunnelRow, Point.Builder> createFieldExtractor(SeaTunnelRowType seaTunnelRowType, List<String> fieldKeys) {
+    private BiConsumer<SeaTunnelRow, Point.Builder> createFieldExtractor(
+            SeaTunnelRowType seaTunnelRowType, List<String> fieldKeys) {
         return (row, builder) -> {
             for (String field : fieldKeys) {
                 int indexOfSeaTunnelRow = seaTunnelRowType.indexOf(field);
@@ -97,16 +103,17 @@ public class DefaultSerializer implements Serializer {
                         builder.addField(field, val.toString());
                         break;
                     default:
-                        throw new InfluxdbConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                            "Unsupported data type: " + dataType);
+                        throw new InfluxdbConnectorException(
+                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                "Unsupported data type: " + dataType);
                 }
             }
         };
     }
 
-    private BiConsumer<SeaTunnelRow, Point.Builder> createTimestampExtractor(SeaTunnelRowType seaTunnelRowType,
-                                                                             String timeKey) {
-        //not config timeKey, use processing time
+    private BiConsumer<SeaTunnelRow, Point.Builder> createTimestampExtractor(
+            SeaTunnelRowType seaTunnelRowType, String timeKey) {
+        // not config timeKey, use processing time
         if (Strings.isNullOrEmpty(timeKey)) {
             return (row, builder) -> builder.time(System.currentTimeMillis(), precision);
         }
@@ -123,26 +130,28 @@ public class DefaultSerializer implements Serializer {
                     builder.time(Long.parseLong((String) time), precision);
                     break;
                 case TIMESTAMP:
-                    builder.time(((LocalDateTime) time)
-                        .atZone(ZoneOffset.UTC)
-                        .toInstant()
-                        .toEpochMilli(), precision);
+                    builder.time(
+                            ((LocalDateTime) time)
+                                    .atZone(ZoneOffset.UTC)
+                                    .toInstant()
+                                    .toEpochMilli(),
+                            precision);
                     break;
                 case BIGINT:
                     builder.time((Long) time, precision);
                     break;
                 default:
-                    throw new UnsupportedOperationException("Unsupported data type: " + timestampFieldType);
+                    throw new UnsupportedOperationException(
+                            "Unsupported data type: " + timestampFieldType);
             }
         };
     }
 
-    private BiConsumer<SeaTunnelRow, Point.Builder> createTagExtractor(SeaTunnelRowType seaTunnelRowType,
-                                                                       List<String> tagKeys) {
-        //not config tagKeys
+    private BiConsumer<SeaTunnelRow, Point.Builder> createTagExtractor(
+            SeaTunnelRowType seaTunnelRowType, List<String> tagKeys) {
+        // not config tagKeys
         if (CollectionUtils.isEmpty(tagKeys)) {
-            return (row, builder) -> {
-            };
+            return (row, builder) -> {};
         }
 
         return (row, builder) -> {
@@ -153,12 +162,11 @@ public class DefaultSerializer implements Serializer {
         };
     }
 
-    private List<String> getFieldKeys(SeaTunnelRowType seaTunnelRowType,
-                                      String timestampKey,
-                                      List<String> tagKeys) {
+    private List<String> getFieldKeys(
+            SeaTunnelRowType seaTunnelRowType, String timestampKey, List<String> tagKeys) {
         return Stream.of(seaTunnelRowType.getFieldNames())
-            .filter(name -> CollectionUtils.isEmpty(tagKeys) || !tagKeys.contains(name))
-            .filter(name -> StringUtils.isEmpty(timestampKey) || !name.equals(timestampKey))
-            .collect(Collectors.toList());
+                .filter(name -> CollectionUtils.isEmpty(tagKeys) || !tagKeys.contains(name))
+                .filter(name -> StringUtils.isEmpty(timestampKey) || !name.equals(timestampKey))
+                .collect(Collectors.toList());
     }
 }
