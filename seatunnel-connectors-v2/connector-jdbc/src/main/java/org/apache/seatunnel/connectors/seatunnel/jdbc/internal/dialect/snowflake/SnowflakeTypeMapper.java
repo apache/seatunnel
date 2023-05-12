@@ -28,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 
 @Slf4j
 public class SnowflakeTypeMapper implements JdbcDialectTypeMapper {
@@ -111,11 +112,19 @@ public class SnowflakeTypeMapper implements JdbcDialectTypeMapper {
             case SNOWFLAKE_TEXT:
             case SNOWFLAKE_VARIANT:
             case SNOWFLAKE_OBJECT:
-            case SNOWFLAKE_GEOMETRY:
                 return BasicType.STRING_TYPE;
+            case SNOWFLAKE_GEOGRAPHY:
+            case SNOWFLAKE_GEOMETRY:
+                int geoMetaType = metadata.getColumnType(colIndex);
+                switch (geoMetaType) {
+                    case Types.BINARY:
+                        return PrimitiveByteArrayType.INSTANCE;
+                    case Types.VARCHAR:
+                    default:
+                        return BasicType.STRING_TYPE;
+                }
             case SNOWFLAKE_BINARY:
             case SNOWFLAKE_VARBINARY:
-            case SNOWFLAKE_GEOGRAPHY:
                 return PrimitiveByteArrayType.INSTANCE;
             case SNOWFLAKE_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
