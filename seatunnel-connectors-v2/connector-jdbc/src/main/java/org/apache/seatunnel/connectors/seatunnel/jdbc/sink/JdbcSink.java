@@ -39,6 +39,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.tidb.TiDBCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
@@ -56,6 +57,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
 
 @AutoService(SeaTunnelSink.class)
 public class JdbcSink
@@ -195,18 +198,22 @@ public class JdbcSink
                 if (StringUtils.isBlank(jdbcSinkConfig.getDatabase())) {
                     return;
                 }
-                Catalog catalog =
+                try (Catalog catalog =
                         new TiDBCatalogFactory()
                                 .createCatalog(
                                         TiDBCatalogFactory.IDENTIFIER,
-                                        ReadonlyConfig.fromMap(new HashMap<>(catalogOptions)));
-                TablePath tablePath =
-                        TablePath.of(jdbcSinkConfig.getDatabase(), jdbcSinkConfig.getTable());
-                if (!catalog.databaseExists(jdbcSinkConfig.getDatabase())) {
-                    catalog.createDatabase(tablePath, true);
-                }
-                if (!catalog.tableExists(tablePath)) {
-                    catalog.createTable(tablePath, catalogTable, true);
+                                        ReadonlyConfig.fromMap(new HashMap<>(catalogOptions)))) {
+                    catalog.open();
+                    TablePath tablePath =
+                            TablePath.of(jdbcSinkConfig.getDatabase(), jdbcSinkConfig.getTable());
+                    if (!catalog.databaseExists(jdbcSinkConfig.getDatabase())) {
+                        catalog.createDatabase(tablePath, true);
+                    }
+                    if (!catalog.tableExists(tablePath)) {
+                        catalog.createTable(tablePath, catalogTable, true);
+                    }
+                } catch (Exception e) {
+                    throw new JdbcConnectorException(HANDLE_SAVE_MODE_FAILED, e);
                 }
             }
         }

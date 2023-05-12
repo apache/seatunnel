@@ -67,6 +67,7 @@
                                 <exclude>META-INF/MANIFEST.MF</exclude>
                                 <exclude>META-INF/NOTICE</exclude>
                                 <exclude>com/typesafe/config/ConfigParseOptions.class</exclude>
+                                <exclude>com/typesafe/config/ConfigMergeable.class</exclude>
                                 <exclude>com/typesafe/config/impl/ConfigParser.class</exclude>
                                 <exclude>com/typesafe/config/impl/ConfigNodePath.class</exclude>
                                 <exclude>com/typesafe/config/impl/PathParser.class</exclude>
