@@ -1,9 +1,9 @@
 ---
 
-sidebar_position: 2
+sidebar_position: 1
 -------------------
 
-# Quick Start With SeaTunnel Engine
+# Quick Start With Locally
 
 ## Step 1: Deployment SeaTunnel And Connectors
 
