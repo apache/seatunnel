@@ -50,7 +50,11 @@ Read external data source data through JDBC.
 | DATE                                                                        | DATE                |
 | TIME                                                                        | TIME                |
 | DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP           |
-| BINARY<br/>VARBINARY<br/>GEOGRAPHY<br/>GEOMETRY                             | BYTES               |
+| BINARY<br/>VARBINARY                                                        | BYTES               |
+| GEOGRAPHY (WKB or EWKB)<br/>GEOMETRY (WKB or EWKB)                          | BYTES               |
+| GEOGRAPHY (GeoJSON, WKT or EWKT)<br/>GEOMETRY (GeoJSON, WKB or EWKB)        | STRING              |
+
+
 
 ## Options
 
