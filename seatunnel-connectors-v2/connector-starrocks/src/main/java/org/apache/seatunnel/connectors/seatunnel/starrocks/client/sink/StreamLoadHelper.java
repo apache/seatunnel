@@ -43,14 +43,14 @@ import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.Star
 @Slf4j
 public class StreamLoadHelper {
 
-    public static final String PATH_STREAM_LOAD = "/api/{db}/{table}/_stream_load";
+    public static final String PATH_STREAM_LOAD = "/api/%s/%s/_stream_load";
+    public static final String PATH_STREAM_LOAD_STATE = "/api/%s/get_load_state?label=%s";
+
     public static final String PATH_TRANSACTION_BEGIN = "/api/transaction/begin";
     public static final String PATH_TRANSACTION_SEND = "/api/transaction/load";
     public static final String PATH_TRANSACTION_ROLLBACK = "/api/transaction/rollback";
     public static final String PATH_TRANSACTION_PRE_COMMIT = "/api/transaction/prepare";
     public static final String PATH_TRANSACTION_COMMIT = "/api/transaction/commit";
-
-    public static final String PATH_STREAM_LOAD_STATE = "/api/{db}/get_load_state?label={label}";
 
     public static final String RESULT_FAILED = "Fail";
     public static final String RESULT_SUCCESS = "Success";
@@ -59,10 +59,10 @@ public class StreamLoadHelper {
     public static final String RESULT_TRANSACTION_EXIST_FINISHED = "FINISHED";
     public static final String RESULT_TRANSACTION_EXIST_RUNNING = "RUNNING";
 
-    public static final String RESULT_LABEL_VISIBLE = "VISIBLE";
-    public static final String RESULT_LABEL_COMMITTED = "COMMITTED";
     public static final String RESULT_LABEL_PREPARE = "PREPARE";
     public static final String RESULT_LABEL_PREPARED = "PREPARED";
+    public static final String RESULT_LABEL_COMMITTED = "COMMITTED";
+    public static final String RESULT_LABEL_VISIBLE = "VISIBLE";
     public static final String RESULT_LABEL_ABORTED = "ABORTED";
     public static final String RESULT_LABEL_UNKNOWN = "UNKNOWN";
     public static final String RESULT_TRANSACTION_NOT_EXISTED = "TXN_NOT_EXISTS";
@@ -186,59 +186,63 @@ public class StreamLoadHelper {
         }
     }
 
+    public String getLabelState(String database, String label) throws Exception {
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
+            HttpGet httpGet =
+                    new HttpGet(getLabelStateUrl(sinkConfig.getNodeUrls(), database, label));
+            httpGet.addHeader(
+                    "Authorization",
+                    getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
+            httpGet.setHeader("Connection", "close");
+            try (CloseableHttpResponse response = client.execute(httpGet)) {
+                int responseStatusCode = response.getStatusLine().getStatusCode();
+                String entityContent = EntityUtils.toString(response.getEntity());
+                log.info(
+                        "Response for get_load_state, label: {}, response status code: {}, response body : {}",
+                        label,
+                        responseStatusCode,
+                        entityContent);
+                if (responseStatusCode != 200) {
+                    throw new StarRocksConnectorException(
+                            FLUSH_DATA_FAILED,
+                            String.format(
+                                    "Could not get load state because of incorrect response status code %s, "
+                                            + "label: %s, response body: %s",
+                                    responseStatusCode, label, entityContent));
+                }
+
+                StreamLoadResponse.StreamLoadResponseBody responseBody =
+                        JsonUtils.parseObject(
+                                entityContent, StreamLoadResponse.StreamLoadResponseBody.class);
+                String state = responseBody.getState();
+                if (state == null) {
+                    log.error(
+                            "Fail to get load state, label: {}, load information: {}",
+                            label,
+                            JsonUtils.toJsonString(responseBody));
+                    throw new StarRocksConnectorException(
+                            FLUSH_DATA_FAILED,
+                            String.format(
+                                    "Could not get load state because of state is null,"
+                                            + "label: %s, load information: %s",
+                                    label, entityContent));
+                }
+
+                return state;
+            }
+        }
+    }
+
     public String getLabelState(String database, String label, Set<String> retryStates)
             throws Exception {
         int idx = 0;
         for (; ; ) {
             TimeUnit.SECONDS.sleep(Math.min(++idx, 5));
-            try (CloseableHttpClient client = HttpClients.createDefault()) {
-                String url = String.format(PATH_STREAM_LOAD_STATE, database, label);
-                HttpGet httpGet = new HttpGet(url);
-                httpGet.addHeader(
-                        "Authorization",
-                        getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
-                httpGet.setHeader("Connection", "close");
-                try (CloseableHttpResponse response = client.execute(httpGet)) {
-                    int responseStatusCode = response.getStatusLine().getStatusCode();
-                    String entityContent = EntityUtils.toString(response.getEntity());
-                    log.info(
-                            "Response for get_load_state, label: {}, response status code: {}, response body : {}",
-                            label,
-                            responseStatusCode,
-                            entityContent);
-                    if (responseStatusCode != 200) {
-                        throw new StarRocksConnectorException(
-                                FLUSH_DATA_FAILED,
-                                String.format(
-                                        "Could not get load state because of incorrect response status code %s, "
-                                                + "label: %s, response body: %s",
-                                        responseStatusCode, label, entityContent));
-                    }
-
-                    StreamLoadResponse.StreamLoadResponseBody responseBody =
-                            JsonUtils.parseObject(
-                                    entityContent, StreamLoadResponse.StreamLoadResponseBody.class);
-                    String state = responseBody.getState();
-                    if (state == null) {
-                        log.error(
-                                "Fail to get load state, label: {}, load information: {}",
-                                label,
-                                JsonUtils.toJsonString(responseBody));
-                        throw new StarRocksConnectorException(
-                                FLUSH_DATA_FAILED,
-                                String.format(
-                                        "Could not get load state because of state is null,"
-                                                + "label: %s, load information: %s",
-                                        label, entityContent));
-                    }
-
-                    if (retryStates.contains(state)) {
-                        continue;
-                    }
-
-                    return state;
-                }
+            String state = getLabelState(database, label);
+            if (retryStates.contains(state)) {
+                continue;
             }
+            return state;
         }
     }
 
@@ -260,5 +264,9 @@ public class StreamLoadHelper {
 
     public String getRollbackUrl(List<String> hostList) {
         return getAvailableHost(hostList) + PATH_TRANSACTION_ROLLBACK;
+    }
+
+    public String getLabelStateUrl(List<String> hostList, String database, String label) {
+        return getAvailableHost(hostList) + String.format(PATH_STREAM_LOAD_STATE, database, label);
     }
 }

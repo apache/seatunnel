@@ -60,7 +60,7 @@ public class StarRocksSinkManagerV2 implements StreamLoadManager {
     private volatile boolean savepoint;
 
     private final long maxCacheBytes;
-    private long rowCountForOneTransaction;
+    private long rowCountForCurrentTransaction;
     protected int subTaskIndex;
     private LabelGenerator labelGenerator;
 
@@ -122,7 +122,7 @@ public class StarRocksSinkManagerV2 implements StreamLoadManager {
         manager.start();
         manager.setUncaughtExceptionHandler(
                 (Thread t, Throwable e) -> {
-                    log.error("StarRocks-Sink-ManagerV2 Error", e);
+                    log.error("Sink-ManagerV2 Init Error", e);
                     flushException = e;
                 });
     }
@@ -130,14 +130,14 @@ public class StarRocksSinkManagerV2 implements StreamLoadManager {
     @Override
     public void write(String record) {
         tableRegion.write(record.getBytes(StandardCharsets.UTF_8));
-        rowCountForOneTransaction++;
+        rowCountForCurrentTransaction++;
         int idx = 0;
         lock.lock();
         try {
             while (tableRegion.getCacheBytes() >= maxCacheBytes) {
                 flushable.signal();
                 log.info(
-                        "sink manager v2 write loop maxCacheBytes: {}, tableRegin current cacheBytes: {}",
+                        "write loop maxCacheBytes: {}, tableRegin current cacheBytes: {}",
                         maxCacheBytes,
                         tableRegion.getCacheBytes());
                 writable.await(Math.min(++idx, 5), TimeUnit.SECONDS);
@@ -226,14 +226,14 @@ public class StarRocksSinkManagerV2 implements StreamLoadManager {
         log.info("begin prepareCommit, transactionId: {}", transactionId);
         flush();
 
-        if (rowCountForOneTransaction == 0) {
+        if (rowCountForCurrentTransaction == 0) {
             log.info(
                     "no data write to current transaction, rollback transactionId: {}",
                     transactionId);
             streamLoader.rollback(transactionId);
             return Optional.empty();
         }
-        rowCountForOneTransaction = 0;
+        rowCountForCurrentTransaction = 0;
 
         if (streamLoader.prepare(transactionId)) {
             return Optional.of(
@@ -247,31 +247,26 @@ public class StarRocksSinkManagerV2 implements StreamLoadManager {
 
     @Override
     public boolean commit(String transactionId) {
-        log.info("begin commit, transactionId: {}", transactionId);
         return streamLoader.commit(transactionId);
     }
 
     @Override
     public boolean abort() throws Exception {
-        log.info(
-                "begin abortPreCommit, checkpointId: {}, subTaskIndex: {}",
-                checkpointId,
-                subTaskIndex);
         streamLoader.abortPreCommit(checkpointId, subTaskIndex);
         return true;
     }
 
     @Override
     public boolean abort(long checkpointId, int subTaskIndex) throws Exception {
-        log.info("begin abort, transactionId: {}", transactionId);
         streamLoader.abortPreCommit(checkpointId, subTaskIndex);
         return true;
     }
 
     @Override
-    public void close() {
+    public void close() throws Exception {
         log.info("begin close");
         manager.interrupt();
+        abort();
     }
 
     private boolean isSavepointFinished() {

@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
+
+import org.apache.seatunnel.common.utils.JsonUtils;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -55,10 +58,12 @@ public class StreamLoadResponse implements Serializable {
         private String label;
 
         @JsonProperty("State")
+        @JsonAlias(value = {"state"})
         @SuppressWarnings("checkstyle:MemberName")
         private String state;
 
         @JsonProperty("Status")
+        @JsonAlias(value = {"status"})
         @SuppressWarnings("checkstyle:MemberName")
         private String status;
 
@@ -71,6 +76,7 @@ public class StreamLoadResponse implements Serializable {
         private String message;
 
         @JsonProperty("Msg")
+        @JsonAlias(value = {"msg"})
         @SuppressWarnings("checkstyle:MemberName")
         private String msg;
 
@@ -121,5 +127,14 @@ public class StreamLoadResponse implements Serializable {
         @JsonProperty("CommitAndPublishTimeMs")
         @SuppressWarnings("checkstyle:MemberName")
         private Long commitAndPublishTimeMs;
+    }
+
+    public static void main(String[] args) {
+        String aa = "{\"state\":\"PREPARE\",\"status\":\"OK\",\"msg\":\"Success\"}";
+
+        StreamLoadResponse.StreamLoadResponseBody responseBody =
+                JsonUtils.parseObject(aa, StreamLoadResponse.StreamLoadResponseBody.class);
+        String state = responseBody.getState();
+        System.out.println(state);
     }
 }

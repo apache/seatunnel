@@ -148,7 +148,7 @@ public class StarRocksSinkWriter
             if (manager != null) {
                 manager.close();
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("Close starRocks manager failed.", e);
             throw new StarRocksConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
         }

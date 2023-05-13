@@ -25,8 +25,6 @@ import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.types.Row;
 
-import com.esotericsoftware.minlog.Log;
-
 import java.io.IOException;
 import java.io.InvalidClassException;
 import java.util.Collections;
@@ -80,7 +78,6 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     @Override
     public List<FlinkWriterState<WriterStateT>> snapshotState() throws IOException {
-        Log.info("flink sink writer snapshotState");
         List<FlinkWriterState<WriterStateT>> states =
                 sinkWriter.snapshotState(this.checkpointId).stream()
                         .map(state -> new FlinkWriterState<>(this.checkpointId, state))

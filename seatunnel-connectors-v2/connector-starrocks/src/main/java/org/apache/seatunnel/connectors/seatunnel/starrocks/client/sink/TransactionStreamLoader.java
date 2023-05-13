@@ -51,14 +51,15 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_ABORTED;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_COMMITTED;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_EXISTED;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_PREPARE;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_PREPARED;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_UNKNOWN;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_LABEL_VISIBLE;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_OK;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_SUCCESS;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_TRANSACTION_EXIST_FINISHED;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_TRANSACTION_EXIST_RUNNING;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper.RESULT_TRANSACTION_PUBLISH_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode.FLUSH_DATA_FAILED;
 
@@ -84,11 +85,11 @@ public class TransactionStreamLoader implements StreamLoader {
         this(sinkConfig);
         this.manager = manager;
         this.labelGenerator = new LabelGenerator(sinkConfig);
-        streamLoadHelper = new StreamLoadHelper(sinkConfig);
     }
 
     public TransactionStreamLoader(SinkConfig sinkConfig) {
         this.sinkConfig = sinkConfig;
+        this.streamLoadHelper = new StreamLoadHelper(sinkConfig);
         initTxHeaders();
         clientBuilder =
                 HttpClients.custom()
@@ -250,12 +251,12 @@ public class TransactionStreamLoader implements StreamLoader {
                         streamLoadResponse.setCostNanoTime(System.nanoTime() - startNanoTime);
                         region.complete(streamLoadResponse);
                     } else {
-                        String errorMsage =
+                        String errorMsg =
                                 String.format(
                                         "Stream load failed because label existed, "
                                                 + "db: %s, table: %s, label: %s, label state: %s",
                                         region.getDatabase(), region.getTable(), label, labelState);
-                        throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsage);
+                        throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
                     }
                 } else {
                     String errorLog = streamLoadHelper.getErrorLog(streamLoadBody.getErrorURL());
@@ -319,8 +320,6 @@ public class TransactionStreamLoader implements StreamLoader {
     @Override
     public boolean begin(String label) {
         String beginUrl = streamLoadHelper.getBeginUrl(sinkConfig.getNodeUrls());
-        log.info("Transaction start, label : {}", label);
-
         HttpPost httpPost = new HttpPost(beginUrl);
         httpPost.setHeaders(beginTxnHeader);
         httpPost.addHeader("label", label);
@@ -570,7 +569,7 @@ public class TransactionStreamLoader implements StreamLoader {
                             labelState);
             // transaction not exist often happens after transaction timeouts
             if (StreamLoadHelper.RESULT_TRANSACTION_NOT_EXISTED.equals(status)
-                    || StreamLoadHelper.RESULT_LABEL_UNKNOWN.equals(labelState)) {
+                    || RESULT_LABEL_UNKNOWN.equals(labelState)) {
                 exceptionMsg +=
                         ". commit response status with TXN_NOT_EXISTS or label state with UNKNOWN often happens when transaction"
                                 + " timeouts, and please check StarRocks FE leader's log to confirm it. You can find the transaction id for the label"
@@ -585,80 +584,33 @@ public class TransactionStreamLoader implements StreamLoader {
     @Override
     public void abortPreCommit(long chkID, int subTaskIndex) throws Exception {
         long startChkID = chkID;
-        log.info("abort for chkId {}. subTaskIndex {}.", chkID, subTaskIndex);
         while (true) {
             try {
                 String label = new LabelGenerator(sinkConfig).genLabel(startChkID, subTaskIndex);
-                String beginUrl = streamLoadHelper.getBeginUrl(sinkConfig.getNodeUrls());
-                log.info("Transaction start, label : {}", label);
+                log.info("try to abort transaction for label {}", label);
+                String state = streamLoadHelper.getLabelState(sinkConfig.getDatabase(), label);
 
-                HttpPost httpPost = new HttpPost(beginUrl);
-                httpPost.setHeaders(beginTxnHeader);
-                httpPost.addHeader("label", label);
-                httpPost.addHeader("db", sinkConfig.getDatabase());
-                httpPost.addHeader("table", sinkConfig.getTable());
-
-                httpPost.setConfig(
-                        RequestConfig.custom()
-                                .setExpectContinueEnabled(true)
-                                .setRedirectsEnabled(true)
-                                .build());
-
-                String db = sinkConfig.getDatabase();
-                String table = sinkConfig.getTable();
-                log.info(
-                        "Transaction start, db: {}, table: {}, label: {}, request : {}",
-                        db,
-                        table,
-                        label,
-                        httpPost);
-                CloseableHttpClient client = clientBuilder.build();
-                String responseBody;
-                try (CloseableHttpResponse response = client.execute(httpPost)) {
-                    responseBody =
-                            streamLoadHelper.parseHttpResponse(
-                                    "begin transaction",
-                                    sinkConfig.getDatabase(),
-                                    sinkConfig.getTable(),
-                                    label,
-                                    response);
-                }
-                StreamLoadResponse streamLoadResponse = new StreamLoadResponse();
-                StreamLoadResponse.StreamLoadResponseBody streamLoadBody =
-                        JsonUtils.parseObject(
-                                responseBody, StreamLoadResponse.StreamLoadResponseBody.class);
-                streamLoadResponse.setBody(streamLoadBody);
-                String status = streamLoadBody.getStatus();
-
-                if (RESULT_LABEL_EXISTED.equals(status)) {
-                    // label already exist and job finished
-                    if (RESULT_TRANSACTION_EXIST_FINISHED.equals(
-                            streamLoadBody.getExistingJobStatus())) {
+                switch (state) {
+                        // job is not finished and current label status is "prepare or prepared", so
+                        // abort it.
+                    case RESULT_LABEL_PREPARE:
+                    case RESULT_LABEL_PREPARED:
+                        log.info("abort unfinished transaction for exist label {}", label);
+                        rollback(label);
+                        break;
+                        // label already exist and job is finished
+                    case RESULT_LABEL_COMMITTED:
+                    case RESULT_LABEL_VISIBLE:
                         throw new StarRocksConnectorException(
                                 FLUSH_DATA_FAILED,
                                 "Load status is "
                                         + RESULT_LABEL_EXISTED
                                         + " and load job finished, "
                                         + "change you label prefix or restore from latest savepoint!");
-                    }
-                    // job not finished, abort.
-                    if (RESULT_TRANSACTION_EXIST_RUNNING.equals(
-                            streamLoadBody.getExistingJobStatus())) {
-                        log.info("abort transaction for exist label {}", label);
-                        rollback(label);
-                    } else {
-                        throw new StarRocksConnectorException(
-                                FLUSH_DATA_FAILED,
-                                "Load Status is "
-                                        + RESULT_LABEL_EXISTED
-                                        + ", job Status is not RUNNING!"
-                                        + "response: "
-                                        + responseBody);
-                    }
-                } else {
-                    log.info("abort transaction {} for check label", label);
-                    rollback(label);
-                    break;
+                    case RESULT_LABEL_UNKNOWN:
+                    case RESULT_LABEL_ABORTED:
+                    default:
+                        return;
                 }
                 startChkID++;
             } catch (StarRocksConnectorException e) {

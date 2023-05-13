@@ -47,7 +47,7 @@ public interface StreamLoadManager {
 
     boolean abort() throws Exception;
 
-    void close() throws IOException;
+    void close() throws Exception;
 
     void beginTransaction(long checkpointId);
 }

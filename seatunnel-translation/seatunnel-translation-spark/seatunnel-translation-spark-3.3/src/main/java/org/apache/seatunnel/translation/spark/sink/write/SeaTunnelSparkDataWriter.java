@@ -28,6 +28,8 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
 
+import lombok.SneakyThrows;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -78,6 +80,7 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
         return seaTunnelSparkWriterCommitMessage;
     }
 
+    @SneakyThrows
     @Override
     public void abort() throws IOException {
         sinkWriter.abortPrepare();

@@ -92,27 +92,6 @@ public class HttpHelper {
         }
     }
 
-    public Map<String, Object> doHttpGet(String getUrl, Map<String, String> header)
-            throws IOException {
-        log.info("Executing GET from {}.", getUrl);
-        try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
-            HttpGet httpGet = new HttpGet(getUrl);
-            if (null != header) {
-                for (Map.Entry<String, String> entry : header.entrySet()) {
-                    httpGet.setHeader(entry.getKey(), String.valueOf(entry.getValue()));
-                }
-            }
-            try (CloseableHttpResponse resp = httpclient.execute(httpGet)) {
-                HttpEntity respEntity = getHttpEntity(resp);
-                if (null == respEntity) {
-                    log.warn("Request failed with empty response.");
-                    return null;
-                }
-                return JsonUtils.parseObject(EntityUtils.toString(respEntity), Map.class);
-            }
-        }
-    }
-
     @SuppressWarnings("unchecked")
     public Map<String, Object> doHttpPut(String url, byte[] data, Map<String, String> header)
             throws IOException {

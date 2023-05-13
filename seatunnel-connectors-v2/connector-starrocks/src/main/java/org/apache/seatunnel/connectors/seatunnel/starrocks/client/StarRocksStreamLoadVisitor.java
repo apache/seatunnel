@@ -180,34 +180,7 @@ public class StarRocksStreamLoadVisitor {
                 break;
             }
             try {
-                String queryLoadStateUrl =
-                        new StringBuilder(host)
-                                .append("/api/")
-                                .append(sinkConfig.getDatabase())
-                                .append("/get_load_state?label=")
-                                .append(label)
-                                .toString();
-                Map<String, Object> result =
-                        httpHelper.doHttpGet(queryLoadStateUrl, getLoadStateHttpHeader(label));
-                if (result == null) {
-                    throw new StarRocksConnectorException(
-                            StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
-                            String.format(
-                                    "Failed to flush data to StarRocks, Error "
-                                            + "could not get the final state of label[%s].\n",
-                                    label),
-                            null);
-                }
-                String labelState = (String) result.get("state");
-                if (null == labelState) {
-                    throw new StarRocksConnectorException(
-                            StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
-                            String.format(
-                                    "Failed to flush data to StarRocks, Error "
-                                            + "could not get the final state of label[%s]. response[%s]\n",
-                                    label, JsonUtils.toJsonString(result)),
-                            null);
-                }
+                String labelState = streamLoadHelper.getLabelState(sinkConfig.getDatabase(), label);
                 LOG.info(String.format("Checking label[%s] state[%s]\n", label, labelState));
                 switch (labelState) {
                     case RESULT_LABEL_VISIBLE:
@@ -232,7 +205,7 @@ public class StarRocksStreamLoadVisitor {
                                                 + "label[%s] state[%s]\n",
                                         label, labelState));
                 }
-            } catch (IOException e) {
+            } catch (Exception e) {
                 throw new StarRocksConnectorException(
                         StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, e);
             }
