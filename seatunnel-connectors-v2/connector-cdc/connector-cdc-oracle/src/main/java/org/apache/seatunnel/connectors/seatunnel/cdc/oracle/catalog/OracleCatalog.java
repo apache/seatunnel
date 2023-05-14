@@ -36,6 +36,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -53,10 +54,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
+@RequiredArgsConstructor
 public class OracleCatalog implements Catalog {
     private static final OracleDataTypeConvertor DATA_TYPE_CONVERTOR =
             new OracleDataTypeConvertor();
@@ -88,29 +89,6 @@ public class OracleCatalog implements Catalog {
     private final String username;
     private final String pwd;
     private final String jdbcURL;
-
-    protected final Map<String, Connection> connectionMap;
-
-    public OracleCatalog(String catalogName, String username, String pwd, String jdbcURL) {
-        this.catalogName = catalogName;
-        this.username = username;
-        this.pwd = pwd;
-        this.jdbcURL = jdbcURL;
-        this.connectionMap = new ConcurrentHashMap<>();
-    }
-
-    public Connection getConnection(String url) {
-        if (connectionMap.containsKey(url)) {
-            return connectionMap.get(url);
-        }
-        try {
-            Connection connection = DriverManager.getConnection(url, username, pwd);
-            connectionMap.put(url, connection);
-            return connection;
-        } catch (SQLException e) {
-            throw new CatalogException(String.format("Failed connecting to %s via JDBC.", url), e);
-        }
-    }
 
     @Override
     public void open() throws CatalogException {
@@ -165,9 +143,8 @@ public class OracleCatalog implements Catalog {
 
     @Override
     public List<String> listDatabases() throws CatalogException {
-
-        try (PreparedStatement ps =
-                getConnection(jdbcURL).prepareStatement("SELECT name FROM v$database")) {
+        try (Connection conn = DriverManager.getConnection(jdbcURL, username, pwd);
+                PreparedStatement ps = conn.prepareStatement("SELECT name FROM v$database")) {
 
             List<String> databases = new ArrayList<>();
             ResultSet rs = ps.executeQuery();
@@ -201,9 +178,9 @@ public class OracleCatalog implements Catalog {
             throw new DatabaseNotExistException(this.catalogName, databaseName);
         }
 
-        try (PreparedStatement ps =
-                getConnection(jdbcURL)
-                        .prepareStatement(
+        try (Connection conn = DriverManager.getConnection(jdbcURL, username, pwd);
+                PreparedStatement ps =
+                        conn.prepareStatement(
                                 "SELECT OWNER, TABLE_NAME FROM ALL_TABLES\n"
                                         + "WHERE TABLE_NAME NOT LIKE 'MDRT_%'\n"
                                         + "  AND TABLE_NAME NOT LIKE 'MDRS_%'\n"
@@ -233,8 +210,8 @@ public class OracleCatalog implements Catalog {
             throw new TableNotExistException(catalogName, tablePath);
         }
 
-        try {
-            DatabaseMetaData metaData = getConnection(jdbcURL).getMetaData();
+        try (Connection conn = DriverManager.getConnection(jdbcURL, username, pwd)) {
+            DatabaseMetaData metaData = conn.getMetaData();
             Optional<PrimaryKey> primaryKey =
                     getPrimaryKey(
                             metaData,
@@ -249,11 +226,10 @@ public class OracleCatalog implements Catalog {
                             tablePath.getTableName());
 
             try (PreparedStatement ps =
-                    getConnection(jdbcURL)
-                            .prepareStatement(
-                                    String.format(
-                                            "SELECT * FROM %s WHERE 1 = 0",
-                                            tablePath.getSchemaAndTableName()))) {
+                    conn.prepareStatement(
+                            String.format(
+                                    "SELECT * FROM %s WHERE 1 = 0",
+                                    tablePath.getSchemaAndTableName()))) {
                 ResultSetMetaData tableMetaData = ps.getMetaData();
                 TableSchema.Builder builder = TableSchema.builder();
                 // add column
