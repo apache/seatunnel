@@ -59,7 +59,6 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
      * @throws IOException if fail to snapshot writer's state.
      */
     default List<StateT> snapshotState(long checkpointId) throws IOException {
-        System.out.println("org.apache.seatunnel.api.sink snapshotState");
         return Collections.emptyList();
     }
 
@@ -69,7 +68,7 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
      * this method to rollback side effects of {@link #prepareCommit()}. Only use it in Spark engine
      * at now.
      */
-    void abortPrepare() throws Exception;
+    void abortPrepare();
 
     /**
      * call it when SinkWriter close

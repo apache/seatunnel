@@ -28,8 +28,6 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
 
-import lombok.SneakyThrows;
-
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -88,7 +86,6 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
         return sparkWriterCommitMessage;
     }
 
-    @SneakyThrows
     @Override
     public void abort() throws IOException {
         sinkWriter.abortPrepare();
