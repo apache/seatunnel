@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadResponse;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadEntityMeta;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadResponse;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StreamLoadDataFormat;
 
 import java.util.concurrent.Future;
 
@@ -26,8 +28,6 @@ public interface TableRegion {
     String getDatabase();
 
     String getTable();
-
-    void setLabel(String label);
 
     String getLabel();
 
@@ -52,6 +52,8 @@ public interface TableRegion {
     void setResult(Future<?> result);
 
     Future<?> getResult();
+
+    void setLabel(String transactionId);
 
     boolean isFlushing();
 }

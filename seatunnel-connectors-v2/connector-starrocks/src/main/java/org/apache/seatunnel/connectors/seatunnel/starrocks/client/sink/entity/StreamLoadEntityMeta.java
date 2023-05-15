@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
+package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.List;
+import java.io.Serializable;
 
 @AllArgsConstructor
 @Getter
 @Setter
-public class StarRocksFlushTuple {
-    private String label;
-    private Long bytes;
-    private List<byte[]> rows;
+public class StreamLoadEntityMeta implements Serializable {
+
+    public static final StreamLoadEntityMeta CHUNK_ENTITY_META = new StreamLoadEntityMeta(-1, -1);
+
+    private long bytes;
+    private long rows;
 }

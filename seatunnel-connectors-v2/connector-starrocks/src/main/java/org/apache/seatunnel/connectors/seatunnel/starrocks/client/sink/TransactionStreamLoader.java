@@ -17,33 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadEntity;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadResponse;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.LabelGenerator;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadResponse;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadSnapshot;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.HttpHelper;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.HttpRequestBuilder;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
-import org.apache.http.Header;
-import org.apache.http.HttpHeaders;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.message.BasicHeader;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -66,32 +58,25 @@ import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.Star
 @Slf4j
 public class TransactionStreamLoader implements StreamLoader {
 
-    private Header[] defaultTxnHeaders;
-
-    private Header[] beginTxnHeader;
-    private Header[] sendHeader;
-
     private HttpClientBuilder clientBuilder;
-
     private StreamLoadManager manager;
-
     private SinkConfig sinkConfig;
     private StreamLoadHelper streamLoadHelper;
-
     private ExecutorService executorService;
     private LabelGenerator labelGenerator;
+    private HttpHelper httpHelper;
 
     public TransactionStreamLoader(SinkConfig sinkConfig, StreamLoadManager manager) {
         this(sinkConfig);
         this.manager = manager;
-        this.labelGenerator = new LabelGenerator(sinkConfig);
     }
 
     public TransactionStreamLoader(SinkConfig sinkConfig) {
         this.sinkConfig = sinkConfig;
         this.streamLoadHelper = new StreamLoadHelper(sinkConfig);
-        initTxHeaders();
-        clientBuilder =
+        this.labelGenerator = new LabelGenerator(sinkConfig);
+        this.httpHelper = new HttpHelper();
+        this.clientBuilder =
                 HttpClients.custom()
                         .setRedirectStrategy(
                                 new DefaultRedirectStrategy() {
@@ -128,41 +113,6 @@ public class TransactionStreamLoader implements StreamLoader {
         this.executorService = threadPoolExecutor;
     }
 
-    protected void initTxHeaders() {
-        Map<String, String> headers = new HashMap<>();
-        headers.put(
-                HttpHeaders.AUTHORIZATION,
-                StreamLoadHelper.getBasicAuthHeader(
-                        sinkConfig.getUsername(), sinkConfig.getPassword()));
-        this.defaultTxnHeaders =
-                headers.entrySet().stream()
-                        .map(entry -> new BasicHeader(entry.getKey(), entry.getValue()))
-                        .toArray(Header[]::new);
-
-        Map<String, String> beginHeaders = new HashMap<>(headers);
-        beginHeaders.put("timeout", "600");
-        this.beginTxnHeader =
-                beginHeaders.entrySet().stream()
-                        .map(entry -> new BasicHeader(entry.getKey(), entry.getValue()))
-                        .toArray(Header[]::new);
-
-        Map<String, String> sendHeader = new HashMap<>(headers);
-        sendHeader.put(HttpHeaders.EXPECT, "100-continue");
-        if (null != sinkConfig.getStreamLoadProps()) {
-            for (Map.Entry<String, Object> entry : sinkConfig.getStreamLoadProps().entrySet()) {
-                sendHeader.put(entry.getKey(), String.valueOf(entry.getValue()));
-            }
-        }
-        this.sendHeader =
-                sendHeader.entrySet().stream()
-                        .map(entry -> new BasicHeader(entry.getKey(), entry.getValue()))
-                        .toArray(Header[]::new);
-    }
-
-    public void start(StreamLoadManager manager) {
-        this.manager = manager;
-    }
-
     @Override
     public void close() {}
 
@@ -175,46 +125,23 @@ public class TransactionStreamLoader implements StreamLoader {
         try {
             String sendUrl = streamLoadHelper.getSendUrl(sinkConfig.getNodeUrls());
             String label = region.getLabel();
-            HttpPut httpPut = new HttpPut(sendUrl);
-            httpPut.setHeaders(sendHeader);
+            HttpRequestBuilder httpBuilder =
+                    new HttpRequestBuilder(sinkConfig)
+                            .setUrl(sendUrl)
+                            .streamLoad(region.getLabel())
+                            .setEntity(
+                                    new StreamLoadEntity(
+                                            region,
+                                            region.getDataFormat(),
+                                            region.getEntityMeta()));
 
-            httpPut.setConfig(
-                    RequestConfig.custom()
-                            .setExpectContinueEnabled(true)
-                            .setRedirectsEnabled(true)
-                            .build());
-            httpPut.setEntity(
-                    new StreamLoadEntity(region, region.getDataFormat(), region.getEntityMeta()));
-            httpPut.addHeader("label", label);
-            httpPut.addHeader("db", region.getDatabase());
-            httpPut.addHeader("table", region.getTable());
+            log.info("stream loading, label : {}, request : {}", label, httpBuilder.build());
 
-            httpPut.setConfig(
-                    RequestConfig.custom()
-                            .setExpectContinueEnabled(true)
-                            .setRedirectsEnabled(true)
-                            .build());
-
-            log.info(
-                    "Stream loading, label : {}, request : {}, header: {}",
-                    label,
-                    httpPut,
-                    JsonUtils.toJsonString(sendHeader));
-            try (CloseableHttpClient client = clientBuilder.build()) {
+            try {
                 long startNanoTime = System.nanoTime();
-                String responseBody;
-                try (CloseableHttpResponse response = client.execute(httpPut)) {
-                    responseBody =
-                            streamLoadHelper.parseHttpResponse(
-                                    "load",
-                                    region.getDatabase(),
-                                    region.getTable(),
-                                    label,
-                                    response);
-                }
-
+                String responseBody = httpHelper.doHttpExecute(clientBuilder, httpBuilder.build());
                 log.info(
-                        "Stream load completed, label : {}, database : {}, table : {}, body : {}",
+                        "stream load completed, label : {}, database : {}, table : {}, body : {}",
                         label,
                         region.getDatabase(),
                         region.getTable(),
@@ -226,15 +153,8 @@ public class TransactionStreamLoader implements StreamLoader {
                                 responseBody, StreamLoadResponse.StreamLoadResponseBody.class);
                 streamLoadResponse.setBody(streamLoadBody);
                 String status = streamLoadBody.getStatus();
-                if (status == null) {
-                    throw new StarRocksConnectorException(
-                            FLUSH_DATA_FAILED,
-                            String.format(
-                                    "Stream load status is null. db: %s, table: %s, "
-                                            + "label: %s, response body: %s",
-                                    region.getDatabase(), region.getTable(), label, responseBody));
-                }
 
+                checkStatusNull("stream load", status, label, responseBody);
                 if (RESULT_SUCCESS.equals(status)
                         || RESULT_OK.equals(status)
                         || RESULT_TRANSACTION_PUBLISH_TIMEOUT.equals(status)) {
@@ -253,7 +173,7 @@ public class TransactionStreamLoader implements StreamLoader {
                     } else {
                         String errorMsg =
                                 String.format(
-                                        "Stream load failed because label existed, "
+                                        "stream load failed because label existed, "
                                                 + "db: %s, table: %s, label: %s, label state: %s",
                                         region.getDatabase(), region.getTable(), label, labelState);
                         throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
@@ -262,7 +182,7 @@ public class TransactionStreamLoader implements StreamLoader {
                     String errorLog = streamLoadHelper.getErrorLog(streamLoadBody.getErrorURL());
                     String errorMsg =
                             String.format(
-                                    "Stream load failed because of error, db: %s, table: %s, label: %s, "
+                                    "stream load failed because of error, db: %s, table: %s, label: %s, "
                                             + "\nresponseBody: %s\nerrorLog: %s",
                                     region.getDatabase(),
                                     region.getTable(),
@@ -277,14 +197,14 @@ public class TransactionStreamLoader implements StreamLoader {
             } catch (Exception e) {
                 String errorMsg =
                         String.format(
-                                "Stream load failed because of unknown exception, db: %s, table: %s, "
+                                "stream load failed because of unknown exception, db: %s, table: %s, "
                                         + "label: %s",
                                 region.getDatabase(), region.getTable(), label);
                 throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg, e);
             }
         } catch (Exception e) {
             log.error(
-                    "Exception happens when sending data, thread: {}",
+                    "exception happens when sending data, thread: {}",
                     Thread.currentThread().getName(),
                     e);
             region.callback(e);
@@ -293,69 +213,19 @@ public class TransactionStreamLoader implements StreamLoader {
     }
 
     @Override
-    public boolean prepare(StreamLoadSnapshot.Transaction transaction) {
-        return false;
-    }
-
-    @Override
-    public boolean commit(StreamLoadSnapshot.Transaction transaction) {
-        return false;
-    }
-
-    @Override
-    public boolean rollback(StreamLoadSnapshot.Transaction transaction) {
-        return false;
-    }
-
-    @Override
-    public boolean prepare(StreamLoadSnapshot snapshot) {
-        return false;
-    }
-
-    @Override
-    public boolean commit(StreamLoadSnapshot snapshot) {
-        return false;
-    }
-
-    @Override
     public boolean begin(String label) {
         String beginUrl = streamLoadHelper.getBeginUrl(sinkConfig.getNodeUrls());
-        HttpPost httpPost = new HttpPost(beginUrl);
-        httpPost.setHeaders(beginTxnHeader);
-        httpPost.addHeader("label", label);
-        httpPost.addHeader("db", sinkConfig.getDatabase());
-        httpPost.addHeader("table", sinkConfig.getTable());
+        HttpRequestBuilder httpBuilder =
+                new HttpRequestBuilder(sinkConfig).setUrl(beginUrl).begin(label);
 
-        httpPost.setConfig(
-                RequestConfig.custom()
-                        .setExpectContinueEnabled(true)
-                        .setRedirectsEnabled(true)
-                        .build());
+        log.info("transaction begin, request : {}", httpBuilder.build());
 
-        String db = sinkConfig.getDatabase();
-        String table = sinkConfig.getTable();
-        log.info(
-                "Transaction start, db: {}, table: {}, label: {}, request : {}",
-                db,
-                table,
-                label,
-                httpPost);
-
-        try (CloseableHttpClient client = clientBuilder.build()) {
-            String responseBody;
-            try (CloseableHttpResponse response = client.execute(httpPost)) {
-                responseBody =
-                        streamLoadHelper.parseHttpResponse(
-                                "begin transaction",
-                                sinkConfig.getDatabase(),
-                                sinkConfig.getTable(),
-                                label,
-                                response);
-            }
+        try {
+            String responseBody = httpHelper.doHttpExecute(clientBuilder, httpBuilder.build());
             log.info(
-                    "Transaction started, db: {}, table: {}, label: {}, body : {}",
-                    db,
-                    table,
+                    "transaction began, db: {}, table: {}, label: {}, body : {}",
+                    sinkConfig.getDatabase(),
+                    sinkConfig.getTable(),
                     label,
                     responseBody);
 
@@ -368,7 +238,10 @@ public class TransactionStreamLoader implements StreamLoader {
                                 "Can't find 'Status' in the response of transaction begin request. "
                                         + "Transaction load is supported since StarRocks 2.4, and please make sure your "
                                         + "StarRocks version support transaction load first. db: %s, table: %s, label: %s, response: %s",
-                                db, table, label, responseBody);
+                                sinkConfig.getDatabase(),
+                                sinkConfig.getTable(),
+                                label,
+                                responseBody);
                 log.error(errMsg);
                 throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errMsg);
             }
@@ -380,7 +253,7 @@ public class TransactionStreamLoader implements StreamLoader {
                     return false;
                 default:
                     log.error(
-                            "Transaction start failed, db : {}, label : {}",
+                            "transaction begin failed, db : {}, label : {}",
                             sinkConfig.getDatabase(),
                             label);
                     return false;
@@ -390,33 +263,17 @@ public class TransactionStreamLoader implements StreamLoader {
         }
     }
 
+    @Override
     public boolean prepare(String label) {
         String prepareUrl = streamLoadHelper.getPrepareUrl(sinkConfig.getNodeUrls());
-        HttpPost httpPost = new HttpPost(prepareUrl);
-        httpPost.setHeaders(defaultTxnHeaders);
-        httpPost.addHeader("label", label);
-        httpPost.addHeader("db", sinkConfig.getDatabase());
-        httpPost.addHeader("table", sinkConfig.getTable());
+        HttpRequestBuilder httpBuilder =
+                new HttpRequestBuilder(sinkConfig).setUrl(prepareUrl).prepare(label);
 
-        httpPost.setConfig(
-                RequestConfig.custom()
-                        .setExpectContinueEnabled(true)
-                        .setRedirectsEnabled(true)
-                        .build());
+        log.info("Transaction prepare, label : {}, request : {}", label, httpBuilder.build());
 
-        log.info("Transaction prepare, label : {}, request : {}", label, httpPost);
+        try {
+            String responseBody = httpHelper.doHttpExecute(clientBuilder, httpBuilder.build());
 
-        try (CloseableHttpClient client = clientBuilder.build()) {
-            String responseBody;
-            try (CloseableHttpResponse response = client.execute(httpPost)) {
-                responseBody =
-                        streamLoadHelper.parseHttpResponse(
-                                "prepare transaction",
-                                sinkConfig.getDatabase(),
-                                sinkConfig.getTable(),
-                                label,
-                                response);
-            }
             log.info("Transaction prepared, label : {}, body : {}", label, responseBody);
 
             StreamLoadResponse streamLoadResponse = new StreamLoadResponse();
@@ -425,17 +282,8 @@ public class TransactionStreamLoader implements StreamLoader {
                             responseBody, StreamLoadResponse.StreamLoadResponseBody.class);
             streamLoadResponse.setBody(streamLoadBody);
             String status = streamLoadBody.getStatus();
-            if (status == null) {
-                throw new StarRocksConnectorException(
-                        FLUSH_DATA_FAILED,
-                        String.format(
-                                "Prepare transaction status is null. db: %s, table: %s, "
-                                        + "label: %s, response body: %s",
-                                sinkConfig.getDatabase(),
-                                sinkConfig.getTable(),
-                                label,
-                                responseBody));
-            }
+
+            checkStatusNull("prepare transaction", status, label, responseBody);
 
             switch (status) {
                 case RESULT_OK:
@@ -479,34 +327,17 @@ public class TransactionStreamLoader implements StreamLoader {
         return false;
     }
 
+    @Override
     public boolean commit(String label) {
         String commitUrl = streamLoadHelper.getCommitUrl(sinkConfig.getNodeUrls());
+        HttpRequestBuilder httpBuilder =
+                new HttpRequestBuilder(sinkConfig).setUrl(commitUrl).commit(label);
 
-        HttpPost httpPost = new HttpPost(commitUrl);
-        httpPost.setHeaders(defaultTxnHeaders);
-        httpPost.addHeader("label", label);
-        httpPost.addHeader("db", sinkConfig.getDatabase());
-        httpPost.addHeader("table", sinkConfig.getTable());
+        log.info("Transaction commit, label: {}, request : {}", label, httpBuilder.build());
 
-        httpPost.setConfig(
-                RequestConfig.custom()
-                        .setExpectContinueEnabled(true)
-                        .setRedirectsEnabled(true)
-                        .build());
+        try {
+            String responseBody = httpHelper.doHttpExecute(clientBuilder, httpBuilder.build());
 
-        log.info("Transaction commit, label: {}, request : {}", label, httpPost);
-
-        try (CloseableHttpClient client = clientBuilder.build()) {
-            String responseBody;
-            try (CloseableHttpResponse response = client.execute(httpPost)) {
-                responseBody =
-                        streamLoadHelper.parseHttpResponse(
-                                "commit transaction",
-                                sinkConfig.getDatabase(),
-                                sinkConfig.getTable(),
-                                label,
-                                response);
-            }
             log.info("Transaction committed, label: {}, body : {}", label, responseBody);
 
             StreamLoadResponse streamLoadResponse = new StreamLoadResponse();
@@ -515,20 +346,9 @@ public class TransactionStreamLoader implements StreamLoader {
                             responseBody, StreamLoadResponse.StreamLoadResponseBody.class);
             streamLoadResponse.setBody(streamLoadBody);
             String status = streamLoadBody.getStatus();
-            if (status == null) {
-                throw new StarRocksConnectorException(
-                        FLUSH_DATA_FAILED,
-                        String.format(
-                                "Commit transaction status is null. db: %s, table: %s, "
-                                        + "label: %s, response body: %s",
-                                sinkConfig.getDatabase(),
-                                sinkConfig.getTable(),
-                                label,
-                                responseBody));
-            }
 
+            checkStatusNull("commit transaction", status, label, responseBody);
             if (RESULT_OK.equals(status)) {
-                //                manager.callback(streamLoadResponse);
                 return true;
             }
 
@@ -550,7 +370,7 @@ public class TransactionStreamLoader implements StreamLoader {
 
             String errorLog = streamLoadHelper.getErrorLog(streamLoadBody.getErrorURL());
             log.error(
-                    "Transaction commit failed, db: {}, table: {}, label: {}, label state: {}, \nresponseBody: {}\nerrorLog: {}",
+                    "transaction commit failed, db: {}, table: {}, label: {}, label state: {}, \nresponseBody: {}\nerrorLog: {}",
                     sinkConfig.getDatabase(),
                     sinkConfig.getTable(),
                     label,
@@ -560,7 +380,7 @@ public class TransactionStreamLoader implements StreamLoader {
 
             String exceptionMsg =
                     String.format(
-                            "Transaction commit failed, db: %s, table: %s, label: %s, commit response status: %s,"
+                            "transaction commit failed, db: %s, table: %s, label: %s, commit response status: %s,"
                                     + " label state: %s",
                             sinkConfig.getDatabase(),
                             sinkConfig.getTable(),
@@ -581,7 +401,6 @@ public class TransactionStreamLoader implements StreamLoader {
         }
     }
 
-    @Override
     public void abortPreCommit(long chkID, int subTaskIndex) throws Exception {
         long startChkID = chkID;
         while (true) {
@@ -620,54 +439,48 @@ public class TransactionStreamLoader implements StreamLoader {
         }
     }
 
+    @Override
     public boolean rollback(String label) {
         String rollbackUrl = streamLoadHelper.getRollbackUrl(sinkConfig.getNodeUrls());
-        log.info("Transaction rollback, label : {}", label);
+        HttpRequestBuilder httpBuilder =
+                new HttpRequestBuilder(sinkConfig).setUrl(rollbackUrl).rollback(label);
+        log.info("transaction rollback, label : {}", label);
 
-        HttpPost httpPost = new HttpPost(rollbackUrl);
-        httpPost.setHeaders(defaultTxnHeaders);
-        httpPost.addHeader("label", label);
-        httpPost.addHeader("db", sinkConfig.getDatabase());
-        httpPost.addHeader("table", sinkConfig.getTable());
+        try {
+            String responseBody = httpHelper.doHttpExecute(clientBuilder, httpBuilder.build());
 
-        try (CloseableHttpClient client = clientBuilder.build()) {
-            String responseBody;
-            try (CloseableHttpResponse response = client.execute(httpPost)) {
-                responseBody =
-                        streamLoadHelper.parseHttpResponse(
-                                "abort transaction",
-                                sinkConfig.getDatabase(),
-                                sinkConfig.getTable(),
-                                label,
-                                response);
-            }
-            log.info("Transaction rollback, label: {}, body : {}", label, responseBody);
+            log.info("transaction rollback, label: {}, body : {}", label, responseBody);
 
             ObjectNode bodyJson = JsonUtils.parseObject(responseBody);
             String status = bodyJson.get("Status").asText();
-            if (status == null) {
-                String errMsg =
-                        String.format(
-                                "Abort transaction status is null. db: %s, table: %s, label: %s, response: %s",
-                                sinkConfig.getDatabase(),
-                                sinkConfig.getTable(),
-                                label,
-                                responseBody);
-                log.error(errMsg);
-                throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errMsg);
-            }
 
+            checkStatusNull("rollback transaction", status, label, responseBody);
             if (RESULT_SUCCESS.equals(status) || RESULT_OK.equals(status)) {
                 return true;
             }
             log.error(
-                    "Transaction rollback failed, db: {}, table: {}, label : {}",
+                    "transaction rollback failed, db: {}, table: {}, label : {}",
                     sinkConfig.getDatabase(),
                     sinkConfig.getTable(),
                     label);
             return false;
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private void checkStatusNull(String method, String status, String label, String response) {
+        if (StringUtils.isEmpty(status)) {
+            String errMsg =
+                    String.format(
+                            "%s status is null. db: %s, table: %s, label: %s, response: %s",
+                            method,
+                            sinkConfig.getDatabase(),
+                            sinkConfig.getTable(),
+                            label,
+                            response);
+            log.error(errMsg);
+            throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errMsg);
         }
     }
 }

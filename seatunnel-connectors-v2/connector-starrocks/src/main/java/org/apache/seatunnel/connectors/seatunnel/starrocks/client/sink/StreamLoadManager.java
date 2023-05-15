@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadResponse;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadResponse;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.committer.StarRocksCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.state.StarRocksSinkState;
 
@@ -39,15 +39,15 @@ public interface StreamLoadManager {
 
     ArrayList<StarRocksSinkState> snapshot(long checkpointId);
 
-    Optional<StarRocksCommitInfo> prepareCommit();
+    void beginTransaction(long checkpointId);
 
-    boolean commit(String transactionId);
+    Optional<StarRocksCommitInfo> prepareCommit();
 
     boolean abort(long checkpointId, int subTaskIndex) throws Exception;
 
     boolean abort() throws Exception;
 
-    void close() throws Exception;
+    boolean commit(String transactionId);
 
-    void beginTransaction(long checkpointId);
+    void close() throws Exception;
 }

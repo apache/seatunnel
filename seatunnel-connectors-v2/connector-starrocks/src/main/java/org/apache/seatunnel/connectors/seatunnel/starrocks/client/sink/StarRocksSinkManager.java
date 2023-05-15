@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
+package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadManager;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StarRocksFlushTuple;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadResponse;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;

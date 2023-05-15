@@ -19,8 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.LabelGenerator;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadResponse;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadResponse;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.committer.StarRocksCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.state.StarRocksSinkState;
@@ -137,7 +136,7 @@ public class StarRocksSinkManagerV2 implements StreamLoadManager {
             while (tableRegion.getCacheBytes() >= maxCacheBytes) {
                 flushable.signal();
                 log.info(
-                        "write loop maxCacheBytes: {}, tableRegin current cacheBytes: {}",
+                        "write is block wait for flush, maxCacheBytes: {}, tableRegin current cacheBytes: {}",
                         maxCacheBytes,
                         tableRegion.getCacheBytes());
                 writable.await(Math.min(++idx, 5), TimeUnit.SECONDS);
@@ -161,7 +160,7 @@ public class StarRocksSinkManagerV2 implements StreamLoadManager {
         }
         if (response.getException() != null) {
             log.error(
-                    "Stream load failed, body : " + JsonUtils.toJsonString(response.getBody()),
+                    "Stream load failed, response : " + JsonUtils.toJsonString(response.getBody()),
                     response.getException());
             this.flushException = response.getException();
         }

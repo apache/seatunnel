@@ -17,15 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
-import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
-import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultRedirectStrategy;
@@ -38,8 +36,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode.FLUSH_DATA_FAILED;
 
 @Slf4j
 public class HttpHelper {
@@ -77,79 +77,58 @@ public class HttpHelper {
         }
     }
 
-    public String doHttpGet(String getUrl) throws IOException {
-        log.info("Executing GET from {}.", getUrl);
-        try (CloseableHttpClient httpclient = buildHttpClient()) {
-            HttpGet httpGet = new HttpGet(getUrl);
-            try (CloseableHttpResponse resp = httpclient.execute(httpGet)) {
-                HttpEntity respEntity = resp.getEntity();
-                if (null == respEntity) {
-                    log.warn("Request failed with empty response.");
-                    return null;
-                }
-                return EntityUtils.toString(respEntity);
-            }
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    public Map<String, Object> doHttpPut(String url, byte[] data, Map<String, String> header)
+    public String doHttpExecute(HttpClientBuilder clientBuilder, HttpRequestBase httpRequestBase)
             throws IOException {
-        final HttpClientBuilder httpClientBuilder =
-                HttpClients.custom()
-                        .setRedirectStrategy(
-                                new DefaultRedirectStrategy() {
-                                    @Override
-                                    protected boolean isRedirectable(String method) {
-                                        return true;
-                                    }
-                                });
-        try (CloseableHttpClient httpclient = httpClientBuilder.build()) {
-            HttpPut httpPut = new HttpPut(url);
-            if (null != header) {
-                for (Map.Entry<String, String> entry : header.entrySet()) {
-                    httpPut.setHeader(entry.getKey(), String.valueOf(entry.getValue()));
-                }
-            }
-            httpPut.setEntity(new ByteArrayEntity(data));
-            httpPut.setConfig(RequestConfig.custom().setRedirectsEnabled(true).build());
-            try (CloseableHttpResponse resp = httpclient.execute(httpPut)) {
-                int code = resp.getStatusLine().getStatusCode();
-                if (HttpStatus.SC_OK != code) {
-                    String errorText;
-                    try {
-                        HttpEntity respEntity = resp.getEntity();
-                        errorText = EntityUtils.toString(respEntity);
-                    } catch (Exception err) {
-                        errorText = "find errorText failed: " + err.getMessage();
-                    }
-                    log.warn("Request failed with code:{}, err:{}", code, errorText);
-                    Map<String, Object> errorMap = new HashMap<>();
-                    errorMap.put("Status", "Fail");
-                    errorMap.put("Message", errorText);
-                    return errorMap;
-                }
-                HttpEntity respEntity = resp.getEntity();
-                if (null == respEntity) {
-                    log.warn("Request failed with empty response.");
-                    return null;
-                }
-                return JsonUtils.parseObject(EntityUtils.toString(respEntity), Map.class);
+        if (Objects.isNull(clientBuilder)) clientBuilder = getDefaultClientBuilder();
+        try (CloseableHttpClient client = clientBuilder.build()) {
+            try (CloseableHttpResponse response = client.execute(httpRequestBase)) {
+                return parseHttpResponse(response, httpRequestBase.getMethod());
             }
         }
     }
 
-    private CloseableHttpClient buildHttpClient() {
-        final HttpClientBuilder httpClientBuilder =
-                HttpClients.custom()
-                        .setRedirectStrategy(
-                                new DefaultRedirectStrategy() {
-                                    @Override
-                                    protected boolean isRedirectable(String method) {
-                                        return true;
-                                    }
-                                });
-        return httpClientBuilder.build();
+    public String parseHttpResponse(CloseableHttpResponse response, String requestType)
+            throws StarRocksConnectorException {
+        int code = response.getStatusLine().getStatusCode();
+        if (307 == code) {
+            String errorMsg =
+                    String.format(
+                            "Request %s failed because http response code is 307 which means 'Temporary Redirect'. "
+                                    + "This can happen when FE responds the request slowly , you should find the reason first. The reason may be "
+                                    + "StarRocks FE/ENGINE GC, network delay, or others. response status line: %s",
+                            requestType, response.getStatusLine());
+            log.error("{}", errorMsg);
+            throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
+        } else if (200 != code) {
+            String errorMsg =
+                    String.format(
+                            "Request %s failed because http response code is not 200. response status line: %s",
+                            requestType, response.getStatusLine());
+            log.error("{}", errorMsg);
+            throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
+        }
+
+        HttpEntity respEntity = response.getEntity();
+        if (respEntity == null) {
+            String errorMsg =
+                    String.format(
+                            "Request %s failed because response entity is null. response status line: %s",
+                            requestType, response.getStatusLine());
+            log.error("{}", errorMsg);
+            throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
+        }
+
+        try {
+            return EntityUtils.toString(respEntity);
+        } catch (Exception e) {
+            String errorMsg =
+                    String.format(
+                            "Request %s failed because fail to convert response entity to string. "
+                                    + "response status line: %s, response entity: %s",
+                            requestType, response.getStatusLine(), response.getEntity());
+            log.error("{}", errorMsg, e);
+            throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg, e);
+        }
     }
 
     public boolean tryHttpConnection(String host) {
@@ -160,9 +139,20 @@ public class HttpHelper {
             co.connect();
             co.disconnect();
             return true;
-        } catch (Exception e1) {
-            log.warn("Failed to connect to address:{}", host, e1);
+        } catch (Exception e) {
+            log.warn("Failed to connect to address:{}", host, e);
             return false;
         }
+    }
+
+    private HttpClientBuilder getDefaultClientBuilder() {
+        return HttpClients.custom()
+                .setRedirectStrategy(
+                        new DefaultRedirectStrategy() {
+                            @Override
+                            protected boolean isRedirectable(String method) {
+                                return true;
+                            }
+                        });
     }
 }

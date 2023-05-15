@@ -19,21 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.HttpHelper;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadResponse;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.HttpRequestBuilder;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadResponse;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
-import org.apache.commons.codec.binary.Base64;
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
-
 import lombok.extern.slf4j.Slf4j;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -69,20 +61,16 @@ public class StreamLoadHelper {
     public static final String RESULT_TRANSACTION_COMMIT_TIMEOUT = "Commit Timeout";
     public static final String RESULT_TRANSACTION_PUBLISH_TIMEOUT = "Publish Timeout";
     private final SinkConfig sinkConfig;
+    private HttpHelper httpHelper;
 
     public StreamLoadHelper(SinkConfig sinkConfig) {
         this.sinkConfig = sinkConfig;
+        this.httpHelper = new HttpHelper();
     }
 
     private int pos;
 
     private static final int ERROR_LOG_MAX_LENGTH = 3000;
-
-    public static String getBasicAuthHeader(String username, String password) {
-        String auth = username + ":" + password;
-        byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(StandardCharsets.UTF_8));
-        return "Basic " + new String(encodedAuth);
-    }
 
     public String getAvailableHost(List<String> hostList) {
         long tmp = pos + hostList.size();
@@ -99,30 +87,15 @@ public class StreamLoadHelper {
         if (errorUrl == null || !errorUrl.startsWith("http")) {
             return null;
         }
+        HttpRequestBuilder httpBuilder = new HttpRequestBuilder().HttpGet().setUrl(errorUrl);
+        try {
 
-        try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
-            HttpGet httpGet = new HttpGet(errorUrl);
-            try (CloseableHttpResponse resp = httpclient.execute(httpGet)) {
-                int code = resp.getStatusLine().getStatusCode();
-                if (200 != code) {
-                    log.warn(
-                            "Request error log failed with error code: {}, errorUrl: {}",
-                            code,
-                            errorUrl);
-                    return null;
-                }
-
-                HttpEntity respEntity = resp.getEntity();
-                if (respEntity == null) {
-                    log.warn("Request error log failed with null entity, errorUrl: {}", errorUrl);
-                    return null;
-                }
-                String errorLog = EntityUtils.toString(respEntity);
-                if (errorLog != null && errorLog.length() > ERROR_LOG_MAX_LENGTH) {
-                    errorLog = errorLog.substring(0, ERROR_LOG_MAX_LENGTH);
-                }
-                return errorLog;
+            String errorLog = httpHelper.doHttpExecute(null, httpBuilder.build());
+            if (errorLog != null && errorLog.length() > ERROR_LOG_MAX_LENGTH) {
+                errorLog = errorLog.substring(0, ERROR_LOG_MAX_LENGTH);
             }
+            return errorLog;
+
         } catch (Exception e) {
             log.warn("Failed to get error log: {}.", errorUrl, e);
             return String.format(
@@ -130,107 +103,37 @@ public class StreamLoadHelper {
         }
     }
 
-    public String parseHttpResponse(
-            String requestType,
-            String db,
-            String table,
-            String label,
-            CloseableHttpResponse response)
-            throws StarRocksConnectorException {
-        int code = response.getStatusLine().getStatusCode();
-        if (307 == code) {
-            String errorMsg =
-                    String.format(
-                            "Request %s failed because http response code is 307 which means 'Temporary Redirect'. "
-                                    + "This can happen when FE responds the request slowly , you should find the reason first. The reason may be "
-                                    + "StarRocks FE/Flink GC, network delay, or others. db: %s, table: %s, label: %s, response status line: %s",
-                            requestType, db, table, label, response.getStatusLine());
-            log.error("{}", errorMsg);
-            throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
-        } else if (200 != code) {
-            String errorMsg =
-                    String.format(
-                            "Request %s failed because http response code is not 200. db: %s, table: %s,"
-                                    + "label: %s, response status line: %s",
-                            requestType, db, table, label, response.getStatusLine());
-            log.error("{}", errorMsg);
-            throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
-        }
-
-        HttpEntity respEntity = response.getEntity();
-        if (respEntity == null) {
-            String errorMsg =
-                    String.format(
-                            "Request %s failed because response entity is null. db: %s, table: %s,"
-                                    + "label: %s, response status line: %s",
-                            requestType, db, table, label, response.getStatusLine());
-            log.error("{}", errorMsg);
-            throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
-        }
-
-        try {
-            return EntityUtils.toString(respEntity);
-        } catch (Exception e) {
-            String errorMsg =
-                    String.format(
-                            "Request %s failed because fail to convert response entity to string. "
-                                    + "db: %s, table: %s, label: %s, response status line: %s, response entity: %s",
-                            requestType,
-                            db,
-                            table,
-                            label,
-                            response.getStatusLine(),
-                            response.getEntity());
-            log.error("{}", errorMsg, e);
-            throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg, e);
-        }
-    }
-
     public String getLabelState(String database, String label) throws Exception {
-        try (CloseableHttpClient client = HttpClients.createDefault()) {
-            HttpGet httpGet =
-                    new HttpGet(getLabelStateUrl(sinkConfig.getNodeUrls(), database, label));
-            httpGet.addHeader(
-                    "Authorization",
-                    getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
-            httpGet.setHeader("Connection", "close");
-            try (CloseableHttpResponse response = client.execute(httpGet)) {
-                int responseStatusCode = response.getStatusLine().getStatusCode();
-                String entityContent = EntityUtils.toString(response.getEntity());
-                log.info(
-                        "Response for get_load_state, label: {}, response status code: {}, response body : {}",
-                        label,
-                        responseStatusCode,
-                        entityContent);
-                if (responseStatusCode != 200) {
-                    throw new StarRocksConnectorException(
-                            FLUSH_DATA_FAILED,
-                            String.format(
-                                    "Could not get load state because of incorrect response status code %s, "
-                                            + "label: %s, response body: %s",
-                                    responseStatusCode, label, entityContent));
-                }
+        HttpRequestBuilder httpBuilder =
+                new HttpRequestBuilder(sinkConfig)
+                        .setUrl(getLabelStateUrl(sinkConfig.getNodeUrls(), database, label))
+                        .getLoadState();
 
-                StreamLoadResponse.StreamLoadResponseBody responseBody =
-                        JsonUtils.parseObject(
-                                entityContent, StreamLoadResponse.StreamLoadResponseBody.class);
-                String state = responseBody.getState();
-                if (state == null) {
-                    log.error(
-                            "Fail to get load state, label: {}, load information: {}",
-                            label,
-                            JsonUtils.toJsonString(responseBody));
-                    throw new StarRocksConnectorException(
-                            FLUSH_DATA_FAILED,
-                            String.format(
-                                    "Could not get load state because of state is null,"
-                                            + "label: %s, load information: %s",
-                                    label, entityContent));
-                }
+        String entityContent = httpHelper.doHttpExecute(null, httpBuilder.build());
 
-                return state;
-            }
+        log.info(
+                "Response for get_load_state, label: {}, response status code: {}, response body : {}",
+                label,
+                entityContent);
+
+        StreamLoadResponse.StreamLoadResponseBody responseBody =
+                JsonUtils.parseObject(
+                        entityContent, StreamLoadResponse.StreamLoadResponseBody.class);
+        String state = responseBody.getState();
+        if (state == null) {
+            log.error(
+                    "Fail to get load state, label: {}, load information: {}",
+                    label,
+                    JsonUtils.toJsonString(responseBody));
+            throw new StarRocksConnectorException(
+                    FLUSH_DATA_FAILED,
+                    String.format(
+                            "Could not get load state because of state is null,"
+                                    + "label: %s, load information: %s",
+                            label, entityContent));
         }
+
+        return state;
     }
 
     public String getLabelState(String database, String label, Set<String> retryStates)

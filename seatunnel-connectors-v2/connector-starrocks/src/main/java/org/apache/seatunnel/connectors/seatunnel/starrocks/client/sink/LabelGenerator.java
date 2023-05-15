@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
+package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 
 import java.util.UUID;
 
-/** Generator label for stream load. */
 public class LabelGenerator {
     private String labelPrefix;
     private boolean enable2PC;

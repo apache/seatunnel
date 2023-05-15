@@ -18,12 +18,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadResponse;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadSnapshot;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadEntityMeta;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadResponse;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StreamLoadDataFormat;
 
 import java.util.LinkedList;
 import java.util.Queue;
@@ -32,15 +32,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode.FLUSH_DATA_FAILED;
-
 @Slf4j
 public class TransactionTableRegion implements TableRegion {
 
     enum State {
         ACTIVE,
-        FLUSHING,
-        COMMITTING
+        FLUSHING
     }
 
     private final StreamLoadManager manager;
@@ -172,53 +169,6 @@ public class TransactionTableRegion implements TableRegion {
                     cacheBytes.get());
         }
         return false;
-    }
-
-    public boolean commit() {
-        if (!state.compareAndSet(State.ACTIVE, State.COMMITTING)) {
-            return false;
-        }
-
-        if (label != null) {
-            StreamLoadSnapshot.Transaction transaction =
-                    new StreamLoadSnapshot.Transaction(database, table, label);
-            try {
-                if (!streamLoader.prepare(transaction)) {
-                    throw new StarRocksConnectorException(
-                            FLUSH_DATA_FAILED,
-                            "Failed to prepare transaction, please check taskmanager log for details, "
-                                    + transaction);
-                }
-
-                if (!streamLoader.commit(transaction)) {
-                    throw new StarRocksConnectorException(
-                            FLUSH_DATA_FAILED,
-                            "Failed to commit transaction, please check taskmanager log for details, "
-                                    + transaction);
-                }
-            } catch (Exception e) {
-                log.error(
-                        "TransactionTableRegion commit failed, db: {}, table: {}, label: {}",
-                        database,
-                        table,
-                        label,
-                        e);
-                callback(e);
-                return false;
-            }
-
-            label = null;
-            long commitTime = System.currentTimeMillis();
-            long commitDuration = commitTime - lastCommitTimeMills;
-            lastCommitTimeMills = commitTime;
-            log.info(
-                    "Success to commit transaction: {}, duration: {} ms",
-                    transaction,
-                    commitDuration);
-        }
-
-        state.compareAndSet(State.COMMITTING, State.ACTIVE);
-        return true;
     }
 
     @Override

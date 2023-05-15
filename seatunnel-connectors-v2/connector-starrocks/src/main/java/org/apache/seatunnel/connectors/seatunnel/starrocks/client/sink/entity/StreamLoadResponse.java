@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
+package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
@@ -127,14 +127,5 @@ public class StreamLoadResponse implements Serializable {
         @JsonProperty("CommitAndPublishTimeMs")
         @SuppressWarnings("checkstyle:MemberName")
         private Long commitAndPublishTimeMs;
-    }
-
-    public static void main(String[] args) {
-        String aa = "{\"state\":\"PREPARE\",\"status\":\"OK\",\"msg\":\"Success\"}";
-
-        StreamLoadResponse.StreamLoadResponseBody responseBody =
-                JsonUtils.parseObject(aa, StreamLoadResponse.StreamLoadResponseBody.class);
-        String state = responseBody.getState();
-        System.out.println(state);
     }
 }

@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
+package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.StreamLoadHelper;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.HttpHelper;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.HttpRequestBuilder;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StarRocksFlushTuple;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadResponse;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksDelimiterParser;
-
-import org.apache.commons.codec.binary.Base64;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,7 +77,8 @@ public class StarRocksStreamLoadVisitor {
                     "None of the host in `load_url` could be connected.");
         }
         String loadUrl =
-                String.format(PATH_STREAM_LOAD, sinkConfig.getDatabase(), sinkConfig.getTable());
+                String.format(
+                        host + PATH_STREAM_LOAD, sinkConfig.getDatabase(), sinkConfig.getTable());
 
         if (LOG.isDebugEnabled()) {
             LOG.debug(
@@ -86,13 +88,24 @@ public class StarRocksStreamLoadVisitor {
                             flushData.getBytes(),
                             flushData.getLabel()));
         }
-        Map<String, Object> loadResult =
-                httpHelper.doHttpPut(
-                        loadUrl,
-                        joinRows(flushData.getRows(), flushData.getBytes().intValue()),
-                        getStreamLoadHttpHeader(flushData.getLabel()));
-        final String keyStatus = "Status";
-        if (null == loadResult || !loadResult.containsKey(keyStatus)) {
+        HttpRequestBuilder httpBuilder =
+                new HttpRequestBuilder(sinkConfig)
+                        .HttpPut()
+                                .setUrl(loadUrl)
+                                .baseAuth()
+                                .addProperties(getStreamLoadHttpHeader(flushData.getLabel()))
+                                .setEntity(
+                                        joinRows(
+                                                flushData.getRows(),
+                                                flushData.getBytes().intValue()));
+
+        String entityContent = httpHelper.doHttpExecute(null, httpBuilder.build());
+
+        StreamLoadResponse.StreamLoadResponseBody loadResult =
+                JsonUtils.parseObject(
+                        entityContent, StreamLoadResponse.StreamLoadResponseBody.class);
+
+        if (loadResult.getStatus() == null) {
             LOG.error("unknown result status. {}", loadResult);
             throw new StarRocksConnectorException(
                     StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
@@ -101,38 +114,34 @@ public class StarRocksStreamLoadVisitor {
         if (LOG.isDebugEnabled()) {
             LOG.debug("StreamLoad response:\n" + JsonUtils.toJsonString(loadResult));
         }
-        if (RESULT_FAILED.equals(loadResult.get(keyStatus))) {
+        if (RESULT_FAILED.equals(loadResult.getStatus())) {
             StringBuilder errorBuilder = new StringBuilder("Failed to flush data to StarRocks \n");
             errorBuilder
                     .append(sinkConfig.getDatabase())
                     .append("/")
                     .append(sinkConfig.getTable())
                     .append("\n");
-            if (loadResult.containsKey("Message")) {
-                errorBuilder.append(loadResult.get("Message"));
+            if (loadResult.getMessage() != null) {
+                errorBuilder.append(loadResult.getMessage());
                 errorBuilder.append('\n');
             }
-            if (loadResult.containsKey("ErrorURL")) {
+            if (loadResult.getErrorURL() != null) {
                 LOG.error("StreamLoad response: {}", loadResult);
-                try {
-                    errorBuilder.append(
-                            httpHelper.doHttpGet(loadResult.get("ErrorURL").toString()));
-                    errorBuilder.append('\n');
-                } catch (IOException e) {
-                    LOG.warn("Get Error URL failed. {} ", loadResult.get("ErrorURL"), e);
-                }
+                String errorLog = streamLoadHelper.getErrorLog(loadResult.getErrorURL());
+                errorBuilder.append(errorLog);
+                errorBuilder.append('\n');
             } else {
                 errorBuilder.append(JsonUtils.toJsonString(loadResult));
                 errorBuilder.append('\n');
             }
             throw new StarRocksConnectorException(
                     StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, errorBuilder.toString());
-        } else if (RESULT_LABEL_EXISTED.equals(loadResult.get(keyStatus))) {
+        } else if (RESULT_LABEL_EXISTED.equals(loadResult.getStatus())) {
             LOG.debug("StreamLoad response:\n" + JsonUtils.toJsonString(loadResult));
             // has to block-checking the state to get the final result
             checkLabelState(host, flushData.getLabel());
         }
-        return RESULT_SUCCESS.equals(loadResult.get(keyStatus));
+        return RESULT_SUCCESS.equals(loadResult.getStatus());
     }
 
     private byte[] joinRows(List<byte[]> rows, int totalBytes) {
@@ -212,12 +221,6 @@ public class StarRocksStreamLoadVisitor {
         }
     }
 
-    private String getBasicAuthHeader(String username, String password) {
-        String auth = username + ":" + password;
-        byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(StandardCharsets.UTF_8));
-        return "Basic " + new String(encodedAuth);
-    }
-
     private Map<String, String> getStreamLoadHttpHeader(String label) {
         Map<String, String> headerMap = new HashMap<>();
         if (null != fieldNames
@@ -241,18 +244,6 @@ public class StarRocksStreamLoadVisitor {
         headerMap.put("label", label);
         headerMap.put("Content-Type", "application/x-www-form-urlencoded");
         headerMap.put("format", sinkConfig.getLoadFormat().name().toUpperCase());
-        headerMap.put(
-                "Authorization",
-                getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
-        return headerMap;
-    }
-
-    private Map<String, String> getLoadStateHttpHeader(String label) {
-        Map<String, String> headerMap = new HashMap<>();
-        headerMap.put(
-                "Authorization",
-                getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
-        headerMap.put("Connection", "close");
         return headerMap;
     }
 }

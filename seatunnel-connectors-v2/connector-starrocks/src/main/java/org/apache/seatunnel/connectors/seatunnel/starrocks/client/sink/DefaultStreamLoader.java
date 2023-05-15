@@ -19,11 +19,11 @@
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadResponse;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StreamLoadSnapshot;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadResponse;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Future;
 
 public class DefaultStreamLoader implements StreamLoader, Serializable {
@@ -35,9 +35,6 @@ public class DefaultStreamLoader implements StreamLoader, Serializable {
                 new RetryUtils.RetryMaterial(
                         sinkConfig.getMaxRetries(), true, exception -> true, DEFAULT_SLEEP_TIME_MS);
     }
-
-    @Override
-    public void start(StreamLoadManager manager) {}
 
     @Override
     public void close() {}
@@ -53,27 +50,7 @@ public class DefaultStreamLoader implements StreamLoader, Serializable {
     }
 
     @Override
-    public boolean prepare(StreamLoadSnapshot.Transaction transaction) {
-        return false;
-    }
-
-    @Override
-    public boolean commit(StreamLoadSnapshot.Transaction transaction) {
-        return false;
-    }
-
-    @Override
-    public boolean rollback(StreamLoadSnapshot.Transaction transaction) {
-        return false;
-    }
-
-    @Override
-    public boolean prepare(StreamLoadSnapshot snapshot) {
-        return false;
-    }
-
-    @Override
-    public boolean commit(StreamLoadSnapshot snapshot) {
+    public boolean prepare(String label) {
         return false;
     }
 
@@ -83,5 +60,82 @@ public class DefaultStreamLoader implements StreamLoader, Serializable {
     }
 
     @Override
-    public void abortPreCommit(long chkID, int subTaskIndex) throws Exception {}
+    public boolean commit(String label) {
+        return false;
+    }
+
+    public static interface StreamLoadDataFormat {
+        StreamLoadDataFormat JSON = new JSONFormat();
+        StreamLoadDataFormat CSV = new CSVFormat();
+
+        byte[] first();
+
+        byte[] delimiter();
+
+        byte[] end();
+
+        class CSVFormat implements StreamLoadDataFormat, Serializable {
+
+            private static final byte[] EMPTY_DELIMITER = new byte[0];
+            private static final String DEFAULT_LINE_DELIMITER = "\n";
+            private final byte[] delimiter;
+
+            public CSVFormat() {
+                this(DEFAULT_LINE_DELIMITER);
+            }
+
+            public CSVFormat(String rowDelimiter) {
+                if (rowDelimiter == null) {
+                    throw new IllegalArgumentException("row delimiter can not be null");
+                }
+
+                this.delimiter = rowDelimiter.getBytes(StandardCharsets.UTF_8);
+            }
+
+            @Override
+            public byte[] first() {
+                return EMPTY_DELIMITER;
+            }
+
+            @Override
+            public byte[] delimiter() {
+                return delimiter;
+            }
+
+            @Override
+            public byte[] end() {
+                // For transaction stream load, need to append the row delimiter to the end of each
+                // load, and separate the data in multiple loads. For example, there are 3 columns,
+                // column delimiter ",", row delimiter "\n". There are 2 rows (1, 2, 3), (4, 5, 6),
+                // and send them in two loads. If not append the end delimiter, the data received by
+                // StarRocks will be "1,2,34,5,6", the two rows are not separated by row delimiter,
+                // and
+                // StarRocks will parse it as one line with 5 columns. After appending the end
+                // delimiter,
+                // it will be "1,2,3\n4,5,6", which will be parsed correctly
+                return delimiter;
+            }
+        }
+
+        class JSONFormat implements StreamLoadDataFormat, Serializable {
+            private static final byte[] first = "[".getBytes(StandardCharsets.UTF_8);
+            private static final byte[] delimiter = ",".getBytes(StandardCharsets.UTF_8);
+            private static final byte[] end = "]".getBytes(StandardCharsets.UTF_8);
+
+            @Override
+            public byte[] first() {
+                return first;
+            }
+
+            @Override
+            public byte[] delimiter() {
+                return delimiter;
+            }
+
+            @Override
+            public byte[] end() {
+                return end;
+            }
+        }
+    }
 }

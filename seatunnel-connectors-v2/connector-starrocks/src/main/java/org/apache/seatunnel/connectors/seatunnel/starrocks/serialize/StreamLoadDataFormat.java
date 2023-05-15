@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
+package org.apache.seatunnel.connectors.seatunnel.starrocks.serialize;
 
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
