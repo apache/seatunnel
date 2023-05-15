@@ -23,39 +23,41 @@ semantics (using XA transaction guarantee).
 
 ## Supported DataSource Info
 
-| Datasource |                    Supported Versions                    |        Driver         |                  Url                  |                                  Maven                                   |
-|------------|----------------------------------------------------------|-----------------------|---------------------------------------|--------------------------------------------------------------------------|
-| PostgreSQL | Different dependency version has different driver class. | org.postgresql.Driver | jdbc:postgresql://localhost:5432/test | [Download](https://mvnrepository.com/artifact/org.postgresql/postgresql) |
+| Datasource |                     Supported Versions                     |        Driver         |                  Url                  |                                  Maven                                   |
+|------------|------------------------------------------------------------|-----------------------|---------------------------------------|--------------------------------------------------------------------------|
+| PostgreSQL | Different dependency version has different driver class.   | org.postgresql.Driver | jdbc:postgresql://localhost:5432/test | [Download](https://mvnrepository.com/artifact/org.postgresql/postgresql) |
+| PostgreSQL | If you want to manipulate the GEOMETRY type in PostgreSQL. | org.postgresql.Driver | jdbc:postgresql://localhost:5432/test | [Download](https://mvnrepository.com/artifact/net.postgis/postgis-jdbc)  |
 
 ## Database Dependency
 
 > Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example PostgreSQL datasource: cp postgresql-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
+> For example PostgreSQL datasource: cp postgresql-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/<br/>
+> If you want to manipulate the GEOMETRY type in PostgreSQL, add postgresql-xxx.jar and postgis-jdbc-xxx.jar to $SEATNUNNEL_HOME/plugins/jdbc/lib/
 
 ## Data Type Mapping
 
-|                     PostgreSQL Data type                     |                                                              Seatunnel Data type                                                               |
-|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| BOOL<BR/>                                                    | BOOLEAN                                                                                                                                        |
-| _BOOL<BR/>                                                   | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |
-| BYTEA<BR/>                                                   | BYTES                                                                                                                                          |
-| _BYTEA<BR/>                                                  | ARRAY&LT;TINYINT&GT;                                                                                                                           |
-| INT2<BR/>SMALLSERIAL<BR/>INT4<BR/>SERIAL<BR/>                | INT                                                                                                                                            |
-| _INT2<BR/>_INT4<BR/>                                         | ARRAY&LT;INT&GT;                                                                                                                               |
-| INT8<BR/>BIGSERIAL<BR/>                                      | BIGINT                                                                                                                                         |
-| _INT8<BR/>                                                   | ARRAY&LT;BIGINT&GT;                                                                                                                            |
-| FLOAT4<BR/>                                                  | FLOAT                                                                                                                                          |
-| _FLOAT4<BR/>                                                 | ARRAY&LT;FLOAT&GT;                                                                                                                             |
-| FLOAT8<BR/>                                                  | DOUBLE                                                                                                                                         |
-| _FLOAT8<BR/>                                                 | ARRAY&LT;DOUBLE&GT;                                                                                                                            |
-| NUMERIC(Get the designated column's specified column size>0) | DECIMAL(Get the designated column's specified column size,Gets the number of digits in the specified column to the right of the decimal point) |
-| NUMERIC(Get the designated column's specified column size<0) | DECIMAL(38, 18)                                                                                                                                |
-| BPCHAR<BR/>CHARACTER<BR/>VARCHAR<BR/>TEXT                    | STRING                                                                                                                                         |
-| _BPCHAR<BR/>_CHARACTER<BR/>_VARCHAR<BR/>_TEXT                | ARRAY&LT;STRING&GT;                                                                                                                            |
-| TIMESTAMP<BR/>                                               | TIMESTAMP                                                                                                                                      |
-| TIME<BR/>                                                    | TIME                                                                                                                                           |
-| DATE<BR/>                                                    | DATE                                                                                                                                           |
-| OTHER DATA TYPES                                             | NOT SUPPORTED YET                                                                                                                              |
+|                         PostgreSQL Data type                         |                                                              Seatunnel Data type                                                               |
+|----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| BOOL<br/>                                                            | BOOLEAN                                                                                                                                        |
+| _BOOL<br/>                                                           | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |
+| BYTEA<br/>                                                           | BYTES                                                                                                                                          |
+| _BYTEA<br/>                                                          | ARRAY&LT;TINYINT&GT;                                                                                                                           |
+| INT2<br/>SMALLSERIAL<br/>INT4<br/>SERIAL<br/>                        | INT                                                                                                                                            |
+| _INT2<br/>_INT4<br/>                                                 | ARRAY&LT;INT&GT;                                                                                                                               |
+| INT8<br/>BIGSERIAL<br/>                                              | BIGINT                                                                                                                                         |
+| _INT8<br/>                                                           | ARRAY&LT;BIGINT&GT;                                                                                                                            |
+| FLOAT4<br/>                                                          | FLOAT                                                                                                                                          |
+| _FLOAT4<br/>                                                         | ARRAY&LT;FLOAT&GT;                                                                                                                             |
+| FLOAT8<br/>                                                          | DOUBLE                                                                                                                                         |
+| _FLOAT8<br/>                                                         | ARRAY&LT;DOUBLE&GT;                                                                                                                            |
+| NUMERIC(Get the designated column's specified column size>0)         | DECIMAL(Get the designated column's specified column size,Gets the number of digits in the specified column to the right of the decimal point) |
+| NUMERIC(Get the designated column's specified column size<0)         | DECIMAL(38, 18)                                                                                                                                |
+| BPCHAR<br/>CHARACTER<br/>VARCHAR<br/>TEXT<br/>GEOMETRY<br/>GEOGRAPHY | STRING                                                                                                                                         |
+| _BPCHAR<br/>_CHARACTER<br/>_VARCHAR<br/>_TEXT                        | ARRAY&LT;STRING&GT;                                                                                                                            |
+| TIMESTAMP<br/>                                                       | TIMESTAMP                                                                                                                                      |
+| TIME<br/>                                                            | TIME                                                                                                                                           |
+| DATE<br/>                                                            | DATE                                                                                                                                           |
+| OTHER DATA TYPES                                                     | NOT SUPPORTED YET                                                                                                                              |
 
 ## Options
 
@@ -100,7 +102,6 @@ env {
 }
 
 source {
-  # This is a example source plugin **only for test and demonstrate the feature source plugin**
   FakeSource {
     parallelism = 1
     result_table_name = "fake"
