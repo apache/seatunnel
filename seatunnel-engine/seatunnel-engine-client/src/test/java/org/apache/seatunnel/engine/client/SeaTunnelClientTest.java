@@ -273,12 +273,20 @@ public class SeaTunnelClientTest {
 
             await().atMost(180000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            jobClient.getJobDetailStatus(jobId).contains("FINISHED")
-                                                    && jobClient
-                                                            .listJobStatus(true)
-                                                            .contains("FINISHED")));
+                            () -> {
+                                Thread.sleep(1000);
+                                System.out.println(
+                                        "======================job status:"
+                                                + jobClient.getJobDetailStatus(jobId));
+                                System.out.println(
+                                        "======================list job status:"
+                                                + jobClient.listJobStatus(true));
+                                Assertions.assertTrue(
+                                        jobClient.getJobDetailStatus(jobId).contains("FINISHED")
+                                                && jobClient
+                                                        .listJobStatus(true)
+                                                        .contains("FINISHED"));
+                            });
             // Finished
             JobDAGInfo jobInfo = jobClient.getJobInfo(jobId);
             Assertions.assertTrue(

@@ -31,6 +31,15 @@ public enum CheckpointType {
     private final boolean auto;
     private final String name;
 
+    public static CheckpointType fromName(String name) {
+        for (CheckpointType type : CheckpointType.values()) {
+            if (type.name.equals(name)) {
+                return type;
+            }
+        }
+        throw new IllegalArgumentException("Unknown checkpoint type: " + name);
+    }
+
     CheckpointType(boolean auto, String name) {
         this.auto = auto;
         this.name = name;
