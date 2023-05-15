@@ -29,7 +29,7 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST;
 
 @Data
-@Builder(builderClassName = "Builder")
+@Builder
 public class JdbcSinkConfig implements Serializable {
     private static final long serialVersionUID = 2L;
 
@@ -40,10 +40,10 @@ public class JdbcSinkConfig implements Serializable {
     private String table;
     private List<String> primaryKeys;
     private boolean supportUpsertByQueryPrimaryKeyExist;
-    private boolean isPrimaryKeyUpdated;
+    @Builder.Default private boolean isPrimaryKeyUpdated = true;
 
     public static JdbcSinkConfig of(ReadonlyConfig config) {
-        JdbcSinkConfig.Builder builder = JdbcSinkConfig.builder();
+        JdbcSinkConfigBuilder builder = JdbcSinkConfig.builder();
         builder.jdbcConnectionConfig(JdbcConnectionConfig.of(config));
         builder.isExactlyOnce(config.get(JdbcOptions.IS_EXACTLY_ONCE));
         config.getOptional(JdbcOptions.PRIMARY_KEYS).ifPresent(builder::primaryKeys);
@@ -51,8 +51,7 @@ public class JdbcSinkConfig implements Serializable {
         config.getOptional(JdbcOptions.TABLE).ifPresent(builder::table);
         config.getOptional(SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST)
                 .ifPresent(builder::supportUpsertByQueryPrimaryKeyExist);
-        config.getOptional(IS_PRIMARY_KEY_UPDATED)
-                .ifPresent(builder::isPrimaryKeyUpdated);
+        config.getOptional(IS_PRIMARY_KEY_UPDATED).ifPresent(builder::isPrimaryKeyUpdated);
         config.getOptional(JdbcOptions.QUERY).ifPresent(builder::simpleSql);
         return builder.build();
     }
