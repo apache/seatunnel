@@ -22,7 +22,7 @@ Version Supported
 
 ## Options
 
-| name                        | type    | required | default value   |
+|            name             |  type   | required |  default value  |
 |-----------------------------|---------|----------|-----------------|
 | node_urls                   | list    | yes      | -               |
 | base-url                    | string  | yes      | -               |

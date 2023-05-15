@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadEntity;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadResponse;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.HttpHelper;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.HttpRequestBuilder;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadEntity;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadResponse;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 

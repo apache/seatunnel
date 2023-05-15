@@ -20,8 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
 
-import org.apache.seatunnel.common.utils.JsonUtils;
-
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;

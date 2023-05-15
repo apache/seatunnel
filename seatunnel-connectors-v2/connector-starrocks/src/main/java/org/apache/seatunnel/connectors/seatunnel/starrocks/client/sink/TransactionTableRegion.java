@@ -21,9 +21,9 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadEntityMeta;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadResponse;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StreamLoadDataFormat;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StreamLoadDataFormat;
 
 import java.util.LinkedList;
 import java.util.Queue;

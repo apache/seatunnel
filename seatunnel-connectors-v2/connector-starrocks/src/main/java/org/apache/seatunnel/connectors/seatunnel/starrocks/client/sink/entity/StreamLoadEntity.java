@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity;
 
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.TableRegion;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StreamLoadDataFormat;
+
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.AbstractHttpEntity;
@@ -24,8 +27,6 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.message.BasicHeader;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.TableRegion;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StreamLoadDataFormat;
 
 import java.io.IOException;
 import java.io.InputStream;
