@@ -15,27 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.serializable;
+package org.apache.seatunnel.shade.com.typesafe.config;
 
-import org.apache.seatunnel.api.table.type.Record;
+import java.io.Serializable;
 
-import com.hazelcast.nio.serialization.Serializer;
-import com.hazelcast.nio.serialization.SerializerHook;
-
-public class RecordSerializerHook implements SerializerHook<Record> {
-
-    @Override
-    public Class<Record> getSerializationType() {
-        return Record.class;
-    }
-
-    @Override
-    public Serializer createSerializer() {
-        return new RecordSerializer();
-    }
-
-    @Override
-    public boolean isOverwritable() {
-        return true;
-    }
+/**
+ * Copy from {@link com.typesafe.config.ConfigMergeable}, in order to make the {@link Config} can be
+ * serialized
+ */
+public interface ConfigMergeable extends Serializable {
+    ConfigMergeable withFallback(ConfigMergeable configMergeable);
 }
