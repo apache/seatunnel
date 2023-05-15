@@ -56,37 +56,31 @@ public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                     MongodbWriterOptions.builder()
                             .withConnectString(connection)
                             .withDatabase(database)
-                            .withCollection(collection)
-                            .withFlushSize(
-                                    pluginConfig.hasPath(MongodbConfig.BUFFER_FLUSH_MAX_ROWS.key())
-                                            ? pluginConfig.getInt(
-                                                    MongodbConfig.BUFFER_FLUSH_MAX_ROWS.key())
-                                            : MongodbConfig.BUFFER_FLUSH_MAX_ROWS.defaultValue())
-                            .withBatchIntervalMs(
-                                    pluginConfig.hasPath(MongodbConfig.BUFFER_FLUSH_INTERVAL.key())
-                                            ? pluginConfig.getLong(
-                                                    MongodbConfig.BUFFER_FLUSH_INTERVAL.key())
-                                            : MongodbConfig.BUFFER_FLUSH_INTERVAL.defaultValue())
-                            .withUpsertKey(
-                                    pluginConfig.hasPath(MongodbConfig.UPSERT_KEY.key())
-                                            ? pluginConfig
-                                                    .getStringList(MongodbConfig.UPSERT_KEY.key())
-                                                    .toArray(new String[0])
-                                            : new String[] {})
-                            .withUpsertEnable(
-                                    pluginConfig.hasPath(MongodbConfig.UPSERT_ENABLE.key())
-                                            ? pluginConfig.getBoolean(
-                                                    MongodbConfig.UPSERT_ENABLE.key())
-                                            : MongodbConfig.UPSERT_ENABLE.defaultValue())
-                            .withRetryMax(
-                                    pluginConfig.hasPath(MongodbConfig.RETRY_MAX.key())
-                                            ? pluginConfig.getInt(MongodbConfig.RETRY_MAX.key())
-                                            : MongodbConfig.RETRY_MAX.defaultValue())
-                            .withRetryInterval(
-                                    pluginConfig.hasPath(MongodbConfig.RETRY_INTERVAL.key())
-                                            ? pluginConfig.getLong(
-                                                    MongodbConfig.RETRY_INTERVAL.key())
-                                            : MongodbConfig.RETRY_INTERVAL.defaultValue());
+                            .withCollection(collection);
+            if (pluginConfig.hasPath(MongodbConfig.BUFFER_FLUSH_MAX_ROWS.key())) {
+                builder.withFlushSize(
+                        pluginConfig.getInt(MongodbConfig.BUFFER_FLUSH_MAX_ROWS.key()));
+            }
+            if (pluginConfig.hasPath(MongodbConfig.BUFFER_FLUSH_INTERVAL.key())) {
+                builder.withBatchIntervalMs(
+                        pluginConfig.getLong(MongodbConfig.BUFFER_FLUSH_INTERVAL.key()));
+            }
+            if (pluginConfig.hasPath(MongodbConfig.UPSERT_KEY.key())) {
+                builder.withUpsertKey(
+                        pluginConfig
+                                .getStringList(MongodbConfig.UPSERT_KEY.key())
+                                .toArray(new String[0]));
+            }
+            if (pluginConfig.hasPath(MongodbConfig.UPSERT_ENABLE.key())) {
+                builder.withUpsertEnable(
+                        pluginConfig.getBoolean(MongodbConfig.UPSERT_ENABLE.key()));
+            }
+            if (pluginConfig.hasPath(MongodbConfig.RETRY_MAX.key())) {
+                builder.withRetryMax(pluginConfig.getInt(MongodbConfig.RETRY_MAX.key()));
+            }
+            if (pluginConfig.hasPath(MongodbConfig.RETRY_INTERVAL.key())) {
+                builder.withRetryInterval(pluginConfig.getLong(MongodbConfig.RETRY_INTERVAL.key()));
+            }
             this.options = builder.build();
         }
     }
@@ -114,6 +108,7 @@ public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                         RowDataToBsonConverters.createConverter(seaTunnelRowType),
                         options,
                         new MongoKeyExtractor(options)),
-                options);
+                options,
+                context);
     }
 }

@@ -80,7 +80,7 @@ public class MongodbSource
             String database = pluginConfig.getString(MongodbConfig.DATABASE.key());
             String collection = pluginConfig.getString(MongodbConfig.COLLECTION.key());
             clientProvider =
-                    MongodbCollectionProvider.getBuilder()
+                    MongodbCollectionProvider.builder()
                             .connectionString(connection)
                             .database(database)
                             .collection(collection)
@@ -91,54 +91,54 @@ public class MongodbSource
         } else {
             this.rowType = CatalogTableUtil.buildSimpleTextSchema();
         }
-        deserializer =
-                new DocumentRowDataDeserializer(
-                        rowType.getFieldNames(),
-                        rowType,
-                        pluginConfig.hasPath(MongodbConfig.FLAT_SYNC_STRING.key())
-                                ? pluginConfig.getBoolean(MongodbConfig.FLAT_SYNC_STRING.key())
-                                : MongodbConfig.FLAT_SYNC_STRING.defaultValue());
-        splitStrategy =
-                SamplingSplitStrategy.builder()
-                        .setMatchQuery(
-                                pluginConfig.hasPath(MongodbConfig.MATCH_QUERY.key())
-                                        ? BsonDocument.parse(
-                                                pluginConfig.getString(
-                                                        MongodbConfig.MATCH_QUERY.key()))
-                                        : new BsonDocument())
-                        .setClientProvider(clientProvider)
-                        .setSplitKey(
-                                pluginConfig.hasPath(MongodbConfig.SPLIT_KEY.key())
-                                        ? pluginConfig.getString(MongodbConfig.SPLIT_KEY.key())
-                                        : MongodbConfig.SPLIT_KEY.defaultValue())
-                        .setSizePerSplit(
-                                pluginConfig.hasPath(MongodbConfig.SPLIT_SIZE.key())
-                                        ? pluginConfig.getLong(MongodbConfig.SPLIT_SIZE.key())
-                                        : MongodbConfig.SPLIT_SIZE.defaultValue())
-                        .setProjection(
-                                pluginConfig.hasPath(MongodbConfig.PROJECTION.key())
-                                        ? BsonDocument.parse(
-                                                pluginConfig.getString(
-                                                        MongodbConfig.PROJECTION.key()))
-                                        : new BsonDocument())
-                        .build();
 
-        mongodbReadOptions =
-                MongodbReadOptions.builder()
-                        .setMaxTimeMS(
-                                pluginConfig.hasPath(MongodbConfig.MAX_TIME_MIN.key())
-                                        ? pluginConfig.getLong(MongodbConfig.MAX_TIME_MIN.key())
-                                        : MongodbConfig.MAX_TIME_MIN.defaultValue())
-                        .setFetchSize(
-                                pluginConfig.hasPath(MongodbConfig.FETCH_SIZE.key())
-                                        ? pluginConfig.getInt(MongodbConfig.FETCH_SIZE.key())
-                                        : MongodbConfig.FETCH_SIZE.defaultValue())
-                        .setNoCursorTimeout(
-                                pluginConfig.hasPath(MongodbConfig.CURSOR_NO_TIMEOUT.key())
-                                        ? pluginConfig.getBoolean(
-                                                MongodbConfig.CURSOR_NO_TIMEOUT.key())
-                                        : MongodbConfig.CURSOR_NO_TIMEOUT.defaultValue())
-                        .build();
+        if (pluginConfig.hasPath(MongodbConfig.FLAT_SYNC_STRING.key())) {
+            deserializer =
+                    new DocumentRowDataDeserializer(
+                            rowType.getFieldNames(),
+                            rowType,
+                            pluginConfig.getBoolean(MongodbConfig.FLAT_SYNC_STRING.key()));
+        } else {
+            deserializer =
+                    new DocumentRowDataDeserializer(
+                            rowType.getFieldNames(),
+                            rowType,
+                            MongodbConfig.FLAT_SYNC_STRING.defaultValue());
+        }
+
+        SamplingSplitStrategy.Builder splitStrategyBuilder = SamplingSplitStrategy.builder();
+        if (pluginConfig.hasPath(MongodbConfig.MATCH_QUERY.key())) {
+            splitStrategyBuilder.setMatchQuery(
+                    BsonDocument.parse(pluginConfig.getString(MongodbConfig.MATCH_QUERY.key())));
+        }
+        if (pluginConfig.hasPath(MongodbConfig.SPLIT_KEY.key())) {
+            splitStrategyBuilder.setSplitKey(pluginConfig.getString(MongodbConfig.SPLIT_KEY.key()));
+        }
+        if (pluginConfig.hasPath(MongodbConfig.SPLIT_SIZE.key())) {
+            splitStrategyBuilder.setSizePerSplit(
+                    pluginConfig.getLong(MongodbConfig.SPLIT_SIZE.key()));
+        }
+        if (pluginConfig.hasPath(MongodbConfig.PROJECTION.key())) {
+            splitStrategyBuilder.setProjection(
+                    BsonDocument.parse(pluginConfig.getString(MongodbConfig.PROJECTION.key())));
+        }
+        splitStrategy = splitStrategyBuilder.setClientProvider(clientProvider).build();
+
+        MongodbReadOptions.MongoReadOptionsBuilder mongoReadOptionsBuilder =
+                MongodbReadOptions.builder();
+        if (pluginConfig.hasPath(MongodbConfig.MAX_TIME_MIN.key())) {
+            mongoReadOptionsBuilder.setMaxTimeMS(
+                    pluginConfig.getLong(MongodbConfig.MAX_TIME_MIN.key()));
+        }
+        if (pluginConfig.hasPath(MongodbConfig.FETCH_SIZE.key())) {
+            mongoReadOptionsBuilder.setFetchSize(
+                    pluginConfig.getInt(MongodbConfig.FETCH_SIZE.key()));
+        }
+        if (pluginConfig.hasPath(MongodbConfig.CURSOR_NO_TIMEOUT.key())) {
+            mongoReadOptionsBuilder.setNoCursorTimeout(
+                    pluginConfig.getBoolean(MongodbConfig.CURSOR_NO_TIMEOUT.key()));
+        }
+        mongodbReadOptions = mongoReadOptionsBuilder.build();
     }
 
     @Override

@@ -22,7 +22,7 @@ import com.google.common.base.Preconditions;
 /** A builder class for creating {@link MongodbClientProvider}. */
 public class MongodbCollectionProvider {
 
-    public static Builder getBuilder() {
+    public static Builder builder() {
         return new Builder();
     }
 

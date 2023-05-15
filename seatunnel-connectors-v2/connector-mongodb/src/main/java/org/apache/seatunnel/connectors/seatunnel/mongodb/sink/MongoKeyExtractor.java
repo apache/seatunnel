@@ -28,7 +28,7 @@ public class MongoKeyExtractor implements SerializableFunction<BsonDocument, Bso
 
     private static final long serialVersionUID = 1L;
 
-    private static String[] upsertKey;
+    private final String[] upsertKey;
 
     public MongoKeyExtractor(MongodbWriterOptions options) {
         upsertKey = options.getUpsertKey();

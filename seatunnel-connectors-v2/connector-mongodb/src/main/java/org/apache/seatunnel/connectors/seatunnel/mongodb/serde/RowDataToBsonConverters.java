@@ -252,7 +252,8 @@ public class RowDataToBsonConverters implements Serializable {
             case ROW:
                 return createRowConverter((SeaTunnelRowType) type);
             default:
-                throw new UnsupportedOperationException("Not support to parse type: " + type);
+                throw new MongodbConnectorException(
+                        UNSUPPORTED_DATA_TYPE, "Not support to parse type: " + type);
         }
     }
 

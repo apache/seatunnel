@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
@@ -59,9 +60,14 @@ public class MongodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private volatile long lastSendTime = 0L;
 
+    private final SinkWriter.Context context;
+
     public MongodbWriter(
-            DocumentSerializer<SeaTunnelRow> serializer, MongodbWriterOptions options) {
+            DocumentSerializer<SeaTunnelRow> serializer,
+            MongodbWriterOptions options,
+            SinkWriter.Context context) {
         initOptions(options);
+        this.context = context;
         this.serializer = serializer;
         this.bulkRequests = new ArrayList<>();
     }
@@ -70,7 +76,7 @@ public class MongodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.maxRetries = options.getRetryMax();
         this.retryIntervalMs = options.getRetryInterval();
         this.collectionProvider =
-                MongodbCollectionProvider.getBuilder()
+                MongodbCollectionProvider.builder()
                         .connectionString(options.getConnectString())
                         .database(options.getDatabase())
                         .collection(options.getCollection())

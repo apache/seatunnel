@@ -60,7 +60,9 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
 
     private static final Random random = new Random();
 
-    private static final List<Document> TEST_DATASET = generateTestDataSet(5);
+    private static final List<Document> TEST_MATCH_DATASET = generateTestDataSet(5);
+
+    private static final List<Document> TEST_SPLIT_DATASET = generateTestDataSet(10);
 
     private static final String MONGODB_IMAGE = "mongo:latest";
 
@@ -72,7 +74,11 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
 
     private static final String MONGODB_MATCH_TABLE = "test_match_op_db";
 
+    private static final String MONGODB_SPLIT_TABLE = "test_split_op_db";
+
     private static final String MONGODB_MATCH_RESULT_TABLE = "test_match_op_result_db";
+
+    private static final String MONGODB_SPLIT_RESULT_TABLE = "test_split_op_result_db";
 
     private static final String MONGODB_SINK_TABLE = "test_source_sink_table";
 
@@ -103,11 +109,13 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, queryResult.getExitCode(), queryResult.getStderr());
 
         Assertions.assertIterableEquals(
-                TEST_DATASET.stream()
+                TEST_MATCH_DATASET.stream()
                         .filter(x -> x.get("c_int").equals(2))
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()),
-                readMongodbData().stream().peek(e -> e.remove("_id")).collect(Collectors.toList()));
+                readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
         clearDate(MONGODB_MATCH_RESULT_TABLE);
 
         Container.ExecResult projectionResult =
@@ -115,12 +123,14 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, projectionResult.getExitCode(), projectionResult.getStderr());
 
         Assertions.assertIterableEquals(
-                TEST_DATASET.stream()
+                TEST_MATCH_DATASET.stream()
                         .map(Document::new)
                         .peek(document -> document.remove("c_bigint"))
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()),
-                readMongodbData().stream().peek(e -> e.remove("_id")).collect(Collectors.toList()));
+                readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
         clearDate(MONGODB_MATCH_RESULT_TABLE);
     }
 
@@ -157,6 +167,38 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         clearDate(MONGODB_FLAT_TABLE);
     }
 
+    @TestTemplate
+    public void testMongodbSourceSplit(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult queryResult =
+                container.executeJob("/splitIT/mongodb_split_key_source_to_assert.conf");
+        Assertions.assertEquals(0, queryResult.getExitCode(), queryResult.getStderr());
+
+        Assertions.assertIterableEquals(
+                TEST_SPLIT_DATASET.stream()
+                        .map(Document::new)
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()),
+                readMongodbData(MONGODB_SPLIT_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_SPLIT_RESULT_TABLE);
+
+        Container.ExecResult projectionResult =
+                container.executeJob("/splitIT/mongodb_split_size_source_to_assert.conf");
+        Assertions.assertEquals(0, projectionResult.getExitCode(), projectionResult.getStderr());
+
+        Assertions.assertIterableEquals(
+                TEST_SPLIT_DATASET.stream()
+                        .map(Document::new)
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()),
+                readMongodbData(MONGODB_SPLIT_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_SPLIT_RESULT_TABLE);
+    }
+
     public void initConnection() {
         String host = mongodbContainer.getContainerIpAddress();
         int port = mongodbContainer.getFirstMappedPort();
@@ -165,12 +207,19 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
     }
 
     private void initSourceData() {
-        MongoCollection<Document> sourceTable =
+        MongoCollection<Document> sourceMatchTable =
                 client.getDatabase(MongodbIT.MONGODB_DATABASE)
                         .getCollection(MongodbIT.MONGODB_MATCH_TABLE);
 
-        sourceTable.deleteMany(new Document());
-        sourceTable.insertMany(MongodbIT.TEST_DATASET);
+        sourceMatchTable.deleteMany(new Document());
+        sourceMatchTable.insertMany(MongodbIT.TEST_MATCH_DATASET);
+
+        MongoCollection<Document> sourceSplitTable =
+                client.getDatabase(MongodbIT.MONGODB_DATABASE)
+                        .getCollection(MongodbIT.MONGODB_SPLIT_TABLE);
+
+        sourceSplitTable.deleteMany(new Document());
+        sourceSplitTable.insertMany(MongodbIT.TEST_SPLIT_DATASET);
     }
 
     private void clearDate(String table) {
@@ -272,11 +321,10 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         return sb.toString();
     }
 
-    private List<Document> readMongodbData() {
+    private List<Document> readMongodbData(String collection) {
         MongoCollection<Document> sinkTable =
-                client.getDatabase(MONGODB_DATABASE)
-                        .getCollection(MongodbIT.MONGODB_MATCH_RESULT_TABLE);
-        MongoCursor<Document> cursor = sinkTable.find().sort(Sorts.ascending("id")).cursor();
+                client.getDatabase(MONGODB_DATABASE).getCollection(collection);
+        MongoCursor<Document> cursor = sinkTable.find().sort(Sorts.ascending("c_int")).cursor();
         List<Document> documents = new ArrayList<>();
         while (cursor.hasNext()) {
             documents.add(cursor.next());
