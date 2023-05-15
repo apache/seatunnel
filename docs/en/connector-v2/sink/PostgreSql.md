@@ -2,15 +2,14 @@
 
 > JDBC PostgreSql Sink Connector
 
-## Support those engines
+## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
 > Seatunnel Zeta<br/>
 
-## Key features
+## Key Features
 
-- [x] [batch](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
 
@@ -22,41 +21,41 @@
 Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
 semantics (using XA transaction guarantee).
 
-## Supported DataSource list
+## Supported DataSource Info
 
-| datasource |                    supported versions                    |        driver         |                  url                  |                                  maven                                   |
+| Datasource |                    Supported Versions                    |        Driver         |                  Url                  |                                  Maven                                   |
 |------------|----------------------------------------------------------|-----------------------|---------------------------------------|--------------------------------------------------------------------------|
 | PostgreSQL | Different dependency version has different driver class. | org.postgresql.Driver | jdbc:postgresql://localhost:5432/test | [Download](https://mvnrepository.com/artifact/org.postgresql/postgresql) |
 
-## Database dependency
+## Database Dependency
 
 > Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
 > For example PostgreSQL datasource: cp postgresql-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
 
 ## Data Type Mapping
 
-|                     PostgreSQL Data type                     |                                                          Seatunnel Data type                                                           |
-|--------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
-| bool<br/>                                                    | BOOLEAN                                                                                                                                |
-| _bool<br/>                                                   | ARRAY&lt;BOOLEAN&gt;                                                                                                                   |
-| bytea<br/>                                                   | BYTES                                                                                                                                  |
-| _bytea<br/>                                                  | ARRAY&lt;TINYINT&gt;                                                                                                                   |
-| int2<br/>smallserial<br/>int4<br/>serial<br/>                | INT                                                                                                                                    |
-| _int2<br/>_int4<br/>                                         | ARRAY&lt;INT&gt;                                                                                                                       |
-| int8<br/>bigserial<br/>                                      | BIGINT                                                                                                                                 |
-| _int8<br/>                                                   | ARRAY&lt;BIGINT&gt;                                                                                                                    |
-| float4<br/>                                                  | FLOAT                                                                                                                                  |
-| _float4<br/>                                                 | ARRAY&lt;FLOAT&gt;                                                                                                                     |
-| float8<br/>                                                  | DOUBLE                                                                                                                                 |
-| _float8<br/>                                                 | ARRAY&lt;DOUBLE&gt;                                                                                                                    |
-| numeric(Get the designated column's specified column size>0) | DECIMAL(Get the designated column's specified column size,Gets the designated column's number of digits to right of the decimal point) |
-| numeric(Get the designated column's specified column size<0) | DECIMAL(38, 18)                                                                                                                        |
-| bpchar<br/>character<br/>varchar<br/>text                    | STRING                                                                                                                                 |
-| _bpchar<br/>_character<br/>_varchar<br/>_text                | ARRAY&lt;STRING&gt;                                                                                                                    |
-| timestamp<br/>                                               | TIMESTAMP                                                                                                                              |
-| time<br/>                                                    | TIME                                                                                                                                   |
-| date<br/>                                                    | DATE                                                                                                                                   |
-| Other Data types                                             | Not supported yet                                                                                                                      |
+|                     PostgreSQL Data type                     |                                                              Seatunnel Data type                                                               |
+|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| BOOL<BR/>                                                    | BOOLEAN                                                                                                                                        |
+| _BOOL<BR/>                                                   | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |
+| BYTEA<BR/>                                                   | BYTES                                                                                                                                          |
+| _BYTEA<BR/>                                                  | ARRAY&LT;TINYINT&GT;                                                                                                                           |
+| INT2<BR/>SMALLSERIAL<BR/>INT4<BR/>SERIAL<BR/>                | INT                                                                                                                                            |
+| _INT2<BR/>_INT4<BR/>                                         | ARRAY&LT;INT&GT;                                                                                                                               |
+| INT8<BR/>BIGSERIAL<BR/>                                      | BIGINT                                                                                                                                         |
+| _INT8<BR/>                                                   | ARRAY&LT;BIGINT&GT;                                                                                                                            |
+| FLOAT4<BR/>                                                  | FLOAT                                                                                                                                          |
+| _FLOAT4<BR/>                                                 | ARRAY&LT;FLOAT&GT;                                                                                                                             |
+| FLOAT8<BR/>                                                  | DOUBLE                                                                                                                                         |
+| _FLOAT8<BR/>                                                 | ARRAY&LT;DOUBLE&GT;                                                                                                                            |
+| NUMERIC(Get the designated column's specified column size>0) | DECIMAL(Get the designated column's specified column size,Gets the number of digits in the specified column to the right of the decimal point) |
+| NUMERIC(Get the designated column's specified column size<0) | DECIMAL(38, 18)                                                                                                                                |
+| BPCHAR<BR/>CHARACTER<BR/>VARCHAR<BR/>TEXT                    | STRING                                                                                                                                         |
+| _BPCHAR<BR/>_CHARACTER<BR/>_VARCHAR<BR/>_TEXT                | ARRAY&LT;STRING&GT;                                                                                                                            |
+| TIMESTAMP<BR/>                                               | TIMESTAMP                                                                                                                                      |
+| TIME<BR/>                                                    | TIME                                                                                                                                           |
+| DATE<BR/>                                                    | DATE                                                                                                                                           |
+| OTHER DATA TYPES                                             | NOT SUPPORTED YET                                                                                                                              |
 
 ## Options
 
@@ -82,13 +81,13 @@ semantics (using XA transaction guarantee).
 | auto_commit                               | Boolean | No       | true          | Automatic transaction commit is enabled by default                                                                                                                                                                                           |
 | common-options                            |         | no       | -             | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                          |
 
-## tips
+### Tips
 
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
 
 ## Task Example
 
-### simple:
+### Simple:
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table. Before run this job, you need create database test and table test_table in your PostgreSQL. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
 
@@ -157,7 +156,7 @@ sink {
 }
 ```
 
-### CDC(Change data capture) event
+### CDC(Change Data Capture) Event
 
 > CDC change data is also supported by us In this case, you need config database, table and primary_keys.
 

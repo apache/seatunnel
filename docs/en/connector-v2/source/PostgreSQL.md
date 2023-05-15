@@ -2,15 +2,16 @@
 
 > JDBC PostgreSQL Source Connector
 
-## Support those engines
+## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
 > Seatunnel Zeta<br/>
 
-## Key features
+## Key Features
 
 - [x] [batch](../../concept/connector-v2-features.md)
+- [ ] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
@@ -22,45 +23,45 @@
 
 Read external data source data through JDBC.
 
-## Supported DataSource list
+## Supported DataSource Info
 
-| datasource |                    supported versions                    |        driver         |                  url                  |                                  maven                                   |
+| Datasource |                    Supported versions                    |        Driver         |                  Url                  |                                  Maven                                   |
 |------------|----------------------------------------------------------|-----------------------|---------------------------------------|--------------------------------------------------------------------------|
 | PostgreSQL | Different dependency version has different driver class. | org.postgresql.Driver | jdbc:postgresql://localhost:5432/test | [Download](https://mvnrepository.com/artifact/org.postgresql/postgresql) |
 
-## Database dependency
+## Database Dependency
 
 > Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
 > For example PostgreSQL datasource: cp postgresql-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
 
 ## Data Type Mapping
 
-|                     PostgreSQL Data type                     |                                                          Seatunnel Data type                                                           |
-|--------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
-| bool<br/>                                                    | BOOLEAN                                                                                                                                |
-| _bool<br/>                                                   | ARRAY&lt;BOOLEAN&gt;                                                                                                                   |
-| bytea<br/>                                                   | BYTES                                                                                                                                  |
-| _bytea<br/>                                                  | ARRAY&lt;TINYINT&gt;                                                                                                                   |
-| int2<br/>smallserial<br/>int4<br/>serial<br/>                | INT                                                                                                                                    |
-| _int2<br/>_int4<br/>                                         | ARRAY&lt;INT&gt;                                                                                                                       |
-| int8<br/>bigserial<br/>                                      | BIGINT                                                                                                                                 |
-| _int8<br/>                                                   | ARRAY&lt;BIGINT&gt;                                                                                                                    |
-| float4<br/>                                                  | FLOAT                                                                                                                                  |
-| _float4<br/>                                                 | ARRAY&lt;FLOAT&gt;                                                                                                                     |
-| float8<br/>                                                  | DOUBLE                                                                                                                                 |
-| _float8<br/>                                                 | ARRAY&lt;DOUBLE&gt;                                                                                                                    |
-| numeric(Get the designated column's specified column size>0) | DECIMAL(Get the designated column's specified column size,Gets the designated column's number of digits to right of the decimal point) |
-| numeric(Get the designated column's specified column size<0) | DECIMAL(38, 18)                                                                                                                        |
-| bpchar<br/>character<br/>varchar<br/>text                    | STRING                                                                                                                                 |
-| _bpchar<br/>_character<br/>_varchar<br/>_text                | ARRAY&lt;STRING&gt;                                                                                                                    |
-| timestamp<br/>                                               | TIMESTAMP                                                                                                                              |
-| time<br/>                                                    | TIME                                                                                                                                   |
-| date<br/>                                                    | DATE                                                                                                                                   |
-| Other Data types                                             | Not supported yet                                                                                                                      |
+|                     PostgreSQL Data type                     |                                                              Seatunnel Data type                                                               |
+|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| BOOL<BR/>                                                    | BOOLEAN                                                                                                                                        |
+| _BOOL<BR/>                                                   | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |
+| BYTEA<BR/>                                                   | BYTES                                                                                                                                          |
+| _BYTEA<BR/>                                                  | ARRAY&LT;TINYINT&GT;                                                                                                                           |
+| INT2<BR/>SMALLSERIAL<BR/>INT4<BR/>SERIAL<BR/>                | INT                                                                                                                                            |
+| _INT2<BR/>_INT4<BR/>                                         | ARRAY&LT;INT&GT;                                                                                                                               |
+| INT8<BR/>BIGSERIAL<BR/>                                      | BIGINT                                                                                                                                         |
+| _INT8<BR/>                                                   | ARRAY&LT;BIGINT&GT;                                                                                                                            |
+| FLOAT4<BR/>                                                  | FLOAT                                                                                                                                          |
+| _FLOAT4<BR/>                                                 | ARRAY&LT;FLOAT&GT;                                                                                                                             |
+| FLOAT8<BR/>                                                  | DOUBLE                                                                                                                                         |
+| _FLOAT8<BR/>                                                 | ARRAY&LT;DOUBLE&GT;                                                                                                                            |
+| NUMERIC(Get the designated column's specified column size>0) | DECIMAL(Get the designated column's specified column size,Gets the number of digits in the specified column to the right of the decimal point) |
+| NUMERIC(Get the designated column's specified column size<0) | DECIMAL(38, 18)                                                                                                                                |
+| BPCHAR<BR/>CHARACTER<BR/>VARCHAR<BR/>TEXT                    | STRING                                                                                                                                         |
+| _BPCHAR<BR/>_CHARACTER<BR/>_VARCHAR<BR/>_TEXT                | ARRAY&LT;STRING&GT;                                                                                                                            |
+| TIMESTAMP<BR/>                                               | TIMESTAMP                                                                                                                                      |
+| TIME<BR/>                                                    | TIME                                                                                                                                           |
+| DATE<BR/>                                                    | DATE                                                                                                                                           |
+| OTHER DATA TYPES                                             | NOT SUPPORTED YET                                                                                                                              |
 
 ## Options
 
-|             name             |  type  | required |     default     |                                                                                                                            description                                                                                                                            |
+|             Name             |  Type  | Required |     Default     |                                                                                                                            Description                                                                                                                            |
 |------------------------------|--------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost:5432/test                                                                                                                                                                            |
 | driver                       | String | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use PostgreSQL the value is `org.postgresql.Driver`.                                                                                                                                   |
@@ -75,13 +76,13 @@ Read external data source data through JDBC.
 | fetch_size                   | Int    | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
 | common-options               |        | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
 
-## tips
+### Tips
 
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
 
 ## Task Example
 
-### simple:
+### Simple:
 
 > This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
 
@@ -113,7 +114,7 @@ sink {
 }
 ```
 
-### parallel:
+### Parallel:
 
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
 
@@ -131,7 +132,7 @@ source{
 }
 ```
 
-### parallel boundary:
+### Parallel Boundary:
 
 > It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
 
