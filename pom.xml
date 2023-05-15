@@ -38,7 +38,7 @@
             you need to open this annotation and change the dependency of config-shade to project.
             <module>seatunnel-config</module>
         -->
-        <module>seatunnel-config</module>
+        <!-- module>seatunnel-config</module -->
         <module>seatunnel-common</module>
         <module>seatunnel-core</module>
         <module>seatunnel-transforms-v2</module>
@@ -56,7 +56,7 @@
     <properties>
         <!--todo The classification is too confusing, reclassify by type-->
         <revision>2.3.2-SNAPSHOT</revision>
-        <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
+        <seatunnel.config.shade.version>2.3.1</seatunnel.config.shade.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
         <scala.version>2.11.12</scala.version>
@@ -285,7 +285,7 @@
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
                 <artifactId>seatunnel-config-shade</artifactId>
-                <version>${project.version}</version>
+                <version>${seatunnel.config.shade.version}</version>
             </dependency>
             <dependency>
                 <groupId>commons-codec</groupId>
