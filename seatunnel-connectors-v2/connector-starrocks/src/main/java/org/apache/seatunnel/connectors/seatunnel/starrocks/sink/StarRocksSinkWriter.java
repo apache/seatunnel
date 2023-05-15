@@ -127,8 +127,9 @@ public class StarRocksSinkWriter
         return manager.prepareCommit();
     }
 
+    @SneakyThrows
     @Override
-    public void abortPrepare() throws Exception {
+    public void abortPrepare() {
         if (sinkConfig.isEnable2PC()) {
             manager.abort();
         }
