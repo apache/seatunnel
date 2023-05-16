@@ -593,7 +593,6 @@ public class SFTPFileSystem extends FileSystem {
             try {
                 disconnect(channel);
             } catch (IOException ioe) {
-                return null;
             }
         }
     }
