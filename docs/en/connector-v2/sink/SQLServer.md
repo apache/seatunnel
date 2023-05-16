@@ -21,7 +21,7 @@
 Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
 semantics (using XA transaction guarantee).
 
-## Supported DataSource list
+## Supported DataSource Info
 
 | datasource |                    supported versions                    |                    driver                    |               url               |                                       maven                                       |
 |------------|----------------------------------------------------------|----------------------------------------------|---------------------------------|-----------------------------------------------------------------------------------|
