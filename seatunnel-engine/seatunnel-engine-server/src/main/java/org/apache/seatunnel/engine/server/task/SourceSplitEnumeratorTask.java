@@ -141,7 +141,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         final long barrierId = barrier.getId();
         Serializable snapshotState = null;
         byte[] serialize = null;
-        synchronized (enumeratorContext) {
+        synchronized (source) {
             if (barrier.snapshot()) {
                 snapshotState = enumerator.snapshotState(barrierId);
                 serialize = enumeratorStateSerializer.serialize(snapshotState);

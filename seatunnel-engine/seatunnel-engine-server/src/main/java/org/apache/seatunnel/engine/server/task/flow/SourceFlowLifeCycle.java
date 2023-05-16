@@ -163,7 +163,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                             enumeratorTaskAddress)
                     .get();
         } catch (InterruptedException | ExecutionException e) {
-            log.warn("source register failed {}", e);
+            log.warn("source register failed.", e);
             throw new RuntimeException(e);
         }
     }
@@ -177,7 +177,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                             enumeratorTaskAddress)
                     .get();
         } catch (InterruptedException | ExecutionException e) {
-            log.warn("source request split failed [{}]", e);
+            log.warn("source request split failed.", e);
             throw new RuntimeException(e);
         }
     }
@@ -192,7 +192,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                             enumeratorTaskAddress)
                     .get();
         } catch (InterruptedException | ExecutionException e) {
-            log.warn("source request split failed {}", e);
+            log.warn("source request split failed.", e);
             throw new RuntimeException(e);
         }
     }
@@ -258,7 +258,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                             enumeratorTaskAddress)
                     .get();
         } catch (InterruptedException | ExecutionException e) {
-            log.warn("source request split failed {}", e);
+            log.warn("source request split failed.", e);
             throw new RuntimeException(e);
         }
     }

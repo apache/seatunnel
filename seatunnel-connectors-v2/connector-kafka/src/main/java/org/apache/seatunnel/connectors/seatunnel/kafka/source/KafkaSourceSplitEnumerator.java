@@ -32,14 +32,7 @@ import org.apache.kafka.common.TopicPartition;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -59,10 +52,10 @@ public class KafkaSourceSplitEnumerator
     private long discoveryIntervalMillis;
     private AdminClient adminClient;
 
-    private Map<TopicPartition, KafkaSourceSplit> pendingSplit;
+    private final Map<TopicPartition, KafkaSourceSplit> pendingSplit;
     private final Map<TopicPartition, KafkaSourceSplit> assignedSplit;
     private ScheduledExecutorService executor;
-    private ScheduledFuture scheduledFuture;
+    private ScheduledFuture<?> scheduledFuture;
 
     KafkaSourceSplitEnumerator(ConsumerMetadata metadata, Context<KafkaSourceSplit> context) {
         this.metadata = metadata;
@@ -191,6 +184,7 @@ public class KafkaSourceSplitEnumerator
                     listOffsets(
                             splits.stream()
                                     .map(KafkaSourceSplit::getTopicPartition)
+                                    .filter(Objects::nonNull)
                                     .collect(Collectors.toList()),
                             OffsetSpec.latest());
             splits.forEach(
@@ -199,7 +193,7 @@ public class KafkaSourceSplitEnumerator
                         split.setEndOffset(listOffsets.get(split.getTopicPartition()));
                     });
             return splits.stream()
-                    .collect(Collectors.toMap(split -> split.getTopicPartition(), split -> split));
+                    .collect(Collectors.toMap(KafkaSourceSplit::getTopicPartition, split -> split));
         } catch (Exception e) {
             throw new KafkaConnectorException(
                     KafkaConnectorErrorCode.ADD_SPLIT_BACK_TO_ENUMERATOR_FAILED, e);
@@ -225,7 +219,7 @@ public class KafkaSourceSplitEnumerator
 
     @Override
     public KafkaSourceState snapshotState(long checkpointId) throws Exception {
-        return new KafkaSourceState(assignedSplit.values().stream().collect(Collectors.toSet()));
+        return new KafkaSourceState(new HashSet<>(assignedSplit.values()));
     }
 
     @Override
@@ -292,17 +286,15 @@ public class KafkaSourceSplitEnumerator
         }
 
         pendingSplit
-                .entrySet()
-                .forEach(
-                        s -> {
-                            if (!assignedSplit.containsKey(s.getKey())) {
-                                readySplit
-                                        .get(
-                                                getSplitOwner(
-                                                        s.getKey(), context.currentParallelism()))
-                                        .add(s.getValue());
-                            }
-                        });
+                .forEach((key, value) -> {
+                    if (!assignedSplit.containsKey(key)) {
+                        readySplit
+                                .get(
+                                        getSplitOwner(
+                                                key, context.currentParallelism()))
+                                .add(value);
+                    }
+                });
 
         readySplit.forEach(
                 (id, split) -> {
