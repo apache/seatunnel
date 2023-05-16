@@ -52,9 +52,11 @@ public class PaimonIT extends TestSuiteBase {
             };
 
     @TestTemplate
-    public void testWriteToPaimon(TestContainer container)
+    public void testWriteAndReadPaimon(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_paimon.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
+        Container.ExecResult readResult = container.executeJob("/paimon_to_assert.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
     }
 }
