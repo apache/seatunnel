@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.sqlengine.zeta.functions.udf;
+package org.apache.seatunnel.transform.sql.zeta.functions.udf;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKeyFactory;

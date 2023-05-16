@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.sqlengine.zeta.functions;
+package org.apache.seatunnel.transform.sql.zeta.functions;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
-import org.apache.seatunnel.transform.sqlengine.zeta.ZetaSQLFunction;
+import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
 import java.nio.charset.StandardCharsets;
 import java.time.temporal.Temporal;

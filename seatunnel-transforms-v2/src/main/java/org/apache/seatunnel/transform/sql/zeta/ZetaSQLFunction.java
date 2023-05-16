@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.sqlengine.zeta;
+package org.apache.seatunnel.transform.sql.zeta;
 
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -23,10 +23,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
-import org.apache.seatunnel.transform.sqlengine.zeta.functions.DateTimeFunction;
-import org.apache.seatunnel.transform.sqlengine.zeta.functions.NumericFunction;
-import org.apache.seatunnel.transform.sqlengine.zeta.functions.StringFunction;
-import org.apache.seatunnel.transform.sqlengine.zeta.functions.SystemFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.DateTimeFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.SystemFunction;
 
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.CastExpression;

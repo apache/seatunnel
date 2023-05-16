@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.sql;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -27,13 +27,11 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.transform.common.AbstractSeaTunnelTransform;
-import org.apache.seatunnel.transform.sqlengine.SQLEngine;
-import org.apache.seatunnel.transform.sqlengine.SQLEngineFactory;
-import org.apache.seatunnel.transform.sqlengine.SQLEngineFactory.EngineType;
+import org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.transform.sqlengine.SQLEngineFactory.EngineType.ZETA;
+import static org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType.ZETA;
 
 @AutoService(SeaTunnelTransform.class)
 public class SQLTransform extends AbstractSeaTunnelTransform {
