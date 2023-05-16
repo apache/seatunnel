@@ -24,7 +24,7 @@ supports query SQL and can achieve projection effect.
 
 Read external data source data through JDBC.
 
-## Supported DataSource list
+## Supported DataSource Info
 
 | datasource |   supported versions    |                    driver                    |               url               |                                       maven                                       |
 |------------|-------------------------|----------------------------------------------|---------------------------------|-----------------------------------------------------------------------------------|
