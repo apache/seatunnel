@@ -58,7 +58,7 @@ import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 @Slf4j
 public class MongodbIT extends TestSuiteBase implements TestResource {
 
-    private static final Random random = new Random();
+    private static final Random RANDOM = new Random();
 
     private static final List<Document> TEST_MATCH_DATASET = generateTestDataSet(5);
 
@@ -273,16 +273,16 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
                             .append(
                                     "c_array",
                                     Arrays.asList(
-                                            random.nextInt(),
-                                            random.nextInt(),
-                                            random.nextInt(),
-                                            random.nextInt(),
-                                            random.nextInt()))
+                                            RANDOM.nextInt(),
+                                            RANDOM.nextInt(),
+                                            RANDOM.nextInt(),
+                                            RANDOM.nextInt(),
+                                            RANDOM.nextInt()))
                             .append("c_string", randomString())
-                            .append("c_boolean", random.nextBoolean())
+                            .append("c_boolean", RANDOM.nextBoolean())
                             .append("c_int", i)
-                            .append("c_bigint", random.nextLong())
-                            .append("c_double", random.nextDouble() * Double.MAX_VALUE)
+                            .append("c_bigint", RANDOM.nextLong())
+                            .append("c_double", RANDOM.nextDouble() * Double.MAX_VALUE)
                             .append(
                                     "c_row",
                                     new Document(
@@ -295,27 +295,27 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
                                             .append(
                                                     "c_array",
                                                     Arrays.asList(
-                                                            random.nextInt(),
-                                                            random.nextInt(),
-                                                            random.nextInt(),
-                                                            random.nextInt(),
-                                                            random.nextInt()))
+                                                            RANDOM.nextInt(),
+                                                            RANDOM.nextInt(),
+                                                            RANDOM.nextInt(),
+                                                            RANDOM.nextInt(),
+                                                            RANDOM.nextInt()))
                                             .append("c_string", randomString())
-                                            .append("c_boolean", random.nextBoolean())
-                                            .append("c_int", random.nextInt())
-                                            .append("c_bigint", random.nextLong())
+                                            .append("c_boolean", RANDOM.nextBoolean())
+                                            .append("c_int", RANDOM.nextInt())
+                                            .append("c_bigint", RANDOM.nextLong())
                                             .append(
                                                     "c_double",
-                                                    random.nextDouble() * Double.MAX_VALUE)));
+                                                    RANDOM.nextDouble() * Double.MAX_VALUE)));
         }
         return dataSet;
     }
 
     private static String randomString() {
-        int length = random.nextInt(10) + 1;
+        int length = RANDOM.nextInt(10) + 1;
         StringBuilder sb = new StringBuilder(length);
         for (int i = 0; i < length; i++) {
-            char c = (char) (random.nextInt(26) + 'a');
+            char c = (char) (RANDOM.nextInt(26) + 'a');
             sb.append(c);
         }
         return sb.toString();
