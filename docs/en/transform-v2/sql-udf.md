@@ -9,7 +9,7 @@ Use UDF SPI to extends the SQL transform functions lib.
 ## UDF API
 
 ```java
-package org.apache.seatunnel.transform.sqlengine.zeta;
+package org.apache.seatunnel.transform.sql.zeta;
 
 public interface ZetaUDF {
     /**

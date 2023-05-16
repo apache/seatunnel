@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
@@ -24,14 +25,19 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.factory.Factory;
 
+import org.apache.commons.lang3.StringUtils;
+
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * Interface for reading and writing table metadata from SeaTunnel. Each connector need to contain
  * the implementation of Catalog.
  */
-public interface Catalog {
+public interface Catalog extends AutoCloseable {
 
     default Optional<Factory> getFactory() {
         return Optional.empty();
@@ -114,6 +120,40 @@ public interface Catalog {
      * @throws CatalogException in case of any runtime exception
      */
     CatalogTable getTable(TablePath tablePath) throws CatalogException, TableNotExistException;
+
+    default List<CatalogTable> getTables(ReadonlyConfig config) throws CatalogException {
+        // Get the list of specified tables
+        List<String> tableNames = config.get(CatalogOptions.TABLE_NAMES);
+        List<CatalogTable> catalogTables = new ArrayList<>();
+        if (tableNames != null && tableNames.size() >= 1) {
+            for (String tableName : tableNames) {
+                TablePath tablePath = TablePath.of(tableName);
+                if (this.tableExists(tablePath)) {
+                    catalogTables.add(this.getTable(tablePath));
+                }
+            }
+            return catalogTables;
+        }
+
+        // Get the list of table pattern
+        String tablePatternStr = config.get(CatalogOptions.TABLE_PATTERN);
+        if (StringUtils.isBlank(tablePatternStr)) {
+            return Collections.emptyList();
+        }
+        Pattern databasePattern = Pattern.compile(config.get(CatalogOptions.DATABASE_PATTERN));
+        Pattern tablePattern = Pattern.compile(config.get(CatalogOptions.TABLE_PATTERN));
+        List<String> allDatabase = this.listDatabases();
+        allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
+        for (String databaseName : allDatabase) {
+            tableNames = this.listTables(databaseName);
+            for (String tableName : tableNames) {
+                if (tablePattern.matcher(databaseName + "." + tableName).matches()) {
+                    catalogTables.add(this.getTable(TablePath.of(databaseName, tableName)));
+                }
+            }
+        }
+        return catalogTables;
+    }
 
     /**
      * Create a new table in this catalog.
