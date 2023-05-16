@@ -10,7 +10,6 @@
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
 
