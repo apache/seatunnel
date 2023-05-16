@@ -22,38 +22,35 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>seatunnel-translation-spark-2.4</artifactId>
-    <name>SeaTunnel : Translation : Spark : 2.4</name>
+    <artifactId>seatunnel-translation-spark-common</artifactId>
+    <name>SeaTunnel : Translation : Spark : Common</name>
+
+    <properties>
+        <scala.binary.version>2.12</scala.binary.version>
+    </properties>
 
     <dependencies>
 
         <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-translation-spark-common</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-streaming_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
-            <scope>${spark.scope}</scope>
+            <version>${spark.3.3.0.version}</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
-            <scope>${spark.scope}</scope>
+            <version>${spark.3.3.0.version}</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
-            <scope>${spark.scope}</scope>
+            <version>${spark.3.3.0.version}</version>
+            <scope>provided</scope>
         </dependency>
 
     </dependencies>
-
 </project>

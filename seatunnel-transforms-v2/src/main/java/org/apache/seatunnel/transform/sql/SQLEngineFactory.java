@@ -15,33 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.sqlengine.zeta;
+package org.apache.seatunnel.transform.sql;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.transform.exception.TransformException;
+import org.apache.seatunnel.transform.sql.zeta.ZetaSQLEngine;
 
-import java.util.List;
+public class SQLEngineFactory {
+    public static SQLEngine getSQLEngine(EngineType engineType) {
+        switch (engineType) {
+            case ZETA:
+            case INTERNAL:
+                return new ZetaSQLEngine();
+        }
+        throw new TransformException(
+                CommonErrorCode.UNSUPPORTED_OPERATION,
+                String.format("Unsupported SQL engine type: %s", engineType));
+    }
 
-public interface ZetaUDF {
-    /**
-     * Function name
-     *
-     * @return function name
-     */
-    String functionName();
-
-    /**
-     * The type of function result
-     *
-     * @param argsType input arguments type
-     * @return result type
-     */
-    SeaTunnelDataType<?> resultType(List<SeaTunnelDataType<?>> argsType);
-
-    /**
-     * Evaluate
-     *
-     * @param args input arguments
-     * @return result value
-     */
-    Object evaluate(List<Object> args);
+    public enum EngineType {
+        ZETA,
+        INTERNAL
+    }
 }
