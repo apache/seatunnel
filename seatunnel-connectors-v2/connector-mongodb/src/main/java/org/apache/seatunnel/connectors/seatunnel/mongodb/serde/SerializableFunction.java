@@ -15,14 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.data;
-
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-
-import org.bson.Document;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 
 import java.io.Serializable;
+import java.util.function.Function;
 
-public interface Deserializer extends Serializable {
-    SeaTunnelRow deserialize(Document document);
-}
+@FunctionalInterface
+public interface SerializableFunction<T, R> extends Function<T, R>, Serializable {}
