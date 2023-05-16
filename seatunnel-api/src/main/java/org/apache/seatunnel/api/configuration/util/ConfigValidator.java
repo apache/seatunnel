@@ -112,7 +112,8 @@ public class ConfigValidator {
     private List<Option<?>> getAbsentOptions(List<Option<?>> requiredOption) {
         List<Option<?>> absent = new ArrayList<>();
         for (Option<?> option : requiredOption) {
-            if (!hasOption(option)) {
+            // If the required option have default values, we will take the default values
+            if (!hasOption(option) && option.defaultValue() == null) {
                 absent.add(option);
             }
         }

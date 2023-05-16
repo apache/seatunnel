@@ -358,6 +358,10 @@ public class PhysicalVertex {
 
     public boolean updateTaskState(
             @NonNull ExecutionState current, @NonNull ExecutionState targetState) {
+        LOGGER.fine(
+                String.format(
+                        "Try to update the task %s state from %s to %s",
+                        taskFullName, current, targetState));
         synchronized (this) {
             // consistency check
             if (current.isEndState()) {
@@ -397,6 +401,10 @@ public class PhysicalVertex {
                                 taskFullName, current, targetState));
                 return true;
             } else {
+                LOGGER.warning(
+                        String.format(
+                                "The task %s state in Imap is %s, not equals expected state %s",
+                                taskFullName, runningJobStateIMap.get(taskGroupLocation), current));
                 return false;
             }
         }
@@ -411,6 +419,11 @@ public class PhysicalVertex {
         } else if (updateTaskState(ExecutionState.RUNNING, ExecutionState.CANCELING)) {
             noticeTaskExecutionServiceCancel();
         }
+
+        LOGGER.info(
+                String.format(
+                        "can not cancel task %s because it is in state %s ",
+                        taskFullName, getExecutionState()));
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
