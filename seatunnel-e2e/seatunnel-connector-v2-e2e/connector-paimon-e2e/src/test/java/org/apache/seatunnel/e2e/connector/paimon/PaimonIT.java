@@ -35,8 +35,7 @@ import java.nio.file.Path;
 
 @DisabledOnContainer(
         value = TestContainerId.FLINK_1_13,
-        disabledReason =
-                "Paimon does not support flink 1.13")
+        disabledReason = "Paimon does not support flink 1.13")
 public class PaimonIT extends TestSuiteBase {
 
     @TestContainerExtension
