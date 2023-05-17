@@ -45,20 +45,19 @@ const sidebars = {
      */
 
     "docs": [
-        "About Seatunnel",
-        "About Zeta",
-        "Quick Stated",
+        "about-seatunnel",
+        "about-zeta",
+        "quick-started",
         {
             "type": "category",
             "label": "Concept",
             "items": [
                 "concept/env",
                 "concept/sink",
-                'concept/source',
-                'concept/transform'
+                "concept/source",
+                "concept/transform"
             ]
         },
-
         {
             "type": "category",
             "label": "Connector List",
@@ -133,9 +132,9 @@ const sidebars = {
                         }
                     ]
                 },
-                    "deploy/seatunnel-client",
-                    "deploy/with-flink",
-                    "deploy/with-spark"
+                "deploy/seatunnel-client",
+                "deploy/with-flink",
+                "deploy/with-spark"
             ]
         },
         {
@@ -176,7 +175,7 @@ const sidebars = {
                 'release-notes/connector-release-status'
             ],
         },
-        "api",
+        "API",
         "faq"
     ]
 };
