@@ -99,13 +99,13 @@ The amount of time to wait before attempting to retry a request to `StarRocks`
 
 Whether to enable upsert/delete, only supports PrimaryKey model.
 
-### enable-2pc [bool]
+### enable_exactly_once [bool]
 
 Whether to enable two-phase commit (2pc), the default is true, to ensure Exactly-Once semantics. For two-phase commit, please refer to [here](https://docs.starrocks.io/zh-cn/latest/loading/Stream_Load_transaction_interface).
 
 ### flush_frequency_ms [long]
 
-trigger flush frequency for batch writing ON EOS semantics
+trigger flush frequency for batch writing on Exactly-Once semantics
 
 ### save_mode_create_template [string]
 

@@ -90,21 +90,19 @@ public class HttpHelper {
     public String parseHttpResponse(CloseableHttpResponse response, String requestType)
             throws StarRocksConnectorException {
         int code = response.getStatusLine().getStatusCode();
-        if (307 == code) {
+        if (HttpStatus.SC_TEMPORARY_REDIRECT == code) {
             String errorMsg =
                     String.format(
                             "Request %s failed because http response code is 307 which means 'Temporary Redirect'. "
                                     + "This can happen when FE responds the request slowly , you should find the reason first. The reason may be "
                                     + "StarRocks FE/ENGINE GC, network delay, or others. response status line: %s",
                             requestType, response.getStatusLine());
-            log.error("{}", errorMsg);
             throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
-        } else if (200 != code) {
+        } else if (HttpStatus.SC_OK != code) {
             String errorMsg =
                     String.format(
                             "Request %s failed because http response code is not 200. response status line: %s",
                             requestType, response.getStatusLine());
-            log.error("{}", errorMsg);
             throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
         }
 
@@ -114,7 +112,6 @@ public class HttpHelper {
                     String.format(
                             "Request %s failed because response entity is null. response status line: %s",
                             requestType, response.getStatusLine());
-            log.error("{}", errorMsg);
             throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg);
         }
 
@@ -126,7 +123,6 @@ public class HttpHelper {
                             "Request %s failed because fail to convert response entity to string. "
                                     + "response status line: %s, response entity: %s",
                             requestType, response.getStatusLine(), response.getEntity());
-            log.error("{}", errorMsg, e);
             throw new StarRocksConnectorException(FLUSH_DATA_FAILED, errorMsg, e);
         }
     }

@@ -70,14 +70,14 @@ public class StarRocksSinkWriter
         labelGenerator = new LabelGenerator(sinkConfig);
         this.serializer = createSerializer(sinkConfig, seaTunnelRowType);
         this.manager =
-                sinkConfig.isEnable2PC()
+                sinkConfig.isEnableExactlyOnce()
                         ? new StarRocksSinkManagerV2(labelGenerator, sinkConfig, context)
                         : new StarRocksSinkManager(labelGenerator, sinkConfig, fieldNames);
         manager.init();
         this.lastCheckpointId =
                 starRocksSinkStates.size() != 0 ? starRocksSinkStates.get(0).getCheckpointId() : 0;
 
-        if (sinkConfig.isEnable2PC()) {
+        if (sinkConfig.isEnableExactlyOnce()) {
             // restore to re commit transaction
             if (!starRocksSinkStates.isEmpty()) {
                 log.info("restore checkpointId {}", lastCheckpointId);
@@ -120,7 +120,7 @@ public class StarRocksSinkWriter
     @SneakyThrows
     @Override
     public Optional<StarRocksCommitInfo> prepareCommit() {
-        if (!sinkConfig.isEnable2PC()) {
+        if (!sinkConfig.isEnableExactlyOnce()) {
             return Optional.empty();
         }
         // Flush to storage before snapshot state is performed
@@ -130,14 +130,14 @@ public class StarRocksSinkWriter
     @SneakyThrows
     @Override
     public void abortPrepare() {
-        if (sinkConfig.isEnable2PC()) {
+        if (sinkConfig.isEnableExactlyOnce()) {
             manager.abort();
         }
     }
 
     @Override
     public List<StarRocksSinkState> snapshotState(long checkpointId) throws IOException {
-        if (sinkConfig.isEnable2PC()) {
+        if (sinkConfig.isEnableExactlyOnce()) {
             return manager.snapshot(checkpointId);
         }
         return Collections.emptyList();

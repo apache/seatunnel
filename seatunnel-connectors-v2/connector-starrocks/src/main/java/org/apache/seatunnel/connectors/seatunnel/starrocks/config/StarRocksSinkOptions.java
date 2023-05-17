@@ -141,15 +141,15 @@ public interface StarRocksSinkOptions {
                     .defaultValue((long) 3 * 1024 * 1024 * 1024)
                     .withDescription("Data chunk size in a http request for stream load");
 
-    Option<Boolean> ENABLE_2PC =
-            Options.key("enable-2pc")
+    Option<Boolean> ENABLE_EXACTLY_ONCE =
+            Options.key("enable_exactly_once")
                     .booleanType()
                     .defaultValue(true)
-                    .withDescription("enable 2PC while loading");
+                    .withDescription("enable exactly-once while loading");
 
     Option<Long> FLUSH_FREQUENCY_ON_EOS =
             Options.key("flush_frequency_ms")
                     .longType()
                     .defaultValue(50L)
-                    .withDescription("flush frequency ON EOS semantics");
+                    .withDescription("flush frequency on exactly-once semantics");
 }

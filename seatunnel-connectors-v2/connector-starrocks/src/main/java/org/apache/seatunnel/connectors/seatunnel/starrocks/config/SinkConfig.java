@@ -56,7 +56,7 @@ public class SinkConfig implements Serializable {
     private int maxRetryBackoffMs;
     private boolean enableUpsertDelete;
     private long sinkChunkLimit;
-    private boolean enable2PC;
+    private boolean enableExactlyOnce;
     private long flushFrequencyMs;
     private String saveModeCreateTemplate;
 
@@ -108,7 +108,8 @@ public class SinkConfig implements Serializable {
             sinkConfig.setSinkChunkLimit(Math.min(10737418240L, sinkConfig.getSinkChunkLimit()));
         }
 
-        config.getOptional(StarRocksSinkOptions.ENABLE_2PC).ifPresent(sinkConfig::setEnable2PC);
+        config.getOptional(StarRocksSinkOptions.ENABLE_EXACTLY_ONCE)
+                .ifPresent(sinkConfig::setEnableExactlyOnce);
         config.getOptional(StarRocksSinkOptions.FLUSH_FREQUENCY_ON_EOS)
                 .ifPresent(sinkConfig::setFlushFrequencyMs);
         return sinkConfig;

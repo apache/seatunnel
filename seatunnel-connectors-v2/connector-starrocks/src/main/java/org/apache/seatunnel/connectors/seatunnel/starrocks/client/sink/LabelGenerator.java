@@ -23,15 +23,15 @@ import java.util.UUID;
 
 public class LabelGenerator {
     private String labelPrefix;
-    private boolean enable2PC;
+    private boolean enableExactlyOnce;
 
     public LabelGenerator(SinkConfig sinkConfig) {
         this.labelPrefix = sinkConfig.getLabelPrefix();
-        this.enable2PC = sinkConfig.isEnable2PC();
+        this.enableExactlyOnce = sinkConfig.isEnableExactlyOnce();
     }
 
     public String genLabel(long chkId, int subTaskIndex) {
-        return enable2PC
+        return enableExactlyOnce
                 ? labelPrefix + "_" + chkId + "_" + subTaskIndex
                 : labelPrefix + "_" + UUID.randomUUID();
     }
