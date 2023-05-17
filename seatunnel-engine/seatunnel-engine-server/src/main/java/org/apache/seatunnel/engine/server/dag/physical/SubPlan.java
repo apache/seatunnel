@@ -413,6 +413,10 @@ public class SubPlan {
                     },
                     executorService);
         }
+        LOGGER.info(
+                String.format(
+                        "can not cancel task %s because it is in state %s ",
+                        task.getTaskFullName(), task.getExecutionState()));
         return null;
     }
 
