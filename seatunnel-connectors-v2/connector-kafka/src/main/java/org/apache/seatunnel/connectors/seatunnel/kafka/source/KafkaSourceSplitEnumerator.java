@@ -72,7 +72,6 @@ public class KafkaSourceSplitEnumerator
         this.assignedSplit = new HashMap<>();
         this.pendingSplit = new HashMap<>();
         this.adminClient = initAdminClient(this.metadata.getProperties());
-
     }
 
     KafkaSourceSplitEnumerator(
@@ -183,7 +182,6 @@ public class KafkaSourceSplitEnumerator
     public void addSplitsBack(List<KafkaSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
             pendingSplit.putAll(convertToNextSplit(splits));
-            assignSplit();
         }
     }
 
