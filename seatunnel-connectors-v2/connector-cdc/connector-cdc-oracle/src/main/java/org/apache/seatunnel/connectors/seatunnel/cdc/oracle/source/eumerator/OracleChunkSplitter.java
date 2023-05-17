@@ -36,7 +36,6 @@ import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
-import io.debezium.relational.history.TableChanges.TableChange;
 import oracle.sql.ROWID;
 
 import java.math.BigDecimal;
@@ -44,9 +43,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import static java.math.BigDecimal.ROUND_CEILING;
@@ -325,8 +322,6 @@ public class OracleChunkSplitter implements JdbcSourceChunkSplitter {
         // currently, we only support single split column
         Object[] splitStart = chunkStart == null ? null : new Object[] {chunkStart};
         Object[] splitEnd = chunkEnd == null ? null : new Object[] {chunkEnd};
-        Map<TableId, TableChange> schema = new HashMap<>();
-        schema.put(tableId, dialect.queryTableSchema(jdbc, tableId));
         return new SnapshotSplit(
                 splitId(tableId, chunkId), tableId, splitKeyType, splitStart, splitEnd, null);
     }

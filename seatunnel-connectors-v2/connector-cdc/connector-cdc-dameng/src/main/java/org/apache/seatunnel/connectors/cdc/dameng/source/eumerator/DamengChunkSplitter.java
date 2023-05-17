@@ -74,13 +74,13 @@ public class DamengChunkSplitter implements JdbcSourceChunkSplitter {
             for (int i = 0; i < chunks.size(); i++) {
                 ChunkRange chunk = chunks.get(i);
                 SnapshotSplit split =
-                        new SnapshotSplit(
-                                splitId(tableId, i),
+                        createSnapshotSplit(
+                                jdbc,
                                 tableId,
+                                i,
                                 splitColumnType,
                                 chunk.getChunkStart(),
-                                chunk.getChunkEnd(),
-                                null);
+                                chunk.getChunkEnd());
                 splits.add(split);
             }
 
@@ -318,6 +318,20 @@ public class DamengChunkSplitter implements JdbcSourceChunkSplitter {
         } else {
             return chunkEnd;
         }
+    }
+
+    private SnapshotSplit createSnapshotSplit(
+            JdbcConnection jdbc,
+            TableId tableId,
+            int chunkId,
+            SeaTunnelRowType splitKeyType,
+            Object chunkStart,
+            Object chunkEnd) {
+        // currently, we only support single split column
+        Object[] splitStart = chunkStart == null ? null : new Object[] {chunkStart};
+        Object[] splitEnd = chunkEnd == null ? null : new Object[] {chunkEnd};
+        return new SnapshotSplit(
+                splitId(tableId, chunkId), tableId, splitKeyType, splitStart, splitEnd, null);
     }
 
     private static String splitId(TableId tableId, int chunkId) {
