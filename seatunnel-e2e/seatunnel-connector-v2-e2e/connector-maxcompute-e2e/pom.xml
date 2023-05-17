@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-maxcompute-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Maxcompute</name>
 
     <dependencies>
         <!-- SeaTunnel connectors -->
