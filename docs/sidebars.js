@@ -146,7 +146,7 @@ const sidebars = {
                 "contribution/contribute-plugin",
                 "contribution/contribute-transform",
                 "contribution/new-license",
-                "contribution/Error-quick-reference-manual",
+                "contribution/error-quick-reference-manual",
                 "contribution/setup"
             ]
         },
