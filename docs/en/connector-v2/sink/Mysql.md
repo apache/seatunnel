@@ -70,6 +70,7 @@ semantics (using XA transaction guarantee).
 | batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `batch_interval_ms`<br/>, the data will be flushed into the database                                                           |
 | batch_interval_ms                         | Int     | No       | 1000    | For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the database                                                                         |
 | is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                            |
+| generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to                                                                                                                                                                     |
 | xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource`, and<br/>please refer to appendix for other data sources                                                                   |
 | max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                          |
@@ -126,6 +127,22 @@ sink {
         }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
   # please go to https://seatunnel.apache.org/docs/category/sink-v2
+}
+```
+
+> This example  not need to write complex sql statements, you can configure the database name table name to automatically generate add statements for you
+```
+sink {
+    jdbc {
+        url = "jdbc:mysql://localhost:3306/test"
+        driver = "com.mysql.cj.jdbc.Driver"
+        user = "root"
+        password = "123456"
+        
+        generate_sink_sql = true
+        database = test
+        table = test_table
+    }
 }
 ```
 
