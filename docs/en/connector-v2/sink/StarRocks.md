@@ -38,7 +38,7 @@ Version Supported
 | retry_backoff_multiplier_ms | int     | no       | -               |
 | max_retry_backoff_ms        | int     | no       | -               |
 | enable_upsert_delete        | boolean | no       | false           |
-| enable-2pc                  | boolean | no       | false           |
+| enable_exactly_once         | boolean | no       | false           |
 | flush_frequency_ms          | long    | no       | 50              |
 | save_mode_create_template   | string  | no       | see below       |
 | starrocks.config            | map     | no       | -               |
@@ -227,7 +227,7 @@ sink {
     password = ""
     database = "test"
     table = "e2e_table_sink"
-    enable-2pc = true
+    enable_exactly_once = true
     flush_frequency_ms= 30000
   }
 }
