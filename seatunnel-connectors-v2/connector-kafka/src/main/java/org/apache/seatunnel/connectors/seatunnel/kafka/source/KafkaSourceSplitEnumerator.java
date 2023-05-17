@@ -59,7 +59,7 @@ public class KafkaSourceSplitEnumerator
     private final ConsumerMetadata metadata;
     private final Context<KafkaSourceSplit> context;
     private long discoveryIntervalMillis;
-    private AdminClient adminClient;
+    private final AdminClient adminClient;
 
     private final Map<TopicPartition, KafkaSourceSplit> pendingSplit;
     private final Map<TopicPartition, KafkaSourceSplit> assignedSplit;
@@ -71,6 +71,8 @@ public class KafkaSourceSplitEnumerator
         this.context = context;
         this.assignedSplit = new HashMap<>();
         this.pendingSplit = new HashMap<>();
+        this.adminClient = initAdminClient(this.metadata.getProperties());
+
     }
 
     KafkaSourceSplitEnumerator(
@@ -99,7 +101,6 @@ public class KafkaSourceSplitEnumerator
 
     @Override
     public void open() {
-        this.adminClient = initAdminClient(this.metadata.getProperties());
         if (discoveryIntervalMillis > 0) {
             this.executor =
                     Executors.newScheduledThreadPool(
@@ -366,7 +367,6 @@ public class KafkaSourceSplitEnumerator
 
     private void discoverySplits() throws ExecutionException, InterruptedException {
         fetchPendingPartitionSplit();
-        assignSplit();
     }
 
     private void fetchPendingPartitionSplit() throws ExecutionException, InterruptedException {
