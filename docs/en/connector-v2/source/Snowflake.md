@@ -54,8 +54,6 @@ Read external data source data through JDBC.
 | GEOGRAPHY (WKB or EWKB)<br/>GEOMETRY (WKB or EWKB)                          | BYTES               |
 | GEOGRAPHY (GeoJSON, WKT or EWKT)<br/>GEOMETRY (GeoJSON, WKB or EWKB)        | STRING              |
 
-
-
 ## Options
 
 |             name             |  type  | required |     default     |                                                                                                                            description                                                                                                                            |
