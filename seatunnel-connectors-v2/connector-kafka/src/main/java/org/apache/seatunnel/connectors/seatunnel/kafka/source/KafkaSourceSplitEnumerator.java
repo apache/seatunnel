@@ -32,7 +32,6 @@ import org.apache.kafka.common.TopicPartition;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -285,14 +284,10 @@ public class KafkaSourceSplitEnumerator
             readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
         }
 
-        pendingSplit
-                .forEach((key, value) -> {
+        pendingSplit.forEach(
+                (key, value) -> {
                     if (!assignedSplit.containsKey(key)) {
-                        readySplit
-                                .get(
-                                        getSplitOwner(
-                                                key, context.currentParallelism()))
-                                .add(value);
+                        readySplit.get(getSplitOwner(key, context.currentParallelism())).add(value);
                     }
                 });
 
