@@ -51,7 +51,6 @@ import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -176,13 +175,8 @@ public class JdbcSink
     }
 
     @Override
-    public DataSaveMode getDataSaveMode() {
+    public DataSaveMode getUserConfigSaveMode() {
         return dataSaveMode;
-    }
-
-    @Override
-    public List<DataSaveMode> supportedDataSaveModeValues() {
-        return Collections.singletonList(DataSaveMode.KEEP_SCHEMA_AND_DATA);
     }
 
     @Override
