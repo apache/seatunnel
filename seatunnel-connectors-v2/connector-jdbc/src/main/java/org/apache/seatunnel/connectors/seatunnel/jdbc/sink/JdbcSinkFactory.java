@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableFactoryContext;
@@ -28,6 +29,8 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
+
+import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.auto.service.AutoService;
 
@@ -70,6 +73,11 @@ public class JdbcSinkFactory implements TableSinkFactory {
         if (!optionalTable.isPresent()) {
             Map<String, String> map = config.toMap();
             map.put(TABLE.key(), catalogTable.getTableId().getTableName());
+
+            PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+            if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
+                map.put(PRIMARY_KEYS.key(), String.join(",", primaryKey.getColumnNames()));
+            }
             config = ReadonlyConfig.fromMap(new HashMap<>(map));
         }
         final ReadonlyConfig options = config;
