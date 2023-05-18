@@ -19,6 +19,8 @@
 - [Connector-V2] [Kafka] Fix KafkaProducer resources have never been released. (#4302)
 - [Connector-V2] [Kafka] Fix the permission problem caused by client.id. (#4246)
 - [Connector-V2] [Kafka] Fix KafkaConsumerThread exit caused by commit offset error. (#4379)
+- [Connector-V2] [Pulsar] Fix missing SLF4JBridgeHandler #4706 & #4118
+- [Connector-V2] [Pulsar] Fix the unreasonable shutdown of consumer #4684
 
 ### Zeta(ST-Engine)
 
@@ -36,6 +38,7 @@
 
 - [E2E] [Kafka] Fix kafka e2e testcase (#4520)
 - [Container Version] Fix risk of unreproducible test cases #4591
+- [E2E] [Pulsar] Fix pulsar e2e test cases
 
 ## Improve
 

@@ -154,3 +154,8 @@ source {
 
 - Add Pulsar Source Connector
 
+### next version
+
+- [HotFix] Fix missing SLF4JBridgeHandler [4706](https://github.com/apache/incubator-seatunnel/issues/4706) & [4118](https://github.com/apache/incubator-seatunnel/pull/4118)
+- [HotFix] Fix the unreasonable shutdown of consumer [4684](https://github.com/apache/incubator-seatunnel/issues/4684)
+

@@ -291,7 +291,7 @@ public class PulsarSource<T>
     }
 
     private void setDeserialization(Config config) {
-        String format = config.getString("format");
+        // String format = config.getString("format");
         // TODO: format SPI
         SeaTunnelRowType rowType = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
         deserialization =

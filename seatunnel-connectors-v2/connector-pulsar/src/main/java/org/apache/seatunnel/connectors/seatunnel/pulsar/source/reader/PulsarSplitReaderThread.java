@@ -100,14 +100,13 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
                 Thread.sleep(pollInterval);
             }
         } catch (Throwable t) {
-            handover.reportError(t);
-        } finally {
             // make sure the PulsarConsumer is closed
             try {
                 consumer.close();
-            } catch (Throwable t) {
-                LOG.warn("Error while closing pulsar consumer", t);
+            } catch (Throwable e) {
+                LOG.warn("Error while closing pulsar consumer", e);
             }
+            handover.reportError(t);
         }
     }
 
@@ -132,7 +131,6 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
                 PulsarConfigUtil.createConsumerBuilder(pulsarClient, consumerConfig);
 
         consumerBuilder.topic(split.getPartition().getFullTopicName());
-
         // Create the consumer configuration by using common utils.
         try {
             return consumerBuilder.subscribe();

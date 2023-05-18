@@ -181,13 +181,12 @@
                 <version>${slf4j.version}</version>
             </dependency>
             <!-- jdk-logging bridge to slf4j -->
-            <!-- low performance, see: https://www.slf4j.org/legacy.html#jul-to-slf4j
+            <!-- low performance, see: https://www.slf4j.org/legacy.html#jul-to-slf4j -->
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>jul-to-slf4j</artifactId>
                 <version>${slf4j.version}</version>
             </dependency>
-            -->
             <!-- log4j1.x bridge to log4j2.x -->
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
@@ -486,6 +485,10 @@
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-1.2-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jul-to-slf4j</artifactId>
         </dependency>
         <!-- ***************** slf4j & provider & bridges end ***************** -->
 
