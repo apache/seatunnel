@@ -65,7 +65,7 @@ public class TableDiscoveryUtils {
                 jdbc.query(
                         "SELECT * FROM "
                                 + dbName
-                                + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';",
+                                + ".information_schema.tables WHERE TABLE_TYPE = 'BASE TABLE';",
                         rs -> {
                             while (rs.next()) {
                                 TableId tableId =
