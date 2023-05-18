@@ -365,6 +365,7 @@ public class KafkaSourceSplitEnumerator
 
     private void discoverySplits() throws ExecutionException, InterruptedException {
         fetchPendingPartitionSplit();
+        assignSplit();
     }
 
     private void fetchPendingPartitionSplit() throws ExecutionException, InterruptedException {
