@@ -63,7 +63,7 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
 
     @Override
     public void assignSplit(int subtaskIndex, List<SplitT> splits) {
-        if (registeredReaders().isEmpty()){
+        if (registeredReaders().isEmpty()) {
             log.warn("No reader is obtained, skip this assign!");
             return;
         }
