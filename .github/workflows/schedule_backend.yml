@@ -18,7 +18,7 @@
 name: Schedule Backend
 on:
   schedule:
-    - cron: '0 0 03 * * ?'
+    - cron: '0 0 03 * *'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
