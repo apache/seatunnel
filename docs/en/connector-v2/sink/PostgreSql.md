@@ -136,6 +136,8 @@ sink {
 }
 ```
 
+### Generate Sink SQL
+
 > This example  not need to write complex sql statements, you can configure the database name table name to automatically generate add statements for you
 
 ```
