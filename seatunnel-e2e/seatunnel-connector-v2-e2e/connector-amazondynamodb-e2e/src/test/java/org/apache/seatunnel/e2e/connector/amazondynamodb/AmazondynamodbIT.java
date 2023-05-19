@@ -81,7 +81,7 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
-    private static final String AMAZONDYNAMODB_DOCKER_IMAGE = "amazon/dynamodb-local";
+    private static final String AMAZONDYNAMODB_DOCKER_IMAGE = "amazon/dynamodb-local:1.21.0";
     private static final String AMAZONDYNAMODB_CONTAINER_HOST = "dynamodb-host";
     private static final int AMAZONDYNAMODB_CONTAINER_PORT = 8000;
     private static final String AMAZONDYNAMODB_JOB_CONFIG = "/amazondynamodbIT_source_to_sink.conf";

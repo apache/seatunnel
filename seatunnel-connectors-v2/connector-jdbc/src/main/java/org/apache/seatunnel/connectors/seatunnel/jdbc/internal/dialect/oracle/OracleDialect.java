@@ -50,8 +50,18 @@ public class OracleDialect implements JdbcDialect {
     }
 
     @Override
+    public String quoteIdentifier(String identifier) {
+        return identifier;
+    }
+
+    @Override
+    public String tableIdentifier(String database, String tableName) {
+        return quoteIdentifier(tableName);
+    }
+
+    @Override
     public Optional<String> getUpsertStatement(
-            String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         List<String> nonUniqueKeyFields =
                 Arrays.stream(fieldNames)
                         .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
@@ -98,7 +108,7 @@ public class OracleDialect implements JdbcDialect {
                                 + " UPDATE SET %s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s)",
-                        tableName,
+                        tableIdentifier(database, tableName),
                         usingClause,
                         onConditions,
                         updateSetClause,

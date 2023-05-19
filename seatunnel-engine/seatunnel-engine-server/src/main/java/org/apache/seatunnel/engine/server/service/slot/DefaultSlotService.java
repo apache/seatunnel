@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class DefaultSlotService implements SlotService {
 
     private static final ILogger LOGGER = Logger.getLogger(DefaultSlotService.class);
-    private static final long DEFAULT_HEARTBEAT_TIMEOUT = 2000;
+    private static final long DEFAULT_HEARTBEAT_TIMEOUT = 5000;
     private final NodeEngineImpl nodeEngine;
 
     private AtomicReference<ResourceProfile> unassignedResource;
@@ -142,7 +142,7 @@ public class DefaultSlotService implements SlotService {
                     profile.getSlotID(),
                     p -> new SlotContext(profile.getSlotID(), taskExecutionService));
         }
-        LOGGER.info(
+        LOGGER.fine(
                 String.format(
                         "received slot request, jobID: %d, resource profile: %s, return: %s",
                         jobId, resourceProfile, profile));

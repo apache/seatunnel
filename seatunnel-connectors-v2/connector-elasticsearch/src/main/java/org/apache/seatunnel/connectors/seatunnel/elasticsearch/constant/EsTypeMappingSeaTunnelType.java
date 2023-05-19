@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -32,6 +34,7 @@ public class EsTypeMappingSeaTunnelType {
                     put("string", BasicType.STRING_TYPE);
                     put("keyword", BasicType.STRING_TYPE);
                     put("text", BasicType.STRING_TYPE);
+                    put("binary", BasicType.STRING_TYPE);
                     put("boolean", BasicType.BOOLEAN_TYPE);
                     put("byte", BasicType.BYTE_TYPE);
                     put("short", BasicType.SHORT_TYPE);
@@ -44,7 +47,19 @@ public class EsTypeMappingSeaTunnelType {
                 }
             };
 
+    /**
+     * if not find the mapping SeaTunnelDataType will throw runtime exception
+     *
+     * @param esType
+     * @return
+     */
     public static SeaTunnelDataType getSeaTunnelDataType(String esType) {
-        return MAPPING.get(esType);
+        SeaTunnelDataType seaTunnelDataType = MAPPING.get(esType);
+        if (seaTunnelDataType == null) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.ES_FIELD_TYPE_NOT_SUPPORT,
+                    String.format("elasticsearch type is %s", esType));
+        }
+        return seaTunnelDataType;
     }
 }

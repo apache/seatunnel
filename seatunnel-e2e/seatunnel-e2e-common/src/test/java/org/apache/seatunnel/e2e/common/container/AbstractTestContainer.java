@@ -40,7 +40,7 @@ public abstract class AbstractTestContainer implements TestContainer {
     protected static final Logger LOG = LoggerFactory.getLogger(AbstractTestContainer.class);
     protected static final String START_ROOT_MODULE_NAME = "seatunnel-core";
 
-    public static final String SEATUNNEL_HOME = "/tmp/seatunnel";
+    public static final String SEATUNNEL_HOME = "/tmp/seatunnel/";
     protected final String startModuleName;
 
     protected final String startModuleFullPath;
@@ -144,6 +144,18 @@ public abstract class AbstractTestContainer implements TestContainer {
                     container.getDockerImageName(),
                     execResult.getStderr());
         }
+
+        if (execResult.getExitCode() != 0) {
+            LOG.info(
+                    "Execute config file: {} to Container[{}] Server Log:"
+                            + "\n==================== Server Log start ====================\n"
+                            + "{}"
+                            + "\n==================== Server Log end   ====================",
+                    configPath,
+                    container.getDockerImageName(),
+                    container.getLogs());
+        }
+
         return execResult;
     }
 }

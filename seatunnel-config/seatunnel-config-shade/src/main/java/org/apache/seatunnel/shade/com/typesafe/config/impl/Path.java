@@ -65,16 +65,12 @@ final class Path {
         return first;
     }
 
-    /**
-     * @return path minus the first element or null if no more elements
-     */
+    /** @return path minus the first element or null if no more elements */
     Path remainder() {
         return remainder;
     }
 
-    /**
-     * @return path minus the last element or null if we have just one element
-     */
+    /** @return path minus the last element or null if we have just one element */
     Path parent() {
         if (remainder == null) {
             return null;
@@ -89,9 +85,7 @@ final class Path {
         return pb.result();
     }
 
-    /**
-     * @return last element in the path
-     */
+    /** @return last element in the path */
     String last() {
         Path p = this;
         while (p.remainder != null) {
@@ -140,7 +134,8 @@ final class Path {
             pb.appendKey(from.first());
             from = from.remainder();
             if (from == null) {
-                throw new ConfigException.BugOrBroken("subPath lastIndex out of range " + lastIndex);
+                throw new ConfigException.BugOrBroken(
+                        "subPath lastIndex out of range " + lastIndex);
             }
         }
         return pb.result();
@@ -167,8 +162,7 @@ final class Path {
         if (other instanceof Path) {
             Path that = (Path) other;
             return this.first.equals(that.first)
-                    && ConfigImplUtil.equalsHandlingNull(this.remainder,
-                    that.remainder);
+                    && ConfigImplUtil.equalsHandlingNull(this.remainder, that.remainder);
         } else {
             return false;
         }
@@ -223,8 +217,8 @@ final class Path {
     }
 
     /**
-     * toString() is a debugging-oriented version while this is an
-     * error-message-oriented human-readable one.
+     * toString() is a debugging-oriented version while this is an error-message-oriented
+     * human-readable one.
      */
     String render() {
         StringBuilder sb = new StringBuilder();

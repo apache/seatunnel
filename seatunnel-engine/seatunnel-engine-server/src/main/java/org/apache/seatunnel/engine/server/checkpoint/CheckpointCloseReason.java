@@ -23,7 +23,9 @@ public enum CheckpointCloseReason {
     CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
     CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown."),
     CHECKPOINT_COORDINATOR_RESET("CheckpointCoordinator reset."),
-    CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error.");
+    CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error."),
+    AGGREGATE_COMMIT_ERROR("Aggregate commit error."),
+    TASK_NOT_ALL_READY_WHEN_SAVEPOINT("Task not all ready, savepoint error");
 
     private final String message;
 

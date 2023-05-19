@@ -46,7 +46,7 @@ public class Spark2Container extends AbstractTestSparkContainer {
 
     @Override
     protected String getDockerImage() {
-        return "bitnami/spark:2.4.6";
+        return "tyrantlucifer/spark:2.4.6";
     }
 
     @Override

@@ -155,14 +155,12 @@ public class KafkaSourceSplitEnumerator
             default:
                 break;
         }
-        topicPartitionOffsets
-                .entrySet()
-                .forEach(
-                        entry -> {
-                            if (pendingSplit.containsKey(entry.getKey())) {
-                                pendingSplit.get(entry.getKey()).setStartOffset(entry.getValue());
-                            }
-                        });
+        topicPartitionOffsets.forEach(
+                (key, value) -> {
+                    if (pendingSplit.containsKey(key)) {
+                        pendingSplit.get(key).setStartOffset(value);
+                    }
+                });
     }
 
     @Override
@@ -306,7 +304,13 @@ public class KafkaSourceSplitEnumerator
                             }
                         });
 
-        readySplit.forEach(context::assignSplit);
+        readySplit.forEach(
+                (id, split) -> {
+                    context.assignSplit(id, split);
+                    if (discoveryIntervalMillis <= 0) {
+                        context.signalNoMoreSplits(id);
+                    }
+                });
 
         assignedSplit.putAll(pendingSplit);
         pendingSplit.clear();

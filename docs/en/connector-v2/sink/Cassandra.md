@@ -12,19 +12,19 @@ Write data to Apache Cassandra.
 
 ## Options
 
-|       name        |  type  | required | default value |
-|-------------------|--------|----------|---------------|
-| host              | String | Yes      | -             |
-| keyspace          | String | Yes      | -             |
-| table             | String | Yes      | -             |
-| username          | String | No       | -             |
-| password          | String | No       | -             |
-| datacenter        | String | No       | datacenter1   |
-| consistency_level | String | No       | LOCAL_ONE     |
-| fields            | String | No       | LOCAL_ONE     |
-| batch_size        | String | No       | 5000          |
-| batch_type        | String | No       | UNLOGGER      |
-| async_write       | String | No       | true          |
+|       name        |  type   | required | default value |
+|-------------------|---------|----------|---------------|
+| host              | String  | Yes      | -             |
+| keyspace          | String  | Yes      | -             |
+| table             | String  | Yes      | -             |
+| username          | String  | No       | -             |
+| password          | String  | No       | -             |
+| datacenter        | String  | No       | datacenter1   |
+| consistency_level | String  | No       | LOCAL_ONE     |
+| fields            | String  | No       | LOCAL_ONE     |
+| batch_size        | int     | No       | 5000          |
+| batch_type        | String  | No       | UNLOGGED      |
+| async_write       | boolean | No       | true          |
 
 ### host [string]
 

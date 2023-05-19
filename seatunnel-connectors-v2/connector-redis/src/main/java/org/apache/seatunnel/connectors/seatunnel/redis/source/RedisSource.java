@@ -24,13 +24,13 @@ import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -72,7 +72,7 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         // TODO: use format SPI
         // default use json format
         if (pluginConfig.hasPath(RedisConfig.FORMAT.key())) {
-            if (!pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+            if (!pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
                 throw new RedisConnectorException(
                         SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                         String.format(
@@ -81,19 +81,18 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                                 PluginType.SOURCE,
                                 "Must config schema when format parameter been config"));
             }
-            Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
 
             RedisConfig.Format format =
                     RedisConfig.Format.valueOf(
                             pluginConfig.getString(RedisConfig.FORMAT.key()).toUpperCase());
             if (RedisConfig.Format.JSON.equals(format)) {
                 this.seaTunnelRowType =
-                        SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+                        CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
                 this.deserializationSchema =
                         new JsonDeserializationSchema(false, false, seaTunnelRowType);
             }
         } else {
-            this.seaTunnelRowType = SeaTunnelSchema.buildSimpleTextSchema();
+            this.seaTunnelRowType = CatalogTableUtil.buildSimpleTextSchema();
             this.deserializationSchema = null;
         }
     }

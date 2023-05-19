@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcNumericBetweenParametersProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
@@ -48,23 +48,23 @@ public class JdbcSourceSplitEnumerator
     private final Object stateLock = new Object();
     private volatile boolean shouldEnumerate;
 
-    private JdbcSourceOptions jdbcSourceOptions;
+    private JdbcSourceConfig jdbcSourceConfig;
     private final PartitionParameter partitionParameter;
 
     public JdbcSourceSplitEnumerator(
             SourceSplitEnumerator.Context<JdbcSourceSplit> enumeratorContext,
-            JdbcSourceOptions jdbcSourceOptions,
+            JdbcSourceConfig jdbcSourceConfig,
             PartitionParameter partitionParameter) {
-        this(enumeratorContext, jdbcSourceOptions, partitionParameter, null);
+        this(enumeratorContext, jdbcSourceConfig, partitionParameter, null);
     }
 
     public JdbcSourceSplitEnumerator(
             SourceSplitEnumerator.Context<JdbcSourceSplit> enumeratorContext,
-            JdbcSourceOptions jdbcSourceOptions,
+            JdbcSourceConfig jdbcSourceConfig,
             PartitionParameter partitionParameter,
             JdbcSourceState sourceState) {
         this.enumeratorContext = enumeratorContext;
-        this.jdbcSourceOptions = jdbcSourceOptions;
+        this.jdbcSourceConfig = jdbcSourceConfig;
         this.partitionParameter = partitionParameter;
         this.pendingSplits = new HashMap<>();
         this.shouldEnumerate = sourceState == null;
@@ -108,7 +108,8 @@ public class JdbcSourceSplitEnumerator
                             : enumeratorContext.currentParallelism();
             JdbcNumericBetweenParametersProvider jdbcNumericBetweenParametersProvider =
                     new JdbcNumericBetweenParametersProvider(
-                                    partitionParameter.minValue, partitionParameter.maxValue)
+                                    partitionParameter.getMinValue(),
+                                    partitionParameter.getMaxValue())
                             .ofBatchNum(partitionNumber);
             Serializable[][] parameterValues =
                     jdbcNumericBetweenParametersProvider.getParameterValues();

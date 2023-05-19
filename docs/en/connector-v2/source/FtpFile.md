@@ -22,10 +22,11 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
-- [x] file format
+- [x] file format type
   - [x] text
   - [x] csv
   - [x] json
+  - [x] excel
 
 ## Options
 
@@ -36,7 +37,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | user                      | string  | yes      | -                   |
 | password                  | string  | yes      | -                   |
 | path                      | string  | yes      | -                   |
-| type                      | string  | yes      | -                   |
+| file_format_type          | string  | yes      | -                   |
 | read_columns              | list    | no       | -                   |
 | delimiter                 | string  | no       | \001                |
 | parse_partition_from_path | boolean | no       | true                |
@@ -46,6 +47,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | skip_header_row_number    | long    | no       | 0                   |
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
+| sheet_name                | string  | no       | -                   |
 
 ### host [string]
 
@@ -136,14 +138,15 @@ The file type supported column projection as the following shown:
 - csv
 - orc
 - parquet
+- excel
 
 **Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
 
-### type [string]
+### file_format_type [string]
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json`
+`text` `csv` `parquet` `orc` `json` `excel`
 
 If you assign file type to `json` , you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -220,6 +223,10 @@ connector will generate data as the following:
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
+### sheet_name [string]
+
+Reader the sheet of the workbook,Only used when file_format is excel.
+
 ## Example
 
 ```hocon
@@ -230,7 +237,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
     port = 21
     user = tyrantlucifer
     password = tianchao
-    type = "text"
+    file_format_type = "text"
     schema = {
       name = string
       age = int

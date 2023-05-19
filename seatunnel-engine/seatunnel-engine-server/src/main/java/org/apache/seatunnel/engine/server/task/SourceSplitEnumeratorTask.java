@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
@@ -87,6 +88,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     private volatile boolean readerRegisterComplete;
 
+    private volatile boolean prepareCloseTriggered;
+
     @Override
     public void init() throws Exception {
         currState = SeaTunnelTaskState.INIT;
@@ -130,20 +133,23 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
+        log.debug("split enumer trigger barrier [{}]", barrier);
         if (barrier.prepareClose()) {
-            this.currState = PREPARE_CLOSE;
+            this.prepareCloseTriggered = true;
             this.prepareCloseBarrierId.set(barrier.getId());
         }
         final long barrierId = barrier.getId();
         Serializable snapshotState = null;
+        byte[] serialize = null;
         synchronized (enumeratorContext) {
             if (barrier.snapshot()) {
                 snapshotState = enumerator.snapshotState(barrierId);
+                serialize = enumeratorStateSerializer.serialize(snapshotState);
             }
+            log.debug("source split enumerator send state [{}] to master", snapshotState);
             sendToAllReader(location -> new BarrierFlowOperation(barrier, location));
         }
         if (barrier.snapshot()) {
-            byte[] serialize = enumeratorStateSerializer.serialize(snapshotState);
             this.getExecutionContext()
                     .sendToMaster(
                             new TaskAcknowledgeOperation(
@@ -151,7 +157,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                                     (CheckpointBarrier) barrier,
                                     Collections.singletonList(
                                             new ActionSubtaskState(
-                                                    source.getId(),
+                                                    ActionStateKey.of(source),
                                                     -1,
                                                     Collections.singletonList(serialize)))));
         }
@@ -159,6 +165,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        log.debug("restoreState for split enumerator [{}]", actionStateList);
         Optional<Serializable> state =
                 actionStateList.stream()
                         .map(ActionSubtaskState::getState)
@@ -173,6 +180,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             this.enumerator = this.source.getSource().createEnumerator(enumeratorContext);
         }
         restoreComplete.complete(null);
+        log.debug("restoreState split enumerator [{}] finished", actionStateList);
     }
 
     public void addSplitsBack(List<SplitT> splits, int subtaskId)
@@ -256,12 +264,16 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 if (restoreComplete.isDone()) {
                     currState = READY_START;
                     reportTaskStatus(READY_START);
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case READY_START:
                 if (startCalled && readerRegisterComplete) {
                     currState = STARTING;
                     enumerator.open();
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case STARTING:
@@ -274,6 +286,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 if (prepareCloseStatus) {
                     this.getExecutionContext()
                             .sendToMaster(new LastCheckpointNotifyOperation(jobID, taskLocation));
+                    currState = PREPARE_CLOSE;
+                } else if (prepareCloseTriggered) {
                     currState = PREPARE_CLOSE;
                 } else {
                     Thread.sleep(100);
@@ -308,10 +322,16 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private void sendToAllReader(Function<TaskLocation, Operation> function) {
         List<InvocationFuture<?>> futures = new ArrayList<>();
         taskMemberMapping.forEach(
-                (location, address) ->
-                        futures.add(
-                                this.getExecutionContext()
-                                        .sendToMember(function.apply(location), address)));
+                (location, address) -> {
+                    log.debug(
+                            "split enumerator send to read--size: {}, location: {}, address: {}",
+                            taskMemberMapping.size(),
+                            location,
+                            address.toString());
+                    futures.add(
+                            this.getExecutionContext()
+                                    .sendToMember(function.apply(location), address));
+                });
         futures.forEach(InvocationFuture::join);
     }
 
@@ -323,7 +343,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         getEnumerator().notifyCheckpointComplete(checkpointId);
-        if (currState == PREPARE_CLOSE && prepareCloseBarrierId.get() == checkpointId) {
+        if (prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
     }
@@ -331,7 +351,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         getEnumerator().notifyCheckpointAborted(checkpointId);
-        if (currState == PREPARE_CLOSE && prepareCloseBarrierId.get() == checkpointId) {
+        if (prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
     }

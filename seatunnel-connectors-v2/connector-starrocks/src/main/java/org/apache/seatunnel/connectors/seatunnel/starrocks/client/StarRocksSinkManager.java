@@ -41,15 +41,14 @@ public class StarRocksSinkManager {
     private final SinkConfig sinkConfig;
     private final List<byte[]> batchList;
 
-    private StarRocksStreamLoadVisitor starrocksStreamLoadVisitor;
+    private final StarRocksStreamLoadVisitor starrocksStreamLoadVisitor;
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledFuture;
     private volatile boolean initialize;
     private volatile Exception flushException;
     private int batchRowCount = 0;
     private long batchBytesSize = 0;
-
-    private Integer batchIntervalMs;
+    private final Integer batchIntervalMs;
 
     public StarRocksSinkManager(SinkConfig sinkConfig, List<String> fileNames) {
         this.sinkConfig = sinkConfig;
@@ -170,6 +169,6 @@ public class StarRocksSinkManager {
         if (!Strings.isNullOrEmpty(sinkConfig.getLabelPrefix())) {
             sb.append(sinkConfig.getLabelPrefix());
         }
-        return sb.append(UUID.randomUUID().toString()).toString();
+        return sb.append(UUID.randomUUID()).toString();
     }
 }

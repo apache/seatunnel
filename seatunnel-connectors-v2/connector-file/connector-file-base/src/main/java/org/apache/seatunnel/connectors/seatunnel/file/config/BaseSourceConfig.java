@@ -27,11 +27,12 @@ import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import java.util.List;
 
 public class BaseSourceConfig {
-    public static final Option<FileFormat> FILE_TYPE =
-            Options.key("type")
+    public static final Option<FileFormat> FILE_FORMAT_TYPE =
+            Options.key("file_format_type")
                     .objectType(FileFormat.class)
                     .noDefaultValue()
-                    .withDescription("File type");
+                    .withDescription(
+                            "File format type, e.g. json, csv, text, parquet, orc, avro....");
 
     public static final Option<String> FILE_PATH =
             Options.key("path")
@@ -105,4 +106,10 @@ public class BaseSourceConfig {
                     .listType()
                     .noDefaultValue()
                     .withDescription("The columns list that the user want to read");
+
+    public static final Option<String> SHEET_NAME =
+            Options.key("sheet_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("To be read sheet name,only valid for excel files");
 }

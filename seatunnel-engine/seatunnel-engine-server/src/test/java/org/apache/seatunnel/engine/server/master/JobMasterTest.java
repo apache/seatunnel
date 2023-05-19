@@ -27,8 +27,6 @@ import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointException;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -117,6 +115,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         JOB_ID,
+                        "Test",
                         nodeEngine.getSerializationService().toData(testLogicalDag),
                         testLogicalDag.getJobConfig(),
                         Collections.emptyList());
@@ -134,34 +133,35 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                 .untilAsserted(
                         () -> Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
-        // call checkpoint timeout
-        jobMaster.handleCheckpointError(
-                1, new CheckpointException(CheckpointCloseReason.CHECKPOINT_EXPIRED));
-
         // Because handleCheckpointTimeout is an async method, so we need sleep 5s to waiting job
         // status become running again
         Thread.sleep(5000);
 
-        // test job still run
-        await().atMost(120000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
+        jobMaster.neverNeedRestore();
+        // call checkpoint timeout
+        jobMaster.handleCheckpointError(1);
 
         PassiveCompletableFuture<JobResult> jobMasterCompleteFuture =
                 jobMaster.getJobMasterCompleteFuture();
-        // cancel job
-        jobMaster.cancelJob();
 
         // test job turn to complete
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
+                                // Why equals CANCELED or FAILED? because handleCheckpointError
+                                // should call by CheckpointCoordinator,
+                                // before do this, CheckpointCoordinator should be failed. Anyway,
+                                // use handleCheckpointError not good to test checkpoint timeout.
                                 Assertions.assertTrue(
                                         jobMasterCompleteFuture.isDone()
-                                                && JobStatus.CANCELED.equals(
-                                                        jobMasterCompleteFuture
-                                                                .get()
-                                                                .getStatus())));
+                                                && (JobStatus.CANCELED.equals(
+                                                                jobMasterCompleteFuture
+                                                                        .get()
+                                                                        .getStatus())
+                                                        || JobStatus.FAILED.equals(
+                                                                jobMasterCompleteFuture
+                                                                        .get()
+                                                                        .getStatus()))));
 
         testIMapRemovedAfterJobComplete(jobMaster);
     }
