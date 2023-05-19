@@ -168,7 +168,8 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle
         for (Map.Entry<String, Queue<Record<?>>> shuffleBatch : shuffleBuffer.entrySet()) {
             IQueue<Record<?>> shuffleQueue = shuffles.get(shuffleBatch.getKey());
             Queue<Record<?>> shuffleQueueBatch = shuffleBatch.getValue();
-            if (!shuffleQueue.addAll(shuffleBatch.getValue())) {
+            if (shuffleQueue.remainingCapacity() <= 0
+                    || !shuffleQueue.addAll(shuffleBatch.getValue())) {
                 for (; ; ) {
                     Record<?> shuffleItem = shuffleQueueBatch.poll();
                     if (shuffleItem == null) {
