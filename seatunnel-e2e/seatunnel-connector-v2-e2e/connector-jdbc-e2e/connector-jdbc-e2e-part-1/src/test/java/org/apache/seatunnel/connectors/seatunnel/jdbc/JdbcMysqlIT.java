@@ -64,9 +64,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
-                    + "    `c_bigint_30`            BIGINT(40)  unsigned  DEFAULT NULL,\n"
-                    + "    `c_decimal_unsigned_30`  DECIMAL(30) unsigned  DEFAULT NULL,\n"
-                    + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL,\n"
                     + "    `c_bit_1`                bit(1)                DEFAULT NULL,\n"
                     + "    `c_bit_8`                bit(8)                DEFAULT NULL,\n"
                     + "    `c_bit_16`               bit(16)               DEFAULT NULL,\n"
@@ -107,7 +104,10 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     + "    `c_binary`               binary(1)             DEFAULT NULL,\n"
                     + "    `c_year`                 year(4)               DEFAULT NULL,\n"
                     + "    `c_int_unsigned`         int(10) unsigned      DEFAULT NULL,\n"
-                    + "    `c_integer_unsigned`     int(10) unsigned      DEFAULT NULL\n"
+                    + "    `c_integer_unsigned`     int(10) unsigned      DEFAULT NULL,\n"
+                    + "    `c_bigint_30`            BIGINT(40)  unsigned  DEFAULT NULL,\n"
+                    + "    `c_decimal_unsigned_30`  DECIMAL(30) unsigned  DEFAULT NULL,\n"
+                    + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL\n"
                     + ");";
 
     @Override
@@ -153,9 +153,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
-                    "c_bigint_30",
-                    "c_decimal_unsigned_30",
-                    "c_decimal_30",
                     "c_bit_1",
                     "c_bit_8",
                     "c_bit_16",
@@ -196,7 +193,10 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_blob",
                     "c_longblob",
                     "c_varbinary",
-                    "c_binary"
+                    "c_binary",
+                    "c_bigint_30",
+                    "c_decimal_unsigned_30",
+                    "c_decimal_30",
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -207,9 +207,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
-                                bigintValue.add(BigDecimal.valueOf(i)),
-                                decimalValue.add(BigDecimal.valueOf(i)),
-                                decimalValue.add(BigDecimal.valueOf(i)),
                                 i % 2 == 0 ? (byte) 1 : (byte) 0,
                                 new byte[] {byteArr},
                                 new byte[] {byteArr, byteArr},
@@ -253,7 +250,10 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                                 "test".getBytes(),
                                 "test".getBytes(),
                                 "test".getBytes(),
-                                "f".getBytes()
+                                "f".getBytes(),
+                                bigintValue.add(BigDecimal.valueOf(i)),
+                                decimalValue.add(BigDecimal.valueOf(i)),
+                                decimalValue.add(BigDecimal.valueOf(i)),
                             });
             rows.add(row);
         }
