@@ -75,7 +75,9 @@ Read external data source data through JDBC.
 
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
 >
-  ## Task Example
+> JDBC Driver Connection Parameters are supported in JDBC connection string. E.g, you can add `?GEOGRAPHY_OUTPUT_FORMAT='EWKT'` to specify the Geospatial Data Types. For more information about configurable parameters, and geospatial data types please visit Snowflake official [document](https://docs.snowflake.com/en/sql-reference/data-types-geospatial)
+
+## Task Example
 
 ### simple:
 
