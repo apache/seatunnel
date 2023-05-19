@@ -37,6 +37,7 @@ import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.LiveOperations;
 import com.hazelcast.spi.impl.operationservice.LiveOperationsTracker;
+import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.Properties;
@@ -58,6 +59,8 @@ public class SeaTunnelServer
     private TaskExecutionService taskExecutionService;
     private CoordinatorService coordinatorService;
     private ScheduledExecutorService monitorService;
+
+    @Getter private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
 
     private final SeaTunnelConfig seaTunnelConfig;
 
@@ -105,6 +108,8 @@ public class SeaTunnelServer
                 0,
                 seaTunnelConfig.getEngineConfig().getPrintExecutionInfoInterval(),
                 TimeUnit.SECONDS);
+
+        seaTunnelHealthMonitor = new SeaTunnelHealthMonitor(((NodeEngineImpl) engine).getNode());
     }
 
     @Override
@@ -177,7 +182,8 @@ public class SeaTunnelServer
             int retryPause =
                     hazelcastRetryPause == null ? 500 : Integer.parseInt(hazelcastRetryPause);
 
-            while (!coordinatorService.isCoordinatorActive()
+            while (isMasterNode()
+                    && !coordinatorService.isCoordinatorActive()
                     && retryCount < maxRetry
                     && isRunning) {
                 try {
@@ -191,6 +197,10 @@ public class SeaTunnelServer
             }
             if (coordinatorService.isCoordinatorActive()) {
                 return coordinatorService;
+            }
+
+            if (!isMasterNode()) {
+                throw new SeaTunnelEngineException("This is not a master node now.");
             }
 
             throw new SeaTunnelEngineException(
@@ -225,10 +235,10 @@ public class SeaTunnelServer
             return RetryUtils.retryWithException(
                     () -> nodeEngine.getMasterAddress().equals(nodeEngine.getThisAddress()),
                     new RetryUtils.RetryMaterial(
-                            20,
+                            Constant.OPERATION_RETRY_TIME,
                             true,
                             exception -> exception instanceof NullPointerException && isRunning,
-                            1000));
+                            Constant.OPERATION_RETRY_SLEEP));
         } catch (InterruptedException e) {
             LOGGER.info("master node check interrupted");
             return false;

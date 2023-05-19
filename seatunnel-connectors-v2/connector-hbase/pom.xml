@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-hbase</artifactId>
+    <name>SeaTunnel : Connectors V2 : Hbase</name>
 
     <properties>
         <hbase.version>2.4.10</hbase.version>

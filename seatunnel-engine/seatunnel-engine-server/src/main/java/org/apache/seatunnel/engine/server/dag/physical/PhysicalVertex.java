@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskDeployState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecutingOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -53,7 +55,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -182,15 +184,14 @@ public class PhysicalVertex {
             if (!checkTaskGroupIsExecuting(taskGroupLocation)) {
                 updateTaskState(ExecutionState.RUNNING, ExecutionState.FAILED);
                 this.taskFuture.complete(
-                        new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, null));
+                        new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED));
             }
         }
         // If the task state is CANCELING we need call noticeTaskExecutionServiceCancel().
         else if (ExecutionState.CANCELING.equals(executionState)) {
             noticeTaskExecutionServiceCancel();
         } else if (executionState.isEndState()) {
-            this.taskFuture.complete(
-                    new TaskExecutionState(taskGroupLocation, executionState, null));
+            this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, executionState));
         }
         return new PassiveCompletableFuture<>(this.taskFuture);
     }
@@ -243,33 +244,32 @@ public class PhysicalVertex {
         return null;
     }
 
-    private void deployOnLocal(@NonNull SlotProfile slotProfile) {
-        deployInternal(
+    private TaskDeployState deployOnLocal(@NonNull SlotProfile slotProfile) {
+        return deployInternal(
                 taskGroupImmutableInformation -> {
                     SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-                    server.getSlotService()
+                    return server.getSlotService()
                             .getSlotContext(slotProfile)
                             .getTaskExecutionService()
                             .deployTask(taskGroupImmutableInformation);
                 });
     }
 
-    private void deployOnRemote(@NonNull SlotProfile slotProfile) {
-        deployInternal(
+    private TaskDeployState deployOnRemote(@NonNull SlotProfile slotProfile) {
+        return deployInternal(
                 taskGroupImmutableInformation -> {
                     try {
-                        nodeEngine
-                                .getOperationService()
-                                .createInvocationBuilder(
-                                        Constant.SEATUNNEL_SERVICE_NAME,
-                                        new DeployTaskOperation(
-                                                slotProfile,
-                                                nodeEngine
-                                                        .getSerializationService()
-                                                        .toData(taskGroupImmutableInformation)),
-                                        slotProfile.getWorker())
-                                .invoke()
-                                .get();
+                        return (TaskDeployState)
+                                NodeEngineUtil.sendOperationToMemberNode(
+                                                nodeEngine,
+                                                new DeployTaskOperation(
+                                                        slotProfile,
+                                                        nodeEngine
+                                                                .getSerializationService()
+                                                                .toData(
+                                                                        taskGroupImmutableInformation)),
+                                                slotProfile.getWorker())
+                                        .get();
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -278,28 +278,32 @@ public class PhysicalVertex {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     // This method must not throw an exception
-    public void deploy(@NonNull SlotProfile slotProfile) {
+    public TaskDeployState deploy(@NonNull SlotProfile slotProfile) {
         try {
             if (slotProfile.getWorker().equals(nodeEngine.getThisAddress())) {
-                deployOnLocal(slotProfile);
+                return deployOnLocal(slotProfile);
             } else {
-                deployOnRemote(slotProfile);
+                return deployOnRemote(slotProfile);
             }
         } catch (Throwable th) {
             failedByException(th);
+            return TaskDeployState.failed(th);
         }
     }
 
-    private void deployInternal(Consumer<TaskGroupImmutableInformation> taskGroupConsumer) {
+    private TaskDeployState deployInternal(
+            Function<TaskGroupImmutableInformation, TaskDeployState> taskGroupConsumer) {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 getTaskGroupImmutableInformation();
         synchronized (this) {
             ExecutionState currentState =
                     (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
             if (ExecutionState.DEPLOYING.equals(currentState)) {
-                taskGroupConsumer.accept(taskGroupImmutableInformation);
+                TaskDeployState state = taskGroupConsumer.apply(taskGroupImmutableInformation);
                 updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
+                return state;
             }
+            return TaskDeployState.success();
         }
     }
 
@@ -354,6 +358,10 @@ public class PhysicalVertex {
 
     public boolean updateTaskState(
             @NonNull ExecutionState current, @NonNull ExecutionState targetState) {
+        LOGGER.fine(
+                String.format(
+                        "Try to update the task %s state from %s to %s",
+                        taskFullName, current, targetState));
         synchronized (this) {
             // consistency check
             if (current.isEndState()) {
@@ -393,6 +401,10 @@ public class PhysicalVertex {
                                 taskFullName, current, targetState));
                 return true;
             } else {
+                LOGGER.warning(
+                        String.format(
+                                "The task %s state in Imap is %s, not equals expected state %s",
+                                taskFullName, runningJobStateIMap.get(taskGroupLocation), current));
                 return false;
             }
         }
@@ -403,10 +415,15 @@ public class PhysicalVertex {
                 || updateTaskState(ExecutionState.SCHEDULED, ExecutionState.CANCELED)
                 || updateTaskState(ExecutionState.DEPLOYING, ExecutionState.CANCELED)) {
             taskFuture.complete(
-                    new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED, null));
+                    new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED));
         } else if (updateTaskState(ExecutionState.RUNNING, ExecutionState.CANCELING)) {
             noticeTaskExecutionServiceCancel();
         }
+
+        LOGGER.info(
+                String.format(
+                        "can not cancel task %s because it is in state %s ",
+                        taskFullName, getExecutionState()));
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -416,14 +433,15 @@ public class PhysicalVertex {
         if (!checkTaskGroupIsExecuting(taskGroupLocation)) {
             updateTaskState(ExecutionState.CANCELING, ExecutionState.CANCELED);
             taskFuture.complete(
-                    new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED, null));
+                    new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED));
             return;
         }
         int i = 0;
         // In order not to generate uncontrolled tasks, We will try again until the taskFuture is
         // completed
         while (!taskFuture.isDone()
-                && nodeEngine.getClusterService().getMember(getCurrentExecutionAddress()) != null) {
+                && nodeEngine.getClusterService().getMember(getCurrentExecutionAddress()) != null
+                && i < Constant.OPERATION_RETRY_TIME) {
             try {
                 i++;
                 LOGGER.info(
@@ -478,6 +496,8 @@ public class PhysicalVertex {
             }
             updateStateTimestamps(ExecutionState.CREATED);
             runningJobStateIMap.set(taskGroupLocation, ExecutionState.CREATED);
+            LOGGER.info(
+                    String.format("%s turn to state %s.", taskFullName, ExecutionState.CREATED));
         }
     }
 

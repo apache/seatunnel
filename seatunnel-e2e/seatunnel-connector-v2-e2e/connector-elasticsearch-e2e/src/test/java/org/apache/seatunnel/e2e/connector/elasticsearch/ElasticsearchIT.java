@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.connector.elasticsearch;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -43,10 +44,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.UnknownHostException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -125,12 +126,12 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinData = readSinkData();
-        Assertions.assertIterableEquals(testDataset, sinData);
+        List<String> sinkData = readSinkData();
+        // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
+        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
     }
 
-    private List<String> generateTestDataSet()
-            throws JsonProcessingException, UnknownHostException {
+    private List<String> generateTestDataSet() throws JsonProcessingException {
         String[] fields =
                 new String[] {
                     "c_map",
@@ -168,7 +169,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         BigDecimal.valueOf(11, 1),
                         "test".getBytes(),
                         LocalDate.now().toString(),
-                        LocalDateTime.now().toString()
+                        System.currentTimeMillis()
                     };
             for (int j = 0; j < fields.length; j++) {
                 doc.put(fields[j], values[j]);
@@ -197,7 +198,15 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         "c_bytes",
                         "c_date",
                         "c_timestamp");
-        ScrollResult scrollResult = esRestClient.searchByScroll("st_index2", source, "1m", 1000);
+        HashMap<String, Object> rangeParam = new HashMap<>();
+        rangeParam.put("gte", 10);
+        rangeParam.put("lte", 20);
+        HashMap<String, Object> range = new HashMap<>();
+        range.put("c_int", rangeParam);
+        Map<String, Object> query = new HashMap<>();
+        query.put("range", range);
+        ScrollResult scrollResult =
+                esRestClient.searchByScroll("st_index2", source, query, "1m", 1000);
         scrollResult
                 .getDocs()
                 .forEach(
@@ -205,6 +214,13 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             x.remove("_index");
                             x.remove("_type");
                             x.remove("_id");
+                            // I don’t know if converting the test cases in this way complies with
+                            // the CI specification
+                            x.replace(
+                                    "c_timestamp",
+                                    LocalDateTime.parse(x.get("c_timestamp").toString())
+                                            .toInstant(ZoneOffset.UTC)
+                                            .toEpochMilli());
                         });
         List<String> docs =
                 scrollResult.getDocs().stream()
@@ -214,6 +230,21 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         .map(JsonUtils::toJsonString)
                         .collect(Collectors.toList());
         return docs;
+    }
+
+    private List<String> mapTestDatasetForDSL() {
+        return testDataset.stream()
+                .map(JsonUtils::parseObject)
+                .filter(
+                        node -> {
+                            if (node.hasNonNull("c_int")) {
+                                int cInt = node.get("c_int").asInt();
+                                return cInt >= 10 && cInt <= 20;
+                            }
+                            return false;
+                        })
+                .map(JsonNode::toString)
+                .collect(Collectors.toList());
     }
 
     @AfterEach

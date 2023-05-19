@@ -28,5 +28,6 @@
     </parent>
 
     <artifactId>serializer-api</artifactId>
+    <name>SeaTunnel : Engine : Serializer : Api</name>
 
 </project>

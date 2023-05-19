@@ -86,7 +86,7 @@ public class ClickhouseProxy {
 
                 String clusterName = infos.get(0);
                 String localDatabase = infos.get(1);
-                String localTable = infos.get(2).replace("\\)", "").trim();
+                String localTable = infos.get(2).replace(")", "").trim();
 
                 String localTableSQL =
                         String.format(

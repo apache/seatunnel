@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-tablestore</artifactId>
+    <name>SeaTunnel : Connectors V2 : Tablestore</name>
 
     <properties>
         <tablestore.version>5.13.9</tablestore.version>

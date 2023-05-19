@@ -39,10 +39,12 @@ connector-file-oss-jindo
 connector-file-s3
 connector-file-sftp
 connector-google-sheets
+connector-google-firestore
 connector-hive
 connector-http-base
 connector-http-feishu
 connector-http-gitlab
+connector-http-github
 connector-http-jira
 connector-http-klaviyo
 connector-http-lemlist

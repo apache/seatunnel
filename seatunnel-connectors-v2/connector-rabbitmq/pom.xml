@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-rabbitmq</artifactId>
+    <name>SeaTunnel : Connectors V2 : Rabbitmq</name>
 
     <properties>
         <rabbitmq.version>5.9.0</rabbitmq.version>

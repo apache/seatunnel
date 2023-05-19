@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-common</artifactId>
+    <name>SeaTunnel : Connectors V2 : Common</name>
 
     <build>
         <plugins>

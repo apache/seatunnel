@@ -23,8 +23,15 @@
     </parent>
 
     <artifactId>seatunnel-translation-spark-2.4</artifactId>
+    <name>SeaTunnel : Translation : Spark : 2.4</name>
 
     <dependencies>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-translation-spark-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.spark</groupId>

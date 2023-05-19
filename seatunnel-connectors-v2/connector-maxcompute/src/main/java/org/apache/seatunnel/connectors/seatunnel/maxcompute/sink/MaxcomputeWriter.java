@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
@@ -43,23 +42,19 @@ import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.Maxcom
 
 @Slf4j
 public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-    private final SeaTunnelRowType seaTunnelRowType;
-    private final RecordWriter recordWriter;
+    private RecordWriter recordWriter;
     private final TableTunnel.UploadSession session;
     private final TableSchema tableSchema;
+    private static final Long BLOCK_0 = 0L;
 
-    private Config pluginConfig;
-
-    public MaxcomputeWriter(SeaTunnelRowType seaTunnelRowType, Config pluginConfig) {
-        this.seaTunnelRowType = seaTunnelRowType;
-        this.pluginConfig = pluginConfig;
+    public MaxcomputeWriter(Config pluginConfig) {
         try {
             Table table = MaxcomputeUtil.getTable(pluginConfig);
             this.tableSchema = table.getSchema();
             TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(pluginConfig);
-            if (this.pluginConfig.hasPath(PARTITION_SPEC.key())) {
+            if (pluginConfig.hasPath(PARTITION_SPEC.key())) {
                 PartitionSpec partitionSpec =
-                        new PartitionSpec(this.pluginConfig.getString(PARTITION_SPEC.key()));
+                        new PartitionSpec(pluginConfig.getString(PARTITION_SPEC.key()));
                 session =
                         tunnel.createUploadSession(
                                 pluginConfig.getString(PROJECT.key()),
@@ -71,7 +66,7 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                                 pluginConfig.getString(PROJECT.key()),
                                 pluginConfig.getString(TABLE_NAME.key()));
             }
-            this.recordWriter = session.openRecordWriter(Thread.currentThread().getId());
+            this.recordWriter = session.openRecordWriter(BLOCK_0);
             log.info("open record writer success");
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
@@ -80,18 +75,20 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void write(SeaTunnelRow seaTunnelRow) throws IOException {
-        Record record =
-                MaxcomputeTypeMapper.getMaxcomputeRowData(seaTunnelRow, this.seaTunnelRowType);
+        Record record = MaxcomputeTypeMapper.getMaxcomputeRowData(seaTunnelRow, this.tableSchema);
         recordWriter.write(record);
     }
 
     @Override
     public void close() throws IOException {
-        this.recordWriter.close();
-        try {
-            this.session.commit(new Long[] {Thread.currentThread().getId()});
-        } catch (Exception e) {
-            throw new MaxcomputeConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
+        if (recordWriter != null) {
+            recordWriter.close();
+            try {
+                session.commit(new Long[] {BLOCK_0});
+            } catch (Exception e) {
+                throw new MaxcomputeConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
+            }
+            recordWriter = null;
         }
     }
 }

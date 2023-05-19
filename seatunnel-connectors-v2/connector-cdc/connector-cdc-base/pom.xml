@@ -26,6 +26,7 @@
         <version>${revision}</version>
     </parent>
     <artifactId>connector-cdc-base</artifactId>
+    <name>SeaTunnel : Connectors V2 : CDC : Base</name>
 
     <properties>
         <hikaricp.version>4.0.3</hikaricp.version>
@@ -42,6 +43,11 @@
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
                 <artifactId>connector-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-format-compatible-debezium-json</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <!-- Debezium dependencies -->
@@ -85,6 +91,10 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-format-compatible-debezium-json</artifactId>
         </dependency>
 
     </dependencies>

@@ -28,6 +28,7 @@
     </parent>
 
     <artifactId>seatunnel-core-starter</artifactId>
+    <name>SeaTunnel : Core : Core Starter</name>
 
     <dependencies>
 

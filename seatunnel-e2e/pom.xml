@@ -24,12 +24,11 @@
 
     <artifactId>seatunnel-e2e</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : E2E :</name>
 
     <modules>
         <module>seatunnel-e2e-common</module>
         <module>seatunnel-connector-v2-e2e</module>
-        <module>seatunnel-flink-connector-v2-e2e</module>
-        <module>seatunnel-spark-connector-v2-e2e</module>
         <module>seatunnel-engine-e2e</module>
         <module>seatunnel-transforms-v2-e2e</module>
     </modules>
@@ -37,6 +36,7 @@
     <properties>
         <junit4.version>4.13.2</junit4.version>
         <maven-jar-plugin.version>2.4</maven-jar-plugin.version>
+        <rest-assured.version>4.3.1</rest-assured.version>
     </properties>
     <dependencies>
         <dependency>
@@ -53,6 +53,18 @@
         <dependency>
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <version>${rest-assured.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>json-path</artifactId>
+            <version>${rest-assured.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

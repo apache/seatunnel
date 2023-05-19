@@ -31,7 +31,7 @@ import com.google.auto.service.AutoService;
 public class OssFileSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return FileSystemType.OSS.getFileSystemPluginName();
+        return FileSystemType.OSS_JINDO.getFileSystemPluginName();
     }
 
     @Override
@@ -42,21 +42,27 @@ public class OssFileSinkFactory implements TableSinkFactory {
                 .required(OssConfig.ACCESS_KEY)
                 .required(OssConfig.ACCESS_SECRET)
                 .required(OssConfig.ENDPOINT)
-                .optional(BaseSinkConfig.FILE_FORMAT)
+                .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT,
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
                         BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.FIELD_DELIMITER,
                         BaseSinkConfig.TXT_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT, FileFormat.CSV, BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileFormat.CSV,
+                        BaseSinkConfig.TXT_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT, FileFormat.JSON, BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileFormat.JSON,
+                        BaseSinkConfig.TXT_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT, FileFormat.ORC, BaseSinkConfig.ORC_COMPRESS)
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileFormat.ORC,
+                        BaseSinkConfig.ORC_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT,
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.PARQUET,
                         BaseSinkConfig.PARQUET_COMPRESS)
                 .optional(BaseSinkConfig.CUSTOM_FILENAME)

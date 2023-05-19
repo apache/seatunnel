@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-influxdb</artifactId>
+    <name>SeaTunnel : Connectors V2 : Influxdb</name>
 
     <properties>
         <influxdb.version>2.21</influxdb.version>

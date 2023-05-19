@@ -28,6 +28,7 @@
 
     <artifactId>seatunnel-examples</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Examples :</name>
 
     <modules>
         <module>seatunnel-flink-connector-v2-example</module>

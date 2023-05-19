@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-http-gitlab</artifactId>
+    <name>SeaTunnel : Connectors V2 : Http : Gitlab</name>
 
     <dependencies>
         <dependency>

@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>seatunnel-transforms-v2</artifactId>
+    <name>SeaTunnel : Transforms : V2</name>
 
     <dependencyManagement>
         <dependencies>
@@ -44,10 +45,15 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+            <version>${jsqlparser.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
-        <finalName>${project.name}</finalName>
+        <finalName>${project.artifactId}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

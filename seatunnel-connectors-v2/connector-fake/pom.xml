@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-fake</artifactId>
+    <name>SeaTunnel : Connectors V2 : Fake</name>
 
     <dependencies>
         <dependency>

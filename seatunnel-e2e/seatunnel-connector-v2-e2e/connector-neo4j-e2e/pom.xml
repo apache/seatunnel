@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-neo4j-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Neo4j</name>
 
     <dependencies>
         <!-- SeaTunnel connectors -->

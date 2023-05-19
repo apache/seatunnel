@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggreg
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.redshift.RedshiftJdbcClient;
 import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
+import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -59,24 +60,27 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
                     try {
                         for (Map.Entry<String, Map<String, String>> entry :
                                 aggregatedCommitInfo.getTransactionMap().entrySet()) {
-                            for (Map.Entry<String, String> tmpFileEntry :
+                            for (Map.Entry<String, String> mvFileEntry :
                                     entry.getValue().entrySet()) {
-                                String sql = convertSql(tmpFileEntry.getKey());
+                                // first rename temp file
+                                fileSystemUtils.renameFile(
+                                        mvFileEntry.getKey(), mvFileEntry.getValue(), true);
+                                String sql = convertSql(mvFileEntry.getValue());
                                 log.debug("execute redshift sql is:" + sql);
                                 RedshiftJdbcClient.getInstance(pluginConfig).execute(sql);
-                                try {
-                                    fileSystemUtils.deleteFile(tmpFileEntry.getKey());
-                                } catch (IOException e) {
-                                    log.warn("delete tmp file error:" + tmpFileEntry.getKey());
-                                }
+                                fileSystemUtils.deleteFile(mvFileEntry.getValue());
                             }
+                            // second delete transaction directory
+                            fileSystemUtils.deleteFile(entry.getKey());
                         }
-
                     } catch (Exception e) {
                         log.error("commit aggregatedCommitInfo error ", e);
                         errorAggregatedCommitInfoList.add(aggregatedCommitInfo);
+                        throw new S3RedshiftJdbcConnectorException(
+                                S3RedshiftConnectorErrorCode.AGGREGATE_COMMIT_ERROR, e);
                     }
                 });
+        // TODO errorAggregatedCommitInfoList Always empty, So return is no use
         return errorAggregatedCommitInfoList;
     }
 

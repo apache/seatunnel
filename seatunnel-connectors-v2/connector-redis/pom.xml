@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-redis</artifactId>
+    <name>SeaTunnel : Connectors V2 : Redis</name>
 
     <properties>
         <jedis.version>4.2.2</jedis.version>

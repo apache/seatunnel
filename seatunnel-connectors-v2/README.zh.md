@@ -11,8 +11,8 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 
 - ../`seatunnel-connectors-v2`                                         connector-v2代码实现
 - ../`seatunnel-translation`                                           connector-v2的翻译层 
-- ../seatunnel-e2e/`seatunnel-flink-connector-v2-e2e`                  flink上运行的端到端testcase
-- ../seatunnel-e2e/`seatunnel-spark-connector-v2-e2e`                  spark上运行的端到端testcase
+- ../`seatunnel-transform-v2`                                          transform-v2代码实现
+- ../seatunnel-e2e/`seatunnel-connector-v2-e2e`                        connector-v2端到端测试
 - ../seatunnel-examples/`seatunnel-flink-connector-v2-example`         seatunnel connector-v2的flink local运行的实例
 - ../seatunnel-examples/`seatunnel-spark-connector-v2-example`         seatunnel connector-v2的spark local运行的实例
 
@@ -160,7 +160,7 @@ Sink可以根据组件属性进行选择，到底是只实现`SinkCommitter`或`
 - `optionRule` 返回的是参数逻辑，用于表示我们的连接器参数哪些支持，哪些参数是必须(required)的，哪些参数是可选(optional)的，哪些参数是互斥(exclusive)的，哪些参数是绑定(bundledRequired)的。
 这个方法会在我们可视化创建连接器逻辑的时候用到，同时也会用于根据用户配置的参数生成完整的参数对象，然后连接器开发者就不用在Config里面一个个判断参数是否存在，直接使用即可。
 可以参考现有的实现，比如`org.apache.seatunnel.connectors.seatunnel.elasticsearch.source.ElasticsearchSourceFactory`。针对很多Source都有支持配置Schema，所以采用了通用的Option，
-需要Schema则可以引用`org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA`。
+需要Schema则可以引用`org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA`。
 
 别忘记添加`@AutoService(Factory.class)` 到类上面。这个Factory即TableSourceFactory 和 TableSinkFactory的父类。
 

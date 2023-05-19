@@ -21,14 +21,19 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.command.ConfDecryptCommand;
+import org.apache.seatunnel.core.starter.command.ConfEncryptCommand;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
 
+import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,8 +42,9 @@ import java.util.List;
 @Data
 public class ClientCommandArgs extends AbstractCommandArgs {
     @Parameter(
-            names = {"-m", "--master"},
+            names = {"-m", "--master", "-e", "--deploy-mode"},
             description = "SeaTunnel job submit master, support [local, cluster]",
+            validateWith = MasterTypeValidator.class,
             converter = SeaTunnelMasterTargetConverter.class)
     private MasterType masterType = MasterType.CLUSTER;
 
@@ -55,7 +61,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     @Parameter(
             names = {"-cn", "--cluster"},
             description = "The name of cluster")
-    private String clusterName = "seatunnel_default_cluster";
+    private String clusterName;
 
     @Parameter(
             names = {"-j", "--job-id"},
@@ -78,6 +84,12 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private boolean listJob = false;
 
     @Parameter(
+            names = {"--async"},
+            description =
+                    "Run the job asynchronously, when the job is submitted, the client will exit")
+    private boolean async = false;
+
+    @Parameter(
             names = {"-cj", "--close-job"},
             description = "Close client the task will also be closed")
     private boolean closeJob = true;
@@ -87,9 +99,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         Common.setDeployMode(getDeployMode());
         if (checkConfig) {
             return new SeaTunnelConfValidateCommand(this);
-        } else {
-            return new ClientExecuteCommand(this);
         }
+        if (encrypt) {
+            return new ConfEncryptCommand(this);
+        }
+        if (decrypt) {
+            return new ConfDecryptCommand(this);
+        }
+        return new ClientExecuteCommand(this);
     }
 
     public DeployMode getDeployMode() {
@@ -113,6 +130,19 @@ public class ClientCommandArgs extends AbstractCommandArgs {
                 throw new IllegalArgumentException(
                         "SeaTunnel job on st-engine submitted target only "
                                 + "support these options: [local, cluster]");
+            }
+        }
+    }
+
+    @Slf4j
+    public static class MasterTypeValidator implements IParameterValidator {
+        @Override
+        public void validate(String name, String value) throws ParameterException {
+            if (name.equals("-e") || name.equals("--deploy-mode")) {
+                log.warn(
+                        "\n******************************************************************************************"
+                                + "\n-e and --deploy-mode deprecated in 2.3.1, please use -m and --master instead of it"
+                                + "\n******************************************************************************************");
             }
         }
     }

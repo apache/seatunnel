@@ -19,9 +19,9 @@ package org.apache.seatunnel.transform.common;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
-import org.apache.seatunnel.api.source.SourceCommonOptions;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -31,14 +31,14 @@ import java.util.Objects;
 
 public abstract class AbstractSeaTunnelTransform implements SeaTunnelTransform<SeaTunnelRow> {
 
-    private static final String RESULT_TABLE_NAME = SourceCommonOptions.RESULT_TABLE_NAME.key();
-    private static final String SOURCE_TABLE_NAME = SinkCommonOptions.SOURCE_TABLE_NAME.key();
+    private static final String RESULT_TABLE_NAME = CommonOptions.RESULT_TABLE_NAME.key();
+    private static final String SOURCE_TABLE_NAME = CommonOptions.SOURCE_TABLE_NAME.key();
 
-    private String inputTableName;
-    private SeaTunnelRowType inputRowType;
+    protected String inputTableName;
+    protected SeaTunnelRowType inputRowType;
 
-    private String outputTableName;
-    private SeaTunnelRowType outputRowType;
+    protected String outputTableName;
+    protected SeaTunnelRowType outputRowType;
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
@@ -106,5 +106,13 @@ public abstract class AbstractSeaTunnelTransform implements SeaTunnelTransform<S
         System.arraycopy(rowType.getFieldTypes(), 0, fieldTypes, 0, fieldTypes.length);
 
         return new SeaTunnelRowType(fieldNames, fieldTypes);
+    }
+
+    @Override
+    public CatalogTable getProducedCatalogTable() {
+        throw new UnsupportedOperationException(
+                String.format(
+                        "Connector %s must implement TableTransformFactory.createTransform method",
+                        getPluginName()));
     }
 }

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 
@@ -62,6 +63,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final Map<TopicPartition, KafkaConsumerThread> consumerThreadMap;
     private final ExecutorService executorService;
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
 
     private final LinkedBlockingQueue<KafkaSourceSplit> pendingPartitionsQueue;
 
@@ -70,9 +72,11 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     KafkaSourceReader(
             ConsumerMetadata metadata,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
-            SourceReader.Context context) {
+            Context context,
+            MessageFormatErrorHandleWay messageFormatErrorHandleWay) {
         this.metadata = metadata;
         this.context = context;
+        this.messageFormatErrorHandleWay = messageFormatErrorHandleWay;
         this.sourceSplits = new HashSet<>();
         this.deserializationSchema = deserializationSchema;
         this.consumerThreadMap = new ConcurrentHashMap<>();
@@ -145,8 +149,20 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                     for (ConsumerRecord<byte[], byte[]> record :
                                                             recordList) {
 
-                                                        deserializationSchema.deserialize(
-                                                                record.value(), output);
+                                                        try {
+                                                            deserializationSchema.deserialize(
+                                                                    record.value(), output);
+                                                        } catch (Exception e) {
+                                                            if (this.messageFormatErrorHandleWay
+                                                                    == MessageFormatErrorHandleWay
+                                                                            .SKIP) {
+                                                                log.warn(
+                                                                        "Deserialize message failed, skip this message, message: {}",
+                                                                        new String(record.value()));
+                                                                continue;
+                                                            }
+                                                            throw e;
+                                                        }
 
                                                         if (Boundedness.BOUNDED.equals(
                                                                         context.getBoundedness())
@@ -236,10 +252,13 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                         if (this.metadata.isCommitOnCheckpoint()) {
                                                             Map<TopicPartition, OffsetAndMetadata>
                                                                     offsets = new HashMap<>();
-                                                            offsets.put(
-                                                                    topicPartition,
-                                                                    new OffsetAndMetadata(offset));
-                                                            consumer.commitSync(offsets);
+                                                            if (offset >= 0) {
+                                                                offsets.put(
+                                                                        topicPartition,
+                                                                        new OffsetAndMetadata(
+                                                                                offset));
+                                                                consumer.commitSync(offsets);
+                                                            }
                                                         }
                                                     });
                                 } catch (InterruptedException e) {

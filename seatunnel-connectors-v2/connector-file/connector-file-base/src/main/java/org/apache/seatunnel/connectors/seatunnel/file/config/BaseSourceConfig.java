@@ -22,15 +22,17 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import java.util.List;
 
 public class BaseSourceConfig {
-    public static final Option<FileFormat> FILE_TYPE =
-            Options.key("type")
+    public static final Option<FileFormat> FILE_FORMAT_TYPE =
+            Options.key("file_format_type")
                     .objectType(FileFormat.class)
                     .noDefaultValue()
-                    .withDescription("File type");
+                    .withDescription(
+                            "File format type, e.g. json, csv, text, parquet, orc, avro....");
 
     public static final Option<String> FILE_PATH =
             Options.key("path")
@@ -41,7 +43,7 @@ public class BaseSourceConfig {
     public static final Option<String> DELIMITER =
             Options.key("delimiter")
                     .stringType()
-                    .defaultValue(String.valueOf('\001'))
+                    .defaultValue(TextFormatConstant.SEPARATOR[0])
                     .withDescription(
                             "The separator between columns in a row of data. Only needed by `text` file format");
 
@@ -98,4 +100,16 @@ public class BaseSourceConfig {
                     .listType()
                     .noDefaultValue()
                     .withDescription("The partitions that the user want to read");
+
+    public static final Option<List<String>> READ_COLUMNS =
+            Options.key("read_columns")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription("The columns list that the user want to read");
+
+    public static final Option<String> SHEET_NAME =
+            Options.key("sheet_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("To be read sheet name,only valid for excel files");
 }

@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
 import java.io.Serializable;
@@ -64,6 +64,10 @@ public interface JdbcDialect extends Serializable {
         return identifier;
     }
 
+    default String tableIdentifier(String database, String tableName) {
+        return quoteIdentifier(database) + "." + quoteIdentifier(tableName);
+    }
+
     /**
      * Constructs the dialects insert statement for a single row. The returned string will be used
      * as a {@link java.sql.PreparedStatement}. Fields in the statement must be in the same order as
@@ -75,7 +79,7 @@ public interface JdbcDialect extends Serializable {
      *
      * @return the dialects {@code INSERT INTO} statement.
      */
-    default String getInsertIntoStatement(String tableName, String[] fieldNames) {
+    default String getInsertIntoStatement(String database, String tableName, String[] fieldNames) {
         String columns =
                 Arrays.stream(fieldNames)
                         .map(this::quoteIdentifier)
@@ -86,7 +90,7 @@ public interface JdbcDialect extends Serializable {
                         .collect(Collectors.joining(", "));
         return String.format(
                 "INSERT INTO %s (%s) VALUES (%s)",
-                quoteIdentifier(tableName), columns, placeholders);
+                tableIdentifier(database, tableName), columns, placeholders);
     }
 
     /**
@@ -101,7 +105,7 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPDATE} statement.
      */
     default String getUpdateStatement(
-            String tableName, String[] fieldNames, String[] conditionFields) {
+            String database, String tableName, String[] fieldNames, String[] conditionFields) {
         String setClause =
                 Arrays.stream(fieldNames)
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
@@ -112,7 +116,7 @@ public interface JdbcDialect extends Serializable {
                         .collect(Collectors.joining(" AND "));
         return String.format(
                 "UPDATE %s SET %s WHERE %s",
-                quoteIdentifier(tableName), setClause, conditionClause);
+                tableIdentifier(database, tableName), setClause, conditionClause);
     }
 
     /**
@@ -126,13 +130,13 @@ public interface JdbcDialect extends Serializable {
      *
      * @return the dialects {@code DELETE} statement.
      */
-    default String getDeleteStatement(String tableName, String[] conditionFields) {
+    default String getDeleteStatement(String database, String tableName, String[] conditionFields) {
         String conditionClause =
                 Arrays.stream(conditionFields)
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
                         .collect(Collectors.joining(" AND "));
         return String.format(
-                "DELETE FROM %s WHERE %s", quoteIdentifier(tableName), conditionClause);
+                "DELETE FROM %s WHERE %s", tableIdentifier(database, tableName), conditionClause);
     }
 
     /**
@@ -145,13 +149,15 @@ public interface JdbcDialect extends Serializable {
      *
      * @return the dialects {@code QUERY} statement.
      */
-    default String getRowExistsStatement(String tableName, String[] conditionFields) {
+    default String getRowExistsStatement(
+            String database, String tableName, String[] conditionFields) {
         String fieldExpressions =
                 Arrays.stream(conditionFields)
                         .map(field -> format("%s = :%s", quoteIdentifier(field), field))
                         .collect(Collectors.joining(" AND "));
         return String.format(
-                "SELECT 1 FROM %s WHERE %s", quoteIdentifier(tableName), fieldExpressions);
+                "SELECT 1 FROM %s WHERE %s",
+                tableIdentifier(database, tableName), fieldExpressions);
     }
 
     /**
@@ -167,7 +173,7 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPSERT} statement or {@link Optional#empty()}.
      */
     Optional<String> getUpsertStatement(
-            String tableName, String[] fieldNames, String[] uniqueKeyFields);
+            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields);
 
     /**
      * Different dialects optimize their PreparedStatement
@@ -186,8 +192,8 @@ public interface JdbcDialect extends Serializable {
     }
 
     default ResultSetMetaData getResultSetMetaData(
-            Connection conn, JdbcSourceOptions jdbcSourceOptions) throws SQLException {
-        PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getQuery());
+            Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
+        PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
         return ps.getMetaData();
     }
 }

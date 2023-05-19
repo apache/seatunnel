@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.spark.source.partition.micro;
 
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -74,7 +75,7 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
     public InputPartition[] planInputPartitions(Offset start, Offset end) {
         int checkpointInterval =
                 caseInsensitiveStringMap.getInt(
-                        Constants.CHECKPOINT_INTERVAL, CHECKPOINT_INTERVAL_DEFAULT);
+                        EnvCommonOptions.CHECKPOINT_INTERVAL.key(), CHECKPOINT_INTERVAL_DEFAULT);
         Configuration configuration =
                 SparkSession.getActiveSession().get().sparkContext().hadoopConfiguration();
         String hdfsRoot =

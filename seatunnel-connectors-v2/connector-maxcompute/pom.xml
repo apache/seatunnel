@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-maxcompute</artifactId>
+    <name>SeaTunnel : Connectors V2 : Maxcompute</name>
 
     <properties>
         <maxcompute.version>0.31.3</maxcompute.version>

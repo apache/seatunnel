@@ -25,6 +25,7 @@
     </parent>
 
     <artifactId>connector-seatunnel-e2e-base</artifactId>
+    <name>SeaTunnel : E2E : Engine : Base</name>
 
     <properties>
         <maven-jar-plugin.version>2.4</maven-jar-plugin.version>

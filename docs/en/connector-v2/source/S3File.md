@@ -24,25 +24,27 @@ To use this connector you need put hadoop-aws-3.1.4.jar and aws-java-sdk-bundle-
 
 Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [ ] [column projection](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
-- [x] file format
+- [x] file format type
   - [x] text
   - [x] csv
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] excel
 
 ## Options
 
 |              name               |  type   | required |                     default value                     |
 |---------------------------------|---------|----------|-------------------------------------------------------|
 | path                            | string  | yes      | -                                                     |
-| type                            | string  | yes      | -                                                     |
+| file_format_type                | string  | yes      | -                                                     |
 | bucket                          | string  | yes      | -                                                     |
 | fs.s3a.endpoint                 | string  | yes      | -                                                     |
 | fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider |
+| read_columns                    | list    | no       | -                                                     |
 | access_key                      | string  | no       | -                                                     |
 | access_secret                   | string  | no       | -                                                     |
 | hadoop_s3_properties            | map     | no       | -                                                     |
@@ -54,6 +56,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | skip_header_row_number          | long    | no       | 0                                                     |
 | schema                          | config  | no       | -                                                     |
 | common-options                  |         | no       | -                                                     |
+| sheet_name                      | string  | no       | -                                                     |
 
 ### path [string]
 
@@ -123,11 +126,11 @@ For example, set like following:
 
 then Seatunnel will skip the first 2 lines from source files
 
-### type [string]
+### file_format_type [string]
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json`
+`text` `csv` `parquet` `orc` `json` `excel`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -239,9 +242,28 @@ hadoop_s3_properties {
 
 The schema of upstream data.
 
+### read_columns [list]
+
+The read column list of the data source, user can use it to implement field projection.
+
+The file type supported column projection as the following shown:
+
+- text
+- json
+- csv
+- orc
+- parquet
+- excel
+
+**Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
+
+### sheet_name [string]
+
+Reader the sheet of the workbook,Only used when file_format is excel.
 
 ## Example
 
@@ -254,7 +276,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
     access_key = "xxxxxxxxxxxxxxxxx"
     secret_key = "xxxxxxxxxxxxxxxxx"
     bucket = "s3a://seatunnel-test"
-    type = "orc"
+    file_format_type = "orc"
   }
 
 ```
@@ -266,7 +288,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
     bucket = "s3a://seatunnel-test"
     fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
     fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
-    type = "json"
+    file_format_type = "json"
     schema {
       fields {
         id = int 

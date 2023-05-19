@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>connector-tdengine-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : TDengine</name>
 
     <properties>
         <maven.compiler.source>8</maven.compiler.source>

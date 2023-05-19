@@ -25,6 +25,7 @@
     </parent>
 
     <artifactId>connector-cassandra</artifactId>
+    <name>SeaTunnel : Connectors V2 : Cassandra</name>
 
     <properties>
         <cassandra.driver.version>4.14.0</cassandra.driver.version>

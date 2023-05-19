@@ -29,6 +29,7 @@
 
     <artifactId>imap-storage-plugins</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Engine : Storage : IMap Storage Plugins :</name>
 
     <modules>
         <module>imap-storage-file</module>

@@ -28,6 +28,8 @@
     </parent>
 
     <artifactId>checkpoint-storage-api</artifactId>
+    <name>SeaTunnel : Engine : Storage : Checkpoint Storage Api</name>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

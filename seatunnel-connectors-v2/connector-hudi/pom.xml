@@ -27,6 +27,8 @@
     </parent>
 
     <artifactId>connector-hudi</artifactId>
+    <name>SeaTunnel : Connectors V2 : Hudi</name>
+
     <properties>
         <hive.exec.version>2.3.9</hive.exec.version>
         <hudi.version>0.11.1</hudi.version>
@@ -96,6 +98,10 @@
                 <exclusion>
                     <groupId>org.glassfish</groupId>
                     <artifactId>javax.el</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-hdfs</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

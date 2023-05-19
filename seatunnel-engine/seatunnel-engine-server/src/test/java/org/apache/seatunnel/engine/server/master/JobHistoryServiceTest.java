@@ -40,9 +40,9 @@ import static org.awaitility.Awaitility.await;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
 
-    private static final Long JOB_1 = 1L;
-    private static final Long JOB_2 = 2L;
-    private static final Long JOB_3 = 3L;
+    private static final Long JOB_1 = System.currentTimeMillis() + 1L;
+    private static final Long JOB_2 = System.currentTimeMillis() + 2L;
+    private static final Long JOB_3 = System.currentTimeMillis() + 3L;
 
     @Test
     public void testlistJobState() throws Exception {
@@ -58,7 +58,7 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
                                                 .listAllJob()
                                                 .contains(
                                                         String.format(
-                                                                "{\"jobId\":%s,\"jobStatus\":\"RUNNING\"}",
+                                                                "\"jobId\":%s,\"jobName\":\"Test\",\"jobStatus\":\"RUNNING\"",
                                                                 JOB_1))));
 
         // waiting for JOB_1 status turn to FINISHED
@@ -71,7 +71,7 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
                                                 .listAllJob()
                                                 .contains(
                                                         String.format(
-                                                                "{\"jobId\":%s,\"jobStatus\":\"FINISHED\"}",
+                                                                "\"jobId\":%s,\"jobName\":\"Test\",\"jobStatus\":\"FINISHED\"",
                                                                 JOB_1))));
 
         startJob(JOB_2, "fake_to_console.conf");
@@ -85,14 +85,14 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
                                                         .listAllJob()
                                                         .contains(
                                                                 String.format(
-                                                                        "{\"jobId\":%s,\"jobStatus\":\"FINISHED\"}",
+                                                                        "\"jobId\":%s,\"jobName\":\"Test\",\"jobStatus\":\"FINISHED\"",
                                                                         JOB_1))
                                                 && server.getCoordinatorService()
                                                         .getJobHistoryService()
                                                         .listAllJob()
                                                         .contains(
                                                                 String.format(
-                                                                        "{\"jobId\":%s,\"jobStatus\":\"RUNNING\"}",
+                                                                        "\"jobId\":%s,\"jobName\":\"Test\",\"jobStatus\":\"RUNNING\"",
                                                                         JOB_2))));
     }
 
@@ -134,6 +134,7 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         jobid,
+                        "Test",
                         nodeEngine.getSerializationService().toData(testLogicalDag),
                         testLogicalDag.getJobConfig(),
                         Collections.emptyList());

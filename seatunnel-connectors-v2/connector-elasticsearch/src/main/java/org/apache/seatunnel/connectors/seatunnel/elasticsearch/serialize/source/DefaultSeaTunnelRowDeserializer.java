@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -36,7 +38,9 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.Elastic
 
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.HashMap;
@@ -107,10 +111,15 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         try {
             for (int i = 0; i < rowTypeInfo.getTotalFields(); i++) {
                 fieldName = rowTypeInfo.getFieldName(i);
-                value = rowRecord.getDoc().get(fieldName);
+                value = recursiveGet(rowRecord.getDoc(), fieldName);
                 if (value != null) {
                     seaTunnelDataType = rowTypeInfo.getFieldType(i);
-                    seaTunnelFields[i] = convertValue(seaTunnelDataType, value.toString());
+                    if (value instanceof TextNode) {
+                        seaTunnelFields[i] =
+                                convertValue(seaTunnelDataType, ((TextNode) value).textValue());
+                    } else {
+                        seaTunnelFields[i] = convertValue(seaTunnelDataType, value.toString());
+                    }
                 }
             }
         } catch (Exception ex) {
@@ -187,6 +196,13 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
     }
 
     private LocalDateTime parseDate(String fieldValue) {
+        // handle strings of timestamp type
+        try {
+            long ts = Long.parseLong(fieldValue);
+            return LocalDateTime.ofInstant(Instant.ofEpochMilli(ts), ZoneId.systemDefault());
+        } catch (NumberFormatException e) {
+            // no op
+        }
         String formatDate = fieldValue.replace("T", " ");
         if (fieldValue.length() == "yyyyMMdd".length()
                 || fieldValue.length() == "yyyy-MM-dd".length()) {
@@ -198,5 +214,19 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                     CommonErrorCode.UNSUPPORTED_OPERATION, "unsupported date format");
         }
         return LocalDateTime.parse(formatDate, dateTimeFormatter);
+    }
+
+    Object recursiveGet(Map<String, Object> collect, String keyWithRecursive) {
+        Object value = null;
+        boolean isFirst = true;
+        for (String key : keyWithRecursive.split("\\.")) {
+            if (isFirst) {
+                value = collect.get(key);
+                isFirst = false;
+            } else if (value instanceof ObjectNode) {
+                value = ((ObjectNode) value).get(key);
+            }
+        }
+        return value;
     }
 }

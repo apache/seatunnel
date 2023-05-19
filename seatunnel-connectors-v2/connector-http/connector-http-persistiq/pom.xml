@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>connector-http-persistiq</artifactId>
+    <name>SeaTunnel : Connectors V2 : Http : Persistiq</name>
 
     <dependencies>
         <dependency>

@@ -26,6 +26,7 @@
         <version>${revision}</version>
     </parent>
     <artifactId>connector-cdc-mysql</artifactId>
+    <name>SeaTunnel : Connectors V2 : CDC : MySql</name>
 
     <dependencyManagement>
         <dependencies>
