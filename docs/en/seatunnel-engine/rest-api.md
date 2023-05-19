@@ -33,9 +33,9 @@ network:
       port: 5801
 ```
 
-## API reference
+## API Reference
 
-### Returns an overview over all jobs and their current state.
+### Returns an Overview Over All Jobs and Their Current State.
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-jobs</b></code> <code>(Returns an overview over all jobs and their current state.)</code></summary>
@@ -74,7 +74,7 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-### Return details of a job.
+### Return Details of a Job.
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(Return details of a job.)</code></summary>
@@ -115,7 +115,7 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-### Returns system monitoring information.
+### Returns System Monitoring Information.
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/system-monitoring-information</b></code> <code>(Returns system monitoring information.)</code></summary>
@@ -172,6 +172,41 @@ network:
     "connection.active.count":"2",
     "client.connection.count":"0",
     "connection.count":"0"
+  }
+]
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Returns All Completed Jobs Information.
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/completed-jobs-information</b></code> <code>(Returns all completed jobs information.)</code></summary>
+
+#### Parameters
+
+#### Responses
+
+```json
+[
+  {
+    "jobId": 711938762170499100,
+    "jobName": "fake_to_file",
+    "jobStatus": "FINISHED",
+    "submitTime": "2023-05-19 21:50:28",
+    "finishTime": "2023-05-19 21:50:31",
+    "pipelineStateMapperMap": {
+      "{\"jobId\":711938762170499073,\"pipelineId\":1}": {
+        "pipelineStatus": "FINISHED",
+        "executionStateMap": {
+          "{\"jobId\":711938762170499073,\"pipelineId\":1,\"taskGroupId\":3}": "FINISHED",
+          "{\"jobId\":711938762170499073,\"pipelineId\":1,\"taskGroupId\":1}": "FINISHED",
+          "{\"jobId\":711938762170499073,\"pipelineId\":1,\"taskGroupId\":50000}": "FINISHED"
+        }
+      }
+    }
   }
 ]
 ```

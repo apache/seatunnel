@@ -61,17 +61,26 @@ public class RestApiIT {
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
         hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
+        String streamJobFilePath = TestUtils.getResource("stream_fakesource_to_file.conf");
+        String batchJobFilePath = TestUtils.getResource("batch_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(testClusterName);
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(filePath, jobConfig);
+        JobExecutionEnvironment streamJobExecutionEnv =
+                engineClient.createExecutionContext(streamJobFilePath, jobConfig);
+        JobExecutionEnvironment batchJobExecutionEnv =
+                engineClient.createExecutionContext(batchJobFilePath, jobConfig);
+        ClientJobProxy proxy = batchJobExecutionEnv.execute();
 
-        clientJobProxy = jobExecutionEnv.execute();
+        Awaitility.await()
+                .atMost(5, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> Assertions.assertEquals(JobStatus.FINISHED, proxy.getJobStatus()));
+
+        clientJobProxy = streamJobExecutionEnv.execute();
 
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
@@ -129,6 +138,22 @@ public class RestApiIT {
                 .assertThat()
                 .time(lessThan(5000L))
                 .statusCode(200);
+    }
+
+    @Test
+    public void testAllCompletedJobsInformation() {
+        given().get(
+                        HOST
+                                + hazelcastInstance
+                                        .getCluster()
+                                        .getLocalMember()
+                                        .getAddress()
+                                        .getPort()
+                                + RestConstant.COMPLETED_JOBS_INFORMATION)
+                .then()
+                .statusCode(200)
+                .body("[0].jobName", equalTo("fake_to_file"))
+                .body("[0].jobStatus", equalTo("FINISHED"));
     }
 
     @AfterAll

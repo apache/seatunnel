@@ -24,4 +24,7 @@ public class RestConstant {
 
     public static final String SYSTEM_MONITORING_INFORMATION =
             "/hazelcast/rest/maps/system-monitoring-information";
+
+    public static final String COMPLETED_JOBS_INFORMATION =
+            "/hazelcast/rest/maps/completed-jobs-information";
 }

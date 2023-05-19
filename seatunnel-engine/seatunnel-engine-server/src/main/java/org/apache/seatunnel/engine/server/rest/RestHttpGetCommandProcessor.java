@@ -27,7 +27,11 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
+import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -37,6 +41,7 @@ import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpGetCommand;
+import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
@@ -54,6 +59,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.COMPLETED_JOBS_INFORMATION;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
@@ -91,6 +97,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 handleJobInfoById(httpGetCommand, uri);
             } else if (uri.startsWith(SYSTEM_MONITORING_INFORMATION)) {
                 getSystemMonitoringInformation(httpGetCommand);
+            } else if (uri.startsWith(COMPLETED_JOBS_INFORMATION)) {
+                getAllCompletedJobsInformation(httpGetCommand);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -107,6 +115,23 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     @Override
     public void handleRejection(HttpGetCommand httpGetCommand) {
         handle(httpGetCommand);
+    }
+
+    private void getAllCompletedJobsInformation(HttpGetCommand command) {
+        IMap<Long, JobHistoryService.JobState> values =
+                this.textCommandService
+                        .getNode()
+                        .getNodeEngine()
+                        .getHazelcastInstance()
+                        .getMap(Constant.IMAP_FINISHED_JOB_STATE);
+        JsonArray jobs =
+                values.entrySet().stream()
+                        .map(
+                                JobStateEntry ->
+                                        convertJobStateToJson(
+                                                JobStateEntry.getValue(), JobStateEntry.getKey()))
+                        .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+        this.prepareResponse(command, jobs);
     }
 
     private void getSystemMonitoringInformation(HttpGetCommand command) {
@@ -263,5 +288,71 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 .add("metrics", JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
 
         return jobInfoJson;
+    }
+
+    private JsonObject convertJobStateToJson(JobHistoryService.JobState jobState, long jobId) {
+        JsonObject jobStateJson = new JsonObject();
+
+        jobStateJson.add("jobId", Json.value(jobId));
+        jobStateJson.add("jobName", Json.value(jobState.getJobName()));
+        jobStateJson.add("jobStatus", Json.value(jobState.getJobStatus().toString()));
+        jobStateJson.add(
+                "submitTime",
+                Json.value(
+                        new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                                .format(new Date(jobState.getSubmitTime()))));
+        jobStateJson.add(
+                "finishTime",
+                jobState.getFinishTime() != null
+                        ? Json.value(
+                                new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                                        .format(new Date(jobState.getFinishTime())))
+                        : Json.NULL);
+
+        JsonObject pipelineStateMapperMapJson = new JsonObject();
+        for (Map.Entry<PipelineLocation, JobHistoryService.PipelineStateData> entry :
+                jobState.getPipelineStateMapperMap().entrySet()) {
+            pipelineStateMapperMapJson.add(
+                    convertPipelineLocationToJson(entry.getKey()),
+                    convertPipelineStateDataToJson(entry.getValue()));
+        }
+        jobStateJson.add("pipelineStateMapperMap", pipelineStateMapperMapJson);
+
+        return jobStateJson;
+    }
+
+    private String convertPipelineLocationToJson(PipelineLocation pipelineLocation) {
+        JsonObject pipelineLocationJson = new JsonObject();
+        pipelineLocationJson.add("jobId", Json.value(pipelineLocation.getJobId()));
+        pipelineLocationJson.add("pipelineId", Json.value(pipelineLocation.getPipelineId()));
+        return pipelineLocationJson.toString();
+    }
+
+    private JsonObject convertPipelineStateDataToJson(
+            JobHistoryService.PipelineStateData pipelineStateData) {
+        JsonObject pipelineStateDataJson =
+                new JsonObject()
+                        .add(
+                                "pipelineStatus",
+                                Json.value(pipelineStateData.getPipelineStatus().toString()));
+
+        JsonObject executionStateMapJson = new JsonObject();
+        for (Map.Entry<TaskGroupLocation, ExecutionState> entry :
+                pipelineStateData.getExecutionStateMap().entrySet()) {
+            executionStateMapJson.add(
+                    convertTaskGroupLocationToJson(entry.getKey()),
+                    Json.value(entry.getValue().toString()));
+        }
+        pipelineStateDataJson.add("executionStateMap", executionStateMapJson);
+
+        return pipelineStateDataJson;
+    }
+
+    private String convertTaskGroupLocationToJson(TaskGroupLocation taskGroupLocation) {
+        JsonObject taskGroupLocationJson = new JsonObject();
+        taskGroupLocationJson.add("jobId", Json.value(taskGroupLocation.getJobId()));
+        taskGroupLocationJson.add("pipelineId", Json.value(taskGroupLocation.getPipelineId()));
+        taskGroupLocationJson.add("taskGroupId", Json.value(taskGroupLocation.getTaskGroupId()));
+        return taskGroupLocationJson.toString();
     }
 }
