@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
@@ -66,6 +64,10 @@ public interface JdbcDialect extends Serializable {
         return identifier;
     }
 
+    default String tableIdentifier(String database, String tableName) {
+        return quoteIdentifier(database) + "." + quoteIdentifier(tableName);
+    }
+
     /**
      * Constructs the dialects insert statement for a single row. The returned string will be used
      * as a {@link java.sql.PreparedStatement}. Fields in the statement must be in the same order as
@@ -87,8 +89,8 @@ public interface JdbcDialect extends Serializable {
                         .map(fieldName -> ":" + fieldName)
                         .collect(Collectors.joining(", "));
         return String.format(
-                "INSERT INTO %s.%s (%s) VALUES (%s)",
-                quoteIdentifier(database), quoteIdentifier(tableName), columns, placeholders);
+                "INSERT INTO %s (%s) VALUES (%s)",
+                tableIdentifier(database, tableName), columns, placeholders);
     }
 
     /**
@@ -113,8 +115,8 @@ public interface JdbcDialect extends Serializable {
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
                         .collect(Collectors.joining(" AND "));
         return String.format(
-                "UPDATE %s.%s SET %s WHERE %s",
-                quoteIdentifier(database), quoteIdentifier(tableName), setClause, conditionClause);
+                "UPDATE %s SET %s WHERE %s",
+                tableIdentifier(database, tableName), setClause, conditionClause);
     }
 
     /**
@@ -134,8 +136,7 @@ public interface JdbcDialect extends Serializable {
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
                         .collect(Collectors.joining(" AND "));
         return String.format(
-                "DELETE FROM %s.%s WHERE %s",
-                quoteIdentifier(database), quoteIdentifier(tableName), conditionClause);
+                "DELETE FROM %s WHERE %s", tableIdentifier(database, tableName), conditionClause);
     }
 
     /**
@@ -155,8 +156,8 @@ public interface JdbcDialect extends Serializable {
                         .map(field -> format("%s = :%s", quoteIdentifier(field), field))
                         .collect(Collectors.joining(" AND "));
         return String.format(
-                "SELECT 1 FROM %s.%s WHERE %s",
-                quoteIdentifier(database), quoteIdentifier(tableName), fieldExpressions);
+                "SELECT 1 FROM %s WHERE %s",
+                tableIdentifier(database, tableName), fieldExpressions);
     }
 
     /**
@@ -194,41 +195,5 @@ public interface JdbcDialect extends Serializable {
             Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
         PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
         return ps.getMetaData();
-    }
-
-    default String listDatabases() {
-        return "SHOW DATABASES;";
-    }
-
-    default String getUrlFromDatabaseName(String baseUrl, String databaseName, String suffix) {
-        return baseUrl + databaseName + suffix;
-    }
-
-    default String createDatabaseSql(String databaseName) {
-        return String.format("CREATE DATABASE IF NOT EXISTS %s;", quoteIdentifier(databaseName));
-    }
-
-    default String dropDatabaseSql(String databaseName) {
-        return String.format("DROP DATABASE IF EXISTS %s;", quoteIdentifier(databaseName));
-    }
-
-    default String getTableName(ResultSet rs) throws SQLException {
-        return rs.getString(1);
-    }
-
-    default String getTableName(TablePath tablePath) {
-        return tablePath.getTableName();
-    }
-
-    default String listTableSql(String databaseName) {
-        return "SHOW TABLES;";
-    }
-
-    default String getDropTableSql(String tableName) {
-        return String.format("DROP TABLE %s IF EXIST;", tableName);
-    }
-
-    default String createTableSql(TablePath tablePath, CatalogTable catalogTable) {
-        return "";
     }
 }

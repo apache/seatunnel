@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
+import org.apache.seatunnel.translation.spark.serialization.SeaTunnelRowConverter;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.api.java.function.MapPartitionsFunction;
@@ -124,13 +125,20 @@ public class TransformExecuteProcessor
         transform.setTypeInfo(seaTunnelDataType);
         StructType structType =
                 (StructType) TypeConverterUtils.convert(transform.getProducedType());
+        SeaTunnelRowConverter inputRowConverter = new SeaTunnelRowConverter(seaTunnelDataType);
+        SeaTunnelRowConverter outputRowConverter =
+                new SeaTunnelRowConverter(transform.getProducedType());
         ExpressionEncoder<Row> encoder = RowEncoder.apply(structType);
         return stream.mapPartitions(
                         (MapPartitionsFunction<Row, Row>)
                                 (Iterator<Row> rowIterator) -> {
                                     TransformIterator iterator =
                                             new TransformIterator(
-                                                    rowIterator, transform, structType);
+                                                    rowIterator,
+                                                    transform,
+                                                    structType,
+                                                    inputRowConverter,
+                                                    outputRowConverter);
                                     return iterator;
                                 },
                         encoder)
@@ -144,14 +152,20 @@ public class TransformExecuteProcessor
         private Iterator<Row> sourceIterator;
         private SeaTunnelTransform<SeaTunnelRow> transform;
         private StructType structType;
+        private SeaTunnelRowConverter inputRowConverter;
+        private SeaTunnelRowConverter outputRowConverter;
 
         public TransformIterator(
                 Iterator<Row> sourceIterator,
                 SeaTunnelTransform<SeaTunnelRow> transform,
-                StructType structType) {
+                StructType structType,
+                SeaTunnelRowConverter inputRowConverter,
+                SeaTunnelRowConverter outputRowConverter) {
             this.sourceIterator = sourceIterator;
             this.transform = transform;
             this.structType = structType;
+            this.inputRowConverter = inputRowConverter;
+            this.outputRowConverter = outputRowConverter;
         }
 
         @Override
@@ -161,13 +175,21 @@ public class TransformExecuteProcessor
 
         @Override
         public Row next() {
-            Row row = sourceIterator.next();
-            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(((GenericRowWithSchema) row).values());
-            seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
-            if (seaTunnelRow == null) {
-                return null;
+            try {
+                Row row = sourceIterator.next();
+                SeaTunnelRow seaTunnelRow =
+                        inputRowConverter.reconvert(
+                                new SeaTunnelRow(((GenericRowWithSchema) row).values()));
+                seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
+                if (seaTunnelRow == null) {
+                    return null;
+                }
+                seaTunnelRow = outputRowConverter.convert(seaTunnelRow);
+
+                return new GenericRowWithSchema(seaTunnelRow.getFields(), structType);
+            } catch (Exception e) {
+                throw new TaskExecuteException("Row convert failed, caused: " + e.getMessage(), e);
             }
-            return new GenericRowWithSchema(seaTunnelRow.getFields(), structType);
         }
     }
 }

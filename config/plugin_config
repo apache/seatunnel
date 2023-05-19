@@ -39,6 +39,7 @@ connector-file-oss-jindo
 connector-file-s3
 connector-file-sftp
 connector-google-sheets
+connector-google-firestore
 connector-hive
 connector-http-base
 connector-http-feishu
