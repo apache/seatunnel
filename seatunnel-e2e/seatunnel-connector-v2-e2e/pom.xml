@@ -57,6 +57,7 @@
         <module>connector-google-firestore-e2e</module>
         <module>connector-rocketmq-e2e</module>
         <module>connector-pulsar-e2e</module>
+        <module>connector-paimon-e2e</module>
     </modules>
 
     <dependencies>
