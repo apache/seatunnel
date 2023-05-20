@@ -43,7 +43,7 @@ To run the image with SeaTunnel, first create a `Dockerfile`:
 FROM flink:1.13
 
 ENV SEATUNNEL_VERSION="2.3.0"
-ENV SEATUNNEL_HOME = "/opt/seatunnel"
+ENV SEATUNNEL_HOME="/opt/seatunnel"
 
 RUN mkdir -p $SEATUNNEL_HOME
 
@@ -205,8 +205,8 @@ spec:
             - key: seatunnel.streaming.conf
               path: seatunnel.streaming.conf
   job:
-    jarURI: local:///opt/seatunnel/starter/seatunnel-flink-starter.jar
-    entryClass: org.apache.seatunnel.core.starter.flink.SeatunnelFlink
+    jarURI: local:///opt/seatunnel/starter/seatunnel-flink-13-starter.jar
+    entryClass: org.apache.seatunnel.core.starter.flink.SeaTunnelFlink
     args: ["--config", "/data/seatunnel.streaming.conf"]
     parallelism: 2
     upgradeMode: stateless
