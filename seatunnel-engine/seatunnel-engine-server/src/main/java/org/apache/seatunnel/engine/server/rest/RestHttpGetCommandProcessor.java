@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingExcep
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -57,6 +58,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Stream;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.COMPLETED_JOBS_INFORMATION;
@@ -118,19 +120,37 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     }
 
     private void getAllCompletedJobsInformation(HttpGetCommand command) {
-        IMap<Long, JobHistoryService.JobState> values =
+        IMap<Long, JobHistoryService.JobState> state =
                 this.textCommandService
                         .getNode()
                         .getNodeEngine()
                         .getHazelcastInstance()
                         .getMap(Constant.IMAP_FINISHED_JOB_STATE);
+
+        IMap<Long, JobMetrics> metrics =
+                this.textCommandService
+                        .getNode()
+                        .getNodeEngine()
+                        .getHazelcastInstance()
+                        .getMap(Constant.IMAP_FINISHED_JOB_METRICS);
+
         JsonArray jobs =
-                values.entrySet().stream()
+                Stream.concat(state.keySet().stream(), metrics.keySet().stream())
+                        .distinct()
                         .map(
-                                JobStateEntry ->
-                                        convertJobStateToJson(
-                                                JobStateEntry.getValue(), JobStateEntry.getKey()))
+                                jobId -> {
+                                    JsonObject jobJson =
+                                            convertJobStateToJson(state.get(jobId), jobId);
+                                    if (metrics.containsKey(jobId)) {
+                                        JsonObject metricsJson =
+                                                Json.parse(metrics.get(jobId).toJsonString())
+                                                        .asObject();
+                                        jobJson.add("jobMetrics", metricsJson);
+                                    }
+                                    return jobJson;
+                                })
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+
         this.prepareResponse(command, jobs);
     }
 

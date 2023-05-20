@@ -192,20 +192,94 @@ network:
 ```json
 [
   {
-    "jobId": 711938762170499100,
+    "jobId": 712315273570484200,
     "jobName": "fake_to_file",
     "jobStatus": "FINISHED",
-    "submitTime": "2023-05-19 21:50:28",
-    "finishTime": "2023-05-19 21:50:31",
+    "submitTime": "2023-05-20 22:46:36",
+    "finishTime": "2023-05-20 22:46:38",
     "pipelineStateMapperMap": {
-      "{\"jobId\":711938762170499073,\"pipelineId\":1}": {
+      "{\"jobId\":712315273570484225,\"pipelineId\":1}": {
         "pipelineStatus": "FINISHED",
         "executionStateMap": {
-          "{\"jobId\":711938762170499073,\"pipelineId\":1,\"taskGroupId\":3}": "FINISHED",
-          "{\"jobId\":711938762170499073,\"pipelineId\":1,\"taskGroupId\":1}": "FINISHED",
-          "{\"jobId\":711938762170499073,\"pipelineId\":1,\"taskGroupId\":50000}": "FINISHED"
+          "{\"jobId\":712315273570484225,\"pipelineId\":1,\"taskGroupId\":1}": "FINISHED",
+          "{\"jobId\":712315273570484225,\"pipelineId\":1,\"taskGroupId\":50000}": "FINISHED",
+          "{\"jobId\":712315273570484225,\"pipelineId\":1,\"taskGroupId\":3}": "FINISHED"
         }
       }
+    },
+    "jobMetrics": {
+      "SinkWriteQPS": [
+        {
+          "tags": {
+            "jobId": "712315273570484225",
+            "taskGroupId": "50000",
+            "address": "[localhost]:5801",
+            "service": "TaskExecutionService",
+            "taskGroupLocation": "TaskGroupLocation{jobId=712315273570484225, pipelineId=1, taskGroupId=50000}",
+            "member": "58badf7f-dfc2-4f17-b0bd-79affb4f800e",
+            "taskName": "TransformSeaTunnelTask",
+            "taskID": "70000",
+            "pipelineId": "1"
+          },
+          "metric": "SinkWriteQPS",
+          "value": 5.512679162072767,
+          "timestamp": 1684593998469
+        }
+      ],
+      "SourceReceivedCount": [
+        {
+          "tags": {
+            "jobId": "712315273570484225",
+            "taskGroupId": "50000",
+            "address": "[localhost]:5801",
+            "service": "TaskExecutionService",
+            "taskGroupLocation": "TaskGroupLocation{jobId=712315273570484225, pipelineId=1, taskGroupId=50000}",
+            "member": "58badf7f-dfc2-4f17-b0bd-79affb4f800e",
+            "taskName": "SourceSeaTunnelTask",
+            "taskID": "60000",
+            "pipelineId": "1"
+          },
+          "metric": "SourceReceivedCount",
+          "value": 10,
+          "timestamp": 1684593998469
+        }
+      ],
+      "SourceReceivedQPS": [
+        {
+          "tags": {
+            "jobId": "712315273570484225",
+            "taskGroupId": "50000",
+            "address": "[localhost]:5801",
+            "service": "TaskExecutionService",
+            "taskGroupLocation": "TaskGroupLocation{jobId=712315273570484225, pipelineId=1, taskGroupId=50000}",
+            "member": "58badf7f-dfc2-4f17-b0bd-79affb4f800e",
+            "taskName": "SourceSeaTunnelTask",
+            "taskID": "60000",
+            "pipelineId": "1"
+          },
+          "metric": "SourceReceivedQPS",
+          "value": 5.63063063063063,
+          "timestamp": 1684593998469
+        }
+      ],
+      "SinkWriteCount": [
+        {
+          "tags": {
+            "jobId": "712315273570484225",
+            "taskGroupId": "50000",
+            "address": "[localhost]:5801",
+            "service": "TaskExecutionService",
+            "taskGroupLocation": "TaskGroupLocation{jobId=712315273570484225, pipelineId=1, taskGroupId=50000}",
+            "member": "58badf7f-dfc2-4f17-b0bd-79affb4f800e",
+            "taskName": "TransformSeaTunnelTask",
+            "taskID": "70000",
+            "pipelineId": "1"
+          },
+          "metric": "SinkWriteCount",
+          "value": 10,
+          "timestamp": 1684593998469
+        }
+      ]
     }
   }
 ]
