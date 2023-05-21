@@ -30,16 +30,16 @@ public class CompletedSnapshotSplitInfo implements Serializable {
     private final String splitId;
     private final TableId tableId;
     private final SeaTunnelRowType splitKeyType;
-    private final Object splitStart;
-    private final Object splitEnd;
+    private final Object[] splitStart;
+    private final Object[] splitEnd;
     private final Offset watermark;
 
     public CompletedSnapshotSplitInfo(
             String splitId,
             TableId tableId,
             SeaTunnelRowType splitKeyType,
-            Object splitStart,
-            Object splitEnd,
+            Object[] splitStart,
+            Object[] splitEnd,
             Offset watermark) {
         this.splitId = splitId;
         this.tableId = tableId;
