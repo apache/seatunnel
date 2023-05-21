@@ -17,28 +17,14 @@
  * under the License.
  *
  */
+package org.apache.seatunnel.engine.imap.storage.file.wal.writer;
 
-package org.apache.seatunnel.engine.imap.storage.file;
+import lombok.extern.slf4j.Slf4j;
 
-import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
-import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
-
-import com.google.auto.service.AutoService;
-
-import java.util.Map;
-
-@AutoService(IMapStorageFactory.class)
-public class IMapFileStorageFactory implements IMapStorageFactory {
+@Slf4j
+public class OssWriter extends CloudWriter {
     @Override
-    public String factoryIdentifier() {
-        return "hdfs";
-    }
-
-    @Override
-    public IMapStorage create(Map<String, Object> initMap) throws IMapStorageException {
-        IMapFileStorage iMapFileStorage = new IMapFileStorage();
-        iMapFileStorage.initialize(initMap);
-        return iMapFileStorage;
+    public String identifier() {
+        return "oss";
     }
 }

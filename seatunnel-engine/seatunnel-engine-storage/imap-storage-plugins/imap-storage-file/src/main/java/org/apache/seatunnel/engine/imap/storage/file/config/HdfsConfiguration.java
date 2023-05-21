@@ -18,27 +18,23 @@
  *
  */
 
-package org.apache.seatunnel.engine.imap.storage.file;
+package org.apache.seatunnel.engine.imap.storage.file.config;
 
-import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
-import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
-
-import com.google.auto.service.AutoService;
+import org.apache.hadoop.conf.Configuration;
 
 import java.util.Map;
 
-@AutoService(IMapStorageFactory.class)
-public class IMapFileStorageFactory implements IMapStorageFactory {
-    @Override
-    public String factoryIdentifier() {
-        return "hdfs";
-    }
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
+import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
+
+public class HdfsConfiguration extends AbstractConfiguration {
 
     @Override
-    public IMapStorage create(Map<String, Object> initMap) throws IMapStorageException {
-        IMapFileStorage iMapFileStorage = new IMapFileStorage();
-        iMapFileStorage.initialize(initMap);
-        return iMapFileStorage;
+    public Configuration buildConfiguration(Map<String, Object> config) {
+        Configuration hadoopConf = new Configuration();
+        hadoopConf.set(
+                FS_DEFAULT_NAME_KEY,
+                String.valueOf(config.getOrDefault(FS_DEFAULT_NAME_KEY, FS_DEFAULT_NAME_DEFAULT)));
+        return hadoopConf;
     }
 }
