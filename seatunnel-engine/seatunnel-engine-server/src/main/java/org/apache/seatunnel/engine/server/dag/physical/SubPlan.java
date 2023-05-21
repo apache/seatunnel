@@ -18,6 +18,8 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
@@ -34,6 +36,7 @@ import com.hazelcast.map.IMap;
 import lombok.Data;
 import lombok.NonNull;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -352,21 +355,33 @@ public class SubPlan {
     }
 
     public synchronized void cancelPipeline() {
-        if (getPipelineState().isEndState()) {
-            LOGGER.warning(
-                    String.format(
-                            "%s is in end state %s, can not be cancel",
-                            pipelineFullName, getPipelineState()));
-            return;
+        try {
+            RetryUtils.retryWithException(
+                    () -> {
+                        if (getPipelineState().isEndState()) {
+                            LOGGER.warning(
+                                    String.format(
+                                            "%s is in end state %s, can not be cancel",
+                                            pipelineFullName, getPipelineState()));
+                            return null;
+                        }
+                        // If an active Master Node done and another Master Node active, we can not
+                        // know whether
+                        // canceled pipeline
+                        // complete. So we need cancel running pipeline again.
+                        if (!PipelineStatus.CANCELING.equals(
+                                runningJobStateIMap.get(pipelineLocation))) {
+                            updatePipelineState(getPipelineState(), PipelineStatus.CANCELING);
+                        }
+                        cancelCheckpointCoordinator();
+                        cancelPipelineTasks();
+                        return null;
+                    },
+                    new RetryUtils.RetryMaterial(
+                            30, true, e -> e instanceof IOException, 1000, true));
+        } catch (Exception e) {
+            throw new SeaTunnelEngineException(e);
         }
-        // If an active Master Node done and another Master Node active, we can not know whether
-        // canceled pipeline
-        // complete. So we need cancel running pipeline again.
-        if (!PipelineStatus.CANCELING.equals(runningJobStateIMap.get(pipelineLocation))) {
-            updatePipelineState(getPipelineState(), PipelineStatus.CANCELING);
-        }
-        cancelCheckpointCoordinator();
-        cancelPipelineTasks();
     }
 
     private void cancelCheckpointCoordinator() {

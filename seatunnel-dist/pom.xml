@@ -98,6 +98,13 @@
                 <teradata.version>17.20.00.12</teradata.version>
                 <redshift.version>2.1.0.9</redshift.version>
                 <snowflake.version>3.13.29</snowflake.version>
+
+              <!-- Imap storage dependency package  -->
+                <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
+                <json-smart.version>2.4.7</json-smart.version>
+                <hadoop-aws.version>3.1.4</hadoop-aws.version>
+                <aws-java-sdk.version>1.11.271</aws-java-sdk.version>
+                <netty-buffer.version>4.1.89.Final</netty-buffer.version>
             </properties>
             <dependencies>
                 <!-- starters -->
@@ -495,6 +502,13 @@
                     <scope>provided</scope>
                 </dependency>
 
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-paimon</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
                 <!-- jdbc driver -->
                 <dependency>
                     <groupId>com.aliyun.phoenix</groupId>
@@ -579,19 +593,28 @@
                 </dependency>
                 <!-- jdbc driver end -->
 
+                <dependency>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-buffer</artifactId>
+                    <version>${netty-buffer.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
                 <!-- hadoop jar -->
                 <dependency>
                     <groupId>org.apache.hadoop</groupId>
-                    <artifactId>hadoop-aws</artifactId>
-                    <version>3.1.4</version>
+                    <artifactId>hadoop-aliyun</artifactId>
+                    <version>${hadoop-aliyun.version}</version>
                     <scope>provided</scope>
                 </dependency>
+
                 <dependency>
-                    <groupId>com.amazonaws</groupId>
-                    <artifactId>aws-java-sdk-bundle</artifactId>
-                    <version>1.11.271</version>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-aws</artifactId>
+                    <version>${hadoop-aws.version}</version>
                     <scope>provided</scope>
                 </dependency>
+
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
