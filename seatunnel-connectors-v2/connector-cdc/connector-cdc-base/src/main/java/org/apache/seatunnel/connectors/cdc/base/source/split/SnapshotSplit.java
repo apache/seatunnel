@@ -28,8 +28,8 @@ public class SnapshotSplit extends SourceSplitBase {
     private static final long serialVersionUID = 1L;
     private final TableId tableId;
     private final SeaTunnelRowType splitKeyType;
-    private final Object splitStart;
-    private final Object splitEnd;
+    private final Object[] splitStart;
+    private final Object[] splitEnd;
 
     private final Offset highWatermark;
 
@@ -37,8 +37,8 @@ public class SnapshotSplit extends SourceSplitBase {
             String splitId,
             TableId tableId,
             SeaTunnelRowType splitKeyType,
-            Object splitStart,
-            Object splitEnd,
+            Object[] splitStart,
+            Object[] splitEnd,
             Offset highWatermark) {
         super(splitId);
         this.tableId = tableId;
