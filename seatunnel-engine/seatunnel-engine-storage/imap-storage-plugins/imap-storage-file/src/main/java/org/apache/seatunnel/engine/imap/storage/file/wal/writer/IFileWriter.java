@@ -17,28 +17,24 @@
  * under the License.
  *
  */
+package org.apache.seatunnel.engine.imap.storage.file.wal.writer;
 
-package org.apache.seatunnel.engine.imap.storage.file;
+import org.apache.seatunnel.engine.serializer.api.Serializer;
 
-import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
-import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
-import com.google.auto.service.AutoService;
+import java.io.IOException;
 
-import java.util.Map;
+public interface IFileWriter<T> extends AutoCloseable {
+    String FILE_NAME = "wal.txt";
+    Long DEFAULT_BLOCK_SIZE = 1024 * 1024L;
 
-@AutoService(IMapStorageFactory.class)
-public class IMapFileStorageFactory implements IMapStorageFactory {
-    @Override
-    public String factoryIdentifier() {
-        return "hdfs";
-    }
+    String identifier();
 
-    @Override
-    public IMapStorage create(Map<String, Object> initMap) throws IMapStorageException {
-        IMapFileStorage iMapFileStorage = new IMapFileStorage();
-        iMapFileStorage.initialize(initMap);
-        return iMapFileStorage;
-    }
+    void initialize(FileSystem fs, Path parentPath, Serializer serializer) throws IOException;
+
+    default void setBlockSize(Long blockSize) {}
+
+    void write(T data) throws IOException;
 }

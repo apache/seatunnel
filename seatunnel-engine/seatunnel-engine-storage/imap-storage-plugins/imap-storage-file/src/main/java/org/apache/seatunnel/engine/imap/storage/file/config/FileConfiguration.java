@@ -18,27 +18,29 @@
  *
  */
 
-package org.apache.seatunnel.engine.imap.storage.file;
+package org.apache.seatunnel.engine.imap.storage.file.config;
 
-import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
-import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+public enum FileConfiguration {
+    HDFS("hdfs", new HdfsConfiguration()),
+    S3("s3", new S3Configuration()),
+    OSS("oss", new OssConfiguration());
 
-import com.google.auto.service.AutoService;
+    /** file system type */
+    private final String name;
 
-import java.util.Map;
+    /** file system configuration */
+    private final AbstractConfiguration configuration;
 
-@AutoService(IMapStorageFactory.class)
-public class IMapFileStorageFactory implements IMapStorageFactory {
-    @Override
-    public String factoryIdentifier() {
-        return "hdfs";
+    FileConfiguration(String name, AbstractConfiguration configuration) {
+        this.name = name;
+        this.configuration = configuration;
     }
 
-    @Override
-    public IMapStorage create(Map<String, Object> initMap) throws IMapStorageException {
-        IMapFileStorage iMapFileStorage = new IMapFileStorage();
-        iMapFileStorage.initialize(initMap);
-        return iMapFileStorage;
+    public AbstractConfiguration getConfiguration() {
+        return configuration;
+    }
+
+    public String getName() {
+        return name;
     }
 }

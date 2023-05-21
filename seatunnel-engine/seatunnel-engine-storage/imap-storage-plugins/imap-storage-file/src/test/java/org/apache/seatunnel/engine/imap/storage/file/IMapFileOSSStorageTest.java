@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.Path;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 
@@ -45,25 +46,48 @@ import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
 
 @EnabledOnOs({LINUX, MAC})
-public class IMapFileStorageTest {
+@Disabled
+public class IMapFileOSSStorageTest {
 
+    static String OSS_BUCKET_NAME = "oss://your bucket name/";
+    static String OSS_ENDPOINT = "your oss endpoint";
+    static String OSS_ACCESS_KEY_ID = "oss accessKey id";
+    static String OSS_ACCESS_KEY_SECRET = "oss accessKey secret";
+    static String BUSINESS = "random";
+    static String NAMESPACE = "/seatunnel-test/2";
+    static String CLUSTER_NAME = "test-one";
     private static final Configuration CONF;
 
     private static final IMapFileStorage STORAGE;
 
     static {
         CONF = new Configuration();
-        CONF.set("fs.defaultFS", "file:///");
-        CONF.set("fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem");
-        STORAGE = new IMapFileStorage();
+        CONF.set("storage.type", "oss");
+        CONF.set("fs.defaultFS", OSS_BUCKET_NAME);
+        CONF.set("fs.oss.endpoint", OSS_ENDPOINT);
+        CONF.set("fs.oss.accessKeyId", OSS_ACCESS_KEY_ID);
+        CONF.set("fs.oss.accessKeySecret", OSS_ACCESS_KEY_SECRET);
+        CONF.set("fs.oss.impl", "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem");
+        CONF.set(
+                "fs.oss.credentials.provider",
+                "org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider");
 
+        STORAGE = new IMapFileStorage();
         Map<String, Object> properties = new HashMap<>();
-        properties.put("fs.defaultFS", "file:///");
-        properties.put("fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem");
-        properties.put(FileConstants.FileInitProperties.BUSINESS_KEY, "random");
-        properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "/tmp/imap-kris-test/2");
-        properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, "test-one");
-        properties.put(WRITE_DATA_TIMEOUT_MILLISECONDS_KEY, 60L);
+        properties.put("storage.type", "oss");
+        properties.put("oss.bucket", OSS_BUCKET_NAME);
+        properties.put("block.size", 1024 * 1024 * 2);
+        properties.put("fs.oss.endpoint", OSS_ENDPOINT);
+        properties.put("fs.oss.accessKeyId", OSS_ACCESS_KEY_ID);
+        properties.put("fs.oss.accessKeySecret", OSS_ACCESS_KEY_SECRET);
+        properties.put("fs.oss.impl", "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem");
+        properties.put(
+                "fs.oss.credentials.provider",
+                "org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider");
+        properties.put(FileConstants.FileInitProperties.BUSINESS_KEY, BUSINESS);
+        properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, NAMESPACE);
+        properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, CLUSTER_NAME);
+        properties.put(WRITE_DATA_TIMEOUT_MILLISECONDS_KEY, 6000L);
 
         STORAGE.initialize(properties);
     }
@@ -119,6 +143,6 @@ public class IMapFileStorageTest {
 
     @AfterAll
     static void afterAll() throws IOException {
-        FileSystem.get(CONF).delete(new Path("/tmp/imap-kris-test/2"), true);
+        FileSystem.get(CONF).delete(new Path("/seatunnel-test/2"), true);
     }
 }
