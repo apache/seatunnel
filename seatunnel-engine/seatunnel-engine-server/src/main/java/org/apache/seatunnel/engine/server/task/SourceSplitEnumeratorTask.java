@@ -90,6 +90,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     private volatile boolean prepareCloseTriggered;
 
+    private final Object lock = new Object();
+
     @Override
     public void init() throws Exception {
         currState = SeaTunnelTaskState.INIT;
@@ -141,7 +143,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         final long barrierId = barrier.getId();
         Serializable snapshotState = null;
         byte[] serialize = null;
-        synchronized (source) {
+        synchronized (lock) {
             if (barrier.snapshot()) {
                 snapshotState = enumerator.snapshotState(barrierId);
                 serialize = enumeratorStateSerializer.serialize(snapshotState);
