@@ -25,6 +25,8 @@ on:
       - 'docs/**'
       - '**/*.md'
       - 'seatunnel-ui/**'
+  pull_request_target:
+    types: [opened, reopened, synchronize]
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}

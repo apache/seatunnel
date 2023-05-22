@@ -21,6 +21,8 @@ on:
   pull_request:
     paths:
       - 'docs/**'
+  pull_request_target:
+    types: [opened, reopened, synchronize]
 
 jobs:
   build:
