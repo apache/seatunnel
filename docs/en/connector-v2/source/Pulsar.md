@@ -37,6 +37,7 @@ Source connector for Apache Pulsar.
 | cursor.stop.timestamp    | Long    | No       | -             |
 | schema                   | config  | No       | -             |
 | common-options           |         | no       | -             |
+| format                   | String  | no       | json          |
 
 ### topic [String]
 
@@ -126,9 +127,12 @@ Stop from the specified epoch timestamp (in milliseconds).
 
 ### schema [Config]
 
-#### fields [Config]
+The structure of the data, including field names and field types.
+reference to [Schema-Feature](../../concept/schema-feature.md)
 
-the schema fields of upstream data.
+## format [String]
+
+Data format. The default format is json, reference [formats](../formats).
 
 ### common options
 
@@ -141,7 +145,7 @@ source {
   Pulsar {
   	topic = "example"
   	subscription.name = "seatunnel"
-    client.service-url = "localhost:pulsar://localhost:6650"
+    client.service-url = "pulsar://localhost:6650"
     admin.service-url = "http://my-broker.example.com:8080"
     result_table_name = "test"
   }
@@ -153,4 +157,8 @@ source {
 ### 2.3.0-beta 2022-10-20
 
 - Add Pulsar Source Connector
+
+### next version
+
+- [Feature] Add Pulsar canal-format and e2e ([4111](https://github.com/apache/incubator-seatunnel/pull/4111))
 

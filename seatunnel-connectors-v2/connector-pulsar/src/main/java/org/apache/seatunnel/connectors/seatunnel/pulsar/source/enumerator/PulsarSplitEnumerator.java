@@ -189,11 +189,12 @@ public class PulsarSplitEnumerator
     }
 
     private Set<TopicPartition> getNewPartitions(Set<TopicPartition> fetchedPartitions) {
-        Consumer<TopicPartition> dedupOrMarkAsRemoved = fetchedPartitions::remove;
-        assignedPartitions.forEach(dedupOrMarkAsRemoved);
+        Consumer<TopicPartition> duplicateOrMarkAsRemoved = fetchedPartitions::remove;
+        assignedPartitions.forEach(duplicateOrMarkAsRemoved);
         pendingPartitionSplits.forEach(
                 (reader, splits) ->
-                        splits.forEach(split -> dedupOrMarkAsRemoved.accept(split.getPartition())));
+                        splits.forEach(
+                                split -> duplicateOrMarkAsRemoved.accept(split.getPartition())));
 
         if (!fetchedPartitions.isEmpty()) {
             LOG.info("Discovered new partitions: {}", fetchedPartitions);
