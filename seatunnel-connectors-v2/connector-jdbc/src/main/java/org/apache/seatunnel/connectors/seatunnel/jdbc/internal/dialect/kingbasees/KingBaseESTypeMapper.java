@@ -17,7 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbasees;
 
-import org.apache.seatunnel.api.table.type.*;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
@@ -116,7 +122,9 @@ public class KingBaseESTypeMapper implements JdbcDialectTypeMapper {
             case KB_TEXT:
                 return BasicType.STRING_TYPE;
             case KB_JSON:
-                return new SeaTunnelRowType(new String[]{"type", "value"}, new SeaTunnelDataType[]{BasicType.STRING_TYPE, BasicType.STRING_TYPE});
+                return new SeaTunnelRowType(
+                        new String[] {"type", "value"},
+                        new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
             case KB_CHAR_ARRAY:
             case KB_CHARACTER_ARRAY:
             case KB_CHARACTER_VARYING_ARRAY:

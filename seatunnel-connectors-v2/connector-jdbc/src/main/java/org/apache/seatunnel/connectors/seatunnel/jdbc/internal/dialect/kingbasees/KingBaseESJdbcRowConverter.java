@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbasees;
 
-import com.kingbase8.util.KBobject;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -25,8 +24,15 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 
+import com.kingbase8.util.KBobject;
+
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -77,18 +83,18 @@ public class KingBaseESJdbcRowConverter extends AbstractJdbcRowConverter {
                 case DATE:
                     Date sqlDate = rs.getDate(resultSetIndex);
                     fields[fieldIndex] =
-                            Optional.ofNullable(sqlDate).map(e -> e.toLocalDate()).orElse(null);
+                            Optional.ofNullable(sqlDate).map(Date::toLocalDate).orElse(null);
                     break;
                 case TIME:
                     Time sqlTime = rs.getTime(resultSetIndex);
                     fields[fieldIndex] =
-                            Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
+                            Optional.ofNullable(sqlTime).map(Time::toLocalTime).orElse(null);
                     break;
                 case TIMESTAMP:
                     Timestamp sqlTimestamp = rs.getTimestamp(resultSetIndex);
                     fields[fieldIndex] =
                             Optional.ofNullable(sqlTimestamp)
-                                    .map(e -> e.toLocalDateTime())
+                                    .map(Timestamp::toLocalDateTime)
                                     .orElse(null);
                     break;
                 case BYTES:
@@ -100,7 +106,7 @@ public class KingBaseESJdbcRowConverter extends AbstractJdbcRowConverter {
                 case ROW:
                     String value = ((KBobject) rs.getObject(resultSetIndex)).getValue();
                     String type = ((KBobject) rs.getObject(resultSetIndex)).getType();
-                    fields[fieldIndex] = new SeaTunnelRow(new Object[]{type, value});
+                    fields[fieldIndex] = new SeaTunnelRow(new Object[] {type, value});
                     break;
                 case MAP:
                 case ARRAY:
@@ -175,8 +181,10 @@ public class KingBaseESJdbcRowConverter extends AbstractJdbcRowConverter {
                     break;
                 case ROW:
                     KBobject kBobject = new KBobject();
-                    kBobject.setType((String) ((SeaTunnelRow) row.getField(fieldIndex)).getField(0));
-                    kBobject.setValue((String) ((SeaTunnelRow) row.getField(fieldIndex)).getField(1));
+                    kBobject.setType(
+                            (String) ((SeaTunnelRow) row.getField(fieldIndex)).getField(0));
+                    kBobject.setValue(
+                            (String) ((SeaTunnelRow) row.getField(fieldIndex)).getField(1));
                     statement.setObject(statementIndex, kBobject);
                     break;
                 case MAP:
