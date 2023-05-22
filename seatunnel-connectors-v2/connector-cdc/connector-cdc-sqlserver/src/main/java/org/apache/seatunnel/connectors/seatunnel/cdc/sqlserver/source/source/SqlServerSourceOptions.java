@@ -32,7 +32,6 @@ public class SqlServerSourceOptions {
                                     StartupMode.class,
                                     Arrays.asList(
                                             StartupMode.INITIAL,
-                                            StartupMode.EARLIEST,
                                             StartupMode.LATEST))
                             .defaultValue(StartupMode.INITIAL)
                             .withDescription(
