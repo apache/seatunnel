@@ -25,21 +25,21 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public class KingBaseESDialect implements JdbcDialect {
+public class KingbaseESDialect implements JdbcDialect {
 
     @Override
     public String dialectName() {
-        return "KingBaseES";
+        return "KingbaseES";
     }
 
     @Override
     public JdbcRowConverter getRowConverter() {
-        return new KingBaseESJdbcRowConverter();
+        return new KingbaseESJdbcRowConverter();
     }
 
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
-        return new KingBaseESTypeMapper();
+        return new KingbaseESTypeMapper();
     }
 
     @Override

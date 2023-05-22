@@ -31,7 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
-public class KingBaseESTypeMapper implements JdbcDialectTypeMapper {
+public class KingbaseESTypeMapper implements JdbcDialectTypeMapper {
 
     private static final String KB_SMALLSERIAL = "SMALLSERIAL";
     private static final String KB_SERIAL = "SERIAL";

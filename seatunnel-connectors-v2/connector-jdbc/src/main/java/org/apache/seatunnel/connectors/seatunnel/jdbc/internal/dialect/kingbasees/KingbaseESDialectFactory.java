@@ -22,9 +22,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import com.google.auto.service.AutoService;
 
-/** Factory for {@link KingBaseESDialect}. */
+/** Factory for {@link KingbaseESDialect}. */
 @AutoService(JdbcDialectFactory.class)
-public class KingBaseESDialectFactory implements JdbcDialectFactory {
+public class KingbaseESDialectFactory implements JdbcDialectFactory {
 
     @Override
     public boolean acceptsURL(String url) {
@@ -33,6 +33,6 @@ public class KingBaseESDialectFactory implements JdbcDialectFactory {
 
     @Override
     public JdbcDialect create() {
-        return new KingBaseESDialect();
+        return new KingbaseESDialect();
     }
 }

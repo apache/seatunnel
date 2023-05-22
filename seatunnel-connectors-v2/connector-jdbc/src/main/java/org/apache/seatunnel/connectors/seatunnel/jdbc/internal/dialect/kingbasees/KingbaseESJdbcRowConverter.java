@@ -38,7 +38,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Optional;
 
-public class KingBaseESJdbcRowConverter extends AbstractJdbcRowConverter {
+public class KingbaseESJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
     public String converterName() {
