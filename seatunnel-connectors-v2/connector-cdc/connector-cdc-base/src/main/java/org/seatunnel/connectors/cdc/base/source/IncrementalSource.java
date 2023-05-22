@@ -114,8 +114,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig> implements Se
 
     @Override
     public SourceReader<T, SourceSplitBase> createReader(SourceReader.Context readerContext) throws Exception {
-        // TODO: https://github.com/apache/incubator-seatunnel/issues/3255
-        // https://github.com/apache/incubator-seatunnel/issues/3256
+        // TODO: https://github.com/apache/seatunnel/issues/3255
+        // https://github.com/apache/seatunnel/issues/3256
         return null;
     }
 
