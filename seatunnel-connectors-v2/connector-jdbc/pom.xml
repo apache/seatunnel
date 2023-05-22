@@ -44,6 +44,7 @@
         <redshift.version>2.1.0.9</redshift.version>
         <saphana.version>2.14.7</saphana.version>
         <vertica.version>12.0.3-0</vertica.version>
+        <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
     </properties>
 
     <dependencyManagement>
@@ -64,6 +65,12 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>${postgresql.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>net.postgis</groupId>
+                <artifactId>postgis-jdbc</artifactId>
+                <version>${postgis.jdbc.version}</version>
                 <scope>provided</scope>
             </dependency>
             <dependency>
@@ -148,6 +155,10 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>net.postgis</groupId>
+            <artifactId>postgis-jdbc</artifactId>
         </dependency>
         <dependency>
             <groupId>com.dameng</groupId>

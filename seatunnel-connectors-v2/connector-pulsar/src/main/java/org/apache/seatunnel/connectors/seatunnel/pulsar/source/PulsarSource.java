@@ -28,11 +28,12 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarAdminConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
@@ -48,9 +49,14 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.PulsarDiscoverer;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.TopicListDiscoverer;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.TopicPatternDiscoverer;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.source.format.PulsarCanalDecorator;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader.PulsarSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
+import org.apache.seatunnel.format.json.JsonFormatFactory;
+import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
+import org.apache.seatunnel.format.json.canal.CanalJsonFormatFactory;
+import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils;
 
@@ -70,9 +76,11 @@ import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProp
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CURSOR_STARTUP_TIMESTAMP;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CURSOR_STOP_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CURSOR_STOP_TIMESTAMP;
+import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_INTERVAL;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.SUBSCRIPTION_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.StartMode;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC;
@@ -80,10 +88,13 @@ import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProp
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC_PATTERN;
 
 @AutoService(SeaTunnelSource.class)
-public class PulsarSource<T>
-        implements SeaTunnelSource<T, PulsarPartitionSplit, PulsarSplitEnumeratorState>,
+public class PulsarSource
+        implements SeaTunnelSource<SeaTunnelRow, PulsarPartitionSplit, PulsarSplitEnumeratorState>,
                 SupportParallelism {
-    private DeserializationSchema<T> deserialization;
+
+    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
+
+    private SeaTunnelRowType typeInfo;
 
     private PulsarAdminConfig adminConfig;
     private PulsarClientConfig clientConfig;
@@ -291,11 +302,31 @@ public class PulsarSource<T>
     }
 
     private void setDeserialization(Config config) {
-        String format = config.getString("format");
-        // TODO: format SPI
-        SeaTunnelRowType rowType = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
-        deserialization =
-                (DeserializationSchema<T>) new JsonDeserializationSchema(false, false, rowType);
+        if (config.hasPath(SCHEMA.key())) {
+            typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+            String format = FORMAT.defaultValue();
+            if (config.hasPath(FORMAT.key())) {
+                format = config.getString(FORMAT.key());
+            }
+            switch (format) {
+                case JsonFormatFactory.IDENTIFIER:
+                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+                    break;
+                case CanalJsonFormatFactory.IDENTIFIER:
+                    deserializationSchema =
+                            new PulsarCanalDecorator(
+                                    CanalJsonDeserializationSchema.builder(typeInfo)
+                                            .setIgnoreParseErrors(true)
+                                            .build());
+                    break;
+                default:
+                    throw new SeaTunnelJsonFormatException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
+            }
+        } else {
+            typeInfo = CatalogTableUtil.buildSimpleTextSchema();
+            this.deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+        }
     }
 
     @Override
@@ -306,19 +337,19 @@ public class PulsarSource<T>
     }
 
     @Override
-    public SeaTunnelDataType<T> getProducedType() {
-        return deserialization.getProducedType();
+    public SeaTunnelRowType getProducedType() {
+        return this.typeInfo;
     }
 
     @Override
-    public SourceReader<T, PulsarPartitionSplit> createReader(SourceReader.Context readerContext)
-            throws Exception {
+    public SourceReader<SeaTunnelRow, PulsarPartitionSplit> createReader(
+            SourceReader.Context readerContext) throws Exception {
         return new PulsarSourceReader<>(
                 readerContext,
                 clientConfig,
                 consumerConfig,
                 startCursor,
-                deserialization,
+                deserializationSchema,
                 pollTimeout,
                 pollInterval,
                 batchSize);
@@ -352,6 +383,6 @@ public class PulsarSource<T>
                 startCursor,
                 stopCursor,
                 consumerConfig.getSubscriptionName(),
-                checkpointState.assignedPartitions());
+                checkpointState.getAssignedPartitions());
     }
 }
