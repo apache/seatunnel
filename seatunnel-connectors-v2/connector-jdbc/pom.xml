@@ -137,7 +137,7 @@
                 <scope>provided</scope>
             </dependency>
             <dependency>
-                <groupId>cn.com.kingbase8</groupId>
+                <groupId>cn.com.kingbase</groupId>
                 <artifactId>kingbase8</artifactId>
                 <version>${kingbase8.version}</version>
                 <scope>provided</scope>
