@@ -141,7 +141,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
             if (name.equals("-e") || name.equals("--deploy-mode")) {
                 log.warn(
                         "\n******************************************************************************************"
-                                + "\n-e and --deploy-mode will be deprecated in 2.3.1, please use -m and --master instead of it"
+                                + "\n-e and --deploy-mode deprecated in 2.3.1, please use -m and --master instead of it"
                                 + "\n******************************************************************************************");
             }
         }
