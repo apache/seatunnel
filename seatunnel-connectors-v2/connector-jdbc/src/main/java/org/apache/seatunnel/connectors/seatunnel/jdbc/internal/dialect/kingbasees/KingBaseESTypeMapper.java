@@ -70,7 +70,7 @@ public class KingBaseESTypeMapper implements JdbcDialectTypeMapper {
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
 
-        String kbType = metadata.getColumnTypeName(colIndex);
+        String kbType = metadata.getColumnTypeName(colIndex).toUpperCase();
 
         int precision = metadata.getPrecision(colIndex);
 

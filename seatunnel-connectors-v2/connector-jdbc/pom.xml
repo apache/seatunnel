@@ -45,6 +45,7 @@
         <vertica.version>12.0.3-0</vertica.version>
         <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
         <kingbase8.version>8.2.0</kingbase8.version>
+        <kingbase8.version>8.6.0</kingbase8.version>
     </properties>
 
     <dependencyManagement>
@@ -148,10 +149,6 @@
     <dependencies>
 
         <dependency>
-            <groupId>com.kingbase8</groupId>
-            <artifactId>kingbase8</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-common</artifactId>
             <version>${project.version}</version>
@@ -217,5 +214,11 @@
             <groupId>com.vertica.jdbc</groupId>
             <artifactId>vertica-jdbc</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>cn.com.kingbase</groupId>
+            <artifactId>kingbase8</artifactId>
+        </dependency>
+
     </dependencies>
 </project>
