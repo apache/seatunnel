@@ -30,9 +30,7 @@ public class SqlServerSourceOptions {
                     Options.key("startup.mode")
                             .singleChoice(
                                     StartupMode.class,
-                                    Arrays.asList(
-                                            StartupMode.INITIAL,
-                                            StartupMode.LATEST))
+                                    Arrays.asList(StartupMode.INITIAL, StartupMode.LATEST))
                             .defaultValue(StartupMode.INITIAL)
                             .withDescription(
                                     "Optional startup mode for CDC source, valid enumerations are "
