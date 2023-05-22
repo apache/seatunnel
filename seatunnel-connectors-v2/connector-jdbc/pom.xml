@@ -44,7 +44,6 @@
         <saphana.version>2.14.7</saphana.version>
         <vertica.version>12.0.3-0</vertica.version>
         <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
-        <kingbase8.version>8.2.0</kingbase8.version>
         <kingbase8.version>8.6.0</kingbase8.version>
     </properties>
 
@@ -138,7 +137,7 @@
                 <scope>provided</scope>
             </dependency>
             <dependency>
-                <groupId>com.kingbase8</groupId>
+                <groupId>cn.com.kingbase8</groupId>
                 <artifactId>kingbase8</artifactId>
                 <version>${kingbase8.version}</version>
                 <scope>provided</scope>
