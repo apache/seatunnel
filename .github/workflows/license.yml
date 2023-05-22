@@ -24,8 +24,6 @@ on:
       - dev
     paths-ignore:
       - '**/*.md'
-  pull_request_target:
-    types: [opened, reopened, synchronize]
 
 concurrency:
   group: lc-${{ github.event.pull_request.number || github.ref }}

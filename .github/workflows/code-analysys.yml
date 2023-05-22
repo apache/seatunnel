@@ -22,9 +22,6 @@ on:
       - 'docs/**'
       - '**/*.md'
       - 'seatunnel-ui/**'
-  pull_request_target:
-    types: [opened, reopened, synchronize]
-
 jobs:
   build:
     runs-on: ubuntu-latest
