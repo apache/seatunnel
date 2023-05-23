@@ -140,14 +140,14 @@ parallel:
 
 ### 2.3.0-beta 2022-10-20
 
-- [Feature] Support Phoenix JDBC Source ([2499](https://github.com/apache/incubator-seatunnel/pull/2499))
-- [Feature] Support SQL Server JDBC Source ([2646](https://github.com/apache/incubator-seatunnel/pull/2646))
-- [Feature] Support Oracle JDBC Source ([2550](https://github.com/apache/incubator-seatunnel/pull/2550))
-- [Feature] Support StarRocks JDBC Source ([3060](https://github.com/apache/incubator-seatunnel/pull/3060))
-- [Feature] Support GBase8a JDBC Source ([3026](https://github.com/apache/incubator-seatunnel/pull/3026))
-- [Feature] Support DB2 JDBC Source ([2410](https://github.com/apache/incubator-seatunnel/pull/2410))
+- [Feature] Support Phoenix JDBC Source ([2499](https://github.com/apache/seatunnel/pull/2499))
+- [Feature] Support SQL Server JDBC Source ([2646](https://github.com/apache/seatunnel/pull/2646))
+- [Feature] Support Oracle JDBC Source ([2550](https://github.com/apache/seatunnel/pull/2550))
+- [Feature] Support StarRocks JDBC Source ([3060](https://github.com/apache/seatunnel/pull/3060))
+- [Feature] Support GBase8a JDBC Source ([3026](https://github.com/apache/seatunnel/pull/3026))
+- [Feature] Support DB2 JDBC Source ([2410](https://github.com/apache/seatunnel/pull/2410))
 
 ### next version
 
-- [BugFix] Fix jdbc split bug ([3220](https://github.com/apache/incubator-seatunnel/pull/3220))
-- [Feature] Support Tablestore Source ([3309](https://github.com/apache/incubator-seatunnel/pull/3309))
+- [BugFix] Fix jdbc split bug ([3220](https://github.com/apache/seatunnel/pull/3220))
+- [Feature] Support Tablestore Source ([3309](https://github.com/apache/seatunnel/pull/3309))

@@ -2,8 +2,8 @@
 
 There are two parent modules for Spark plugins:
 
-1. [seatunnel-connectors-spark](https://github.com/apache/incubator-seatunnel/tree/dev/seatunnel-connectors/seatunnel-connectors-spark)
-2. [seatunnel-transforms-spark](https://github.com/apache/incubator-seatunnel/tree/dev/seatunnel-transforms/seatunnel-transforms-spark)
+1. [seatunnel-connectors-spark](https://github.com/apache/seatunnel/tree/dev/seatunnel-connectors/seatunnel-connectors-spark)
+2. [seatunnel-transforms-spark](https://github.com/apache/seatunnel/tree/dev/seatunnel-transforms/seatunnel-transforms-spark)
 
 Once you want to contribute a new plugin, you need to:
 
@@ -103,7 +103,7 @@ After you using `mvn package` to make a distribution, you can find the plugin in
 
 ## Add information to plugin-mapping.properties file
 
-SeaTunnel use `plugin-mapping.properties` file to locate the name of the jar package, the file is under the parent module `incubator-seatunnel`, the key/value rule in
+SeaTunnel use `plugin-mapping.properties` file to locate the name of the jar package, the file is under the parent module `seatunnel`, the key/value rule in
 properties is : `engineName.pluginType.pluginName=artifactId`. eg: `spark.source.hello=seatunnel-connector-spark-hello`.
 So that SeaTunnel can find plugin jar according to user's config file.
 
@@ -144,4 +144,4 @@ You can add `-DskipIT=false` to execute the e2e test, it will rely on a Docker e
 # Contribute Connector-v2 Plugins
 If you want to contribute Connector-V2, please click the Connector-V2 Contribution Guide below for reference. It can help you enter development more quickly.
 
-[Connector-v2 Contribution Guide](https://github.com/apache/incubator-seatunnel/tree/dev/seatunnel-connectors-v2)
+[Connector-v2 Contribution Guide](https://github.com/apache/seatunnel/tree/dev/seatunnel-connectors-v2)

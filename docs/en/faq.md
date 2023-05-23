@@ -6,7 +6,7 @@ Now SeaTunnel uses computing engines such as spark and flink to complete resourc
 
 ## I have a question, but I can not solve it by myself
 
-I encounter a problem when using SeaTunnel and I cannot solve it by myself. What should I do? Firstly search in [Issue list](https://github.com/apache/incubator-seatunnel/issues) or [mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) to see if someone has already asked the same question and got the answer. If you still cannot find the answer, you can contact community members for help in[ these ways](https://github.com/apache/incubator-seatunnel#contact-us) .
+I encounter a problem when using SeaTunnel and I cannot solve it by myself. What should I do? Firstly search in [Issue list](https://github.com/apache/seatunnel/issues) or [mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) to see if someone has already asked the same question and got the answer. If you still cannot find the answer, you can contact community members for help in[ these ways](https://github.com/apache/seatunnel#contact-us) .
 
 ## how to declare variable
 
@@ -121,7 +121,7 @@ sink {
 }
 ```
 
-In addition, SeaTunnel has implemented `Hive` output plugin after `1.5.7` in `1.x` branch; in `2.x` branch, the Hive plugin of the Spark engine has been supported after version `2.0.5`: https://github.com/apache/incubator-seatunnel/issues/910.
+In addition, SeaTunnel has implemented `Hive` output plugin after `1.5.7` in `1.x` branch; in `2.x` branch, the Hive plugin of the Spark engine has been supported after version `2.0.5`: https://github.com/apache/seatunnel/issues/910.
 
 ## How does SeaTunnel write multiple instances of ClickHouse to achieve load balancing?
 
@@ -321,11 +321,11 @@ Data conversion, data conversion can be achieved through the following two plug-
 
 Detailed data type conversion reference: [ClickHouse Data Type Check List](https://interestinglab.github.io/seatunnel-docs/#/en/configuration/output-plugins/Clickhouse?id=clickhouse-data-type-check-list)
 
-Refer to issue:[#488](https://github.com/apache/incubator-seatunnel/issues/488) [#382](https://github.com/apache/incubator-seatunnel/issues/382)
+Refer to issue:[#488](https://github.com/apache/seatunnel/issues/488) [#382](https://github.com/apache/seatunnel/issues/382)
 
 ## How does SeaTunnel access kerberos-authenticated HDFS, YARN, Hive and other resources?
 
-Please refer to: [#590](https://github.com/apache/incubator-seatunnel/issues/590)
+Please refer to: [#590](https://github.com/apache/seatunnel/issues/590)
 
 ## How to troubleshoot NoClassDefFoundError, ClassNotFoundException and other issues?
 
@@ -345,7 +345,7 @@ Just configure hdfs-site.xml properly, refer to: https://www.cnblogs.com/suanec/
 
 ## I want to learn the source code of SeaTunnel, where should I start?
 
-SeaTunnel has a completely abstract and structured code implementation, and many people have chosen  SeaTunnel As a way to learn Spark, you can learn the source code from the main program entry: [Seatunnel.java](https://github.com/apache/incubator-seatunnel/blob/72b57b22688f17376fe7e5cf522b4bdd3f62cce0/seatunnel-core/seatunnel-core-base/src/main/java/org/apache/seatunnel/Seatunnel.java)
+SeaTunnel has a completely abstract and structured code implementation, and many people have chosen  SeaTunnel As a way to learn Spark, you can learn the source code from the main program entry: [Seatunnel.java](https://github.com/apache/seatunnel/blob/72b57b22688f17376fe7e5cf522b4bdd3f62cce0/seatunnel-core/seatunnel-core-base/src/main/java/org/apache/seatunnel/Seatunnel.java)
 
 ## When SeaTunnel developers develop their own plugins, do they need to understand the SeaTunnel code? Should these code integrated into the SeaTunnel project?
 

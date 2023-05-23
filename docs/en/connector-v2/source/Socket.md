@@ -106,4 +106,4 @@ spark
 
 ### Next Version
 
-- `host` and `port` become required ([3317](https://github.com/apache/incubator-seatunnel/pull/3317))
+- `host` and `port` become required ([3317](https://github.com/apache/seatunnel/pull/3317))

@@ -115,4 +115,4 @@ sink {
 - Add Kafka Sink Connector
 ### next version
 
-- [Feature] Support to specify multiple partition keys [3230](https://github.com/apache/incubator-seatunnel/pull/3230)
+- [Feature] Support to specify multiple partition keys [3230](https://github.com/apache/seatunnel/pull/3230)

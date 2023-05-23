@@ -11,7 +11,7 @@ configure the Config file.
 ## Example
 
 Before you read on, you can find config file
-examples [here](https://github.com/apache/incubator-seatunnel/tree/dev/config) and in distribute package's
+examples [here](https://github.com/apache/seatunnel/tree/dev/config) and in distribute package's
 config directory.
 
 ## Config file structure

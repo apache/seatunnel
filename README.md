@@ -2,7 +2,7 @@
 
 <img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" height="200px" align="right" />
 
-[![Backend Workflow](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml)
+[![Backend Workflow](https://github.com/apache/seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/apache/seatunnel/actions/workflows/backend.yml)
 [![Slack](https://img.shields.io/badge/slack-%23seatunnel-4f8eba?logo=slack)](https://join.slack.com/t/apacheseatunnel/shared_invite/zt-123jmewxe-RjB_DW3M3gV~xL91pZ0oVQ)
 [![Twitter Follow](https://img.shields.io/twitter/follow/ASFSeaTunnel.svg?label=Follow&logo=twitter)](https://twitter.com/ASFSeaTunnel)
 
@@ -49,7 +49,7 @@ SeaTunnel will do its best to solve the problems that may be encountered in the 
 
 ## Workflow of SeaTunnel
 
-![seatunnel-workflow.svg](https://raw.githubusercontent.com/apache/incubator-seatunnel-website/main/static/image/seatunnel-workflow.svg)
+![seatunnel-workflow.svg](https://raw.githubusercontent.com/apache/seatunnel-website/main/static/image/seatunnel-workflow.svg)
 
 ```
 Source[Data Source Input] -> Transform[Data Processing] -> Sink[Result Output]
@@ -147,10 +147,10 @@ unacceptable behavior.
 
 ## Developer
 
-Thanks to [all developers](https://github.com/apache/incubator-seatunnel/graphs/contributors)!
+Thanks to [all developers](https://github.com/apache/seatunnel/graphs/contributors)!
 
-<a href="https://github.com/apache/incubator-seatunnel/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=apache/incubator-seatunnel" />
+<a href="https://github.com/apache/seatunnel/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=apache/seatunnel" />
 </a>
 
 ## Contact Us

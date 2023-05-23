@@ -2,7 +2,7 @@
 
 <img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" height="200px" align="right" />
 
-[![Backend Workflow](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml)
+[![Backend Workflow](https://github.com/apache/seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/apache/seatunnel/actions/workflows/backend.yml)
 [![Slack](https://img.shields.io/badge/slack-%23seatunnel-4f8eba?logo=slack)](https://join.slack.com/t/apacheseatunnel/shared_invite/zt-123jmewxe-RjB_DW3M3gV~xL91pZ0oVQ)
 [![Twitter Follow](https://img.shields.io/twitter/follow/ASFSeaTunnel.svg?label=Follow&logo=twitter)](https://twitter.com/ASFSeaTunnel)
 
@@ -47,7 +47,7 @@ SeaTunnel 尽所能为您解决海量数据同步中可能遇到的问题：
 
 ## SeaTunnel 的工作流程
 
-![seatunnel-workflow.svg](https://raw.githubusercontent.com/apache/incubator-seatunnel-website/main/static/image/seatunnel-workflow.svg)
+![seatunnel-workflow.svg](https://raw.githubusercontent.com/apache/seatunnel-website/main/static/image/seatunnel-workflow.svg)
 
 ```
 Source[数据源输入] -> Transform[数据处理] -> Sink[结果输出]
@@ -115,10 +115,10 @@ SeaTunnel遵守贡献者公约[code of conduct](https://www.apache.org/foundatio
 
 ## 开发者
 
-感谢[所有开发者](https://github.com/apache/incubator-seatunnel/graphs/contributors)!
+感谢[所有开发者](https://github.com/apache/seatunnel/graphs/contributors)!
 
-<a href="https://github.com/apache/incubator-seatunnel/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=apache/incubator-seatunnel" />
+<a href="https://github.com/apache/seatunnel/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=apache/seatunnel" />
 </a>
 
 ## 欢迎联系

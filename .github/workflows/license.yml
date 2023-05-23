@@ -41,7 +41,7 @@ jobs:
     name: Auto License
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Have a buggy in https://github.com/apache/incubator-seatunnel/pull/1642, Can trigger when commit message contains
+    # Have a buggy in https://github.com/apache/seatunnel/pull/1642, Can trigger when commit message contains
     # keyword `[ci-auto-license]`.
     if: "contains(toJSON(github.event.commits.*.message), '[ci-auto-license]')"
     env:

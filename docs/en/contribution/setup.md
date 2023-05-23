@@ -20,10 +20,10 @@ have installed the following software:
 
 ### Clone the Source Code
 
-First of all, you need to clone the SeaTunnel source code from [GitHub](https://github.com/apache/incubator-seatunnel).
+First of all, you need to clone the SeaTunnel source code from [GitHub](https://github.com/apache/seatunnel).
 
 ```shell
-git clone git@github.com:apache/incubator-seatunnel.git
+git clone git@github.com:apache/seatunnel.git
 ```
 
 ### Install Subproject Locally
