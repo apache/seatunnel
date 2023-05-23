@@ -129,7 +129,6 @@ sink {
   # please go to https://seatunnel.apache.org/docs/category/sink-v2
 }
 ```
-### Generate Sink SQL
 
 > This example  not need to write complex sql statements, you can configure the database name table name to automatically generate add statements for you
 ```
