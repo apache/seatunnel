@@ -245,7 +245,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             if (!reconnect) {
                 throw e;
             }
-            LOG.info("Close JDBC statement failed on reconnect.", e);
+            LOG.error("Close JDBC statement failed on reconnect.", e);
         }
         jdbcStatementExecutor.prepareStatements(
                 reconnect
