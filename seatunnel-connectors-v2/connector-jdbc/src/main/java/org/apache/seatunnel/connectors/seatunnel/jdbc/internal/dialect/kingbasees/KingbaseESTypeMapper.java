@@ -90,6 +90,7 @@ public class KingbaseESTypeMapper implements JdbcDialectTypeMapper {
             case KB_BYTEA_ARRAY:
                 return ArrayType.BYTE_ARRAY_TYPE;
             case KB_SMALLINT:
+                return BasicType.SHORT_TYPE;
             case KB_SMALLSERIAL:
             case KB_INTEGER:
             case KB_SERIAL:
