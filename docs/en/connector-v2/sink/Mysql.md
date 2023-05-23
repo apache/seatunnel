@@ -130,7 +130,10 @@ sink {
 }
 ```
 
+### Generate Sink SQL
+
 > This example  not need to write complex sql statements, you can configure the database name table name to automatically generate add statements for you
+
 ```
 sink {
     jdbc {
@@ -138,7 +141,7 @@ sink {
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
-        
+        # Automatically generate sql statements based on database table names
         generate_sink_sql = true
         database = test
         table = test_table
