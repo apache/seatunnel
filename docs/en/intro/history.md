@@ -10,6 +10,6 @@ SeaTunnel was formerly named WaterDrop
 
 This project renamed to SeaTunnel since Oct 12th, 2021.
 
-## Enter Apache Software Foundation’s Incubator
+## Enter Apache Software Foundation’s
 
-SeaTunnel joined the Apache Software Foundation’s Incubator program in Dec 9th, 2021.
+SeaTunnel joined the Apache Software Foundation’s program in Dec 9th, 2021.
