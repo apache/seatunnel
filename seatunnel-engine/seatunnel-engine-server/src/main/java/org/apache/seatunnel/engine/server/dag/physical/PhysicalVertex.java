@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -40,6 +41,8 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
+import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -100,6 +103,8 @@ public class PhysicalVertex {
 
     private JobMaster jobMaster;
 
+    private volatile ExecutionState currExecutionState = ExecutionState.CREATED;
+
     public PhysicalVertex(
             int subTaskGroupIndex,
             @NonNull ExecutorService executorService,
@@ -135,6 +140,8 @@ public class PhysicalVertex {
             runningJobStateIMap.put(taskGroupLocation, ExecutionState.CREATED);
         }
 
+        this.currExecutionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+
         this.nodeEngine = nodeEngine;
         if (LOGGER.isFineEnabled() || LOGGER.isFinestEnabled()) {
             this.taskFullName =
@@ -169,18 +176,18 @@ public class PhysicalVertex {
 
     public PassiveCompletableFuture<TaskExecutionState> initStateFuture() {
         this.taskFuture = new CompletableFuture<>();
-        ExecutionState executionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
-        if (executionState != null) {
+        this.currExecutionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+        if (currExecutionState != null) {
             LOGGER.info(
                     String.format(
                             "The task %s is in state %s when init state future",
-                            taskFullName, executionState));
+                            taskFullName, currExecutionState));
         }
         // if the task state is RUNNING
         // We need to check the real running status of Task from taskExecutionServer.
         // Because the state may be RUNNING when the cluster is restarted, but the Task no longer
         // exists.
-        if (ExecutionState.RUNNING.equals(executionState)) {
+        if (ExecutionState.RUNNING.equals(currExecutionState)) {
             if (!checkTaskGroupIsExecuting(taskGroupLocation)) {
                 updateTaskState(ExecutionState.RUNNING, ExecutionState.FAILED);
                 this.taskFuture.complete(
@@ -188,10 +195,10 @@ public class PhysicalVertex {
             }
         }
         // If the task state is CANCELING we need call noticeTaskExecutionServiceCancel().
-        else if (ExecutionState.CANCELING.equals(executionState)) {
+        else if (ExecutionState.CANCELING.equals(currExecutionState)) {
             noticeTaskExecutionServiceCancel();
-        } else if (executionState.isEndState()) {
-            this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, executionState));
+        } else if (currExecutionState.isEndState()) {
+            this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, currExecutionState));
         }
         return new PassiveCompletableFuture<>(this.taskFuture);
     }
@@ -244,7 +251,7 @@ public class PhysicalVertex {
         return null;
     }
 
-    private TaskDeployState deployOnLocal(@NonNull SlotProfile slotProfile) {
+    private TaskDeployState deployOnLocal(@NonNull SlotProfile slotProfile) throws Exception {
         return deployInternal(
                 taskGroupImmutableInformation -> {
                     SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
@@ -255,7 +262,7 @@ public class PhysicalVertex {
                 });
     }
 
-    private TaskDeployState deployOnRemote(@NonNull SlotProfile slotProfile) {
+    private TaskDeployState deployOnRemote(@NonNull SlotProfile slotProfile) throws Exception {
         return deployInternal(
                 taskGroupImmutableInformation -> {
                     try {
@@ -296,9 +303,7 @@ public class PhysicalVertex {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 getTaskGroupImmutableInformation();
         synchronized (this) {
-            ExecutionState currentState =
-                    (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
-            if (ExecutionState.DEPLOYING.equals(currentState)) {
+            if (ExecutionState.DEPLOYING.equals(currExecutionState)) {
                 TaskDeployState state = taskGroupConsumer.apply(taskGroupImmutableInformation);
                 updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
                 return state;
@@ -335,22 +340,45 @@ public class PhysicalVertex {
                 return false;
             }
             // consistency check
-            ExecutionState currentState =
-                    (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
-            if (currentState.equals(endState)) {
+            if (currExecutionState.equals(endState)) {
                 return true;
             }
-            if (currentState.isEndState()) {
+            if (currExecutionState.isEndState()) {
                 String message =
                         String.format(
                                 "Task %s is already in terminal state %s",
-                                taskFullName, currentState);
+                                taskFullName, currExecutionState);
                 LOGGER.warning(message);
                 return false;
             }
 
-            updateStateTimestamps(endState);
-            runningJobStateIMap.set(taskGroupLocation, endState);
+            try {
+                RetryUtils.retryWithException(
+                        () -> {
+                            updateStateTimestamps(endState);
+                            runningJobStateIMap.set(taskGroupLocation, endState);
+                            return null;
+                        },
+                        new RetryUtils.RetryMaterial(
+                                Constant.OPERATION_RETRY_TIME,
+                                true,
+                                exception ->
+                                        exception instanceof OperationTimeoutException
+                                                || exception
+                                                        instanceof
+                                                        HazelcastInstanceNotActiveException
+                                                || exception instanceof InterruptedException,
+                                Constant.OPERATION_RETRY_SLEEP));
+            } catch (Exception e) {
+                LOGGER.warning(ExceptionUtils.getMessage(e));
+                // If master/worker node done, The job will restore and fix the state from
+                // TaskExecutionService
+                LOGGER.warning(
+                        String.format(
+                                "Set %s state %s to Imap failed, skip.",
+                                getTaskFullName(), endState));
+            }
+            this.currExecutionState = endState;
             LOGGER.info(String.format("%s turn to end state %s.", taskFullName, endState));
             return true;
         }
@@ -358,11 +386,11 @@ public class PhysicalVertex {
 
     public boolean updateTaskState(
             @NonNull ExecutionState current, @NonNull ExecutionState targetState) {
-        LOGGER.fine(
-                String.format(
-                        "Try to update the task %s state from %s to %s",
-                        taskFullName, current, targetState));
         synchronized (this) {
+            LOGGER.fine(
+                    String.format(
+                            "Try to update the task %s state from %s to %s",
+                            taskFullName, current, targetState));
             // consistency check
             if (current.isEndState()) {
                 String message = "Task is trying to leave terminal state " + current;
@@ -392,9 +420,34 @@ public class PhysicalVertex {
             }
 
             // now do the actual state transition
-            if (current.equals(runningJobStateIMap.get(taskGroupLocation))) {
-                updateStateTimestamps(targetState);
-                runningJobStateIMap.set(taskGroupLocation, targetState);
+            if (current.equals(currExecutionState)) {
+                try {
+                    RetryUtils.retryWithException(
+                            () -> {
+                                updateStateTimestamps(targetState);
+                                runningJobStateIMap.set(taskGroupLocation, targetState);
+                                return null;
+                            },
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    exception ->
+                                            exception instanceof OperationTimeoutException
+                                                    || exception
+                                                            instanceof
+                                                            HazelcastInstanceNotActiveException
+                                                    || exception instanceof InterruptedException,
+                                    Constant.OPERATION_RETRY_SLEEP));
+                } catch (Exception e) {
+                    LOGGER.warning(ExceptionUtils.getMessage(e));
+                    // If master/worker node done, The job will restore and fix the state from
+                    // TaskExecutionService
+                    LOGGER.warning(
+                            String.format(
+                                    "Set %s state %s to Imap failed, skip.",
+                                    getTaskFullName(), targetState));
+                }
+                this.currExecutionState = targetState;
                 LOGGER.info(
                         String.format(
                                 "%s turn from state %s to %s.",
@@ -404,7 +457,7 @@ public class PhysicalVertex {
                 LOGGER.warning(
                         String.format(
                                 "The task %s state in Imap is %s, not equals expected state %s",
-                                taskFullName, runningJobStateIMap.get(taskGroupLocation), current));
+                                taskFullName, currExecutionState, current));
                 return false;
             }
         }
@@ -480,7 +533,7 @@ public class PhysicalVertex {
     }
 
     public ExecutionState getExecutionState() {
-        return (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+        return currExecutionState;
     }
 
     private void resetExecutionState() {
@@ -494,8 +547,33 @@ public class PhysicalVertex {
                 LOGGER.severe(message);
                 throw new IllegalStateException(message);
             }
-            updateStateTimestamps(ExecutionState.CREATED);
-            runningJobStateIMap.set(taskGroupLocation, ExecutionState.CREATED);
+            try {
+                RetryUtils.retryWithException(
+                        () -> {
+                            updateStateTimestamps(ExecutionState.CREATED);
+                            runningJobStateIMap.set(taskGroupLocation, ExecutionState.CREATED);
+                            return null;
+                        },
+                        new RetryUtils.RetryMaterial(
+                                Constant.OPERATION_RETRY_TIME,
+                                true,
+                                exception ->
+                                        exception instanceof OperationTimeoutException
+                                                || exception
+                                                        instanceof
+                                                        HazelcastInstanceNotActiveException
+                                                || exception instanceof InterruptedException,
+                                Constant.OPERATION_RETRY_SLEEP));
+            } catch (Exception e) {
+                LOGGER.warning(ExceptionUtils.getMessage(e));
+                // If master/worker node done, The job will restore and fix the state from
+                // TaskExecutionService
+                LOGGER.warning(
+                        String.format(
+                                "Set %s state %s to Imap failed, skip.",
+                                getTaskFullName(), ExecutionState.CREATED));
+            }
+            this.currExecutionState = ExecutionState.CREATED;
             LOGGER.info(
                     String.format("%s turn to state %s.", taskFullName, ExecutionState.CREATED));
         }
