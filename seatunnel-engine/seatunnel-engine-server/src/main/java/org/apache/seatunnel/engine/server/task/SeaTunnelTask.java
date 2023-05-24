@@ -166,6 +166,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 if (prepareCloseStatus) {
                     currState = PREPARE_CLOSE;
                 }
+                Thread.sleep(10);
                 break;
             case PREPARE_CLOSE:
                 if (closeCalled) {
