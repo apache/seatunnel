@@ -27,7 +27,7 @@ import java.io.Serializable;
 public class PartitionParameter implements Serializable {
 
     String partitionColumnName;
-    Long minValue;
-    Long maxValue;
+    long minValue;
+    long maxValue;
     Integer partitionNumber;
 }

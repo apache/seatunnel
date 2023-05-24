@@ -84,6 +84,12 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private boolean listJob = false;
 
     @Parameter(
+            names = {"--async"},
+            description =
+                    "Run the job asynchronously, when the job is submitted, the client will exit")
+    private boolean async = false;
+
+    @Parameter(
             names = {"-cj", "--close-job"},
             description = "Close client the task will also be closed")
     private boolean closeJob = true;
@@ -135,7 +141,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
             if (name.equals("-e") || name.equals("--deploy-mode")) {
                 log.warn(
                         "\n******************************************************************************************"
-                                + "\n-e and --deploy-mode will be deprecated in 2.3.1, please use -m and --master instead of it"
+                                + "\n-e and --deploy-mode deprecated in 2.3.1, please use -m and --master instead of it"
                                 + "\n******************************************************************************************");
             }
         }

@@ -36,7 +36,7 @@ jobs:
           java-version: 11
           distribution: 'adopt'
       - name: Run SonarCloud Analysis
-        run: bash ./tools/sonarcheck/check.sh          
+        run: bash ./tools/sonarcheck/check.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
