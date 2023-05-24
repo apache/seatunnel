@@ -19,11 +19,9 @@ package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.api.table.type.Record;
 
-import com.google.auto.service.AutoService;
 import com.hazelcast.nio.serialization.Serializer;
 import com.hazelcast.nio.serialization.SerializerHook;
 
-@AutoService(SerializerHook.class)
 public class RecordSerializerHook implements SerializerHook<Record> {
 
     @Override

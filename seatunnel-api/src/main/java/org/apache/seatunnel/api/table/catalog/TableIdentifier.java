@@ -17,9 +17,15 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
-import java.io.Serializable;
-import java.util.Objects;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
+import java.io.Serializable;
+
+@Getter
+@EqualsAndHashCode
+@RequiredArgsConstructor
 public final class TableIdentifier implements Serializable {
     private static final long serialVersionUID = 1L;
 
@@ -27,55 +33,32 @@ public final class TableIdentifier implements Serializable {
 
     private final String databaseName;
 
+    private final String schemaName;
+
     private final String tableName;
 
-    private TableIdentifier(String catalogName, String databaseName, String tableName) {
-        this.catalogName = catalogName;
-        this.databaseName = databaseName;
-        this.tableName = tableName;
-    }
-
     public static TableIdentifier of(String catalogName, String databaseName, String tableName) {
-        return new TableIdentifier(catalogName, databaseName, tableName);
+        return new TableIdentifier(catalogName, databaseName, null, tableName);
     }
 
-    public String getCatalogName() {
-        return catalogName;
-    }
-
-    public String getDatabaseName() {
-        return databaseName;
-    }
-
-    public String getTableName() {
-        return tableName;
+    public static TableIdentifier of(
+            String catalogName, String databaseName, String schemaName, String tableName) {
+        return new TableIdentifier(catalogName, databaseName, schemaName, tableName);
     }
 
     public TablePath toTablePath() {
-        return TablePath.of(databaseName, tableName);
+        return TablePath.of(databaseName, schemaName, tableName);
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        TableIdentifier that = (TableIdentifier) o;
-        return catalogName.equals(that.catalogName)
-                && databaseName.equals(that.databaseName)
-                && tableName.equals(that.tableName);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(catalogName, databaseName, tableName);
+    public TableIdentifier copy() {
+        return TableIdentifier.of(catalogName, databaseName, schemaName, tableName);
     }
 
     @Override
     public String toString() {
-        return String.join(".", catalogName, databaseName, tableName);
+        if (schemaName == null) {
+            return String.join(".", catalogName, databaseName, tableName);
+        }
+        return String.join(".", catalogName, databaseName, schemaName, tableName);
     }
 }

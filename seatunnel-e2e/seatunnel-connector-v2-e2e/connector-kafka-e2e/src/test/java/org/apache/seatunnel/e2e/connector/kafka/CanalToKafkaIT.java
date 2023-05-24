@@ -41,12 +41,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
+
+import com.google.common.collect.Lists;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -57,19 +60,16 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.FLINK, EngineType.SPARK})
+        type = {EngineType.SPARK})
 public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(CanalToKafkaIT.class);
@@ -84,13 +84,11 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     // ----------------------------------------------------------------------------
     // kafka
-    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:latest";
+    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
     private static final String KAFKA_TOPIC = "test-canal-sink";
 
-    private static final int KAFKA_PORT = 9093;
-
-    private static final String KAFKA_HOST = "kafkaCluster";
+    private static final String KAFKA_HOST = "kafka_e2e";
 
     private static KafkaContainer KAFKA_CONTAINER;
 
@@ -99,8 +97,6 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
     // ----------------------------------------------------------------------------
     // mysql
     private static final String MYSQL_HOST = "mysql_e2e";
-
-    private static final int MYSQL_PORT = 3306;
 
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
 
@@ -139,9 +135,6 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                         .withUsername("st_user")
                         .withPassword("seatunnel")
                         .withLogConsumer(new Slf4jLogConsumer(LOG));
-        mySqlContainer.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
         return mySqlContainer;
     }
 
@@ -156,13 +149,10 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                                 "/app/server/conf/example/instance.properties")
                         .withNetwork(NETWORK)
                         .withNetworkAliases(CANAL_HOST)
-                        .withCommand()
+                        //                        .withCommand()
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CANAL_DOCKER_IMAGE)));
-        CANAL_CONTAINER.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", CANAL_PORT, CANAL_PORT)));
     }
 
     private void createKafkaContainer() {
@@ -173,9 +163,6 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
-        KAFKA_CONTAINER.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", KAFKA_PORT, KAFKA_PORT)));
     }
 
     private void createPostgreSQLContainer() throws ClassNotFoundException {
@@ -190,7 +177,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     @BeforeAll
     @Override
-    public void startUp() throws ClassNotFoundException {
+    public void startUp() throws ClassNotFoundException, InterruptedException {
 
         LOG.info("The first stage: Starting Kafka containers...");
         createKafkaContainer();
@@ -225,6 +212,8 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initKafkaConsumer);
         inventoryDatabase.createAndInitialize();
+        // ensure canal has handled the data
+        Thread.sleep(10 * 1000);
     }
 
     @TestTemplate
@@ -267,14 +256,14 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/kafkasource_canal_cdc_to_pgsql.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        Set<List<Object>> actual = new HashSet<>();
+        List<Object> actual = new ArrayList<>();
         try (Connection connection =
                 DriverManager.getConnection(
                         POSTGRESQL_CONTAINER.getJdbcUrl(),
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword())) {
             try (Statement statement = connection.createStatement()) {
-                ResultSet resultSet = statement.executeQuery("select * from sink");
+                ResultSet resultSet = statement.executeQuery("select * from sink order by id");
                 while (resultSet.next()) {
                     List<Object> row =
                             Arrays.asList(
@@ -286,22 +275,20 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                 }
             }
         }
-        Set<List<Object>> expected =
-                Stream.<List<Object>>of(
-                                Arrays.asList(102, "car battery", "12V car battery", "8.1"),
-                                Arrays.asList(
-                                        103,
-                                        "12-pack drill bits",
-                                        "12-pack of drill bits with sizes ranging from #40 to #3",
-                                        "0.8"),
-                                Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
-                                Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
-                                Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1.0"),
-                                Arrays.asList(
-                                        108, "jacket", "water resistent black wind breaker", "0.1"),
-                                Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
-                                Arrays.asList(107, "rocks", "box of assorted rocks", "7.88"))
-                        .collect(Collectors.toSet());
+        List<Object> expected =
+                Lists.newArrayList(
+                        Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
+                        Arrays.asList(102, "car battery", "12V car battery", "8.1"),
+                        Arrays.asList(
+                                103,
+                                "12-pack drill bits",
+                                "12-pack of drill bits with sizes ranging from #40 to #3",
+                                "0.8"),
+                        Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
+                        Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
+                        Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1.0"),
+                        Arrays.asList(107, "rocks", "box of assorted rocks", "7.88"),
+                        Arrays.asList(108, "jacket", "water resistent black wind breaker", "0.1"));
         Assertions.assertIterableEquals(expected, actual);
     }
 

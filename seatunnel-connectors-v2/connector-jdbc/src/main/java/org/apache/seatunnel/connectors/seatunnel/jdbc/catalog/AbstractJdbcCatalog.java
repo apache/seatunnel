@@ -64,11 +64,12 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected final String suffix;
     protected final String defaultUrl;
 
+    protected Connection defaultConnection;
+
     public AbstractJdbcCatalog(
             String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
 
         checkArgument(StringUtils.isNotBlank(username));
-        checkArgument(StringUtils.isNotBlank(pwd));
         urlInfo.getDefaultDatabase()
                 .orElseThrow(
                         () -> new IllegalArgumentException("Can't find default database in url"));
@@ -106,8 +107,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public void open() throws CatalogException {
-        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
-            // test connection, fail early if we cannot connect to database
+        try {
+            defaultConnection = DriverManager.getConnection(defaultUrl, username, pwd);
         } catch (SQLException e) {
             throw new CatalogException(
                     String.format("Failed connecting to %s via JDBC.", defaultUrl), e);
@@ -118,16 +119,31 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public void close() throws CatalogException {
+        if (defaultConnection == null) {
+            return;
+        }
+        try {
+            defaultConnection.close();
+        } catch (SQLException e) {
+            throw new CatalogException(
+                    String.format("Failed to close %s via JDBC.", defaultUrl), e);
+        }
         LOG.info("Catalog {} closing", catalogName);
     }
 
     protected Optional<PrimaryKey> getPrimaryKey(
             DatabaseMetaData metaData, String database, String table) throws SQLException {
+        return getPrimaryKey(metaData, database, table, table);
+    }
+
+    protected Optional<PrimaryKey> getPrimaryKey(
+            DatabaseMetaData metaData, String database, String schema, String table)
+            throws SQLException {
 
         // According to the Javadoc of java.sql.DatabaseMetaData#getPrimaryKeys,
         // the returned primary key columns are ordered by COLUMN_NAME, not by KEY_SEQ.
         // We need to sort them based on the KEY_SEQ value.
-        ResultSet rs = metaData.getPrimaryKeys(database, table, table);
+        ResultSet rs = metaData.getPrimaryKeys(database, schema, table);
 
         // seq -> column name
         List<Pair<Integer, String>> primaryKeyColumns = new ArrayList<>();
@@ -154,7 +170,13 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected List<ConstraintKey> getConstraintKeys(
             DatabaseMetaData metaData, String database, String table) throws SQLException {
-        ResultSet resultSet = metaData.getIndexInfo(database, table, table, false, false);
+        return getConstraintKeys(metaData, database, table, table);
+    }
+
+    protected List<ConstraintKey> getConstraintKeys(
+            DatabaseMetaData metaData, String database, String schema, String table)
+            throws SQLException {
+        ResultSet resultSet = metaData.getIndexInfo(database, schema, table, false, false);
         // index name -> index
         Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
         while (resultSet.next()) {
@@ -188,8 +210,9 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     protected Optional<String> getColumnDefaultValue(
-            DatabaseMetaData metaData, String table, String column) throws SQLException {
-        try (ResultSet resultSet = metaData.getColumns(null, null, table, column)) {
+            DatabaseMetaData metaData, String database, String schema, String table, String column)
+            throws SQLException {
+        try (ResultSet resultSet = metaData.getColumns(database, schema, table, column)) {
             while (resultSet.next()) {
                 String defaultValue = resultSet.getString("COLUMN_DEF");
                 return Optional.ofNullable(defaultValue);

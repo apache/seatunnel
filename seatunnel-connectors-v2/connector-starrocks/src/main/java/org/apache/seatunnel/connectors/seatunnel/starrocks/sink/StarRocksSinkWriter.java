@@ -56,7 +56,15 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        String record = serializer.serialize(element);
+        String record;
+        try {
+            record = serializer.serialize(element);
+        } catch (Exception e) {
+            throw new StarRocksConnectorException(
+                    CommonErrorCode.WRITER_OPERATION_FAILED,
+                    "serialize failed. Row={" + element + "}",
+                    e);
+        }
         manager.write(record);
     }
 

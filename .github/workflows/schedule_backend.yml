@@ -18,7 +18,7 @@
 name: Schedule Backend
 on:
   schedule:
-    - cron: '0 0 03 * * ?'
+    - cron: '0 0 03 * *'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   license-header:
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'apache/seatunnel'
     name: License header
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -38,7 +38,7 @@ jobs:
         uses: apache/skywalking-eyes@985866ce7e324454f61e22eb2db2e998db09d6f3
 
   code-style:
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'apache/seatunnel'
     name: Code style
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -50,7 +50,7 @@ jobs:
         run: ./mvnw --batch-mode --quiet --no-snapshot-updates clean spotless:check
 
   dead-link:
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'apache/seatunnel'
     name: Dead links
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -63,7 +63,7 @@ jobs:
           done
 
   sanity-check:
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'apache/seatunnel'
     name: Sanity check results
     needs: [ license-header, code-style, dead-link ]
     runs-on: ubuntu-latest

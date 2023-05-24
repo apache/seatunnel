@@ -106,11 +106,13 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         SeaTunnelDataType<SeaTunnelRow> physicalRowType;
         if (dataType == null) {
             // TODO: support metadata keys
-            Catalog mySqlCatalog = new MySqlCatalogFactory().createCatalog("mysql", config);
-            CatalogTable table =
-                    mySqlCatalog.getTable(
-                            TablePath.of(config.get(CatalogOptions.TABLE_NAMES).get(0)));
-            physicalRowType = table.getTableSchema().toPhysicalRowDataType();
+            try (Catalog catalog = new MySqlCatalogFactory().createCatalog("mysql", config)) {
+                catalog.open();
+                CatalogTable table =
+                        catalog.getTable(
+                                TablePath.of(config.get(CatalogOptions.TABLE_NAMES).get(0)));
+                physicalRowType = table.getTableSchema().toPhysicalRowDataType();
+            }
         } else {
             physicalRowType = dataType;
         }
