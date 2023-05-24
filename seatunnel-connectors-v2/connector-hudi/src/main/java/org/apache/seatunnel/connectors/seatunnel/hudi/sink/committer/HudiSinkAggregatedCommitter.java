@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.sink.committer;
 
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.AvroSchemaConverter.convertToSchema;
+
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
@@ -36,9 +38,10 @@ import org.apache.hudi.index.HoodieIndex;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class HudiSinkAggregatedCommitter
-        implements SinkAggregatedCommitter<HudiCommitInfo, HudiAggregatedCommitInfo> {
+    implements SinkAggregatedCommitter<HudiCommitInfo, HudiAggregatedCommitInfo> {
 
     private final HudiSinkConfig hudiSinkConfig;
 
@@ -47,48 +50,48 @@ public class HudiSinkAggregatedCommitter
     private final HudiOutputFormat hudiOutputFormat;
 
     public HudiSinkAggregatedCommitter(
-            HudiSinkConfig hudiSinkConfig, SeaTunnelRowType seaTunnelRowType) {
+        HudiSinkConfig hudiSinkConfig, SeaTunnelRowType seaTunnelRowType) {
         this.hudiSinkConfig = hudiSinkConfig;
         Configuration hadoopConf = HudiUtil.getConfiguration(hudiSinkConfig.getConfFile());
         hudiOutputFormat = new HudiOutputFormat();
         HoodieWriteConfig cfg =
-                HoodieWriteConfig.newBuilder()
-                        .withPath(hudiSinkConfig.getTablePath())
-                        .withSchema(hudiOutputFormat.convertSchema(seaTunnelRowType))
-                        .withParallelism(
-                                hudiSinkConfig.getInsertShuffleParallelism(),
-                                hudiSinkConfig.getUpsertShuffleParallelism())
-                        .withDeleteParallelism(hudiSinkConfig.getDeleteShuffleParallelism())
-                        .forTable(hudiSinkConfig.getTableName())
-                        .withIndexConfig(
-                                HoodieIndexConfig.newBuilder()
-                                        .withIndexType(HoodieIndex.IndexType.INMEMORY)
-                                        .build())
-                        .withArchivalConfig(
-                                HoodieArchivalConfig.newBuilder()
-                                        .archiveCommitsWith(
-                                                hudiSinkConfig.getMinCommitsToKeep(),
-                                                hudiSinkConfig.getMaxCommitsToKeep())
-                                        .build())
-                        .build();
+            HoodieWriteConfig.newBuilder()
+                .withPath(hudiSinkConfig.getTablePath())
+                .withSchema(convertToSchema(seaTunnelRowType).toString())
+                .withParallelism(
+                    hudiSinkConfig.getInsertShuffleParallelism(),
+                    hudiSinkConfig.getUpsertShuffleParallelism())
+                .withDeleteParallelism(hudiSinkConfig.getDeleteShuffleParallelism())
+                .forTable(hudiSinkConfig.getTableName())
+                .withIndexConfig(
+                    HoodieIndexConfig.newBuilder()
+                        .withIndexType(HoodieIndex.IndexType.INMEMORY)
+                        .build())
+                .withArchivalConfig(
+                    HoodieArchivalConfig.newBuilder()
+                        .archiveCommitsWith(
+                            hudiSinkConfig.getMinCommitsToKeep(),
+                            hudiSinkConfig.getMaxCommitsToKeep())
+                        .build())
+                .build();
 
         writeClient = new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(hadoopConf), cfg);
     }
 
     @Override
     public List<HudiAggregatedCommitInfo> commit(
-            List<HudiAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
+        List<HudiAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
 
-        aggregatedCommitInfo.stream()
-                .filter(
-                        commit ->
-                                commit.getHudiCommitInfoList().stream()
-                                        .anyMatch(
-                                                aggreeCommit ->
-                                                        !writeClient.commit(
-                                                                aggreeCommit.getInstantTime(),
-                                                                aggreeCommit
-                                                                        .getWriteStatusList())));
+        aggregatedCommitInfo = aggregatedCommitInfo.stream()
+            .filter(
+                commit ->
+                    commit.getHudiCommitInfoList().stream()
+                        .anyMatch(
+                            aggreeCommit ->
+                                !writeClient.commit(
+                                    aggreeCommit.getInstantTime(),
+                                    aggreeCommit
+                                        .getWriteStatusList()))).collect(Collectors.toList());
 
         return aggregatedCommitInfo;
     }

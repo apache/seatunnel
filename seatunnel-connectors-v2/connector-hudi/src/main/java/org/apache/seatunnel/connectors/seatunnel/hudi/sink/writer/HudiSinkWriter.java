@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer;
 
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.AvroSchemaConverter.convertToSchema;
+
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -27,6 +29,10 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.state.HudiCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.hudi.state.HudiSinkState;
 import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 
+import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -47,11 +53,6 @@ import org.apache.hudi.config.HoodieIndexConfig;
 import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.exception.HoodieKeyException;
 import org.apache.hudi.index.HoodieIndex;
-import org.apache.hudi.org.apache.avro.Schema;
-import org.apache.hudi.org.apache.avro.generic.GenericData;
-import org.apache.hudi.org.apache.avro.generic.GenericRecord;
-
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -103,47 +104,47 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
     protected static final String EMPTY_RECORDKEY_PLACEHOLDER = "__empty__";
 
     public HudiSinkWriter(
-            SinkWriter.Context context,
-            SeaTunnelRowType seaTunnelRowType,
-            HudiSinkConfig hudiSinkConfig)
-            throws IOException {
+        SinkWriter.Context context,
+        SeaTunnelRowType seaTunnelRowType,
+        HudiSinkConfig hudiSinkConfig)
+        throws IOException {
 
         hudiOutputFormat = new HudiOutputFormat();
 
         this.hoodieRecords = new ArrayList<>(30);
         this.seaTunnelRowType = seaTunnelRowType;
-        this.schema = new Schema.Parser().parse(hudiOutputFormat.convertSchema(seaTunnelRowType));
+        this.schema = new Schema.Parser().parse(convertToSchema(seaTunnelRowType).toString());
         this.opType = hudiSinkConfig.getOpType();
         this.hudiSinkConfig = hudiSinkConfig;
         Configuration hadoopConf = HudiUtil.getConfiguration(hudiSinkConfig.getConfFile());
 
         if (hudiSinkConfig.getBatchIntervalMs() != 0) {
             this.scheduler =
-                    Executors.newScheduledThreadPool(
-                            1,
-                            runnable -> {
-                                AtomicInteger cnt = new AtomicInteger(0);
-                                Thread thread = new Thread(runnable);
-                                thread.setDaemon(true);
-                                thread.setName("hudi-flush" + "-" + cnt.incrementAndGet());
-                                return thread;
-                            });
+                Executors.newScheduledThreadPool(
+                    1,
+                    runnable -> {
+                        AtomicInteger cnt = new AtomicInteger(0);
+                        Thread thread = new Thread(runnable);
+                        thread.setDaemon(true);
+                        thread.setName("hudi-flush" + "-" + cnt.incrementAndGet());
+                        return thread;
+                    });
             this.scheduledFuture =
-                    this.scheduler.scheduleWithFixedDelay(
-                            () -> {
-                                synchronized (HudiSinkWriter.this) {
-                                    if (!closed) {
-                                        try {
-                                            flush();
-                                        } catch (Exception e) {
-                                            flushException = e;
-                                        }
-                                    }
+                this.scheduler.scheduleWithFixedDelay(
+                    () -> {
+                        synchronized (HudiSinkWriter.this) {
+                            if (!closed) {
+                                try {
+                                    flush();
+                                } catch (Exception e) {
+                                    flushException = e;
                                 }
-                            },
-                            hudiSinkConfig.getBatchIntervalMs(),
-                            hudiSinkConfig.getBatchIntervalMs(),
-                            TimeUnit.MILLISECONDS);
+                            }
+                        }
+                    },
+                    hudiSinkConfig.getBatchIntervalMs(),
+                    hudiSinkConfig.getBatchIntervalMs(),
+                    TimeUnit.MILLISECONDS);
         }
 
         // initialize the table, if not done already
@@ -151,31 +152,31 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
         FileSystem fs = FSUtils.getFs(hudiSinkConfig.getTablePath(), hadoopConf);
         if (!fs.exists(path)) {
             HoodieTableMetaClient.withPropertyBuilder()
-                    .setTableType(hudiSinkConfig.getTableType())
-                    .setTableName(hudiSinkConfig.getTableName())
-                    .setPayloadClassName(HoodieAvroPayload.class.getName())
-                    .initTable(hadoopConf, hudiSinkConfig.getTablePath());
+                .setTableType(hudiSinkConfig.getTableType())
+                .setTableName(hudiSinkConfig.getTableName())
+                .setPayloadClassName(HoodieAvroPayload.class.getName())
+                .initTable(hadoopConf, hudiSinkConfig.getTablePath());
         }
         HoodieWriteConfig cfg =
-                HoodieWriteConfig.newBuilder()
-                        .withPath(hudiSinkConfig.getTablePath())
-                        .withSchema(hudiOutputFormat.convertSchema(seaTunnelRowType))
-                        .withParallelism(
-                                hudiSinkConfig.getInsertShuffleParallelism(),
-                                hudiSinkConfig.getUpsertShuffleParallelism())
-                        .withDeleteParallelism(hudiSinkConfig.getDeleteShuffleParallelism())
-                        .forTable(hudiSinkConfig.getTableName())
-                        .withIndexConfig(
-                                HoodieIndexConfig.newBuilder()
-                                        .withIndexType(HoodieIndex.IndexType.INMEMORY)
-                                        .build())
-                        .withArchivalConfig(
-                                HoodieArchivalConfig.newBuilder()
-                                        .archiveCommitsWith(
-                                                hudiSinkConfig.getMinCommitsToKeep(),
-                                                hudiSinkConfig.getMaxCommitsToKeep())
-                                        .build())
-                        .build();
+            HoodieWriteConfig.newBuilder()
+                .withPath(hudiSinkConfig.getTablePath())
+                .withSchema(convertToSchema(seaTunnelRowType).toString())
+                .withParallelism(
+                    hudiSinkConfig.getInsertShuffleParallelism(),
+                    hudiSinkConfig.getUpsertShuffleParallelism())
+                .withDeleteParallelism(hudiSinkConfig.getDeleteShuffleParallelism())
+                .forTable(hudiSinkConfig.getTableName())
+                .withIndexConfig(
+                    HoodieIndexConfig.newBuilder()
+                        .withIndexType(HoodieIndex.IndexType.INMEMORY)
+                        .build())
+                .withArchivalConfig(
+                    HoodieArchivalConfig.newBuilder()
+                        .archiveCommitsWith(
+                            hudiSinkConfig.getMinCommitsToKeep(),
+                            hudiSinkConfig.getMaxCommitsToKeep())
+                        .build())
+                .build();
 
         writeClient = new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(hadoopConf), cfg);
     }
@@ -198,7 +199,8 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
     }
 
     @Override
-    public void abortPrepare() {}
+    public void abortPrepare() {
+    }
 
     @Override
     public void close() throws IOException {
@@ -218,9 +220,9 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
                 } catch (Exception e) {
                     log.warn("Writing records to JDBC failed.", e);
                     throw new HudiConnectorException(
-                            CommonErrorCode.FLUSH_DATA_FAILED,
-                            "Writing records to hudi failed.",
-                            e);
+                        CommonErrorCode.FLUSH_DATA_FAILED,
+                        "Writing records to hudi failed.",
+                        e);
                 }
             }
             closed = true;
@@ -240,19 +242,19 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
         }
 
         return new HoodieAvroRecord<>(
-                getHoodieKey(element, seaTunnelRowType), new HoodieAvroPayload(Option.of(rec)));
+            getHoodieKey(element, seaTunnelRowType), new HoodieAvroPayload(Option.of(rec)));
     }
 
     private HoodieKey getHoodieKey(SeaTunnelRow element, SeaTunnelRowType seaTunnelRowType) {
         String partitionPath =
-                hudiSinkConfig.getPartitionFields() == null
-                        ? ""
-                        : getRecordPartitionPath(element, seaTunnelRowType);
+            hudiSinkConfig.getPartitionFields() == null
+                ? ""
+                : getRecordPartitionPath(element, seaTunnelRowType);
         String rowKey =
-                hudiSinkConfig.getRecordKeyFields() == null
-                                && hudiSinkConfig.getOpType().equals(WriteOperationType.INSERT)
-                        ? UUID.randomUUID().toString()
-                        : getRecordKey(element, seaTunnelRowType);
+            hudiSinkConfig.getRecordKeyFields() == null
+                && hudiSinkConfig.getOpType().equals(WriteOperationType.INSERT)
+                ? UUID.randomUUID().toString()
+                : getRecordKey(element, seaTunnelRowType);
         return new HoodieKey(rowKey, partitionPath);
     }
 
@@ -261,20 +263,20 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
         StringBuilder recordKey = new StringBuilder();
         for (String recordKeyField : hudiSinkConfig.getRecordKeyFields().split(",")) {
             String recordKeyValue =
-                    getNestedFieldValAsString(element, seaTunnelRowType, recordKeyField);
+                getNestedFieldValAsString(element, seaTunnelRowType, recordKeyField);
             recordKeyField = recordKeyField.toLowerCase();
             if (recordKeyValue == null) {
                 recordKey
-                        .append(recordKeyField)
-                        .append(":")
-                        .append(NULL_RECORDKEY_PLACEHOLDER)
-                        .append(",");
+                    .append(recordKeyField)
+                    .append(":")
+                    .append(NULL_RECORDKEY_PLACEHOLDER)
+                    .append(",");
             } else if (recordKeyValue.isEmpty()) {
                 recordKey
-                        .append(recordKeyField)
-                        .append(":")
-                        .append(EMPTY_RECORDKEY_PLACEHOLDER)
-                        .append(",");
+                    .append(recordKeyField)
+                    .append(":")
+                    .append(EMPTY_RECORDKEY_PLACEHOLDER)
+                    .append(",");
             } else {
                 recordKey.append(recordKeyField).append(":").append(recordKeyValue).append(",");
                 keyIsNullEmpty = false;
@@ -283,11 +285,11 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
         recordKey.deleteCharAt(recordKey.length() - 1);
         if (keyIsNullEmpty) {
             throw new HoodieKeyException(
-                    "recordKey values: \""
-                            + recordKey
-                            + "\" for fields: "
-                            + hudiSinkConfig.getRecordKeyFields()
-                            + " cannot be entirely null or empty.");
+                "recordKey values: \""
+                    + recordKey
+                    + "\" for fields: "
+                    + hudiSinkConfig.getRecordKeyFields()
+                    + " cannot be entirely null or empty.");
         }
         return recordKey.toString();
     }
@@ -301,7 +303,7 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
         String[] avroPartitionPathFields = hudiSinkConfig.getPartitionFields().split(",");
         for (String partitionPathField : avroPartitionPathFields) {
             String fieldVal =
-                    getNestedFieldValAsString(element, seaTunnelRowType, partitionPathField);
+                getNestedFieldValAsString(element, seaTunnelRowType, partitionPathField);
             if (fieldVal == null || fieldVal.isEmpty()) {
                 partitionPath.append(partitionPathField).append("=").append(DEFAULT_PARTITION_PATH);
             } else {
@@ -314,12 +316,12 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
     }
 
     private String getNestedFieldValAsString(
-            SeaTunnelRow element, SeaTunnelRowType seaTunnelRowType, String fieldName) {
+        SeaTunnelRow element, SeaTunnelRowType seaTunnelRowType, String fieldName) {
         Object value = null;
 
         if (Arrays.stream(seaTunnelRowType.getFieldNames())
-                .collect(Collectors.toList())
-                .contains(fieldName)) {
+            .collect(Collectors.toList())
+            .contains(fieldName)) {
             value = element.getField(seaTunnelRowType.indexOf(fieldName));
         }
         return StringUtils.objToString(value);
@@ -340,9 +342,9 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
     private void checkFlushException() {
         if (flushException != null) {
             throw new HudiConnectorException(
-                    CommonErrorCode.FLUSH_DATA_FAILED,
-                    "Writing records to Hudi failed.",
-                    flushException);
+                CommonErrorCode.FLUSH_DATA_FAILED,
+                "Writing records to Hudi failed.",
+                flushException);
         }
     }
 }

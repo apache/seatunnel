@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.HudiOutputFormat;
 
+import com.esotericsoftware.kryo.KryoSerializable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.WriteStatus;
@@ -41,9 +42,9 @@ import org.apache.hudi.config.HoodieIndexConfig;
 import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.exception.HoodieKeyException;
 import org.apache.hudi.index.HoodieIndex;
-import org.apache.hudi.org.apache.avro.Schema;
-import org.apache.hudi.org.apache.avro.generic.GenericData;
-import org.apache.hudi.org.apache.avro.generic.GenericRecord;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -64,6 +65,7 @@ import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.AvroSchemaConverter.convertToSchema;
 
 public class HudiTest {
 
@@ -107,7 +109,7 @@ public class HudiTest {
     private static final HudiOutputFormat hudiOutputFormat = new HudiOutputFormat();
 
     private String getSchema() {
-        return hudiOutputFormat.convertSchema(seaTunnelRowType);
+        return convertToSchema(seaTunnelRowType).toString();
     }
 
     @Test
@@ -170,7 +172,7 @@ public class HudiTest {
         GenericRecord rec =
                 new GenericData.Record(
                         new Schema.Parser()
-                                .parse(hudiOutputFormat.convertSchema(seaTunnelRowType)));
+                                .parse(convertToSchema(seaTunnelRowType).toString()));
         for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
             rec.put(seaTunnelRowType.getFieldNames()[i], element.getField(i));
         }
