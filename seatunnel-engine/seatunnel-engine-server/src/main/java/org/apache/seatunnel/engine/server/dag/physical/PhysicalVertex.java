@@ -410,6 +410,8 @@ public class PhysicalVertex {
                     new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED));
         } else if (updateTaskState(ExecutionState.RUNNING, ExecutionState.CANCELING)) {
             noticeTaskExecutionServiceCancel();
+        } else if (ExecutionState.CANCELING.equals(runningJobStateIMap.get(taskGroupLocation))) {
+            noticeTaskExecutionServiceCancel();
         }
     }
 

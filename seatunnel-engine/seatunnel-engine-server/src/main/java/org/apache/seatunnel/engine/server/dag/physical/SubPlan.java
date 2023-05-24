@@ -18,8 +18,6 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
@@ -30,15 +28,17 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
+import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
 import lombok.Data;
 import lombok.NonNull;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -355,32 +355,39 @@ public class SubPlan {
     }
 
     public synchronized void cancelPipeline() {
-        try {
-            RetryUtils.retryWithException(
-                    () -> {
-                        if (getPipelineState().isEndState()) {
-                            LOGGER.warning(
-                                    String.format(
-                                            "%s is in end state %s, can not be cancel",
-                                            pipelineFullName, getPipelineState()));
-                            return null;
-                        }
-                        // If an active Master Node done and another Master Node active, we can not
-                        // know whether
-                        // canceled pipeline
-                        // complete. So we need cancel running pipeline again.
-                        if (!PipelineStatus.CANCELING.equals(
-                                runningJobStateIMap.get(pipelineLocation))) {
-                            updatePipelineState(getPipelineState(), PipelineStatus.CANCELING);
-                        }
-                        cancelCheckpointCoordinator();
-                        cancelPipelineTasks();
-                        return null;
-                    },
-                    new RetryUtils.RetryMaterial(
-                            30, true, e -> e instanceof IOException, 1000, true));
-        } catch (Exception e) {
-            throw new SeaTunnelEngineException(e);
+        for (int i = 0; i < 10; i++) {
+            try {
+                LOGGER.warning("start cancel job " + pipelineFullName + " count = " + i);
+                if (getPipelineState().isEndState()) {
+                    LOGGER.warning(
+                            String.format(
+                                    "%s is in end state %s, can not be cancel",
+                                    pipelineFullName, getPipelineState()));
+                }
+                // If an active Master Node done and another Master Node active, we can
+                // not know whether canceled pipeline complete.
+                // So we need cancel running pipeline again.
+                if (!PipelineStatus.CANCELING.equals(runningJobStateIMap.get(pipelineLocation))) {
+                    updatePipelineState(getPipelineState(), PipelineStatus.CANCELING);
+                }
+                cancelCheckpointCoordinator();
+                Optional<Exception> optionalException = cancelPipelineTasks();
+                if (optionalException.isPresent()) {
+                    throw optionalException.get();
+                }
+                break;
+            } catch (OperationTimeoutException
+                    | HazelcastInstanceNotActiveException
+                    | InterruptedException e) {
+                try {
+                    Thread.sleep(2000);
+                } catch (Exception ignored) {
+                }
+                LOGGER.warning(String.format("%s cancel error will retry", pipelineFullName), e);
+            } catch (Throwable e) {
+                LOGGER.warning(String.format("%s cancel error", pipelineFullName), e);
+                break;
+            }
         }
     }
 
@@ -390,7 +397,7 @@ public class SubPlan {
         }
     }
 
-    private void cancelPipelineTasks() {
+    private Optional<Exception> cancelPipelineTasks() {
         List<CompletableFuture<Void>> coordinatorCancelList =
                 coordinatorVertexList.stream()
                         .map(this::cancelTask)
@@ -407,14 +414,15 @@ public class SubPlan {
             coordinatorCancelList.addAll(taskCancelList);
             CompletableFuture<Void> voidCompletableFuture =
                     CompletableFuture.allOf(
-                            coordinatorCancelList.toArray(
-                                    new CompletableFuture[coordinatorCancelList.size()]));
+                            coordinatorCancelList.toArray(new CompletableFuture[0]));
             voidCompletableFuture.get();
+            return Optional.empty();
         } catch (Exception e) {
             LOGGER.severe(
                     String.format(
                             "%s cancel error with exception: %s",
                             pipelineFullName, ExceptionUtils.getMessage(e)));
+            return Optional.of(e);
         }
     }
 

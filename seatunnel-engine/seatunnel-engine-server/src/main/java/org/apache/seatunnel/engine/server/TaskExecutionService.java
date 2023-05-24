@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
+import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
@@ -367,6 +368,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 notifyStateSuccess = true;
             } catch (InterruptedException e) {
                 logger.severe("send notify task status failed", e);
+            } catch (JobNotFoundException e) {
+                logger.warning("send notify task status failed because can't find job", e);
+                notifyStateSuccess = true;
             } catch (ExecutionException e) {
                 logger.warning(ExceptionUtils.getMessage(e));
                 logger.warning(
