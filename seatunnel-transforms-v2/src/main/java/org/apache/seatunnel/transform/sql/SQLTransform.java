@@ -82,8 +82,9 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
         String[] fieldNames = new String[columns.size()];
         SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType<?>[columns.size()];
         for (int i = 0; i < columns.size(); i++) {
-            fieldNames[i] = columns.get(i).getName();
-            fieldTypes[i] = columns.get(i).getDataType();
+            Column column = columns.get(i);
+            fieldNames[i] = column.getName();
+            fieldTypes[i] = column.getDataType();
         }
         this.inputRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
     }
@@ -212,5 +213,10 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
     @Override
     protected TableIdentifier transformTableIdentifier() {
         return inputCatalogTable.getTableId().copy();
+    }
+
+    @Override
+    public void close() {
+        sqlEngine.close();
     }
 }
