@@ -18,11 +18,13 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.serde;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongodbWriterOptions;
 
 import org.bson.BsonDocument;
 import org.bson.conversions.Bson;
 
+import com.mongodb.client.model.DeleteOneModel;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.InsertOneModel;
 import com.mongodb.client.model.UpdateOneModel;
@@ -32,6 +34,8 @@ import com.mongodb.client.model.WriteModel;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.common.exception.CommonErrorCode.ILLEGAL_ARGUMENT;
 
 public class RowDataDocumentSerializer implements DocumentSerializer<SeaTunnelRow> {
 
@@ -52,6 +56,20 @@ public class RowDataDocumentSerializer implements DocumentSerializer<SeaTunnelRo
 
     @Override
     public WriteModel<BsonDocument> serializeToWriteModel(SeaTunnelRow row) {
+        switch (row.getRowKind()) {
+            case INSERT:
+            case UPDATE_AFTER:
+                return upsert(row);
+            case UPDATE_BEFORE:
+            case DELETE:
+                return delete(row);
+            default:
+                throw new MongodbConnectorException(
+                        ILLEGAL_ARGUMENT, "Unsupported message kind: " + row.getRowKind());
+        }
+    }
+
+    private WriteModel<BsonDocument> upsert(SeaTunnelRow row) {
         final BsonDocument bsonDocument = rowDataToBsonConverter.convert(row);
         if (isUpsertEnable) {
             Bson filter = generateFilter(filterConditions.apply(bsonDocument));
@@ -61,6 +79,12 @@ public class RowDataDocumentSerializer implements DocumentSerializer<SeaTunnelRo
         } else {
             return new InsertOneModel<>(bsonDocument);
         }
+    }
+
+    private WriteModel<BsonDocument> delete(SeaTunnelRow row) {
+        final BsonDocument bsonDocument = rowDataToBsonConverter.convert(row);
+        Bson filter = generateFilter(filterConditions.apply(bsonDocument));
+        return new DeleteOneModel<>(filter);
     }
 
     public static Bson generateFilter(BsonDocument filterConditions) {
