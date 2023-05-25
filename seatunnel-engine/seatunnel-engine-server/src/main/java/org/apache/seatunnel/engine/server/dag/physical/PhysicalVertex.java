@@ -237,9 +237,9 @@ public class PhysicalVertex {
             TaskGroupLocation taskGroupLocation,
             IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap) {
         PipelineLocation pipelineLocation = taskGroupLocation.getPipelineLocation();
-        if (ownedSlotProfilesIMap.containsKey(pipelineLocation)
-                && ownedSlotProfilesIMap.get(pipelineLocation).containsKey(taskGroupLocation)) {
+        try {
             return ownedSlotProfilesIMap.get(pipelineLocation).get(taskGroupLocation);
+        } catch (NullPointerException ignore) {
         }
         return null;
     }
@@ -439,21 +439,25 @@ public class PhysicalVertex {
         int i = 0;
         // In order not to generate uncontrolled tasks, We will try again until the taskFuture is
         // completed
+        Address executionAddress;
         while (!taskFuture.isDone()
-                && nodeEngine.getClusterService().getMember(getCurrentExecutionAddress()) != null
+                && nodeEngine
+                                .getClusterService()
+                                .getMember(executionAddress = getCurrentExecutionAddress())
+                        != null
                 && i < Constant.OPERATION_RETRY_TIME) {
             try {
                 i++;
                 LOGGER.info(
                         String.format(
                                 "Send cancel %s operator to member %s",
-                                taskFullName, getCurrentExecutionAddress()));
+                                taskFullName, executionAddress));
                 nodeEngine
                         .getOperationService()
                         .createInvocationBuilder(
                                 Constant.SEATUNNEL_SERVICE_NAME,
                                 new CancelTaskOperation(taskGroupLocation),
-                                getCurrentExecutionAddress())
+                                executionAddress)
                         .invoke()
                         .get();
                 return;
