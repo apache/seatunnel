@@ -47,6 +47,7 @@ import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperati
 import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.common.collect.Lists;
+import com.hazelcast.instance.impl.NodeState;
 import com.hazelcast.internal.metrics.DynamicMetricsProvider;
 import com.hazelcast.internal.metrics.MetricDescriptor;
 import com.hazelcast.internal.metrics.MetricsCollectionContext;
@@ -126,6 +127,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     private final SeaTunnelConfig seaTunnelConfig;
 
     private final ScheduledExecutorService scheduledExecutorService;
+
+    private CountDownLatch waitClusterStarted;
 
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -248,7 +251,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 taskGroup =
                         nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
             }
-            logger.fine(
+            logger.info(
                     String.format(
                             "deploying task %s, executionId [%s]",
                             taskGroup.getTaskGroupLocation(), taskImmutableInfo.getExecutionId()));
@@ -287,6 +290,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         try {
             taskGroup.init();
+            logger.info(
+                    String.format(
+                            "deploying TaskGroup %s init success",
+                            taskGroup.getTaskGroupLocation()));
             Collection<Task> tasks = taskGroup.getTasks();
             CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
             TaskGroupExecutionTracker executionTracker =
@@ -322,6 +329,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
             taskGroup.setTasksContext(taskExecutionContextMap);
+            logger.info(
+                    String.format(
+                            "deploying TaskGroup %s success", taskGroup.getTaskGroupLocation()));
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
             resultFuture.completeExceptionally(t);
@@ -448,6 +458,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         contextMap.putAll(finishedExecutionContexts);
         contextMap.putAll(executionContexts);
         try {
+            if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
+                logger.warning(
+                        String.format(
+                                "The Node is not ready yet, Node state %s,looking forward to the next "
+                                        + "scheduling",
+                                nodeEngine.getNode().getState()));
+                return;
+            }
+
             IMap<TaskLocation, SeaTunnelMetricsContext> map =
                     nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
             contextMap.forEach(

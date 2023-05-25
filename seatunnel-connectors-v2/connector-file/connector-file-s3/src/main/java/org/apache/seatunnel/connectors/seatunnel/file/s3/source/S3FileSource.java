@@ -85,6 +85,7 @@ public class S3FileSource extends BaseFileSource {
                 case CSV:
                 case TEXT:
                 case JSON:
+                case EXCEL:
                     SeaTunnelRowType userDefinedSchema =
                             CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
                     readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);

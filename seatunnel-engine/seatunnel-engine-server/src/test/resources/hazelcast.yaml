@@ -35,3 +35,6 @@ hazelcast:
         class-name: org.apache.seatunnel.engine.server.persistence.FileMapStore
         properties:
           path: /tmp/file-store-map
+  properties:
+    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true
+    hazelcast.slow.operation.detector.logging.enabled: true

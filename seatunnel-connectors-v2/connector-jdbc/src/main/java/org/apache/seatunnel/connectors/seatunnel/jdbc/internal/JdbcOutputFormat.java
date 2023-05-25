@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -126,7 +127,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         return exec;
     }
 
-    private void checkFlushException() {
+    public void checkFlushException() {
         if (flushException != null) {
             throw new JdbcConnectorException(
                     CommonErrorCode.FLUSH_DATA_FAILED,
@@ -155,7 +156,13 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     public synchronized void flush() throws IOException {
-        checkFlushException();
+        if (flushException != null) {
+            LOG.warn(
+                    String.format(
+                            "An exception occurred during the previous flush process %s, skipping this flush",
+                            ExceptionUtils.getMessage(flushException)));
+            return;
+        }
         final int sleepMs = 1000;
         for (int i = 0; i <= jdbcConnectionConfig.getMaxRetries(); i++) {
             try {
@@ -232,7 +239,14 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     public void updateExecutor(boolean reconnect) throws SQLException, ClassNotFoundException {
-        jdbcStatementExecutor.closeStatements();
+        try {
+            jdbcStatementExecutor.closeStatements();
+        } catch (SQLException e) {
+            if (!reconnect) {
+                throw e;
+            }
+            LOG.error("Close JDBC statement failed on reconnect.", e);
+        }
         jdbcStatementExecutor.prepareStatements(
                 reconnect
                         ? connectionProvider.reestablishConnection()

@@ -19,12 +19,14 @@ package org.apache.seatunnel.transform.common;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,6 +38,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
+@NoArgsConstructor
 public abstract class MultipleFieldOutputTransform extends AbstractCatalogSupportTransform {
 
     private static final String[] TYPE_ARRAY_STRING = new String[0];
@@ -45,10 +48,6 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
     private String[] outputFieldNames;
     private int[] fieldsIndex;
     private SeaTunnelRowContainerGenerator rowContainerGenerator;
-
-    public MultipleFieldOutputTransform() {
-        super();
-    }
 
     public MultipleFieldOutputTransform(@NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
@@ -181,10 +180,17 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
                         .map(Column::getName)
                         .collect(Collectors.toList())
                         .toArray(TYPE_ARRAY_STRING);
-        TableSchema.Builder builder =
-                TableSchema.builder()
-                        .primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey())
-                        .constraintKey(inputCatalogTable.getTableSchema().getConstraintKeys());
+
+        List<ConstraintKey> copiedConstraintKeys =
+                inputCatalogTable.getTableSchema().getConstraintKeys().stream()
+                        .map(ConstraintKey::copy)
+                        .collect(Collectors.toList());
+
+        TableSchema.Builder builder = TableSchema.builder();
+        if (inputCatalogTable.getTableSchema().getPrimaryKey() != null) {
+            builder = builder.primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey().copy());
+        }
+        builder = builder.constraintKey(copiedConstraintKeys);
         List<Column> columns =
                 inputCatalogTable.getTableSchema().getColumns().stream()
                         .map(Column::copy)
@@ -252,7 +258,7 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
 
     @Override
     protected TableIdentifier transformTableIdentifier() {
-        return inputCatalogTable.getTableId();
+        return inputCatalogTable.getTableId().copy();
     }
 
     protected abstract Column[] getOutputColumns();

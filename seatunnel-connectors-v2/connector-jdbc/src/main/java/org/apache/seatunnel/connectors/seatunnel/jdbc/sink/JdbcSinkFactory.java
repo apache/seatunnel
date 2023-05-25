@@ -17,11 +17,26 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
+
+import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.auto.service.AutoService;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.AUTO_COMMIT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.BATCH_INTERVAL_MS;
@@ -51,6 +66,33 @@ public class JdbcSinkFactory implements TableSinkFactory {
     }
 
     @Override
+    public TableSink createSink(TableFactoryContext context) {
+        ReadonlyConfig config = context.getOptions();
+        CatalogTable catalogTable = context.getCatalogTable();
+        Optional<String> optionalTable = config.getOptional(TABLE);
+        if (!optionalTable.isPresent()) {
+            Map<String, String> map = config.toMap();
+            map.put(TABLE.key(), catalogTable.getTableId().getTableName());
+
+            PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+            if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
+                map.put(PRIMARY_KEYS.key(), String.join(",", primaryKey.getColumnNames()));
+            }
+            config = ReadonlyConfig.fromMap(new HashMap<>(map));
+        }
+        final ReadonlyConfig options = config;
+        JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
+        JdbcDialect dialect = JdbcDialectLoader.load(sinkConfig.getJdbcConnectionConfig().getUrl());
+        return () ->
+                new JdbcSink(
+                        options,
+                        sinkConfig,
+                        dialect,
+                        DataSaveMode.KEEP_SCHEMA_AND_DATA,
+                        catalogTable);
+    }
+
+    @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(URL, DRIVER)
@@ -63,7 +105,8 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         IS_EXACTLY_ONCE,
                         GENERATE_SINK_SQL,
                         AUTO_COMMIT,
-                        SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST)
+                        SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST,
+                        PRIMARY_KEYS)
                 .conditional(
                         IS_EXACTLY_ONCE,
                         true,
@@ -71,9 +114,8 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         MAX_COMMIT_ATTEMPTS,
                         TRANSACTION_TIMEOUT_SEC)
                 .conditional(IS_EXACTLY_ONCE, false, MAX_RETRIES)
-                .conditional(GENERATE_SINK_SQL, true, DATABASE, TABLE)
+                .conditional(GENERATE_SINK_SQL, true, DATABASE)
                 .conditional(GENERATE_SINK_SQL, false, QUERY)
-                .conditional(SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST, true, PRIMARY_KEYS)
                 .build();
     }
 }

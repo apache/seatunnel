@@ -41,9 +41,8 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
-import org.apache.commons.lang3.StringUtils;
-
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -53,8 +52,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
+@Slf4j
 public class CatalogTableUtil implements Serializable {
     public static final Option<Map<String, String>> SCHEMA =
             Options.key("schema").mapType().noDefaultValue().withDescription("SeaTunnel Schema");
@@ -97,16 +96,12 @@ public class CatalogTableUtil implements Serializable {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
         Map<String, String> catalogOptions =
                 readonlyConfig.getOptional(CatalogOptions.CATALOG_OPTIONS).orElse(new HashMap<>());
-        // TODO: fallback key
-        String factoryId =
-                catalogOptions.getOrDefault(
-                        CommonOptions.FACTORY_ID.key(),
-                        readonlyConfig.get(CommonOptions.PLUGIN_NAME));
+
         Map<String, Object> catalogAllOptions = new HashMap<>();
         catalogAllOptions.putAll(readonlyConfig.toMap());
         catalogAllOptions.putAll(catalogOptions);
         ReadonlyConfig catalogConfig = ReadonlyConfig.fromMap(catalogAllOptions);
-
+        String factoryId = catalogConfig.get(CommonOptions.FACTORY_ID);
         // Highest priority: specified schema
         Map<String, String> schemaMap = readonlyConfig.get(CatalogTableUtil.SCHEMA);
         if (schemaMap != null && schemaMap.size() > 0) {
@@ -121,41 +116,20 @@ public class CatalogTableUtil implements Serializable {
                         classLoader,
                         factoryId);
         return optionalCatalog
-                .map(catalog -> getCatalogTables(catalogConfig, catalog))
+                .map(
+                        c -> {
+                            long startTime = System.currentTimeMillis();
+                            try (Catalog catalog = c) {
+                                catalog.open();
+                                List<CatalogTable> catalogTables = catalog.getTables(catalogConfig);
+                                log.info(
+                                        String.format(
+                                                "Get catalog tables, cost time: %d",
+                                                System.currentTimeMillis() - startTime));
+                                return catalogTables;
+                            }
+                        })
                 .orElse(Collections.emptyList());
-    }
-
-    public static List<CatalogTable> getCatalogTables(
-            ReadonlyConfig catalogConfig, Catalog catalog) {
-        // Get the list of specified tables
-        List<String> tableNames = catalogConfig.get(CatalogOptions.TABLE_NAMES);
-        List<CatalogTable> catalogTables = new ArrayList<>();
-        if (tableNames != null && tableNames.size() >= 1) {
-            for (String tableName : tableNames) {
-                catalogTables.add(catalog.getTable(TablePath.of(tableName)));
-            }
-            return catalogTables;
-        }
-
-        // Get the list of table pattern
-        String tablePatternStr = catalogConfig.get(CatalogOptions.TABLE_PATTERN);
-        if (StringUtils.isBlank(tablePatternStr)) {
-            return Collections.emptyList();
-        }
-        Pattern databasePattern =
-                Pattern.compile(catalogConfig.get(CatalogOptions.DATABASE_PATTERN));
-        Pattern tablePattern = Pattern.compile(catalogConfig.get(CatalogOptions.TABLE_PATTERN));
-        List<String> allDatabase = catalog.listDatabases();
-        allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
-        for (String databaseName : allDatabase) {
-            tableNames = catalog.listTables(databaseName);
-            for (String tableName : tableNames) {
-                if (tablePattern.matcher(databaseName + "." + tableName).matches()) {
-                    catalogTables.add(catalog.getTable(TablePath.of(databaseName, tableName)));
-                }
-            }
-        }
-        return catalogTables;
     }
 
     public static CatalogTableUtil buildWithConfig(Config config) {
@@ -184,10 +158,9 @@ public class CatalogTableUtil implements Serializable {
     }
 
     public static SeaTunnelDataType<?> parseDataType(String columnStr) {
-        columnStr = columnStr.toUpperCase().replace(" ", "");
         SqlType sqlType = null;
         try {
-            sqlType = SqlType.valueOf(columnStr);
+            sqlType = SqlType.valueOf(columnStr.toUpperCase().replace(" ", ""));
         } catch (IllegalArgumentException e) {
             // nothing
         }
@@ -228,14 +201,15 @@ public class CatalogTableUtil implements Serializable {
     }
 
     private static SeaTunnelDataType<?> parseComplexDataType(String columnStr) {
-        if (columnStr.startsWith(SqlType.MAP.name())) {
-            return parseMapType(columnStr);
+        String column = columnStr.toUpperCase().replace(" ", "");
+        if (column.startsWith(SqlType.MAP.name())) {
+            return parseMapType(column);
         }
-        if (columnStr.startsWith(SqlType.ARRAY.name())) {
-            return parseArrayType(columnStr);
+        if (column.startsWith(SqlType.ARRAY.name())) {
+            return parseArrayType(column);
         }
-        if (columnStr.startsWith(SqlType.DECIMAL.name())) {
-            return parseDecimalType(columnStr);
+        if (column.startsWith(SqlType.DECIMAL.name())) {
+            return parseDecimalType(column);
         }
         return parseRowType(columnStr);
     }

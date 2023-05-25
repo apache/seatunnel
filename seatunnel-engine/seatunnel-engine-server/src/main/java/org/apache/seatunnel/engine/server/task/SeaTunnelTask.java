@@ -147,11 +147,15 @@ public abstract class SeaTunnelTask extends AbstractTask {
                     }
                     currState = READY_START;
                     reportTaskStatus(READY_START);
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case READY_START:
                 if (startCalled) {
                     currState = STARTING;
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case STARTING:
@@ -369,6 +373,10 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         log.debug("restoreState for SeaTunnelTask[{}]", actionStateList);
+        if (null == actionStateList) {
+            log.debug("restoreState is null, do nothing!");
+            return;
+        }
         Map<ActionStateKey, List<ActionSubtaskState>> stateMap =
                 actionStateList.stream()
                         .collect(
