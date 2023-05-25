@@ -184,6 +184,7 @@ public class ZetaSQLEngine implements SQLEngine {
         Object[] outputFields = project(inputFields);
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(outputFields);
         seaTunnelRow.setRowKind(inputRow.getRowKind());
+        seaTunnelRow.setTableId(inputRow.getTableId());
         return seaTunnelRow;
     }
 
