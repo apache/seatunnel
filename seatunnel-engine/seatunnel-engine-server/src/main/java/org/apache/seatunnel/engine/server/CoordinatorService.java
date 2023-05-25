@@ -522,6 +522,11 @@ public class CoordinatorService {
      * TaskGroup's state.
      */
     public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
+        logger.info(
+                String.format(
+                        "Received task end from execution %s, state %s",
+                        taskExecutionState.getTaskGroupLocation(),
+                        taskExecutionState.getExecutionState()));
         TaskGroupLocation taskGroupLocation = taskExecutionState.getTaskGroupLocation();
         JobMaster runningJobMaster = runningJobMasterMap.get(taskGroupLocation.getJobId());
         if (runningJobMaster == null) {
