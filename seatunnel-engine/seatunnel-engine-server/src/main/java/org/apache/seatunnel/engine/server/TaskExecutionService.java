@@ -305,7 +305,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             .peek(
                                     task -> {
                                         TaskExecutionContext taskExecutionContext =
-                                                new TaskExecutionContext(task, nodeEngine);
+                                                new TaskExecutionContext(task, nodeEngine, this);
                                         task.setTaskExecutionContext(taskExecutionContext);
                                         taskExecutionContextMap.put(
                                                 task.getTaskID(), taskExecutionContext);
@@ -403,6 +403,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             logger.warning(
                     String.format("need cancel taskId : %s is not exist", taskGroupLocation));
         }
+    }
+
+    public void asyncExecuteFunction(Runnable task) {
+        executorService.submit(task);
     }
 
     public void notifyCleanTaskGroupContext(TaskGroupLocation taskGroupLocation) {
