@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -132,7 +133,7 @@ public class ParquetReadStrategyTest {
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
-        System.out.println(seaTunnelRowTypeInfo);
+        Assertions.assertEquals(seaTunnelRowTypeInfo.getFieldType(2).getClass(), ArrayType.class);
         TestCollector testCollector = new TestCollector();
         parquetReadStrategy.read(path, testCollector);
     }
