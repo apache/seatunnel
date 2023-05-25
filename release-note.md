@@ -54,6 +54,7 @@
 - [Connector-V2] [Jdbc] add the log for sql and update some style (#4475)
 - [Connector-V2] [Jdbc] Fix the table name is not automatically obtained when multiple tables (#4514)
 - [Connector-V2] [S3 & Kafka] Delete unavailable S3 & Kafka Catalogs (#4477)
+- [Connector-V2] [Pulsar] Support Canal Format
 
 ### CI
 

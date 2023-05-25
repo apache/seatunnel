@@ -42,6 +42,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | batch_size                                | Int     | No       | 1000          |
 | batch_interval_ms                         | Int     | No       | 1000          |
 | is_exactly_once                           | Boolean | No       | false         |
+| generate_sink_sql                         | Boolean | No       | false         |
 | xa_data_source_class_name                 | String  | No       | -             |
 | max_commit_attempts                       | Int     | No       | 3             |
 | transaction_timeout_sec                   | Int     | No       | -1            |
@@ -111,6 +112,10 @@ For batch writing, when the number of buffers reaches the number of `batch_size`
 
 Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to
 set `xa_data_source_class_name`.
+
+### generate_sink_sql[boolean]
+
+Generate sql statements based on the database table you want to write to
 
 ### xa_data_source_class_name[string]
 

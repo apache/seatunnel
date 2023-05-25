@@ -553,31 +553,31 @@ public class JobMaster {
     }
 
     private void cleanTaskGroupContext(PipelineLocation pipelineLocation) {
-        ownedSlotProfilesIMap
-                .get(pipelineLocation)
-                .forEach(
-                        (taskGroupLocation, slotProfile) -> {
-                            try {
-                                if (nodeEngine
-                                                .getClusterService()
-                                                .getMember(slotProfile.getWorker())
-                                        != null) {
-                                    NodeEngineUtil.sendOperationToMemberNode(
-                                                    nodeEngine,
-                                                    new CleanTaskGroupContextOperation(
-                                                            taskGroupLocation),
-                                                    slotProfile.getWorker())
-                                            .get();
-                                }
-                            } catch (HazelcastInstanceNotActiveException e) {
-                                LOGGER.warning(
-                                        String.format(
-                                                "%s clean TaskGroupContext with exception: %s.",
-                                                taskGroupLocation, ExceptionUtils.getMessage(e)));
-                            } catch (Exception e) {
-                                throw new SeaTunnelException(e.getMessage());
-                            }
-                        });
+        Map<TaskGroupLocation, SlotProfile> slotProfileMap =
+                ownedSlotProfilesIMap.get(pipelineLocation);
+        if (slotProfileMap == null) {
+            return;
+        }
+        slotProfileMap.forEach(
+                (taskGroupLocation, slotProfile) -> {
+                    try {
+                        if (nodeEngine.getClusterService().getMember(slotProfile.getWorker())
+                                != null) {
+                            NodeEngineUtil.sendOperationToMemberNode(
+                                            nodeEngine,
+                                            new CleanTaskGroupContextOperation(taskGroupLocation),
+                                            slotProfile.getWorker())
+                                    .get();
+                        }
+                    } catch (HazelcastInstanceNotActiveException e) {
+                        LOGGER.warning(
+                                String.format(
+                                        "%s clean TaskGroupContext with exception: %s.",
+                                        taskGroupLocation, ExceptionUtils.getMessage(e)));
+                    } catch (Exception e) {
+                        throw new SeaTunnelException(e.getMessage());
+                    }
+                });
     }
 
     public PhysicalPlan getPhysicalPlan() {

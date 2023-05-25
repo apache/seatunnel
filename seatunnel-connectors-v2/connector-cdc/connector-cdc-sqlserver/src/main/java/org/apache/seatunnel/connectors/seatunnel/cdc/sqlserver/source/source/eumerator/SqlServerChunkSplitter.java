@@ -292,8 +292,10 @@ public class SqlServerChunkSplitter implements JdbcSourceChunkSplitter {
             Object chunkStart,
             Object chunkEnd) {
         // currently, we only support single split column
+        Object[] splitStart = chunkStart == null ? null : new Object[] {chunkStart};
+        Object[] splitEnd = chunkEnd == null ? null : new Object[] {chunkEnd};
         return new SnapshotSplit(
-                splitId(tableId, chunkId), tableId, splitKeyType, chunkStart, chunkEnd, null);
+                splitId(tableId, chunkId), tableId, splitKeyType, splitStart, splitEnd, null);
     }
 
     // ------------------------------------------------------------------------------------------
