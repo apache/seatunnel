@@ -176,13 +176,13 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                                                     output);
                                                                 }
                                                             }
-                                                        } catch (IOException e) {
+                                                        }  catch (Exception e) {
                                                             if (this.messageFormatErrorHandleWay
                                                                     == MessageFormatErrorHandleWay
                                                                             .SKIP) {
                                                                 log.warn(
                                                                         "Deserialize message failed, skip this message, message: {}",
-                                                                        record.value());
+                                                                        new String(record.value()));
                                                                 continue;
                                                             }
                                                             throw e;
