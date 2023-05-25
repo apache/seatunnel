@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
@@ -142,6 +143,10 @@ public final class ConfigShadeUtils {
                 (ArrayList<Map<String, Object>>) configMap.get(Constants.SOURCE);
         List<Map<String, Object>> sinks =
                 (ArrayList<Map<String, Object>>) configMap.get(Constants.SINK);
+        Preconditions.checkArgument(
+                !sources.isEmpty(), "Miss <Source> config! Please check the config file.");
+        Preconditions.checkArgument(
+                !sinks.isEmpty(), "Miss <Sink> config! Please check the config file.");
         sources.forEach(
                 source -> {
                     for (String sensitiveOption : sensitiveOptions) {

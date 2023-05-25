@@ -23,6 +23,8 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
@@ -34,6 +36,7 @@ import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertValu
 import static org.apache.seatunnel.api.configuration.util.ConfigUtil.flatteningMap;
 import static org.apache.seatunnel.api.configuration.util.ConfigUtil.treeMap;
 
+@Slf4j
 public class ReadonlyConfig implements Serializable {
     private static final long serialVersionUID = 1L;
     private static final ObjectMapper JACKSON_MAPPER = new ObjectMapper();
@@ -89,16 +92,16 @@ public class ReadonlyConfig implements Serializable {
         if (option == null) {
             throw new NullPointerException("Option not be null.");
         }
-        String[] keys = option.key().split("\\.");
-        Map<String, Object> data = this.confData;
-        Object value = null;
-        for (int i = 0; i < keys.length; i++) {
-            value = data.get(keys[i]);
-            if (i < keys.length - 1) {
-                if (!(value instanceof Map)) {
-                    return Optional.empty();
-                } else {
-                    data = (Map<String, Object>) value;
+        Object value = getValue(option.key());
+        if (value == null) {
+            for (String fallbackKey : option.getFallbackKeys()) {
+                value = getValue(fallbackKey);
+                if (value != null) {
+                    log.info(
+                            "Config uses fallback configuration key '{}' instead of key '{}'",
+                            fallbackKey,
+                            option.key());
+                    break;
                 }
             }
         }
@@ -106,6 +109,23 @@ public class ReadonlyConfig implements Serializable {
             return Optional.empty();
         }
         return Optional.of(convertValue(value, option));
+    }
+
+    private Object getValue(String key) {
+        String[] keys = key.split("\\.");
+        Map<String, Object> data = this.confData;
+        Object value = null;
+        for (int i = 0; i < keys.length; i++) {
+            value = data.get(keys[i]);
+            if (i < keys.length - 1) {
+                if (!(value instanceof Map)) {
+                    return null;
+                } else {
+                    data = (Map<String, Object>) value;
+                }
+            }
+        }
+        return value;
     }
 
     @Override

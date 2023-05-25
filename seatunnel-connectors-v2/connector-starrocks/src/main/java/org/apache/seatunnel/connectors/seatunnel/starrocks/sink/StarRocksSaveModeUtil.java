@@ -44,7 +44,10 @@ public class StarRocksSaveModeUtil {
                             .map(r -> "`" + r + "`")
                             .collect(Collectors.joining(","));
         }
-
+        template =
+                template.replaceAll(
+                        String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_PRIMARY_KEY),
+                        primaryKey);
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
         template = mergeColumnInTemplate(columnInTemplate, tableSchema, template);
@@ -59,10 +62,7 @@ public class StarRocksSaveModeUtil {
                 .replaceAll(String.format("\\$\\{%s\\}", SaveModeConstants.TABLE_NAME), table)
                 .replaceAll(
                         String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_FIELDS),
-                        rowTypeFields)
-                .replaceAll(
-                        String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_PRIMARY_KEY),
-                        primaryKey);
+                        rowTypeFields);
     }
 
     private static String columnToStarrocksType(Column column) {
@@ -88,14 +88,17 @@ public class StarRocksSaveModeUtil {
                 if (columnMap.containsKey(col)) {
                     Column column = columnMap.get(col);
                     String newCol = columnToStarrocksType(column);
-                    template =
-                            template.substring(
-                                            0,
-                                            columnInfo.getIndex()
-                                                    + offset
-                                                    - columnInfo.getName().length())
-                                    + newCol
-                                    + template.substring(offset + columnInfo.getIndex());
+                    String prefix = template.substring(0, columnInfo.getStartIndex() + offset);
+                    String suffix = template.substring(offset + columnInfo.getEndIndex());
+                    if (prefix.endsWith("`")) {
+                        prefix = prefix.substring(0, prefix.length() - 1);
+                        offset--;
+                    }
+                    if (suffix.startsWith("`")) {
+                        suffix = suffix.substring(1);
+                        offset--;
+                    }
+                    template = prefix + newCol + suffix;
                     offset += newCol.length() - columnInfo.getName().length();
                 } else {
                     throw new IllegalArgumentException("Can't find column " + col + " in table.");

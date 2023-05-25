@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.common.Handover;
@@ -111,19 +112,16 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
         if (pulsarClient != null) {
             pulsarClient.close();
         }
-        splitReaders
-                .values()
-                .forEach(
-                        reader -> {
-                            try {
-                                reader.close();
-                            } catch (IOException e) {
-                                throw new PulsarConnectorException(
-                                        CommonErrorCode.READER_OPERATION_FAILED,
-                                        "Failed to close the split reader thread.",
-                                        e);
-                            }
-                        });
+        for (PulsarSplitReaderThread pulsarSplitReaderThread : splitReaders.values()) {
+            try {
+                pulsarSplitReaderThread.close();
+            } catch (IOException e) {
+                throw new PulsarConnectorException(
+                        CommonErrorCode.READER_OPERATION_FAILED,
+                        "Failed to close the split reader thread.",
+                        e);
+            }
+        }
     }
 
     @Override
@@ -167,25 +165,23 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
 
     @Override
     public void addSplits(List<PulsarPartitionSplit> splits) {
-        splits.forEach(
-                split -> {
-                    splitStates.put(split.splitId(), split);
-                    PulsarSplitReaderThread splitReaderThread =
-                            createPulsarSplitReaderThread(split);
-                    try {
-                        splitReaderThread.setName(
-                                "Pulsar Source Data Consumer "
-                                        + split.getPartition().getPartition());
-                        splitReaderThread.open();
-                        splitReaders.put(split.splitId(), splitReaderThread);
-                        splitReaderThread.start();
-                    } catch (PulsarClientException e) {
-                        throw new PulsarConnectorException(
-                                CommonErrorCode.READER_OPERATION_FAILED,
-                                "Failed to start the split reader thread.",
-                                e);
-                    }
-                });
+        for (PulsarPartitionSplit split : splits) {
+            splitStates.put(split.splitId(), split);
+            PulsarSplitReaderThread splitReaderThread = createPulsarSplitReaderThread(split);
+            try {
+                splitReaderThread.setName(
+                        "Pulsar Source Data Consumer " + split.getPartition().getPartition());
+                splitReaderThread.open();
+                splitReaders.put(split.splitId(), splitReaderThread);
+                splitReaderThread.start();
+                LOG.info("PulsarSplitReaderThread = {} start", splitReaderThread.getName());
+            } catch (PulsarClientException e) {
+                throw new PulsarConnectorException(
+                        CommonErrorCode.READER_OPERATION_FAILED,
+                        "Failed to start the split reader thread.",
+                        e);
+            }
+        }
     }
 
     protected PulsarSplitReaderThread createPulsarSplitReaderThread(PulsarPartitionSplit split) {
@@ -203,6 +199,10 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
     public void handleNoMoreElements(String splitId, MessageId messageId) {
         LOG.info("Reader received the split {} NoMoreElements event.", splitId);
         pendingCursorsToFinish.put(splitId, messageId);
+        // BOUNDED not trigger snapshot and notifyCheckpointComplete
+        if (context.getBoundedness() == Boundedness.BOUNDED) {
+            finishedSplits.add(splitId);
+        }
     }
 
     @Override
@@ -221,32 +221,35 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                     checkpointId);
             return;
         }
-        pendingCursors.forEach(
-                (splitId, messageId) -> {
-                    if (finishedSplits.contains(splitId)) {
-                        return;
-                    }
-                    try {
-                        splitReaders.get(splitId).committingCursor(messageId);
+        pendingCursors.forEach(this::committingCursor);
+    }
 
-                        if (pendingCursorsToFinish.containsKey(splitId)
-                                && pendingCursorsToFinish.get(splitId).compareTo(messageId) == 0) {
-                            finishedSplits.add(splitId);
-                            try {
-                                splitReaders.get(splitId).close();
-                            } catch (IOException e) {
-                                throw new PulsarConnectorException(
-                                        CommonErrorCode.READER_OPERATION_FAILED,
-                                        "Failed to close the split reader thread.",
-                                        e);
-                            }
-                        }
-                    } catch (PulsarClientException e) {
-                        throw new PulsarConnectorException(
-                                PulsarConnectorErrorCode.ACK_CUMULATE_FAILED,
-                                "pulsar consumer acknowledgeCumulative failed.",
-                                e);
-                    }
-                });
+    /** commit the cursor of consumer thread */
+    private void committingCursor(String splitId, MessageId messageId) {
+        if (finishedSplits.contains(splitId)) {
+            return;
+        }
+        try {
+            PulsarSplitReaderThread pulsarSplitReaderThread = splitReaders.get(splitId);
+            pulsarSplitReaderThread.committingCursor(messageId);
+
+            if (pendingCursorsToFinish.containsKey(splitId)
+                    && pendingCursorsToFinish.get(splitId).compareTo(messageId) == 0) {
+                finishedSplits.add(splitId);
+                try {
+                    pulsarSplitReaderThread.close();
+                } catch (IOException e) {
+                    throw new PulsarConnectorException(
+                            CommonErrorCode.READER_OPERATION_FAILED,
+                            "Failed to close the split reader thread.",
+                            e);
+                }
+            }
+        } catch (PulsarClientException e) {
+            throw new PulsarConnectorException(
+                    PulsarConnectorErrorCode.ACK_CUMULATE_FAILED,
+                    "pulsar consumer acknowledgeCumulative failed.",
+                    e);
+        }
     }
 }

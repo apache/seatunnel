@@ -23,7 +23,7 @@
     </parent>
 
     <artifactId>connector-iceberg-hadoop3-e2e</artifactId>
-    <name>SeaTunnel : E2E : Connector V2 : Hadoop3</name>
+    <name>SeaTunnel : E2E : Connector V2 : Iceberg : Hadoop3</name>
 
     <properties>
         <hadoop-client.version>3.3.4</hadoop-client.version>
