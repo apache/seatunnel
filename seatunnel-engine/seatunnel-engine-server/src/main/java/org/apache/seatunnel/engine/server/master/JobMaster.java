@@ -140,6 +140,8 @@ public class JobMaster {
 
     private final IMap<Long, JobInfo> runningJobInfoIMap;
 
+    private final IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
+
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
 
@@ -170,6 +172,8 @@ public class JobMaster {
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
+        this.metricsImap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
     }
 
     public void init(long initializationTimestamp, boolean restart, boolean canRestoreAgain)
@@ -538,17 +542,27 @@ public class JobMaster {
             PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
         if (pipelineStatus.equals(PipelineStatus.FINISHED) && !checkpointManager.isSavePointEnd()
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
-            IMap<TaskLocation, SeaTunnelMetricsContext> map =
-                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-            map.keySet().stream()
-                    .filter(
-                            taskLocation -> {
-                                return taskLocation
-                                        .getTaskGroupLocation()
-                                        .getPipelineLocation()
-                                        .equals(pipelineLocation);
-                            })
-                    .forEach(map::remove);
+            try {
+                metricsImap.lock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
+                        metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                if (centralMap != null) {
+                    List<TaskLocation> collect =
+                            centralMap.keySet().stream()
+                                    .filter(
+                                            taskLocation -> {
+                                                return taskLocation
+                                                        .getTaskGroupLocation()
+                                                        .getPipelineLocation()
+                                                        .equals(pipelineLocation);
+                                            })
+                                    .collect(Collectors.toList());
+                    collect.forEach(centralMap::remove);
+                    metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
+                }
+            } finally {
+                metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+            }
         }
     }
 
