@@ -35,7 +35,6 @@ problems encountered by users.
 | COMMON-13 | Http operation failed, such as (open, close, response) etc...          | When users encounter this error code, it maybe some http requests failed, please check your network environment                                                                                    |
 | COMMON-14 | Kerberos authorized failed                                             | When users encounter this error code, it maybe some The Kerberos authorized is misconfigured                                                                                                       |
 | COMMON-15 | Class load operation failed                                            | When users encounter this error code, it maybe some The corresponding jar does not exist, or the type is not supported                                                                             |
-| COMMON-16 | Encountered improperly formatted JVM option                            | When users encounter this error code, it maybe some The JVM option formatted improperly                                                                                                            |
 
 ## Assert Connector Error Codes
 
@@ -245,4 +244,32 @@ problems encountered by users.
 |     code      |        description        |                                                                                                   solution                                                                                                   |
 |---------------|---------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | S3RedShift-01 | Aggregate committer error | S3Redshift Sink Connector will write data to s3 and then move file to the target s3 path. And then use `Copy` action copy the data to Redshift. Please check the error log and find out the specific reason. |
+
+## Google Firestore Connector Error Codes
+
+|     code     |          description          |                                                                     solution                                                                      |
+|--------------|-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| FIRESTORE-01 | Close Firestore client failed | When users encounter this error code, it is usually there are some problems with closing the Firestore client, please check the Firestore is work |
+
+## FilterFieldTransform Error Codes
+
+|           code            |      description       |        solution         |
+|---------------------------|------------------------|-------------------------|
+| FILTER_FIELD_TRANSFORM-01 | filter field not found | filter field not found. |
+
+## RocketMq Connector Error Codes
+
+|    code     |                                           description                                           |                                                           solution                                                            |
+|-------------|-------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| ROCKETMQ-01 | Add a split back to the split enumerator failed, it will only happen when a SourceReader failed | When users encounter this error code, it means that add a split back to the split enumerator failed, please check it.         |
+| ROCKETMQ-02 | Add the split checkpoint state to reader failed                                                 | When users encounter this error code, it means that add the split checkpoint state to reader failed, please check it.         |
+| ROCKETMQ-03 | Rocketmq failed to consume data                                                                 | When users encounter this error code, it means that rocketmq failed to consume data, please check it., please check it.       |
+| ROCKETMQ-04 | Error occurred when the rocketmq consumer thread was running                                    | When the user encounters this error code, it means that an error occurred while running the Rocketmq consumer thread          |
+| ROCKETMQ-05 | Rocketmq producer failed to send message                                                        | When users encounter this error code, it means that Rocketmq producer failed to send message, please check it.                |
+| ROCKETMQ-06 | Rocketmq producer failed to start                                                               | When users encounter this error code, it means that Rocketmq producer failed to start, please check it.                       |
+| ROCKETMQ-07 | Rocketmq consumer failed to start                                                               | When users encounter this error code, it means that Rocketmq consumer failed to start, please check it.                       |
+| ROCKETMQ-08 | Unsupported start mode                                                                          | When users encounter this error code, it means that the configured start mode is not supported, please check it.              |
+| ROCKETMQ-09 | Failed to get the offsets of the current consumer group                                         | When users encounter this error code, it means that failed to get the offsets of the current consumer group, please check it. |
+| ROCKETMQ-10 | Failed to search offset through timestamp                                                       | When users encounter this error code, it means that failed to search offset through timestamp, please check it.               |
+| ROCKETMQ-11 | Failed to get topic min and max topic                                                           | When users encounter this error code, it means that failed to get topic min and max topic, please check it.                   |
 

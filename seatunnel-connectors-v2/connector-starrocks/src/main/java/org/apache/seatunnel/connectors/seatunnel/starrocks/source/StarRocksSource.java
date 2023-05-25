@@ -78,8 +78,7 @@ public class StarRocksSource
                             getPluginName(), PluginType.SOURCE, mergedConfigCheck.getMsg()));
         }
 
-        Config schemaConfig = pluginConfig.getConfig(CatalogTableUtil.SCHEMA.key());
-        this.typeInfo = CatalogTableUtil.buildWithConfig(schemaConfig).getSeaTunnelRowType();
+        this.typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
         this.sourceConfig = SourceConfig.loadConfig(pluginConfig);
     }
 

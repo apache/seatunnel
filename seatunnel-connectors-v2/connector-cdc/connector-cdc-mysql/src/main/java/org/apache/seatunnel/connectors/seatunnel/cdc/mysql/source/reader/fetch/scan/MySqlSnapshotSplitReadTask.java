@@ -32,6 +32,7 @@ import io.debezium.connector.mysql.MySqlConnection;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlDatabaseSchema;
 import io.debezium.connector.mysql.MySqlOffsetContext;
+import io.debezium.connector.mysql.MysqlTextProtocolFieldReader;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.AbstractSnapshotChangeEventSource;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
@@ -39,6 +40,7 @@ import io.debezium.pipeline.source.spi.SnapshotProgressListener;
 import io.debezium.pipeline.spi.ChangeRecordEmitter;
 import io.debezium.pipeline.spi.OffsetContext;
 import io.debezium.pipeline.spi.SnapshotResult;
+import io.debezium.relational.Column;
 import io.debezium.relational.RelationalSnapshotChangeEventSource;
 import io.debezium.relational.SnapshotChangeRecordEmitter;
 import io.debezium.relational.Table;
@@ -50,9 +52,7 @@ import io.debezium.util.Threads;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.time.Duration;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.currentBinlogOffset;
@@ -74,6 +74,8 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
     private final SnapshotSplit snapshotSplit;
     private final MySqlOffsetContext offsetContext;
     private final SnapshotProgressListener snapshotProgressListener;
+    private final MysqlTextProtocolFieldReader mysqlTextProtocolFieldReader =
+            new MysqlTextProtocolFieldReader();
 
     public MySqlSnapshotSplitReadTask(
             MySqlConnectorConfig connectorConfig,
@@ -203,8 +205,8 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
                                 selectSql,
                                 snapshotSplit.getSplitStart() == null,
                                 snapshotSplit.getSplitEnd() == null,
-                                new Object[] {snapshotSplit.getSplitStart()},
-                                new Object[] {snapshotSplit.getSplitEnd()},
+                                snapshotSplit.getSplitStart(),
+                                snapshotSplit.getSplitEnd(),
                                 snapshotSplit.getSplitKeyType().getTotalFields(),
                                 connectorConfig.getSnapshotFetchSize());
                 ResultSet rs = selectStatement.executeQuery()) {
@@ -217,7 +219,9 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
                 rows++;
                 final Object[] row = new Object[columnArray.getGreatestColumnPosition()];
                 for (int i = 0; i < columnArray.getColumns().length; i++) {
-                    row[columnArray.getColumns()[i].position() - 1] = readField(rs, i + 1);
+                    Column actualColumn = table.columns().get(i);
+                    row[columnArray.getColumns()[i].position() - 1] =
+                            mysqlTextProtocolFieldReader.readField(rs, i + 1, actualColumn, table);
                 }
                 if (logTimer.expired()) {
                     long stop = clock.currentTimeInMillis();
@@ -254,16 +258,6 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
 
     private Threads.Timer getTableScanLogTimer() {
         return Threads.timer(clock, LOG_INTERVAL);
-    }
-
-    private Object readField(ResultSet rs, int columnIndex) throws SQLException {
-        final ResultSetMetaData metaData = rs.getMetaData();
-        final int columnType = metaData.getColumnType(columnIndex);
-        if (columnType == Types.TIME) {
-            return rs.getTimestamp(columnIndex);
-        } else {
-            return rs.getObject(columnIndex);
-        }
     }
 
     private static class MySqlSnapshotContext

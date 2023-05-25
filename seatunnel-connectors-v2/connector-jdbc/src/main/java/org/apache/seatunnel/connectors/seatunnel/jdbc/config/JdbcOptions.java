@@ -79,7 +79,7 @@ public interface JdbcOptions {
     Option<Boolean> GENERATE_SINK_SQL =
             Options.key("generate_sink_sql")
                     .booleanType()
-                    .defaultValue(true)
+                    .defaultValue(false)
                     .withDescription("generate sql using the database table");
 
     Option<String> XA_DATA_SOURCE_CLASS_NAME =
