@@ -123,8 +123,10 @@ public class FileSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
+        Set<Integer> readers = context.registeredReaders();
         pendingSplit = getFileSplit();
         assignSplit(subtaskId);
+        readers.forEach(context::signalNoMoreSplits);
     }
 
     @Override

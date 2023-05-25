@@ -71,13 +71,17 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
             } else {
                 sourceFunction = new SeaTunnelParallelSource(internalSource);
             }
+            boolean bounded =
+                    internalSource.getBoundedness()
+                                    == org.apache.seatunnel.api.source.Boundedness.BOUNDED
+                            ? true
+                            : false;
             DataStreamSource<Row> sourceStream =
                     addSource(
                             executionEnvironment,
                             sourceFunction,
                             "SeaTunnel " + internalSource.getClass().getSimpleName(),
-                            internalSource.getBoundedness()
-                                    == org.apache.seatunnel.api.source.Boundedness.BOUNDED);
+                            bounded);
             Config pluginConfig = pluginConfigs.get(i);
             if (pluginConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 int parallelism = pluginConfig.getInt(CommonOptions.PARALLELISM.key());
