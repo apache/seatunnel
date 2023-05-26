@@ -278,13 +278,18 @@ public class CoordinatorService {
         }
 
         if (jobStatus.ordinal() < JobStatus.RUNNING.ordinal()) {
-            logger.info(
-                    String.format(
-                            "The restore %s is state %s, cancel job and submit it again.",
-                            jobFullName, jobStatus));
-            jobMaster.cancelJob();
-            jobMaster.getJobMasterCompleteFuture().join();
-            submitJob(jobId, jobInfo.getJobImmutableInformation()).join();
+            CompletableFuture.runAsync(
+                    () -> {
+                        logger.info(
+                                String.format(
+                                        "The restore %s is state %s, cancel job and submit it again.",
+                                        jobFullName, jobStatus));
+                        jobMaster.cancelJob();
+                        jobMaster.getJobMasterCompleteFuture().join();
+                        submitJob(jobId, jobInfo.getJobImmutableInformation()).join();
+                    },
+                    executorService);
+
             return;
         }
 
