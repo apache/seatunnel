@@ -39,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.state.HudiSinkState;
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -74,7 +75,7 @@ public class HudiSink
     @Override
     public SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> restoreWriter(
             SinkWriter.Context context, List<HudiSinkState> states) throws IOException {
-        return SeaTunnelSink.super.restoreWriter(context, states);
+        return new HudiSinkWriter(context, seaTunnelRowType, hudiSinkConfig, states);
     }
 
     @Override
@@ -101,6 +102,6 @@ public class HudiSink
     @Override
     public SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
-        return new HudiSinkWriter(context, seaTunnelRowType, hudiSinkConfig);
+        return new HudiSinkWriter(context, seaTunnelRowType, hudiSinkConfig, new ArrayList<>());
     }
 }

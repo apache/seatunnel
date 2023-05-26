@@ -80,12 +80,6 @@ public interface HudiOptions {
                     .defaultValue(2)
                     .withDescription("upsert_shuffle_parallelism");
 
-    Option<Integer> DELETE_SHUFFLE_PARALLELISM =
-            Options.key("delete_shuffle_parallelism")
-                    .intType()
-                    .defaultValue(2)
-                    .withDescription("delete_shuffle_parallelism");
-
     Option<Integer> MIN_COMMITS_TO_KEEP =
             Options.key("min_commits_to_keep")
                     .intType()

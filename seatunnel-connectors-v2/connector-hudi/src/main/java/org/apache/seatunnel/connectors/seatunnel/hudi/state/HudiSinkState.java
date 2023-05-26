@@ -17,6 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.state;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
 import java.io.Serializable;
 
-public class HudiSinkState implements Serializable {}
+@Data
+@AllArgsConstructor
+public class HudiSinkState implements Serializable {
+
+    private long checkpointId;
+
+    private HudiCommitInfo hudiCommitInfo;
+}

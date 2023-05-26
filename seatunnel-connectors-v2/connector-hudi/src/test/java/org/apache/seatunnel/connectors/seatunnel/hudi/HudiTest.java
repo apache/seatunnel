@@ -22,9 +22,10 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.HudiOutputFormat;
 
-import com.esotericsoftware.kryo.KryoSerializable;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.WriteStatus;
@@ -42,12 +43,10 @@ import org.apache.hudi.config.HoodieIndexConfig;
 import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.exception.HoodieKeyException;
 import org.apache.hudi.index.HoodieIndex;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericRecord;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.sql.Timestamp;
@@ -66,10 +65,11 @@ import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.AvroSchemaConverter.convertToSchema;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.RowDataToAvroConverters.createConverter;
 
 public class HudiTest {
 
-    private static final String tablePath = "D:\\tmp\\hudi";
+    protected static @TempDir java.nio.file.Path tempDir;
     private static final String tableName = "hudi";
 
     protected static final String DEFAULT_PARTITION_PATH = "default";
@@ -79,7 +79,7 @@ public class HudiTest {
 
     private static final String recordKeyFields = "int";
 
-    private static final String partitionFields = "timestamp3";
+    private static final String partitionFields = "date";
 
     private static final SeaTunnelRowType seaTunnelRowType =
             new SeaTunnelRowType(
@@ -106,22 +106,20 @@ public class HudiTest {
                         new MapType(STRING_TYPE, LONG_TYPE),
                     });
 
-    private static final HudiOutputFormat hudiOutputFormat = new HudiOutputFormat();
-
     private String getSchema() {
         return convertToSchema(seaTunnelRowType).toString();
     }
 
     @Test
     void testSchema() {
-        System.out.println(getSchema());
         Assertions.assertEquals(
-                "{\"type\":\"record\",\"name\":\"seaTunnelRow\",\"fields\":[{\"name\":\"bool\",\"type\":\"boolean\"},{\"name\":\"int\",\"type\":\"int\"},{\"name\":\"longValue\",\"type\":\"long\"},{\"name\":\"float\",\"type\":\"float\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"date\",\"type\":{\"type\":\"array\",\"items\":\"int\"}},{\"name\":\"time\",\"type\":{\"type\":\"array\",\"items\":\"int\"}},{\"name\":\"timestamp3\",\"type\":{\"type\":\"array\",\"items\":\"long\"}},{\"name\":\"map\",\"type\":{\"type\":\"map\",\"values\":\"long\"}}]}",
+                "{\"type\":\"record\",\"name\":\"record\",\"namespace\":\"org.apache.seatunnel.avro.generated\",\"fields\":[{\"name\":\"bool\",\"type\":[\"null\",\"boolean\"],\"default\":null},{\"name\":\"int\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"longValue\",\"type\":[\"null\",\"long\"],\"default\":null},{\"name\":\"float\",\"type\":[\"null\",\"float\"],\"default\":null},{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"date\",\"type\":[\"null\",{\"type\":\"int\",\"logicalType\":\"date\"}],\"default\":null},{\"name\":\"time\",\"type\":[\"null\",{\"type\":\"int\",\"logicalType\":\"time-millis\"}],\"default\":null},{\"name\":\"timestamp3\",\"type\":[\"null\",{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}],\"default\":null},{\"name\":\"map\",\"type\":[\"null\",{\"type\":\"map\",\"values\":[\"null\",\"long\"]}],\"default\":null}]}",
                 getSchema());
     }
 
     @Test
     void testWriteData() throws IOException {
+        String tablePath = tempDir.toString();
         HoodieTableMetaClient.withPropertyBuilder()
                 .setTableType(HoodieTableType.COPY_ON_WRITE)
                 .setTableName(tableName)
@@ -143,6 +141,7 @@ public class HudiTest {
                                 HoodieArchivalConfig.newBuilder()
                                         .archiveCommitsWith(11, 25)
                                         .build())
+                        .withAutoCommit(false)
                         .build();
 
         try (HoodieJavaWriteClient<HoodieAvroPayload> javaWriteClient =
@@ -164,6 +163,7 @@ public class HudiTest {
             List<HoodieRecord<HoodieAvroPayload>> hoodieRecords = new ArrayList<>();
             hoodieRecords.add(convertRow(expected));
             List<WriteStatus> insert = javaWriteClient.insert(hoodieRecords, instantTime);
+
             javaWriteClient.commit(instantTime, insert);
         }
     }
@@ -171,10 +171,14 @@ public class HudiTest {
     private HoodieRecord<HoodieAvroPayload> convertRow(SeaTunnelRow element) {
         GenericRecord rec =
                 new GenericData.Record(
-                        new Schema.Parser()
-                                .parse(convertToSchema(seaTunnelRowType).toString()));
+                        new Schema.Parser().parse(convertToSchema(seaTunnelRowType).toString()));
         for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
-            rec.put(seaTunnelRowType.getFieldNames()[i], element.getField(i));
+            rec.put(
+                    seaTunnelRowType.getFieldNames()[i],
+                    createConverter(seaTunnelRowType.getFieldType(i))
+                            .convert(
+                                    convertToSchema(seaTunnelRowType.getFieldType(i)),
+                                    element.getField(i)));
         }
 
         return new HoodieAvroRecord<>(
@@ -195,11 +199,19 @@ public class HudiTest {
                     getNestedFieldValAsString(element, seaTunnelRowType, recordKeyField);
             recordKeyField = recordKeyField.toLowerCase();
             if (recordKeyValue == null) {
-                recordKey.append(recordKeyField + ":" + NULL_RECORDKEY_PLACEHOLDER + ",");
+                recordKey
+                        .append(recordKeyField)
+                        .append(":")
+                        .append(NULL_RECORDKEY_PLACEHOLDER)
+                        .append(",");
             } else if (recordKeyValue.isEmpty()) {
-                recordKey.append(recordKeyField + ":" + EMPTY_RECORDKEY_PLACEHOLDER + ",");
+                recordKey
+                        .append(recordKeyField)
+                        .append(":")
+                        .append(EMPTY_RECORDKEY_PLACEHOLDER)
+                        .append(",");
             } else {
-                recordKey.append(recordKeyField + ":" + recordKeyValue + ",");
+                recordKey.append(recordKeyField).append(":").append(recordKeyValue).append(",");
                 keyIsNullEmpty = false;
             }
         }
@@ -223,9 +235,9 @@ public class HudiTest {
             String fieldVal =
                     getNestedFieldValAsString(element, seaTunnelRowType, partitionPathField);
             if (fieldVal == null || fieldVal.isEmpty()) {
-                partitionPath.append(partitionPathField + "=" + DEFAULT_PARTITION_PATH);
+                partitionPath.append(partitionPathField).append("=").append(DEFAULT_PARTITION_PATH);
             } else {
-                partitionPath.append(partitionPathField + "=" + fieldVal);
+                partitionPath.append(partitionPathField).append("=").append(fieldVal);
             }
             partitionPath.append(DEFAULT_PARTITION_PATH_SEPARATOR);
         }

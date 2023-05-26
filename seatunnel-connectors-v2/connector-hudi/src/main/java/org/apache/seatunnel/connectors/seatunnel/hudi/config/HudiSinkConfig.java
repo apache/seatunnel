@@ -42,8 +42,6 @@ public class HudiSinkConfig implements Serializable {
 
     private int upsertShuffleParallelism;
 
-    private int deleteShuffleParallelism;
-
     private int minCommitsToKeep;
 
     private int maxCommitsToKeep;
@@ -66,8 +64,6 @@ public class HudiSinkConfig implements Serializable {
                 config.getOptional(HudiOptions.INSERT_SHUFFLE_PARALLELISM);
         Optional<Integer> optionalUpsertShuffleParallelism =
                 config.getOptional(HudiOptions.UPSERT_SHUFFLE_PARALLELISM);
-        Optional<Integer> optionalDeleteShuffleParallelism =
-                config.getOptional(HudiOptions.DELETE_SHUFFLE_PARALLELISM);
         Optional<Integer> optionalMinCommitsToKeep =
                 config.getOptional(HudiOptions.MIN_COMMITS_TO_KEEP);
         Optional<Integer> optionalMaxCommitsToKeep =
@@ -104,9 +100,6 @@ public class HudiSinkConfig implements Serializable {
         builder.upsertShuffleParallelism(
                 optionalUpsertShuffleParallelism.orElseGet(
                         HudiOptions.UPSERT_SHUFFLE_PARALLELISM::defaultValue));
-        builder.deleteShuffleParallelism(
-                optionalDeleteShuffleParallelism.orElseGet(
-                        HudiOptions.DELETE_SHUFFLE_PARALLELISM::defaultValue));
 
         builder.minCommitsToKeep(
                 optionalMinCommitsToKeep.orElseGet(HudiOptions.MIN_COMMITS_TO_KEEP::defaultValue));

@@ -32,9 +32,7 @@ import org.apache.avro.SchemaBuilder;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Converts an Avro schema into Seatunnel's type information.
- */
+/** Converts an Avro schema into Seatunnel's type information. */
 public class AvroSchemaConverter {
 
     private AvroSchemaConverter() {
@@ -47,7 +45,7 @@ public class AvroSchemaConverter {
      * <p>Use "org.apache.seatunnel.avro.generated.record" as the type name.
      *
      * @param schema the schema type, usually it should be the top level record type, e.g. not a
-     *               nested type
+     *     nested type
      * @return Avro's {@link Schema} matching this logical type.
      */
     public static Schema convertToSchema(SeaTunnelDataType<?> schema) {
@@ -61,7 +59,7 @@ public class AvroSchemaConverter {
      * schema. Nested record type that only differs with type name is still compatible.
      *
      * @param dataType logical type
-     * @param rowName  the record name
+     * @param rowName the record name
      * @return Avro's {@link Schema} matching this logical type.
      */
     public static Schema convertToSchema(SeaTunnelDataType<?> dataType, String rowName) {
@@ -102,51 +100,49 @@ public class AvroSchemaConverter {
             case TIME:
                 // use int to represents Time, we only support millisecond when deserialization
                 Schema time =
-                    LogicalTypes.timeMillis().addToSchema(SchemaBuilder.builder().intType());
+                        LogicalTypes.timeMillis().addToSchema(SchemaBuilder.builder().intType());
                 return nullableSchema(time);
             case DECIMAL:
                 DecimalType decimalType = (DecimalType) dataType;
                 // store BigDecimal as byte[]
                 Schema decimal =
-                    LogicalTypes.decimal(decimalType.getPrecision(), decimalType.getScale())
-                        .addToSchema(SchemaBuilder.builder().bytesType());
+                        LogicalTypes.decimal(decimalType.getPrecision(), decimalType.getScale())
+                                .addToSchema(SchemaBuilder.builder().bytesType());
                 return nullableSchema(decimal);
             case ROW:
                 SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
                 List<String> fieldNames = Arrays.asList(rowType.getFieldNames());
                 // we have to make sure the record name is different in a Schema
                 SchemaBuilder.FieldAssembler<Schema> builder =
-                    SchemaBuilder.builder().record(rowName).fields();
+                        SchemaBuilder.builder().record(rowName).fields();
                 for (int i = 0; i < fieldNames.size(); i++) {
                     String fieldName = fieldNames.get(i);
                     SeaTunnelDataType<?> fieldType = rowType.getFieldType(i);
                     SchemaBuilder.GenericDefault<Schema> fieldBuilder =
-                        builder.name(fieldName)
-                            .type(convertToSchema(fieldType, rowName + "_" + fieldName));
+                            builder.name(fieldName)
+                                    .type(convertToSchema(fieldType, rowName + "_" + fieldName));
 
                     builder = fieldBuilder.withDefault(null);
-
                 }
-                Schema record = builder.endRecord();
-                return nullableSchema(record);
+                return builder.endRecord();
             case MAP:
                 Schema map =
-                    SchemaBuilder.builder()
-                        .map()
-                        .values(
-                            convertToSchema(
-                                extractValueTypeToAvroMap(dataType), rowName));
+                        SchemaBuilder.builder()
+                                .map()
+                                .values(
+                                        convertToSchema(
+                                                extractValueTypeToAvroMap(dataType), rowName));
                 return nullableSchema(map);
             case ARRAY:
                 ArrayType<?, ?> arrayType = (ArrayType<?, ?>) dataType;
                 Schema array =
-                    SchemaBuilder.builder()
-                        .array()
-                        .items(convertToSchema(arrayType.getElementType(), rowName));
+                        SchemaBuilder.builder()
+                                .array()
+                                .items(convertToSchema(arrayType.getElementType(), rowName));
                 return nullableSchema(array);
             default:
                 throw new UnsupportedOperationException(
-                    "Unsupported to derive Schema for type: " + dataType);
+                        "Unsupported to derive Schema for type: " + dataType);
         }
     }
 
@@ -158,16 +154,14 @@ public class AvroSchemaConverter {
         valueType = mapType.getValueType();
         if (keyType.getSqlType() != SqlType.STRING) {
             throw new UnsupportedOperationException(
-                "Avro format doesn't support non-string as key type of map. "
-                    + "The key type is: "
-                    + keyType.getSqlType());
+                    "Avro format doesn't support non-string as key type of map. "
+                            + "The key type is: "
+                            + keyType.getSqlType());
         }
         return valueType;
     }
 
-    /**
-     * Returns schema with nullable true.
-     */
+    /** Returns schema with nullable true. */
     private static Schema nullableSchema(Schema schema) {
         return Schema.createUnion(SchemaBuilder.builder().nullType(), schema);
     }

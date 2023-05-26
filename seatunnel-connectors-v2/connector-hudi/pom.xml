@@ -30,7 +30,6 @@
     <name>SeaTunnel : Connectors V2 : Hudi</name>
 
     <properties>
-        <hive.exec.version>2.3.9</hive.exec.version>
         <hudi.version>0.13.0</hudi.version>
         <commons.lang3.version>3.4</commons.lang3.version>
         <parquet.version>1.12.3</parquet.version>
@@ -39,7 +38,6 @@
     </properties>
 
     <dependencies>
-
 
         <dependency>
             <groupId>org.apache.hudi</groupId>
@@ -74,21 +72,18 @@
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-avro</artifactId>
             <version>${parquet.version}</version>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.xerial.snappy</groupId>
             <artifactId>snappy-java</artifactId>
             <version>${snappy.version}</version>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>com.esotericsoftware</groupId>
             <artifactId>kryo-shaded</artifactId>
             <version>${kryo.shaded.version}</version>
-            <scope>provided</scope>
         </dependency>
 
     </dependencies>
