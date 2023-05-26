@@ -19,6 +19,8 @@
 - [Connector-V2] [Kafka] Fix KafkaProducer resources have never been released. (#4302)
 - [Connector-V2] [Kafka] Fix the permission problem caused by client.id. (#4246)
 - [Connector-V2] [Kafka] Fix KafkaConsumerThread exit caused by commit offset error. (#4379)
+- [Connector-V2] [Mongodb] Mongodb support cdc sink. (#4833)
+  
 
 ### Zeta(ST-Engine)
 

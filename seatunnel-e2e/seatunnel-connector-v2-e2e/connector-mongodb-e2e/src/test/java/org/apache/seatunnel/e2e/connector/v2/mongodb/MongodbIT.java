@@ -19,29 +19,15 @@ package org.apache.seatunnel.e2e.connector.v2.mongodb;
 
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import org.awaitility.Awaitility;
 import org.bson.Document;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
-import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static java.net.HttpURLConnection.HTTP_OK;
-import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
 @Slf4j
 public class MongodbIT extends AbstractMongodbIT {
@@ -153,48 +139,5 @@ public class MongodbIT extends AbstractMongodbIT {
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()));
         clearDate(MONGODB_SPLIT_RESULT_TABLE);
-    }
-
-    @BeforeAll
-    @Override
-    public void startUp() {
-        DockerImageName imageName = DockerImageName.parse(MONGODB_IMAGE);
-        mongodbContainer =
-                new GenericContainer<>(imageName)
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(MONGODB_CONTAINER_HOST)
-                        .withExposedPorts(MONGODB_PORT)
-                        .waitingFor(
-                                new HttpWaitStrategy()
-                                        .forPort(MONGODB_PORT)
-                                        .forStatusCodeMatching(
-                                                response ->
-                                                        response == HTTP_OK
-                                                                || response == HTTP_UNAUTHORIZED)
-                                        .withStartupTimeout(Duration.ofMinutes(2)))
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MONGODB_IMAGE)));
-        // Used for local testing
-        // mongodbContainer.setPortBindings(Collections.singletonList("27017:27017"));
-        Startables.deepStart(Stream.of(mongodbContainer)).join();
-        log.info("Mongodb container started");
-
-        Awaitility.given()
-                .ignoreExceptions()
-                .atLeast(100, TimeUnit.MILLISECONDS)
-                .pollInterval(500, TimeUnit.MILLISECONDS)
-                .atMost(180, TimeUnit.SECONDS)
-                .untilAsserted(this::initConnection);
-        this.initSourceData();
-    }
-
-    @Override
-    public void tearDown() {
-        if (client != null) {
-            client.close();
-        }
-        if (mongodbContainer != null) {
-            mongodbContainer.close();
-        }
     }
 }

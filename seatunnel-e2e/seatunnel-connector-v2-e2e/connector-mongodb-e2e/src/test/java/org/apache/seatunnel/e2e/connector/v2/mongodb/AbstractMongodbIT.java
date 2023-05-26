@@ -17,15 +17,18 @@
 
 package org.apache.seatunnel.e2e.connector.v2.mongodb;
 
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
+import org.awaitility.Awaitility;
 import org.bson.Document;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
+import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.mongodb.client.MongoClient;
@@ -35,28 +38,19 @@ import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.Sorts;
 import lombok.extern.slf4j.Slf4j;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
+
+import static java.net.HttpURLConnection.HTTP_OK;
+import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
 @Slf4j
 public abstract class AbstractMongodbIT extends TestSuiteBase implements TestResource {
-
-    protected static final String MYSQL_HOST = "mysql_cdc_e2e";
-
-    protected static final String MYSQL_USER_NAME = "st_user";
-
-    protected static final String MYSQL_USER_PASSWORD = "seatunnel";
-
-    protected static final String MYSQL_DATABASE = "mysql_cdc";
-
-    protected static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
 
     protected static final Random RANDOM = new Random();
 
@@ -88,16 +82,11 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     protected static final String MONGODB_CDC_RESULT_TABLE = "test_cdc_table";
 
-    protected static final String SOURCE_SQL = "select * from products";
-
-    protected final UniqueDatabase inventoryDatabase =
-            new UniqueDatabase(MYSQL_CONTAINER, MYSQL_DATABASE, "mysqluser", "mysqlpw");
-
     protected GenericContainer<?> mongodbContainer;
 
     protected MongoClient client;
 
-    protected void initConnection() {
+    public void initConnection() {
         String host = mongodbContainer.getContainerIpAddress();
         int port = mongodbContainer.getFirstMappedPort();
         String url = String.format("mongodb://%s:%d/%s", host, port, MONGODB_DATABASE);
@@ -122,24 +111,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
         client.getDatabase(MONGODB_DATABASE).getCollection(table).drop();
     }
 
-    protected static MySqlContainer createMySqlContainer(MySqlVersion version) {
-        MySqlContainer mySqlContainer =
-                new MySqlContainer(version)
-                        .withConfigurationOverride("docker/server-gtids/my.cnf")
-                        .withSetupSQL("docker/setup.sql")
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(MYSQL_HOST)
-                        .withDatabaseName(MYSQL_DATABASE)
-                        .withUsername(MYSQL_USER_NAME)
-                        .withPassword(MYSQL_USER_PASSWORD)
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger("mysql-docker-image")));
-
-        return mySqlContainer;
-    }
-
-    protected static List<Document> generateTestDataSet(int count) {
+    public static List<Document> generateTestDataSet(int count) {
         List<Document> dataSet = new ArrayList<>();
 
         for (int i = 0; i < count; i++) {
@@ -213,52 +185,47 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
         return documents;
     }
 
-    protected List<LinkedHashMap<String, Object>> querySql(String sql) {
-        try (Connection connection = getJdbcConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
-            List<LinkedHashMap<String, Object>> result = new ArrayList<>();
-            int columnCount = resultSet.getMetaData().getColumnCount();
-            while (resultSet.next()) {
-                LinkedHashMap<String, Object> row = new LinkedHashMap<>();
-                for (int i = 1; i <= columnCount; i++) {
-                    String columnName = resultSet.getMetaData().getColumnName(i);
-                    Object columnValue = resultSet.getObject(i);
-                    row.put(columnName, columnValue);
-                }
-                result.add(row);
-            }
-            return result;
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+    @BeforeAll
+    @Override
+    public void startUp() {
+        DockerImageName imageName = DockerImageName.parse(MONGODB_IMAGE);
+        mongodbContainer =
+                new GenericContainer<>(imageName)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(MONGODB_CONTAINER_HOST)
+                        .withExposedPorts(MONGODB_PORT)
+                        .waitingFor(
+                                new HttpWaitStrategy()
+                                        .forPort(MONGODB_PORT)
+                                        .forStatusCodeMatching(
+                                                response ->
+                                                        response == HTTP_OK
+                                                                || response == HTTP_UNAUTHORIZED)
+                                        .withStartupTimeout(Duration.ofMinutes(2)))
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MONGODB_IMAGE)));
+        // For local test use
+        // mongodbContainer.setPortBindings(Collections.singletonList("27017:27017"));
+        Startables.deepStart(Stream.of(mongodbContainer)).join();
+        log.info("Mongodb container started");
+
+        Awaitility.given()
+                .ignoreExceptions()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(180, TimeUnit.SECONDS)
+                .untilAsserted(this::initConnection);
+        this.initSourceData();
+    }
+
+    @AfterAll
+    @Override
+    public void tearDown() {
+        if (client != null) {
+            client.close();
         }
-    }
-
-    protected Connection getJdbcConnection() throws SQLException {
-        return DriverManager.getConnection(
-                MYSQL_CONTAINER.getJdbcUrl(),
-                MYSQL_CONTAINER.getUsername(),
-                MYSQL_CONTAINER.getPassword());
-    }
-
-    protected void upsertDeleteSourceTable() {
-        executeSql(
-                "INSERT INTO mysql_cdc.products (name,description,weight)\n"
-                        + "VALUES ('car battery','12V car battery',31)");
-
-        executeSql(
-                "INSERT INTO mysql_cdc.products (name,description,weight)\n"
-                        + "VALUES ('rocks','box of assorted rocks',35)");
-
-        executeSql("DELETE FROM mysql_cdc.products where weight = 35");
-
-        executeSql("UPDATE mysql_cdc.products SET name = 'monster' where weight = 35");
-    }
-
-    private void executeSql(String sql) {
-        try (Connection connection = getJdbcConnection()) {
-            connection.createStatement().execute(sql);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+        if (mongodbContainer != null) {
+            mongodbContainer.close();
         }
     }
 }

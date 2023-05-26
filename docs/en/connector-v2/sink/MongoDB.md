@@ -15,6 +15,10 @@ Key Features
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
 
+**Tips**
+
+> 1.If you want to use CDC-written features, please enable the upsert-enable configuration.
+
 Description
 -----------
 
@@ -222,11 +226,15 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
+### 2.2.0-beta
 
 - Add MongoDB Source Connector
 
-### Next Version
+### 2.3.1-release
 
 - [Feature]Refactor mongodb source connector([4620](https://github.com/apache/incubator-seatunnel/pull/4620))
+
+### Next Version
+
+- [Feature]Mongodb support cdc sink([4833](https://github.com/apache/seatunnel/pull/4833))
 

@@ -23,9 +23,11 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.awaitility.Awaitility;
 import org.bson.Document;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
@@ -35,69 +37,47 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.time.Duration;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static org.awaitility.Awaitility.await;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK do not support cdc")
+        type = {EngineType.SPARK},
+        disabledReason = "Spark engine will lose the row kind of record")
 @Slf4j
 public class MongodbCDCIT extends AbstractMongodbIT {
 
     @TestTemplate
-    public void testMongodbCDCSink(TestContainer container) {
-        CompletableFuture<Void> executeJobFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                container.executeJob("/cdcIT/mysqlcdc_to_mongodb.conf");
-                            } catch (Exception e) {
-                                log.error("Commit task exception :" + e.getMessage());
-                                throw new RuntimeException(e);
-                            }
-                            return null;
-                        });
-
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            List<LinkedHashMap<String, Object>> expected = querySql(SOURCE_SQL);
-                            List<Document> actual = readMongodbData(MONGODB_CDC_RESULT_TABLE);
-
-                            List<LinkedHashMap<String, Object>> actualMapped =
-                                    actual.stream()
-                                            .map(LinkedHashMap::new)
-                                            .peek(map -> map.remove("_id"))
-                                            .collect(Collectors.toList());
-
-                            Assertions.assertIterableEquals(expected, actualMapped);
-                        });
-
-        upsertDeleteSourceTable();
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            List<LinkedHashMap<String, Object>> expected = querySql(SOURCE_SQL);
-                            List<Document> actual = readMongodbData(MONGODB_CDC_RESULT_TABLE);
-
-                            List<LinkedHashMap<String, Object>> actualMapped =
-                                    actual.stream()
-                                            .map(LinkedHashMap::new)
-                                            .peek(map -> map.remove("_id"))
-                                            .collect(Collectors.toList());
-
-                            Assertions.assertIterableEquals(expected, actualMapped);
-                        });
+    public void testMongodbCDCSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult queryResult =
+                container.executeJob("/cdcIT/fake_cdc_sink_mongodb.conf");
+        Assertions.assertEquals(0, queryResult.getExitCode(), queryResult.getStderr());
+        Assertions.assertIterableEquals(
+                Stream.<List<Object>>of(Arrays.asList(1L, "A_1", 100), Arrays.asList(3L, "C", 100))
+                        .collect(Collectors.toList()),
+                readMongodbData(MONGODB_CDC_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .map(Document::entrySet)
+                        .map(Set::stream)
+                        .map(
+                                entryStream ->
+                                        entryStream
+                                                .map(Map.Entry::getValue)
+                                                .collect(Collectors.toCollection(ArrayList::new)))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_CDC_RESULT_TABLE);
     }
 
     @BeforeAll
@@ -119,7 +99,7 @@ public class MongodbCDCIT extends AbstractMongodbIT {
                                         .withStartupTimeout(Duration.ofMinutes(2)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MONGODB_IMAGE)));
-        // Used for local testing
+        // For local test use
         // mongodbContainer.setPortBindings(Collections.singletonList("27017:27017"));
         Startables.deepStart(Stream.of(mongodbContainer)).join();
         log.info("Mongodb container started");
@@ -131,14 +111,9 @@ public class MongodbCDCIT extends AbstractMongodbIT {
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initConnection);
         this.initSourceData();
-
-        log.info("The second stage: Starting Mysql containers...");
-        Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
-        log.info("Mysql Containers are started");
-        inventoryDatabase.createAndInitialize();
-        log.info("Mysql ddl execution is complete");
     }
 
+    @AfterAll
     @Override
     public void tearDown() {
         if (client != null) {
