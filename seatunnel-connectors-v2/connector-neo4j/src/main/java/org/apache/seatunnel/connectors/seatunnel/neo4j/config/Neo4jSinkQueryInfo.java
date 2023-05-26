@@ -24,4 +24,11 @@ import java.util.Map;
 @Data
 public class Neo4jSinkQueryInfo extends Neo4jQueryInfo {
     private Map<String, Object> queryParamPosition;
+    private Integer maxBatchSize;
+
+    private String batchVariable;
+
+    public boolean batchMode() {
+        return maxBatchSize != null && maxBatchSize > 0;
+    }
 }

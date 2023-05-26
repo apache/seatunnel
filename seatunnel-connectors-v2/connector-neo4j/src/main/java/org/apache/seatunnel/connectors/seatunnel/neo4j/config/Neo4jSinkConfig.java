@@ -29,4 +29,17 @@ public class Neo4jSinkConfig extends Neo4jCommonConfig {
                     .noDefaultValue()
                     .withDescription(
                             "position mapping information for query parameters. key name is parameter placeholder name. associated value is position of field in input data row.");
+
+    public static final Option<Integer> MAX_BATCH_SIZE =
+            Options.key("maxBatchSize")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("neo4j write max batchSize");
+
+    public static final Option<String> BATCH_VARIABLE =
+            Options.key("batchVariable")
+                    .stringType()
+                    .defaultValue("batch")
+                    .withDescription(
+                            "the variable name of the data carrier when writing on neo4j batch");
 }
