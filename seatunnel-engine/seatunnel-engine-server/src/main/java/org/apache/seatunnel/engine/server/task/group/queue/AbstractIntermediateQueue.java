@@ -33,7 +33,7 @@ public abstract class AbstractIntermediateQueue<T> {
 
     @Getter @Setter private IntermediateQueueFlowLifeCycle<?> intermediateQueueFlowLifeCycle;
 
-    private final T queue;
+    protected final T queue;
 
     public AbstractIntermediateQueue(T queue) {
         this.queue = queue;

@@ -70,6 +70,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -122,6 +123,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             new ConcurrentHashMap<>();
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> finishedExecutionContexts =
             new ConcurrentHashMap<>();
+
+    private final ConcurrentMap<TaskGroupLocation, Map<String, CompletableFuture<?>>>
+            taskAsyncFunctionFuture = new ConcurrentHashMap<>();
+
     private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures =
             new ConcurrentHashMap<>();
     private final SeaTunnelConfig seaTunnelConfig;
@@ -405,8 +410,23 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
-    public void asyncExecuteFunction(Runnable task) {
-        executorService.submit(task);
+    public void asyncExecuteFunction(TaskGroupLocation taskGroupLocation, Runnable task) {
+        String id = UUID.randomUUID().toString();
+        logger.fine("accept async execute function from " + taskGroupLocation + " with id " + id);
+        if (!taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
+            taskAsyncFunctionFuture.put(taskGroupLocation, new ConcurrentHashMap<>());
+        }
+        CompletableFuture<?> future = CompletableFuture.runAsync(task, executorService);
+        taskAsyncFunctionFuture.get(taskGroupLocation).put(id, future);
+        future.whenComplete(
+                (r, e) -> {
+                    taskAsyncFunctionFuture.get(taskGroupLocation).remove(id);
+                    logger.fine(
+                            "remove async execute function from "
+                                    + taskGroupLocation
+                                    + " with id "
+                                    + id);
+                });
     }
 
     public void notifyCleanTaskGroupContext(TaskGroupLocation taskGroupLocation) {
@@ -754,7 +774,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                     "cancellationFuture should be completed exceptionally");
                                 }
                                 exception(e);
-                                cancelAllTask();
+                                cancelAllTask(taskGroup.getTaskGroupLocation());
                             }));
         }
 
@@ -762,10 +782,24 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             executionException.compareAndSet(null, t);
         }
 
-        private void cancelAllTask() {
+        private void cancelAllTask(TaskGroupLocation taskGroupLocation) {
             try {
                 blockingFutures.forEach(f -> f.cancel(true));
                 currRunningTaskFuture.values().forEach(f -> f.cancel(true));
+            } catch (CancellationException ignore) {
+                // ignore
+            }
+            cancelAsyncFunction(taskGroupLocation);
+        }
+
+        private void cancelAsyncFunction(TaskGroupLocation taskGroupLocation) {
+            try {
+                if (taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
+                    taskAsyncFunctionFuture.remove(taskGroupLocation).values().stream()
+                            .filter(f -> !f.isDone())
+                            .filter(f -> !f.isCancelled())
+                            .forEach(f -> f.cancel(true));
+                }
             } catch (CancellationException ignore) {
                 // ignore
             }
@@ -782,6 +816,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 finishedExecutionContexts.put(
                         taskGroupLocation, executionContexts.remove(taskGroupLocation));
                 cancellationFutures.remove(taskGroupLocation);
+                cancelAsyncFunction(taskGroupLocation);
                 if (ex == null) {
                     future.complete(
                             new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED));
@@ -796,7 +831,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
             }
             if (!isCancel.get() && ex != null) {
-                cancelAllTask();
+                cancelAllTask(taskGroupLocation);
             }
         }
 

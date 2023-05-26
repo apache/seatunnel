@@ -81,6 +81,7 @@ public class BarrierFlowOperation extends TaskOperation {
                     task.getExecutionContext()
                             .getTaskExecutionService()
                             .asyncExecuteFunction(
+                                    taskLocation.getTaskGroupLocation(),
                                     () -> {
                                         try {
                                             log.debug(

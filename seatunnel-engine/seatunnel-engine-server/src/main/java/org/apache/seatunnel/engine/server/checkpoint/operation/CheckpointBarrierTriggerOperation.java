@@ -80,6 +80,7 @@ public class CheckpointBarrierTriggerOperation extends TaskOperation {
                     task.getExecutionContext()
                             .getTaskExecutionService()
                             .asyncExecuteFunction(
+                                    taskLocation.getTaskGroupLocation(),
                                     () -> {
                                         try {
                                             log.debug(
