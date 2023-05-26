@@ -40,6 +40,7 @@ import com.google.auto.service.AutoService;
 import java.io.IOException;
 import java.net.URI;
 
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.BATCH_VARIABLE;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_BEARER_TOKEN;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_KERBEROS_TICKET;
@@ -49,6 +50,7 @@ import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkCo
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_QUERY;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.PLUGIN_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.QUERY_PARAM_POSITION;
 
@@ -75,6 +77,22 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
                     String.format(
                             "PluginName: %s, PluginType: %s, Message: %s",
                             PLUGIN_NAME, PluginType.SINK, queryConfigCheck.getMsg()));
+        }
+        if (config.hasPath(MAX_BATCH_SIZE.key())) {
+            int batchSize = config.getInt(MAX_BATCH_SIZE.key());
+            if (batchSize <= 0) {
+                throw new Neo4jConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        String.format(
+                                "PluginName: %s, PluginType: %s, Message: %s",
+                                PLUGIN_NAME, PluginType.SINK, "maxBatchSize must greater than 0"));
+            }
+            neo4JSinkQueryInfo.setMaxBatchSize(batchSize);
+        }
+        if (config.hasPath(BATCH_VARIABLE.key())) {
+            neo4JSinkQueryInfo.setBatchVariable(config.getString(BATCH_VARIABLE.key()));
+        } else {
+            neo4JSinkQueryInfo.setBatchVariable(BATCH_VARIABLE.defaultValue());
         }
         neo4JSinkQueryInfo.setQuery(config.getString(KEY_QUERY.key()));
         neo4JSinkQueryInfo.setQueryParamPosition(
@@ -156,6 +174,6 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
     @Override
     public SinkWriter<SeaTunnelRow, Void, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new Neo4jSinkWriter(neo4JSinkQueryInfo);
+        return new Neo4jSinkWriter(neo4JSinkQueryInfo, rowType);
     }
 }
