@@ -128,7 +128,7 @@ public class CoordinatorService {
     /** If this node is a master node */
     private volatile boolean isActive = false;
 
-    private final ExecutorService executorService;
+    private ExecutorService executorService;
 
     private final SeaTunnelServer seaTunnelServer;
 
@@ -345,6 +345,13 @@ public class CoordinatorService {
             if (!isActive && this.seaTunnelServer.isMasterNode()) {
                 logger.info(
                         "This node become a new active master node, begin init coordinator service");
+                if (this.executorService.isShutdown()) {
+                    this.executorService =
+                            Executors.newCachedThreadPool(
+                                    new ThreadFactoryBuilder()
+                                            .setNameFormat("seatunnel-coordinator-service-%d")
+                                            .build());
+                }
                 initCoordinatorService();
                 isActive = true;
             } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
