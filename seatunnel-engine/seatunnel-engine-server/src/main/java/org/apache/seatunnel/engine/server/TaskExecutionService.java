@@ -775,6 +775,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             task.getTaskID(), taskGroupLocation));
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
+                // recycle classloader
+                executionContexts.get(taskGroupLocation).setClassLoader(null);
                 finishedExecutionContexts.put(
                         taskGroupLocation, executionContexts.remove(taskGroupLocation));
                 cancellationFutures.remove(taskGroupLocation);
