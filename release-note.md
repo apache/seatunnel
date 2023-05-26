@@ -19,7 +19,6 @@
 - [Connector-V2] [Kafka] Fix KafkaProducer resources have never been released. (#4302)
 - [Connector-V2] [Kafka] Fix the permission problem caused by client.id. (#4246)
 - [Connector-V2] [Kafka] Fix KafkaConsumerThread exit caused by commit offset error. (#4379)
-- [Connector-v2] [Neo4j] Sink supports batch write. (#4835)
 
 ### Zeta(ST-Engine)
 
@@ -56,6 +55,7 @@
 - [Connector-V2] [Jdbc] Fix the table name is not automatically obtained when multiple tables (#4514)
 - [Connector-V2] [S3 & Kafka] Delete unavailable S3 & Kafka Catalogs (#4477)
 - [Connector-V2] [Pulsar] Support Canal Format
+- [Connector-v2] [Neo4j] Sink supports batch write. (#4835)
 
 ### CI
 
