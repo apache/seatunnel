@@ -19,6 +19,7 @@
 - [Connector-V2] [Kafka] Fix KafkaProducer resources have never been released. (#4302)
 - [Connector-V2] [Kafka] Fix the permission problem caused by client.id. (#4246)
 - [Connector-V2] [Kafka] Fix KafkaConsumerThread exit caused by commit offset error. (#4379)
+- [Connector-v2] [Neo4j] Sink supports batch write. (#4835)
 
 ### Zeta(ST-Engine)
 

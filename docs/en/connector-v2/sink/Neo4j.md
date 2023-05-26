@@ -142,3 +142,5 @@ sink {
 ### 2.2.0-beta 2022-09-26
 
 - Add Neo4j Sink Connector
+### issue ##4835
+- Sink supports batch write
