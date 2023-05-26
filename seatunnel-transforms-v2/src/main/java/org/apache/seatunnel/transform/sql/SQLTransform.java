@@ -19,6 +19,7 @@ package org.apache.seatunnel.transform.sql;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -77,7 +78,12 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
             this.engineType = ZETA;
         }
 
-        this.inputTableName = catalogTable.getTableId().getTableName();
+        List<String> sourceTableNames = config.get(CommonOptions.SOURCE_TABLE_NAME);
+        if (sourceTableNames != null && !sourceTableNames.isEmpty()) {
+            this.inputTableName = sourceTableNames.get(0);
+        } else {
+            this.inputTableName = catalogTable.getTableId().getTableName();
+        }
         List<Column> columns = catalogTable.getTableSchema().getColumns();
         String[] fieldNames = new String[columns.size()];
         SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType<?>[columns.size()];
@@ -147,10 +153,12 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
                     }
                 }
             }
-            builder.primaryKey(
-                    PrimaryKey.of(
-                            inputCatalogTable.getTableSchema().getPrimaryKey().getPrimaryKey(),
-                            outPkColumnNames));
+            if (!outPkColumnNames.isEmpty()) {
+                builder.primaryKey(
+                        PrimaryKey.of(
+                                inputCatalogTable.getTableSchema().getPrimaryKey().getPrimaryKey(),
+                                outPkColumnNames));
+            }
         }
         if (inputCatalogTable.getTableSchema().getConstraintKeys() != null) {
             List<ConstraintKey> outConstraintKey = new ArrayList<>();
@@ -169,13 +177,17 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
                         }
                     }
                 }
-                outConstraintKey.add(
-                        ConstraintKey.of(
-                                constraintKey.getConstraintType(),
-                                constraintKey.getConstraintName(),
-                                outConstraintColumnKeys));
+                if (!outConstraintColumnKeys.isEmpty()) {
+                    outConstraintKey.add(
+                            ConstraintKey.of(
+                                    constraintKey.getConstraintType(),
+                                    constraintKey.getConstraintName(),
+                                    outConstraintColumnKeys));
+                }
             }
-            builder.constraintKey(outConstraintKey);
+            if (!outConstraintKey.isEmpty()) {
+                builder.constraintKey(outConstraintKey);
+            }
         }
 
         String[] fieldNames = outRowType.getFieldNames();
