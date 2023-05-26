@@ -14,19 +14,21 @@ Write data to Neo4j.
 
 ## Options
 
-|            name            |  type  | required | default value |
-|----------------------------|--------|----------|---------------|
-| uri                        | String | Yes      | -             |
-| username                   | String | No       | -             |
-| password                   | String | No       | -             |
-| bearer_token               | String | No       | -             |
-| kerberos_ticket            | String | No       | -             |
-| database                   | String | Yes      | -             |
-| query                      | String | Yes      | -             |
-| queryParamPosition         | Object | Yes      | -             |
-| max_transaction_retry_time | Long   | No       | 30            |
-| max_connection_timeout     | Long   | No       | 30            |
-| common-options             | config | no       | -             |
+| name                       | type    | required | default value |
+| -------------------------- | ------- | -------- | ------------- |
+| uri                        | String  | Yes      | -             |
+| username                   | String  | No       | -             |
+| password                   | String  | No       | -             |
+| maxBatchSize               | Integer | No       | -             |
+| batchVariable              | String  | No       | -             |
+| bearer_token               | String  | No       | -             |
+| kerberos_ticket            | String  | No       | -             |
+| database                   | String  | Yes      | -             |
+| query                      | String  | Yes      | -             |
+| queryParamPosition         | Object  | Yes      | -             |
+| max_transaction_retry_time | Long    | No       | 30            |
+| max_connection_timeout     | Long    | No       | 30            |
+| common-options             | config  | no       | -             |
 
 ### uri [string]
 
@@ -39,6 +41,20 @@ username of the Neo4j
 ### password [string]
 
 password of the Neo4j. required if `username` is provided
+
+### maxBatchSize[Integer]
+
+maxBatchSize refers to the maximum number of data entries that can be written in a single transaction when writing to a database.
+
+### batchVariable
+
+The term "batchVariable" refers to the variable name used to define a batch data carrier in Cypher batch statements. For example, in the statement
+
+```cypher
+unwind $batch as row create (n:Label) set n.name = row.name,n.age = rw.age
+```
+
+the value assigned to "batchVariable" is "batch"
 
 ### bearer_token [string]
 
@@ -76,7 +92,7 @@ The maximum amount of time to wait for a TCP connection to be established (secon
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
-## Example
+## WriteOneByOneExample
 
 ```
 sink {
@@ -98,9 +114,31 @@ sink {
 }
 ```
 
+## WriteBatchExample
+
+```
+sink {
+  Neo4j {
+    uri = "bolt://localhost:7687"
+    username = "neo4j"
+    password = "neo4j"
+    database = "neo4j"
+    batchVariable = "batch"
+    maxBatchSize = 1000
+
+    max_transaction_retry_time = 10
+    max_connection_timeout = 10
+
+    query = "unwind $batch as row  create(n:MyLabel) set n.name = row.name,n.age = row.age"
+
+  }
+}
+```
+
+
+
 ## Changelog
 
 ### 2.2.0-beta 2022-09-26
 
 - Add Neo4j Sink Connector
-
