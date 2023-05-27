@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkQueryInfo;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.internal.SeatunnelRowNeo4jValue;
 
@@ -33,6 +34,7 @@ import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.Value;
 import org.neo4j.driver.Values;
 import org.neo4j.driver.exceptions.ClientException;
+import org.neo4j.driver.exceptions.Neo4jException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -95,7 +97,7 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     }
 
     private void tryWriteByBatchSize() {
-        while (!writeBuffer.isEmpty() && writeBuffer.size() >= maxBatchSize) {
+        if (!writeBuffer.isEmpty() && writeBuffer.size() >= maxBatchSize) {
             Query query = batchQuery();
             writeByQuery(query);
             writeBuffer.clear();
@@ -118,11 +120,16 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     }
 
     private void writeByQuery(Query query) {
-        session.writeTransaction(
-                tx -> {
-                    tx.run(query);
-                    return null;
-                });
+        try {
+            session.writeTransaction(
+                    tx -> {
+                        tx.run(query);
+                        return null;
+                    });
+        } catch (Neo4jException e) {
+            throw new Neo4jConnectorException(
+                    Neo4jConnectorErrorCode.DATE_BASE_ERROR, e.getMessage());
+        }
     }
 
     @Override
@@ -141,7 +148,7 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     }
 
     private void flushWriteBuffer() {
-        while (!writeBuffer.isEmpty()) {
+        if (!writeBuffer.isEmpty()) {
             Query query = batchQuery();
             writeByQuery(query);
             writeBuffer.clear();
