@@ -65,10 +65,10 @@ public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                 builder.withBatchIntervalMs(
                         pluginConfig.getLong(MongodbConfig.BUFFER_FLUSH_INTERVAL.key()));
             }
-            if (pluginConfig.hasPath(MongodbConfig.UPSERT_KEY.key())) {
+            if (pluginConfig.hasPath(MongodbConfig.PRIMARY_KEY.key())) {
                 builder.withUpsertKey(
                         pluginConfig
-                                .getStringList(MongodbConfig.UPSERT_KEY.key())
+                                .getStringList(MongodbConfig.PRIMARY_KEY.key())
                                 .toArray(new String[0]));
             }
             if (pluginConfig.hasPath(MongodbConfig.UPSERT_ENABLE.key())) {
