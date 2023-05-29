@@ -336,17 +336,31 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             logger.severe(ExceptionUtils.getMessage(t));
             resultFuture.completeExceptionally(t);
         }
-        resultFuture.whenComplete(
+        resultFuture.whenCompleteAsync(
                 withTryCatch(
                         logger,
                         (r, s) -> {
+                            if (s != null) {
+                                logger.severe(
+                                        String.format(
+                                                "Task %s complete with error %s",
+                                                taskGroup.getTaskGroupLocation(),
+                                                ExceptionUtils.getMessage(s)));
+                            }
+                            if (r == null) {
+                                r =
+                                        new TaskExecutionState(
+                                                taskGroup.getTaskGroupLocation(),
+                                                ExecutionState.FAILED,
+                                                s);
+                            }
                             logger.info(
                                     String.format(
                                             "Task %s complete with state %s",
-                                            r != null ? r.getTaskGroupLocation() : "null",
-                                            r != null ? r.getExecutionState() : "null"));
+                                            r.getTaskGroupLocation(), r.getExecutionState()));
                             notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
-                        }));
+                        }),
+                executorService);
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
