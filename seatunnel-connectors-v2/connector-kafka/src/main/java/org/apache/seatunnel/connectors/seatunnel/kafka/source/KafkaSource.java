@@ -48,6 +48,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+import org.apache.seatunnel.format.text.RawDeserializationSchema;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
@@ -265,6 +266,10 @@ public class KafkaSource
                             CanalJsonDeserializationSchema.builder(typeInfo)
                                     .setIgnoreParseErrors(true)
                                     .build();
+                    break;
+                case RAW:
+                    deserializationSchema =
+                            RawDeserializationSchema.builder().seaTunnelRowType(typeInfo).build();
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(
