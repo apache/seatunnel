@@ -174,7 +174,7 @@ public class PhysicalPlan {
                         }
 
                         if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
-                            JobStatus jobStatus = JobStatus.FAILING;
+                            JobStatus jobStatus;
                             if (failedPipelineNum.get() > 0) {
                                 jobStatus = JobStatus.FAILING;
                                 updateJobState(jobStatus);
