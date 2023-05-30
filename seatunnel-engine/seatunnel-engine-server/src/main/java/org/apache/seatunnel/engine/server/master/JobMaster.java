@@ -81,7 +81,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 
@@ -450,13 +449,24 @@ public class JobMaster {
     }
 
     public List<RawJobMetrics> getCurrJobMetrics() {
-        return getCurrJobMetrics(
-                ownedSlotProfilesIMap.keySet().stream()
-                        .filter(
-                                pipelineLocation ->
-                                        pipelineLocation.getJobId()
-                                                == this.getJobImmutableInformation().getJobId())
-                        .collect(Collectors.toList()));
+
+        Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap = new HashMap<>();
+
+        ownedSlotProfilesIMap.forEach(
+                (pipelineLocation, map) -> {
+                    if (pipelineLocation.getJobId()
+                            == this.getJobImmutableInformation().getJobId()) {
+                        map.forEach(
+                                (taskGroupLocation, slotProfile) -> {
+                                    if (taskGroupLocation.getJobId()
+                                            == this.getJobImmutableInformation().getJobId()) {
+                                        taskGroupLocationSlotProfileMap.put(
+                                                taskGroupLocation, slotProfile.getWorker());
+                                    }
+                                });
+                    }
+                });
+        return getCurrJobMetrics(taskGroupLocationSlotProfileMap);
     }
 
     public List<RawJobMetrics> getCurrJobMetrics(List<PipelineLocation> pipelineLocations) {
@@ -475,7 +485,11 @@ public class JobMaster {
                                 });
                     }
                 });
+        return getCurrJobMetrics(taskGroupLocationSlotProfileMap);
+    }
 
+    public List<RawJobMetrics> getCurrJobMetrics(
+            Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap) {
         Map<Address, List<TaskGroupLocation>> taskGroupLocationMap = new HashMap<>();
 
         for (Map.Entry<TaskGroupLocation, Address> entry :
@@ -484,15 +498,8 @@ public class JobMaster {
                     .computeIfAbsent(entry.getValue(), k -> new ArrayList<>())
                     .add(entry.getKey());
         }
-
-        return getCurrJobMetrics(taskGroupLocationMap);
-    }
-
-    public List<RawJobMetrics> getCurrJobMetrics(
-            Map<Address, List<TaskGroupLocation>> groupLocationMap) {
         List<RawJobMetrics> metrics = new ArrayList<>();
-
-        groupLocationMap.forEach(
+        taskGroupLocationMap.forEach(
                 (address, taskGroupLocations) -> {
                     try {
                         if (nodeEngine.getClusterService().getMember(address) != null) {
