@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
@@ -293,10 +294,7 @@ public class SubPlan {
                 new RetryUtils.RetryMaterial(
                         Constant.OPERATION_RETRY_TIME,
                         true,
-                        exception ->
-                                exception instanceof OperationTimeoutException
-                                        || exception instanceof HazelcastInstanceNotActiveException
-                                        || exception instanceof InterruptedException,
+                        exception -> ExceptionUtil.isOperationNeedRetryException(exception),
                         Constant.OPERATION_RETRY_SLEEP));
     }
 
@@ -331,11 +329,7 @@ public class SubPlan {
                     new RetryUtils.RetryMaterial(
                             Constant.OPERATION_RETRY_TIME,
                             true,
-                            exception ->
-                                    exception instanceof OperationTimeoutException
-                                            || exception
-                                                    instanceof HazelcastInstanceNotActiveException
-                                            || exception instanceof InterruptedException,
+                            exception -> ExceptionUtil.isOperationNeedRetryException(exception),
                             Constant.OPERATION_RETRY_SLEEP));
             this.currPipelineStatus = endState;
         }
@@ -390,12 +384,7 @@ public class SubPlan {
                         new RetryUtils.RetryMaterial(
                                 Constant.OPERATION_RETRY_TIME,
                                 true,
-                                exception ->
-                                        exception instanceof OperationTimeoutException
-                                                || exception
-                                                        instanceof
-                                                        HazelcastInstanceNotActiveException
-                                                || exception instanceof InterruptedException,
+                                exception -> ExceptionUtil.isOperationNeedRetryException(exception),
                                 Constant.OPERATION_RETRY_SLEEP));
                 this.currPipelineStatus = targetState;
                 return true;
@@ -532,10 +521,7 @@ public class SubPlan {
                 new RetryUtils.RetryMaterial(
                         Constant.OPERATION_RETRY_TIME,
                         true,
-                        exception ->
-                                exception instanceof OperationTimeoutException
-                                        || exception instanceof HazelcastInstanceNotActiveException
-                                        || exception instanceof InterruptedException,
+                        exception -> ExceptionUtil.isOperationNeedRetryException(exception),
                         Constant.OPERATION_RETRY_SLEEP));
     }
 
