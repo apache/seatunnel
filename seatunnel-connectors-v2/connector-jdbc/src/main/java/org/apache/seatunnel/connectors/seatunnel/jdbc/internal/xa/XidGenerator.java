@@ -25,19 +25,14 @@ import javax.transaction.xa.Xid;
 import java.io.Serializable;
 import java.security.SecureRandom;
 
-/**
- * {@link Xid} generator.
- */
-public interface XidGenerator
-    extends Serializable, AutoCloseable {
+/** {@link Xid} generator. */
+public interface XidGenerator extends Serializable, AutoCloseable {
 
     Xid generateXid(JobContext context, SinkWriter.Context sinkContext, long checkpointId);
 
     default void open() {}
 
-    /**
-     * @return true if the provided transaction belongs to this subtask
-     */
+    /** @return true if the provided transaction belongs to this subtask */
     boolean belongsToSubtask(Xid xid, JobContext context, SinkWriter.Context sinkContext);
 
     @Override

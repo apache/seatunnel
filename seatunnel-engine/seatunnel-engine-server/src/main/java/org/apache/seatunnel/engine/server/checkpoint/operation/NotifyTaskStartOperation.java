@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.checkpoint.operation;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.AbstractTask;
@@ -47,13 +48,20 @@ public class NotifyTaskStartOperation extends TaskOperation {
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(() -> {
-            AbstractTask task = server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation())
-                .getTaskGroup().getTask(taskLocation.getTaskID());
-            task.startCall();
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException &&
-                !server.taskIsEnded(taskLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    AbstractTask task = server.getTaskExecutionService().getTask(taskLocation);
+                    task.startCall();
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof TaskGroupContextNotFoundException
+                                        || exception instanceof NullPointerException
+                                                && !server.taskIsEnded(
+                                                        taskLocation.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 }

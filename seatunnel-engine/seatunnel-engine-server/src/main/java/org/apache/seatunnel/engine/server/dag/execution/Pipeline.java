@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.dag.execution;
 
 import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 
 import java.util.List;
 import java.util.Map;
@@ -50,9 +51,11 @@ public class Pipeline {
         return vertexes;
     }
 
-    public Map<Long, Integer> getActions() {
-        return vertexes.values()
-            .stream().map(ExecutionVertex::getAction)
-            .collect(Collectors.toMap(Action::getId, Action::getParallelism));
+    public Map<ActionStateKey, Integer> getActions() {
+        return vertexes.values().stream()
+                .map(ExecutionVertex::getAction)
+                .collect(
+                        Collectors.toMap(
+                                action -> ActionStateKey.of(action), Action::getParallelism));
     }
 }

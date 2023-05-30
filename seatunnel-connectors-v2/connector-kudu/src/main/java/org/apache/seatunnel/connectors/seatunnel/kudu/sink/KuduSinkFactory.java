@@ -34,7 +34,10 @@ public class KuduSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(KuduSinkConfig.KUDU_MASTER, KuduSinkConfig.KUDU_SAVE_MODE, KuduSinkConfig.KUDU_TABLE_NAME)
-            .build();
+                .required(
+                        KuduSinkConfig.KUDU_MASTER,
+                        KuduSinkConfig.KUDU_SAVE_MODE,
+                        KuduSinkConfig.KUDU_TABLE_NAME)
+                .build();
     }
 }

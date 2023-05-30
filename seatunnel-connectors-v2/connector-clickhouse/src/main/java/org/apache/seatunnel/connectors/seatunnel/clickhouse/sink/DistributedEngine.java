@@ -17,42 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
 import java.io.Serializable;
 
+@AllArgsConstructor
+@Getter
 public class DistributedEngine implements Serializable {
 
     private static final long serialVersionUID = -1L;
     private String clusterName;
     private String database;
     private String table;
-
-    public DistributedEngine(String clusterName, String database, String table) {
-        this.clusterName = clusterName;
-        this.database = database;
-        this.table = table;
-    }
-
-    public String getClusterName() {
-        return clusterName;
-    }
-
-    public void setClusterName(String clusterName) {
-        this.clusterName = clusterName;
-    }
-
-    public String getDatabase() {
-        return database;
-    }
-
-    public void setDatabase(String database) {
-        this.database = database;
-    }
-
-    public String getTable() {
-        return table;
-    }
-
-    public void setTable(String table) {
-        this.table = table;
-    }
+    private String tableEngine;
+    private String tableDDL;
 }

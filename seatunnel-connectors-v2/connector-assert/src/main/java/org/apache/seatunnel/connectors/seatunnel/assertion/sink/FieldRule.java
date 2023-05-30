@@ -34,5 +34,4 @@ public class FieldRule {
 
     @OptionMark(description = "A list value rule define the data value validation")
     private List<RowRule> fieldValue;
-
 }

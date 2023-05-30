@@ -22,39 +22,52 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;
 
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalQueries;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
- * AssertExecutor is used to determine whether a row data is available
- * It can not only be used in AssertSink, but also other Sink plugin
- * (stateless Object)
+ * AssertExecutor is used to determine whether a row data is available It can not only be used in
+ * AssertSink, but also other Sink plugin (stateless Object)
  */
 public class AssertExecutor {
     /**
      * determine whether a rowData data is available
      *
-     * @param rowData          row data
-     * @param rowType          row type
+     * @param rowData row data
+     * @param rowType row type
      * @param assertFieldRules definition of user's available data
      * @return the first rule that can NOT pass, it will be null if pass through all rules
      */
-    public Optional<AssertFieldRule> fail(SeaTunnelRow rowData, SeaTunnelRowType rowType, List<AssertFieldRule> assertFieldRules) {
+    public Optional<AssertFieldRule> fail(
+            SeaTunnelRow rowData,
+            SeaTunnelRowType rowType,
+            List<AssertFieldRule> assertFieldRules) {
         return assertFieldRules.stream()
-            .filter(assertFieldRule -> !pass(rowData, rowType, assertFieldRule))
-            .findFirst();
+                .filter(assertFieldRule -> !pass(rowData, rowType, assertFieldRule))
+                .findFirst();
     }
 
-    private boolean pass(SeaTunnelRow rowData, SeaTunnelRowType rowType, AssertFieldRule assertFieldRule) {
+    private boolean pass(
+            SeaTunnelRow rowData, SeaTunnelRowType rowType, AssertFieldRule assertFieldRule) {
         if (Objects.isNull(rowData)) {
             return Boolean.FALSE;
         }
-        int index = Iterables.indexOf(Lists.newArrayList(rowType.getFieldNames()), fieldName -> fieldName.equals(assertFieldRule.getFieldName()));
+        int index =
+                Iterables.indexOf(
+                        Lists.newArrayList(rowType.getFieldNames()),
+                        fieldName -> fieldName.equals(assertFieldRule.getFieldName()));
 
         Object value = rowData.getField(index);
         if (Objects.isNull(value)) {
@@ -72,9 +85,8 @@ public class AssertExecutor {
     }
 
     private Boolean checkValue(Object value, List<AssertFieldRule.AssertRule> fieldValueRules) {
-        Optional<AssertFieldRule.AssertRule> failValueRule = fieldValueRules.stream()
-            .filter(valueRule -> !pass(value, valueRule))
-            .findFirst();
+        Optional<AssertFieldRule.AssertRule> failValueRule =
+                fieldValueRules.stream().filter(valueRule -> !pass(value, valueRule)).findFirst();
         if (failValueRule.isPresent()) {
             return Boolean.FALSE;
         } else {
@@ -87,11 +99,40 @@ public class AssertExecutor {
             return Objects.nonNull(value);
         }
 
-        if (value instanceof Number && AssertFieldRule.AssertRuleType.MAX.equals(valueRule.getRuleType())) {
+        if (value instanceof Number
+                && AssertFieldRule.AssertRuleType.MAX.equals(valueRule.getRuleType())) {
             return ((Number) value).doubleValue() <= valueRule.getRuleValue();
         }
-        if (value instanceof Number && AssertFieldRule.AssertRuleType.MIN.equals(valueRule.getRuleType())) {
+        if (value instanceof Number
+                && AssertFieldRule.AssertRuleType.MIN.equals(valueRule.getRuleType())) {
             return ((Number) value).doubleValue() >= valueRule.getRuleValue();
+        }
+        if (valueRule.getEqualTo() != null) {
+            if (value instanceof String) {
+                return value.equals(valueRule.getEqualTo());
+            }
+            if (value instanceof Number) {
+                return ((Number) value).doubleValue() == Double.parseDouble(valueRule.getEqualTo());
+            }
+            if (value instanceof Boolean) {
+                return value.equals(Boolean.parseBoolean(valueRule.getEqualTo()));
+            }
+            if (value instanceof LocalDateTime) {
+                TemporalAccessor parsedTimestamp =
+                        DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(valueRule.getEqualTo());
+                LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
+                LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
+                return ((LocalDateTime) value).isEqual(LocalDateTime.of(localDate, localTime));
+            }
+            if (value instanceof LocalDate) {
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                return ((LocalDate) value).isEqual(LocalDate.parse(valueRule.getEqualTo(), fmt));
+            }
+            if (value instanceof LocalTime) {
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm:ss");
+                return value.equals(LocalTime.parse(valueRule.getEqualTo(), fmt));
+            }
+            return false;
         }
 
         String valueStr = Objects.isNull(value) ? StringUtils.EMPTY : String.valueOf(value);

@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 
 import org.apache.commons.lang3.StringUtils;
@@ -47,15 +49,16 @@ public class HudiSourceReader implements SourceReader<SeaTunnelRow, HudiSourceSp
 
     private static final long THREAD_WAIT_TIME = 500L;
 
-    private String confPaths;
+    private final String confPaths;
 
-    private Set<HudiSourceSplit> sourceSplits;
+    private final Set<HudiSourceSplit> sourceSplits;
 
     private final SourceReader.Context context;
 
-    private SeaTunnelRowType seaTunnelRowType;
+    private final SeaTunnelRowType seaTunnelRowType;
 
-    public HudiSourceReader(String confPaths, SourceReader.Context context, SeaTunnelRowType seaTunnelRowType) {
+    public HudiSourceReader(
+            String confPaths, SourceReader.Context context, SeaTunnelRowType seaTunnelRowType) {
         this.confPaths = confPaths;
         this.context = context;
         this.sourceSplits = new HashSet<>();
@@ -63,13 +66,10 @@ public class HudiSourceReader implements SourceReader<SeaTunnelRow, HudiSourceSp
     }
 
     @Override
-    public void open() {
-    }
+    public void open() {}
 
     @Override
-    public void close() {
-
-    }
+    public void close() {}
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
@@ -79,43 +79,47 @@ public class HudiSourceReader implements SourceReader<SeaTunnelRow, HudiSourceSp
         }
         Configuration configuration = HudiUtil.getConfiguration(this.confPaths);
         JobConf jobConf = HudiUtil.toJobConf(configuration);
-        sourceSplits.forEach(source -> {
-            try {
-                HoodieParquetInputFormat inputFormat = new HoodieParquetInputFormat();
-                RecordReader<NullWritable, ArrayWritable> reader = inputFormat.getRecordReader(source.getInputSplit(), jobConf, Reporter.NULL);
-                ParquetHiveSerDe serde = new ParquetHiveSerDe();
-                Properties properties = new Properties();
-                List<String> types = new ArrayList<>();
-                for (SeaTunnelDataType<?> type: seaTunnelRowType.getFieldTypes()) {
-                    types.add(type.getSqlType().name());
-                }
-                String columns = StringUtils.join(seaTunnelRowType.getFieldNames(), ",");
-                String columnTypes = StringUtils.join(types, ",").toLowerCase(Locale.ROOT);
-                properties.setProperty("columns", columns);
-                properties.setProperty("columns.types", columnTypes);
-                serde.initialize(jobConf, properties);
-                StructObjectInspector inspector = (StructObjectInspector) serde.getObjectInspector();
-                List<? extends StructField> fields = inspector.getAllStructFieldRefs();
-                NullWritable key = reader.createKey();
-                ArrayWritable value = reader.createValue();
-                while (reader.next(key, value)) {
-                    Object[] datas = new Object[fields.size()];
-                    for (int i = 0; i < fields.size(); i++) {
-                        Object data = inspector.getStructFieldData(value, fields.get(i));
-                        if (null != data) {
-                            datas[i] = String.valueOf(data);
-                        } else {
-                            datas[i] = null;
+        sourceSplits.forEach(
+                source -> {
+                    try {
+                        HoodieParquetInputFormat inputFormat = new HoodieParquetInputFormat();
+                        RecordReader<NullWritable, ArrayWritable> reader =
+                                inputFormat.getRecordReader(
+                                        source.getInputSplit(), jobConf, Reporter.NULL);
+                        ParquetHiveSerDe serde = new ParquetHiveSerDe();
+                        Properties properties = new Properties();
+                        List<String> types = new ArrayList<>();
+                        for (SeaTunnelDataType<?> type : seaTunnelRowType.getFieldTypes()) {
+                            types.add(type.getSqlType().name());
                         }
+                        String columns = StringUtils.join(seaTunnelRowType.getFieldNames(), ",");
+                        String columnTypes = StringUtils.join(types, ",").toLowerCase(Locale.ROOT);
+                        properties.setProperty("columns", columns);
+                        properties.setProperty("columns.types", columnTypes);
+                        serde.initialize(jobConf, properties);
+                        StructObjectInspector inspector =
+                                (StructObjectInspector) serde.getObjectInspector();
+                        List<? extends StructField> fields = inspector.getAllStructFieldRefs();
+                        NullWritable key = reader.createKey();
+                        ArrayWritable value = reader.createValue();
+                        while (reader.next(key, value)) {
+                            Object[] datas = new Object[fields.size()];
+                            for (int i = 0; i < fields.size(); i++) {
+                                Object data = inspector.getStructFieldData(value, fields.get(i));
+                                if (null != data) {
+                                    datas[i] = String.valueOf(data);
+                                } else {
+                                    datas[i] = null;
+                                }
+                            }
+                            output.collect(new SeaTunnelRow(datas));
+                        }
+                        reader.close();
+                    } catch (Exception e) {
+                        throw new HudiConnectorException(
+                                CommonErrorCode.READER_OPERATION_FAILED, e);
                     }
-                    output.collect(new SeaTunnelRow(datas));
-                }
-                reader.close();
-            } catch (Exception e) {
-                throw new RuntimeException("Hudi source read error", e);
-            }
-
-        });
+                });
         context.signalNoMoreElement();
     }
 
@@ -130,12 +134,8 @@ public class HudiSourceReader implements SourceReader<SeaTunnelRow, HudiSourceSp
     }
 
     @Override
-    public void handleNoMoreSplits() {
-
-    }
+    public void handleNoMoreSplits() {}
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) {}
 }

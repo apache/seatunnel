@@ -11,21 +11,20 @@ Read external data source data through InfluxDB.
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 
 supports query SQL and can achieve projection effect.
 
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-
 ## Options
 
-| name               | type   | required | default value |
+|        name        |  type  | required | default value |
 |--------------------|--------|----------|---------------|
 | url                | string | yes      | -             |
 | sql                | string | yes      | -             |
-| fields             | config | yes      | -             |
+| schema             | config | yes      | -             |
 | database           | string | yes      |               |
 | username           | string | no       | -             |
 | password           | string | no       | -             |
@@ -36,33 +35,38 @@ supports query SQL and can achieve projection effect.
 | epoch              | string | no       | n             |
 | connect_timeout_ms | long   | no       | 15000         |
 | query_timeout_sec  | int    | no       | 3             |
+| common-options     | config | no       | -             |
 
 ### url
+
 the url to connect to influxDB e.g.
-``` 
+
+```
 http://influxdb-host:8086
 ```
 
 ### sql [string]
+
 The query sql used to search data
 
 ```
 select name,age from test
 ```
 
-### fields [string]
+### schema [config]
 
-the fields of the InfluxDB when you select
+#### fields [Config]
 
-the field type is SeaTunnel field type `org.apache.seatunnel.api.table.type.SqlType`
-
+The schema information of upstream data.
 e.g.
 
 ```
-fields{
-    name=STRING
-    age=INT
+schema {
+    fields {
+        name = string
+        age = int
     }
+  }
 ```
 
 ### database [string]
@@ -113,21 +117,31 @@ lower bound of the `split_column` column
 ### partition_num [int]
 
 the `partition_num` of the InfluxDB when you select
+
 > Tips: Ensure that `upper_bound` minus `lower_bound` is divided `bypartition_num`, otherwise the query results will overlap
 
 ### epoch [string]
+
 returned time precision
 - Optional values: H, m, s, MS, u, n
 - default value: n
 
 ### query_timeout_sec [int]
+
 the `query_timeout` of the InfluxDB when you select, in seconds
 
 ### connect_timeout_ms [long]
-the timeout for connecting to InfluxDB, in milliseconds 
+
+the timeout for connecting to InfluxDB, in milliseconds
+
+### common options
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Examples
-Example of multi parallelism and multi partition scanning 
+
+Example of multi parallelism and multi partition scanning
+
 ```hocon
 source {
 
@@ -139,18 +153,21 @@ source {
         lower_bound = 1
         partition_num = 4
         split_column = "value"
-        fields {
-            label = STRING
-            value = INT
-            rt = STRING
-            time = BIGINT
+        schema {
+            fields {
+                label = STRING
+                value = INT
+                rt = STRING
+                time = BIGINT
             }
     }
 
 }
 
 ```
-Example of not using partition scan 
+
+Example of not using partition scan
+
 ```hocon
 source {
 
@@ -158,11 +175,12 @@ source {
         url = "http://influxdb-host:8086"
         sql = "select label, value, rt, time from test"
         database = "test"
-        fields {
-            label = STRING
-            value = INT
-            rt = STRING
-            time = BIGINT
+        schema {
+            fields {
+                label = STRING
+                value = INT
+                rt = STRING
+                time = BIGINT
             }
     }
 
@@ -174,3 +192,4 @@ source {
 ### 2.2.0-beta 2022-09-26
 
 - Add InfluxDB Source Connector
+

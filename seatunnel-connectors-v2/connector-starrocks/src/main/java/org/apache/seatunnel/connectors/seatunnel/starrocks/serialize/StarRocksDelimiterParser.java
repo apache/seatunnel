@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.serialize;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
+
 import com.google.common.base.Strings;
 
 import java.io.StringWriter;
@@ -36,14 +39,20 @@ public class StarRocksDelimiterParser {
         String hexStr = sp.substring(2);
         // check hex str
         if (hexStr.isEmpty()) {
-            throw new RuntimeException("Failed to parse delimiter: `Hex str is empty`");
+            throw new StarRocksConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "Failed to parse delimiter: `Hex str is empty`");
         }
         if (hexStr.length() % 2 != 0) {
-            throw new RuntimeException("Failed to parse delimiter: `Hex str length error`");
+            throw new StarRocksConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "Failed to parse delimiter: `Hex str is empty`");
         }
         for (char hexChar : hexStr.toUpperCase().toCharArray()) {
             if (HEX_STRING.indexOf(hexChar) == -1) {
-                throw new RuntimeException("Failed to parse delimiter: `Hex str format error`");
+                throw new StarRocksConnectorException(
+                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        "Failed to parse delimiter: `Hex str is empty`");
             }
         }
         // transform to separator
@@ -70,4 +79,3 @@ public class StarRocksDelimiterParser {
         return (byte) HEX_STRING.indexOf(c);
     }
 }
-

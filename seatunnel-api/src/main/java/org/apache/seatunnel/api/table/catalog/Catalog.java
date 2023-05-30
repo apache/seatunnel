@@ -17,19 +17,27 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.factory.Factory;
 
+import org.apache.commons.lang3.StringUtils;
+
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * Interface for reading and writing table metadata from SeaTunnel. Each connector need to contain
  * the implementation of Catalog.
  */
-public interface Catalog {
+public interface Catalog extends AutoCloseable {
 
     default Optional<Factory> getFactory() {
         return Optional.empty();
@@ -87,8 +95,7 @@ public interface Catalog {
     // --------------------------------------------------------------------------------------------
 
     /**
-     * Get names of all tables under this database. An empty list is returned if none
-     * exists.
+     * Get names of all tables under this database. An empty list is returned if none exists.
      *
      * @return a list of the names of all tables in this database
      * @throws CatalogException in case of any runtime exception
@@ -105,12 +112,83 @@ public interface Catalog {
     boolean tableExists(TablePath tablePath) throws CatalogException;
 
     /**
-     * Return a {@link CatalogTable}  identified by the given {@link
-     * TablePath}. The framework will resolve the metadata objects when necessary.
+     * Return a {@link CatalogTable} identified by the given {@link TablePath}. The framework will
+     * resolve the metadata objects when necessary.
      *
      * @param tablePath Path of the table
      * @return The requested table
      * @throws CatalogException in case of any runtime exception
      */
     CatalogTable getTable(TablePath tablePath) throws CatalogException, TableNotExistException;
+
+    default List<CatalogTable> getTables(ReadonlyConfig config) throws CatalogException {
+        // Get the list of specified tables
+        List<String> tableNames = config.get(CatalogOptions.TABLE_NAMES);
+        List<CatalogTable> catalogTables = new ArrayList<>();
+        if (tableNames != null && tableNames.size() >= 1) {
+            for (String tableName : tableNames) {
+                TablePath tablePath = TablePath.of(tableName);
+                if (this.tableExists(tablePath)) {
+                    catalogTables.add(this.getTable(tablePath));
+                }
+            }
+            return catalogTables;
+        }
+
+        // Get the list of table pattern
+        String tablePatternStr = config.get(CatalogOptions.TABLE_PATTERN);
+        if (StringUtils.isBlank(tablePatternStr)) {
+            return Collections.emptyList();
+        }
+        Pattern databasePattern = Pattern.compile(config.get(CatalogOptions.DATABASE_PATTERN));
+        Pattern tablePattern = Pattern.compile(config.get(CatalogOptions.TABLE_PATTERN));
+        List<String> allDatabase = this.listDatabases();
+        allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
+        for (String databaseName : allDatabase) {
+            tableNames = this.listTables(databaseName);
+            for (String tableName : tableNames) {
+                if (tablePattern.matcher(databaseName + "." + tableName).matches()) {
+                    catalogTables.add(this.getTable(TablePath.of(databaseName, tableName)));
+                }
+            }
+        }
+        return catalogTables;
+    }
+
+    /**
+     * Create a new table in this catalog.
+     *
+     * @param tablePath Path of the table
+     * @param table The table definition
+     * @param ignoreIfExists Flag to specify behavior when a table with the given name already exist
+     * @throws TableAlreadyExistException thrown if the table already exists in the catalog and
+     *     ignoreIfExists is false
+     * @throws DatabaseNotExistException thrown if the database in tablePath doesn't exist in the
+     *     catalog
+     * @throws CatalogException in case of any runtime exception
+     */
+    void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException;
+
+    /**
+     * Drop an existing table in this catalog.
+     *
+     * @param tablePath Path of the table
+     * @param ignoreIfNotExists Flag to specify behavior when a table with the given name doesn't
+     *     exist
+     * @throws TableNotExistException thrown if the table doesn't exist in the catalog and
+     *     ignoreIfNotExists is false
+     * @throws CatalogException in case of any runtime exception
+     */
+    void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException;
+
+    void createDatabase(TablePath tablePath, boolean ignoreIfExists)
+            throws DatabaseAlreadyExistException, CatalogException;
+
+    void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
+            throws DatabaseNotExistException, CatalogException;
+
+    // todo: Support for update table metadata
+
 }

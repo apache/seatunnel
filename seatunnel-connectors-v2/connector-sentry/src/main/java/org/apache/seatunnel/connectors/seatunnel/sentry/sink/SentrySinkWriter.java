@@ -17,49 +17,47 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.connectors.seatunnel.sentry.config.SentryConfig;
 
 import io.sentry.Sentry;
 import io.sentry.SentryOptions;
 
 import java.io.IOException;
 
-/**
- * @description: SentrySinkWriter class
- */
-
-public class SentrySinkWriter extends AbstractSinkWriter<SeaTunnelRow, SentrySinkState> {
+/** @description: SentrySinkWriter class */
+public class SentrySinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private SeaTunnelRowType seaTunnelRowType;
-    public SentrySinkWriter(SeaTunnelRowType seaTunnelRowType,
-                            SinkWriter.Context context,
-                            Config pluginConfig) {
+
+    public SentrySinkWriter(SeaTunnelRowType seaTunnelRowType, Config pluginConfig) {
         SentryOptions options = new SentryOptions();
         options.setDsn(pluginConfig.getString(SentryConfig.DSN.key()));
-        if (pluginConfig.hasPath(SentryConfig.ENV.key())){
+        if (pluginConfig.hasPath(SentryConfig.ENV.key())) {
             options.setEnvironment(pluginConfig.getString(SentryConfig.ENV.key()));
         }
-        if (pluginConfig.hasPath(SentryConfig.RELEASE.key())){
+        if (pluginConfig.hasPath(SentryConfig.RELEASE.key())) {
             options.setRelease(pluginConfig.getString(SentryConfig.RELEASE.key()));
         }
-        if (pluginConfig.hasPath(SentryConfig.CACHE_DIRPATH.key())){
+        if (pluginConfig.hasPath(SentryConfig.CACHE_DIRPATH.key())) {
             options.setCacheDirPath(pluginConfig.getString(SentryConfig.CACHE_DIRPATH.key()));
         }
-        if (pluginConfig.hasPath(SentryConfig.MAX_CACHEITEMS.key())){
+        if (pluginConfig.hasPath(SentryConfig.MAX_CACHEITEMS.key())) {
             options.setMaxCacheItems(pluginConfig.getInt(SentryConfig.MAX_CACHEITEMS.key()));
         }
-        if (pluginConfig.hasPath(SentryConfig.MAX_QUEUESIZE.key())){
+        if (pluginConfig.hasPath(SentryConfig.MAX_QUEUESIZE.key())) {
             options.setMaxQueueSize(pluginConfig.getInt(SentryConfig.MAX_QUEUESIZE.key()));
         }
-        if (pluginConfig.hasPath(SentryConfig.FLUSH_TIMEOUTMILLIS.key())){
-            options.setFlushTimeoutMillis(pluginConfig.getLong(SentryConfig.FLUSH_TIMEOUTMILLIS.key()));
+        if (pluginConfig.hasPath(SentryConfig.FLUSH_TIMEOUTMILLIS.key())) {
+            options.setFlushTimeoutMillis(
+                    pluginConfig.getLong(SentryConfig.FLUSH_TIMEOUTMILLIS.key()));
         }
-        if (pluginConfig.hasPath(SentryConfig.ENABLE_EXTERNAL_CONFIGURATION.key())){
-            options.setEnableExternalConfiguration(pluginConfig.getBoolean(SentryConfig.ENABLE_EXTERNAL_CONFIGURATION.key()));
+        if (pluginConfig.hasPath(SentryConfig.ENABLE_EXTERNAL_CONFIGURATION.key())) {
+            options.setEnableExternalConfiguration(
+                    pluginConfig.getBoolean(SentryConfig.ENABLE_EXTERNAL_CONFIGURATION.key()));
         }
         Sentry.init(options);
     }
@@ -73,5 +71,4 @@ public class SentrySinkWriter extends AbstractSinkWriter<SeaTunnelRow, SentrySin
     public void close() throws IOException {
         Sentry.close();
     }
-
 }

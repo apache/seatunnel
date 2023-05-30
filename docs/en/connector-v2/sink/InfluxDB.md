@@ -9,28 +9,30 @@ Write data to InfluxDB.
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name                        | type     | required | default value                 |
-|-----------------------------|----------|----------|-------------------------------|
-| url                         | string   | yes      | -                             |
-| database                    | string   | yes      |                               |
-| measurement                 | string   | yes      |                               |
-| username                    | string   | no       | -                             |
-| password                    | string   | no       | -                             |
-| key_time                    | string   | yes      | processing time               |
-| key_tags                    | array    | no       | exclude `field` & `key_time`  |
-| batch_size                  | int      | no       | 1024                          |
-| batch_interval_ms           | int      | no       | -                             |
-| max_retries                 | int      | no       | -                             |
-| retry_backoff_multiplier_ms | int      | no       | -                             |
-| connect_timeout_ms          | long     | no       | 15000                         |
+|            name             |  type  | required |        default value         |
+|-----------------------------|--------|----------|------------------------------|
+| url                         | string | yes      | -                            |
+| database                    | string | yes      |                              |
+| measurement                 | string | yes      |                              |
+| username                    | string | no       | -                            |
+| password                    | string | no       | -                            |
+| key_time                    | string | no       | processing time              |
+| key_tags                    | array  | no       | exclude `field` & `key_time` |
+| batch_size                  | int    | no       | 1024                         |
+| batch_interval_ms           | int    | no       | -                            |
+| max_retries                 | int    | no       | -                            |
+| retry_backoff_multiplier_ms | int    | no       | -                            |
+| connect_timeout_ms          | long   | no       | 15000                        |
+| common-options              | config | no       | -                            |
 
 ### url
+
 the url to connect to influxDB e.g.
-``` 
+
+```
 http://influxdb-host:8086
 ```
 
@@ -80,9 +82,15 @@ Using as a multiplier for generating the next delay for backoff
 The amount of time to wait before attempting to retry a request to `influxDB`
 
 ### connect_timeout_ms [long]
-the timeout for connecting to InfluxDB, in milliseconds 
+
+the timeout for connecting to InfluxDB, in milliseconds
+
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Examples
+
 ```hocon
 sink {
     InfluxDB {
@@ -102,3 +110,4 @@ sink {
 ### next version
 
 - Add InfluxDB Sink Connector
+

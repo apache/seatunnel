@@ -19,13 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcStatementBuilder;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.SimpleBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
@@ -39,24 +43,23 @@ import java.util.Optional;
 
 public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> {
 
-    private final JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat;
+    private final JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>>
+            outputFormat;
     private final SinkWriter.Context context;
+    private final JdbcConnectionProvider connectionProvider;
     private transient boolean isOpen;
 
-    private JdbcConnectionProvider connectionProvider;
-
     public JdbcSinkWriter(
-        SinkWriter.Context context,
-        JdbcStatementBuilder<SeaTunnelRow> statementBuilder,
-        JdbcSinkOptions jdbcSinkOptions) {
-
-        connectionProvider = new SimpleJdbcConnectionProvider(jdbcSinkOptions.getJdbcConnectionOptions());
-
+            SinkWriter.Context context,
+            JdbcDialect dialect,
+            JdbcSinkConfig jdbcSinkConfig,
+            SeaTunnelRowType rowType) {
         this.context = context;
-        this.outputFormat = new JdbcOutputFormat<>(
-            connectionProvider,
-            jdbcSinkOptions.getJdbcConnectionOptions(),
-            () -> new SimpleBatchStatementExecutor<>(jdbcSinkOptions.getJdbcConnectionOptions().getQuery(), statementBuilder));
+        this.connectionProvider =
+                new SimpleJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
+        this.outputFormat =
+                new JdbcOutputFormatBuilder(dialect, connectionProvider, jdbcSinkConfig, rowType)
+                        .build();
     }
 
     private void tryOpen() throws IOException {
@@ -72,44 +75,44 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
     }
 
     @Override
-    public void write(SeaTunnelRow element)
-        throws IOException {
+    public void write(SeaTunnelRow element) throws IOException {
         tryOpen();
         SeaTunnelRow copy = SerializationUtils.clone(element);
         outputFormat.writeRecord(copy);
     }
 
     @Override
-    public Optional<XidInfo> prepareCommit()
-        throws IOException {
+    public Optional<XidInfo> prepareCommit() throws IOException {
         tryOpen();
+        outputFormat.checkFlushException();
         outputFormat.flush();
         try {
-            if (!connectionProvider.getConnection().getAutoCommit()){
+            if (!connectionProvider.getConnection().getAutoCommit()) {
                 connectionProvider.getConnection().commit();
             }
         } catch (SQLException e) {
-            throw new IOException(e);
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
+                    "commit failed," + e.getMessage(),
+                    e);
         }
         return Optional.empty();
     }
 
     @Override
-    public void abortPrepare() {
-
-    }
+    public void abortPrepare() {}
 
     @Override
-    public void close()
-        throws IOException {
+    public void close() throws IOException {
         tryOpen();
         outputFormat.flush();
         try {
-            if (!connectionProvider.getConnection().getAutoCommit()){
+            if (!connectionProvider.getConnection().getAutoCommit()) {
                 connectionProvider.getConnection().commit();
             }
         } catch (SQLException e) {
-            throw new IOException(e);
+            throw new JdbcConnectorException(
+                    CommonErrorCode.WRITER_OPERATION_FAILED, "unable to close JDBC sink write", e);
         }
         outputFormat.close();
     }

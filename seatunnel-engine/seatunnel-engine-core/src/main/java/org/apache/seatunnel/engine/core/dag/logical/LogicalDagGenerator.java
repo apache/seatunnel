@@ -26,8 +26,8 @@ import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,17 +39,18 @@ public class LogicalDagGenerator {
     private JobConfig jobConfig;
     private IdGenerator idGenerator;
 
-    private final Map<Long, LogicalVertex> logicalVertexMap = new HashMap<>();
+    private final Map<Long, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();
 
     /**
-     * key: input vertex id;
-     * <br> value: target vertices id;
+     * key: input vertex id; <br>
+     * value: target vertices id;
      */
-    private final Map<Long, Set<Long>> inputVerticesMap = new HashMap<>();
+    private final Map<Long, LinkedHashSet<Long>> inputVerticesMap = new LinkedHashMap<>();
 
-    public LogicalDagGenerator(@NonNull List<Action> actions,
-                               @NonNull JobConfig jobConfig,
-                               @NonNull IdGenerator idGenerator) {
+    public LogicalDagGenerator(
+            @NonNull List<Action> actions,
+            @NonNull JobConfig jobConfig,
+            @NonNull IdGenerator idGenerator) {
         this.actions = actions;
         this.jobConfig = jobConfig;
         this.idGenerator = idGenerator;
@@ -73,25 +74,34 @@ public class LogicalDagGenerator {
             return;
         }
         // connection vertices info
-        action.getUpstream().forEach(inputAction -> {
-            createLogicalVertex(inputAction);
-            inputVerticesMap.computeIfAbsent(inputAction.getId(), id -> new HashSet<>())
-                .add(logicalVertexId);
-        });
+        action.getUpstream()
+                .forEach(
+                        inputAction -> {
+                            createLogicalVertex(inputAction);
+                            inputVerticesMap
+                                    .computeIfAbsent(
+                                            inputAction.getId(), id -> new LinkedHashSet<>())
+                                    .add(logicalVertexId);
+                        });
 
-        final LogicalVertex logicalVertex = new LogicalVertex(logicalVertexId, action, action.getParallelism());
+        final LogicalVertex logicalVertex =
+                new LogicalVertex(logicalVertexId, action, action.getParallelism());
         logicalVertexMap.put(logicalVertexId, logicalVertex);
     }
 
     private Set<LogicalEdge> createLogicalEdges() {
-        return inputVerticesMap.entrySet()
-                .stream()
-                .map(entry -> entry.getValue()
-                        .stream()
-                        .map(targetId -> new LogicalEdge(logicalVertexMap.get(entry.getKey()),
-                                logicalVertexMap.get(targetId)))
-                        .collect(Collectors.toList()))
+        return inputVerticesMap.entrySet().stream()
+                .map(
+                        entry ->
+                                entry.getValue().stream()
+                                        .map(
+                                                targetId ->
+                                                        new LogicalEdge(
+                                                                logicalVertexMap.get(
+                                                                        entry.getKey()),
+                                                                logicalVertexMap.get(targetId)))
+                                        .collect(Collectors.toList()))
                 .flatMap(Collection::stream)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 }

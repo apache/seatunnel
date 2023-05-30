@@ -17,13 +17,43 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+
+import com.hazelcast.internal.metrics.MetricDescriptor;
+import com.hazelcast.internal.metrics.MetricsCollectionContext;
 
 public abstract class CoordinatorTask extends AbstractTask {
 
     private static final long serialVersionUID = -3957168748281681077L;
 
+    private SeaTunnelMetricsContext metricsContext;
+
     public CoordinatorTask(long jobID, TaskLocation taskID) {
         super(jobID, taskID);
+    }
+
+    @Override
+    public void init() throws Exception {
+        super.init();
+        metricsContext = getExecutionContext().getOrCreateMetricsContext(taskLocation);
+    }
+
+    @Override
+    public SeaTunnelMetricsContext getMetricsContext() {
+        return metricsContext;
+    }
+
+    @Override
+    public void provideDynamicMetrics(
+            MetricDescriptor descriptor, MetricsCollectionContext context) {
+        if (null != metricsContext) {
+            metricsContext.provideDynamicMetrics(
+                    descriptor
+                            .copy()
+                            .withTag(MetricTags.TASK_NAME, this.getClass().getSimpleName()),
+                    context);
+        }
     }
 }

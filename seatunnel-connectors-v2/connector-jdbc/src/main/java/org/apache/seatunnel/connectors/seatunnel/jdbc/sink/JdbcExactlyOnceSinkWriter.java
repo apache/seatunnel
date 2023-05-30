@@ -17,26 +17,27 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcStatementBuilder;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.SimpleBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOps;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOpsImpl;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XidGenerator;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.ExceptionUtils;
 
 import org.apache.commons.lang3.SerializationUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,8 +48,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-public class JdbcExactlyOnceSinkWriter
-    implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> {
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
+public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> {
     private static final Logger LOG = LoggerFactory.getLogger(JdbcExactlyOnceSinkWriter.class);
 
     private final SinkWriter.Context sinkcontext;
@@ -63,7 +66,8 @@ public class JdbcExactlyOnceSinkWriter
 
     private final XidGenerator xidGenerator;
 
-    private final JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat;
+    private final JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>>
+            outputFormat;
 
     private transient boolean isOpen;
 
@@ -71,33 +75,30 @@ public class JdbcExactlyOnceSinkWriter
     private transient Xid prepareXid;
 
     public JdbcExactlyOnceSinkWriter(
-        SinkWriter.Context sinkcontext,
-        JobContext context,
-        JdbcStatementBuilder<SeaTunnelRow> statementBuilder,
-        JdbcSinkOptions jdbcSinkOptions,
-        List<JdbcSinkState> states) {
+            SinkWriter.Context sinkcontext,
+            JobContext context,
+            JdbcDialect dialect,
+            JdbcSinkConfig jdbcSinkConfig,
+            SeaTunnelRowType rowType,
+            List<JdbcSinkState> states) {
         checkArgument(
-            jdbcSinkOptions.getJdbcConnectionOptions().getMaxRetries() == 0,
-            "JDBC XA sink requires maxRetries equal to 0, otherwise it could "
-                + "cause duplicates.");
+                jdbcSinkConfig.getJdbcConnectionConfig().getMaxRetries() == 0,
+                "JDBC XA sink requires maxRetries equal to 0, otherwise it could "
+                        + "cause duplicates.");
 
         this.context = context;
         this.sinkcontext = sinkcontext;
         this.recoverStates = states;
         this.xidGenerator = XidGenerator.semanticXidGenerator();
-        checkState(jdbcSinkOptions.isExactlyOnce(), "is_exactly_once config error");
-        this.xaFacade = XaFacade.fromJdbcConnectionOptions(
-            jdbcSinkOptions.getJdbcConnectionOptions());
-
-        this.outputFormat = new JdbcOutputFormat<>(
-            xaFacade,
-            jdbcSinkOptions.getJdbcConnectionOptions(),
-            () -> new SimpleBatchStatementExecutor<>(jdbcSinkOptions.getJdbcConnectionOptions().getQuery(), statementBuilder));
-
+        checkState(jdbcSinkConfig.isExactlyOnce(), "is_exactly_once config error");
+        this.xaFacade =
+                XaFacade.fromJdbcConnectionOptions(jdbcSinkConfig.getJdbcConnectionConfig());
+        this.outputFormat =
+                new JdbcOutputFormatBuilder(dialect, xaFacade, jdbcSinkConfig, rowType).build();
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
     }
 
-    private void tryOpen() throws IOException {
+    private void tryOpen() {
         if (!isOpen) {
             isOpen = true;
             try {
@@ -111,7 +112,10 @@ public class JdbcExactlyOnceSinkWriter
                 }
                 beginTx();
             } catch (Exception e) {
-                ExceptionUtils.rethrowIOException(e);
+                throw new JdbcConnectorException(
+                        CommonErrorCode.WRITER_OPERATION_FAILED,
+                        "unable to open JDBC exactly one writer",
+                        e);
             }
         }
     }
@@ -123,8 +127,7 @@ public class JdbcExactlyOnceSinkWriter
     }
 
     @Override
-    public void write(SeaTunnelRow element)
-        throws IOException {
+    public void write(SeaTunnelRow element) {
         tryOpen();
         checkState(currentXid != null, "current xid must not be null");
         SeaTunnelRow copy = SerializationUtils.clone(element);
@@ -132,8 +135,7 @@ public class JdbcExactlyOnceSinkWriter
     }
 
     @Override
-    public Optional<XidInfo> prepareCommit()
-        throws IOException {
+    public Optional<XidInfo> prepareCommit() throws IOException {
         tryOpen();
         prepareCurrentTx();
         this.currentXid = null;
@@ -143,13 +145,10 @@ public class JdbcExactlyOnceSinkWriter
     }
 
     @Override
-    public void abortPrepare() {
-
-    }
+    public void abortPrepare() {}
 
     @Override
-    public void close()
-        throws IOException {
+    public void close() throws IOException {
         if (currentXid != null && xaFacade.isOpen()) {
             try {
                 LOG.debug("remove current transaction before closing, xid={}", currentXid);
@@ -161,7 +160,10 @@ public class JdbcExactlyOnceSinkWriter
         try {
             xaFacade.close();
         } catch (Exception e) {
-            ExceptionUtils.rethrowIOException(e);
+            throw new JdbcConnectorException(
+                    CommonErrorCode.WRITER_OPERATION_FAILED,
+                    "unable to close JDBC exactly one writer",
+                    e);
         }
         xidGenerator.close();
         currentXid = null;
@@ -174,7 +176,10 @@ public class JdbcExactlyOnceSinkWriter
         try {
             xaFacade.start(currentXid);
         } catch (Exception e) {
-            ExceptionUtils.rethrowIOException(e);
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.XA_OPERATION_FAILED,
+                    "unable to start xa transaction",
+                    e);
         }
     }
 
@@ -185,7 +190,10 @@ public class JdbcExactlyOnceSinkWriter
             xaFacade.endAndPrepare(currentXid);
             prepareXid = currentXid;
         } catch (Exception e) {
-            ExceptionUtils.rethrowIOException(e);
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.XA_OPERATION_FAILED,
+                    "unable to prepare current xa transaction",
+                    e);
         }
     }
 }

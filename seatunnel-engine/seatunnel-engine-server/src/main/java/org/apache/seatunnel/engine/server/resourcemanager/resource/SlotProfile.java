@@ -25,10 +25,9 @@ import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
 import java.io.IOException;
+import java.util.Objects;
 
-/**
- * Used to describe the status of the current slot, including resource size and assign status
- */
+/** Used to describe the status of the current slot, including resource size and assign status */
 public class SlotProfile implements IdentifiedDataSerializable {
 
     private Address worker;
@@ -41,14 +40,18 @@ public class SlotProfile implements IdentifiedDataSerializable {
 
     private ResourceProfile resourceProfile;
 
+    private String sequence;
+
     public SlotProfile() {
         worker = new Address();
     }
 
-    public SlotProfile(Address worker, int slotID, ResourceProfile resourceProfile) {
+    public SlotProfile(
+            Address worker, int slotID, ResourceProfile resourceProfile, String sequence) {
         this.worker = worker;
         this.slotID = slotID;
         this.resourceProfile = resourceProfile;
+        this.sequence = sequence;
     }
 
     public Address getWorker() {
@@ -76,19 +79,50 @@ public class SlotProfile implements IdentifiedDataSerializable {
         }
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SlotProfile that = (SlotProfile) o;
+        return slotID == that.slotID
+                && worker.equals(that.worker)
+                && sequence.equals(that.sequence);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(worker, slotID, sequence);
+    }
+
+    public String getSequence() {
+        return sequence;
+    }
+
     public void unassigned() {
         assigned = false;
     }
 
     @Override
     public String toString() {
-        return "SlotProfile{" +
-            "worker=" + worker +
-            ", slotID=" + slotID +
-            ", ownerJobID=" + ownerJobID +
-            ", assigned=" + assigned +
-            ", resourceProfile=" + resourceProfile +
-            '}';
+        return "SlotProfile{"
+                + "worker="
+                + worker
+                + ", slotID="
+                + slotID
+                + ", ownerJobID="
+                + ownerJobID
+                + ", assigned="
+                + assigned
+                + ", resourceProfile="
+                + resourceProfile
+                + ", sequence='"
+                + sequence
+                + '\''
+                + '}';
     }
 
     @Override
@@ -108,6 +142,7 @@ public class SlotProfile implements IdentifiedDataSerializable {
         out.writeLong(ownerJobID);
         out.writeBoolean(assigned);
         out.writeObject(resourceProfile);
+        out.writeString(sequence);
     }
 
     @Override
@@ -117,5 +152,6 @@ public class SlotProfile implements IdentifiedDataSerializable {
         ownerJobID = in.readLong();
         assigned = in.readBoolean();
         resourceProfile = in.readObject();
+        sequence = in.readString();
     }
 }

@@ -17,40 +17,50 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.Stateful;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
+import com.hazelcast.internal.metrics.DynamicMetricsProvider;
+import com.hazelcast.internal.metrics.MetricDescriptor;
+import com.hazelcast.internal.metrics.MetricsCollectionContext;
 import lombok.NonNull;
 
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 
-public interface Task extends InternalCheckpointListener, Stateful, Serializable {
+public interface Task
+        extends DynamicMetricsProvider, InternalCheckpointListener, Stateful, Serializable {
 
-    default void init() throws Exception {
-    }
+    default void init() throws Exception {}
 
-    @NonNull
-    ProgressState call() throws Exception;
+    @NonNull ProgressState call() throws Exception;
 
-    @NonNull
-    Long getTaskID();
+    @NonNull Long getTaskID();
 
     default boolean isThreadsShare() {
         return false;
     }
 
-    default void close() throws IOException {
-    }
+    default void close() throws IOException {}
 
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
+    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {}
+
+    default TaskExecutionContext getExecutionContext() {
+        return null;
     }
 
     default void triggerBarrier(Barrier barrier) throws Exception {}
 
     @Override
     default void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {}
+
+    default MetricsContext getMetricsContext() {
+        return null;
+    }
+
+    default void provideDynamicMetrics(MetricDescriptor tagger, MetricsCollectionContext context) {}
 }

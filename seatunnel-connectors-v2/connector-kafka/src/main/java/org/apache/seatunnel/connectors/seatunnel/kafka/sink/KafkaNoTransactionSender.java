@@ -29,7 +29,8 @@ import java.util.Optional;
 import java.util.Properties;
 
 /**
- * This sender will send the data to the Kafka, and will not guarantee the data is committed to the Kafka exactly-once.
+ * This sender will send the data to the Kafka, and will not guarantee the data is committed to the
+ * Kafka exactly-once.
  *
  * @param <K> key type.
  * @param <V> value type.
@@ -76,8 +77,6 @@ public class KafkaNoTransactionSender<K, V> implements KafkaProduceSender<K, V> 
     @Override
     public void close() {
         kafkaProducer.flush();
-        try (KafkaProducer<?, ?> closedKafkaProducer = kafkaProducer) {
-            // close the producer
-        }
+        kafkaProducer.close();
     }
 }

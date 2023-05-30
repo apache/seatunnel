@@ -23,6 +23,7 @@ public enum FileSystemType implements Serializable {
     HDFS("HdfsFile"),
     LOCAL("LocalFile"),
     OSS("OssFile"),
+    OSS_JINDO("OssJindoFile"),
     FTP("FtpFile"),
     SFTP("SftpFile"),
     S3("S3File");

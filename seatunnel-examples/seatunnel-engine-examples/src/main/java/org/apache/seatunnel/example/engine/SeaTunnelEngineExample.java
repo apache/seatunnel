@@ -17,12 +17,10 @@
 
 package org.apache.seatunnel.example.engine;
 
-import org.apache.seatunnel.core.starter.Seatunnel;
-import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.SeaTunnel;
+import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
-import org.apache.seatunnel.core.starter.seatunnel.command.ClientCommandBuilder;
-import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
@@ -31,25 +29,26 @@ import java.nio.file.Paths;
 
 public class SeaTunnelEngineExample {
 
-    public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
-        String configFile = getTestConfigFile("/examples/fake_to_console.conf");
+    public static void main(String[] args)
+            throws FileNotFoundException, URISyntaxException, CommandException {
+        String configurePath = args.length > 0 ? args[0] : "/examples/fake_to_console.conf";
+        String configFile = getTestConfigFile(configurePath);
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setConfigFile(configFile);
         clientCommandArgs.setCheckConfig(false);
-        clientCommandArgs.setJobName("fake_to_console");
-        // Change Execution Mode to CLUSTER to use client mode, before do this, you should start SeaTunnelEngineServerExample
-        clientCommandArgs.setExecutionMode(ExecutionMode.LOCAL);
-        Command<ClientCommandArgs> command =
-            new ClientCommandBuilder().buildCommand(clientCommandArgs);
-        Seatunnel.run(command);
+        clientCommandArgs.setJobName(Paths.get(configFile).getFileName().toString());
+        // Change Execution Mode to CLUSTER to use client mode, before do this, you should start
+        // SeaTunnelEngineServerExample
+        clientCommandArgs.setMasterType(MasterType.LOCAL);
+        SeaTunnel.run(clientCommandArgs.buildCommand());
     }
 
-    public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
+    public static String getTestConfigFile(String configFile)
+            throws FileNotFoundException, URISyntaxException {
         URL resource = SeaTunnelEngineExample.class.getResource(configFile);
         if (resource == null) {
             throw new FileNotFoundException("Can't find config file: " + configFile);
         }
         return Paths.get(resource.toURI()).toString();
     }
-
 }

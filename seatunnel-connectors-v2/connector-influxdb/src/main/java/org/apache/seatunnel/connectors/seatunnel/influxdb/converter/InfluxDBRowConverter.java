@@ -21,13 +21,16 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class InfluxDBRowConverter {
 
-    public static SeaTunnelRow convert(List<Object> values, SeaTunnelRowType typeInfo, List<Integer> indexList) {
+    public static SeaTunnelRow convert(
+            List<Object> values, SeaTunnelRowType typeInfo, List<Integer> indexList) {
 
         SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
         List<Object> fields = new ArrayList<>(seaTunnelDataTypes.length);
@@ -39,8 +42,7 @@ public class InfluxDBRowConverter {
             SqlType fieldSqlType = seaTunnelDataType.getSqlType();
             if (null == values.get(columnIndex)) {
                 seaTunnelField = null;
-            }
-            else if (SqlType.BOOLEAN.equals(fieldSqlType)) {
+            } else if (SqlType.BOOLEAN.equals(fieldSqlType)) {
                 seaTunnelField = Boolean.parseBoolean(values.get(columnIndex).toString());
             } else if (SqlType.SMALLINT.equals(fieldSqlType)) {
                 seaTunnelField = Short.valueOf(values.get(columnIndex).toString());
@@ -55,7 +57,9 @@ public class InfluxDBRowConverter {
             } else if (SqlType.STRING.equals(fieldSqlType)) {
                 seaTunnelField = values.get(columnIndex);
             } else {
-                throw new IllegalStateException("Unexpected value: " + seaTunnelDataType);
+                throw new InfluxdbConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported data type: " + seaTunnelDataType);
             }
 
             fields.add(seaTunnelField);

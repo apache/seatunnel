@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 
 import com.clickhouse.client.ClickHouseColumn;
 import com.clickhouse.client.ClickHouseValue;
@@ -59,7 +61,9 @@ public class TypeConvertUtil {
             } else if (BasicType.BYTE_TYPE.equals(dataType)) {
                 return ArrayType.BYTE_ARRAY_TYPE;
             } else {
-                throw new IllegalArgumentException("data type in array is not supported: " + subArrayDataType.getDataType());
+                throw new ClickhouseConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "data type in array is not supported: " + subArrayDataType.getDataType());
             }
         }
         Class<?> type = column.getDataType().getObjectClass();
@@ -86,7 +90,9 @@ public class TypeConvertUtil {
         } else if (Double.class.equals(type)) {
             return BasicType.DOUBLE_TYPE;
         } else if (Map.class.equals(type)) {
-            return new MapType<>(convert(column.getNestedColumns().get(0)), convert(column.getNestedColumns().get(1)));
+            return new MapType<>(
+                    convert(column.getNestedColumns().get(0)),
+                    convert(column.getNestedColumns().get(1)));
         } else if (UUID.class.equals(type)) {
             return BasicType.STRING_TYPE;
         } else if (Inet4Address.class.equals(type)) {
@@ -99,7 +105,9 @@ public class TypeConvertUtil {
             return BasicType.STRING_TYPE;
         } else {
             // TODO support pojo
-            throw new IllegalArgumentException("not supported data type: " + column.getDataType());
+            throw new ClickhouseConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    "unsupported data type: " + column.getDataType());
         }
     }
 
@@ -151,8 +159,8 @@ public class TypeConvertUtil {
             }
         } else {
             // TODO support pojo
-            throw new IllegalArgumentException("not supported data type: " + dataType);
+            throw new ClickhouseConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported data type: " + dataType);
         }
     }
-
 }

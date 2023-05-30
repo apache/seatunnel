@@ -17,8 +17,24 @@
 
 package org.apache.seatunnel.core.starter.command;
 
-/**
- * Used to create command.
- */
-public interface CommandArgs {
+import com.beust.jcommander.Parameter;
+import lombok.Data;
+
+import java.util.List;
+
+/** CommandArgs, used to create command {@link Command} */
+@Data
+public abstract class CommandArgs {
+
+    /** Help parameter */
+    @Parameter(
+            names = {"-h", "--help"},
+            help = true,
+            description = "Show the usage message")
+    protected boolean help = false;
+
+    /** Undefined parameters parsed will be stored here as engine original command parameters. */
+    protected List<String> originalParameters;
+
+    public abstract Command<?> buildCommand();
 }

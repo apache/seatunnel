@@ -17,11 +17,6 @@
 
 package org.apache.seatunnel.common.config;
 
-import static org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfig;
-import static org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfigThrowable;
-import static org.apache.seatunnel.common.config.TypesafeConfigUtils.hasSubConfig;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
@@ -30,6 +25,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfig;
+import static org.apache.seatunnel.common.config.TypesafeConfigUtils.hasSubConfig;
 
 public class TypesafeConfigUtilsTest {
 
@@ -59,19 +57,6 @@ public class TypesafeConfigUtilsTest {
         Assertions.assertFalse(hasSubConfig);
     }
 
-    @Test
-    public void testExtractSubConfigThrowable() {
-        Config config = getConfig();
-
-        assertThrows(ConfigRuntimeException.class, () -> extractSubConfigThrowable(config, "test1.", false), "config is empty");
-
-        Config subConfig = extractSubConfigThrowable(config, "test.", false);
-        Map<String, String> configMap = new HashMap<>();
-        configMap.put("t0", "v0");
-        configMap.put("t1", "v1");
-        Assertions.assertEquals(ConfigFactory.parseMap(configMap), subConfig);
-    }
-
     public Config getConfig() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("test.t0", "v0");
@@ -85,7 +70,11 @@ public class TypesafeConfigUtilsTest {
     @Test
     public void testGetConfig() {
         Config config = getConfig();
-        Assertions.assertEquals(Long.parseLong("100"), (long) TypesafeConfigUtils.getConfig(config, "l1", Long.parseLong("101")));
-        Assertions.assertEquals(Long.parseLong("100"), (long) TypesafeConfigUtils.getConfig(config, "l2", Long.parseLong("100")));
+        Assertions.assertEquals(
+                Long.parseLong("100"),
+                (long) TypesafeConfigUtils.getConfig(config, "l1", Long.parseLong("101")));
+        Assertions.assertEquals(
+                Long.parseLong("100"),
+                (long) TypesafeConfigUtils.getConfig(config, "l2", Long.parseLong("100")));
     }
 }

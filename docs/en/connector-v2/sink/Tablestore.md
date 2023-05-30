@@ -9,21 +9,20 @@ Write data to `Tablestore`
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name             | type   | required | default value |
-|----------------- | ------ |----------| ------------- |
-| end_point        | string | yes      | -             |
-| instance_name    | string | yes      | -             |
-| access_key_id    | string | yes      | -             |
-| access_key_secret| string | yes      | -             |
-| table            | string | yes      | -             |
-| primary_keys     | array  | yes      | -             |
-| batch_size       | string | no       | 25            |
-| batch_interval_ms| string | no       | 1000          |
-| common-options   | config | no       | -             |
+|       name        |  type  | required | default value |
+|-------------------|--------|----------|---------------|
+| end_point         | string | yes      | -             |
+| instance_name     | string | yes      | -             |
+| access_key_id     | string | yes      | -             |
+| access_key_secret | string | yes      | -             |
+| table             | string | yes      | -             |
+| primary_keys      | array  | yes      | -             |
+| batch_size        | string | no       | 25            |
+| batch_interval_ms | string | no       | 1000          |
+| common-options    | config | no       | -             |
 
 ### end_point [string]
 

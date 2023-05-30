@@ -25,9 +25,9 @@ public class HudiSourceSplit implements SourceSplit {
 
     private static final long serialVersionUID = -1L;
 
-    private String splitId;
+    private final String splitId;
 
-    private InputSplit inputSplit;
+    private final InputSplit inputSplit;
 
     public HudiSourceSplit(String splitId, InputSplit inputSplit) {
         this.splitId = splitId;

@@ -47,10 +47,8 @@ import java.net.ConnectException;
 import java.net.URI;
 
 /**
- * <p>
  * A {@link FileSystem} backed by an FTP client provided by <a
  * href="http://commons.apache.org/net/">Apache Commons Net</a>.
- * </p>
  */
 @InterfaceAudience.Public
 @InterfaceStability.Stable
@@ -64,14 +62,14 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
     public static final String FS_FTP_HOST = "fs.ftp.host";
     public static final String FS_FTP_HOST_PORT = "fs.ftp.host.port";
     public static final String FS_FTP_PASSWORD_PREFIX = "fs.ftp.password.";
-    public static final String E_SAME_DIRECTORY_ONLY =
-            "only same directory renames are supported";
+    public static final String E_SAME_DIRECTORY_ONLY = "only same directory renames are supported";
 
     private URI uri;
 
     /**
      * Return the protocol scheme for the FileSystem.
-     * <p/>
+     *
+     * <p>
      *
      * @return <code>ftp</code>
      */
@@ -134,16 +132,25 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
         client.connect(host, port);
         int reply = client.getReplyCode();
         if (!FTPReply.isPositiveCompletion(reply)) {
-            throw NetUtils.wrapException(host, port,
-                    NetUtils.UNKNOWN_HOST, 0,
+            throw NetUtils.wrapException(
+                    host,
+                    port,
+                    NetUtils.UNKNOWN_HOST,
+                    0,
                     new ConnectException("Server response " + reply));
         } else if (client.login(user, password)) {
             client.setFileTransferMode(FTP.BLOCK_TRANSFER_MODE);
             client.setFileType(FTP.BINARY_FILE_TYPE);
             client.setBufferSize(DEFAULT_BUFFER_SIZE);
         } else {
-            throw new IOException("Login failed on server - " + host + ", port - "
-                    + port + " as user '" + user + "'");
+            throw new IOException(
+                    "Login failed on server - "
+                            + host
+                            + ", port - "
+                            + port
+                            + " as user '"
+                            + user
+                            + "'");
         }
 
         return client;
@@ -163,8 +170,8 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
             boolean logoutSuccess = client.logout();
             client.disconnect();
             if (!logoutSuccess) {
-                LOG.warn("Logout failed while disconnecting, error code - "
-                        + client.getReplyCode());
+                LOG.warn(
+                        "Logout failed while disconnecting, error code - " + client.getReplyCode());
             }
         }
     }
@@ -204,8 +211,7 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
         // FSDataInputStream.
         client.changeWorkingDirectory(parent.toUri().getPath());
         InputStream is = client.retrieveFileStream(file.getName());
-        FSDataInputStream fis = new FSDataInputStream(new FTPInputStream(is,
-                client, statistics));
+        FSDataInputStream fis = new FSDataInputStream(new FTPInputStream(is, client, statistics));
         if (!FTPReply.isPositivePreliminary(client.getReplyCode())) {
             // The ftpClient is an inconsistent state. Must close the stream
             // which in turn will logout and disconnect from FTP server
@@ -216,13 +222,19 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
     }
 
     /**
-     * A stream obtained via this call must be closed before using other APIs of
-     * this class or else the invocation will block.
+     * A stream obtained via this call must be closed before using other APIs of this class or else
+     * the invocation will block.
      */
     @Override
-    public FSDataOutputStream create(Path file, FsPermission permission,
-                                     boolean overwrite, int bufferSize, short replication, long blockSize,
-                                     Progressable progress) throws IOException {
+    public FSDataOutputStream create(
+            Path file,
+            FsPermission permission,
+            boolean overwrite,
+            int bufferSize,
+            short replication,
+            long blockSize,
+            Progressable progress)
+            throws IOException {
         final FTPClient client = connect();
         Path workDir = new Path(client.printWorkingDirectory());
         Path absolute = makeAbsolute(workDir, file);
@@ -254,22 +266,23 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
         // file. The FTP client connection is closed when close() is called on the
         // FSDataOutputStream.
         client.changeWorkingDirectory(parent.toUri().getPath());
-        FSDataOutputStream fos = new FSDataOutputStream(client.storeFileStream(file
-                .getName()), statistics) {
-            @Override
-            public void close() throws IOException {
-                super.close();
-                if (!client.isConnected()) {
-                    throw new FTPException("Client not connected");
-                }
-                boolean cmdCompleted = client.completePendingCommand();
-                disconnect(client);
-                if (!cmdCompleted) {
-                    throw new FTPException("Could not complete transfer, Reply Code - "
-                            + client.getReplyCode());
-                }
-            }
-        };
+        FSDataOutputStream fos =
+                new FSDataOutputStream(client.storeFileStream(file.getName()), statistics) {
+                    @Override
+                    public void close() throws IOException {
+                        super.close();
+                        if (!client.isConnected()) {
+                            throw new FTPException("Client not connected");
+                        }
+                        boolean cmdCompleted = client.completePendingCommand();
+                        disconnect(client);
+                        if (!cmdCompleted) {
+                            throw new FTPException(
+                                    "Could not complete transfer, Reply Code - "
+                                            + client.getReplyCode());
+                        }
+                    }
+                };
         if (!FTPReply.isPositivePreliminary(client.getReplyCode())) {
             // The ftpClient is an inconsistent state. Must close the stream
             // which in turn will logout and disconnect from FTP server
@@ -281,15 +294,16 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
 
     /** This optional operation is not yet supported. */
     @Override
-    public FSDataOutputStream append(Path f, int bufferSize,
-                                     Progressable progress) throws IOException {
+    public FSDataOutputStream append(Path f, int bufferSize, Progressable progress)
+            throws IOException {
         throw new IOException("Not supported");
     }
 
     /**
-     * Convenience method, so that we don't open a new connection when using this
-     * method from within another method. Otherwise every API invocation incurs
-     * the overhead of opening/closing a TCP connection.
+     * Convenience method, so that we don't open a new connection when using this method from within
+     * another method. Otherwise every API invocation incurs the overhead of opening/closing a TCP
+     * connection.
+     *
      * @throws IOException on IO problems other than FileNotFoundException
      */
     private boolean exists(FTPClient client, Path file) throws IOException {
@@ -312,12 +326,11 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
     }
 
     /**
-     * Convenience method, so that we don't open a new connection when using this
-     * method from within another method. Otherwise every API invocation incurs
-     * the overhead of opening/closing a TCP connection.
+     * Convenience method, so that we don't open a new connection when using this method from within
+     * another method. Otherwise every API invocation incurs the overhead of opening/closing a TCP
+     * connection.
      */
-    private boolean delete(FTPClient client, Path file, boolean recursive)
-            throws IOException {
+    private boolean delete(FTPClient client, Path file, boolean recursive) throws IOException {
         Path workDir = new Path(client.printWorkingDirectory());
         Path absolute = makeAbsolute(workDir, file);
         String pathName = absolute.toUri().getPath();
@@ -327,7 +340,7 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
                 return client.deleteFile(pathName);
             }
         } catch (FileNotFoundException e) {
-            //the file is not there
+            // the file is not there
             return false;
         }
         FileStatus[] dirEntries = listStatus(client, absolute);
@@ -383,17 +396,16 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
     }
 
     /**
-     * Convenience method, so that we don't open a new connection when using this
-     * method from within another method. Otherwise every API invocation incurs
-     * the overhead of opening/closing a TCP connection.
+     * Convenience method, so that we don't open a new connection when using this method from within
+     * another method. Otherwise every API invocation incurs the overhead of opening/closing a TCP
+     * connection.
      */
-    private FileStatus[] listStatus(FTPClient client, Path file)
-            throws IOException {
+    private FileStatus[] listStatus(FTPClient client, Path file) throws IOException {
         Path workDir = new Path(client.printWorkingDirectory());
         Path absolute = makeAbsolute(workDir, file);
         FileStatus fileStat = getFileStatus(client, absolute);
         if (fileStat.isFile()) {
-            return new FileStatus[] { fileStat };
+            return new FileStatus[] {fileStat};
         }
         FTPFile[] ftpFiles = client.listFiles(absolute.toUri().getPath());
         FileStatus[] fileStats = new FileStatus[ftpFiles.length];
@@ -415,12 +427,11 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
     }
 
     /**
-     * Convenience method, so that we don't open a new connection when using this
-     * method from within another method. Otherwise every API invocation incurs
-     * the overhead of opening/closing a TCP connection.
+     * Convenience method, so that we don't open a new connection when using this method from within
+     * another method. Otherwise every API invocation incurs the overhead of opening/closing a TCP
+     * connection.
      */
-    private FileStatus getFileStatus(FTPClient client, Path file)
-            throws IOException {
+    private FileStatus getFileStatus(FTPClient client, Path file) throws IOException {
         FileStatus fileStat = null;
         Path workDir = new Path(client.printWorkingDirectory());
         Path absolute = makeAbsolute(workDir, file);
@@ -432,8 +443,8 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
             long blockSize = DEFAULT_BLOCK_SIZE; // Block Size not known.
             long modTime = -1; // Modification time of root dir not known.
             Path root = new Path("/");
-            return new FileStatus(length, isDir, blockReplication, blockSize,
-                    modTime, root.makeQualified(this));
+            return new FileStatus(
+                    length, isDir, blockReplication, blockSize, modTime, root.makeQualified(this));
         }
         String pathName = parentPath.toUri().getPath();
         FTPFile[] ftpFiles = client.listFiles(pathName);
@@ -473,8 +484,17 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
         String user = ftpFile.getUser();
         String group = ftpFile.getGroup();
         Path filePath = new Path(parentPath, ftpFile.getName());
-        return new FileStatus(length, isDir, blockReplication, blockSize, modTime,
-                accessTime, permission, user, group, filePath.makeQualified(this));
+        return new FileStatus(
+                length,
+                isDir,
+                blockReplication,
+                blockSize,
+                modTime,
+                accessTime,
+                permission,
+                user,
+                group,
+                filePath.makeQualified(this));
     }
 
     @Override
@@ -489,9 +509,9 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
     }
 
     /**
-     * Convenience method, so that we don't open a new connection when using this
-     * method from within another method. Otherwise every API invocation incurs
-     * the overhead of opening/closing a TCP connection.
+     * Convenience method, so that we don't open a new connection when using this method from within
+     * another method. Otherwise every API invocation incurs the overhead of opening/closing a TCP
+     * connection.
      */
     private boolean mkdirs(FTPClient client, Path file, FsPermission permission)
             throws IOException {
@@ -501,24 +521,24 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
         String pathName = absolute.getName();
         if (!exists(client, absolute)) {
             Path parent = absolute.getParent();
-            created = parent == null || mkdirs(client, parent, FsPermission
-                    .getDirDefault());
+            created = parent == null || mkdirs(client, parent, FsPermission.getDirDefault());
             if (created) {
                 String parentDir = parent.toUri().getPath();
                 client.changeWorkingDirectory(parentDir);
                 created = created && client.makeDirectory(pathName);
             }
         } else if (isFile(client, absolute)) {
-            throw new ParentNotDirectoryException(String.format(
-                    "Can't make directory for path %s since it is a file.", absolute));
+            throw new ParentNotDirectoryException(
+                    String.format(
+                            "Can't make directory for path %s since it is a file.", absolute));
         }
         return created;
     }
 
     /**
-     * Convenience method, so that we don't open a new connection when using this
-     * method from within another method. Otherwise every API invocation incurs
-     * the overhead of opening/closing a TCP connection.
+     * Convenience method, so that we don't open a new connection when using this method from within
+     * another method. Otherwise every API invocation incurs the overhead of opening/closing a TCP
+     * connection.
      */
     private boolean isFile(FTPClient client, Path file) {
         try {
@@ -547,6 +567,7 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
 
     /**
      * Probe for a path being a parent of another
+     *
      * @param parent parent path
      * @param child possible child path
      * @return true if the parent's path matches the start of the child's
@@ -563,9 +584,9 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
     }
 
     /**
-     * Convenience method, so that we don't open a new connection when using this
-     * method from within another method. Otherwise every API invocation incurs
-     * the overhead of opening/closing a TCP connection.
+     * Convenience method, so that we don't open a new connection when using this method from within
+     * another method. Otherwise every API invocation incurs the overhead of opening/closing a TCP
+     * connection.
      *
      * @param client FTPClient
      * @param src src
@@ -573,8 +594,7 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
      * @return result
      * @throws IOException IOException
      */
-    private boolean rename(FTPClient client, Path src, Path dst)
-            throws IOException {
+    private boolean rename(FTPClient client, Path src, Path dst) throws IOException {
         Path workDir = new Path(client.printWorkingDirectory());
         Path absoluteSrc = makeAbsolute(workDir, src);
         Path absoluteDst = makeAbsolute(workDir, dst);
@@ -587,12 +607,11 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
             absoluteDst = new Path(absoluteDst, absoluteSrc.getName());
         }
         if (exists(client, absoluteDst)) {
-            throw new FileAlreadyExistsException("Destination path " + dst
-                    + " already exists");
+            throw new FileAlreadyExistsException("Destination path " + dst + " already exists");
         }
         if (isParentOf(absoluteSrc, absoluteDst)) {
-            throw new IOException("Cannot rename " + absoluteSrc + " under itself"
-                    + " : " + absoluteDst);
+            throw new IOException(
+                    "Cannot rename " + absoluteSrc + " under itself" + " : " + absoluteDst);
         }
         String from = absoluteSrc.toString();
         String to = absoluteDst.toString();

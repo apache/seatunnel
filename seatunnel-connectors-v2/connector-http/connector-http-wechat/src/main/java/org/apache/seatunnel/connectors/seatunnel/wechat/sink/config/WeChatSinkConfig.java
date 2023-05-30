@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.wechat.sink.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Getter;
 import lombok.NonNull;
@@ -33,18 +33,22 @@ public class WeChatSinkConfig extends HttpConfig {
     public static final String WECHAT_SEND_MSG_SUPPORT_TYPE = "text";
     public static final String WECHAT_SEND_MSG_TYPE_KEY = "msgtype";
     public static final String WECHAT_SEND_MSG_CONTENT_KEY = "content";
-    public static final Option<List<String>> MENTIONED_LIST = Options.key("mentioned_list")
-            .listType()
-            .noDefaultValue()
-            .withDescription("A list of userids to remind the specified members in the group (@ a member), @ all means to remind everyone");
-    public static final Option<List<String>> MENTIONED_MOBILE_LIST = Options.key("mentioned_mobile_list")
-            .listType()
-            .noDefaultValue()
-            .withDescription("Mobile phone number list, remind the group member corresponding to the mobile phone number (@ a member), @ all means remind everyone");
+    public static final Option<List<String>> MENTIONED_LIST =
+            Options.key("mentioned_list")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "A list of userids to remind the specified members in the group (@ a member), @ all means to remind everyone");
+    public static final Option<List<String>> MENTIONED_MOBILE_LIST =
+            Options.key("mentioned_mobile_list")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Mobile phone number list, remind the group member corresponding to the mobile phone number (@ a member), @ all means remind everyone");
     private List<String> mentionedList;
     private List<String> mentionedMobileList;
 
-    public WeChatSinkConfig(@NonNull Config pluginConfig){
+    public WeChatSinkConfig(@NonNull Config pluginConfig) {
         if (pluginConfig.hasPath(MENTIONED_LIST.key())) {
             this.mentionedList = pluginConfig.getStringList(MENTIONED_LIST.key());
         }

@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook
+org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook
 org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook
 org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook
 org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook

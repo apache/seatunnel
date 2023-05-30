@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
+
 public enum ClickhouseFileCopyMethod {
     SCP("scp"),
     RSYNC("rsync"),
@@ -32,11 +35,13 @@ public enum ClickhouseFileCopyMethod {
     }
 
     public static ClickhouseFileCopyMethod from(String name) {
-        for (ClickhouseFileCopyMethod clickhouseFileCopyMethod : ClickhouseFileCopyMethod.values()) {
+        for (ClickhouseFileCopyMethod clickhouseFileCopyMethod :
+                ClickhouseFileCopyMethod.values()) {
             if (clickhouseFileCopyMethod.getName().equalsIgnoreCase(name)) {
                 return clickhouseFileCopyMethod;
             }
         }
-        throw new IllegalArgumentException("Unknown ClickhouseFileCopyMethod: " + name);
+        throw new ClickhouseConnectorException(
+                CommonErrorCode.ILLEGAL_ARGUMENT, "Unknown ClickhouseFileCopyMethod: " + name);
     }
 }

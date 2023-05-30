@@ -24,9 +24,11 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceQueryInfo;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
 
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Query;
@@ -44,21 +46,27 @@ import java.util.Objects;
 public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private final SingleSplitReaderContext context;
-    private final Neo4jSourceConfig config;
+    private final Neo4jSourceQueryInfo neo4jSourceQueryInfo;
     private final SeaTunnelRowType rowType;
     private final Driver driver;
     private Session session;
 
-    public Neo4jSourceReader(SingleSplitReaderContext context, Neo4jSourceConfig config, SeaTunnelRowType rowType) {
+    public Neo4jSourceReader(
+            SingleSplitReaderContext context,
+            Neo4jSourceQueryInfo neo4jSourceQueryInfo,
+            SeaTunnelRowType rowType) {
         this.context = context;
-        this.config = config;
-        this.driver = config.getDriverBuilder().build();
+        this.neo4jSourceQueryInfo = neo4jSourceQueryInfo;
+        this.driver = neo4jSourceQueryInfo.getDriverBuilder().build();
         this.rowType = rowType;
     }
 
     @Override
     public void open() throws Exception {
-        this.session = driver.session(SessionConfig.forDatabase(config.getDriverBuilder().getDatabase()));
+        this.session =
+                driver.session(
+                        SessionConfig.forDatabase(
+                                neo4jSourceQueryInfo.getDriverBuilder().getDatabase()));
     }
 
     @Override
@@ -69,32 +77,37 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        final Query query = new Query(config.getQuery());
-        session.readTransaction(tx -> {
-            final Result result = tx.run(query);
-            result.stream()
-                .forEach(row -> {
-                    final Object[] fields = new Object[rowType.getTotalFields()];
-                    for (int i = 0; i < rowType.getTotalFields(); i++) {
-                        final String fieldName = rowType.getFieldName(i);
-                        final SeaTunnelDataType<?> fieldType = rowType.getFieldType(i);
-                        final Value value = row.get(fieldName);
-                        fields[i] = convertType(fieldType, value);
-                    }
-                    output.collect(new SeaTunnelRow(fields));
+        final Query query = new Query(neo4jSourceQueryInfo.getQuery());
+        session.readTransaction(
+                tx -> {
+                    final Result result = tx.run(query);
+                    result.stream()
+                            .forEach(
+                                    row -> {
+                                        final Object[] fields =
+                                                new Object[rowType.getTotalFields()];
+                                        for (int i = 0; i < rowType.getTotalFields(); i++) {
+                                            final String fieldName = rowType.getFieldName(i);
+                                            final SeaTunnelDataType<?> fieldType =
+                                                    rowType.getFieldType(i);
+                                            final Value value = row.get(fieldName);
+                                            fields[i] = convertType(fieldType, value);
+                                        }
+                                        output.collect(new SeaTunnelRow(fields));
+                                    });
+                    return null;
                 });
-            return null;
-        });
         this.context.signalNoMoreElement();
     }
 
     /**
      * convert {@link SeaTunnelDataType} to java data type
      *
-     * @throws IllegalArgumentException when not supported data type
-     * @throws LossyCoercion            when conversion cannot be achieved without losing precision.
+     * @throws Neo4jConnectorException when not supported data type
+     * @throws LossyCoercion when conversion cannot be achieved without losing precision.
      */
-    public static Object convertType(SeaTunnelDataType<?> dataType, Value value) throws IllegalArgumentException, LossyCoercion {
+    public static Object convertType(SeaTunnelDataType<?> dataType, Value value)
+            throws Neo4jConnectorException, LossyCoercion {
         Objects.requireNonNull(dataType);
         Objects.requireNonNull(value);
 
@@ -119,13 +132,17 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 return value.asLocalDateTime();
             case MAP:
                 if (!((MapType<?, ?>) dataType).getKeyType().equals(BasicType.STRING_TYPE)) {
-                    throw new IllegalArgumentException("Key Type of MapType must String type");
+                    throw new Neo4jConnectorException(
+                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            "Key Type of MapType must String type");
                 }
                 final SeaTunnelDataType<?> valueType = ((MapType<?, ?>) dataType).getValueType();
                 return value.asMap(v -> valueType.getTypeClass().cast(convertType(valueType, v)));
             case ARRAY:
                 final BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
-                final List<?> list = value.asList(v -> elementType.getTypeClass().cast(convertType(elementType, v)));
+                final List<?> list =
+                        value.asList(
+                                v -> elementType.getTypeClass().cast(convertType(elementType, v)));
                 final Object array = Array.newInstance(elementType.getTypeClass(), list.size());
                 for (int i = 0; i < list.size(); i++) {
                     Array.set(array, i, list.get(i));
@@ -136,8 +153,9 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             case FLOAT:
                 return value.asFloat();
             default:
-                throw new IllegalArgumentException("not supported data type: " + dataType);
+                throw new Neo4jConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "not supported data type: " + dataType);
         }
-
     }
 }

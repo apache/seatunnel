@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.sentry.config.SentryConfig;
 
 import com.google.auto.service.AutoService;
 
@@ -32,9 +33,16 @@ public class SentrySinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(SentryConfig.DSN)
-            .optional(SentryConfig.ENV, SentryConfig.CACHE_DIRPATH, SentryConfig.ENABLE_EXTERNAL_CONFIGURATION,
-                SentryConfig.FLUSH_TIMEOUTMILLIS, SentryConfig.MAX_CACHEITEMS, SentryConfig.MAX_QUEUESIZE,
-                SentryConfig.RELEASE).build();
+        return OptionRule.builder()
+                .required(SentryConfig.DSN)
+                .optional(
+                        SentryConfig.ENV,
+                        SentryConfig.CACHE_DIRPATH,
+                        SentryConfig.ENABLE_EXTERNAL_CONFIGURATION,
+                        SentryConfig.FLUSH_TIMEOUTMILLIS,
+                        SentryConfig.MAX_CACHEITEMS,
+                        SentryConfig.MAX_QUEUESIZE,
+                        SentryConfig.RELEASE)
+                .build();
     }
 }

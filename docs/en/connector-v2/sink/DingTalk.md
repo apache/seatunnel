@@ -9,15 +9,14 @@ A sink plugin which use DingTalk robot send message
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name             | type        | required | default value |
-|------------------| ----------  | -------- | ------------- |
-| url              | string      | yes      | -             |
-| secret           | string      | yes      | -             |
-| common-options   |             | no       | -             |
+|      name      |  type  | required | default value |
+|----------------|--------|----------|---------------|
+| url            | string | yes      | -             |
+| secret         | string | yes      | -             |
+| common-options |        | no       | -             |
 
 ### url [string]
 
@@ -47,3 +46,4 @@ sink {
 ### 2.2.0-beta 2022-09-26
 
 - Add DingTalk Sink Connector
+

@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tablestore.config;
 
-import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.BATCH_INTERVAL_MS;
-import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.BATCH_SIZE;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.AllArgsConstructor;
@@ -28,10 +25,12 @@ import lombok.Data;
 import java.io.Serializable;
 import java.util.List;
 
+import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.BATCH_INTERVAL_MS;
+import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.BATCH_SIZE;
+
 @Data
 @AllArgsConstructor
 public class TablestoreOptions implements Serializable {
-
 
     private String endpoint;
 

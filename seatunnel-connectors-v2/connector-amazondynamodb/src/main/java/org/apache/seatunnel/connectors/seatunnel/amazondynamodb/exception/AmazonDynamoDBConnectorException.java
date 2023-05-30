@@ -21,15 +21,18 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 public class AmazonDynamoDBConnectorException extends SeaTunnelRuntimeException {
-    public AmazonDynamoDBConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+    public AmazonDynamoDBConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public AmazonDynamoDBConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public AmazonDynamoDBConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 
-    public AmazonDynamoDBConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+    public AmazonDynamoDBConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
         super(seaTunnelErrorCode, cause);
     }
 }

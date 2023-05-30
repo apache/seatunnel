@@ -17,17 +17,19 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Container;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class SeaTunnelContainer extends org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer {
+public abstract class SeaTunnelContainer
+        extends org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer {
 
     @Override
     @BeforeAll
@@ -43,7 +45,8 @@ public abstract class SeaTunnelContainer extends org.apache.seatunnel.e2e.common
         log.info("The TestContainer[{}] is closed.", identifier());
     }
 
-    public Container.ExecResult executeSeaTunnelJob(String confFile) throws IOException, InterruptedException {
+    public Container.ExecResult executeSeaTunnelJob(String confFile)
+            throws IOException, InterruptedException {
         return executeJob(confFile);
     }
 }

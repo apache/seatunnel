@@ -23,7 +23,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 
-public class SingleSplitEnumerator implements SourceSplitEnumerator<SingleSplit, SingleSplitEnumeratorState> {
+public class SingleSplitEnumerator
+        implements SourceSplitEnumerator<SingleSplit, SingleSplitEnumeratorState> {
     protected final SourceSplitEnumerator.Context<SingleSplit> context;
     protected SingleSplit pendingSplit;
     protected volatile boolean assigned = false;

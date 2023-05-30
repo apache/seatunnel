@@ -28,17 +28,19 @@ import org.apache.spark.sql.streaming.OutputMode;
 
 public class SparkSinkInjector {
 
-    private static final String SPARK_SINK_CLASS_NAME = "org.apache.seatunnel.translation.spark.sink.SparkSink";
+    private static final String SPARK_SINK_CLASS_NAME =
+            "org.apache.seatunnel.translation.spark.sink.SparkSink";
 
-    public static DataStreamWriter<Row> inject(DataStreamWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink) {
+    public static DataStreamWriter<Row> inject(
+            DataStreamWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink) {
         return dataset.format(SPARK_SINK_CLASS_NAME)
-            .outputMode(OutputMode.Append())
-            .option(Constants.SINK, SerializationUtils.objectToString(sink));
+                .outputMode(OutputMode.Append())
+                .option(Constants.SINK, SerializationUtils.objectToString(sink));
     }
 
-    public static DataFrameWriter<Row> inject(DataFrameWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink) {
+    public static DataFrameWriter<Row> inject(
+            DataFrameWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink) {
         return dataset.format(SPARK_SINK_CLASS_NAME)
-            .option(Constants.SINK, SerializationUtils.objectToString(sink));
+                .option(Constants.SINK, SerializationUtils.objectToString(sink));
     }
-
 }

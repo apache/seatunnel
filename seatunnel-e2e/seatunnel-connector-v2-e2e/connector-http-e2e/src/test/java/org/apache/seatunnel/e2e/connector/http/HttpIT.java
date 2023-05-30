@@ -36,9 +36,13 @@ import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 public class HttpIT extends TestSuiteBase implements TestResource {
+
+    private static final String TMP_DIR = "/tmp";
 
     private static final String IMAGE = "mockserver/mockserver:5.14.0";
 
@@ -47,16 +51,28 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() {
-        this.mockserverContainer = new GenericContainer<>(DockerImageName.parse(IMAGE))
-            .withNetwork(NETWORK)
-            .withNetworkAliases("mockserver")
-            .withExposedPorts(1080)
-            .withCopyFileToContainer(MountableFile.forHostPath(new File(HttpIT.class.getResource(
-                    "/mockserver-config.json").getPath()).getAbsolutePath()),
-                "/tmp/mockserver-config.json")
-            .withEnv("MOCKSERVER_INITIALIZATION_JSON_PATH", "/tmp/mockserver-config.json")
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-            .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
+        Optional<URL> resource =
+                Optional.ofNullable(HttpIT.class.getResource(getMockServerConfig()));
+        this.mockserverContainer =
+                new GenericContainer<>(DockerImageName.parse(IMAGE))
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases("mockserver")
+                        .withExposedPorts(1080)
+                        .withCopyFileToContainer(
+                                MountableFile.forHostPath(
+                                        new File(
+                                                        resource.orElseThrow(
+                                                                        () ->
+                                                                                new IllegalArgumentException(
+                                                                                        "Can not get config file of mockServer"))
+                                                                .getPath())
+                                                .getAbsolutePath()),
+                                TMP_DIR + getMockServerConfig())
+                        .withEnv(
+                                "MOCKSERVER_INITIALIZATION_JSON_PATH",
+                                TMP_DIR + getMockServerConfig())
+                        .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
+                        .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
         Startables.deepStart(Stream.of(mockserverContainer)).join();
     }
 
@@ -69,8 +85,59 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testHttpSourceToAssertSink(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/http_json_to_assert.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+    public void testSourceToAssertSink(TestContainer container)
+            throws IOException, InterruptedException {
+        // normal http
+        Container.ExecResult execResult1 = container.executeJob("/http_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult1.getExitCode());
+
+        // http github
+        Container.ExecResult execResult2 = container.executeJob("/github_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult2.getExitCode());
+
+        // http gitlab
+        Container.ExecResult execResult3 = container.executeJob("/gitlab_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult3.getExitCode());
+
+        // http content json
+        Container.ExecResult execResult4 = container.executeJob("/http_contentjson_to_assert.conf");
+        Assertions.assertEquals(0, execResult4.getExitCode());
+
+        // http jsonpath
+        Container.ExecResult execResult5 = container.executeJob("/http_jsonpath_to_assert.conf");
+        Assertions.assertEquals(0, execResult5.getExitCode());
+
+        // http jira
+        Container.ExecResult execResult6 = container.executeJob("/jira_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult6.getExitCode());
+
+        // http klaviyo
+        Container.ExecResult execResult7 = container.executeJob("/klaviyo_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult7.getExitCode());
+
+        // http lemlist
+        Container.ExecResult execResult8 = container.executeJob("/lemlist_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult8.getExitCode());
+
+        // http notion
+        Container.ExecResult execResult9 = container.executeJob("/notion_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult9.getExitCode());
+
+        // http onesignal
+        Container.ExecResult execResult10 = container.executeJob("/onesignal_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult10.getExitCode());
+
+        // http persistiq
+        Container.ExecResult execResult11 = container.executeJob("/persistiq_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult11.getExitCode());
+
+        // http httpMultiLine
+        Container.ExecResult execResult12 =
+                container.executeJob("/http_multilinejson_to_assert.conf");
+        Assertions.assertEquals(0, execResult12.getExitCode());
+    }
+
+    public String getMockServerConfig() {
+        return "/mockserver-config.json";
     }
 }

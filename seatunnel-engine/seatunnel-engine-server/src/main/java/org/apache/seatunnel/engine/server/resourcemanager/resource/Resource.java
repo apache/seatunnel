@@ -19,8 +19,5 @@ package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
 import java.io.Serializable;
 
-/**
- * The mark of seatunnel worker resource
- */
-public interface Resource extends Serializable {
-}
+/** The mark of seatunnel worker resource */
+public interface Resource extends Serializable {}

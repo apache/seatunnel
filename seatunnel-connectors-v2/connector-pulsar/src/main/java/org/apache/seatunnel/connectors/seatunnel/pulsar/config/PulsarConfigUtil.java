@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
+
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminBuilder;
 import org.apache.pulsar.client.api.Authentication;
@@ -31,8 +34,9 @@ import org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils;
 
 public class PulsarConfigUtil {
 
-    private PulsarConfigUtil() {
-    }
+    public static final String IDENTIFIER = "pulsar";
+
+    private PulsarConfigUtil() {}
 
     public static PulsarAdmin createAdmin(PulsarAdminConfig config) {
         PulsarAdminBuilder builder = PulsarAdmin.builder();
@@ -41,7 +45,8 @@ public class PulsarConfigUtil {
         try {
             return builder.build();
         } catch (PulsarClientException e) {
-            throw new RuntimeException(e);
+            throw new PulsarConnectorException(
+                    PulsarConnectorErrorCode.OPEN_PULSAR_ADMIN_FAILED, e);
         }
     }
 
@@ -52,12 +57,13 @@ public class PulsarConfigUtil {
         try {
             return builder.build();
         } catch (PulsarClientException e) {
-            throw new RuntimeException(e);
+            throw new PulsarConnectorException(
+                    PulsarConnectorErrorCode.OPEN_PULSAR_CLIENT_FAILED, e);
         }
     }
 
     public static ConsumerBuilder<byte[]> createConsumerBuilder(
-        PulsarClient client, PulsarConsumerConfig config) {
+            PulsarClient client, PulsarConsumerConfig config) {
         ConsumerBuilder<byte[]> builder = client.newConsumer(Schema.BYTES);
         builder.subscriptionName(config.getSubscriptionName());
         return builder;
@@ -70,12 +76,16 @@ public class PulsarConfigUtil {
 
         if (StringUtils.isNotBlank(config.getAuthPluginClassName())) {
             try {
-                return AuthenticationFactory.create(config.getAuthPluginClassName(), config.getAuthParams());
+                return AuthenticationFactory.create(
+                        config.getAuthPluginClassName(), config.getAuthParams());
             } catch (PulsarClientException.UnsupportedAuthenticationException e) {
-                throw new RuntimeException("Failed to create the authentication plug-in.", e);
+                throw new PulsarConnectorException(
+                        PulsarConnectorErrorCode.PULSAR_AUTHENTICATION_FAILED, e);
             }
         } else {
-            throw new IllegalArgumentException("Authentication parameters are required when using authentication plug-in.");
+            throw new PulsarConnectorException(
+                    PulsarConnectorErrorCode.PULSAR_AUTHENTICATION_FAILED,
+                    "Authentication parameters are required when using authentication plug-in.");
         }
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.serialization;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -24,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +35,7 @@ import java.util.Map;
  *
  * @param <T> engine row
  */
-public abstract class RowConverter<T> {
+public abstract class RowConverter<T> implements Serializable {
     protected final SeaTunnelDataType<?> dataType;
 
     public RowConverter(SeaTunnelDataType<?> dataType) {
@@ -42,7 +44,10 @@ public abstract class RowConverter<T> {
 
     public void validate(SeaTunnelRow seaTunnelRow) throws IOException {
         if (!(dataType instanceof SeaTunnelRowType)) {
-            throw new UnsupportedOperationException(String.format("The data type don't support validation: %s. ", dataType.getClass().getSimpleName()));
+            throw new UnsupportedOperationException(
+                    String.format(
+                            "The data type don't support validation: %s. ",
+                            dataType.getClass().getSimpleName()));
         }
         SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) dataType).getFieldTypes();
         List<String> errors = new ArrayList<>();
@@ -52,8 +57,12 @@ public abstract class RowConverter<T> {
             field = seaTunnelRow.getField(i);
             fieldType = fieldTypes[i];
             if (!validate(field, fieldType)) {
-                errors.add(String.format("The SQL type '%s' don't support '%s', the class of the expected data type is '%s'.",
-                    fieldType.getSqlType(), field.getClass(), fieldType.getTypeClass()));
+                errors.add(
+                        String.format(
+                                "The SQL type '%s' don't support '%s', the class of the expected data type is '%s'.",
+                                fieldType.getSqlType(),
+                                field.getClass(),
+                                fieldType.getTypeClass()));
             }
         }
         if (errors.size() > 0) {
@@ -80,8 +89,18 @@ public abstract class RowConverter<T> {
             case STRING:
             case DECIMAL:
             case BYTES:
-            case ARRAY:
                 return dataType.getTypeClass() == field.getClass();
+            case ARRAY:
+                if (!(field instanceof Object[])) {
+                    return false;
+                }
+                ArrayType<?, ?> arrayType = (ArrayType<?, ?>) dataType;
+                Object[] arrayField = (Object[]) field;
+                if (arrayField.length == 0) {
+                    return true;
+                } else {
+                    return validate(arrayField[0], arrayType.getElementType());
+                }
             case MAP:
                 if (!(field instanceof Map)) {
                     return false;
@@ -92,8 +111,16 @@ public abstract class RowConverter<T> {
                     return true;
                 } else {
                     Map.Entry<?, ?> entry = mapField.entrySet().stream().findFirst().get();
-                    return validate(entry.getKey(), mapType.getKeyType())
-                        && validate(entry.getValue(), mapType.getValueType());
+                    Object key = entry.getKey();
+                    if (key instanceof scala.Some) {
+                        key = ((scala.Some<?>) key).get();
+                    }
+                    Object value = entry.getValue();
+                    if (value instanceof scala.Some) {
+                        value = ((scala.Some<?>) value).get();
+                    }
+                    return validate(key, mapType.getKeyType())
+                            && validate(value, mapType.getValueType());
                 }
             case ROW:
                 if (!(field instanceof SeaTunnelRow)) {

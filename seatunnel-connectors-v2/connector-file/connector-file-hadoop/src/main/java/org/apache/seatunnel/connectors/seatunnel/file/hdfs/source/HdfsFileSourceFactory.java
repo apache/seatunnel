@@ -17,15 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfig;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class HdfsFileSourceFactory implements TableSourceFactory {
@@ -38,15 +42,26 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(HdfsSourceConfig.FILE_PATH)
-                .required(HdfsSourceConfig.FILE_TYPE)
                 .required(HdfsSourceConfig.DEFAULT_FS)
-                .optional(HdfsSourceConfig.DELIMITER)
-                .optional(HdfsSourceConfig.PARSE_PARTITION_FROM_PATH)
-                .optional(HdfsSourceConfig.DATE_FORMAT)
-                .optional(HdfsSourceConfig.DATETIME_FORMAT)
-                .optional(HdfsSourceConfig.TIME_FORMAT)
-                .conditional(Condition.of(HdfsSourceConfig.FILE_TYPE, "text"), SeaTunnelSchema.SCHEMA)
-                .conditional(Condition.of(HdfsSourceConfig.FILE_TYPE, "json"), SeaTunnelSchema.SCHEMA)
+                .required(BaseSourceConfig.FILE_FORMAT_TYPE)
+                .conditional(
+                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        BaseSourceConfig.DELIMITER)
+                .conditional(
+                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        Arrays.asList(
+                                FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
+                        CatalogTableUtil.SCHEMA)
+                .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
+                .optional(BaseSourceConfig.DATE_FORMAT)
+                .optional(BaseSourceConfig.DATETIME_FORMAT)
+                .optional(BaseSourceConfig.TIME_FORMAT)
                 .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return HdfsFileSource.class;
     }
 }

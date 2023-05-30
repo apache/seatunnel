@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
@@ -87,14 +89,19 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         String mysqlType = metadata.getColumnTypeName(colIndex).toUpperCase();
         String columnName = metadata.getColumnName(colIndex);
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
         switch (mysqlType) {
             case MYSQL_BIT:
-                return BasicType.BOOLEAN_TYPE;
+                if (precision == 1) {
+                    return BasicType.BOOLEAN_TYPE;
+                } else {
+                    return PrimitiveByteArrayType.INSTANCE;
+                }
             case MYSQL_TINYINT:
             case MYSQL_TINYINT_UNSIGNED:
             case MYSQL_SMALLINT:
@@ -112,6 +119,10 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
             case MYSQL_BIGINT_UNSIGNED:
                 return new DecimalType(20, 0);
             case MYSQL_DECIMAL:
+                if (precision > 38) {
+                    LOG.warn("{} will probably cause value overflow.", MYSQL_DECIMAL);
+                    return new DecimalType(38, 18);
+                }
                 return new DecimalType(precision, scale);
             case MYSQL_DECIMAL_UNSIGNED:
                 return new DecimalType(precision + 1, scale);
@@ -134,10 +145,10 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
                 return BasicType.STRING_TYPE;
             case MYSQL_LONGTEXT:
                 LOG.warn(
-                    "Type '{}' has a maximum precision of 536870911 in MySQL. "
-                        + "Due to limitations in the seatunnel type system, "
-                        + "the precision will be set to 2147483647.",
-                    MYSQL_LONGTEXT);
+                        "Type '{}' has a maximum precision of 536870911 in MySQL. "
+                                + "Due to limitations in the seatunnel type system, "
+                                + "the precision will be set to 2147483647.",
+                        MYSQL_LONGTEXT);
                 return BasicType.STRING_TYPE;
             case MYSQL_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
@@ -155,15 +166,16 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
             case MYSQL_BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
 
-            //Doesn't support yet
+                // Doesn't support yet
             case MYSQL_GEOMETRY:
             case MYSQL_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new UnsupportedOperationException(
-                    String.format(
-                        "Doesn't support MySQL type '%s' on column '%s'  yet.",
-                        mysqlType, jdbcColumnName));
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Doesn't support MySQL type '%s' on column '%s'  yet.",
+                                mysqlType, jdbcColumnName));
         }
     }
 }

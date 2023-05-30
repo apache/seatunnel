@@ -17,17 +17,23 @@
 
 package org.apache.seatunnel.common.utils;
 
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.concurrent.TimeUnit;
+
+@Slf4j
 public class RetryUtils {
 
     /**
      * Execute the given execution with retry
      *
-     * @param execution     execution to execute
+     * @param execution execution to execute
      * @param retryMaterial retry material, defined the condition to retry
-     * @param <T>           result type
+     * @param <T> result type
      * @return result of execution
      */
-    public static <T> T retryWithException(Execution<T, Exception> execution, RetryMaterial retryMaterial) throws Exception {
+    public static <T> T retryWithException(
+            Execution<T, Exception> execution, RetryMaterial retryMaterial) throws Exception {
         final RetryCondition<Exception> retryCondition = retryMaterial.getRetryCondition();
         final int retryTimes = retryMaterial.getRetryTimes();
 
@@ -46,45 +52,81 @@ public class RetryUtils {
                     if (retryMaterial.shouldThrowException()) {
                         throw e;
                     }
-                } else if (retryMaterial.getSleepTimeMillis() > 0) {
-                    Thread.sleep(retryMaterial.getSleepTimeMillis());
+                } else {
+                    // Otherwise it is retriable and we should retry
+                    String attemptMessage =
+                            "Failed to execute due to {}. Retrying attempt ({}/{}) after backoff of {} ms";
+                    if (retryMaterial.getSleepTimeMillis() > 0) {
+                        long backoff = retryMaterial.computeRetryWaitTimeMillis(i);
+                        log.debug(
+                                attemptMessage,
+                                ExceptionUtils.getMessage(e),
+                                i,
+                                retryTimes,
+                                backoff);
+                        Thread.sleep(backoff);
+                    } else {
+                        log.debug(attemptMessage, ExceptionUtils.getMessage(e), i, retryTimes, 0);
+                    }
                 }
             }
-        } while (i <= retryTimes);
+        } while (i < retryTimes);
         if (retryMaterial.shouldThrowException()) {
-            throw new RuntimeException("Execute given execution failed after retry " + retryTimes + " times", lastException);
+            throw new RuntimeException(
+                    "Execute given execution failed after retry " + retryTimes + " times",
+                    lastException);
         }
         return null;
     }
 
     public static class RetryMaterial {
+        /** An arbitrary absolute maximum practical retry time. */
+        public static final long MAX_RETRY_TIME_MS = TimeUnit.SECONDS.toMillis(20);
+
+        /** The maximum retry time. */
+        public static final long MAX_RETRY_TIME = 32;
+
         /**
-         * Retry times, if you set it to 1, the given execution will be executed twice.
-         * Should be greater than 0.
+         * Retry times, if you set it to 1, the given execution will be executed twice. Should be
+         * greater than 0.
          */
         private final int retryTimes;
-        /**
-         * If set true, the given execution will throw exception if it failed after retry.
-         */
+        /** If set true, the given execution will throw exception if it failed after retry. */
         private final boolean shouldThrowException;
         // this is the exception condition, can add result condition in the future.
         private final RetryCondition<Exception> retryCondition;
 
-        /**
-         * The interval between each retry
-         */
+        private final boolean sleepTimeIncrease;
+
+        /** The interval between each retry */
         private final long sleepTimeMillis;
 
-        public RetryMaterial(int retryTimes, boolean shouldThrowException, RetryCondition<Exception> retryCondition) {
+        public RetryMaterial(
+                int retryTimes,
+                boolean shouldThrowException,
+                RetryCondition<Exception> retryCondition) {
             this(retryTimes, shouldThrowException, retryCondition, 0);
         }
 
-        public RetryMaterial(int retryTimes, boolean shouldThrowException,
-                             RetryCondition<Exception> retryCondition, long sleepTimeMillis) {
+        public RetryMaterial(
+                int retryTimes,
+                boolean shouldThrowException,
+                RetryCondition<Exception> retryCondition,
+                long sleepTimeMillis) {
+            this(retryTimes, shouldThrowException, retryCondition, sleepTimeMillis, false);
+        }
+
+        public RetryMaterial(
+                int retryTimes,
+                boolean shouldThrowException,
+                RetryCondition<Exception> retryCondition,
+                long sleepTimeMillis,
+                boolean sleepTimeIncrease) {
             this.retryTimes = retryTimes;
             this.shouldThrowException = shouldThrowException;
             this.retryCondition = retryCondition;
             this.sleepTimeMillis = sleepTimeMillis;
+            this.sleepTimeIncrease = sleepTimeIncrease;
         }
 
         public int getRetryTimes() {
@@ -102,6 +144,21 @@ public class RetryUtils {
         public long getSleepTimeMillis() {
             return sleepTimeMillis;
         }
+
+        public long computeRetryWaitTimeMillis(int retryAttempts) {
+            if (sleepTimeMillis < 0) {
+                return 0;
+            }
+            if (!sleepTimeIncrease) {
+                return sleepTimeMillis;
+            }
+            if (retryAttempts > MAX_RETRY_TIME) {
+                // This would overflow the exponential algorithm ...
+                return MAX_RETRY_TIME_MS;
+            }
+            long result = sleepTimeMillis << retryAttempts;
+            return result < 0L ? MAX_RETRY_TIME_MS : Math.min(MAX_RETRY_TIME_MS, result);
+        }
     }
 
     @FunctionalInterface
@@ -112,5 +169,4 @@ public class RetryUtils {
     public interface RetryCondition<T> {
         boolean canRetry(T input);
     }
-
 }

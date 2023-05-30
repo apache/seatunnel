@@ -25,8 +25,7 @@ public class Constant {
     public static final String DEFAULT_SEATUNNEL_CLUSTER_NAME = "seatunnel";
 
     /**
-     * The default port number for the cluster auto-discovery mechanism's
-     * multicast communication.
+     * The default port number for the cluster auto-discovery mechanism's multicast communication.
      */
     public static final int DEFAULT_SEATUNNEL_MULTICAST_PORT = 53326;
 
@@ -36,19 +35,25 @@ public class Constant {
 
     public static final String HAZELCAST_SEATUNNEL_DEFAULT_YAML = "seatunnel.yaml";
 
-    public static final int OPERATION_RETRY_TIME = 10;
+    public static final int OPERATION_RETRY_TIME = 30;
 
     public static final int OPERATION_RETRY_SLEEP = 2000;
 
-    public static final String IMAP_RUNNING_JOB_INFO = "runningJobInfo";
+    public static final String IMAP_RUNNING_JOB_INFO = "engine_runningJobInfo";
 
-    public static final String IMAP_RUNNING_JOB_STATE = "runningJobState";
+    public static final String IMAP_RUNNING_JOB_STATE = "engine_runningJobState";
 
-    public static final String IMAP_FINISHED_JOB_STATE = "finishedJobState";
+    public static final String IMAP_FINISHED_JOB_STATE = "engine_finishedJobState";
 
-    public static final String IMAP_STATE_TIMESTAMPS = "stateTimestamps";
+    public static final String IMAP_FINISHED_JOB_METRICS = "engine_finishedJobMetrics";
 
-    public static final String IMAP_OWNED_SLOT_PROFILES = "ownedSlotProfilesIMap";
+    public static final String IMAP_FINISHED_JOB_VERTEX_INFO = "engine_finishedJobVertexInfo";
 
-    public static final String IMAP_RESOURCE_MANAGER_REGISTER_WORKER = "ResourceManager_RegisterWorker";
+    public static final String IMAP_STATE_TIMESTAMPS = "engine_stateTimestamps";
+
+    public static final String IMAP_OWNED_SLOT_PROFILES = "engine_ownedSlotProfilesIMap";
+
+    public static final String IMAP_CHECKPOINT_ID = "engine_checkpoint-id-map";
+
+    public static final String IMAP_RUNNING_JOB_METRICS = "engine_runningJobMetrics";
 }

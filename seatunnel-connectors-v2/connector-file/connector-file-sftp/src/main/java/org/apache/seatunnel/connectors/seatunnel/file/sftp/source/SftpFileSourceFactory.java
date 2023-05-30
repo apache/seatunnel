@@ -17,15 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sftp.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpConfig;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class SftpFileSourceFactory implements TableSourceFactory {
@@ -37,19 +41,30 @@ public class SftpFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .required(SftpConfig.FILE_PATH)
                 .required(SftpConfig.SFTP_HOST)
                 .required(SftpConfig.SFTP_PORT)
                 .required(SftpConfig.SFTP_USERNAME)
                 .required(SftpConfig.SFTP_PASSWORD)
-                .required(SftpConfig.FILE_PATH)
-                .required(SftpConfig.FILE_TYPE)
-                .optional(SftpConfig.DELIMITER)
-                .optional(SftpConfig.PARSE_PARTITION_FROM_PATH)
-                .optional(SftpConfig.DATE_FORMAT)
-                .optional(SftpConfig.DATETIME_FORMAT)
-                .optional(SftpConfig.TIME_FORMAT)
-                .conditional(Condition.of(SftpConfig.FILE_TYPE, "text"), SeaTunnelSchema.SCHEMA)
-                .conditional(Condition.of(SftpConfig.FILE_TYPE, "json"), SeaTunnelSchema.SCHEMA)
+                .required(BaseSourceConfig.FILE_FORMAT_TYPE)
+                .conditional(
+                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        BaseSourceConfig.DELIMITER)
+                .conditional(
+                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        Arrays.asList(
+                                FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
+                        CatalogTableUtil.SCHEMA)
+                .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
+                .optional(BaseSourceConfig.DATE_FORMAT)
+                .optional(BaseSourceConfig.DATETIME_FORMAT)
+                .optional(BaseSourceConfig.TIME_FORMAT)
                 .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return SftpFileSource.class;
     }
 }

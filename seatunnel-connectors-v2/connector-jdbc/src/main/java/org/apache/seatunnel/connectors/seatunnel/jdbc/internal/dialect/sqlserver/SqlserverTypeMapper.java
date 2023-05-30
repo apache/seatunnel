@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +33,6 @@ import java.sql.SQLException;
 
 @Slf4j
 public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
-
 
     // ============================data types=====================
 
@@ -74,7 +75,8 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         String sqlServerType = metadata.getColumnTypeName(colIndex).toUpperCase();
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
@@ -119,14 +121,15 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
             case SQLSERVER_VARBINARY:
             case SQLSERVER_IMAGE:
                 return PrimitiveByteArrayType.INSTANCE;
-            //Doesn't support yet
+                // Doesn't support yet
             case SQLSERVER_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new UnsupportedOperationException(
-                    String.format(
-                        "Doesn't support SQLSERVER type '%s' on column '%s'  yet.",
-                        sqlServerType, jdbcColumnName));
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Doesn't support SQLSERVER type '%s' on column '%s'  yet.",
+                                sqlServerType, jdbcColumnName));
         }
     }
 }

@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.tablesto
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +31,6 @@ import java.sql.SQLException;
 
 @Slf4j
 public class TablestoreTypeMapper implements JdbcDialectTypeMapper {
-
 
     // ============================data types=====================
 
@@ -50,7 +51,8 @@ public class TablestoreTypeMapper implements JdbcDialectTypeMapper {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
         String tablestoreServerType = metadata.getColumnTypeName(colIndex).toUpperCase();
         switch (tablestoreServerType) {
             case TABLESTORE_BOOL:
@@ -65,14 +67,15 @@ public class TablestoreTypeMapper implements JdbcDialectTypeMapper {
             case TABLESTORE_VARBINARY:
             case TABLESTORE_MEDIUMBLOB:
                 return PrimitiveByteArrayType.INSTANCE;
-            //Doesn't support yet
+                // Doesn't support yet
             case TABLESTORE_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new UnsupportedOperationException(
-                    String.format(
-                        "Doesn't support TABLESTORE type '%s' on column '%s'  yet.",
-                        tablestoreServerType, jdbcColumnName));
+                throw new JdbcConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Doesn't support TABLESTORE type '%s' on column '%s'  yet.",
+                                tablestoreServerType, jdbcColumnName));
         }
     }
 }

@@ -20,7 +20,8 @@ package org.apache.seatunnel.translation.serialization;
 public interface SerializerConverter<SeaTunnelSerializerT, TargetSerializerT> {
 
     /**
-     * Converts the SeaTunnel {@link org.apache.seatunnel.api.serialization.Serializer} to the target serializer.
+     * Converts the SeaTunnel {@link org.apache.seatunnel.api.serialization.Serializer} to the
+     * target serializer.
      *
      * @param serializer SeaTunnel serializer.
      * @return target serializer.

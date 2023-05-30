@@ -17,7 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.state;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
+@AllArgsConstructor
+@Getter
 public class JdbcSourceState implements Serializable {
+    private boolean shouldEnumerate;
+    private Map<Integer, List<JdbcSourceSplit>> pendingSplits;
 }

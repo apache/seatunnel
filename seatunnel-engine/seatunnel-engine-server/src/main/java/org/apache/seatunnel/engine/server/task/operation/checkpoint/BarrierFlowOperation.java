@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.engine.server.task.operation.checkpoint;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
-
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointErrorReportOperation;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
@@ -31,10 +31,12 @@ import org.apache.seatunnel.engine.server.task.record.Barrier;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
 @NoArgsConstructor
+@Slf4j
 public class BarrierFlowOperation extends TaskOperation {
     protected Barrier barrier;
 
@@ -69,18 +71,38 @@ public class BarrierFlowOperation extends TaskOperation {
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(() -> {
-            Task task = server.getTaskExecutionService()
-                .getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup()
-                .getTask(taskLocation.getTaskID());
-            try {
-                task.triggerBarrier(barrier);
-            } catch (Exception e) {
-                sneakyThrow(e);
-            }
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException &&
-                !server.taskIsEnded(taskLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
+        RetryUtils.retryWithException(
+                () -> {
+                    Task task =
+                            server.getTaskExecutionService()
+                                    .getExecutionContext(taskLocation.getTaskGroupLocation())
+                                    .getTaskGroup()
+                                    .getTask(taskLocation.getTaskID());
+                    task.getExecutionContext()
+                            .getTaskExecutionService()
+                            .asyncExecuteFunction(
+                                    taskLocation.getTaskGroupLocation(),
+                                    () -> {
+                                        try {
+                                            log.debug(
+                                                    "CheckpointBarrierTriggerOperation [{}]",
+                                                    taskLocation);
+                                            task.triggerBarrier(barrier);
+                                        } catch (Exception e) {
+                                            task.getExecutionContext()
+                                                    .sendToMaster(
+                                                            new CheckpointErrorReportOperation(
+                                                                    taskLocation, e));
+                                        }
+                                    });
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof TaskGroupContextNotFoundException
+                                        && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 }

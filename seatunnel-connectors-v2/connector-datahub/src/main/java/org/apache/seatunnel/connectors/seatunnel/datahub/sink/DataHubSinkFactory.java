@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.datahub.sink;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+
+import com.google.auto.service.AutoService;
+
 import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_ID;
 import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ENDPOINT;
@@ -24,12 +30,6 @@ import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubCo
 import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.RETRY_TIMES;
 import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.TOPIC;
-
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-
-import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class DataHubSinkFactory implements TableSinkFactory {
@@ -40,6 +40,8 @@ public class DataHubSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(ENDPOINT, ACCESS_ID, ACCESS_KEY, PROJECT, TOPIC, TIMEOUT, RETRY_TIMES).build();
+        return OptionRule.builder()
+                .required(ENDPOINT, ACCESS_ID, ACCESS_KEY, PROJECT, TOPIC, TIMEOUT, RETRY_TIMES)
+                .build();
     }
 }

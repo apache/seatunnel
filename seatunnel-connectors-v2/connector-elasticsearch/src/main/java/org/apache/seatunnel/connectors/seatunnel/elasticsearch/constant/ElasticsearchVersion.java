@@ -17,8 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant;
 
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
+
 public enum ElasticsearchVersion {
-    ES2(2), ES5(5), ES6(6), ES7(7), ES8(8);
+    ES2(2),
+    ES5(5),
+    ES6(6),
+    ES7(7),
+    ES8(8);
 
     private int version;
 
@@ -40,7 +47,9 @@ public enum ElasticsearchVersion {
                 return elasticsearchVersion;
             }
         }
-        throw new IllegalArgumentException(String.format("version=%d,fail fo find ElasticsearchVersion.", version));
+        throw new ElasticsearchConnectorException(
+                ElasticsearchConnectorErrorCode.GET_ES_VERSION_FAILED,
+                String.format("version=%d,fail fo find ElasticsearchVersion.", version));
     }
 
     public static ElasticsearchVersion get(String clusterVersion) {

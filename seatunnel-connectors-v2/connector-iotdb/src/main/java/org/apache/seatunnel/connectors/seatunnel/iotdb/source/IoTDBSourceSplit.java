@@ -26,12 +26,10 @@ public class IoTDBSourceSplit implements SourceSplit {
 
     private static final long serialVersionUID = -1L;
 
-    private String splitId;
+    private final String splitId;
 
-    /**
-     * final query statement
-     */
-    private String query;
+    /** final query statement */
+    private final String query;
 
     @Override
     public String splitId() {

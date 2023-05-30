@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
-import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ExcelWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.JsonWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ParquetWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.TextWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ExcelReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
@@ -34,9 +36,9 @@ import java.io.Serializable;
 public enum FileFormat implements Serializable {
     CSV("csv") {
         @Override
-        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
-            textFileSinkConfig.setFieldDelimiter(",");
-            return new TextWriteStrategy(textFileSinkConfig);
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            fileSinkConfig.setFieldDelimiter(",");
+            return new TextWriteStrategy(fileSinkConfig);
         }
 
         @Override
@@ -46,8 +48,8 @@ public enum FileFormat implements Serializable {
     },
     TEXT("txt") {
         @Override
-        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
-            return new TextWriteStrategy(textFileSinkConfig);
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            return new TextWriteStrategy(fileSinkConfig);
         }
 
         @Override
@@ -57,8 +59,8 @@ public enum FileFormat implements Serializable {
     },
     PARQUET("parquet") {
         @Override
-        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
-            return new ParquetWriteStrategy(textFileSinkConfig);
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            return new ParquetWriteStrategy(fileSinkConfig);
         }
 
         @Override
@@ -68,8 +70,8 @@ public enum FileFormat implements Serializable {
     },
     ORC("orc") {
         @Override
-        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
-            return new OrcWriteStrategy(textFileSinkConfig);
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            return new OrcWriteStrategy(fileSinkConfig);
         }
 
         @Override
@@ -79,13 +81,24 @@ public enum FileFormat implements Serializable {
     },
     JSON("json") {
         @Override
-        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
-            return new JsonWriteStrategy(textFileSinkConfig);
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            return new JsonWriteStrategy(fileSinkConfig);
         }
 
         @Override
         public ReadStrategy getReadStrategy() {
             return new JsonReadStrategy();
+        }
+    },
+    EXCEL("xlsx") {
+        @Override
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            return new ExcelWriteStrategy(fileSinkConfig);
+        }
+
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new ExcelReadStrategy();
         }
     };
 
@@ -103,7 +116,7 @@ public enum FileFormat implements Serializable {
         return null;
     }
 
-    public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+    public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
         return null;
     }
 }

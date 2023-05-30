@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,8 +33,11 @@ public class ReadStrategyFactory {
             FileFormat fileFormat = FileFormat.valueOf(fileType.toUpperCase());
             return fileFormat.getReadStrategy();
         } catch (IllegalArgumentException e) {
-            String errorMsg = String.format("File source connector not support this file type [%s], please check your config", fileType);
-            throw new RuntimeException(errorMsg);
+            String errorMsg =
+                    String.format(
+                            "File source connector not support this file type [%s], please check your config",
+                            fileType);
+            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 }

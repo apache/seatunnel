@@ -19,13 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.http.client;
 
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
-import com.github.rholder.retry.Attempt;
-import com.github.rholder.retry.RetryListener;
-import com.github.rholder.retry.Retryer;
-import com.github.rholder.retry.RetryerBuilder;
-import com.github.rholder.retry.StopStrategies;
-import com.github.rholder.retry.WaitStrategies;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
@@ -48,6 +42,14 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
 
+import com.github.rholder.retry.Attempt;
+import com.github.rholder.retry.RetryListener;
+import com.github.rholder.retry.Retryer;
+import com.github.rholder.retry.RetryerBuilder;
+import com.github.rholder.retry.StopStrategies;
+import com.github.rholder.retry.WaitStrategies;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
@@ -67,10 +69,11 @@ public class HttpClientProvider implements AutoCloseable {
     private static final int CONNECT_TIMEOUT = 6000 * 2;
     private static final int SOCKET_TIMEOUT = 6000 * 10;
     private static final int INITIAL_CAPACITY = 16;
-    private static final RequestConfig REQUEST_CONFIG = RequestConfig.custom()
-            .setConnectTimeout(CONNECT_TIMEOUT)
-            .setSocketTimeout(SOCKET_TIMEOUT)
-            .build();
+    private static final RequestConfig REQUEST_CONFIG =
+            RequestConfig.custom()
+                    .setConnectTimeout(CONNECT_TIMEOUT)
+                    .setSocketTimeout(SOCKET_TIMEOUT)
+                    .build();
     private final CloseableHttpClient httpClient;
     private final Retryer<CloseableHttpResponse> retryer;
 
@@ -84,23 +87,36 @@ public class HttpClientProvider implements AutoCloseable {
             return RetryerBuilder.<CloseableHttpResponse>newBuilder().build();
         }
         return RetryerBuilder.<CloseableHttpResponse>newBuilder()
-            .retryIfException(ex -> ExceptionUtils.indexOfType(ex, IOException.class) != -1)
-            .withStopStrategy(StopStrategies.stopAfterAttempt(httpParameter.getRetry()))
-            .withWaitStrategy(WaitStrategies.fibonacciWait(httpParameter.getRetryBackoffMultiplierMillis(),
-                httpParameter.getRetryBackoffMaxMillis(), TimeUnit.MILLISECONDS))
-            .withRetryListener(new RetryListener() {
-                @Override
-                public <V> void onRetry(Attempt<V> attempt) {
-                    if (attempt.hasException()) {
-                        log.warn(String.format("[%d] request http failed",
-                            attempt.getAttemptNumber()), attempt.getExceptionCause());
-                    }
-                }
-            })
-            .build();
+                .retryIfException(ex -> ExceptionUtils.indexOfType(ex, IOException.class) != -1)
+                .withStopStrategy(StopStrategies.stopAfterAttempt(httpParameter.getRetry()))
+                .withWaitStrategy(
+                        WaitStrategies.fibonacciWait(
+                                httpParameter.getRetryBackoffMultiplierMillis(),
+                                httpParameter.getRetryBackoffMaxMillis(),
+                                TimeUnit.MILLISECONDS))
+                .withRetryListener(
+                        new RetryListener() {
+                            @Override
+                            public <V> void onRetry(Attempt<V> attempt) {
+                                if (attempt.hasException()) {
+                                    log.warn(
+                                            String.format(
+                                                    "[%d] request http failed",
+                                                    attempt.getAttemptNumber()),
+                                            attempt.getExceptionCause());
+                                }
+                            }
+                        })
+                .build();
     }
 
-    public HttpResponse execute(String url, String method, Map<String, String> headers, Map<String, String> params, String body) throws Exception {
+    public HttpResponse execute(
+            String url,
+            String method,
+            Map<String, String> headers,
+            Map<String, String> params,
+            String body)
+            throws Exception {
         // convert method option to uppercase
         method = method.toUpperCase(Locale.ROOT);
         if (HttpPost.METHOD_NAME.equals(method)) {
@@ -133,7 +149,7 @@ public class HttpClientProvider implements AutoCloseable {
     /**
      * Send a get request with request parameters
      *
-     * @param url    request address
+     * @param url request address
      * @param params request parameter map
      * @return http response result
      * @throws Exception information
@@ -145,13 +161,14 @@ public class HttpClientProvider implements AutoCloseable {
     /**
      * Send a get request with request headers and request parameters
      *
-     * @param url     request address
+     * @param url request address
      * @param headers request header map
-     * @param params  request parameter map
+     * @param params request parameter map
      * @return http response result
      * @throws Exception information
      */
-    public HttpResponse doGet(String url, Map<String, String> headers, Map<String, String> params) throws Exception {
+    public HttpResponse doGet(String url, Map<String, String> headers, Map<String, String> params)
+            throws Exception {
         // Create access address
         URIBuilder uriBuilder = new URIBuilder(url);
         // add parameter to uri
@@ -180,7 +197,7 @@ public class HttpClientProvider implements AutoCloseable {
     /**
      * Send post request with request parameters
      *
-     * @param url    request address
+     * @param url request address
      * @param params request parameter map
      * @return http response result
      * @throws Exception information
@@ -192,13 +209,14 @@ public class HttpClientProvider implements AutoCloseable {
     /**
      * Send a post request with request headers and request parameters
      *
-     * @param url     request address
+     * @param url request address
      * @param headers request header map
-     * @param params  request parameter map
+     * @param params request parameter map
      * @return http response result
      * @throws Exception information
      */
-    public HttpResponse doPost(String url, Map<String, String> headers, Map<String, String> params) throws Exception {
+    public HttpResponse doPost(String url, Map<String, String> headers, Map<String, String> params)
+            throws Exception {
         // create a new http get
         HttpPost httpPost = new HttpPost(url);
         // set default request config
@@ -213,6 +231,7 @@ public class HttpClientProvider implements AutoCloseable {
 
     /**
      * Send a post request with request body and without headers
+     *
      * @param url request address
      * @param body request body conetent
      * @return http response result
@@ -224,13 +243,15 @@ public class HttpClientProvider implements AutoCloseable {
 
     /**
      * Send a post request with request headers and request body
+     *
      * @param url request address
      * @param headers request header map
      * @param body request body content
      * @return http response result
      * @throws Exception information
      */
-    public HttpResponse doPost(String url, Map<String, String> headers, String body) throws Exception {
+    public HttpResponse doPost(String url, Map<String, String> headers, String body)
+            throws Exception {
         // create a new http post
         HttpPost httpPost = new HttpPost(url);
         // set default request config
@@ -246,14 +267,16 @@ public class HttpClientProvider implements AutoCloseable {
     /**
      * Send a post request with request headers , request parameters and request body
      *
-     * @param url     request address
+     * @param url request address
      * @param headers request header map
-     * @param params  request parameter map
-     * @param body    request body
+     * @param params request parameter map
+     * @param body request body
      * @return http response result
      * @throws Exception information
      */
-    public HttpResponse doPost(String url, Map<String, String> headers, Map<String, String> params, String body) throws Exception {
+    public HttpResponse doPost(
+            String url, Map<String, String> headers, Map<String, String> params, String body)
+            throws Exception {
         // create a new http get
         HttpPost httpPost = new HttpPost(url);
         // set default request config
@@ -282,7 +305,7 @@ public class HttpClientProvider implements AutoCloseable {
     /**
      * Send a put request with request parameters
      *
-     * @param url    request address
+     * @param url request address
      * @param params request parameter map
      * @return http response result
      * @throws Exception information
@@ -317,7 +340,7 @@ public class HttpClientProvider implements AutoCloseable {
     /**
      * Send delete request with request parameters
      *
-     * @param url    request address
+     * @param url request address
      * @param params request parameter map
      * @return http response result
      * @throws Exception information
@@ -357,7 +380,8 @@ public class HttpClientProvider implements AutoCloseable {
         params.forEach(builder::setParameter);
     }
 
-    private void addParameters(HttpEntityEnclosingRequestBase request, Map<String, String> params) throws UnsupportedEncodingException {
+    private void addParameters(HttpEntityEnclosingRequestBase request, Map<String, String> params)
+            throws UnsupportedEncodingException {
         if (Objects.isNull(params) || params.isEmpty()) {
             return;
         }
@@ -382,6 +406,11 @@ public class HttpClientProvider implements AutoCloseable {
 
     private void addBody(HttpEntityEnclosingRequestBase request, String body) {
         request.addHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON);
+
+        if (StringUtils.isBlank(body)) {
+            body = "";
+        }
+
         StringEntity entity = new StringEntity(body, ContentType.APPLICATION_JSON);
         entity.setContentEncoding(new BasicHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON));
         request.setEntity(entity);

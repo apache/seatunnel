@@ -20,6 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
 import org.apache.hadoop.conf.Configuration;
 
@@ -30,12 +33,14 @@ import java.util.Map;
 public interface WriteStrategy extends Transaction, Serializable {
     /**
      * init hadoop conf
+     *
      * @param conf hadoop conf
      */
-    void init(HadoopConf conf, String jobId, int subTaskIndex);
+    void init(HadoopConf conf, String jobId, String uuidPrefix, int subTaskIndex);
 
     /**
      * use hadoop conf generate hadoop configuration
+     *
      * @param conf hadoop conf
      * @return Configuration
      */
@@ -43,19 +48,22 @@ public interface WriteStrategy extends Transaction, Serializable {
 
     /**
      * write seaTunnelRow to target datasource
+     *
      * @param seaTunnelRow seaTunnelRow
-     * @throws Exception Exceptions
+     * @throws FileConnectorException Exceptions
      */
-    void write(SeaTunnelRow seaTunnelRow) throws Exception;
+    void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException;
 
     /**
      * set seaTunnelRowTypeInfo in writer
+     *
      * @param seaTunnelRowType seaTunnelRowType
      */
     void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType);
 
     /**
      * use seaTunnelRow generate partition directory
+     *
      * @param seaTunnelRow seaTunnelRow
      * @return the map of partition directory
      */
@@ -63,15 +71,40 @@ public interface WriteStrategy extends Transaction, Serializable {
 
     /**
      * use transaction id generate file name
+     *
      * @param transactionId transaction id
      * @return file name
      */
     String generateFileName(String transactionId);
 
-    /**
-     * when a transaction is triggered, release resources
-     */
+    /** when a transaction is triggered, release resources */
     void finishAndCloseFile();
 
+    /**
+     * get current checkpoint id
+     *
+     * @return checkpoint id
+     */
     long getCheckpointId();
+
+    /**
+     * get sink configuration
+     *
+     * @return sink configuration
+     */
+    FileSinkConfig getFileSinkConfig();
+
+    /**
+     * get file system utils
+     *
+     * @return file system utils
+     */
+    FileSystemUtils getFileSystemUtils();
+
+    /**
+     * set file system utils
+     *
+     * @param fileSystemUtils fileSystemUtils
+     */
+    void setFileSystemUtils(FileSystemUtils fileSystemUtils);
 }

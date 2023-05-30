@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer;
 
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.topic.TopicPartition;
 
 import org.apache.pulsar.client.admin.PulsarAdmin;
@@ -25,6 +27,7 @@ import org.apache.pulsar.client.api.RegexSubscriptionMode;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.partition.PartitionedTopicMetadata;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,27 +61,35 @@ public class TopicPatternDiscoverer implements PulsarDiscoverer {
         LOG.debug("Fetching descriptions for all topics on pulsar cluster");
         try {
             return pulsarAdmin
-                .namespaces()
-                .getTopics(namespace)
-                .parallelStream()
-                .filter(this::matchesSubscriptionMode)
-                .filter(topic -> topicPattern.matcher(topic).find())
-                .map(topicName -> {
-                    String completeTopicName = TopicName.get(topicName).getPartitionedTopicName();
-                    try {
-                        PartitionedTopicMetadata metadata =
-                            pulsarAdmin.topics().getPartitionedTopicMetadata(completeTopicName);
-                        return PulsarDiscoverer.toTopicPartitions(topicName, metadata.partitions);
-                    } catch (PulsarAdminException e) {
-                        // This method would cause the failure for subscriber.
-                        throw new IllegalStateException(e);
-                    }
-                }).filter(Objects::nonNull)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toSet());
+                    .namespaces()
+                    .getTopics(namespace)
+                    .parallelStream()
+                    .filter(this::matchesSubscriptionMode)
+                    .filter(topic -> topicPattern.matcher(topic).find())
+                    .map(
+                            topicName -> {
+                                String completeTopicName =
+                                        TopicName.get(topicName).getPartitionedTopicName();
+                                try {
+                                    PartitionedTopicMetadata metadata =
+                                            pulsarAdmin
+                                                    .topics()
+                                                    .getPartitionedTopicMetadata(completeTopicName);
+                                    return PulsarDiscoverer.toTopicPartitions(
+                                            topicName, metadata.partitions);
+                                } catch (PulsarAdminException e) {
+                                    // This method would cause the failure for subscriber.
+                                    throw new PulsarConnectorException(
+                                            PulsarConnectorErrorCode.GET_TOPIC_PARTITION_FAILED, e);
+                                }
+                            })
+                    .filter(Objects::nonNull)
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toSet());
         } catch (PulsarAdminException e) {
             // This method would cause the failure for subscriber.
-            throw new IllegalStateException(e);
+            throw new PulsarConnectorException(
+                    PulsarConnectorErrorCode.GET_TOPIC_PARTITION_FAILED, e);
         }
     }
 

@@ -22,5 +22,4 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 public interface SeaTunnelRowDeserializer {
 
     SeaTunnelRow deserialize(ElasticsearchRecord rowRecord);
-
 }

@@ -29,16 +29,19 @@ import java.util.concurrent.CompletableFuture;
 public interface ResourceManager {
     void init();
 
-    CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile) throws NoEnoughResourceException;
+    CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile)
+            throws NoEnoughResourceException;
 
-    CompletableFuture<List<SlotProfile>> applyResources(long jobId, List<ResourceProfile> resourceProfile) throws NoEnoughResourceException;
+    CompletableFuture<List<SlotProfile>> applyResources(
+            long jobId, List<ResourceProfile> resourceProfile) throws NoEnoughResourceException;
 
     CompletableFuture<Void> releaseResources(long jobId, List<SlotProfile> profiles);
 
     CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile);
 
     /**
-     * Check {@link SlotProfile} is active or not. Not active meaning can't use this slot to deploy task.
+     * Check {@link SlotProfile} is active or not. Not active meaning can't use this slot to deploy
+     * task.
      *
      * @return active or not
      */
@@ -55,5 +58,4 @@ public interface ResourceManager {
     void memberRemoved(MembershipServiceEvent event);
 
     void close();
-
 }

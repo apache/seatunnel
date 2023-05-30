@@ -26,10 +26,9 @@ public interface SinkConverter<SeaTunnelSinkT, TargetSinkT> {
     /**
      * Convert SeaTunnel {@link SeaTunnelSink} to target sink.
      *
-     * @param sink1         SeaTunnel {@link SeaTunnelSink}.
+     * @param sink1 SeaTunnel {@link SeaTunnelSink}.
      * @param configuration sink configuration.
      * @return target sink.
      */
     TargetSinkT convert(SeaTunnelSinkT sink1, Map<String, String> configuration);
-
 }

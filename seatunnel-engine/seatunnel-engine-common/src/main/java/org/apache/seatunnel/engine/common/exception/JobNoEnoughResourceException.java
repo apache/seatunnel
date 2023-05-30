@@ -18,8 +18,12 @@
 package org.apache.seatunnel.engine.common.exception;
 
 public class JobNoEnoughResourceException extends SeaTunnelEngineException {
-    public JobNoEnoughResourceException(String jobName, long jobId, int pipelineId, int totalPipelineNum) {
-        super(String.format("Job %s (%s), Pipeline [(%s/%s)] have no enough resource.", jobName, jobId, pipelineId + 1, totalPipelineNum));
+    public JobNoEnoughResourceException(
+            String jobName, long jobId, int pipelineId, int totalPipelineNum) {
+        super(
+                String.format(
+                        "Job %s (%s), Pipeline [(%s/%s)] have no enough resource.",
+                        jobName, jobId, pipelineId + 1, totalPipelineNum));
     }
 
     public JobNoEnoughResourceException(String message) {

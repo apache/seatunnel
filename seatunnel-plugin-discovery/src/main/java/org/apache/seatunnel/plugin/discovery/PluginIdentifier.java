@@ -17,11 +17,9 @@
 
 package org.apache.seatunnel.plugin.discovery;
 
-import java.util.Objects;
+import org.apache.commons.lang3.StringUtils;
 
-/**
- * Used to identify a plugin.
- */
+/** Used to identify a plugin. */
 public class PluginIdentifier {
     private final String engineType;
     private final String pluginType;
@@ -60,29 +58,35 @@ public class PluginIdentifier {
 
         PluginIdentifier that = (PluginIdentifier) o;
 
-        if (!Objects.equals(engineType, that.engineType)) {
+        if (!StringUtils.equalsIgnoreCase(engineType, that.engineType)) {
             return false;
         }
-        if (!Objects.equals(pluginType, that.pluginType)) {
+        if (!StringUtils.equalsIgnoreCase(pluginType, that.pluginType)) {
             return false;
         }
-        return Objects.equals(pluginName, that.pluginName);
+        return StringUtils.equalsIgnoreCase(pluginName, that.pluginName);
     }
 
     @Override
     public int hashCode() {
-        int result = engineType != null ? engineType.hashCode() : 0;
-        result = 31 * result + (pluginType != null ? pluginType.hashCode() : 0);
-        result = 31 * result + (pluginName != null ? pluginName.hashCode() : 0);
+        int result = engineType != null ? engineType.toLowerCase().hashCode() : 0;
+        result = 31 * result + (pluginType != null ? pluginType.toLowerCase().hashCode() : 0);
+        result = 31 * result + (pluginName != null ? pluginName.toLowerCase().hashCode() : 0);
         return result;
     }
 
     @Override
     public String toString() {
-        return "PluginIdentifier{" +
-            "engineType='" + engineType + '\'' +
-            ", pluginType='" + pluginType + '\'' +
-            ", pluginName='" + pluginName + '\'' +
-            '}';
+        return "PluginIdentifier{"
+                + "engineType='"
+                + engineType
+                + '\''
+                + ", pluginType='"
+                + pluginType
+                + '\''
+                + ", pluginName='"
+                + pluginName
+                + '\''
+                + '}';
     }
 }

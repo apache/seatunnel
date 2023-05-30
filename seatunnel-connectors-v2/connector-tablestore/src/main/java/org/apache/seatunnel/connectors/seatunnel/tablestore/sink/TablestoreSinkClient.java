@@ -18,8 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.tablestore.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOptions;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.exception.TablestoreConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.exception.TablestoreConnectorException;
 
 import com.alicloud.openservices.tablestore.SyncClient;
 import com.alicloud.openservices.tablestore.model.BatchWriteRowRequest;
@@ -55,25 +57,30 @@ public class TablestoreSinkClient {
         if (initialize) {
             return;
         }
-        syncClient = new SyncClient(
-            tablestoreOptions.getEndpoint(),
-            tablestoreOptions.getAccessKeyId(),
-            tablestoreOptions.getAccessKeySecret(),
-            tablestoreOptions.getInstanceName());
+        syncClient =
+                new SyncClient(
+                        tablestoreOptions.getEndpoint(),
+                        tablestoreOptions.getAccessKeyId(),
+                        tablestoreOptions.getAccessKeySecret(),
+                        tablestoreOptions.getInstanceName());
 
-        scheduler = Executors.newSingleThreadScheduledExecutor(
-            new ThreadFactoryBuilder().setNameFormat("Tablestore-sink-output-%s").build());
-        scheduledFuture = scheduler.scheduleAtFixedRate(
-            () -> {
-                try {
-                    flush();
-                } catch (IOException e) {
-                    flushException = e;
-                }
-            },
-            tablestoreOptions.getBatchIntervalMs(),
-            tablestoreOptions.getBatchIntervalMs(),
-            TimeUnit.MILLISECONDS);
+        scheduler =
+                Executors.newSingleThreadScheduledExecutor(
+                        new ThreadFactoryBuilder()
+                                .setNameFormat("Tablestore-sink-output-%s")
+                                .build());
+        scheduledFuture =
+                scheduler.scheduleAtFixedRate(
+                        () -> {
+                            try {
+                                flush();
+                            } catch (IOException e) {
+                                flushException = e;
+                            }
+                        },
+                        tablestoreOptions.getBatchIntervalMs(),
+                        tablestoreOptions.getBatchIntervalMs(),
+                        TimeUnit.MILLISECONDS);
 
         initialize = true;
     }
@@ -83,7 +90,7 @@ public class TablestoreSinkClient {
         checkFlushException();
         batchList.add(rowPutChange);
         if (tablestoreOptions.getBatchSize() > 0
-            && batchList.size() >= tablestoreOptions.getBatchSize()) {
+                && batchList.size() >= tablestoreOptions.getBatchSize()) {
             flush();
         }
     }
@@ -109,10 +116,10 @@ public class TablestoreSinkClient {
         BatchWriteRowResponse response = syncClient.batchWriteRow(batchWriteRowRequest);
 
         if (!response.isAllSucceed()) {
-            for (BatchWriteRowResponse.RowResult rowResult : response.getFailedRows()) {
-                throw new SeaTunnelException("Code: " + rowResult.getError().getCode()
-                    + "Message:" + rowResult.getError().getMessage());
-            }
+            throw new TablestoreConnectorException(
+                    TablestoreConnectorErrorCode.WRITE_ROW_FAILED,
+                    String.format(
+                            "Failed to send these rows of data: '%s'.", response.getFailedRows()));
         }
 
         batchList.clear();
@@ -120,8 +127,10 @@ public class TablestoreSinkClient {
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new RuntimeException("Writing items to Tablestore failed.", flushException);
+            throw new TablestoreConnectorException(
+                    CommonErrorCode.FLUSH_DATA_FAILED,
+                    "Writing items to Tablestore failed.",
+                    flushException);
         }
     }
-
 }

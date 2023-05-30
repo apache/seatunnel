@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.email.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.Data;
+import lombok.NonNull;
+
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_AUTHORIZATION_CODE;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_FROM_ADDRESS;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_HOST;
@@ -25,11 +30,6 @@ import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_SMTP_AUTH;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_TO_ADDRESS;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_TRANSPORT_PROTOCOL;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import lombok.Data;
-import lombok.NonNull;
 
 @Data
 public class EmailSinkConfig {

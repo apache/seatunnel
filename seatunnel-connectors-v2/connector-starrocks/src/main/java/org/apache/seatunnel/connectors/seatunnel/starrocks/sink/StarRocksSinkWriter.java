@@ -19,14 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StarRocksSinkManager;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksCsvSerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksISerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksJsonSerializer;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksSinkOP;
 
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -43,17 +44,27 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     private final StarRocksISerializer serializer;
     private final StarRocksSinkManager manager;
 
-    public StarRocksSinkWriter(Config pluginConfig,
-                               SeaTunnelRowType seaTunnelRowType) {
-        SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
-        List<String> fieldNames = Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
+    public StarRocksSinkWriter(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
+        List<String> fieldNames =
+                Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
+        if (sinkConfig.isEnableUpsertDelete()) {
+            fieldNames.add(StarRocksSinkOP.COLUMN_KEY);
+        }
         this.serializer = createSerializer(sinkConfig, seaTunnelRowType);
         this.manager = new StarRocksSinkManager(sinkConfig, fieldNames);
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        String record = serializer.serialize(element);
+        String record;
+        try {
+            record = serializer.serialize(element);
+        } catch (Exception e) {
+            throw new StarRocksConnectorException(
+                    CommonErrorCode.WRITER_OPERATION_FAILED,
+                    "serialize failed. Row={" + element + "}",
+                    e);
+        }
         manager.write(record);
     }
 
@@ -73,17 +84,23 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
             }
         } catch (IOException e) {
             log.error("Close starRocks manager failed.", e);
-            throw new IOException("Close starRocks manager failed.", e);
+            throw new StarRocksConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
         }
     }
 
-    public static StarRocksISerializer createSerializer(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
+    public static StarRocksISerializer createSerializer(
+            SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
         if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
-            return new StarRocksCsvSerializer(sinkConfig.getColumnSeparator(), seaTunnelRowType);
+            return new StarRocksCsvSerializer(
+                    sinkConfig.getColumnSeparator(),
+                    seaTunnelRowType,
+                    sinkConfig.isEnableUpsertDelete());
         }
         if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
-            return new StarRocksJsonSerializer(seaTunnelRowType);
+            return new StarRocksJsonSerializer(seaTunnelRowType, sinkConfig.isEnableUpsertDelete());
         }
-        throw new RuntimeException("Failed to create row serializer, unsupported `format` from stream load properties.");
+        throw new StarRocksConnectorException(
+                CommonErrorCode.ILLEGAL_ARGUMENT,
+                "Failed to create row serializer, unsupported `format` from stream load properties.");
     }
 }

@@ -12,29 +12,25 @@ Used to write data to Clickhouse.
 
 The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent writing, and needs to cooperate with aggregatingmergetree and other engines that support deduplication.
 
-- [ ] [schema projection](../../concept/connector-v2-features.md)
-
-:::tip
-
-Write data to Clickhouse can also be done using JDBC
-
-:::
+- [x] [cdc](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name           | type   | required | default value |
-|----------------|--------|----------|---------------|
-| host           | string | yes      | -             |
-| database       | string | yes      | -             |
-| table          | string | yes      | -             |
-| username       | string | yes      | -             |
-| password       | string | yes      | -             |
-| fields         | string | yes      | -             |
-| clickhouse.*   | string | no       |               |
-| bulk_size      | string | no       | 20000         |
-| split_mode     | string | no       | false         |
-| sharding_key   | string | no       | -             |
-| common-options |        | no       | -             |
+|                 name                  |  type   | required | default value |
+|---------------------------------------|---------|----------|---------------|
+| host                                  | string  | yes      | -             |
+| database                              | string  | yes      | -             |
+| table                                 | string  | yes      | -             |
+| username                              | string  | yes      | -             |
+| password                              | string  | yes      | -             |
+| clickhouse.config                     | map     | no       |               |
+| bulk_size                             | string  | no       | 20000         |
+| split_mode                            | string  | no       | false         |
+| sharding_key                          | string  | no       | -             |
+| primary_key                           | string  | no       | -             |
+| support_upsert                        | boolean | no       | false         |
+| allow_experimental_lightweight_delete | boolean | no       | false         |
+| common-options                        |         | no       | -             |
 
 ### host [string]
 
@@ -56,15 +52,9 @@ The table name
 
 `ClickHouse` user password
 
-### fields [array]
-
-The data field that needs to be output to `ClickHouse` , if not configured, it will be automatically adapted according to the sink table `schema` .
-
-### clickhouse [string]
+### clickhouse.config [map]
 
 In addition to the above mandatory parameters that must be specified by `clickhouse-jdbc` , users can also specify multiple optional parameters, which cover all the [parameters](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration) provided by `clickhouse-jdbc` .
-
-The way to specify the parameter is to add the prefix `clickhouse.` to the original parameter name. For example, the way to specify `socket_timeout` is: `clickhouse.socket_timeout = 50000` . If these non-essential parameters are not specified, they will use the default values given by `clickhouse-jdbc`.
 
 ### bulk_size [number]
 
@@ -82,39 +72,94 @@ When use split_mode, which node to send data to is a problem, the default is ran
 'sharding_key' parameter can be used to specify the field for the sharding algorithm. This option only
 worked when 'split_mode' is true.
 
+### primary_key [string]
+
+Mark the primary key column from clickhouse table, and based on primary key execute INSERT/UPDATE/DELETE to clickhouse table
+
+### support_upsert [boolean]
+
+Support upsert row by query primary key
+
+### allow_experimental_lightweight_delete [boolean]
+
+Allow experimental lightweight delete based on `*MergeTree` table engine
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Examples
 
+Simple
+
 ```hocon
 sink {
-
   Clickhouse {
     host = "localhost:8123"
     database = "default"
     table = "fake_all"
     username = "default"
     password = ""
-    split_mode = true
-    sharding_key = "age"
+    clickhouse.confg = {
+      max_rows_to_read = "100"
+      read_overflow_mode = "throw"
+    }
   }
-  
 }
 ```
 
+Split mode
+
 ```hocon
 sink {
-
   Clickhouse {
     host = "localhost:8123"
     database = "default"
     table = "fake_all"
     username = "default"
     password = ""
+    
+    # split mode options
+    split_mode = true
+    sharding_key = "age"
   }
-  
+}
+```
+
+CDC(Change data capture)
+
+```hocon
+sink {
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "fake_all"
+    username = "default"
+    password = ""
+    
+    # cdc options
+    primary_key = "id"
+    support_upsert = true
+  }
+}
+```
+
+CDC(Change data capture) for *MergeTree engine
+
+```hocon
+sink {
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "fake_all"
+    username = "default"
+    password = ""
+    
+    # cdc options
+    primary_key = "id"
+    support_upsert = true
+    allow_experimental_lightweight_delete = true
+  }
 }
 ```
 
@@ -125,10 +170,14 @@ sink {
 - Add ClickHouse Sink Connector
 
 ### 2.3.0-beta 2022-10-20
-- [Improve] Clickhouse Support Int128,Int256 Type ([3067](https://github.com/apache/seatunnel/pull/3067))
+
+- [Improve] Clickhouse Support Int128,Int256 Type ([3067](https://github.com/apache/incubator-seatunnel/pull/3067))
 
 ### next version
 
-- [Improve] Clickhouse Sink support nest type and array type([3047](https://github.com/apache/seatunnel/pull/3047))
+- [Improve] Clickhouse Sink support nest type and array type([3047](https://github.com/apache/incubator-seatunnel/pull/3047))
+- [Improve] Clickhouse Sink support geo type([3141](https://github.com/apache/incubator-seatunnel/pull/3141))
+- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3653](https://github.com/apache/incubator-seatunnel/pull/3653))
+- [Improve] Remove Clickhouse Fields Config ([3826](https://github.com/apache/incubator-seatunnel/pull/3826))
+- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
 
-- [Improve] Clickhouse Sink support geo type([3141](https://github.com/apache/seatunnel/pull/3141))

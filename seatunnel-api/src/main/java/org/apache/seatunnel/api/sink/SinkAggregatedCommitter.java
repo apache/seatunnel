@@ -22,12 +22,12 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * The committer combine taskManager/Worker Commit message. Then commit it uses
- * {@link SinkAggregatedCommitter#commit(List)}. This class will execute in single thread.
- * <p>
- * See Also {@link SinkCommitter}
+ * The committer combine taskManager/Worker Commit message. Then commit it uses {@link
+ * SinkAggregatedCommitter#commit(List)}. This class will execute in single thread.
  *
- * @param <CommitInfoT>           The type of commit message.
+ * <p>See Also {@link SinkCommitter}
+ *
+ * @param <CommitInfoT> The type of commit message.
  * @param <AggregatedCommitInfoT> The type of commit message after combine.
  */
 public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> extends Serializable {
@@ -39,7 +39,8 @@ public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> ext
      * @return The commit message which need retry.
      * @throws IOException throw IOException when commit failed.
      */
-    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfo) throws IOException;
+    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfo)
+            throws IOException;
 
     /**
      * The logic about how to combine commit message.
@@ -50,7 +51,8 @@ public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> ext
     AggregatedCommitInfoT combine(List<CommitInfoT> commitInfos);
 
     /**
-     * If {@link #commit(List)} failed, this method will be called (**Only** on Spark engine at now).
+     * If {@link #commit(List)} failed, this method will be called (**Only** on Spark engine at
+     * now).
      *
      * @param aggregatedCommitInfo The list of combine commit message.
      * @throws Exception throw Exception when abort failed.

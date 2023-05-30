@@ -22,8 +22,7 @@ import java.util.Set;
 
 public class HudiSourceState implements Serializable {
 
-
-    private Set<HudiSourceSplit> assignedSplit;
+    private final Set<HudiSourceSplit> assignedSplit;
 
     public HudiSourceState(Set<HudiSourceSplit> assignedSplit) {
         this.assignedSplit = assignedSplit;

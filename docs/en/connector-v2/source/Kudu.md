@@ -6,25 +6,25 @@
 
 Used to read data from Kudu.
 
- The tested kudu version is 1.11.1.
+The tested kudu version is 1.11.1.
 
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [column projection](../../concept/connector-v2-features.md)
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name                     | type    | required | default value |
-|--------------------------|---------|----------|---------------|
-| kudu_master              | string  | yes      | -             |
-| kudu_table               | string  | yes      | -             |
-| columnsList              | string  | yes      | -             |
-| common-options           |         | no       | -             |
+|      name      |  type  | required | default value |
+|----------------|--------|----------|---------------|
+| kudu_master    | string | yes      | -             |
+| kudu_table     | string | yes      | -             |
+| columnsList    | string | yes      | -             |
+| common-options |        | no       | -             |
 
 ### kudu_master [string]
 
@@ -38,7 +38,7 @@ Used to read data from Kudu.
 
 `columnsList` Specifies the column names of the table.
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
@@ -46,7 +46,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ```hocon
 source {
-   KuduSource {
+   Kudu {
       result_table_name = "studentlyh2"
       kudu_master = "192.168.88.110:7051"
       kudu_table = "studentlyh2"
@@ -61,3 +61,8 @@ source {
 ### 2.2.0-beta 2022-09-26
 
 - Add Kudu Source Connector
+
+### Next Version
+
+- Change plugin name from `KuduSource` to `Kudu` [3432](https://github.com/apache/incubator-seatunnel/pull/3432)
+

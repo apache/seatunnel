@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start;
 
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.topic.TopicPartition;
 
 import org.apache.pulsar.client.admin.PulsarAdmin;
@@ -39,16 +41,26 @@ public class SubscriptionStartCursor implements StartCursor {
         this.cursorResetStrategy = cursorResetStrategy;
     }
 
-    public void ensureSubscription(String subscription, TopicPartition partition, PulsarAdmin pulsarAdmin) {
+    public void ensureSubscription(
+            String subscription, TopicPartition partition, PulsarAdmin pulsarAdmin) {
         try {
-            if (pulsarAdmin.topics()
-                .getSubscriptions(partition.getFullTopicName())
-                .contains(subscription)) {
+            if (pulsarAdmin
+                    .topics()
+                    .getSubscriptions(partition.getFullTopicName())
+                    .contains(subscription)) {
                 return;
             }
-            pulsarAdmin.topics().createSubscription(partition.getFullTopicName(), subscription, CursorResetStrategy.EARLIEST == cursorResetStrategy ? MessageId.earliest : MessageId.latest);
+            pulsarAdmin
+                    .topics()
+                    .createSubscription(
+                            partition.getFullTopicName(),
+                            subscription,
+                            CursorResetStrategy.EARLIEST == cursorResetStrategy
+                                    ? MessageId.earliest
+                                    : MessageId.latest);
         } catch (PulsarAdminException e) {
-            throw new RuntimeException(e);
+            throw new PulsarConnectorException(
+                    PulsarConnectorErrorCode.OPEN_PULSAR_ADMIN_FAILED, e);
         }
     }
 
@@ -58,6 +70,7 @@ public class SubscriptionStartCursor implements StartCursor {
     }
 
     public enum CursorResetStrategy {
-        LATEST, EARLIEST
+        LATEST,
+        EARLIEST
     }
 }

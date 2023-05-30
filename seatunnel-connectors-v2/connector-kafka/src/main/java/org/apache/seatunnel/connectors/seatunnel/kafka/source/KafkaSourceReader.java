@@ -22,15 +22,19 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
+
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -41,9 +45,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -56,28 +60,34 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final ConsumerMetadata metadata;
     private final Set<KafkaSourceSplit> sourceSplits;
     private final Map<Long, Map<TopicPartition, Long>> checkpointOffsetMap;
-    private final ConcurrentMap<TopicPartition, KafkaSourceSplit> sourceSplitMap;
     private final Map<TopicPartition, KafkaConsumerThread> consumerThreadMap;
     private final ExecutorService executorService;
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
 
-    KafkaSourceReader(ConsumerMetadata metadata,
-                      DeserializationSchema<SeaTunnelRow> deserializationSchema,
-                      SourceReader.Context context) {
+    private final LinkedBlockingQueue<KafkaSourceSplit> pendingPartitionsQueue;
+
+    private volatile boolean running = false;
+
+    KafkaSourceReader(
+            ConsumerMetadata metadata,
+            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            Context context,
+            MessageFormatErrorHandleWay messageFormatErrorHandleWay) {
         this.metadata = metadata;
         this.context = context;
+        this.messageFormatErrorHandleWay = messageFormatErrorHandleWay;
         this.sourceSplits = new HashSet<>();
         this.deserializationSchema = deserializationSchema;
         this.consumerThreadMap = new ConcurrentHashMap<>();
-        this.sourceSplitMap = new ConcurrentHashMap<>();
         this.checkpointOffsetMap = new ConcurrentHashMap<>();
-        this.executorService = Executors.newCachedThreadPool(
-            r -> new Thread(r, "Kafka Source Data Consumer"));
+        this.executorService =
+                Executors.newCachedThreadPool(r -> new Thread(r, "Kafka Source Data Consumer"));
+        pendingPartitionsQueue = new LinkedBlockingQueue<>();
     }
 
     @Override
-    public void open() {
-    }
+    public void open() {}
 
     @Override
     public void close() throws IOException {
@@ -88,59 +98,104 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        if (sourceSplitMap.isEmpty()) {
+        if (!running) {
             Thread.sleep(THREAD_WAIT_TIME);
             return;
         }
-        sourceSplits.forEach(sourceSplit -> consumerThreadMap.computeIfAbsent(sourceSplit.getTopicPartition(), s -> {
-            KafkaConsumerThread thread = new KafkaConsumerThread(metadata);
-            executorService.submit(thread);
-            return thread;
-        }));
-        sourceSplits.forEach(sourceSplit -> {
-            CompletableFuture<Void> completableFuture = new CompletableFuture<>();
-            try {
-                consumerThreadMap.get(sourceSplit.getTopicPartition()).getTasks().put(consumer -> {
+
+        while (pendingPartitionsQueue.size() != 0) {
+            sourceSplits.add(pendingPartitionsQueue.poll());
+        }
+        sourceSplits.forEach(
+                sourceSplit ->
+                        consumerThreadMap.computeIfAbsent(
+                                sourceSplit.getTopicPartition(),
+                                s -> {
+                                    KafkaConsumerThread thread = new KafkaConsumerThread(metadata);
+                                    executorService.submit(thread);
+                                    return thread;
+                                }));
+        sourceSplits.forEach(
+                sourceSplit -> {
+                    CompletableFuture<Void> completableFuture = new CompletableFuture<>();
                     try {
-                        Set<TopicPartition> partitions = Sets.newHashSet(sourceSplit.getTopicPartition());
-                        StringDeserializer stringDeserializer = new StringDeserializer();
-                        stringDeserializer.configure(Maps.fromProperties(this.metadata.getProperties()), false);
-                        consumer.assign(partitions);
-                        if (sourceSplit.getStartOffset() >= 0) {
-                            consumer.seek(sourceSplit.getTopicPartition(), sourceSplit.getStartOffset());
-                        }
-                        ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofMillis(POLL_TIMEOUT));
-                        for (TopicPartition partition : partitions) {
-                            List<ConsumerRecord<byte[], byte[]>> recordList = records.records(partition);
-                            for (ConsumerRecord<byte[], byte[]> record : recordList) {
+                        consumerThreadMap
+                                .get(sourceSplit.getTopicPartition())
+                                .getTasks()
+                                .put(
+                                        consumer -> {
+                                            try {
+                                                Set<TopicPartition> partitions =
+                                                        Sets.newHashSet(
+                                                                sourceSplit.getTopicPartition());
+                                                StringDeserializer stringDeserializer =
+                                                        new StringDeserializer();
+                                                stringDeserializer.configure(
+                                                        Maps.fromProperties(
+                                                                this.metadata.getProperties()),
+                                                        false);
+                                                consumer.assign(partitions);
+                                                if (sourceSplit.getStartOffset() >= 0) {
+                                                    consumer.seek(
+                                                            sourceSplit.getTopicPartition(),
+                                                            sourceSplit.getStartOffset());
+                                                }
+                                                ConsumerRecords<byte[], byte[]> records =
+                                                        consumer.poll(
+                                                                Duration.ofMillis(POLL_TIMEOUT));
+                                                for (TopicPartition partition : partitions) {
+                                                    List<ConsumerRecord<byte[], byte[]>>
+                                                            recordList = records.records(partition);
+                                                    for (ConsumerRecord<byte[], byte[]> record :
+                                                            recordList) {
 
-                                deserializationSchema.deserialize(record.value(), output);
+                                                        try {
+                                                            deserializationSchema.deserialize(
+                                                                    record.value(), output);
+                                                        } catch (Exception e) {
+                                                            if (this.messageFormatErrorHandleWay
+                                                                    == MessageFormatErrorHandleWay
+                                                                            .SKIP) {
+                                                                log.warn(
+                                                                        "Deserialize message failed, skip this message, message: {}",
+                                                                        new String(record.value()));
+                                                                continue;
+                                                            }
+                                                            throw e;
+                                                        }
 
-                                if (Boundedness.BOUNDED.equals(context.getBoundedness()) &&
-                                    record.offset() >= sourceSplit.getEndOffset()) {
-                                    break;
-                                }
-                            }
-                            long lastOffset = -1;
-                            if (!recordList.isEmpty()) {
-                                lastOffset = recordList.get(recordList.size() - 1).offset();
-                                sourceSplit.setStartOffset(lastOffset + 1);
-                            }
+                                                        if (Boundedness.BOUNDED.equals(
+                                                                        context.getBoundedness())
+                                                                && record.offset()
+                                                                        >= sourceSplit
+                                                                                .getEndOffset()) {
+                                                            break;
+                                                        }
+                                                    }
+                                                    long lastOffset = -1;
+                                                    if (!recordList.isEmpty()) {
+                                                        lastOffset =
+                                                                recordList
+                                                                        .get(recordList.size() - 1)
+                                                                        .offset();
+                                                        sourceSplit.setStartOffset(lastOffset + 1);
+                                                    }
 
-                            if (lastOffset >= sourceSplit.getEndOffset()) {
-                                sourceSplit.setEndOffset(lastOffset);
-                            }
-                        }
-                    } catch (Exception e) {
-                        completableFuture.completeExceptionally(e);
+                                                    if (lastOffset >= sourceSplit.getEndOffset()) {
+                                                        sourceSplit.setEndOffset(lastOffset);
+                                                    }
+                                                }
+                                            } catch (Exception e) {
+                                                completableFuture.completeExceptionally(e);
+                                            }
+                                            completableFuture.complete(null);
+                                        });
+                    } catch (InterruptedException e) {
+                        throw new KafkaConnectorException(
+                                KafkaConnectorErrorCode.CONSUME_DATA_FAILED, e);
                     }
-                    completableFuture.complete(null);
+                    completableFuture.join();
                 });
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            completableFuture.join();
-        });
 
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
@@ -150,17 +205,28 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
 
     @Override
     public List<KafkaSourceSplit> snapshotState(long checkpointId) {
-        checkpointOffsetMap.put(checkpointId, sourceSplits.stream()
-            .collect(Collectors.toMap(KafkaSourceSplit::getTopicPartition, KafkaSourceSplit::getEndOffset)));
+        checkpointOffsetMap.put(
+                checkpointId,
+                sourceSplits.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        KafkaSourceSplit::getTopicPartition,
+                                        KafkaSourceSplit::getStartOffset)));
         return sourceSplits.stream().map(KafkaSourceSplit::copy).collect(Collectors.toList());
     }
 
     @Override
     public void addSplits(List<KafkaSourceSplit> splits) {
-        sourceSplits.addAll(splits);
-        sourceSplits.forEach(split -> {
-            sourceSplitMap.put(split.getTopicPartition(), split);
-        });
+        running = true;
+        splits.forEach(
+                s -> {
+                    try {
+                        pendingPartitionsQueue.put(s);
+                    } catch (InterruptedException e) {
+                        throw new KafkaConnectorException(
+                                KafkaConnectorErrorCode.ADD_SPLIT_CHECKPOINT_FAILED, e);
+                    }
+                });
     }
 
     @Override
@@ -173,21 +239,32 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
         if (!checkpointOffsetMap.containsKey(checkpointId)) {
             log.warn("checkpoint {} do not exist or have already been committed.", checkpointId);
         } else {
-            checkpointOffsetMap.remove(checkpointId).forEach((topicPartition, offset) -> {
-                try {
-                    consumerThreadMap.get(topicPartition)
-                        .getTasks().put(consumer -> {
-                            if (this.metadata.isCommitOnCheckpoint()) {
-                                Map<TopicPartition, OffsetAndMetadata> offsets = new HashMap<>();
-                                offsets.put(topicPartition, new OffsetAndMetadata(offset));
-                                consumer.commitSync(offsets);
-                            }
-                        });
-                } catch (InterruptedException e) {
-                    log.error("commit offset to kafka failed", e);
-                }
-            });
+            checkpointOffsetMap
+                    .remove(checkpointId)
+                    .forEach(
+                            (topicPartition, offset) -> {
+                                try {
+                                    consumerThreadMap
+                                            .get(topicPartition)
+                                            .getTasks()
+                                            .put(
+                                                    consumer -> {
+                                                        if (this.metadata.isCommitOnCheckpoint()) {
+                                                            Map<TopicPartition, OffsetAndMetadata>
+                                                                    offsets = new HashMap<>();
+                                                            if (offset >= 0) {
+                                                                offsets.put(
+                                                                        topicPartition,
+                                                                        new OffsetAndMetadata(
+                                                                                offset));
+                                                                consumer.commitSync(offsets);
+                                                            }
+                                                        }
+                                                    });
+                                } catch (InterruptedException e) {
+                                    log.error("commit offset to kafka failed", e);
+                                }
+                            });
         }
     }
-
 }

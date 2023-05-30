@@ -13,13 +13,13 @@ Read data from Neo4j.
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name                       | type   | required | default value |
+|            name            |  type  | required | default value |
 |----------------------------|--------|----------|---------------|
 | uri                        | String | Yes      | -             |
 | username                   | String | No       | -             |
@@ -28,7 +28,7 @@ Read data from Neo4j.
 | kerberos_ticket            | String | No       | -             |
 | database                   | String | Yes      | -             |
 | query                      | String | Yes      | -             |
-| schema.fields              | Object | Yes      | -             |
+| schema                     | Object | Yes      | -             |
 | max_transaction_retry_time | Long   | No       | 30            |
 | max_connection_timeout     | Long   | No       | 30            |
 
@@ -64,7 +64,7 @@ Query statement.
 
 returned fields of `query`
 
-see [schema projection](../../concept/connector-v2-features.md)
+see [column projection](../../concept/connector-v2-features.md)
 
 ### max_transaction_retry_time [long]
 
@@ -104,3 +104,4 @@ source {
 ### next version
 
 - Add Neo4j Source Connector
+

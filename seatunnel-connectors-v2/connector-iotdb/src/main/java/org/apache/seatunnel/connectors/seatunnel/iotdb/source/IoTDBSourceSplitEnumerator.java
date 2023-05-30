@@ -17,16 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.LOWER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.NUM_PARTITIONS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.SQL;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.UPPER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.DEFAULT_PARTITIONS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.SQL_ALIGN;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.SQL_WHERE;
-import static org.apache.iotdb.tsfile.common.constant.QueryConstant.RESERVED_TIME;
-
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
 
 import com.google.common.base.Strings;
@@ -41,12 +34,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.iotdb.tsfile.common.constant.QueryConstant.RESERVED_TIME;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.LOWER_BOUND;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.NUM_PARTITIONS;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.UPPER_BOUND;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.DEFAULT_PARTITIONS;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.SQL_ALIGN;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.SQL_WHERE;
+
 @Slf4j
-public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSourceSplit, IoTDBSourceState> {
+public class IoTDBSourceSplitEnumerator
+        implements SourceSplitEnumerator<IoTDBSourceSplit, IoTDBSourceState> {
 
     /**
-     * A SQL statement can contain at most one where
-     * We split the SQL using the where keyword
+     * A SQL statement can contain at most one where We split the SQL using the where keyword
      * Therefore, it can be split into two SQL at most
      */
     private static final int SQL_WHERE_SPLIT_LENGTH = 2;
@@ -57,14 +59,15 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
     private final Map<Integer, List<IoTDBSourceSplit>> pendingSplit;
     private volatile boolean shouldEnumerate;
 
-    public IoTDBSourceSplitEnumerator(SourceSplitEnumerator.Context<IoTDBSourceSplit> context,
-                                      Map<String, Object> conf) {
+    public IoTDBSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<IoTDBSourceSplit> context, Map<String, Object> conf) {
         this(context, conf, null);
     }
 
-    public IoTDBSourceSplitEnumerator(SourceSplitEnumerator.Context<IoTDBSourceSplit> context,
-                                      Map<String, Object> conf,
-                                      IoTDBSourceState sourceState) {
+    public IoTDBSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<IoTDBSourceSplit> context,
+            Map<String, Object> conf,
+            IoTDBSourceState sourceState) {
         this.context = context;
         this.conf = conf;
         this.pendingSplit = new HashMap<>();
@@ -76,8 +79,7 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
     }
 
     @Override
-    public void open() {
-    }
+    public void open() {}
 
     @Override
     public void run() {
@@ -93,36 +95,35 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
             assignSplit(readers);
         }
 
-        log.debug("No more splits to assign." +
-            " Sending NoMoreSplitsEvent to reader {}.", readers);
+        log.debug(
+                "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
         readers.forEach(context::signalNoMoreSplits);
     }
 
     /**
-     * split the time range into numPartitions parts
-     * if numPartitions is 1, use the whole time range
+     * split the time range into numPartitions parts if numPartitions is 1, use the whole time range
      * if numPartitions < (end - start), use (start-end) partitions
-     * <p>
-     * eg: start = 1, end = 10, numPartitions = 2
-     * sql = "select * from test where age > 0 and age < 10"
-     * <p>
-     * split result
-     * <p>
-     * split 1: select * from test  where (time >= 1 and time < 6)  and (  age > 0 and age < 10 )
-     * <p>
-     * split 2: select * from test  where (time >= 6 and time < 11) and (  age > 0 and age < 10 )
+     *
+     * <p>eg: start = 1, end = 10, numPartitions = 2 sql = "select * from test where age > 0 and age
+     * < 10"
+     *
+     * <p>split result
+     *
+     * <p>split 1: select * from test where (time >= 1 and time < 6) and ( age > 0 and age < 10 )
+     *
+     * <p>split 2: select * from test where (time >= 6 and time < 11) and ( age > 0 and age < 10 )
      */
     private Set<IoTDBSourceSplit> getIotDBSplit() {
-        String sql = conf.get(SQL).toString();
+        String sql = conf.get(SQL.key()).toString();
         Set<IoTDBSourceSplit> iotDBSourceSplits = new HashSet<>();
         // no need numPartitions, use one partition
-        if (!conf.containsKey(NUM_PARTITIONS)) {
+        if (!conf.containsKey(NUM_PARTITIONS.key())) {
             iotDBSourceSplits.add(new IoTDBSourceSplit(DEFAULT_PARTITIONS, sql));
             return iotDBSourceSplits;
         }
-        long start = Long.parseLong(conf.get(LOWER_BOUND).toString());
-        long end = Long.parseLong(conf.get(UPPER_BOUND).toString());
-        int numPartitions = Integer.parseInt(conf.get(NUM_PARTITIONS).toString());
+        long start = Long.parseLong(conf.get(LOWER_BOUND.key()).toString());
+        long end = Long.parseLong(conf.get(UPPER_BOUND.key()).toString());
+        int numPartitions = Integer.parseInt(conf.get(NUM_PARTITIONS.key()).toString());
         String sqlBase = sql;
         String sqlAlign = null;
         String sqlCondition = null;
@@ -133,7 +134,8 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
         }
         sqls = sqlBase.split("(?i)" + SQL_WHERE);
         if (sqls.length > SQL_WHERE_SPLIT_LENGTH) {
-            throw new IllegalArgumentException("sql should not contain more than one where");
+            throw new IotdbConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT, "sql should not contain more than one where");
         }
         if (sqls.length > 1) {
             sqlBase = sqls[0];
@@ -147,7 +149,16 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
         long currentStart = start;
         int i = 0;
         while (i < numPartitions) {
-            String query = " where (" + RESERVED_TIME + " >= " + currentStart + " and " + RESERVED_TIME + " < " + (currentStart + size) + ") ";
+            String query =
+                    " where ("
+                            + RESERVED_TIME
+                            + " >= "
+                            + currentStart
+                            + " and "
+                            + RESERVED_TIME
+                            + " < "
+                            + (currentStart + size)
+                            + ") ";
             i++;
             currentStart += size;
             if (i + 1 <= numPartitions) {
@@ -167,8 +178,7 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
 
     @Override
     public void addSplitsBack(List<IoTDBSourceSplit> splits, int subtaskId) {
-        log.debug("Add back splits {} to IoTDBSourceSplitEnumerator.",
-            splits);
+        log.debug("Add back splits {} to IoTDBSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
             addPendingSplit(splits);
             assignSplit(Collections.singletonList(subtaskId));
@@ -182,8 +192,7 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
 
     @Override
     public void registerReader(int subtaskId) {
-        log.debug("Register reader {} to IoTDBSourceSplitEnumerator.",
-            subtaskId);
+        log.debug("Register reader {} to IoTDBSourceSplitEnumerator.", subtaskId);
         if (!pendingSplit.isEmpty()) {
             assignSplit(Collections.singletonList(subtaskId));
         }
@@ -194,8 +203,7 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
         for (IoTDBSourceSplit split : splits) {
             int ownerReader = getSplitOwner(split.splitId(), readerCount);
             log.info("Assigning {} to {} reader.", split, ownerReader);
-            pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>())
-                .add(split);
+            pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
     }
 
@@ -205,13 +213,15 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
         for (int reader : readers) {
             List<IoTDBSourceSplit> assignmentForReader = pendingSplit.remove(reader);
             if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
-                log.info("Assign splits {} to reader {}",
-                    assignmentForReader, reader);
+                log.info("Assign splits {} to reader {}", assignmentForReader, reader);
                 try {
                     context.assignSplit(reader, assignmentForReader);
                 } catch (Exception e) {
-                    log.error("Failed to assign splits {} to reader {}",
-                        assignmentForReader, reader, e);
+                    log.error(
+                            "Failed to assign splits {} to reader {}",
+                            assignmentForReader,
+                            reader,
+                            e);
                     pendingSplit.put(reader, assignmentForReader);
                 }
             }
@@ -231,16 +241,18 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
-        //nothing to do
+        // nothing to do
     }
 
     @Override
     public void close() {
-        //nothing to do
+        // nothing to do
     }
 
     @Override
     public void handleSplitRequest(int subtaskId) {
-        throw new UnsupportedOperationException("Unsupported handleSplitRequest: " + subtaskId);
+        throw new IotdbConnectorException(
+                CommonErrorCode.UNSUPPORTED_OPERATION,
+                String.format("Unsupported handleSplitRequest: %d", subtaskId));
     }
 }

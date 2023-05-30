@@ -17,12 +17,18 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
+
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+@Slf4j
 public class FileUtils {
 
     private FileUtils() {
@@ -30,41 +36,58 @@ public class FileUtils {
     }
 
     /**
-     * Get the seatunnel config path.
-     * In client mode, the path to the config file is directly given by user.
-     * In cluster mode, the path to the config file is the `executor path/config file name`.
+     * Get the seatunnel config path. In client mode, the path to the config file is directly given
+     * by user. In cluster mode, the path to the config file is the `executor path/config file
+     * name`.
      *
      * @param args args
      * @return path of the seatunnel config file.
      */
-    public static Path getConfigPath(AbstractCommandArgs args) {
-        checkNotNull(args, "args");
-        checkNotNull(args.getDeployMode(), "deploy mode");
+    public static Path getConfigPath(@NonNull AbstractCommandArgs args) {
         switch (args.getDeployMode()) {
+            case RUN:
             case CLIENT:
                 return Paths.get(args.getConfigFile());
+            case RUN_APPLICATION:
             case CLUSTER:
                 return Paths.get(getFileName(args.getConfigFile()));
             default:
-                throw new IllegalArgumentException("Unsupported deploy mode: " + args.getDeployMode());
+                throw new IllegalArgumentException(
+                        "Unsupported deploy mode: " + args.getDeployMode());
         }
     }
 
     /**
-     * Get the file name from the given path.
-     * e.g. seatunnel/conf/config.conf -> config.conf
+     * Check whether the conf file exists.
+     *
+     * @param configFile the path of the config file
+     */
+    public static void checkConfigExist(Path configFile) {
+        if (!configFile.toFile().exists()) {
+            String message = "Can't find config file: " + configFile;
+            throw new SeaTunnelRuntimeException(CommonErrorCode.FILE_OPERATION_FAILED, message);
+        }
+    }
+
+    /**
+     * Get the file name from the given path. e.g. seatunnel/conf/config.conf -> config.conf
      *
      * @param filePath the path to the file
      * @return file name
      */
-    private static String getFileName(String filePath) {
-        checkNotNull(filePath, "file path");
+    private static String getFileName(@NonNull String filePath) {
         return filePath.substring(filePath.lastIndexOf(File.separatorChar) + 1);
     }
 
-    private static <T> void checkNotNull(T arg, String argName) {
-        if (arg == null) {
-            throw new IllegalArgumentException(argName + " cannot be null");
-        }
+    /**
+     * Get the file extension from the given path. e.g. seatunnel/conf/config.conf -> conf
+     *
+     * @param fullName the file's full name.
+     * @return file extension
+     */
+    public static String getFileExtension(@NonNull String fullName) {
+        String fileName = new File(fullName).getName();
+        int dotIndex = fileName.lastIndexOf('.');
+        return (dotIndex == -1) ? "" : fileName.substring(dotIndex + 1);
     }
 }

@@ -17,25 +17,38 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.URI;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
 @AutoService(Factory.class)
 public class MongodbSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "MongoDB";
+        return CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(URI, DATABASE, COLLECTION).build();
+        return OptionRule.builder()
+                .required(
+                        MongodbConfig.URI,
+                        MongodbConfig.DATABASE,
+                        MongodbConfig.COLLECTION,
+                        CatalogTableUtil.SCHEMA)
+                .optional(
+                        MongodbConfig.BUFFER_FLUSH_INTERVAL,
+                        MongodbConfig.BUFFER_FLUSH_MAX_ROWS,
+                        MongodbConfig.RETRY_MAX,
+                        MongodbConfig.RETRY_INTERVAL,
+                        MongodbConfig.UPSERT_ENABLE,
+                        MongodbConfig.UPSERT_KEY)
+                .build();
     }
 }

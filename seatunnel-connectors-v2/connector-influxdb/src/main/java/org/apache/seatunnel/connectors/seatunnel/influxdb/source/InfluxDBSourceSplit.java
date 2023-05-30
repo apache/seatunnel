@@ -20,9 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 import org.apache.seatunnel.api.source.SourceSplit;
 
 public class InfluxDBSourceSplit implements SourceSplit {
-    private String splitId;
+    private final String splitId;
 
-    private String query;
+    private final String query;
 
     public InfluxDBSourceSplit(String splitId, String query) {
         this.query = query;

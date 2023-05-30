@@ -19,11 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan
 
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.expressions.Expression;
+
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
-import org.apache.iceberg.Schema;
-import org.apache.iceberg.expressions.Expression;
 
 @Getter
 @Builder(toBuilder = true)
@@ -48,38 +49,37 @@ public class IcebergScanContext {
     private final Integer splitLookback;
     private final Long splitOpenFileCost;
 
-    public IcebergScanContext copyWithAppendsBetween(Long newStartSnapshotId,
-                                                     long newEndSnapshotId) {
+    public IcebergScanContext copyWithAppendsBetween(
+            Long newStartSnapshotId, long newEndSnapshotId) {
         return this.toBuilder()
-            .useSnapshotId(null)
-            .useSnapshotTimestamp(null)
-            .startSnapshotId(newStartSnapshotId)
-            .endSnapshotId(newEndSnapshotId)
-            .build();
+                .useSnapshotId(null)
+                .useSnapshotTimestamp(null)
+                .startSnapshotId(newStartSnapshotId)
+                .endSnapshotId(newEndSnapshotId)
+                .build();
     }
 
-    public static IcebergScanContext scanContext(SourceConfig sourceConfig,
-                                                 Schema schema) {
+    public static IcebergScanContext scanContext(SourceConfig sourceConfig, Schema schema) {
         return IcebergScanContext.builder()
-            .startSnapshotTimestamp(sourceConfig.getStartSnapshotTimestamp())
-            .startSnapshotId(sourceConfig.getStartSnapshotId())
-            .endSnapshotId(sourceConfig.getEndSnapshotId())
-            .useSnapshotId(sourceConfig.getUseSnapshotId())
-            .useSnapshotTimestamp(sourceConfig.getUseSnapshotTimestamp())
-            .caseSensitive(sourceConfig.isCaseSensitive())
-            .schema(schema)
-            .filter(sourceConfig.getFilter())
-            .splitSize(sourceConfig.getSplitSize())
-            .splitLookback(sourceConfig.getSplitLookback())
-            .splitOpenFileCost(sourceConfig.getSplitOpenFileCost())
-            .build();
+                .startSnapshotTimestamp(sourceConfig.getStartSnapshotTimestamp())
+                .startSnapshotId(sourceConfig.getStartSnapshotId())
+                .endSnapshotId(sourceConfig.getEndSnapshotId())
+                .useSnapshotId(sourceConfig.getUseSnapshotId())
+                .useSnapshotTimestamp(sourceConfig.getUseSnapshotTimestamp())
+                .caseSensitive(sourceConfig.isCaseSensitive())
+                .schema(schema)
+                .filter(sourceConfig.getFilter())
+                .splitSize(sourceConfig.getSplitSize())
+                .splitLookback(sourceConfig.getSplitLookback())
+                .splitOpenFileCost(sourceConfig.getSplitOpenFileCost())
+                .build();
     }
 
-    public static IcebergScanContext streamScanContext(SourceConfig sourceConfig,
-                                                       Schema schema) {
-        return scanContext(sourceConfig, schema).toBuilder()
-            .streaming(true)
-            .streamScanStrategy(sourceConfig.getStreamScanStrategy())
-            .build();
+    public static IcebergScanContext streamScanContext(SourceConfig sourceConfig, Schema schema) {
+        return scanContext(sourceConfig, schema)
+                .toBuilder()
+                .streaming(true)
+                .streamScanStrategy(sourceConfig.getStreamScanStrategy())
+                .build();
     }
 }

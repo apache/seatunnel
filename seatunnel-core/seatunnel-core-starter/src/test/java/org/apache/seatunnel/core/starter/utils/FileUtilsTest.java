@@ -19,10 +19,14 @@ package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
+import org.apache.seatunnel.core.starter.command.Command;
 
-import com.beust.jcommander.Parameter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import com.beust.jcommander.Parameter;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.net.URISyntaxException;
 import java.nio.file.Path;
@@ -35,40 +39,32 @@ public class FileUtilsTest {
         // test client mode.
         SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
         sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
-        Path expectConfPath = Paths.get(FileUtilsTest.class.getResource("/flink.batch.conf").toURI());
+        Path expectConfPath =
+                Paths.get(FileUtilsTest.class.getResource("/flink.batch.conf").toURI());
         sparkCommandArgs.setConfigFile(expectConfPath.toString());
         Assertions.assertEquals(expectConfPath, FileUtils.getConfigPath(sparkCommandArgs));
 
         // test cluster mode
         sparkCommandArgs.setDeployMode(DeployMode.CLUSTER);
-        Assertions.assertEquals("flink.batch.conf", FileUtils.getConfigPath(sparkCommandArgs).toString());
+        Assertions.assertEquals(
+                "flink.batch.conf", FileUtils.getConfigPath(sparkCommandArgs).toString());
     }
 
+    @EqualsAndHashCode(callSuper = true)
+    @Data
     private static class SparkCommandArgs extends AbstractCommandArgs {
 
-        @Parameter(names = {"-c", "--config"},
-            description = "Config file",
-            required = true)
+        @Parameter(
+                names = {"-c", "--config"},
+                description = "Config file",
+                required = true)
         private String configFile;
 
         private DeployMode deployMode;
 
-        public void setDeployMode(DeployMode deployMode) {
-            this.deployMode = deployMode;
-        }
-
-        public DeployMode getDeployMode() {
-            return deployMode;
-        }
-
         @Override
-        public String getConfigFile() {
-            return this.configFile;
-        }
-
-        @Override
-        public void setConfigFile(String configFile) {
-            this.configFile = configFile;
+        public Command<?> buildCommand() {
+            return null;
         }
     }
 }

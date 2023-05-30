@@ -38,23 +38,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class HudiSourceSplitEnumerator implements SourceSplitEnumerator<HudiSourceSplit, HudiSourceState> {
+public class HudiSourceSplitEnumerator
+        implements SourceSplitEnumerator<HudiSourceSplit, HudiSourceState> {
 
     private final Context<HudiSourceSplit> context;
     private Set<HudiSourceSplit> pendingSplit;
     private Set<HudiSourceSplit> assignedSplit;
-    private String tablePath;
-    private String confPaths;
+    private final String tablePath;
+    private final String confPaths;
 
-    public HudiSourceSplitEnumerator(SourceSplitEnumerator.Context<HudiSourceSplit> context, String tablePath, String confPaths) {
+    public HudiSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<HudiSourceSplit> context,
+            String tablePath,
+            String confPaths) {
         this.context = context;
         this.tablePath = tablePath;
         this.confPaths = confPaths;
     }
 
-    public HudiSourceSplitEnumerator(SourceSplitEnumerator.Context<HudiSourceSplit> context, String tablePath,
-                                     String confPaths,
-                                     HudiSourceState sourceState) {
+    public HudiSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<HudiSourceSplit> context,
+            String tablePath,
+            String confPaths,
+            HudiSourceState sourceState) {
         this(context, tablePath, confPaths);
         this.assignedSplit = sourceState.getAssignedSplit();
     }
@@ -79,16 +85,14 @@ public class HudiSourceSplitEnumerator implements SourceSplitEnumerator<HudiSour
         FileInputFormat.setInputPaths(jobConf, path);
         HoodieParquetInputFormat inputFormat = new HoodieParquetInputFormat();
         inputFormat.setConf(jobConf);
-        for (InputSplit split: inputFormat.getSplits(jobConf, 0)) {
+        for (InputSplit split : inputFormat.getSplits(jobConf, 0)) {
             hudiSourceSplits.add(new HudiSourceSplit(split.toString(), split));
         }
         return hudiSourceSplits;
     }
 
     @Override
-    public void close() throws IOException {
-
-    }
+    public void close() throws IOException {}
 
     @Override
     public void addSplitsBack(List<HudiSourceSplit> splits, int subtaskId) {
@@ -98,14 +102,14 @@ public class HudiSourceSplitEnumerator implements SourceSplitEnumerator<HudiSour
         }
     }
 
-    private void assignSplit(Collection<Integer> taskIDList) {
+    private void assignSplit(Collection<Integer> taskIdList) {
         Map<Integer, List<HudiSourceSplit>> readySplit = new HashMap<>(Common.COLLECTION_SIZE);
-        for (int taskID : taskIDList) {
-            readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
+        for (int taskId : taskIdList) {
+            readySplit.computeIfAbsent(taskId, id -> new ArrayList<>());
         }
 
-        pendingSplit.forEach(s -> readySplit.get(getSplitOwner(s.splitId(), taskIDList.size()))
-                .add(s));
+        pendingSplit.forEach(
+                s -> readySplit.get(getSplitOwner(s.splitId(), taskIdList.size())).add(s));
         readySplit.forEach(context::assignSplit);
         assignedSplit.addAll(pendingSplit);
         pendingSplit.clear();
@@ -133,12 +137,8 @@ public class HudiSourceSplitEnumerator implements SourceSplitEnumerator<HudiSour
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) {}
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
-
-    }
+    public void handleSplitRequest(int subtaskId) {}
 }

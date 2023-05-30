@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import java.io.Serializable;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class ResourceProfile implements Serializable {
 
@@ -66,9 +66,6 @@ public class ResourceProfile implements Serializable {
 
     @Override
     public String toString() {
-        return "ResourceProfile{" +
-                "cpu=" + cpu +
-                ", heapMemory=" + heapMemory +
-                '}';
+        return "ResourceProfile{" + "cpu=" + cpu + ", heapMemory=" + heapMemory + '}';
     }
 }

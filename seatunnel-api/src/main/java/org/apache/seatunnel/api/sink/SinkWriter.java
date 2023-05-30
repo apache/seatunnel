@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.sink;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collections;
@@ -24,12 +26,13 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * The sink writer use to write data to third party data receiver. This class will run on taskManger/Worker.
+ * The sink writer use to write data to third party data receiver. This class will run on
+ * taskManger/Worker.
  *
- * @param <T>           The data class by sink accept. Only support
- *                      {@link org.apache.seatunnel.api.table.type.SeaTunnelRow} at now.
+ * @param <T> The data class by sink accept. Only support {@link
+ *     org.apache.seatunnel.api.table.type.SeaTunnelRow} at now.
  * @param <CommitInfoT> The type of commit message.
- * @param <StateT>      The type of state.
+ * @param <StateT> The type of state.
  */
 public interface SinkWriter<T, CommitInfoT, StateT> {
 
@@ -42,9 +45,10 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
     void write(T element) throws IOException;
 
     /**
-     * prepare the commit, will be called before {@link #snapshotState(long checkpointId)}.
-     * If you need to use 2pc, you can return the commit info in this method, and receive the commit info in {@link SinkCommitter#commit(List)}.
-     * If this method failed (by throw exception), **Only** Spark engine will call {@link #abortPrepare()}
+     * prepare the commit, will be called before {@link #snapshotState(long checkpointId)}. If you
+     * need to use 2pc, you can return the commit info in this method, and receive the commit info
+     * in {@link SinkCommitter#commit(List)}. If this method failed (by throw exception), **Only**
+     * Spark engine will call {@link #abortPrepare()}
      *
      * @return the commit info need to commit
      */
@@ -59,10 +63,10 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
     }
 
     /**
-     * Used to abort the {@link #prepareCommit()}, if the prepareCommit failed,
-     * there is no CommitInfoT, so the rollback work cannot be done by {@link SinkCommitter}. But we can
-     * use this method to rollback side effects of {@link #prepareCommit()}. Only use it in Spark engine at
-     * now.
+     * Used to abort the {@link #prepareCommit()}, if the prepareCommit failed, there is no
+     * CommitInfoT, so the rollback work cannot be done by {@link SinkCommitter}. But we can use
+     * this method to rollback side effects of {@link #prepareCommit()}. Only use it in Spark engine
+     * at now.
      */
     void abortPrepare();
 
@@ -73,12 +77,12 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
      */
     void close() throws IOException;
 
-    interface Context extends Serializable{
+    interface Context extends Serializable {
 
-        /**
-         * @return The index of this subtask.
-         */
+        /** @return The index of this subtask. */
         int getIndexOfSubtask();
 
+        /** @return metricsContext of this reader. */
+        MetricsContext getMetricsContext();
     }
 }

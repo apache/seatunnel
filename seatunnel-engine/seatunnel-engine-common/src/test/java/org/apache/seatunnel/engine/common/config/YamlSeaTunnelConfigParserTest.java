@@ -20,6 +20,11 @@ package org.apache.seatunnel.engine.common.config;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.client.config.YamlClientConfigBuilder;
+
+import java.io.IOException;
+
 public class YamlSeaTunnelConfigParserTest {
 
     @Test
@@ -34,26 +39,50 @@ public class YamlSeaTunnelConfigParserTest {
         }
         Assertions.assertNotNull(config);
 
-        Assertions.assertEquals(config.getEngineConfig().getBackupCount(), 1);
+        Assertions.assertEquals(1, config.getEngineConfig().getBackupCount());
 
-        Assertions.assertEquals(config.getEngineConfig().getPrintExecutionInfoInterval(), 2);
+        Assertions.assertEquals(2, config.getEngineConfig().getPrintExecutionInfoInterval());
 
         Assertions.assertFalse(config.getEngineConfig().getSlotServiceConfig().isDynamicSlot());
 
-        Assertions.assertEquals(config.getEngineConfig().getSlotServiceConfig().getSlotNum(), 5);
+        Assertions.assertEquals(5, config.getEngineConfig().getSlotServiceConfig().getSlotNum());
 
-        Assertions.assertEquals(config.getEngineConfig().getCheckpointConfig().getCheckpointInterval(), 6000);
+        Assertions.assertEquals(
+                6000, config.getEngineConfig().getCheckpointConfig().getCheckpointInterval());
 
-        Assertions.assertEquals(config.getEngineConfig().getCheckpointConfig().getCheckpointTimeout(), 7000);
+        Assertions.assertEquals(
+                7000, config.getEngineConfig().getCheckpointConfig().getCheckpointTimeout());
 
-        Assertions.assertEquals(config.getEngineConfig().getCheckpointConfig().getMaxConcurrentCheckpoints(), 5);
+        Assertions.assertEquals(
+                1, config.getEngineConfig().getCheckpointConfig().getMaxConcurrentCheckpoints());
 
-        Assertions.assertEquals(config.getEngineConfig().getCheckpointConfig().getTolerableFailureCheckpoints(), 2);
+        Assertions.assertEquals(
+                2, config.getEngineConfig().getCheckpointConfig().getTolerableFailureCheckpoints());
 
-        Assertions.assertEquals(config.getEngineConfig().getCheckpointConfig().getStorage().getStorage(), "test");
+        Assertions.assertEquals(
+                "hdfs", config.getEngineConfig().getCheckpointConfig().getStorage().getStorage());
 
-        Assertions.assertEquals(config.getEngineConfig().getCheckpointConfig().getStorage().getMaxRetainedCheckpoints(), 3);
-
+        Assertions.assertEquals(
+                3,
+                config.getEngineConfig()
+                        .getCheckpointConfig()
+                        .getStorage()
+                        .getMaxRetainedCheckpoints());
+        Assertions.assertEquals(
+                "file:///",
+                config.getEngineConfig()
+                        .getCheckpointConfig()
+                        .getStorage()
+                        .getStoragePluginConfig()
+                        .get("fs.defaultFS"));
     }
 
+    @Test
+    public void testCustomizeClientConfig() throws IOException {
+        YamlClientConfigBuilder yamlClientConfigBuilder =
+                new YamlClientConfigBuilder("custmoize-client.yaml");
+        ClientConfig clientConfig = yamlClientConfigBuilder.build();
+
+        Assertions.assertEquals("custmoize", clientConfig.getClusterName());
+    }
 }

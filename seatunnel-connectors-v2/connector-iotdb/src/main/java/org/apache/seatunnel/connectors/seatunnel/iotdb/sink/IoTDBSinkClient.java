@@ -17,16 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.IoTDBRecord;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.iotdb.rpc.IoTDBConnectionException;
 import org.apache.iotdb.rpc.StatementExecutionException;
 import org.apache.iotdb.session.Session;
 import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
+
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -58,10 +62,11 @@ public class IoTDBSinkClient {
             return;
         }
 
-        Session.Builder sessionBuilder = new Session.Builder()
-                .nodeUrls(sinkConfig.getNodeUrls())
-                .username(sinkConfig.getUsername())
-                .password(sinkConfig.getPassword());
+        Session.Builder sessionBuilder =
+                new Session.Builder()
+                        .nodeUrls(sinkConfig.getNodeUrls())
+                        .username(sinkConfig.getUsername())
+                        .password(sinkConfig.getPassword());
         if (sinkConfig.getThriftDefaultBufferSize() != null) {
             sessionBuilder.thriftDefaultBufferSize(sinkConfig.getThriftDefaultBufferSize());
         }
@@ -75,7 +80,9 @@ public class IoTDBSinkClient {
         session = sessionBuilder.build();
         try {
             if (sinkConfig.getConnectionTimeoutInMs() != null) {
-                session.open(sinkConfig.getEnableRPCCompression(), sinkConfig.getConnectionTimeoutInMs());
+                session.open(
+                        sinkConfig.getEnableRPCCompression(),
+                        sinkConfig.getConnectionTimeoutInMs());
             } else if (sinkConfig.getEnableRPCCompression() != null) {
                 session.open(sinkConfig.getEnableRPCCompression());
             } else {
@@ -83,23 +90,30 @@ public class IoTDBSinkClient {
             }
         } catch (IoTDBConnectionException e) {
             log.error("Initialize IoTDB client failed.", e);
-            throw new IOException(e);
+            throw new IotdbConnectorException(
+                    IotdbConnectorErrorCode.INITIALIZE_CLIENT_FAILED,
+                    "Initialize IoTDB client failed.",
+                    e);
         }
 
         if (sinkConfig.getBatchIntervalMs() != null) {
-            scheduler = Executors.newSingleThreadScheduledExecutor(
-                    new ThreadFactoryBuilder().setNameFormat("IoTDB-sink-output-%s").build());
-            scheduledFuture = scheduler.scheduleAtFixedRate(
-                () -> {
-                    try {
-                        flush();
-                    } catch (IOException e) {
-                        flushException = e;
-                    }
-                },
-                    sinkConfig.getBatchIntervalMs(),
-                    sinkConfig.getBatchIntervalMs(),
-                    TimeUnit.MILLISECONDS);
+            scheduler =
+                    Executors.newSingleThreadScheduledExecutor(
+                            new ThreadFactoryBuilder()
+                                    .setNameFormat("IoTDB-sink-output-%s")
+                                    .build());
+            scheduledFuture =
+                    scheduler.scheduleAtFixedRate(
+                            () -> {
+                                try {
+                                    flush();
+                                } catch (IOException e) {
+                                    flushException = e;
+                                }
+                            },
+                            sinkConfig.getBatchIntervalMs(),
+                            sinkConfig.getBatchIntervalMs(),
+                            TimeUnit.MILLISECONDS);
         }
         initialize = true;
     }
@@ -109,8 +123,7 @@ public class IoTDBSinkClient {
         checkFlushException();
 
         batchList.add(record);
-        if (sinkConfig.getBatchSize() > 0
-                && batchList.size() >= sinkConfig.getBatchSize()) {
+        if (sinkConfig.getBatchSize() > 0 && batchList.size() >= sinkConfig.getBatchSize()) {
             flush();
         }
     }
@@ -129,7 +142,8 @@ public class IoTDBSinkClient {
             }
         } catch (IoTDBConnectionException e) {
             log.error("Close IoTDB client failed.", e);
-            throw new IOException("Close IoTDB client failed.", e);
+            throw new IotdbConnectorException(
+                    IotdbConnectorErrorCode.CLOSE_CLIENT_FAILED, "Close IoTDB client failed.", e);
         }
     }
 
@@ -143,12 +157,14 @@ public class IoTDBSinkClient {
         for (int i = 0; i <= sinkConfig.getMaxRetries(); i++) {
             try {
                 if (batchRecords.getTypesList().isEmpty()) {
-                    session.insertRecords(batchRecords.getDeviceIds(),
+                    session.insertRecords(
+                            batchRecords.getDeviceIds(),
                             batchRecords.getTimestamps(),
                             batchRecords.getMeasurementsList(),
                             batchRecords.getStringValuesList());
                 } else {
-                    session.insertRecords(batchRecords.getDeviceIds(),
+                    session.insertRecords(
+                            batchRecords.getDeviceIds(),
                             batchRecords.getTimestamps(),
                             batchRecords.getMeasurementsList(),
                             batchRecords.getTypesList(),
@@ -157,17 +173,24 @@ public class IoTDBSinkClient {
             } catch (IoTDBConnectionException | StatementExecutionException e) {
                 log.error("Writing records to IoTDB failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
-                    throw new IOException("Writing records to IoTDB failed.", e);
+                    throw new IotdbConnectorException(
+                            CommonErrorCode.FLUSH_DATA_FAILED,
+                            "Writing records to IoTDB failed.",
+                            e);
                 }
 
                 try {
-                    long backoff = Math.min(sinkConfig.getRetryBackoffMultiplierMs() * i,
-                            sinkConfig.getMaxRetryBackoffMs());
+                    long backoff =
+                            Math.min(
+                                    sinkConfig.getRetryBackoffMultiplierMs() * i,
+                                    sinkConfig.getMaxRetryBackoffMs());
                     Thread.sleep(backoff);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    throw new IOException(
-                            "Unable to flush; interrupted while doing another attempt.", e);
+                    throw new IotdbConnectorException(
+                            CommonErrorCode.FLUSH_DATA_FAILED,
+                            "Unable to flush; interrupted while doing another attempt.",
+                            e);
                 }
             }
         }
@@ -177,17 +200,20 @@ public class IoTDBSinkClient {
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new RuntimeException("Writing records to IoTDB failed.", flushException);
+            throw new IotdbConnectorException(
+                    CommonErrorCode.FLUSH_DATA_FAILED,
+                    "Writing records to IoTDB failed.",
+                    flushException);
         }
     }
 
     @Getter
-    private class BatchRecords {
-        private List<String> deviceIds;
-        private List<Long> timestamps;
-        private List<List<String>> measurementsList;
-        private List<List<TSDataType>> typesList;
-        private List<List<Object>> valuesList;
+    private static class BatchRecords {
+        private final List<String> deviceIds;
+        private final List<Long> timestamps;
+        private final List<List<String>> measurementsList;
+        private final List<List<TSDataType>> typesList;
+        private final List<List<Object>> valuesList;
 
         public BatchRecords(List<IoTDBRecord> batchList) {
             int batchSize = batchList.size();

@@ -25,21 +25,20 @@ import java.io.Serializable;
 public class KuduSourceConfig implements Serializable {
 
     public static final Option<String> KUDU_MASTER =
-        Options.key("kudu_master")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Kudu master address");
+            Options.key("kudu_master")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Kudu master address");
 
     public static final Option<String> TABLE_NAME =
-        Options.key("kudu_table")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Kudu table name");
+            Options.key("kudu_table")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Kudu table name");
 
     public static final Option<String> COLUMNS_LIST =
-        Options.key("columnsList")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Specifies the column names of the table");
-
+            Options.key("columnsList")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Specifies the column names of the table");
 }

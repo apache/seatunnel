@@ -17,44 +17,39 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createBinaryClient;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createMySqlConnection;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.isTableIdCaseSensitive;
-
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
+import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.eumerator.MySqlChunkSplitter;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.MySqlSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.binlog.MySqlBinlogFetchTask;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.scan.MySqlSnapshotFetchTask;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.TableDiscoveryUtils;
 
-import com.github.shyiko.mysql.binlog.BinaryLogClient;
-import io.debezium.connector.mysql.MySqlConnection;
-import io.debezium.connector.mysql.legacy.MySqlSchema;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
-import org.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
-import org.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
-import org.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
-import org.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
-import org.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import io.debezium.relational.history.TableChanges;
 
 import java.sql.SQLException;
 import java.util.List;
 
-/** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.isTableIdCaseSensitive;
 
+/** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
 public class MySqlDialect implements JdbcDataSourceDialect {
 
     private static final long serialVersionUID = 1L;
-    private final MySqlSourceConfigFactory configFactory;
     private final MySqlSourceConfig sourceConfig;
     private transient MySqlSchema mySqlSchema;
 
     public MySqlDialect(MySqlSourceConfigFactory configFactory) {
-        this.configFactory = configFactory;
         this.sourceConfig = configFactory.create(0);
     }
 
@@ -74,8 +69,7 @@ public class MySqlDialect implements JdbcDataSourceDialect {
 
     @Override
     public ChunkSplitter createChunkSplitter(JdbcSourceConfig sourceConfig) {
-        //TODO waiting for other pr
-        return null;
+        return new MySqlChunkSplitter(sourceConfig, this);
     }
 
     @Override
@@ -95,14 +89,18 @@ public class MySqlDialect implements JdbcDataSourceDialect {
     }
 
     @Override
+    public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
+        if (mySqlSchema == null) {
+            mySqlSchema =
+                    new MySqlSchema(sourceConfig, isDataCollectionIdCaseSensitive(sourceConfig));
+        }
+        return mySqlSchema.getTableSchema(jdbc, tableId);
+    }
+
+    @Override
     public MySqlSourceFetchTaskContext createFetchTaskContext(
-        SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
-        final MySqlConnection jdbcConnection =
-                createMySqlConnection(taskSourceConfig.getDbzConfiguration());
-        final BinaryLogClient binaryLogClient =
-                createBinaryClient(taskSourceConfig.getDbzConfiguration());
-        return new MySqlSourceFetchTaskContext(
-                taskSourceConfig, this, jdbcConnection, binaryLogClient);
+            SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
+        return new MySqlSourceFetchTaskContext(taskSourceConfig, this);
     }
 
     @Override

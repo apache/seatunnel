@@ -17,26 +17,50 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.URI;
-
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
 
 import com.google.auto.service.AutoService;
+
+import java.util.ArrayList;
+
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
 @AutoService(Factory.class)
 public class MongodbSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return "MongoDB";
+        return CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(URI, DATABASE, COLLECTION, SeaTunnelSchema.SCHEMA).build();
+        return OptionRule.builder()
+                .required(
+                        MongodbConfig.URI,
+                        MongodbConfig.DATABASE,
+                        MongodbConfig.COLLECTION,
+                        CatalogTableUtil.SCHEMA)
+                .optional(
+                        MongodbConfig.PROJECTION,
+                        MongodbConfig.MATCH_QUERY,
+                        MongodbConfig.SPLIT_SIZE,
+                        MongodbConfig.SPLIT_KEY,
+                        MongodbConfig.CURSOR_NO_TIMEOUT,
+                        MongodbConfig.FETCH_SIZE,
+                        MongodbConfig.MAX_TIME_MIN)
+                .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource<SeaTunnelRow, MongoSplit, ArrayList<MongoSplit>>>
+            getSourceClass() {
+        return MongodbSource.class;
     }
 }

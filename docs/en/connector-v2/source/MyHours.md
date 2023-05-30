@@ -11,27 +11,31 @@ Used to read data from My Hours.
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [column projection](../../concept/connector-v2-features.md)
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-##  Options
+## Options
 
-| name                        | type   | required | default value |
-| --------------------------- | ------ | -------- | ------------- |
-| url                         | String | Yes      | -             |
-| email                       | String | Yes      | -             |
-| password                    | String | Yes      | -             |
-| method                      | String | No       | get           |
-| schema.fields               | Config | No       | -             |
-| format                      | String | No       | json          |
-| params                      | Map    | No       | -             |
-| body                        | String | No       | -             |
-| poll_interval_ms            | int    | No       | -             |
-| retry                       | int    | No       | -             |
-| retry_backoff_multiplier_ms | int    | No       | 100           |
-| retry_backoff_max_ms        | int    | No       | 10000         |
-| common-options              | config | No       | -             |
+|            name             |  type   | required | default value |
+|-----------------------------|---------|----------|---------------|
+| url                         | String  | Yes      | -             |
+| email                       | String  | Yes      | -             |
+| password                    | String  | Yes      | -             |
+| method                      | String  | No       | get           |
+| schema                      | Config  | No       | -             |
+| schema.fields               | Config  | No       | -             |
+| format                      | String  | No       | json          |
+| params                      | Map     | No       | -             |
+| body                        | String  | No       | -             |
+| json_field                  | Config  | No       | -             |
+| content_json                | String  | No       | -             |
+| poll_interval_ms            | int     | No       | -             |
+| retry                       | int     | No       | -             |
+| retry_backoff_multiplier_ms | int     | No       | 100           |
+| retry_backoff_max_ms        | int     | No       | 10000         |
+| enable_multi_lines          | boolean | No       | false         |
+| common-options              | config  | No       | -             |
 
 ### url [String]
 
@@ -82,9 +86,11 @@ when you assign format is `json`, you should also assign schema option, for exam
 upstream data is the following:
 
 ```json
-
-{"code":  200, "data":  "get success", "success":  true}
-
+{
+  "code": 200,
+  "data": "get success",
+  "success": true
+}
 ```
 
 you should assign schema as the following:
@@ -103,7 +109,7 @@ schema {
 
 connector will generate data as the following:
 
-| code | data        | success |
+| code |    data     | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -112,16 +118,18 @@ when you assign format is `text`, connector will do nothing for upstream data, f
 upstream data is the following:
 
 ```json
-
-{"code":  200, "data":  "get success", "success":  true}
-
+{
+  "code": 200,
+  "data": "get success",
+  "success": true
+}
 ```
 
 connector will generate data as the following:
 
-| content |
-|---------|
-| {"code":  200, "data":  "get success", "success":  true}        |
+|                         content                          |
+|----------------------------------------------------------|
+| {"code":  200, "data":  "get success", "success":  true} |
 
 ### schema [Config]
 
@@ -129,7 +137,143 @@ connector will generate data as the following:
 
 the schema fields of upstream data
 
-### common options 
+### content_json [String]
+
+This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`.
+
+If your return data looks something like this.
+
+```json
+{
+  "store": {
+    "book": [
+      {
+        "category": "reference",
+        "author": "Nigel Rees",
+        "title": "Sayings of the Century",
+        "price": 8.95
+      },
+      {
+        "category": "fiction",
+        "author": "Evelyn Waugh",
+        "title": "Sword of Honour",
+        "price": 12.99
+      }
+    ],
+    "bicycle": {
+      "color": "red",
+      "price": 19.95
+    }
+  },
+  "expensive": 10
+}
+```
+
+You can configure `content_field = "$.store.book.*"` and the result returned looks like this:
+
+```json
+[
+  {
+    "category": "reference",
+    "author": "Nigel Rees",
+    "title": "Sayings of the Century",
+    "price": 8.95
+  },
+  {
+    "category": "fiction",
+    "author": "Evelyn Waugh",
+    "title": "Sword of Honour",
+    "price": 12.99
+  }
+]
+```
+
+Then you can get the desired result with a simpler schema,like
+
+```hocon
+Http {
+  url = "http://mockserver:1080/contentjson/mock"
+  method = "GET"
+  format = "json"
+  content_field = "$.store.book.*"
+  schema = {
+    fields {
+      category = string
+      author = string
+      title = string
+      price = string
+    }
+  }
+}
+```
+
+Here is an example:
+
+- Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
+- See this link for task configuration [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
+
+### json_field [Config]
+
+This parameter helps you configure the schema,so this parameter must be used with schema.
+
+If your data looks something like this:
+
+```json
+{
+  "store": {
+    "book": [
+      {
+        "category": "reference",
+        "author": "Nigel Rees",
+        "title": "Sayings of the Century",
+        "price": 8.95
+      },
+      {
+        "category": "fiction",
+        "author": "Evelyn Waugh",
+        "title": "Sword of Honour",
+        "price": 12.99
+      }
+    ],
+    "bicycle": {
+      "color": "red",
+      "price": 19.95
+    }
+  },
+  "expensive": 10
+}
+```
+
+You can get the contents of 'book' by configuring the task as follows:
+
+```hocon
+source {
+  Http {
+    url = "http://mockserver:1080/jsonpath/mock"
+    method = "GET"
+    format = "json"
+    json_field = {
+      category = "$.store.book[*].category"
+      author = "$.store.book[*].author"
+      title = "$.store.book[*].title"
+      price = "$.store.book[*].price"
+    }
+    schema = {
+      fields {
+        category = string
+        author = string
+        title = string
+        price = string
+      }
+    }
+  }
+}
+```
+
+- Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
+- See this link for task configuration [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
+
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
@@ -175,3 +319,5 @@ MyHours{
 ### next version
 
 - Add My Hours Source Connector
+- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/incubator-seatunnel/pull/3510))
+

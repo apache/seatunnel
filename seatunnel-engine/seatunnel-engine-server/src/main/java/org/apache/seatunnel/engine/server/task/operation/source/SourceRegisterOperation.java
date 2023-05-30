@@ -18,7 +18,10 @@
 package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointErrorReportOperation;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
@@ -32,19 +35,15 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import java.io.IOException;
 
 /**
- * For {@link org.apache.seatunnel.api.source.SourceReader} to register with
- * the {@link org.apache.seatunnel.api.source.SourceSplitEnumerator}
+ * For {@link org.apache.seatunnel.api.source.SourceReader} to register with the {@link
+ * org.apache.seatunnel.api.source.SourceSplitEnumerator}
  */
 public class SourceRegisterOperation extends Operation implements IdentifiedDataSerializable {
-    private static final int RETRY_TIME = 5;
-
-    private static final int RETRY_TIME_OUT = 2000;
 
     private TaskLocation readerTaskID;
     private TaskLocation enumeratorTaskID;
 
-    public SourceRegisterOperation() {
-    }
+    public SourceRegisterOperation() {}
 
     public SourceRegisterOperation(TaskLocation readerTaskID, TaskLocation enumeratorTaskID) {
         this.readerTaskID = readerTaskID;
@@ -55,14 +54,44 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
-        RetryUtils.retryWithException(() -> {
-            SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getTask(enumeratorTaskID);
-            task.receivedReader(readerTaskID, readerAddress);
-            return null;
-        }, new RetryUtils.RetryMaterial(RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException &&
-                !server.taskIsEnded(enumeratorTaskID.getTaskGroupLocation()), RETRY_TIME_OUT));
+        RetryUtils.retryWithException(
+                () -> {
+                    ClassLoader classLoader =
+                            server.getTaskExecutionService()
+                                    .getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
+                                    .getClassLoader();
+                    ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
+                    SourceSplitEnumeratorTask<?> task =
+                            server.getTaskExecutionService().getTask(enumeratorTaskID);
+                    task.getExecutionContext()
+                            .getTaskExecutionService()
+                            .asyncExecuteFunction(
+                                    enumeratorTaskID.getTaskGroupLocation(),
+                                    () -> {
+                                        try {
+                                            Thread.currentThread()
+                                                    .setContextClassLoader(classLoader);
+                                            task.receivedReader(readerTaskID, readerAddress);
+                                        } catch (Exception e) {
+                                            task.getExecutionContext()
+                                                    .sendToMaster(
+                                                            new CheckpointErrorReportOperation(
+                                                                    enumeratorTaskID, e));
+                                        } finally {
+                                            Thread.currentThread()
+                                                    .setContextClassLoader(oldClassLoader);
+                                        }
+                                    });
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        exception ->
+                                exception instanceof TaskGroupContextNotFoundException
+                                        && !server.taskIsEnded(
+                                                enumeratorTaskID.getTaskGroupLocation()),
+                        Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override

@@ -17,12 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.KEY_DEVICE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.NODE_URLS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.USERNAME;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -33,10 +31,14 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.KEY_DEVICE;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.NODE_URLS;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.USERNAME;
 
 @AutoService(SeaTunnelSink.class)
 public class IoTDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
@@ -51,9 +53,19 @@ public class IoTDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS, USERNAME, PASSWORD, KEY_DEVICE);
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        NODE_URLS.key(),
+                        USERNAME.key(),
+                        PASSWORD.key(),
+                        KEY_DEVICE.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
+            throw new IotdbConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, result.getMsg()));
         }
         this.pluginConfig = pluginConfig;
     }

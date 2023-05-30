@@ -26,7 +26,8 @@ import com.hazelcast.spi.impl.NodeEngine;
 
 import java.util.concurrent.CompletableFuture;
 
-public class YarnResourceManager extends AbstractResourceManager implements ThirdPartyResourceManager {
+public class YarnResourceManager extends AbstractResourceManager
+        implements ThirdPartyResourceManager {
     public YarnResourceManager(NodeEngine nodeEngine) {
         super(nodeEngine);
     }

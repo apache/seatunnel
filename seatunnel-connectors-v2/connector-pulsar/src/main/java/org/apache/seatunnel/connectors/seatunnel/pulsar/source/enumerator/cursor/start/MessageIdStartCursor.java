@@ -18,17 +18,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.ConsumerBuilder;
 import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.impl.MessageIdImpl;
 
-/**
- * This cursor would left pulsar start consuming from a specific message id.
- */
+import static com.google.common.base.Preconditions.checkArgument;
+
+/** This cursor would left pulsar start consuming from a specific message id. */
 public class MessageIdStartCursor implements StartCursor {
     private static final long serialVersionUID = 1L;
 
@@ -50,11 +48,13 @@ public class MessageIdStartCursor implements StartCursor {
         if (inclusive) {
             this.messageId = messageId;
         } else {
-            checkArgument(messageId instanceof MessageIdImpl, "We only support normal message id and batch message id.");
+            checkArgument(
+                    messageId instanceof MessageIdImpl,
+                    "We only support normal message id and batch message id.");
             MessageIdImpl id = (MessageIdImpl) messageId;
             this.messageId =
-                new MessageIdImpl(
-                    id.getLedgerId(), id.getEntryId() + 1, id.getPartitionIndex());
+                    new MessageIdImpl(
+                            id.getLedgerId(), id.getEntryId() + 1, id.getPartitionIndex());
         }
     }
 
