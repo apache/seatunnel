@@ -110,6 +110,12 @@ public interface JdbcOptions {
     Option<List<String>> PRIMARY_KEYS =
             Options.key("primary_keys").listType().noDefaultValue().withDescription("primary keys");
 
+    Option<Boolean> ENABLE_UPSERT =
+            Options.key("enable_upsert")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("enable upsert by primary_keys exist");
+
     Option<Boolean> SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST =
             Options.key("support_upsert_by_query_primary_key_exist")
                     .booleanType()

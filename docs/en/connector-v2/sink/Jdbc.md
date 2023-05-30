@@ -36,6 +36,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | database                                  | String  | No       | -             |
 | table                                     | String  | No       | -             |
 | primary_keys                              | Array   | No       | -             |
+| enable_upsert                             | Boolean | No       | true          |
 | support_upsert_by_query_primary_key_exist | Boolean | No       | false         |
 | connection_check_timeout_sec              | Int     | No       | 30            |
 | max_retries                               | Int     | No       | 0             |
@@ -84,6 +85,10 @@ This option is mutually exclusive with `query` and has a higher priority.
 ### primary_keys [array]
 
 This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.
+
+### enable_upsert [boolean]
+
+Choose to use INSERT/UPDATE or UPSERT sql to process update events(INSERT, UPDATE_AFTER) based on `primary_keys` exists.
 
 ### support_upsert_by_query_primary_key_exist [boolean]
 
