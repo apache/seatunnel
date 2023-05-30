@@ -614,7 +614,7 @@ public class CheckpointCoordinator {
                         : SubtaskStatus.RUNNING);
     }
 
-    public void completePendingCheckpoint(CompletedCheckpoint completedCheckpoint) {
+    public synchronized void completePendingCheckpoint(CompletedCheckpoint completedCheckpoint) {
         LOG.debug(
                 "pending checkpoint({}/{}@{}) completed! cost: {}, trigger: {}, completed: {}",
                 completedCheckpoint.getCheckpointId(),
