@@ -68,6 +68,7 @@ public abstract class AbstractTask implements Task {
         this.executionContext = taskExecutionContext;
     }
 
+    @Override
     public TaskExecutionContext getExecutionContext() {
         return executionContext;
     }

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
@@ -277,6 +278,11 @@ public class CheckpointCoordinator {
                 .map(NotifyTaskStartOperation::new)
                 .map(checkpointManager::sendOperationToMemberNode)
                 .toArray(InvocationFuture[]::new);
+    }
+
+    public void reportCheckpointErrorFromTask(String errorMsg) {
+        handleCoordinatorError(
+                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR, new SeaTunnelException(errorMsg));
     }
 
     private void scheduleTriggerPendingCheckpoint(long delayMills) {
