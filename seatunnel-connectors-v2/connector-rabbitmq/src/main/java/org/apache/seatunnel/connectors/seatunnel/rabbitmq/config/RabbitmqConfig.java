@@ -58,6 +58,7 @@ public class RabbitmqConfig implements Serializable {
     private String exchange = "";
 
     private boolean forE2ETesting = false;
+    private boolean usesCorrelationId = false;
 
     private final Map<String, Object> sinkOptionProps = new HashMap<>();
 
@@ -186,6 +187,14 @@ public class RabbitmqConfig implements Serializable {
                             "In addition to the above parameters that must be specified by the RabbitMQ client, the user can also specify multiple non-mandatory parameters for the client, "
                                     + "covering [all the parameters specified in the official RabbitMQ document](https://www.rabbitmq.com/configure.html).");
 
+    public static final Option<Boolean> USE_CORRELATION_ID =
+            Options.key("use_correlation_id")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Whether the messages received are supplied with a unique"
+                                    + "id to deduplicate messages (in case of failed acknowledgments).");
+
     private void parseSinkOptionProperties(Config pluginConfig) {
         if (CheckConfigUtil.isValidParam(pluginConfig, RABBITMQ_CONFIG.key())) {
             pluginConfig
@@ -246,6 +255,9 @@ public class RabbitmqConfig implements Serializable {
         }
         if (config.hasPath(FOR_E2E_TESTING.key())) {
             this.forE2ETesting = config.getBoolean(FOR_E2E_TESTING.key());
+        }
+        if (config.hasPath(USE_CORRELATION_ID.key())) {
+            this.usesCorrelationId = config.getBoolean(USE_CORRELATION_ID.key());
         }
         parseSinkOptionProperties(config);
     }
