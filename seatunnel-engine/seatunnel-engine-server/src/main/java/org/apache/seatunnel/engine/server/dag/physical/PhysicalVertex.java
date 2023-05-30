@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -366,12 +367,7 @@ public class PhysicalVertex {
                         new RetryUtils.RetryMaterial(
                                 Constant.OPERATION_RETRY_TIME,
                                 true,
-                                exception ->
-                                        exception instanceof OperationTimeoutException
-                                                || exception
-                                                        instanceof
-                                                        HazelcastInstanceNotActiveException
-                                                || exception instanceof InterruptedException,
+                                exception -> ExceptionUtil.isOperationNeedRetryException(exception),
                                 Constant.OPERATION_RETRY_SLEEP));
             } catch (Exception e) {
                 LOGGER.warning(ExceptionUtils.getMessage(e));
@@ -436,11 +432,7 @@ public class PhysicalVertex {
                                     Constant.OPERATION_RETRY_TIME,
                                     true,
                                     exception ->
-                                            exception instanceof OperationTimeoutException
-                                                    || exception
-                                                            instanceof
-                                                            HazelcastInstanceNotActiveException
-                                                    || exception instanceof InterruptedException,
+                                            ExceptionUtil.isOperationNeedRetryException(exception),
                                     Constant.OPERATION_RETRY_SLEEP));
                 } catch (Exception e) {
                     LOGGER.warning(ExceptionUtils.getMessage(e));
@@ -478,11 +470,6 @@ public class PhysicalVertex {
         } else if (ExecutionState.CANCELING.equals(runningJobStateIMap.get(taskGroupLocation))) {
             noticeTaskExecutionServiceCancel();
         }
-
-        LOGGER.info(
-                String.format(
-                        "can not cancel task %s because it is in state %s ",
-                        taskFullName, getExecutionState()));
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -567,12 +554,7 @@ public class PhysicalVertex {
                         new RetryUtils.RetryMaterial(
                                 Constant.OPERATION_RETRY_TIME,
                                 true,
-                                exception ->
-                                        exception instanceof OperationTimeoutException
-                                                || exception
-                                                        instanceof
-                                                        HazelcastInstanceNotActiveException
-                                                || exception instanceof InterruptedException,
+                                exception -> ExceptionUtil.isOperationNeedRetryException(exception),
                                 Constant.OPERATION_RETRY_SLEEP));
             } catch (Exception e) {
                 LOGGER.warning(ExceptionUtils.getMessage(e));
