@@ -142,7 +142,6 @@ This configuration specifies the threshold of estimated shard count to trigger t
 
 The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.
 
-
 ### server-id [String]
 
 A numeric ID or a numeric ID range of this database client, The numeric ID syntax is like '5400', the numeric ID range
