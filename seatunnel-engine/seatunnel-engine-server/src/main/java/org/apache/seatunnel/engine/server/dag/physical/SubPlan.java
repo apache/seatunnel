@@ -282,9 +282,7 @@ public class SubPlan {
     }
 
     private void subPlanDone(PipelineStatus pipelineStatus) throws Exception {
-        
-      
-      .retryWithException(
+        RetryUtils.retryWithException(
                 () -> {
                     jobMaster.savePipelineMetricsToHistory(getPipelineLocation());
                     jobMaster.removeMetricsContext(getPipelineLocation(), pipelineStatus);
