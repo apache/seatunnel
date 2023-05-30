@@ -409,9 +409,9 @@ public class MultipleTableJobConfigParser {
         SeaTunnelDataType<?> expectedType = getProducedType(inputs.get(0)._2());
         checkProducedTypeEquals(inputActions);
         int spareParallelism = inputs.get(0)._2().getParallelism();
+        int parallelism =
+                readonlyConfig.getOptional(CommonOptions.PARALLELISM).orElse(spareParallelism);
         if (fallback) {
-            int parallelism =
-                    readonlyConfig.getOptional(CommonOptions.PARALLELISM).orElse(spareParallelism);
             Tuple2<CatalogTable, Action> tuple =
                     fallbackParser.parseTransform(
                             config,
@@ -437,6 +437,7 @@ public class MultipleTableJobConfigParser {
         TransformAction transformAction =
                 new TransformAction(
                         id, actionName, new ArrayList<>(inputActions), transform, factoryUrls);
+        transformAction.setParallelism(parallelism);
         tableWithActionMap.put(
                 tableId,
                 Collections.singletonList(
