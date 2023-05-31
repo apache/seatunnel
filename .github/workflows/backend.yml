@@ -18,9 +18,9 @@
 name: Backend
 on:
   push:
+  pull_request:
     branches:
       - dev
-  pull_request:
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
