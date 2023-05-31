@@ -111,6 +111,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void close() throws IOException {
+        super.close();
         if (enumerator != null) {
             enumerator.close();
         }

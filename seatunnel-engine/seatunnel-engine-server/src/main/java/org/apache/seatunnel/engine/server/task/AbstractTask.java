@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import lombok.NonNull;
 
+import java.io.IOException;
 import java.net.URL;
 import java.util.List;
 import java.util.Set;
@@ -68,6 +69,7 @@ public abstract class AbstractTask implements Task {
         this.executionContext = taskExecutionContext;
     }
 
+    @Override
     public TaskExecutionContext getExecutionContext() {
         return executionContext;
     }
@@ -90,6 +92,16 @@ public abstract class AbstractTask implements Task {
     @NonNull @Override
     public Long getTaskID() {
         return taskLocation.getTaskID();
+    }
+
+    @Override
+    public void close() throws IOException {
+        try {
+            if (!restoreComplete.isDone()) {
+                restoreComplete.cancel(true);
+            }
+        } catch (Exception ignore) {
+        }
     }
 
     protected void reportTaskStatus(SeaTunnelTaskState status) {
