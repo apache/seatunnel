@@ -160,7 +160,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                                             new ActionSubtaskState(
                                                     ActionStateKey.of(source),
                                                     -1,
-                                                    Collections.singletonList(serialize)))));
+                                                    Collections.singletonList(serialize)))))
+                    .join();
         }
     }
 

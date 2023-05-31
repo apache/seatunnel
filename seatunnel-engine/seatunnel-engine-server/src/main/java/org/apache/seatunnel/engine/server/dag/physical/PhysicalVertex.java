@@ -265,7 +265,7 @@ public class PhysicalVertex {
                 });
     }
 
-    private TaskDeployState deployOnRemote(@NonNull SlotProfile slotProfile) throws Exception {
+    private TaskDeployState deployOnRemote(@NonNull SlotProfile slotProfile) {
         return deployInternal(
                 taskGroupImmutableInformation -> {
                     try {
@@ -281,7 +281,16 @@ public class PhysicalVertex {
                                                 slotProfile.getWorker())
                                         .get();
                     } catch (Exception e) {
-                        throw new RuntimeException(e);
+                        if (getExecutionState().isEndState()) {
+                            LOGGER.warning(ExceptionUtils.getMessage(e));
+                            LOGGER.warning(
+                                    String.format(
+                                            "%s deploy error, but the state is already in end state %s, skip this error",
+                                            getTaskFullName(), currExecutionState));
+                            return TaskDeployState.success();
+                        } else {
+                            return TaskDeployState.failed(e);
+                        }
                     }
                 });
     }
