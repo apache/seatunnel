@@ -313,6 +313,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     @Override
     public void close() throws IOException {
+        super.close();
         allCycles
                 .parallelStream()
                 .forEach(

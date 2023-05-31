@@ -15,15 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.common.utils;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-@Data
-@AllArgsConstructor
-public class TaskGroupContext {
-    private TaskGroup taskGroup;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-    private ClassLoader classLoader;
+public class ExceptionUtilsTest {
+    @Test
+    public void testGetRootException() {
+        Exception exception =
+                new UnsupportedOperationException(
+                        new SeaTunnelException(
+                                new SeaTunnelRuntimeException(
+                                        CommonErrorCode.CLASS_NOT_FOUND, "class not fount")));
+        Throwable throwable = ExceptionUtils.getRootException(exception);
+        Assertions.assertTrue(throwable instanceof SeaTunnelRuntimeException);
+    }
 }
