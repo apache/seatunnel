@@ -176,7 +176,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
+                                "cd /tmp/seatunnel/lib && curl -O "
                                         + SR_DRIVER_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };

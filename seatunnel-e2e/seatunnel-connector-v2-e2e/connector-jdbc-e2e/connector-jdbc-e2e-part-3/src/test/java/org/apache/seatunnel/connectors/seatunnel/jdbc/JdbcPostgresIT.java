@@ -199,7 +199,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
+                                "cd /tmp/seatunnel/lib && curl -O "
                                         + PG_DRIVER_JAR
                                         + " && curl -O "
                                         + PG_JDBC_JAR
