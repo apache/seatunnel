@@ -223,9 +223,9 @@ SftpFile {
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
-- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
+- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
 
 ### Next version
 
-- [Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+- [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
 

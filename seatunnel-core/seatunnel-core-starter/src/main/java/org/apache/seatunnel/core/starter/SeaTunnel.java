@@ -64,7 +64,7 @@ public class SeaTunnel {
         log.error("Fatal Error, \n");
         // FIX
         log.error(
-                "Please submit bug report in https://github.com/apache/incubator-seatunnel/issues\n");
+                "Please submit bug report in https://github.com/apache/seatunnel/issues\n");
         log.error("Reason:{} \n", errorMsg);
         log.error("Exception StackTrace:{} ", ExceptionUtils.getStackTrace(throwable));
         log.error(

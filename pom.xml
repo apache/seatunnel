@@ -876,7 +876,7 @@
         </plugins>
     </build>
 
-    <url>https://github.com/apache/incubator-seatunnel</url>
+    <url>https://github.com/apache/seatunnel</url>
 
     <licenses>
         <license>
@@ -901,15 +901,15 @@
     </mailingLists>
 
     <scm>
-        <connection>scm:git:https://github.com/apache/incubator-seatunnel.git</connection>
-        <developerConnection>scm:git:https://github.com/apache/incubator-seatunnel.git</developerConnection>
-        <url>https://github.com/apache/incubator-seatunnel</url>
+        <connection>scm:git:https://github.com/apache/seatunnel.git</connection>
+        <developerConnection>scm:git:https://github.com/apache/seatunnel.git</developerConnection>
+        <url>https://github.com/apache/seatunnel</url>
         <tag>HEAD</tag>
     </scm>
 
     <issueManagement>
         <system>GitHub</system>
-        <url>https://github.com/apache/incubator-seatunnel/issues</url>
+        <url>https://github.com/apache/seatunnel/issues</url>
     </issueManagement>
 
     <profiles>
