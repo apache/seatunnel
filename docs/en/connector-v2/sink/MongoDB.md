@@ -83,6 +83,7 @@ Sink Options
 
 > 1.The data flushing logic of the MongoDB Sink Connector is jointly controlled by three parameters: `buffer-flush.max-rows`, `buffer-flush.interval`, and `checkpoint.interval`.
 > Data flushing will be triggered if any of these conditions are met.<br/>
+> 2.Compatible with the historical parameter `upsert-key`. If `upsert-key` is set, please do not set `primary-key`.<br/>
 
 How to Create a MongoDB Data Synchronization Jobs
 -------------------------------------------------

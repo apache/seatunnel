@@ -147,5 +147,6 @@ public class MongodbConfig {
                     .listType()
                     .noDefaultValue()
                     .withDescription(
-                            "The primary keys for upsert/update. Keys are in csv format for properties.");
+                            "The primary keys for upsert/update. Keys are in csv format for properties.")
+                    .withFallbackKeys("upsert-key");
 }
