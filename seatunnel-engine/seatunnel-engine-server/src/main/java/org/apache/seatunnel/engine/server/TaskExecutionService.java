@@ -173,6 +173,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return taskGroupContext;
     }
 
+    public TaskGroupContext getActiveExecutionContext(TaskGroupLocation taskGroupLocation) {
+        TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
+
+        if (taskGroupContext == null) {
+            throw new TaskGroupContextNotFoundException(
+                    String.format("task group %s not found.", taskGroupLocation));
+        }
+        return taskGroupContext;
+    }
+
     private void submitThreadShareTask(
             TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
         Stream<TaskTracker> taskTrackerStream =
@@ -227,7 +237,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     public <T extends Task> T getTask(@NonNull TaskLocation taskLocation) {
         TaskGroupContext executionContext =
-                this.getExecutionContext(taskLocation.getTaskGroupLocation());
+                this.getActiveExecutionContext(taskLocation.getTaskGroupLocation());
         return executionContext.getTaskGroup().getTask(taskLocation.getTaskID());
     }
 
