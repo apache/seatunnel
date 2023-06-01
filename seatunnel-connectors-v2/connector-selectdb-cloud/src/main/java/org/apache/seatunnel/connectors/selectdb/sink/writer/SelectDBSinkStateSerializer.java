@@ -29,10 +29,11 @@ import java.io.IOException;
 public class SelectDBSinkStateSerializer implements Serializer<SelectDBSinkState> {
 
     @Override
-    public byte[] serialize(SelectDBSinkState obj) throws IOException {
+    public byte[] serialize(SelectDBSinkState selectDBSinkState) throws IOException {
         try (final ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 final DataOutputStream out = new DataOutputStream(baos)) {
-            out.writeUTF(obj.getLabelPrefix());
+            out.writeUTF(selectDBSinkState.getLabelPrefix());
+            out.writeLong(selectDBSinkState.getCheckpointId());
             out.flush();
             return baos.toByteArray();
         }

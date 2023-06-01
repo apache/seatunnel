@@ -15,19 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.sql;
+package org.apache.seatunnel.common.utils;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-import java.util.List;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public interface SQLEngine {
-    void init(String inputTableName, SeaTunnelRowType inputRowType, String sql);
-
-    SeaTunnelRowType typeMapping(List<String> inputColumnsMapping);
-
-    SeaTunnelRow transformBySQL(SeaTunnelRow inputRow);
-
-    default void close() {}
+public class ExceptionUtilsTest {
+    @Test
+    public void testGetRootException() {
+        Exception exception =
+                new UnsupportedOperationException(
+                        new SeaTunnelException(
+                                new SeaTunnelRuntimeException(
+                                        CommonErrorCode.CLASS_NOT_FOUND, "class not fount")));
+        Throwable throwable = ExceptionUtils.getRootException(exception);
+        Assertions.assertTrue(throwable instanceof SeaTunnelRuntimeException);
+    }
 }
