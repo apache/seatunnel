@@ -20,10 +20,12 @@ package org.apache.seatunnel.transform.sql;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import java.util.List;
+
 public interface SQLEngine {
     void init(String inputTableName, SeaTunnelRowType inputRowType, String sql);
 
-    SeaTunnelRowType typeMapping();
+    SeaTunnelRowType typeMapping(List<String> inputColumnsMapping);
 
     SeaTunnelRow transformBySQL(SeaTunnelRow inputRow);
 
