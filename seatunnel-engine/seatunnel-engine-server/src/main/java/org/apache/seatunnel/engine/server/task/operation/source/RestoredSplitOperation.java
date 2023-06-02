@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointErrorReportOperation;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
@@ -95,7 +96,20 @@ public class RestoredSplitOperation extends TaskOperation {
                                     .collect(Collectors.toList());
                     SourceSplitEnumeratorTask<SourceSplit> task =
                             taskExecutionService.getTask(taskLocation);
-                    task.addSplitsBack(deserialize, subtaskIndex);
+                    task.getExecutionContext()
+                            .getTaskExecutionService()
+                            .asyncExecuteFunction(
+                                    taskLocation.getTaskGroupLocation(),
+                                    () -> {
+                                        try {
+                                            task.addSplitsBack(deserialize, subtaskIndex);
+                                        } catch (Exception e) {
+                                            task.getExecutionContext()
+                                                    .sendToMaster(
+                                                            new CheckpointErrorReportOperation(
+                                                                    taskLocation, e));
+                                        }
+                                    });
                     return null;
                 },
                 new RetryUtils.RetryMaterial(
