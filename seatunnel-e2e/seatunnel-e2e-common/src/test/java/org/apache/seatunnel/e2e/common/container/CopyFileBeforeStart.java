@@ -17,23 +17,11 @@
 
 package org.apache.seatunnel.e2e.common.container;
 
-import org.apache.seatunnel.e2e.common.TestResource;
-
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.Network;
-
 import java.io.IOException;
+import java.util.List;
 
-public interface TestContainer extends TestResource {
+@FunctionalInterface
+public interface CopyFileBeforeStart {
 
-    Network NETWORK = Network.newNetwork();
-
-    TestContainerId identifier();
-
-    void copyFileBeforeStart(CopyFileBeforeStart copyFileBeforeStart);
-
-    void executeExtraCommands(ContainerExtendedFactory extendedFactory)
-            throws IOException, InterruptedException;
-
-    Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException;
+    List<String> execute() throws IOException, InterruptedException;
 }

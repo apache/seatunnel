@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.common.junit;
 
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.CopyFileBeforeStart;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainersFactory;
 
@@ -36,6 +37,8 @@ public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCal
     public static final String TEST_CONTAINERS_STORE_KEY = "testContainers";
     public static final String TEST_EXTENDED_FACTORY_STORE_KEY = "testContainerExtendedFactory";
 
+    public static final String TEST_COPY_FILE_BEFORE_START = "testCopyFileBeforeStart";
+
     @Override
     public void beforeAll(ExtensionContext context) throws Exception {
         List<ContainerExtendedFactory> containerExtendedFactories =
@@ -48,8 +51,22 @@ public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCal
         if (!containerExtendedFactories.isEmpty()) {
             containerExtendedFactory = containerExtendedFactories.get(0);
         }
+
         context.getStore(TEST_RESOURCE_NAMESPACE)
                 .put(TEST_EXTENDED_FACTORY_STORE_KEY, containerExtendedFactory);
+
+        List<CopyFileBeforeStart> copyFileBeforeStartFactories =
+                AnnotationSupport.findAnnotatedFieldValues(
+                        context.getRequiredTestInstance(),
+                        TestContainerExtension.class,
+                        CopyFileBeforeStart.class);
+        checkAtMostOneAnnotationField(copyFileBeforeStartFactories, TestContainerExtension.class);
+        CopyFileBeforeStart copyFileBeforeStart = () -> null;
+        if (!copyFileBeforeStartFactories.isEmpty()) {
+            copyFileBeforeStart = copyFileBeforeStartFactories.get(0);
+        }
+        context.getStore(TEST_RESOURCE_NAMESPACE)
+                .put(TEST_COPY_FILE_BEFORE_START, copyFileBeforeStart);
 
         List<TestContainersFactory> containersFactories =
                 AnnotationSupport.findAnnotatedFieldValues(

@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.CopyFileBeforeStart;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
@@ -31,6 +32,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
@@ -38,12 +40,14 @@ import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -206,6 +210,45 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                         + " && curl -O "
                                         + PG_GEOMETRY_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
+            };
+
+    @TestContainerExtension
+    private final CopyFileBeforeStart copyFileBeforeStart =
+            () -> {
+                Process process =
+                        Runtime.getRuntime()
+                                .exec(
+                                        new String[] {
+                                            "bash", "-c", "cd /tmp && curl -O " + PG_DRIVER_JAR
+                                        });
+                Assertions.assertEquals(
+                        0,
+                        process.waitFor(),
+                        IOUtils.toString(process.getErrorStream(), Charset.defaultCharset()));
+                Process process2 =
+                        Runtime.getRuntime()
+                                .exec(
+                                        new String[] {
+                                            "bash", "-c", "cd /tmp && curl -O " + PG_JDBC_JAR
+                                        });
+                Assertions.assertEquals(
+                        0,
+                        process2.waitFor(),
+                        IOUtils.toString(process2.getErrorStream(), Charset.defaultCharset()));
+                Process process3 =
+                        Runtime.getRuntime()
+                                .exec(
+                                        new String[] {
+                                            "bash", "-c", "cd /tmp && curl -O " + PG_GEOMETRY_JAR
+                                        });
+                Assertions.assertEquals(
+                        0,
+                        process3.waitFor(),
+                        IOUtils.toString(process3.getErrorStream(), Charset.defaultCharset()));
+                return Arrays.asList(
+                        "/tmp/postgresql-42.3.3.jar",
+                        "/tmp/postgis-jdbc-2.5.1.jar",
+                        "/tmp/postgis-geometry-2.5.1.jar");
             };
 
     @BeforeAll

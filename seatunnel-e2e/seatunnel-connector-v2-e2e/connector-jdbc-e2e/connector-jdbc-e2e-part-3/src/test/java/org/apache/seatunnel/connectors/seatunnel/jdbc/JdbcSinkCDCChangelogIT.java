@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.CopyFileBeforeStart;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
@@ -33,18 +33,21 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -66,12 +69,19 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
     private PostgreSQLContainer<?> postgreSQLContainer;
 
     @TestContainerExtension
-    private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash", "-c", "cd /tmp/seatunnel/lib && curl -O " + PG_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+    private final CopyFileBeforeStart copyFileBeforeStart =
+            () -> {
+                Process process =
+                        Runtime.getRuntime()
+                                .exec(
+                                        new String[] {
+                                            "bash", "-c", "cd /tmp && curl -O " + PG_DRIVER_JAR
+                                        });
+                Assertions.assertEquals(
+                        0,
+                        process.waitFor(),
+                        IOUtils.toString(process.getErrorStream(), Charset.defaultCharset()));
+                return Collections.singletonList("/tmp/postgresql-42.3.3.jar");
             };
 
     @BeforeAll

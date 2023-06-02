@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.common.container.flink;
 
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.CopyFileBeforeStart;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.testcontainers.containers.Container;
@@ -27,6 +28,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +58,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
 
+    private CopyFileBeforeStart copyFile;
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
 
@@ -101,7 +104,15 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                                         .withRegEx(
                                                 ".*Successful registration at resource manager.*")
                                         .withStartupTimeout(Duration.ofMinutes(2)));
-
+        List<String> filePaths = copyFile.execute();
+        if (filePaths != null) {
+            filePaths.forEach(
+                    filePath -> {
+                        jobManager.copyFileToContainer(
+                                MountableFile.forHostPath(filePath),
+                                SEATUNNEL_HOME + "/plugins/jdbc/lib");
+                    });
+        }
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
         // execute extra commands
@@ -131,6 +142,11 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
             throws IOException, InterruptedException {
         extendedFactory.extend(jobManager);
         extendedFactory.extend(taskManager);
+    }
+
+    @Override
+    public void copyFileBeforeStart(CopyFileBeforeStart executeBeforeStart) {
+        this.copyFile = executeBeforeStart;
     }
 
     @Override

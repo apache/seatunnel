@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.common.junit;
 
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.CopyFileBeforeStart;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension.TEST_CONTAINERS_STORE_KEY;
+import static org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension.TEST_COPY_FILE_BEFORE_START;
 import static org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension.TEST_EXTENDED_FACTORY_STORE_KEY;
 import static org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension.TEST_RESOURCE_NAMESPACE;
 
@@ -67,26 +69,36 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
                         context.getStore(TEST_RESOURCE_NAMESPACE)
                                 .get(TEST_EXTENDED_FACTORY_STORE_KEY);
 
+        CopyFileBeforeStart copyFileBeforeStart =
+                (CopyFileBeforeStart)
+                        context.getStore(TEST_RESOURCE_NAMESPACE).get(TEST_COPY_FILE_BEFORE_START);
+
         int containerAmount = testContainers.size();
         return testContainers.stream()
                 .map(
                         testContainer ->
                                 new TestResourceProvidingInvocationContext(
-                                        testContainer, containerExtendedFactory, containerAmount));
+                                        testContainer,
+                                        containerExtendedFactory,
+                                        copyFileBeforeStart,
+                                        containerAmount));
     }
 
     static class TestResourceProvidingInvocationContext implements TestTemplateInvocationContext {
         private final TestContainer testContainer;
         private final ContainerExtendedFactory containerExtendedFactory;
         private final Integer containerAmount;
+        private final CopyFileBeforeStart copyFileBeforeStart;
 
         public TestResourceProvidingInvocationContext(
                 TestContainer testContainer,
                 ContainerExtendedFactory containerExtendedFactory,
+                CopyFileBeforeStart copyFileBeforeStart,
                 int containerAmount) {
             this.testContainer = testContainer;
             this.containerExtendedFactory = containerExtendedFactory;
             this.containerAmount = containerAmount;
+            this.copyFileBeforeStart = copyFileBeforeStart;
         }
 
         @Override
@@ -100,7 +112,8 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
         public List<Extension> getAdditionalExtensions() {
             return Arrays.asList(
                     // Extension for injecting parameters
-                    new TestContainerResolver(testContainer, containerExtendedFactory),
+                    new TestContainerResolver(
+                            testContainer, containerExtendedFactory, copyFileBeforeStart),
                     // Extension for closing test container
                     (AfterTestExecutionCallback)
                             ignore -> {
@@ -116,11 +129,15 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
 
         private final TestContainer testContainer;
         private final ContainerExtendedFactory containerExtendedFactory;
+        private final CopyFileBeforeStart copyFileBeforeStart;
 
         private TestContainerResolver(
-                TestContainer testContainer, ContainerExtendedFactory containerExtendedFactory) {
+                TestContainer testContainer,
+                ContainerExtendedFactory containerExtendedFactory,
+                CopyFileBeforeStart copyFileBeforeStart) {
             this.testContainer = testContainer;
             this.containerExtendedFactory = containerExtendedFactory;
+            this.copyFileBeforeStart = copyFileBeforeStart;
         }
 
         @Override
@@ -135,6 +152,7 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
         public Object resolveParameter(
                 ParameterContext parameterContext, ExtensionContext extensionContext)
                 throws ParameterResolutionException {
+            testContainer.copyFileBeforeStart(copyFileBeforeStart);
             testContainer.startUp();
             testContainer.executeExtraCommands(containerExtendedFactory);
             log.info("The TestContainer[{}] is running.", testContainer.identifier());

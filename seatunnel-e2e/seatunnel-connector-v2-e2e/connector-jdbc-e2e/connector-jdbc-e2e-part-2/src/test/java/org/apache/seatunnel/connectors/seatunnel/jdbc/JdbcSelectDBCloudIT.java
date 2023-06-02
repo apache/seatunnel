@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.CopyFileBeforeStart;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
@@ -46,6 +46,7 @@ import java.math.BigDecimal;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Driver;
@@ -55,6 +56,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
@@ -168,12 +170,19 @@ public class JdbcSelectDBCloudIT extends TestSuiteBase implements TestResource {
     private static final List<SeaTunnelRow> TEST_DATASET = generateTestDataSet();
 
     @TestContainerExtension
-    private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash", "-c", "cd /tmp/seatunnel/lib && curl -O " + DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+    private final CopyFileBeforeStart copyFileBeforeStart =
+            () -> {
+                Process process =
+                        Runtime.getRuntime()
+                                .exec(
+                                        new String[] {
+                                            "bash", "-c", "cd /tmp && curl -O " + DRIVER_JAR
+                                        });
+                Assertions.assertEquals(
+                        0,
+                        process.waitFor(),
+                        IOUtils.toString(process.getErrorStream(), Charset.defaultCharset()));
+                return Collections.singletonList("/tmp/mysql-connector-java-8.0.16.jar");
             };
 
     @BeforeAll
