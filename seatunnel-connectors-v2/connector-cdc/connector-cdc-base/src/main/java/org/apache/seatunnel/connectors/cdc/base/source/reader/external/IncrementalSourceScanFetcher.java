@@ -219,10 +219,10 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
                     record,
                     null == currentSnapshotSplit.getSplitStart()
                             ? null
-                            : new Object[] {currentSnapshotSplit.getSplitStart()},
+                            : currentSnapshotSplit.getSplitStart(),
                     null == currentSnapshotSplit.getSplitEnd()
                             ? null
-                            : new Object[] {currentSnapshotSplit.getSplitEnd()});
+                            : currentSnapshotSplit.getSplitEnd());
         }
         return false;
     }

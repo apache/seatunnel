@@ -429,17 +429,17 @@ FakeSource {
 
 ### 2.3.0-beta 2022-10-20
 
-- [Improve] Supports direct definition of data values(row) ([2839](https://github.com/apache/incubator-seatunnel/pull/2839))
-- [Improve] Improve fake source connector: ([2944](https://github.com/apache/incubator-seatunnel/pull/2944))
+- [Improve] Supports direct definition of data values(row) ([2839](https://github.com/apache/seatunnel/pull/2839))
+- [Improve] Improve fake source connector: ([2944](https://github.com/apache/seatunnel/pull/2944))
   - Support user-defined map size
   - Support user-defined array size
   - Support user-defined string length
   - Support user-defined bytes length
-- [Improve] Support multiple splits for fake source connector ([2974](https://github.com/apache/incubator-seatunnel/pull/2974))
-- [Improve] Supports setting the number of splits per parallelism and the reading interval between two splits ([3098](https://github.com/apache/incubator-seatunnel/pull/3098))
+- [Improve] Support multiple splits for fake source connector ([2974](https://github.com/apache/seatunnel/pull/2974))
+- [Improve] Supports setting the number of splits per parallelism and the reading interval between two splits ([3098](https://github.com/apache/seatunnel/pull/3098))
 
 ### next version
 
-- [Feature] Support config fake data rows [3865](https://github.com/apache/incubator-seatunnel/pull/3865)
-- [Feature] Support config template or range for fake data [3932](https://github.com/apache/incubator-seatunnel/pull/3932)
+- [Feature] Support config fake data rows [3865](https://github.com/apache/seatunnel/pull/3865)
+- [Feature] Support config template or range for fake data [3932](https://github.com/apache/seatunnel/pull/3932)
 

@@ -256,5 +256,5 @@ For orc file format simple config
 
 ### Next version
 
-- [Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+- [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
 
