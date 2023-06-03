@@ -31,6 +31,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.DriverBuilder;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkQueryInfo;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.constants.SinkWriteMode;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
 
 import org.neo4j.driver.AuthTokens;
@@ -67,17 +68,20 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        neo4JSinkQueryInfo.setDriverBuilder(prepareDriver(config));
 
-        final CheckResult queryConfigCheck =
-                CheckConfigUtil.checkAllExists(config, KEY_QUERY.key(), QUERY_PARAM_POSITION.key());
-        if (!queryConfigCheck.isSuccess()) {
-            throw new Neo4jConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            PLUGIN_NAME, PluginType.SINK, queryConfigCheck.getMsg()));
+        // check username password query and init driver
+        DriverBuilder driverBuilder = prepareDriver(config);
+        neo4JSinkQueryInfo.setDriverBuilder(driverBuilder);
+        setNeo4jWriteMode(config);
+
+        if (neo4JSinkQueryInfo.batchMode()) {
+            prepareBatchModeConfigParams(config);
+        } else {
+            prepareWriteOneByOneConfigParams(config);
         }
+    }
+
+    private void setNeo4jWriteMode(Config config) {
         if (config.hasPath(MAX_BATCH_SIZE.key())) {
             int batchSize = config.getInt(MAX_BATCH_SIZE.key());
             if (batchSize <= 0) {
@@ -88,15 +92,52 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
                                 PLUGIN_NAME, PluginType.SINK, "maxBatchSize must greater than 0"));
             }
             neo4JSinkQueryInfo.setMaxBatchSize(batchSize);
+            neo4JSinkQueryInfo.setWriteMode(SinkWriteMode.Batch);
+        } else {
+            neo4JSinkQueryInfo.setWriteMode(SinkWriteMode.OneByOne);
         }
+    }
+
+    private void prepareWriteOneByOneConfigParams(Config config) {
+
+        CheckResult queryConfigCheck =
+                CheckConfigUtil.checkAllExists(config, KEY_QUERY.key(), QUERY_PARAM_POSITION.key());
+
+        if (!queryConfigCheck.isSuccess()) {
+            throw new Neo4jConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            PLUGIN_NAME, PluginType.SINK, queryConfigCheck.getMsg()));
+        }
+        // set query
+        neo4JSinkQueryInfo.setQuery(config.getString(KEY_QUERY.key()));
+        // set queryParamPosition
+        neo4JSinkQueryInfo.setQueryParamPosition(
+                config.getObject(QUERY_PARAM_POSITION.key()).unwrapped());
+    }
+
+    private void prepareBatchModeConfigParams(Config config) {
+
+        CheckResult queryConfigCheck = CheckConfigUtil.checkAllExists(config, KEY_QUERY.key());
+        if (!queryConfigCheck.isSuccess()) {
+            throw new Neo4jConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            PLUGIN_NAME, PluginType.SINK, queryConfigCheck.getMsg()));
+        }
+
+        int batchSize = config.getInt(MAX_BATCH_SIZE.key());
+        neo4JSinkQueryInfo.setMaxBatchSize(batchSize);
+        // set query
+        neo4JSinkQueryInfo.setQuery(config.getString(KEY_QUERY.key()));
+
         if (config.hasPath(BATCH_VARIABLE.key())) {
             neo4JSinkQueryInfo.setBatchVariable(config.getString(BATCH_VARIABLE.key()));
         } else {
             neo4JSinkQueryInfo.setBatchVariable(BATCH_VARIABLE.defaultValue());
         }
-        neo4JSinkQueryInfo.setQuery(config.getString(KEY_QUERY.key()));
-        neo4JSinkQueryInfo.setQueryParamPosition(
-                config.getObject(QUERY_PARAM_POSITION.key()).unwrapped());
     }
 
     private DriverBuilder prepareDriver(Config config) {

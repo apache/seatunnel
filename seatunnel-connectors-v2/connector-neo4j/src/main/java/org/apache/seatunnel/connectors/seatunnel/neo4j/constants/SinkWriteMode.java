@@ -15,24 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
+package org.apache.seatunnel.connectors.seatunnel.neo4j.constants;
 
-import org.apache.seatunnel.connectors.seatunnel.neo4j.constants.SinkWriteMode;
-
-import lombok.Data;
-
-import java.util.Map;
-
-@Data
-public class Neo4jSinkQueryInfo extends Neo4jQueryInfo {
-    private Map<String, Object> queryParamPosition;
-    private Integer maxBatchSize;
-
-    private String batchVariable;
-
-    private SinkWriteMode writeMode;
-
-    public boolean batchMode() {
-        return SinkWriteMode.Batch.equals(writeMode);
-    }
+public enum SinkWriteMode {
+    OneByOne,
+    Batch
 }
