@@ -54,6 +54,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.neo4j.driver.Values.parameters;
 
@@ -151,6 +152,33 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
         assertEquals(2147483647, tt.get("int").asInt());
         assertEquals(2147483647, tt.get("mapValue").asInt());
         assertEquals(Float.MAX_VALUE, tt.get("float").asFloat());
+    }
+
+    @TestTemplate
+    public void testBatchWrite(TestContainer container) throws IOException, InterruptedException {
+        // clean test data before test
+        final Result checkExists = neo4jSession.run("MATCH (n:BatchLabel) RETURN n limit 1");
+        if (checkExists.hasNext()) {
+            neo4jSession.run("MATCH (n:BatchLabel) delete n");
+        }
+
+        // unwind $batch as row create(n:BatchLabel) set n.name = row.name,n.age = row.age
+        Container.ExecResult execResult =
+                container.executeJob("/neo4j/fake_to_neo4j_batch_write.conf");
+        // then
+        Assertions.assertEquals(0, execResult.getExitCode());
+        final Result result = neo4jSession.run("MATCH (n:BatchLabel) RETURN n");
+        // nodes
+        assertTrue(result.hasNext());
+        // verify the attributes of the node
+        result.stream()
+                .forEach(
+                        r -> {
+                            String name = r.get("n").get("name").asString();
+                            assertNotNull(name);
+                            Object age = r.get("n").get("age").asObject();
+                            assertNotNull(age);
+                        });
     }
 
     @AfterAll
