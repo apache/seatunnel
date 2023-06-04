@@ -190,7 +190,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                 .getExecutionContext()
                                 .sendToMember(
                                         new BarrierFlowOperation(barrier, committerTaskLocation),
-                                        committerTaskAddress);
+                                        committerTaskAddress)
+                                .join();
                     }
                 }
                 runningTask.ack(barrier);

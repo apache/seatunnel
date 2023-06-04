@@ -42,6 +42,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | batch_size                                | Int     | No       | 1000          |
 | batch_interval_ms                         | Int     | No       | 1000          |
 | is_exactly_once                           | Boolean | No       | false         |
+| generate_sink_sql                         | Boolean | No       | false         |
 | xa_data_source_class_name                 | String  | No       | -             |
 | max_commit_attempts                       | Int     | No       | 3             |
 | transaction_timeout_sec                   | Int     | No       | -1            |
@@ -112,6 +113,10 @@ For batch writing, when the number of buffers reaches the number of `batch_size`
 Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to
 set `xa_data_source_class_name`.
 
+### generate_sink_sql[boolean]
+
+Generate sql statements based on the database table you want to write to
+
 ### xa_data_source_class_name[string]
 
 The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource`, and
@@ -161,6 +166,7 @@ there are some reference value for params above.
 | Doris      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | teradata   | com.teradata.jdbc.TeraDriver                 | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test              | /                                                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                               |
 | Redshift   | com.amazon.redshift.jdbc42.Driver            | jdbc:redshift://localhost:5439/testdb                              | com.amazon.redshift.xa.RedshiftXADataSource        | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                      |
+| Snowflake  | net.snowflake.client.jdbc.SnowflakeDriver    | jdbc:snowflake://<account_name>.snowflakecomputing.com             | /                                                  | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                             |
 | Vertica    | com.vertica.jdbc.Driver                      | jdbc:vertica://localhost:5433                                      | /                                                  | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar             |
 
 ## Example

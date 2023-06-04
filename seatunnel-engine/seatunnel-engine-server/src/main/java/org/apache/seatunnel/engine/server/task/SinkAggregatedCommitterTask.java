@@ -179,6 +179,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
 
     @Override
     public void close() throws IOException {
+        super.close();
         aggregatedCommitter.close();
         progress.done();
         completableFuture.complete(null);

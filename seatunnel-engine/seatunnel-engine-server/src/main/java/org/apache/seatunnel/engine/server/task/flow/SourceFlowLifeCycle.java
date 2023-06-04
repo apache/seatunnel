@@ -133,6 +133,11 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     public void collect() throws Exception {
         if (!prepareClose) {
             reader.pollNext(collector);
+            if (collector.getRowCountThisPollNext() == 0) {
+                Thread.sleep(100);
+            } else {
+                collector.resetRowCountThisPollNext();
+            }
         }
     }
 
