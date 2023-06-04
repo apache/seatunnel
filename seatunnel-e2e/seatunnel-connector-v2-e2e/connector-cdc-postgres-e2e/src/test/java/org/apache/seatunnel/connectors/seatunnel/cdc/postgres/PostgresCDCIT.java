@@ -62,10 +62,52 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     // postgres source table query sql
     private static final String SOURCE_SQL =
-            "select id, name from public.postgres_cdc_e2e_source_table";
-    // postgres sink table query sql
+            "select \n"
+                    + "gid,\n"
+                    + "text_col,\n"
+                    + "varchar_col,\n"
+                    + "char_col,\n"
+                    + "boolean_col,\n"
+                    + "smallint_col,\n"
+                    + "integer_col,\n"
+                    + "bigint_col,\n"
+                    + "decimal_col,\n"
+                    + "numeric_col,\n"
+                    + "real_col,\n"
+                    + "double_precision_col,\n"
+                    + "smallserial_col,\n"
+                    + "serial_col,\n"
+                    + "bigserial_col,\n"
+                    + "date_col,\n"
+                    + "timestamp_col,\n"
+                    + "bpchar_col,\n"
+                    + "age,\n"
+                    + "name\n"
+                    + " from public.postgres_cdc_e2e_source_table";
     private static final String SINK_SQL =
-            "select id, name from public.postgres_cdc_e2e_sink_table";
+            "select\n"
+                    + "  gid,\n"
+                    + "   text_col,\n"
+                    + "   varchar_col,\n"
+                    + "   char_col,\n"
+                    + "   boolean_col,\n"
+                    + "   smallint_col,\n"
+                    + "   integer_col,\n"
+                    + "   bigint_col,\n"
+                    + "   decimal_col,\n"
+                    + "   numeric_col,\n"
+                    + "   real_col,\n"
+                    + "   double_precision_col,\n"
+                    + "   smallserial_col,\n"
+                    + "   serial_col,\n"
+                    + "   bigserial_col,\n"
+                    + "   date_col,\n"
+                    + "   timestamp_col,\n"
+                    + "   bpchar_col,"
+                    + "  age,\n"
+                    + "  name \n"
+                    + "from\n"
+                    + "  public.postgres_cdc_e2e_sink_table";
 
     private static PostgreSQLContainer createpostgresContainer() {
         return new PostgreSQLContainer<>("postgres:11.1")
@@ -86,7 +128,6 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         log.info("The second stage: Starting postgres containers...");
         Startables.deepStart(Stream.of(postgres_CONTAINER)).join();
         log.info("postgres Containers are started");
-        //        inventoryDatabase.createAndInitialize();
         log.info("postgres ddl execution is complete");
     }
 
@@ -169,16 +210,98 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     private void upsertDeleteSourceTable() {
 
         executeSql(
-                "INSERT INTO public.postgres_cdc_e2e_source_table\n"
-                        + "(id, name)\n"
-                        + "VALUES(2, 'ww22333322');\n");
-        executeSql(
-                "INSERT INTO public.postgres_cdc_e2e_source_table\n"
-                        + "(id, name)\n"
-                        + "VALUES(3, 'errtt23311');\n");
-        executeSql("DELETE FROM public.postgres_cdc_e2e_source_table where id = 1");
+                "INSERT INTO public.postgres_cdc_e2e_source_table (gid,\n"
+                        + "                             text_col,\n"
+                        + "                             varchar_col,\n"
+                        + "                             char_col,\n"
+                        + "                             boolean_col,\n"
+                        + "                             smallint_col,\n"
+                        + "                             integer_col,\n"
+                        + "                             bigint_col,\n"
+                        + "                             decimal_col,\n"
+                        + "                             numeric_col,\n"
+                        + "                             real_col,\n"
+                        + "                             double_precision_col,\n"
+                        + "                             smallserial_col,\n"
+                        + "                             serial_col,\n"
+                        + "                             bigserial_col,\n"
+                        + "                             date_col,\n"
+                        + "                             timestamp_col,\n"
+                        + "                             bpchar_col,\n"
+                        + "                             age,\n"
+                        + "                             name\n"
+                        + "                           )\n"
+                        + "                         VALUES\n"
+                        + "                           (\n"
+                        + "                             '4',\n"
+                        + "                             'Hello World',\n"
+                        + "                             'Test',\n"
+                        + "                             'Testing',\n"
+                        + "                             true,\n"
+                        + "                             10,\n"
+                        + "                             100,\n"
+                        + "                             1000,\n"
+                        + "                             10.55,\n"
+                        + "                             8.8888,\n"
+                        + "                             3.14,\n"
+                        + "                             3.14159265,\n"
+                        + "                             1,\n"
+                        + "                             100,\n"
+                        + "                             10000,\n"
+                        + "                             '2023-05-07',\n"
+                        + "                             '2023-05-07 14:30:00',\n"
+                        + "                             'Testing',\n"
+                        + "                             21,\n"
+                        + "                             'Leblanc');\n");
 
-        executeSql("UPDATE public.postgres_cdc_e2e_source_table SET name = 'test' where id = 3");
+        executeSql(
+                "INSERT INTO public.postgres_cdc_e2e_source_table (gid,\n"
+                        + "                             text_col,\n"
+                        + "                             varchar_col,\n"
+                        + "                             char_col,\n"
+                        + "                             boolean_col,\n"
+                        + "                             smallint_col,\n"
+                        + "                             integer_col,\n"
+                        + "                             bigint_col,\n"
+                        + "                             decimal_col,\n"
+                        + "                             numeric_col,\n"
+                        + "                             real_col,\n"
+                        + "                             double_precision_col,\n"
+                        + "                             smallserial_col,\n"
+                        + "                             serial_col,\n"
+                        + "                             bigserial_col,\n"
+                        + "                             date_col,\n"
+                        + "                             timestamp_col,\n"
+                        + "                             bpchar_col,\n"
+                        + "                             age,\n"
+                        + "                             name\n"
+                        + "                           )\n"
+                        + "                         VALUES\n"
+                        + "                           (\n"
+                        + "                             '5',\n"
+                        + "                             'Hello World',\n"
+                        + "                             'Test',\n"
+                        + "                             'Testing',\n"
+                        + "                             true,\n"
+                        + "                             10,\n"
+                        + "                             100,\n"
+                        + "                             1000,\n"
+                        + "                             10.55,\n"
+                        + "                             8.8888,\n"
+                        + "                             3.14,\n"
+                        + "                             3.14159265,\n"
+                        + "                             1,\n"
+                        + "                             100,\n"
+                        + "                             10000,\n"
+                        + "                             '2023-05-07',\n"
+                        + "                             '2023-05-07 14:30:00',\n"
+                        + "                             'Testing',\n"
+                        + "                             21,\n"
+                        + "                             'Leblanc');\n");
+
+        executeSql("DELETE FROM public.postgres_cdc_e2e_source_table where gid = 1");
+
+        executeSql("UPDATE public.postgres_cdc_e2e_source_table SET name = 'test' where gid = 3");
     }
 
     @Override
