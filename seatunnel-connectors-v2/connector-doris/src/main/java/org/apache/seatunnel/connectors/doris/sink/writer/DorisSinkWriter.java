@@ -59,7 +59,7 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
     private static final int CONNECT_TIMEOUT = 1000;
     private static final List<String> DORIS_SUCCESS_STATUS =
             new ArrayList<>(Arrays.asList(LoadStatus.SUCCESS, LoadStatus.PUBLISH_TIMEOUT));
-    private final long lastCheckpointId;
+    private long lastCheckpointId;
     private DorisStreamLoad dorisStreamLoad;
     volatile boolean loading;
     private final DorisConfig dorisConfig;
@@ -156,7 +156,8 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         this.dorisStreamLoad.setHostPort(getAvailableBackend());
         this.dorisStreamLoad.startLoad(labelGenerator.generateLabel(checkpointId + 1));
         this.loading = true;
-        return Collections.singletonList(dorisSinkState);
+        this.lastCheckpointId = checkpointId;
+        return Collections.singletonList(new DorisSinkState(labelPrefix, lastCheckpointId));
     }
 
     @Override
