@@ -23,7 +23,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersio
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.CopyFileBeforeStart;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -119,16 +118,6 @@ public class CanalToPulsarIT extends TestSuiteBase implements TestResource {
             "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
 
     private static PostgreSQLContainer<?> POSTGRESQL_CONTAINER;
-
-    @TestContainerExtension
-    private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash", "-c", "cd /tmp/seatunnel/lib && curl -O " + PG_DRIVER_JAR);
-
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-            };
 
     @TestContainerExtension
     private final CopyFileBeforeStart copyFileBeforeStart =

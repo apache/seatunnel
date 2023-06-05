@@ -108,7 +108,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         if (filePaths != null) {
             filePaths.forEach(
                     filePath -> {
-                        jobManager.copyFileToContainer(
+                        jobManager.withCopyFileToContainer(
                                 MountableFile.forHostPath(filePath),
                                 SEATUNNEL_HOME + "/plugins/jdbc/lib");
                     });
