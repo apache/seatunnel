@@ -117,7 +117,10 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
             container -> {
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash", "-c", "cd /tmp/seatunnel/lib && curl -O " + PG_DRIVER_JAR);
+                                "bash",
+                                "-c",
+                                "cd /tmp/seatunnel/lib && curl -O "
+                                        + PG_DRIVER_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 

@@ -47,7 +47,10 @@ public class JdbcTeradataIT extends TestSuiteBase implements TestResource {
     private final ContainerExtendedFactory extendedFactory =
             container -> {
                 container.execInContainer(
-                        "bash", "-c", "cd /tmp/seatunnel/lib && curl -O " + TERADATA_DRIVER_JAR);
+                        "bash",
+                        "-c",
+                        "cd /tmp/seatunnel/lib && curl -O "
+                                + TERADATA_DRIVER_JAR);
             };
 
     private Connection connection;

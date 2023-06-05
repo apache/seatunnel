@@ -66,7 +66,10 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             container -> {
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash", "-c", "cd /tmp/seatunnel/lib && wget " + driverUrl());
+                                "bash",
+                                "-c",
+                                "cd /tmp/seatunnel/lib && wget "
+                                        + driverUrl());
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 

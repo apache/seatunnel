@@ -43,7 +43,10 @@ public class JdbcSnowflakeIT extends TestSuiteBase implements TestResource {
     private final ContainerExtendedFactory extendedFactory =
             container -> {
                 container.execInContainer(
-                        "bash", "-c", "cd /tmp/seatunnel/lib && curl -O " + SNOWFLAKE_DRIVER_JAR);
+                        "bash",
+                        "-c",
+                        "cd /tmp/seatunnel/lib && curl -O "
+                                + SNOWFLAKE_DRIVER_JAR);
             };
 
     private Connection connection;
