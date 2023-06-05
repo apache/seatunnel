@@ -79,7 +79,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         if (filePaths != null) {
             filePaths.forEach(
                     filePath -> {
-                        server.withCopyFileToContainer(
+                        server.copyFileToContainer(
                                 MountableFile.forHostPath(filePath), SEATUNNEL_HOME + "/lib/");
                     });
         }
