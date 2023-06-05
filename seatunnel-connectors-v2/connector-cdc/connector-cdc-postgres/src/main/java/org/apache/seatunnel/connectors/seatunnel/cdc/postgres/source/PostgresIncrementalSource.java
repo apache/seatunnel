@@ -50,7 +50,7 @@ import java.util.List;
 @AutoService(SeaTunnelSource.class)
 public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> {
 
-    static final String IDENTIFIER = "Postgres-CDC";
+    static final String IDENTIFIER = "PostgreSQL-CDC";
 
     @Override
     public String getPluginName() {

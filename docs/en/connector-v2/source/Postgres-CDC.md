@@ -18,7 +18,7 @@ describes how to set up the Postgres CDC connector to run SQL queries against Po
 
 ## Options
 
-| name                                           | type     | required | default value |
+|                      name                      |   type   | required | default value |
 |------------------------------------------------|----------|----------|---------------|
 | port                                           | Long     | Yes      | -             |
 | hostname                                       | String   | Yes      | -             |
@@ -67,7 +67,6 @@ Schmea name of the database to monitor.
 ### table-names [List]
 
 Table name of the database to monitor. The table name needs to include the schema name, for example: schema_name.table_name
-
 
 ### startup.mode [Enum]
 

@@ -61,7 +61,7 @@ public class PostgresDialect implements JdbcDataSourceDialect {
 
     @Override
     public String getName() {
-        return "Postgres";
+        return "PostgreSQL";
     }
 
     @Override
