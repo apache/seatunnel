@@ -19,7 +19,6 @@ package org.apache.seatunnel.e2e.common.container.seatunnel;
 
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.CopyFileBeforeStart;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
@@ -51,7 +50,6 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
     private GenericContainer<?> server;
-    private CopyFileBeforeStart copyFile;
 
     @Override
     public void startUp() throws Exception {
@@ -75,14 +73,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
-        List<String> filePaths = copyFile.execute();
-        if (filePaths != null) {
-            filePaths.forEach(
-                    filePath -> {
-                        server.copyFileToContainer(
-                                MountableFile.forHostPath(filePath), SEATUNNEL_HOME + "/lib/");
-                    });
-        }
+
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
@@ -144,11 +135,6 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     public void executeExtraCommands(ContainerExtendedFactory extendedFactory)
             throws IOException, InterruptedException {
         extendedFactory.extend(server);
-    }
-
-    @Override
-    public void copyFileBeforeStart(CopyFileBeforeStart executeBeforeStart) {
-        this.copyFile = executeBeforeStart;
     }
 
     @Override

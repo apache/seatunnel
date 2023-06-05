@@ -30,8 +30,6 @@ public interface TestContainer extends TestResource {
 
     TestContainerId identifier();
 
-    void copyFileBeforeStart(CopyFileBeforeStart copyFileBeforeStart);
-
     void executeExtraCommands(ContainerExtendedFactory extendedFactory)
             throws IOException, InterruptedException;
 

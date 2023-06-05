@@ -22,7 +22,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.CopyFileBeforeStart;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
@@ -35,7 +35,6 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,14 +42,12 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.charset.Charset;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -65,20 +62,12 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected static final String HOST = "HOST";
 
     @TestContainerExtension
-    private final CopyFileBeforeStart copyFileBeforeStart =
-            () -> {
-                Process process =
-                        Runtime.getRuntime()
-                                .exec(
-                                        new String[] {
-                                            "bash", "-c", "cd /tmp && curl -O " + driverUrl()
-                                        });
-                Assertions.assertEquals(
-                        0,
-                        process.waitFor(),
-                        IOUtils.toString(process.getErrorStream(), Charset.defaultCharset()));
-                return Collections.singletonList(
-                        "/tmp/" + driverUrl().substring(driverUrl().lastIndexOf("/") + 1));
+    protected final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash", "-c", "cd /tmp/seatunnel/lib && wget " + driverUrl());
+                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
     protected GenericContainer<?> dbServer;

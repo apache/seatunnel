@@ -24,7 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatab
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.CopyFileBeforeStart;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
@@ -48,7 +47,6 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
@@ -56,7 +54,6 @@ import org.testcontainers.utility.MountableFile;
 import com.google.common.collect.Lists;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -64,7 +61,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -128,22 +124,6 @@ public class CanalToPulsarIT extends TestSuiteBase implements TestResource {
                                 "bash", "-c", "cd /tmp/seatunnel/lib && curl -O " + PG_DRIVER_JAR);
 
                 Assertions.assertEquals(0, extraCommands.getExitCode());
-            };
-
-    @TestContainerExtension
-    private final CopyFileBeforeStart copyFileBeforeStart =
-            () -> {
-                Process process =
-                        Runtime.getRuntime()
-                                .exec(
-                                        new String[] {
-                                            "bash", "-c", "cd /tmp && curl -O " + PG_DRIVER_JAR
-                                        });
-                Assertions.assertEquals(
-                        0,
-                        process.waitFor(),
-                        IOUtils.toString(process.getErrorStream(), Charset.defaultCharset()));
-                return Collections.singletonList("/tmp/postgresql-42.3.3.jar");
             };
 
     private void createPostgreSQLContainer() throws ClassNotFoundException {

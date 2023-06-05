@@ -19,7 +19,6 @@ package org.apache.seatunnel.e2e.common.container.spark;
 
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.CopyFileBeforeStart;
 
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -27,7 +26,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,8 +41,6 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
     private static final String DEFAULT_DOCKER_IMAGE = "bitnami/spark:2.4.6";
 
     protected GenericContainer<?> master;
-
-    private CopyFileBeforeStart copyFile;
 
     @Override
     protected String getDockerImage() {
@@ -67,16 +63,6 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
                                 new LogMessageWaitStrategy()
                                         .withRegEx(".*Master: Starting Spark master at.*")
                                         .withStartupTimeout(Duration.ofMinutes(2)));
-        List<String> copyFilePaths = copyFile.execute();
-        if (copyFilePaths != null) {
-            copyFilePaths.forEach(
-                    copyFilePath -> {
-                        master.copyFileToContainer(
-                                MountableFile.forHostPath(copyFilePath),
-                                SEATUNNEL_HOME + "/plugins/jdbc/lib");
-                    });
-        }
-
         copySeaTunnelStarterToContainer(master);
         copySeaTunnelStarterLoggingToContainer(master);
 
@@ -103,11 +89,6 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
     public void executeExtraCommands(ContainerExtendedFactory extendedFactory)
             throws IOException, InterruptedException {
         extendedFactory.extend(master);
-    }
-
-    @Override
-    public void copyFileBeforeStart(CopyFileBeforeStart executeBeforeStart) {
-        this.copyFile = executeBeforeStart;
     }
 
     public Container.ExecResult executeJob(String confFile)
