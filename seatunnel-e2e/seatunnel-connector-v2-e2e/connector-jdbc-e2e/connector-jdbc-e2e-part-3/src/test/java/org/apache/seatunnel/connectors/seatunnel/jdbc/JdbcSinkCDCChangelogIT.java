@@ -72,7 +72,7 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "cd /tmp/seatunnel/lib && curl -O "
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
                                         + PG_DRIVER_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };

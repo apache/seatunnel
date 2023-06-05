@@ -45,7 +45,7 @@ public class JdbcSnowflakeIT extends TestSuiteBase implements TestResource {
                 container.execInContainer(
                         "bash",
                         "-c",
-                        "cd /tmp/seatunnel/lib && curl -O "
+                        "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
                                 + SNOWFLAKE_DRIVER_JAR);
             };
 
