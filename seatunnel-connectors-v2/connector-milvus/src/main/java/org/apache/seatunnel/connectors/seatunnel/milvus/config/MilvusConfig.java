@@ -23,11 +23,8 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 
 import java.io.Serializable;
 
-/**
- * Utility class to milvus configuration options, used by {@link SeaTunnelSink}.
- */
+/** Utility class to milvus configuration options, used by {@link SeaTunnelSink}. */
 public class MilvusConfig implements Serializable {
-
 
     public static final Option<String> MILVUS_HOST =
             Options.key("milvus_host")
@@ -57,14 +54,15 @@ public class MilvusConfig implements Serializable {
             Options.key("collection_name")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("A collection of milvus, which is similar to a table in a relational database.");
+                    .withDescription(
+                            "A collection of milvus, which is similar to a table in a relational database.");
 
     public static final Option<String> PARTITION_FIELD =
             Options.key("partition_field")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Partition fields, which must be included in the collection's schema.");
-
+                    .withDescription(
+                            "Partition fields, which must be included in the collection's schema.");
 
     public static final Option<String> OPENAI_ENGINE =
             Options.key("openai_engine")
@@ -78,22 +76,12 @@ public class MilvusConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription("Use your own Open AI API Key here.");
 
-
-
     public static final Option<Integer> DIMENSION =
-            Options.key("dimension")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("Embeddings size.");
-
-
+            Options.key("dimension").intType().noDefaultValue().withDescription("Embeddings size.");
 
     public static final Option<String> EMBEDDINGS_FIELDS =
             Options.key("embeddings_fields")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Fields to be embedded,They use`,`for splitting");
-
-
-
 }

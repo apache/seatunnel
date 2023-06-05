@@ -24,6 +24,7 @@ public class MilvusConnectorException extends SeaTunnelRuntimeException {
     public MilvusConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }
+
     public MilvusConnectorException(
             SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);

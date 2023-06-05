@@ -17,12 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.milvus.sink;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.*;
+import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.COLLECTION_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.DIMENSION;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.EMBEDDINGS_FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.MILVUS_HOST;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.MILVUS_PORT;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.OPENAI_API_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.OPENAI_ENGINE;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.PARTITION_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.USERNAME;
 
 @AutoService(Factory.class)
 public class MilvusSinkFactory implements TableSinkFactory {
@@ -34,13 +44,13 @@ public class MilvusSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        MILVUS_HOST,
-                        MILVUS_PORT,
-                        COLLECTION_NAME,
-                        USERNAME,
-                        PASSWORD)
-                .optional(PARTITION_FIELD, OPENAI_ENGINE, OPENAI_API_KEY, DIMENSION, EMBEDDINGS_FIELDS)
+                .required(MILVUS_HOST, MILVUS_PORT, COLLECTION_NAME, USERNAME, PASSWORD)
+                .optional(
+                        PARTITION_FIELD,
+                        OPENAI_ENGINE,
+                        OPENAI_API_KEY,
+                        DIMENSION,
+                        EMBEDDINGS_FIELDS)
                 .build();
     }
 }
