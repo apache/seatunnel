@@ -102,7 +102,8 @@ public class JobHistoryService {
     public String listAllJob() {
         List<JobStatusData> status = new ArrayList<>();
         Stream.concat(
-                        runningJobMasterMap.values().stream().map(this::toJobStateMapper),
+                        runningJobMasterMap.values().stream()
+                                .map(master -> toJobStateMapper(master, true)),
                         finishedJobStateImap.values().stream())
                 .forEach(
                         jobState -> {
@@ -126,7 +127,7 @@ public class JobHistoryService {
     // Get detailed status of a single job
     public JobState getJobDetailState(Long jobId) {
         return runningJobMasterMap.containsKey(jobId)
-                ? toJobStateMapper(runningJobMasterMap.get(jobId))
+                ? toJobStateMapper(runningJobMasterMap.get(jobId), false)
                 : finishedJobStateImap.getOrDefault(jobId, null);
     }
 
@@ -158,7 +159,7 @@ public class JobHistoryService {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     public void storeFinishedJobState(JobMaster jobMaster) {
-        JobState jobState = toJobStateMapper(jobMaster);
+        JobState jobState = toJobStateMapper(jobMaster, false);
         jobState.setFinishTime(System.currentTimeMillis());
         finishedJobStateImap.put(jobState.jobId, jobState, 14, TimeUnit.DAYS);
     }
@@ -170,47 +171,55 @@ public class JobHistoryService {
         finishedJobMetricsImap.put(jobId, newMetrics, 14, TimeUnit.DAYS);
     }
 
-    private JobState toJobStateMapper(JobMaster jobMaster) {
+    private JobState toJobStateMapper(JobMaster jobMaster, boolean simple) {
 
         Long jobId = jobMaster.getJobImmutableInformation().getJobId();
         Map<PipelineLocation, PipelineStateData> pipelineStateMapperMap = new HashMap<>();
+        if (!simple) {
+            try {
+                jobMaster
+                        .getPhysicalPlan()
+                        .getPipelineList()
+                        .forEach(
+                                pipeline -> {
+                                    PipelineLocation pipelineLocation =
+                                            pipeline.getPipelineLocation();
+                                    PipelineStatus pipelineState =
+                                            (PipelineStatus)
+                                                    runningJobStateIMap.get(pipelineLocation);
+                                    Map<TaskGroupLocation, ExecutionState> taskStateMap =
+                                            new HashMap<>();
+                                    pipeline.getCoordinatorVertexList()
+                                            .forEach(
+                                                    coordinator -> {
+                                                        TaskGroupLocation taskGroupLocation =
+                                                                coordinator.getTaskGroupLocation();
+                                                        taskStateMap.put(
+                                                                taskGroupLocation,
+                                                                (ExecutionState)
+                                                                        runningJobStateIMap.get(
+                                                                                taskGroupLocation));
+                                                    });
+                                    pipeline.getPhysicalVertexList()
+                                            .forEach(
+                                                    task -> {
+                                                        TaskGroupLocation taskGroupLocation =
+                                                                task.getTaskGroupLocation();
+                                                        taskStateMap.put(
+                                                                taskGroupLocation,
+                                                                (ExecutionState)
+                                                                        runningJobStateIMap.get(
+                                                                                taskGroupLocation));
+                                                    });
 
-        jobMaster
-                .getPhysicalPlan()
-                .getPipelineList()
-                .forEach(
-                        pipeline -> {
-                            PipelineLocation pipelineLocation = pipeline.getPipelineLocation();
-                            PipelineStatus pipelineState =
-                                    (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
-                            Map<TaskGroupLocation, ExecutionState> taskStateMap = new HashMap<>();
-                            pipeline.getCoordinatorVertexList()
-                                    .forEach(
-                                            coordinator -> {
-                                                TaskGroupLocation taskGroupLocation =
-                                                        coordinator.getTaskGroupLocation();
-                                                taskStateMap.put(
-                                                        taskGroupLocation,
-                                                        (ExecutionState)
-                                                                runningJobStateIMap.get(
-                                                                        taskGroupLocation));
-                                            });
-                            pipeline.getPhysicalVertexList()
-                                    .forEach(
-                                            task -> {
-                                                TaskGroupLocation taskGroupLocation =
-                                                        task.getTaskGroupLocation();
-                                                taskStateMap.put(
-                                                        taskGroupLocation,
-                                                        (ExecutionState)
-                                                                runningJobStateIMap.get(
-                                                                        taskGroupLocation));
-                                            });
-
-                            PipelineStateData pipelineStateData =
-                                    new PipelineStateData(pipelineState, taskStateMap);
-                            pipelineStateMapperMap.put(pipelineLocation, pipelineStateData);
-                        });
+                                    PipelineStateData pipelineStateData =
+                                            new PipelineStateData(pipelineState, taskStateMap);
+                                    pipelineStateMapperMap.put(pipelineLocation, pipelineStateData);
+                                });
+            } catch (Exception e) {
+                logger.warning("get job pipeline state err", e);
+            }
+        }
         JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
         String jobName = jobMaster.getJobImmutableInformation().getJobName();
         long submitTime = jobMaster.getJobImmutableInformation().getCreateTime();

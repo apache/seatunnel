@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.execution;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -33,10 +34,13 @@ public class TaskExecutionContext {
 
     private final Task task;
     private final NodeEngineImpl nodeEngine;
+    private final TaskExecutionService taskExecutionService;
 
-    public TaskExecutionContext(Task task, NodeEngineImpl nodeEngine) {
+    public TaskExecutionContext(
+            Task task, NodeEngineImpl nodeEngine, TaskExecutionService taskExecutionService) {
         this.task = task;
         this.nodeEngine = nodeEngine;
+        this.taskExecutionService = taskExecutionService;
     }
 
     public <E> InvocationFuture<E> sendToMaster(Operation operation) {
@@ -59,6 +63,10 @@ public class TaskExecutionContext {
 
     public <T> T getTask() {
         return (T) task;
+    }
+
+    public TaskExecutionService getTaskExecutionService() {
+        return taskExecutionService;
     }
 
     public HazelcastInstance getInstance() {
