@@ -615,6 +615,8 @@ public class CheckpointCoordinator {
                 // TODO: clear related future & scheduler task
                 pendingCheckpoints.clear();
             }
+            pipelineTaskStatus.clear();
+            readyToCloseStartingTask.clear();
             pendingCounter.set(0);
             scheduler.shutdownNow();
             scheduler =
