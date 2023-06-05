@@ -125,5 +125,6 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     @Override
     public void close() throws IOException {
         milvusClient.close();
+        service.shutdownExecutor();
     }
 }
