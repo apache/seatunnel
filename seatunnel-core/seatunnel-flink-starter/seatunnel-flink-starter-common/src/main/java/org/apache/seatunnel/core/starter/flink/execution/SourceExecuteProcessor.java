@@ -73,9 +73,7 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
             }
             boolean bounded =
                     internalSource.getBoundedness()
-                                    == org.apache.seatunnel.api.source.Boundedness.BOUNDED
-                            ? true
-                            : false;
+                            == org.apache.seatunnel.api.source.Boundedness.BOUNDED;
             DataStreamSource<Row> sourceStream =
                     addSource(
                             executionEnvironment,
