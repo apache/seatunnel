@@ -71,7 +71,7 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
         if (copyFilePaths != null) {
             copyFilePaths.forEach(
                     copyFilePath -> {
-                        master.withCopyFileToContainer(
+                        master.copyFileToContainer(
                                 MountableFile.forHostPath(copyFilePath),
                                 SEATUNNEL_HOME + "/plugins/jdbc/lib");
                     });
