@@ -197,6 +197,22 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  pg_e2e_sink_table";
 
     @TestContainerExtension
+    private final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "cd /tmp/seatunnel/lib && curl -O "
+                                        + PG_DRIVER_JAR
+                                        + " && curl -O "
+                                        + PG_JDBC_JAR
+                                        + " && curl -O "
+                                        + PG_GEOMETRY_JAR);
+                Assertions.assertEquals(0, extraCommands.getExitCode());
+            };
+
+    @TestContainerExtension
     private final CopyFileBeforeStart copyFileBeforeStart =
             () -> {
                 Process process =
