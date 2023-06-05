@@ -291,8 +291,19 @@ public class PipelineBaseScheduler implements JobScheduler {
 
     private void deployPipeline(
             @NonNull SubPlan pipeline, Map<TaskGroupLocation, SlotProfile> slotProfiles) {
-        if (pipeline.updatePipelineState(PipelineStatus.SCHEDULED, PipelineStatus.DEPLOYING)) {
-
+        boolean changeStateSuccess = false;
+        try {
+            changeStateSuccess =
+                    pipeline.updatePipelineState(
+                            PipelineStatus.SCHEDULED, PipelineStatus.DEPLOYING);
+        } catch (Exception e) {
+            log.warn(
+                    "{} turn to state {} failed, cancel pipeline",
+                    pipeline.getPipelineFullName(),
+                    PipelineStatus.DEPLOYING);
+            pipeline.cancelPipeline();
+        }
+        if (changeStateSuccess) {
             try {
                 List<CompletableFuture<?>> deployCoordinatorFuture =
                         pipeline.getCoordinatorVertexList().stream()
