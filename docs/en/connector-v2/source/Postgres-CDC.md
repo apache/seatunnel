@@ -126,16 +126,6 @@ of table.
 
 The maximum fetch size for per poll when read table snapshot.
 
-### server-id [String]
-
-A numeric ID or a numeric ID range of this database client, The numeric ID syntax is like '5400', the numeric ID range
-syntax is like '5400-5408'.
-
-Every ID must be unique across all currently-running database processes in the postgres cluster. This connector joins the
-postgres cluster as another server (with this unique ID) so it can read the binlog.
-
-By default, a random number is generated between 5400 and 6400, though we recommend setting an explicit value.
-
 ### server-time-zone [String]
 
 The session time zone in database server.
