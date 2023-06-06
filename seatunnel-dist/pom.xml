@@ -36,7 +36,7 @@
     </properties>
 
     <build>
-        <finalName>apache-seatunnel-incubating-${project.version}</finalName>
+        <finalName>apache-seatunnel-${project.version}</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
@@ -694,7 +694,7 @@
                 </dependency>
             </dependencies>
             <build>
-                <finalName>apache-seatunnel-incubating-${project.version}</finalName>
+                <finalName>apache-seatunnel-${project.version}</finalName>
                 <plugins>
                     <plugin>
                         <artifactId>maven-assembly-plugin</artifactId>
