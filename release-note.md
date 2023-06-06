@@ -1,4 +1,4 @@
-# next-release
+# 2.3.2 Release Note
 
 ## Bug fix
 
