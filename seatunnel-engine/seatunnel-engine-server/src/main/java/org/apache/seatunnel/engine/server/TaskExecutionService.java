@@ -507,7 +507,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
-    private synchronized void updateMetricsContextInImap() {
+    private void updateMetricsContextInImap() {
         if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
             logger.warning(
                     String.format(
@@ -542,7 +542,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 });
         if (localMap.size() > 0) {
             try {
-                metricsImap.lock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                if (!metricsImap.tryLock(
+                        Constant.IMAP_RUNNING_JOB_METRICS_KEY, 2, TimeUnit.SECONDS)) {
+                    logger.info("try lock failed in update metrics");
+                    return;
+                }
                 HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
                         metricsImap.computeIfAbsent(
                                 Constant.IMAP_RUNNING_JOB_METRICS_KEY, k -> new HashMap<>());
