@@ -45,21 +45,27 @@ password of the Neo4j. required if `username` is provided
 
 ### max_batch_size[Integer]
 
-maxBatchSize refers to the maximum number of data entries that can be written in a single transaction when writing to a database.
+max_batch_size refers to the maximum number of data entries that can be written in a single transaction when writing to a database.
 
 ### batch_data_variable
 
-The term "batchVariable" refers to the variable name used to define a batch data carrier in Cypher batch statements. For example, in the statement
+The term "batch_data_variable" refers to the variable name used to define a batch data carrier in Cypher batch statements. For example, in the statement
+
+```cypher
+unwind $ttt as dataRow create node(n) set n.props = dataRow.props
+```
+
+"ttt" can be any arbitrary string as long as it matches the configured "batch_data_variable".
 
 ### write_mode
 
-The default value is oneByOne, or set it to Batch if you want to have the ability to write in batches
+The default value is oneByOne, or set it to "Batch" if you want to have the ability to write in batches
 
 ```cypher
-unwind $batch as row create (n:Label) set n.name = row.name,n.age = rw.age
+unwind $ttt as row create (n:Label) set n.name = row.name,n.age = rw.age
 ```
 
-the value assigned to "batchVariable" is "batch"
+"ttt" represents a batch of data.,"ttt" can be any arbitrary string as long as it matches the configured "batch_data_variable".
 
 ### bearer_token [string]
 
@@ -128,13 +134,14 @@ sink {
     username = "neo4j"
     password = "neo4j"
     database = "neo4j"
-    batchVariable = "batch"
-    maxBatchSize = 1000
+    batch_data_variable = "ttt"
+    max_batch_size = 1000
+    write_mode = "Batch"
 
-    max_transaction_retry_time = 10
+    max_transaction_retry_time = 3
     max_connection_timeout = 10
 
-    query = "unwind $batch as row  create(n:MyLabel) set n.name = row.name,n.age = row.age"
+    query = "unwind $ttt as row  create(n:MyLabel) set n.name = row.name,n.age = row.age"
 
   }
 }
