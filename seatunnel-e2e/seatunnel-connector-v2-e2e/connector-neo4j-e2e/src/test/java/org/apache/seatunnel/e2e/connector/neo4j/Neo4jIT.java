@@ -162,7 +162,7 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
             neo4jSession.run("MATCH (n:BatchLabel) delete n");
         }
 
-        // unwind $batch as row create(n:BatchLabel) set n.name = row.name,n.age = row.age
+        // unwind $ttt as row create(n:BatchLabel) set n.name = row.name,n.age = row.age
         Container.ExecResult execResult =
                 container.executeJob("/neo4j/fake_to_neo4j_batch_write.conf");
         // then

@@ -107,7 +107,7 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     private Query batchQuery() {
         try {
             Value batchValues =
-                    Values.parameters(neo4jSinkQueryInfo.getBatchVariable(), writeBuffer);
+                    Values.parameters(neo4jSinkQueryInfo.getBatchDataVariable(), writeBuffer);
             return new Query(neo4jSinkQueryInfo.getQuery(), batchValues);
         } catch (ClientException e) {
             log.error("Failed to build cypher statement", e);

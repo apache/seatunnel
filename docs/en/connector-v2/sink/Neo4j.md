@@ -19,8 +19,9 @@ Write data to Neo4j.
 | uri                        | String  | Yes      | -             |
 | username                   | String  | No       | -             |
 | password                   | String  | No       | -             |
-| maxBatchSize               | Integer | No       | -             |
-| batchVariable              | String  | No       | -             |
+| max_batch_size             | Integer | No       | -             |
+| batch_data_variable        | String  | No       | -             |
+| write_mode                 | String  | No       | OneByOne      |
 | bearer_token               | String  | No       | -             |
 | kerberos_ticket            | String  | No       | -             |
 | database                   | String  | Yes      | -             |
@@ -42,13 +43,17 @@ username of the Neo4j
 
 password of the Neo4j. required if `username` is provided
 
-### maxBatchSize[Integer]
+### max_batch_size[Integer]
 
 maxBatchSize refers to the maximum number of data entries that can be written in a single transaction when writing to a database.
 
-### batchVariable
+### batch_data_variable
 
 The term "batchVariable" refers to the variable name used to define a batch data carrier in Cypher batch statements. For example, in the statement
+
+### write_mode
+
+The default value is oneByOne, or set it to Batch if you want to have the ability to write in batches
 
 ```cypher
 unwind $batch as row create (n:Label) set n.name = row.name,n.age = rw.age
