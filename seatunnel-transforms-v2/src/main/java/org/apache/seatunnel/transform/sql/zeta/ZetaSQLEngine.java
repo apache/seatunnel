@@ -38,11 +38,14 @@ import net.sf.jsqlparser.statement.select.SelectExpressionItem;
 import net.sf.jsqlparser.statement.select.SelectItem;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.ServiceLoader;
+import java.util.stream.Collectors;
 
 public class ZetaSQLEngine implements SQLEngine {
     private String inputTableName;
+    private SeaTunnelRowType inputRowType;
 
     private String sql;
     private PlainSelect selectBody;
@@ -56,6 +59,7 @@ public class ZetaSQLEngine implements SQLEngine {
     @Override
     public void init(String inputTableName, SeaTunnelRowType inputRowType, String sql) {
         this.inputTableName = inputTableName;
+        this.inputRowType = inputRowType;
         this.sql = sql;
 
         List<ZetaUDF> udfList = new ArrayList<>();
@@ -140,11 +144,19 @@ public class ZetaSQLEngine implements SQLEngine {
     }
 
     @Override
-    public SeaTunnelRowType typeMapping() {
+    public SeaTunnelRowType typeMapping(List<String> inputColumnsMapping) {
         List<SelectItem> selectItems = selectBody.getSelectItems();
 
         String[] fieldNames = new String[selectItems.size()];
         SeaTunnelDataType<?>[] seaTunnelDataTypes = new SeaTunnelDataType<?>[selectItems.size()];
+        if (inputColumnsMapping != null) {
+            for (int i = 0; i < selectItems.size(); i++) {
+                inputColumnsMapping.add(null);
+            }
+        }
+
+        List<String> inputColumnNames =
+                Arrays.stream(inputRowType.getFieldNames()).collect(Collectors.toList());
 
         for (int i = 0; i < selectItems.size(); i++) {
             SelectItem selectItem = selectItems.get(i);
@@ -160,6 +172,12 @@ public class ZetaSQLEngine implements SQLEngine {
                     } else {
                         fieldNames[i] = expression.toString();
                     }
+                }
+
+                if (inputColumnsMapping != null
+                        && expression instanceof Column
+                        && inputColumnNames.contains(((Column) expression).getColumnName())) {
+                    inputColumnsMapping.set(i, ((Column) expression).getColumnName());
                 }
 
                 seaTunnelDataTypes[i] = zetaSQLType.getExpressionType(expression);
@@ -183,7 +201,10 @@ public class ZetaSQLEngine implements SQLEngine {
         // Project
         Object[] outputFields = project(inputFields);
 
-        return new SeaTunnelRow(outputFields);
+        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(outputFields);
+        seaTunnelRow.setRowKind(inputRow.getRowKind());
+        seaTunnelRow.setTableId(inputRow.getTableId());
+        return seaTunnelRow;
     }
 
     private Object[] scanTable(SeaTunnelRow inputRow) {
