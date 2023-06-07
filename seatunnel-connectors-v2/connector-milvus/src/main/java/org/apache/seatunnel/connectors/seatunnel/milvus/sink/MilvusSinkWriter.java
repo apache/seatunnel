@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.milvus.sink;
 
+import io.milvus.grpc.MutationResult;
+import io.milvus.param.R;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -35,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
@@ -89,10 +92,11 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                                                             String.valueOf(element.getField(i))))
                                             .build());
                     List<Double> embedding = embeddings.getData().get(0).getEmbedding();
+                    List<Float> collect = embedding.stream().map(Double::floatValue).collect(Collectors.toList());
                     InsertParam.Field field =
                             new InsertParam.Field(
                                     seaTunnelRowType.getFieldName(i),
-                                    Collections.singletonList(embedding));
+                                    Collections.singletonList(collect));
                     fields.add(field);
                     continue;
                 }
@@ -110,7 +114,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
         InsertParam build = builder.withFields(fields).build();
 
-        milvusClient.insert(build);
+        handleResponseStatus(milvusClient.insert(build));
     }
 
     @Override
@@ -126,5 +130,11 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public void close() throws IOException {
         milvusClient.close();
         service.shutdownExecutor();
+    }
+
+    private void handleResponseStatus(R<?> r) {
+        if (r.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(r.getMessage());
+        }
     }
 }
