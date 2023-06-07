@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.milvus.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusOptions;
 
@@ -26,10 +25,15 @@ import com.theokanning.openai.embedding.EmbeddingRequest;
 import com.theokanning.openai.embedding.EmbeddingResult;
 import com.theokanning.openai.service.OpenAiService;
 import io.milvus.client.MilvusServiceClient;
+import io.milvus.grpc.DescribeCollectionResponse;
 import io.milvus.param.ConnectParam;
 import io.milvus.param.R;
+import io.milvus.param.collection.DescribeCollectionParam;
+import io.milvus.param.collection.FieldType;
 import io.milvus.param.collection.FlushParam;
+import io.milvus.param.collection.HasCollectionParam;
 import io.milvus.param.dml.InsertParam;
+import io.milvus.response.DescCollResponseWrapper;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -40,16 +44,15 @@ import java.util.stream.Collectors;
 
 public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private final SeaTunnelRowType seaTunnelRowType;
-
     private final MilvusServiceClient milvusClient;
 
     private final MilvusOptions milvusOptions;
 
     private OpenAiService service;
 
-    public MilvusSinkWriter(SeaTunnelRowType seaTunnelRowType, MilvusOptions milvusOptions) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    private final List<FieldType> fields;
+
+    public MilvusSinkWriter(MilvusOptions milvusOptions) {
         this.milvusOptions = milvusOptions;
         ConnectParam connectParam =
                 ConnectParam.newBuilder()
@@ -58,6 +61,25 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         .withAuthorization(milvusOptions.getUserName(), milvusOptions.getPassword())
                         .build();
         milvusClient = new MilvusServiceClient(connectParam);
+
+        handleResponseStatus(
+                milvusClient.hasCollection(
+                        HasCollectionParam.newBuilder()
+                                .withCollectionName(milvusOptions.getCollectionName())
+                                .build()));
+
+        R<DescribeCollectionResponse> describeCollectionResponseR =
+                milvusClient.describeCollection(
+                        DescribeCollectionParam.newBuilder()
+                                .withCollectionName(milvusOptions.getCollectionName())
+                                .build());
+
+        handleResponseStatus(describeCollectionResponseR);
+
+        DescCollResponseWrapper wrapper =
+                new DescCollResponseWrapper(describeCollectionResponseR.getData());
+
+        fields = wrapper.getFields();
 
         if (milvusOptions.getEmbeddingsFields() != null) {
             service = new OpenAiService(milvusOptions.getOpenaiApiKey());
@@ -73,15 +95,15 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
         builder = builder.withCollectionName(milvusOptions.getCollectionName());
 
-        for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+        for (int i = 0; i < this.fields.size(); i++) {
             if (milvusOptions.getPartitionField() != null
-                    && milvusOptions.getPartitionField().equals(seaTunnelRowType.getFieldName(i))) {
+                    && milvusOptions.getPartitionField().equals(this.fields.get(i).getName())) {
                 builder.withPartitionName(String.valueOf(element.getField(i)));
             }
             if (milvusOptions.getEmbeddingsFields() != null) {
                 List<String> embeddingsFields =
                         Arrays.asList(milvusOptions.getEmbeddingsFields().split(","));
-                if (embeddingsFields.contains(seaTunnelRowType.getFieldName(i))) {
+                if (embeddingsFields.contains(this.fields.get(i).getName())) {
                     EmbeddingResult embeddings =
                             service.createEmbeddings(
                                     EmbeddingRequest.builder()
@@ -95,7 +117,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                             embedding.stream().map(Double::floatValue).collect(Collectors.toList());
                     InsertParam.Field field =
                             new InsertParam.Field(
-                                    seaTunnelRowType.getFieldName(i),
+                                    this.fields.get(i).getName(),
                                     Collections.singletonList(collect));
                     fields.add(field);
                     continue;
@@ -103,7 +125,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             }
             InsertParam.Field field =
                     new InsertParam.Field(
-                            seaTunnelRowType.getFieldName(i),
+                            this.fields.get(i).getName(),
                             Collections.singletonList(element.getField(i)));
             fields.add(field);
         }

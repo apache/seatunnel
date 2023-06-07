@@ -82,6 +82,6 @@ public class MilvusSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new MilvusSinkWriter(seaTunnelRowType, milvusOptions);
+        return new MilvusSinkWriter(milvusOptions);
     }
 }
