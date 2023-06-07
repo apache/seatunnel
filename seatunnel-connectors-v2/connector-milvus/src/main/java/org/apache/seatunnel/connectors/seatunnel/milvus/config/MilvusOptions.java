@@ -36,12 +36,15 @@ public class MilvusOptions implements Serializable {
     private String password;
     private String openaiEngine;
     private String openaiApiKey;
-    private Integer dimension;
     private String embeddingsFields;
 
     public MilvusOptions(Config config) {
         this.milvusHost = config.getString(MilvusConfig.MILVUS_HOST.key());
-        this.milvusPort = config.getInt(MilvusConfig.MILVUS_PORT.key());
+        if (config.hasPath(MilvusConfig.MILVUS_PORT.key())) {
+            this.milvusPort = config.getInt(MilvusConfig.MILVUS_PORT.key());
+        } else {
+            this.milvusPort = MilvusConfig.MILVUS_PORT.defaultValue();
+        }
         this.collectionName = config.getString(MilvusConfig.COLLECTION_NAME.key());
         this.userName = config.getString(MilvusConfig.USERNAME.key());
         this.password = config.getString(MilvusConfig.PASSWORD.key());
@@ -51,12 +54,11 @@ public class MilvusOptions implements Serializable {
         }
         if (config.hasPath(MilvusConfig.OPENAI_ENGINE.key())) {
             this.openaiEngine = config.getString(MilvusConfig.OPENAI_ENGINE.key());
+        } else {
+            this.openaiEngine = MilvusConfig.OPENAI_ENGINE.defaultValue();
         }
         if (config.hasPath(MilvusConfig.OPENAI_API_KEY.key())) {
             this.openaiApiKey = config.getString(MilvusConfig.OPENAI_API_KEY.key());
-        }
-        if (config.hasPath(MilvusConfig.DIMENSION.key())) {
-            this.dimension = config.getInt(MilvusConfig.DIMENSION.key());
         }
         if (config.hasPath(MilvusConfig.EMBEDDINGS_FIELDS.key())) {
             this.embeddingsFields = config.getString(MilvusConfig.EMBEDDINGS_FIELDS.key());

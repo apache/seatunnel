@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.milvus.sink;
 
-import io.milvus.grpc.MutationResult;
-import io.milvus.param.R;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -29,6 +27,7 @@ import com.theokanning.openai.embedding.EmbeddingResult;
 import com.theokanning.openai.service.OpenAiService;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.param.ConnectParam;
+import io.milvus.param.R;
 import io.milvus.param.collection.FlushParam;
 import io.milvus.param.dml.InsertParam;
 
@@ -92,7 +91,8 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                                                             String.valueOf(element.getField(i))))
                                             .build());
                     List<Double> embedding = embeddings.getData().get(0).getEmbedding();
-                    List<Float> collect = embedding.stream().map(Double::floatValue).collect(Collectors.toList());
+                    List<Float> collect =
+                            embedding.stream().map(Double::floatValue).collect(Collectors.toList());
                     InsertParam.Field field =
                             new InsertParam.Field(
                                     seaTunnelRowType.getFieldName(i),

@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import com.google.auto.service.AutoService;
 
 import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.COLLECTION_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.DIMENSION;
 import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.EMBEDDINGS_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.MILVUS_HOST;
 import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.MILVUS_PORT;
@@ -45,12 +44,7 @@ public class MilvusSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(MILVUS_HOST, MILVUS_PORT, COLLECTION_NAME, USERNAME, PASSWORD)
-                .optional(
-                        PARTITION_FIELD,
-                        OPENAI_ENGINE,
-                        OPENAI_API_KEY,
-                        DIMENSION,
-                        EMBEDDINGS_FIELDS)
+                .optional(PARTITION_FIELD, OPENAI_ENGINE, OPENAI_API_KEY, EMBEDDINGS_FIELDS)
                 .build();
     }
 }

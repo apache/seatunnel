@@ -67,7 +67,7 @@ public class MilvusConfig implements Serializable {
     public static final Option<String> OPENAI_ENGINE =
             Options.key("openai_engine")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("text-embedding-ada-002")
                     .withDescription("Text embedding model. Default is 'text-embedding-ada-002'");
 
     public static final Option<String> OPENAI_API_KEY =
@@ -75,9 +75,6 @@ public class MilvusConfig implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Use your own Open AI API Key here.");
-
-    public static final Option<Integer> DIMENSION =
-            Options.key("dimension").intType().noDefaultValue().withDescription("Embeddings size.");
 
     public static final Option<String> EMBEDDINGS_FIELDS =
             Options.key("embeddings_fields")
