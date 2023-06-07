@@ -140,6 +140,8 @@ public class JobMaster {
 
     private final IMap<Long, JobInfo> runningJobInfoIMap;
 
+    private final IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
+
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
 
@@ -155,6 +157,7 @@ public class JobMaster {
             @NonNull IMap runningJobStateTimestampsIMap,
             @NonNull IMap ownedSlotProfilesIMap,
             @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
+            @NonNull IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap,
             EngineConfig engineConfig) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
@@ -170,6 +173,7 @@ public class JobMaster {
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
+        this.metricsImap = metricsImap;
     }
 
     public void init(long initializationTimestamp, boolean restart, boolean canRestoreAgain)
@@ -243,7 +247,8 @@ public class JobMaster {
                         this,
                         checkpointPlanMap,
                         jobCheckpointConfig,
-                        executorService);
+                        executorService,
+                        runningJobStateIMap);
     }
 
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to
@@ -450,13 +455,24 @@ public class JobMaster {
     }
 
     public List<RawJobMetrics> getCurrJobMetrics() {
-        return getCurrJobMetrics(
-                ownedSlotProfilesIMap.keySet().stream()
-                        .filter(
-                                pipelineLocation ->
-                                        pipelineLocation.getJobId()
-                                                == this.getJobImmutableInformation().getJobId())
-                        .collect(Collectors.toList()));
+
+        Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap = new HashMap<>();
+
+        ownedSlotProfilesIMap.forEach(
+                (pipelineLocation, map) -> {
+                    if (pipelineLocation.getJobId()
+                            == this.getJobImmutableInformation().getJobId()) {
+                        map.forEach(
+                                (taskGroupLocation, slotProfile) -> {
+                                    if (taskGroupLocation.getJobId()
+                                            == this.getJobImmutableInformation().getJobId()) {
+                                        taskGroupLocationSlotProfileMap.put(
+                                                taskGroupLocation, slotProfile.getWorker());
+                                    }
+                                });
+                    }
+                });
+        return getCurrJobMetrics(taskGroupLocationSlotProfileMap);
     }
 
     public List<RawJobMetrics> getCurrJobMetrics(List<PipelineLocation> pipelineLocations) {
@@ -475,7 +491,11 @@ public class JobMaster {
                                 });
                     }
                 });
+        return getCurrJobMetrics(taskGroupLocationSlotProfileMap);
+    }
 
+    public List<RawJobMetrics> getCurrJobMetrics(
+            Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap) {
         Map<Address, List<TaskGroupLocation>> taskGroupLocationMap = new HashMap<>();
 
         for (Map.Entry<TaskGroupLocation, Address> entry :
@@ -484,15 +504,8 @@ public class JobMaster {
                     .computeIfAbsent(entry.getValue(), k -> new ArrayList<>())
                     .add(entry.getKey());
         }
-
-        return getCurrJobMetrics(taskGroupLocationMap);
-    }
-
-    public List<RawJobMetrics> getCurrJobMetrics(
-            Map<Address, List<TaskGroupLocation>> groupLocationMap) {
         List<RawJobMetrics> metrics = new ArrayList<>();
-
-        groupLocationMap.forEach(
+        taskGroupLocationMap.forEach(
                 (address, taskGroupLocations) -> {
                     try {
                         if (nodeEngine.getClusterService().getMember(address) != null) {
@@ -538,46 +551,56 @@ public class JobMaster {
             PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
         if (pipelineStatus.equals(PipelineStatus.FINISHED) && !checkpointManager.isSavePointEnd()
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
-            IMap<TaskLocation, SeaTunnelMetricsContext> map =
-                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-            map.keySet().stream()
-                    .filter(
-                            taskLocation -> {
-                                return taskLocation
-                                        .getTaskGroupLocation()
-                                        .getPipelineLocation()
-                                        .equals(pipelineLocation);
-                            })
-                    .forEach(map::remove);
+            try {
+                metricsImap.lock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
+                        metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                if (centralMap != null) {
+                    List<TaskLocation> collect =
+                            centralMap.keySet().stream()
+                                    .filter(
+                                            taskLocation -> {
+                                                return taskLocation
+                                                        .getTaskGroupLocation()
+                                                        .getPipelineLocation()
+                                                        .equals(pipelineLocation);
+                                            })
+                                    .collect(Collectors.toList());
+                    collect.forEach(centralMap::remove);
+                    metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
+                }
+            } finally {
+                metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+            }
         }
     }
 
     private void cleanTaskGroupContext(PipelineLocation pipelineLocation) {
-        ownedSlotProfilesIMap
-                .get(pipelineLocation)
-                .forEach(
-                        (taskGroupLocation, slotProfile) -> {
-                            try {
-                                if (nodeEngine
-                                                .getClusterService()
-                                                .getMember(slotProfile.getWorker())
-                                        != null) {
-                                    NodeEngineUtil.sendOperationToMemberNode(
-                                                    nodeEngine,
-                                                    new CleanTaskGroupContextOperation(
-                                                            taskGroupLocation),
-                                                    slotProfile.getWorker())
-                                            .get();
-                                }
-                            } catch (HazelcastInstanceNotActiveException e) {
-                                LOGGER.warning(
-                                        String.format(
-                                                "%s clean TaskGroupContext with exception: %s.",
-                                                taskGroupLocation, ExceptionUtils.getMessage(e)));
-                            } catch (Exception e) {
-                                throw new SeaTunnelException(e.getMessage());
-                            }
-                        });
+        Map<TaskGroupLocation, SlotProfile> slotProfileMap =
+                ownedSlotProfilesIMap.get(pipelineLocation);
+        if (slotProfileMap == null) {
+            return;
+        }
+        slotProfileMap.forEach(
+                (taskGroupLocation, slotProfile) -> {
+                    try {
+                        if (nodeEngine.getClusterService().getMember(slotProfile.getWorker())
+                                != null) {
+                            NodeEngineUtil.sendOperationToMemberNode(
+                                            nodeEngine,
+                                            new CleanTaskGroupContextOperation(taskGroupLocation),
+                                            slotProfile.getWorker())
+                                    .get();
+                        }
+                    } catch (HazelcastInstanceNotActiveException e) {
+                        LOGGER.warning(
+                                String.format(
+                                        "%s clean TaskGroupContext with exception: %s.",
+                                        taskGroupLocation, ExceptionUtils.getMessage(e)));
+                    } catch (Exception e) {
+                        throw new SeaTunnelException(e.getMessage());
+                    }
+                });
     }
 
     public PhysicalPlan getPhysicalPlan() {

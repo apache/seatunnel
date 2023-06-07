@@ -26,6 +26,7 @@
         <version>${revision}</version>
     </parent>
     <artifactId>connector-rocketmq</artifactId>
+    <name>SeaTunnel : Connectors V2 : Rocketmq</name>
 
     <properties>
         <rocketmq.version>4.9.4</rocketmq.version>

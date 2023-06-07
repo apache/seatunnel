@@ -42,8 +42,13 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected StartupConfig startupConfig;
     protected StopConfig stopConfig;
     protected boolean includeSchemaChanges = false;
-    protected double distributionFactorUpper = 1000.0d;
-    protected double distributionFactorLower = 0.05d;
+    protected double distributionFactorUpper =
+            JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND.defaultValue();
+    protected double distributionFactorLower =
+            JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND.defaultValue();
+    protected int sampleShardingThreshold =
+            JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD.defaultValue();
+    protected int inverseSamplingRate = JdbcSourceOptions.INVERSE_SAMPLING_RATE.defaultValue();
     protected int splitSize = SourceOptions.SNAPSHOT_SPLIT_SIZE.defaultValue();
     protected int fetchSize = SourceOptions.SNAPSHOT_FETCH_SIZE.defaultValue();
     protected String serverTimeZone = JdbcSourceOptions.SERVER_TIME_ZONE.defaultValue();
@@ -139,6 +144,34 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         return this;
     }
 
+    /**
+     * The threshold for the row count to trigger sample-based sharding strategy. When the
+     * distribution factor is within the upper and lower bounds, if the approximate row count
+     * exceeds this threshold, the sample-based sharding strategy will be used. This can help to
+     * handle large datasets in a more efficient manner.
+     *
+     * @param sampleShardingThreshold The threshold of row count.
+     * @return This JdbcSourceConfigFactory.
+     */
+    public JdbcSourceConfigFactory sampleShardingThreshold(int sampleShardingThreshold) {
+        this.sampleShardingThreshold = sampleShardingThreshold;
+        return this;
+    }
+
+    /**
+     * The inverse of the sampling rate to be used for data sharding based on sampling. The actual
+     * sampling rate is 1 / inverseSamplingRate. For instance, if inverseSamplingRate is 1000, then
+     * the sampling rate is 1/1000, meaning every 1000th record will be included in the sample used
+     * for sharding.
+     *
+     * @param inverseSamplingRate The value representing the inverse of the desired sampling rate.
+     * @return this JdbcSourceConfigFactory instance.
+     */
+    public JdbcSourceConfigFactory inverseSamplingRate(int inverseSamplingRate) {
+        this.inverseSamplingRate = inverseSamplingRate;
+        return this;
+    }
+
     /** The maximum fetch size for per poll when read table snapshot. */
     public JdbcSourceConfigFactory fetchSize(int fetchSize) {
         this.fetchSize = fetchSize;
@@ -201,6 +234,8 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
                 config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
         this.distributionFactorLower =
                 config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND);
+        this.sampleShardingThreshold = config.get(JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD);
+        this.inverseSamplingRate = config.get(JdbcSourceOptions.INVERSE_SAMPLING_RATE);
         this.splitSize = config.get(SourceOptions.SNAPSHOT_SPLIT_SIZE);
         this.fetchSize = config.get(SourceOptions.SNAPSHOT_FETCH_SIZE);
         this.serverTimeZone = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);

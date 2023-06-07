@@ -409,9 +409,9 @@ public class MultipleTableJobConfigParser {
         SeaTunnelDataType<?> expectedType = getProducedType(inputs.get(0)._2());
         checkProducedTypeEquals(inputActions);
         int spareParallelism = inputs.get(0)._2().getParallelism();
+        int parallelism =
+                readonlyConfig.getOptional(CommonOptions.PARALLELISM).orElse(spareParallelism);
         if (fallback) {
-            int parallelism =
-                    readonlyConfig.getOptional(CommonOptions.PARALLELISM).orElse(spareParallelism);
             Tuple2<CatalogTable, Action> tuple =
                     fallbackParser.parseTransform(
                             config,
@@ -428,6 +428,7 @@ public class MultipleTableJobConfigParser {
         SeaTunnelTransform<?> transform =
                 FactoryUtil.createAndPrepareTransform(
                         catalogTable, readonlyConfig, classLoader, factoryId);
+        transform.setJobContext(jobConfig.getJobContext());
         long id = idGenerator.getNextId();
         String actionName =
                 JobConfigParser.createTransformActionName(
@@ -436,11 +437,11 @@ public class MultipleTableJobConfigParser {
         TransformAction transformAction =
                 new TransformAction(
                         id, actionName, new ArrayList<>(inputActions), transform, factoryUrls);
+        transformAction.setParallelism(parallelism);
         tableWithActionMap.put(
                 tableId,
                 Collections.singletonList(
                         new Tuple2<>(transform.getProducedCatalogTable(), transformAction)));
-        return;
     }
 
     public static SeaTunnelDataType<?> getProducedType(Action action) {
@@ -592,6 +593,7 @@ public class MultipleTableJobConfigParser {
         SeaTunnelSink<?, ?, ?, ?> sink =
                 FactoryUtil.createAndPrepareSink(
                         catalogTable, readonlyConfig, classLoader, factoryId);
+        sink.setJobContext(jobConfig.getJobContext());
         SinkConfig actionConfig =
                 new SinkConfig(catalogTable.getTableId().toTablePath().toString());
         long id = idGenerator.getNextId();

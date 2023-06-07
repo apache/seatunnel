@@ -313,6 +313,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     @Override
     public void close() throws IOException {
+        super.close();
         allCycles
                 .parallelStream()
                 .forEach(
@@ -340,7 +341,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
                                 new TaskAcknowledgeOperation(
                                         this.taskLocation,
                                         (CheckpointBarrier) barrier,
-                                        checkpointStates.get(barrier.getId())));
+                                        checkpointStates.get(barrier.getId())))
+                        .join();
             }
         }
     }
@@ -373,6 +375,10 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         log.debug("restoreState for SeaTunnelTask[{}]", actionStateList);
+        if (null == actionStateList) {
+            log.debug("restoreState is null, do nothing!");
+            return;
+        }
         Map<ActionStateKey, List<ActionSubtaskState>> stateMap =
                 actionStateList.stream()
                         .collect(

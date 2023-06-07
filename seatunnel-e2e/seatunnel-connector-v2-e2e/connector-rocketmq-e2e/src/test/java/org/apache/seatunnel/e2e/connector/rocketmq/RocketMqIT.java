@@ -310,51 +310,69 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    @SneakyThrows
     private Map<String, String> getRocketMqConsumerData(String topicName) {
         Map<String, String> data = new HashMap<>();
-        DefaultLitePullConsumer consumer =
-                RocketMqAdminUtil.initDefaultLitePullConsumer(newConfiguration(), false);
-        consumer.start();
-        // assign
-        Map<MessageQueue, TopicOffset> queueOffsets =
-                RetryUtils.retryWithException(
-                        () -> {
-                            return RocketMqAdminUtil.offsetTopics(
-                                            newConfiguration(), Lists.newArrayList(topicName))
-                                    .get(0);
-                        },
-                        new RetryUtils.RetryMaterial(
-                                Constant.OPERATION_RETRY_TIME,
-                                false,
-                                exception -> exception instanceof RocketMqConnectorException,
-                                Constant.OPERATION_RETRY_SLEEP));
-        consumer.assign(queueOffsets.keySet());
-        // seek to offset
-        Map<MessageQueue, Long> currentOffsets =
-                RocketMqAdminUtil.currentOffsets(
-                        newConfiguration(), Lists.newArrayList(topicName), queueOffsets.keySet());
-        for (MessageQueue mq : queueOffsets.keySet()) {
-            long currentOffset =
-                    currentOffsets.containsKey(mq)
-                            ? currentOffsets.get(mq)
-                            : queueOffsets.get(mq).getMinOffset();
-            consumer.seek(mq, currentOffset);
-        }
-        while (true) {
-            List<MessageExt> messages = consumer.poll(5000);
-            if (messages.isEmpty()) {
-                break;
+        try {
+            DefaultLitePullConsumer consumer =
+                    RocketMqAdminUtil.initDefaultLitePullConsumer(newConfiguration(), false);
+            consumer.start();
+            // assign
+            Map<MessageQueue, TopicOffset> queueOffsets =
+                    RetryUtils.retryWithException(
+                            () -> {
+                                return RocketMqAdminUtil.offsetTopics(
+                                                newConfiguration(), Lists.newArrayList(topicName))
+                                        .get(0);
+                            },
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    false,
+                                    exception -> exception instanceof RocketMqConnectorException,
+                                    Constant.OPERATION_RETRY_SLEEP));
+            consumer.assign(queueOffsets.keySet());
+            // seek to offset
+            Map<MessageQueue, Long> currentOffsets =
+                    RocketMqAdminUtil.currentOffsets(
+                            newConfiguration(),
+                            Lists.newArrayList(topicName),
+                            queueOffsets.keySet());
+            for (MessageQueue mq : queueOffsets.keySet()) {
+                long currentOffset =
+                        currentOffsets.containsKey(mq)
+                                ? currentOffsets.get(mq)
+                                : queueOffsets.get(mq).getMinOffset();
+                consumer.seek(mq, currentOffset);
             }
-            for (MessageExt message : messages) {
-                data.put(message.getKeys(), new String(message.getBody(), StandardCharsets.UTF_8));
+            while (true) {
+                List<MessageExt> messages = consumer.poll(5000);
+                if (messages.isEmpty()) {
+                    break;
+                }
+                for (MessageExt message : messages) {
+                    data.put(
+                            message.getKeys(),
+                            new String(message.getBody(), StandardCharsets.UTF_8));
+                    consumer.getOffsetStore()
+                            .updateConsumeOffsetToBroker(
+                                    new MessageQueue(
+                                            message.getTopic(),
+                                            message.getBrokerName(),
+                                            message.getQueueId()),
+                                    message.getQueueOffset(),
+                                    false);
+                }
+                consumer.commitSync();
             }
-            consumer.commitSync();
+            if (consumer != null) {
+                consumer.shutdown();
+            }
+            log.info("Consumer {} data total {}", topicName, data.size());
+            // consumer.commitSync() only submits the offset to the broker, and NameServer scans the
+            // broker to update the offset every 10 seconds
+            Thread.sleep(20 * 1000);
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
         }
-        if (consumer != null) {
-            consumer.shutdown();
-        }
-        log.info("Consumer {} data total {}", topicName, data.size());
         return data;
     }
 
@@ -363,6 +381,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 .groupId(ROCKETMQ_GROUP)
                 .aclEnable(false)
                 .namesrvAddr(rocketMqContainer.getNameSrvAddr())
+                .batchSize(10)
                 .build();
     }
 

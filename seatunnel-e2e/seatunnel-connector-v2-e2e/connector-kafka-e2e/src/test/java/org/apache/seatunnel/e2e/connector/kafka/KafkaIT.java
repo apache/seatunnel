@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunne
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -78,6 +79,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
+@DisabledOnContainer(
+        value = {},
+        disabledReason = "Override TestSuiteBase @DisabledOnContainer")
 public class KafkaIT extends TestSuiteBase implements TestResource {
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
@@ -133,7 +137,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testSinkKafka(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/kafkasink_fake_to_kafka.conf");
+        Container.ExecResult execResult = container.executeJob("/kafka_sink_fake_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         String topicName = "test_topic";
@@ -149,7 +153,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testTextFormatSinkKafka(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/kafkaTextsink_fake_to_kafka.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/textFormatIT/fake_source_to_text_sink_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         String topicName = "test_text_topic";
@@ -197,7 +202,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 row -> new ProducerRecord<>("test_topic_text", null, serializer.serialize(row)),
                 0,
                 100);
-        Container.ExecResult execResult = container.executeJob("/kafkasource_text_to_console.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/textFormatIT/kafka_source_text_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -211,7 +217,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), 0, 100);
-        Container.ExecResult execResult = container.executeJob("/kafkasource_json_to_console.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/jsonFormatIT/kafka_source_json_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 

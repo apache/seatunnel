@@ -36,8 +36,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -57,18 +59,19 @@ public class KafkaSourceSplitEnumerator
     private final ConsumerMetadata metadata;
     private final Context<KafkaSourceSplit> context;
     private long discoveryIntervalMillis;
-    private AdminClient adminClient;
+    private final AdminClient adminClient;
 
-    private Map<TopicPartition, KafkaSourceSplit> pendingSplit;
+    private final Map<TopicPartition, KafkaSourceSplit> pendingSplit;
     private final Map<TopicPartition, KafkaSourceSplit> assignedSplit;
     private ScheduledExecutorService executor;
-    private ScheduledFuture scheduledFuture;
+    private ScheduledFuture<?> scheduledFuture;
 
     KafkaSourceSplitEnumerator(ConsumerMetadata metadata, Context<KafkaSourceSplit> context) {
         this.metadata = metadata;
         this.context = context;
         this.assignedSplit = new HashMap<>();
         this.pendingSplit = new HashMap<>();
+        this.adminClient = initAdminClient(this.metadata.getProperties());
     }
 
     KafkaSourceSplitEnumerator(
@@ -97,7 +100,6 @@ public class KafkaSourceSplitEnumerator
 
     @Override
     public void open() {
-        this.adminClient = initAdminClient(this.metadata.getProperties());
         if (discoveryIntervalMillis > 0) {
             this.executor =
                     Executors.newScheduledThreadPool(
@@ -180,7 +182,6 @@ public class KafkaSourceSplitEnumerator
     public void addSplitsBack(List<KafkaSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
             pendingSplit.putAll(convertToNextSplit(splits));
-            assignSplit();
         }
     }
 
@@ -191,6 +192,7 @@ public class KafkaSourceSplitEnumerator
                     listOffsets(
                             splits.stream()
                                     .map(KafkaSourceSplit::getTopicPartition)
+                                    .filter(Objects::nonNull)
                                     .collect(Collectors.toList()),
                             OffsetSpec.latest());
             splits.forEach(
@@ -199,7 +201,7 @@ public class KafkaSourceSplitEnumerator
                         split.setEndOffset(listOffsets.get(split.getTopicPartition()));
                     });
             return splits.stream()
-                    .collect(Collectors.toMap(split -> split.getTopicPartition(), split -> split));
+                    .collect(Collectors.toMap(KafkaSourceSplit::getTopicPartition, split -> split));
         } catch (Exception e) {
             throw new KafkaConnectorException(
                     KafkaConnectorErrorCode.ADD_SPLIT_BACK_TO_ENUMERATOR_FAILED, e);
@@ -225,7 +227,7 @@ public class KafkaSourceSplitEnumerator
 
     @Override
     public KafkaSourceState snapshotState(long checkpointId) throws Exception {
-        return new KafkaSourceState(assignedSplit.values().stream().collect(Collectors.toSet()));
+        return new KafkaSourceState(new HashSet<>(assignedSplit.values()));
     }
 
     @Override
@@ -291,20 +293,20 @@ public class KafkaSourceSplitEnumerator
             readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
         }
 
-        pendingSplit
-                .entrySet()
-                .forEach(
-                        s -> {
-                            if (!assignedSplit.containsKey(s.getKey())) {
-                                readySplit
-                                        .get(
-                                                getSplitOwner(
-                                                        s.getKey(), context.currentParallelism()))
-                                        .add(s.getValue());
-                            }
-                        });
+        pendingSplit.forEach(
+                (key, value) -> {
+                    if (!assignedSplit.containsKey(key)) {
+                        readySplit.get(getSplitOwner(key, context.currentParallelism())).add(value);
+                    }
+                });
 
-        readySplit.forEach(context::assignSplit);
+        readySplit.forEach(
+                (id, split) -> {
+                    context.assignSplit(id, split);
+                    if (discoveryIntervalMillis <= 0) {
+                        context.signalNoMoreSplits(id);
+                    }
+                });
 
         assignedSplit.putAll(pendingSplit);
         pendingSplit.clear();
