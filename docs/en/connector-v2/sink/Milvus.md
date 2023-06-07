@@ -8,7 +8,7 @@ Write data to Apache milvus.
 
 ## Key features
 
-- [ ] [exactly-once](file:///Users/liugddx/code/incubator-seatunnel/docs/en/concept/connector-v2-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
 
 ## Options
 
