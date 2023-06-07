@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
@@ -24,6 +26,7 @@ import org.bson.json.JsonMode;
 import org.bson.json.JsonWriterSettings;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 public class MongodbConfig {
 
@@ -33,6 +36,14 @@ public class MongodbConfig {
 
     public static final JsonWriterSettings DEFAULT_JSON_WRITER_SETTINGS =
             JsonWriterSettings.builder().outputMode(JsonMode.EXTENDED).build();
+
+    public static <T> void processConfigValueIfPresent(
+            Config pluginConfig, String configPath, Consumer<T> configAction) {
+        if (pluginConfig.hasPath(configPath)) {
+            T configValue = (T) pluginConfig.getValue(configPath).unwrapped();
+            configAction.accept(configValue);
+        }
+    }
 
     public static final Option<String> URI =
             Options.key("uri")
