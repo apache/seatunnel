@@ -116,6 +116,13 @@ public class PostgresChunkSplitter implements JdbcSourceChunkSplitter {
     }
 
     @Override
+    public Object[] sampleDataFromColumn(
+            JdbcConnection jdbc, TableId tableId, String columnName, int samplingRate)
+            throws SQLException {
+        return PostgresUtils.sampleDataFromColumn(jdbc, tableId, columnName, samplingRate);
+    }
+
+    @Override
     public Object queryNextChunkMax(
             JdbcConnection jdbc,
             TableId tableId,
