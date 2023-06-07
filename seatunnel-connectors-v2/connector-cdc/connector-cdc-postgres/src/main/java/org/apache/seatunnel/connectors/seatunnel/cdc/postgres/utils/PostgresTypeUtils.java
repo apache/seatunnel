@@ -62,6 +62,7 @@ public class PostgresTypeUtils {
             case Types.DECIMAL:
                 return new DecimalType(column.length(), column.scale().orElse(0));
             case Types.TIMESTAMP:
+            case Types.TIMESTAMP_WITH_TIMEZONE:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case Types.DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;

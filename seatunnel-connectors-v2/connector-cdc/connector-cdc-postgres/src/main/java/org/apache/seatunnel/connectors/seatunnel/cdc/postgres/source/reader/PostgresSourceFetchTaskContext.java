@@ -41,8 +41,6 @@ import io.debezium.connector.postgresql.PostgresTopicSelector;
 import io.debezium.connector.postgresql.PostgresValueConverter;
 import io.debezium.connector.postgresql.TypeRegistry;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
-import io.debezium.connector.postgresql.connection.ReplicationConnection;
-import io.debezium.connector.postgresql.spi.Snapshotter;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.metrics.DefaultChangeEventSourceMetricsFactory;
@@ -52,7 +50,6 @@ import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
 import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.TopicSelector;
-import io.debezium.util.Clock;
 import io.debezium.util.LoggingContext;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -67,11 +64,8 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     private final PostgresConnection dataConnection;
 
-    @Getter private ReplicationConnection replicationConnection;
-
     private final PostgresEventMetadataProvider metadataProvider;
 
-    @Getter private Snapshotter snapshotter;
     private PostgresSchema databaseSchema;
     private PostgresOffsetContext offsetContext;
     private TopicSelector<TableId> topicSelector;
@@ -82,8 +76,6 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Getter private PostgresTaskContext taskContext;
 
     private SnapshotChangeEventSourceMetrics snapshotChangeEventSourceMetrics;
-
-    //    private PostgresStreamingChangeEventSourceMetrics streamingChangeEventSourceMetrics;
 
     private Collection<TableChanges.TableChange> engineHistory;
 
@@ -103,7 +95,6 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         // initial stateful objects
         final PostgresConnectorConfig connectorConfig = getDbzConnectorConfig();
 
-        final Clock clock = Clock.system();
         this.topicSelector = PostgresTopicSelector.create(connectorConfig);
 
         final PostgresConnection.PostgresValueConverterBuilder valueConverterBuilder =

@@ -79,7 +79,12 @@ public class PostgresSnapshotFetchTask implements FetchTask<SourceSplitBase> {
             taskRunning = false;
             return;
         }
-        taskRunning = false;
+
+        if (!snapshotResult.isCompletedOrSkipped()) {
+            taskRunning = false;
+            throw new IllegalStateException(
+                    String.format("Read snapshot for Postgres split %s fail", split));
+        }
     }
 
     private void dispatchWalEndEvent(

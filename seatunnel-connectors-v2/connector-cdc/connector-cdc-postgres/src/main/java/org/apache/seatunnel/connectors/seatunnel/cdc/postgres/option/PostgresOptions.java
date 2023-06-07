@@ -49,8 +49,8 @@ public interface PostgresOptions {
     Option<String> DATABASE_NAME =
             Options.key("database-name")
                     .stringType()
-                    .defaultValue("postgres")
-                    .withDescription("TDatabase name of the database to monitor");
+                    .noDefaultValue()
+                    .withDescription("The Database name of the database to monitor");
 
     Option<List<String>> SCHEMA_INCLUDE_LIST =
             Options.key("schema-list")
