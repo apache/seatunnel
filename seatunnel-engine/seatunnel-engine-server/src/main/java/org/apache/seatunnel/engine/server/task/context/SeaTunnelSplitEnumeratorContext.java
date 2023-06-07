@@ -25,11 +25,14 @@ import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
         implements SourceSplitEnumerator.Context<SplitT> {
 
@@ -60,6 +63,10 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
 
     @Override
     public void assignSplit(int subtaskIndex, List<SplitT> splits) {
+        if (registeredReaders().isEmpty()) {
+            log.warn("No reader is obtained, skip this assign!");
+            return;
+        }
         task.getExecutionContext()
                 .sendToMember(
                         new AssignSplitOperation<>(
