@@ -23,6 +23,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Optional;
 
 @Data
@@ -33,8 +34,8 @@ public class JdbcSourceConfig implements Serializable {
     private JdbcConnectionConfig jdbcConnectionConfig;
     public String query;
     private String partitionColumn;
-    private Long partitionUpperBound;
-    private Long partitionLowerBound;
+    private BigDecimal partitionUpperBound;
+    private BigDecimal partitionLowerBound;
     private int fetchSize;
     private Integer partitionNumber;
 
@@ -60,11 +61,11 @@ public class JdbcSourceConfig implements Serializable {
         return Optional.ofNullable(partitionColumn);
     }
 
-    public Optional<Long> getPartitionUpperBound() {
+    public Optional<BigDecimal> getPartitionUpperBound() {
         return Optional.ofNullable(partitionUpperBound);
     }
 
-    public Optional<Long> getPartitionLowerBound() {
+    public Optional<BigDecimal> getPartitionLowerBound() {
         return Optional.ofNullable(partitionLowerBound);
     }
 

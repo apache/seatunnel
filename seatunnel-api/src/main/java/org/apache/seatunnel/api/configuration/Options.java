@@ -25,6 +25,7 @@ import lombok.NonNull;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +74,10 @@ public class Options {
         /** Defines that the value of the option should be of {@link Long} type. */
         public TypedOptionBuilder<Long> longType() {
             return new TypedOptionBuilder<>(key, new TypeReference<Long>() {});
+        }
+        /** Defines that the value of the option should be of {@link BigDecimal} type. */
+        public TypedOptionBuilder<BigDecimal> bigDecimalType() {
+            return new TypedOptionBuilder<>(key, new TypeReference<BigDecimal>() {});
         }
 
         /** Defines that the value of the option should be of {@link Float} type. */
