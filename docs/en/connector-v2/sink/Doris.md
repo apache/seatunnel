@@ -8,7 +8,7 @@
 > Flink<br/>
 > Seatunnel Zeta<br/>
 
-## Key features
+## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
