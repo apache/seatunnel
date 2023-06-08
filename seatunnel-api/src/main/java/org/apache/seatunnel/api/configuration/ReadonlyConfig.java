@@ -34,7 +34,6 @@ import java.util.Optional;
 import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertToJsonString;
 import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertValue;
 import static org.apache.seatunnel.api.configuration.util.ConfigUtil.flatteningMap;
-import static org.apache.seatunnel.api.configuration.util.ConfigUtil.treeMap;
 
 @Slf4j
 public class ReadonlyConfig implements Serializable {
@@ -49,7 +48,7 @@ public class ReadonlyConfig implements Serializable {
     }
 
     public static ReadonlyConfig fromMap(Map<String, Object> map) {
-        return new ReadonlyConfig(treeMap(map));
+        return new ReadonlyConfig(flatteningMap(map));
     }
 
     public static ReadonlyConfig fromConfig(Config config) {
