@@ -31,17 +31,11 @@ import org.apache.seatunnel.core.starter.execution.SourceTableInfo;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-import org.apache.seatunnel.translation.flink.source.BaseSeaTunnelSourceFunction;
-import org.apache.seatunnel.translation.flink.source.SeaTunnelCoordinatedSource;
-import org.apache.seatunnel.translation.flink.source.SeaTunnelParallelSource;
+import org.apache.seatunnel.translation.flink.source.FlinkSource;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.connector.source.Boundedness;
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.source.ParallelSourceFunction;
-import org.apache.flink.streaming.api.operators.StreamSource;
-import org.apache.flink.types.Row;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
@@ -52,7 +46,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
 
@@ -60,11 +53,9 @@ import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
 @SuppressWarnings("unchecked,rawtypes")
 public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SourceTableInfo> {
     private static final String PLUGIN_TYPE = PluginType.SOURCE.getType();
-    private Config envConfigs;
 
     public SourceExecuteProcessor(List<URL> jarPaths, Config ConfigsInfo, JobContext jobContext) {
         super(jarPaths, ConfigsInfo.getConfigList(Constants.SOURCE), jobContext);
-        this.envConfigs = ConfigsInfo.getConfig("env");
     }
 
     @Override
@@ -76,24 +67,16 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
             SourceTableInfo sourceTableInfo = plugins.get(i);
             SeaTunnelSource internalSource = sourceTableInfo.getSource();
             Config pluginConfig = pluginConfigs.get(i);
-            BaseSeaTunnelSourceFunction sourceFunction;
             if (internalSource instanceof SupportCoordinate) {
-                sourceFunction = new SeaTunnelCoordinatedSource(internalSource, envConfigs);
-
                 registerAppendStream(pluginConfig);
-            } else {
-                sourceFunction = new SeaTunnelParallelSource(internalSource, envConfigs);
             }
-            boolean bounded =
-                    internalSource.getBoundedness()
-                            == org.apache.seatunnel.api.source.Boundedness.BOUNDED;
+            FlinkSource flinkSource = new FlinkSource<>(internalSource);
 
-            DataStreamSource<Row> sourceStream =
-                    addSource(
-                            executionEnvironment,
-                            sourceFunction,
-                            "SeaTunnel " + internalSource.getClass().getSimpleName(),
-                            bounded);
+            DataStreamSource sourceStream =
+                    executionEnvironment.fromSource(
+                            flinkSource,
+                            WatermarkStrategy.noWatermarks(),
+                            String.format("%s-source", internalSource.getPluginName()));
 
             if (pluginConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 int parallelism = pluginConfig.getInt(CommonOptions.PARALLELISM.key());
@@ -109,31 +92,6 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
                                     : null));
         }
         return sources;
-    }
-
-    private DataStreamSource<Row> addSource(
-            StreamExecutionEnvironment streamEnv,
-            BaseSeaTunnelSourceFunction function,
-            String sourceName,
-            boolean bounded) {
-        checkNotNull(function);
-        checkNotNull(sourceName);
-        checkNotNull(bounded);
-
-        TypeInformation<Row> resolvedTypeInfo = function.getProducedType();
-
-        boolean isParallel = function instanceof ParallelSourceFunction;
-
-        streamEnv.clean(function);
-
-        final StreamSource<Row, ?> sourceOperator = new StreamSource<>(function);
-        return new DataStreamSource<>(
-                streamEnv,
-                resolvedTypeInfo,
-                sourceOperator,
-                isParallel,
-                sourceName,
-                bounded ? Boundedness.BOUNDED : Boundedness.CONTINUOUS_UNBOUNDED);
     }
 
     @Override
