@@ -107,15 +107,25 @@ public class JdbcSourceFactory implements TableSourceFactory {
                                 connectionProvider,
                                 partitionParameter.isPresent()
                                         ? obtainPartitionSql(
-                                                partitionParameter.get().getPartitionColumnName(),
-                                                querySql)
+                                                dialect, partitionParameter.get(), querySql)
                                         : querySql);
     }
 
-    static String obtainPartitionSql(String partitionColumn, String nativeSql) {
+    static String obtainPartitionSql(
+            JdbcDialect dialect, PartitionParameter partitionParameter, String nativeSql) {
+        if (isStringType(partitionParameter.getDataType())) {
+            return String.format(
+                    "SELECT * FROM (%s) tt where %s = ?",
+                    nativeSql,
+                    dialect.hashModForField(
+                            partitionParameter.getPartitionColumnName(),
+                            partitionParameter.getPartitionNumber()));
+        }
         return String.format(
                 "SELECT * FROM (%s) tt where %s >= ? AND %s <= ?",
-                nativeSql, partitionColumn, partitionColumn);
+                nativeSql,
+                partitionParameter.getPartitionColumnName(),
+                partitionParameter.getPartitionColumnName());
     }
 
     public static Optional<PartitionParameter> createPartitionParameter(
@@ -125,10 +135,11 @@ public class JdbcSourceFactory implements TableSourceFactory {
         Optional<String> partitionColumnOptional = getPartitionColumn(config, tableSchema);
         if (partitionColumnOptional.isPresent()) {
             String partitionColumn = partitionColumnOptional.get();
-            validationPartitionColumn(partitionColumn, tableSchema.toPhysicalRowDataType());
+            SeaTunnelDataType<?> dataType =
+                    validationPartitionColumn(partitionColumn, tableSchema.toPhysicalRowDataType());
             return Optional.of(
                     createPartitionParameter(
-                            config, partitionColumn, connectionProvider.getConnection()));
+                            config, partitionColumn, dataType, connectionProvider.getConnection()));
         }
         log.info(
                 "The partition_column parameter is not configured, and the source parallelism is set to 1");
@@ -136,15 +147,24 @@ public class JdbcSourceFactory implements TableSourceFactory {
     }
 
     static PartitionParameter createPartitionParameter(
-            JdbcSourceConfig config, String columnName, Connection connection) {
+            JdbcSourceConfig config,
+            String columnName,
+            SeaTunnelDataType<?> dataType,
+            Connection connection) {
         BigDecimal max = null;
         BigDecimal min = null;
+
+        if (dataType.equals(BasicType.STRING_TYPE)) {
+            return new PartitionParameter(
+                    columnName, dataType, null, null, config.getPartitionNumber().orElse(null));
+        }
+
         if (config.getPartitionLowerBound().isPresent()
                 && config.getPartitionUpperBound().isPresent()) {
             max = config.getPartitionUpperBound().get();
             min = config.getPartitionLowerBound().get();
             return new PartitionParameter(
-                    columnName, min, max, config.getPartitionNumber().orElse(null));
+                    columnName, dataType, min, max, config.getPartitionNumber().orElse(null));
         }
         try (ResultSet rs =
                 connection
@@ -167,7 +187,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
             throw new PrepareFailException("jdbc", PluginType.SOURCE, e.toString());
         }
         return new PartitionParameter(
-                columnName, min, max, config.getPartitionNumber().orElse(null));
+                columnName, dataType, min, max, config.getPartitionNumber().orElse(null));
     }
 
     private static Optional<String> getPartitionColumn(
@@ -181,7 +201,8 @@ public class JdbcSourceFactory implements TableSourceFactory {
         return Optional.empty();
     }
 
-    static void validationPartitionColumn(String partitionColumn, SeaTunnelRowType rowType) {
+    static SeaTunnelDataType<?> validationPartitionColumn(
+            String partitionColumn, SeaTunnelRowType rowType) {
         Map<String, SeaTunnelDataType<?>> fieldTypes = new HashMap<>();
         for (int i = 0; i < rowType.getFieldNames().length; i++) {
             fieldTypes.put(rowType.getFieldName(i), rowType.getFieldType(i));
@@ -194,10 +215,12 @@ public class JdbcSourceFactory implements TableSourceFactory {
                             partitionColumn));
         }
         SeaTunnelDataType<?> partitionColumnType = fieldTypes.get(partitionColumn);
-        if (!isNumericType(partitionColumnType)) {
+        if (!isNumericType(partitionColumnType) && !isStringType(partitionColumnType)) {
             throw new JdbcConnectorException(
                     CommonErrorCode.ILLEGAL_ARGUMENT,
-                    String.format("%s is not numeric type", partitionColumn));
+                    String.format("%s is not numeric/string type", partitionColumn));
+        } else {
+            return partitionColumnType;
         }
     }
 
@@ -214,6 +237,10 @@ public class JdbcSourceFactory implements TableSourceFactory {
             }
         }
         return type.equals(BasicType.INT_TYPE) || type.equals(BasicType.LONG_TYPE) || scale == 0;
+    }
+
+    private static boolean isStringType(SeaTunnelDataType<?> type) {
+        return type.equals(BasicType.STRING_TYPE);
     }
 
     @Override
