@@ -24,12 +24,43 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSou
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import net.jpountz.xxhash.XXHash64;
+import net.jpountz.xxhash.XXHashFactory;
+
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+
 public class ClickhouseFactoryTest {
+    private static final XXHash64 HASH_INSTANCE = XXHashFactory.fastestInstance().hash64();
 
     @Test
     public void testOptionRule() {
         Assertions.assertNotNull((new ClickhouseSourceFactory()).optionRule());
         Assertions.assertNotNull((new ClickhouseSinkFactory()).optionRule());
         Assertions.assertNotNull((new ClickhouseFileSinkFactory()).optionRule());
+    }
+
+    public int getShard(Object shardValue) {
+        int shardWeightCount = 6;
+        int offset =
+                (int)
+                        ((HASH_INSTANCE.hash(
+                                                ByteBuffer.wrap(
+                                                        shardValue
+                                                                .toString()
+                                                                .getBytes(StandardCharsets.UTF_8)),
+                                                0)
+                                        & Long.MAX_VALUE)
+                                % shardWeightCount);
+        return offset;
+    }
+
+    @Test
+    public void testShared() {
+        String a = "a,b,c,d,e,f";
+        for (Object o : Arrays.stream(a.split(",")).toArray()) {
+            System.out.println(getShard(o));
+        }
     }
 }
