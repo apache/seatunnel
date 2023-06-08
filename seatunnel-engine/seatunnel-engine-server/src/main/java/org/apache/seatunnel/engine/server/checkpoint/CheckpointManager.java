@@ -42,6 +42,7 @@ import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
@@ -84,7 +85,8 @@ public class CheckpointManager {
             JobMaster jobMaster,
             Map<Integer, CheckpointPlan> checkpointPlanMap,
             CheckpointConfig checkpointConfig,
-            ExecutorService executorService)
+            ExecutorService executorService,
+            IMap<Object, Object> runningJobStateIMap)
             throws CheckpointStorageException {
         this.executorService = executorService;
         this.jobId = jobId;
@@ -130,7 +132,9 @@ public class CheckpointManager {
                                                 plan,
                                                 idCounter,
                                                 pipelineState,
-                                                executorService);
+                                                executorService,
+                                                runningJobStateIMap,
+                                                isStartWithSavePoint);
                                     } catch (Exception e) {
                                         ExceptionUtil.sneakyThrow(e);
                                     }

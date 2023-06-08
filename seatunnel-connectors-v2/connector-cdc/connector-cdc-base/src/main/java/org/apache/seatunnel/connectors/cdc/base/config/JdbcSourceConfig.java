@@ -51,6 +51,8 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
             int splitSize,
             double distributionFactorUpper,
             double distributionFactorLower,
+            int sampleShardingThreshold,
+            int inverseSamplingRate,
             Properties dbzProperties,
             String driverClassName,
             String hostname,
@@ -69,6 +71,8 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
                 splitSize,
                 distributionFactorUpper,
                 distributionFactorLower,
+                sampleShardingThreshold,
+                inverseSamplingRate,
                 dbzProperties);
         this.driverClassName = driverClassName;
         this.hostname = hostname;

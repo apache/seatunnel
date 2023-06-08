@@ -56,4 +56,6 @@ public class Constant {
     public static final String IMAP_CHECKPOINT_ID = "engine_checkpoint-id-map";
 
     public static final String IMAP_RUNNING_JOB_METRICS = "engine_runningJobMetrics";
+
+    public static final Long IMAP_RUNNING_JOB_METRICS_KEY = 1L;
 }

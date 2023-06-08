@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @SuppressWarnings("checkstyle:MagicNumber")
@@ -122,14 +123,14 @@ public interface JdbcOptions {
                     .noDefaultValue()
                     .withDescription("partition column");
 
-    Option<Long> PARTITION_UPPER_BOUND =
+    Option<BigDecimal> PARTITION_UPPER_BOUND =
             Options.key("partition_upper_bound")
-                    .longType()
+                    .bigDecimalType()
                     .noDefaultValue()
                     .withDescription("partition upper bound");
-    Option<Long> PARTITION_LOWER_BOUND =
+    Option<BigDecimal> PARTITION_LOWER_BOUND =
             Options.key("partition_lower_bound")
-                    .longType()
+                    .bigDecimalType()
                     .noDefaultValue()
                     .withDescription("partition lower bound");
     Option<Integer> PARTITION_NUM =
