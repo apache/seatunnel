@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -45,6 +46,7 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -135,8 +137,8 @@ public class JdbcSourceFactory implements TableSourceFactory {
 
     static PartitionParameter createPartitionParameter(
             JdbcSourceConfig config, String columnName, Connection connection) {
-        long max = Long.MAX_VALUE;
-        long min = Long.MIN_VALUE;
+        BigDecimal max = null;
+        BigDecimal min = null;
         if (config.getPartitionLowerBound().isPresent()
                 && config.getPartitionUpperBound().isPresent()) {
             max = config.getPartitionUpperBound().get();
@@ -155,11 +157,11 @@ public class JdbcSourceFactory implements TableSourceFactory {
                 max =
                         config.getPartitionUpperBound().isPresent()
                                 ? config.getPartitionUpperBound().get()
-                                : rs.getLong(1);
+                                : rs.getBigDecimal(1);
                 min =
                         config.getPartitionLowerBound().isPresent()
                                 ? config.getPartitionLowerBound().get()
-                                : rs.getLong(2);
+                                : rs.getBigDecimal(2);
             }
         } catch (SQLException e) {
             throw new PrepareFailException("jdbc", PluginType.SOURCE, e.toString());
@@ -200,7 +202,18 @@ public class JdbcSourceFactory implements TableSourceFactory {
     }
 
     private static boolean isNumericType(SeaTunnelDataType<?> type) {
-        return type.equals(BasicType.INT_TYPE) || type.equals(BasicType.LONG_TYPE);
+        int scale = 1;
+        if (type instanceof DecimalType) {
+            scale = ((DecimalType) type).getScale() == 0 ? 0 : ((DecimalType) type).getScale();
+            if (scale != 0) {
+                throw new JdbcConnectorException(
+                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        String.format(
+                                "The current field is DecimalType containing decimals: %d Unable to support",
+                                scale));
+            }
+        }
+        return type.equals(BasicType.INT_TYPE) || type.equals(BasicType.LONG_TYPE) || scale == 0;
     }
 
     @Override

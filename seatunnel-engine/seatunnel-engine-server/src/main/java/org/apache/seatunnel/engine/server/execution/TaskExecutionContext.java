@@ -30,6 +30,8 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
+import java.util.HashMap;
+
 public class TaskExecutionContext {
 
     private final Task task;
@@ -56,9 +58,13 @@ public class TaskExecutionContext {
     }
 
     public SeaTunnelMetricsContext getOrCreateMetricsContext(TaskLocation taskLocation) {
-        IMap<TaskLocation, SeaTunnelMetricsContext> map =
+        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> map =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-        return map.computeIfAbsent(taskLocation, k -> new SeaTunnelMetricsContext());
+        HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
+                map.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+        return centralMap == null || centralMap.get(taskLocation) == null
+                ? new SeaTunnelMetricsContext()
+                : centralMap.get(taskLocation);
     }
 
     public <T> T getTask() {

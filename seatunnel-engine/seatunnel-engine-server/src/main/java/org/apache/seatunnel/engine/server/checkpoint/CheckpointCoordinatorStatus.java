@@ -18,9 +18,18 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 public enum CheckpointCoordinatorStatus {
+    RUNNING,
+
     FINISHED,
 
     CANCELED,
 
-    FAILED;
+    FAILED,
+
+    /** for savepoint job */
+    SUSPEND;
+
+    public boolean isEndState() {
+        return this == FINISHED || this == CANCELED || this == FAILED || this == SUSPEND;
+    }
 }

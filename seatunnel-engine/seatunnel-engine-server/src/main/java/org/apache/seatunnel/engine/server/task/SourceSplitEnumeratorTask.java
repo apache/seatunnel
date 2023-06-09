@@ -142,6 +142,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         final long barrierId = barrier.getId();
         Serializable snapshotState = null;
         byte[] serialize = null;
+        // Do not modify this lock object, as it is also used in the SourceSplitEnumerator.
         synchronized (enumeratorContext) {
             if (barrier.snapshot()) {
                 snapshotState = enumerator.snapshotState(barrierId);
@@ -160,7 +161,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                                             new ActionSubtaskState(
                                                     ActionStateKey.of(source),
                                                     -1,
-                                                    Collections.singletonList(serialize)))));
+                                                    Collections.singletonList(serialize)))))
+                    .join();
         }
     }
 
@@ -197,8 +199,15 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         SourceSplitEnumerator<SplitT, Serializable> enumerator = getEnumerator();
         this.addTaskMemberMapping(readerId, memberAddr);
         enumerator.registerReader(readerId.getTaskIndex());
-        if (maxReaderSize == taskMemberMapping.size()) {
+        int taskSize = taskMemberMapping.size();
+        if (maxReaderSize == taskSize) {
             readerRegisterComplete = true;
+            log.debug(String.format("reader register complete, current task size %d", taskSize));
+        } else {
+            log.debug(
+                    String.format(
+                            "current task size %d, need size %d to complete register",
+                            taskSize, maxReaderSize));
         }
     }
 
