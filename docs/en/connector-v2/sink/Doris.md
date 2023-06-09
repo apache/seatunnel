@@ -59,8 +59,9 @@ The supported formats include CSV and JSON
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
+  checkpoint.interval = 10000
 }
 
 source {
@@ -108,7 +109,7 @@ sink {
     password = ""
     table.identifier = "test.e2e_table_sink"
     sink.label-prefix = "test-cdc"
-    sink.enable-2pc = "false"
+    sink.enable-2pc = "true"
     sink.enable-delete = "true"
     doris.config {
       format = "json"
