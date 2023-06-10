@@ -20,7 +20,6 @@ Write data to Neo4j.
 | username                   | String  | No       | -             |
 | password                   | String  | No       | -             |
 | max_batch_size             | Integer | No       | -             |
-| batch_data_variable        | String  | No       | -             |
 | write_mode                 | String  | No       | OneByOne      |
 | bearer_token               | String  | No       | -             |
 | kerberos_ticket            | String  | No       | -             |
@@ -46,16 +45,6 @@ password of the Neo4j. required if `username` is provided
 ### max_batch_size[Integer]
 
 max_batch_size refers to the maximum number of data entries that can be written in a single transaction when writing to a database.
-
-### batch_data_variable
-
-The term "batch_data_variable" refers to the variable name used to define a batch data carrier in Cypher batch statements. For example, in the statement
-
-```cypher
-unwind $ttt as dataRow create node(n) set n.props = dataRow.props
-```
-
-"ttt" can be any arbitrary string as long as it matches the configured "batch_data_variable".
 
 ### write_mode
 
@@ -126,7 +115,7 @@ sink {
 ```
 
 ## WriteBatchExample
-
+> The unwind keyword provided by cypher supports batch writing, and the default variable for a batch of data is batch. If you write a batch write statement, then you should declare cypher:unwind $batch as row to do someting
 ```
 sink {
   Neo4j {
@@ -134,14 +123,13 @@ sink {
     username = "neo4j"
     password = "neo4j"
     database = "neo4j"
-    batch_data_variable = "ttt"
     max_batch_size = 1000
-    write_mode = "Batch"
+    write_mode = "BATCH"
 
     max_transaction_retry_time = 3
     max_connection_timeout = 10
 
-    query = "unwind $ttt as row  create(n:MyLabel) set n.name = row.name,n.age = row.age"
+    query = "unwind $batch as row  create(n:MyLabel) set n.name = row.name,n.age = row.age"
 
   }
 }

@@ -32,7 +32,6 @@ import lombok.Setter;
 import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.PLUGIN_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.BATCH_DATA_VARIABLE;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.QUERY_PARAM_POSITION;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.WRITE_MODE;
@@ -44,12 +43,10 @@ public class Neo4jSinkQueryInfo extends Neo4jQueryInfo {
     private Map<String, Object> queryParamPosition;
     private Integer maxBatchSize;
 
-    private String batchDataVariable;
-
     private SinkWriteMode writeMode;
 
     public boolean batchMode() {
-        return SinkWriteMode.Batch.equals(writeMode);
+        return SinkWriteMode.BATCH.equals(writeMode);
     }
 
     public Neo4jSinkQueryInfo(Config config) {
@@ -57,7 +54,7 @@ public class Neo4jSinkQueryInfo extends Neo4jQueryInfo {
 
         this.writeMode = prepareWriteMode(config);
 
-        if (SinkWriteMode.Batch.equals(writeMode)) {
+        if (SinkWriteMode.BATCH.equals(writeMode)) {
             prepareBatchWriteConfig(config);
         } else {
             prepareOneByOneConfig(config);
@@ -94,12 +91,8 @@ public class Neo4jSinkQueryInfo extends Neo4jQueryInfo {
                                 PLUGIN_NAME, PluginType.SINK, "maxBatchSize must greater than 0"));
             }
             this.maxBatchSize = batchSize;
-        }
-
-        if (config.hasPath(BATCH_DATA_VARIABLE.key())) {
-            this.batchDataVariable = config.getString(BATCH_DATA_VARIABLE.key());
         } else {
-            this.batchDataVariable = BATCH_DATA_VARIABLE.defaultValue();
+            this.maxBatchSize = MAX_BATCH_SIZE.defaultValue();
         }
     }
 

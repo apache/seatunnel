@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkQueryInfo;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.constants.CypherEnum;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.internal.SeatunnelRowNeo4jValue;
@@ -106,8 +107,7 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
     private Query batchQuery() {
         try {
-            Value batchValues =
-                    Values.parameters(neo4jSinkQueryInfo.getBatchDataVariable(), writeBuffer);
+            Value batchValues = Values.parameters(CypherEnum.BATCH.getValue(), writeBuffer);
             return new Query(neo4jSinkQueryInfo.getQuery(), batchValues);
         } catch (ClientException e) {
             log.error("Failed to build cypher statement", e);

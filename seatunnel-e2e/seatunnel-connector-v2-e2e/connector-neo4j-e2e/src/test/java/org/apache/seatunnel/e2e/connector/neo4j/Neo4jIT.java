@@ -28,6 +28,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
+import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
@@ -60,6 +61,8 @@ import static org.neo4j.driver.Values.parameters;
 
 @Slf4j
 public class Neo4jIT extends TestSuiteBase implements TestResource {
+
+    private static final int FAKE_ROW_NUM = 1000;
 
     private static final String CONTAINER_IMAGE = "neo4j:5.6.0";
     private static final String CONTAINER_HOST = "neo4j-host";
@@ -162,7 +165,7 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
             neo4jSession.run("MATCH (n:BatchLabel) delete n");
         }
 
-        // unwind $ttt as row create(n:BatchLabel) set n.name = row.name,n.age = row.age
+        // unwind $batch as row create(n:BatchLabel) set n.name = row.name,n.age = row.age
         Container.ExecResult execResult =
                 container.executeJob("/neo4j/fake_to_neo4j_batch_write.conf");
         // then
@@ -170,15 +173,19 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
         final Result result = neo4jSession.run("MATCH (n:BatchLabel) RETURN n");
         // nodes
         assertTrue(result.hasNext());
+        int cnt = 0;
         // verify the attributes of the node
-        result.stream()
-                .forEach(
-                        r -> {
-                            String name = r.get("n").get("name").asString();
-                            assertNotNull(name);
-                            Object age = r.get("n").get("age").asObject();
-                            assertNotNull(age);
-                        });
+        while (result.hasNext()) {
+            // don`t remove import org.neo4j.driver.Record;This can cause code not to compile in
+            // java14+
+            Record r = result.next();
+            String name = r.get("n").get("name").asString();
+            assertNotNull(name);
+            Object age = r.get("n").get("age").asObject();
+            assertNotNull(age);
+            cnt++;
+        }
+        assertEquals(FAKE_ROW_NUM, cnt);
     }
 
     @AfterAll

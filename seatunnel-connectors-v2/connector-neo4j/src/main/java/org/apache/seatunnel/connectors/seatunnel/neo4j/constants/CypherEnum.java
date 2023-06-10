@@ -17,7 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.neo4j.constants;
 
-public enum SinkWriteMode {
-    ONE_BY_ONE,
-    BATCH
+public enum CypherEnum {
+    BATCH("batch", "a variable in cypher that represents a batch of data");
+    private final String value;
+    private final String description;
+
+    CypherEnum(String value, String description) {
+        this.value = value;
+        this.description = description;
+    }
+
+    public String getValue() {
+        return value;
+    }
 }

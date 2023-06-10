@@ -34,21 +34,12 @@ public class Neo4jSinkConfig extends Neo4jCommonConfig {
     public static final Option<Integer> MAX_BATCH_SIZE =
             Options.key("max_batch_size")
                     .intType()
-                    .noDefaultValue()
+                    .defaultValue(500)
                     .withDescription("neo4j write max batch size");
-
-    public static final Option<String> BATCH_DATA_VARIABLE =
-            Options.key("batch_data_variable")
-                    .stringType()
-                    .defaultValue("batch")
-                    .withDescription(
-                            "the variable name of the data carrier when writing on neo4j batch,"
-                                    + "like the `batch variable in cypher unwind $batch as row create (n) set n.props = row.props`"
-                                    + "this configuration is exposed to accommodate different users with varying Cypher coding habits");
     public static final Option<SinkWriteMode> WRITE_MODE =
             Options.key("write_mode")
                     .enumType(SinkWriteMode.class)
-                    .defaultValue(SinkWriteMode.OneByOne)
+                    .defaultValue(SinkWriteMode.ONE_BY_ONE)
                     .withDescription(
                             "The write mode on the sink end is oneByOne by default in order to maintain compatibility with previous code.");
 }
