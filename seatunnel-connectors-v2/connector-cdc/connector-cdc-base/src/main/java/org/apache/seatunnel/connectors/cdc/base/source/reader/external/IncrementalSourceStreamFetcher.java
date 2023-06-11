@@ -92,7 +92,8 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     }
 
     @Override
-    public Iterator<SourceRecords> pollSplitRecords() throws InterruptedException {
+    public Iterator<SourceRecords> pollSplitRecords()
+            throws InterruptedException, SeaTunnelException {
         checkReadException();
         final List<SourceRecord> sourceRecords = new ArrayList<>();
         if (streamFetchTask.isRunning()) {

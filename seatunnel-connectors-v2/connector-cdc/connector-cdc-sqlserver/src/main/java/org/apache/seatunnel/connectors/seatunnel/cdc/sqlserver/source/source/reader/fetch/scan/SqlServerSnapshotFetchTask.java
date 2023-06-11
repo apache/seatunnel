@@ -38,8 +38,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
-
 @Slf4j
 public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
 
@@ -141,7 +139,7 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
         // task to read binlog and backfill for current split
         return new SqlServerTransactionLogFetchTask.TransactionLogSplitReadTask(
                 new SqlServerConnectorConfig(dezConf),
-                createSqlServerConnection(context.getSourceConfig().getDbzConfiguration()),
+                context.getDataConnection(),
                 context.getMetadataConnection(),
                 context.getDispatcher(),
                 context.getErrorHandler(),
