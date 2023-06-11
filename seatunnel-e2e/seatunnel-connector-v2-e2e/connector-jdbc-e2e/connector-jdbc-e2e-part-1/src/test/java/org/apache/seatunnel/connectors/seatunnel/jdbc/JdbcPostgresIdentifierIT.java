@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.AfterAll;
@@ -51,10 +53,10 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
-// @DisabledOnContainer(
-//        value = {},
-//        type = {EngineType.SPARK, EngineType.FLINK},
-//        disabledReason = "Currently SPARK and FLINK do not support cdc")
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason = "Currently SPARK and FLINK do not support cdc")
 public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResource {
     private static final String PG_IMAGE = "postgis/postgis";
     private static final String PG_DRIVER_JAR =
@@ -162,36 +164,36 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
                     + " from pg_ide_source_table";
     private static final String SINK_SQL =
             "SELECT\n"
-                    + "  GID,\n"
-                    + "  TEXT_COL,\n"
-                    + "  VARCHAR_COL,\n"
-                    + "  CHAR_COL,\n"
-                    + "  BOOLEAN_COL,\n"
-                    + "  SMALLINT_COL,\n"
-                    + "  INTEGER_COL,\n"
-                    + "  BIGINT_COL,\n"
-                    + "  DECIMAL_COL,\n"
-                    + "  NUMERIC_COL,\n"
-                    + "  REAL_COL,\n"
-                    + "  DOUBLE_PRECISION_COL,\n"
-                    + "  SMALLSERIAL_COL,\n"
-                    + "  SERIAL_COL,\n"
-                    + "  BIGSERIAL_COL,\n"
-                    + "  DATE_COL,\n"
-                    + "  TIMESTAMP_COL,\n"
-                    + "  BPCHAR_COL,\n"
-                    + "  AGE,\n"
-                    + "  NAME,\n"
-                    + "  CAST(POINT AS GEOMETRY) AS POINT,\n"
-                    + "  CAST(LINESTRING AS GEOMETRY) AS LINESTRING,\n"
-                    + "  CAST(POLYGON_COLUMS AS GEOMETRY) AS POLYGON_COLUMS,\n"
-                    + "  CAST(MULTIPOINT AS GEOMETRY) AS MULTIPOINT,\n"
-                    + "  CAST(MULTILINESTRING AS GEOMETRY) AS MULTILINESTRING,\n"
-                    + "  CAST(MULTIPOLYGON AS GEOMETRY) AS MULTILINESTRING,\n"
-                    + "  CAST(GEOMETRYCOLLECTION AS GEOMETRY) AS GEOMETRYCOLLECTION,\n"
-                    + "  CAST(GEOG AS GEOGRAPHY) AS GEOG\n"
+                    + "  \"GID\",\n"
+                    + "  \"TEXT_COL\",\n"
+                    + "  \"VARCHAR_COL\",\n"
+                    + "  \"CHAR_COL\",\n"
+                    + "  \"BOOLEAN_COL\",\n"
+                    + "  \"SMALLINT_COL\",\n"
+                    + "  \"INTEGER_COL\",\n"
+                    + "  \"BIGINT_COL\",\n"
+                    + "  \"DECIMAL_COL\",\n"
+                    + "  \"NUMERIC_COL\",\n"
+                    + "  \"REAL_COL\",\n"
+                    + "  \"DOUBLE_PRECISION_COL\",\n"
+                    + "  \"SMALLSERIAL_COL\",\n"
+                    + "  \"SERIAL_COL\",\n"
+                    + "  \"BIGSERIAL_COL\",\n"
+                    + "  \"DATE_COL\",\n"
+                    + "  \"TIMESTAMP_COL\",\n"
+                    + "  \"BPCHAR_COL\",\n"
+                    + "  \"AGE\",\n"
+                    + "  \"NAME\",\n"
+                    + "  CAST(\"POINT\" AS GEOMETRY) AS POINT,\n"
+                    + "  CAST(\"LINESTRING\" AS GEOMETRY) AS LINESTRING,\n"
+                    + "  CAST(\"POLYGON_COLUMS\" AS GEOMETRY) AS POLYGON_COLUMS,\n"
+                    + "  CAST(\"MULTIPOINT\" AS GEOMETRY) AS MULTIPOINT,\n"
+                    + "  CAST(\"MULTILINESTRING\" AS GEOMETRY) AS MULTILINESTRING,\n"
+                    + "  CAST(\"MULTIPOLYGON\" AS GEOMETRY) AS MULTILINESTRING,\n"
+                    + "  CAST(\"GEOMETRYCOLLECTION\" AS GEOMETRY) AS GEOMETRYCOLLECTION,\n"
+                    + "  CAST(\"GEOG\" AS GEOGRAPHY) AS GEOG\n"
                     + "FROM\n"
-                    + "  \"PG_IDE_SINK_TABLE\"";
+                    + "  \"PG_IDE_SINK_TABLE\";";
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
