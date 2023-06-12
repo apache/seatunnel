@@ -41,7 +41,9 @@ public class Common {
         throw new IllegalStateException("Utility class");
     }
 
-    /** Used to set the size when create a new collection(just to pass the checkstyle). */
+    /**
+     * Used to set the size when create a new collection(just to pass the checkstyle).
+     */
     public static final int COLLECTION_SIZE = 16;
 
     private static final int APP_LIB_DIR_DEPTH = 2;
@@ -54,7 +56,9 @@ public class Common {
 
     private static boolean STARTER = false;
 
-    /** Set mode. return false in case of failure */
+    /**
+     * Set mode. return false in case of failure
+     */
     public static void setDeployMode(DeployMode mode) {
         MODE = mode;
     }
@@ -92,22 +96,24 @@ public class Common {
      * related files in plugins dir.
      */
     public static Path appRootDir() {
+        String path = "";
+        try {
+            path =
+                    Common.class
+                            .getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI()
+                            .getPath();
+            path = new File(path).getPath();
+
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
         if (DeployMode.CLIENT == MODE || DeployMode.RUN == MODE || STARTER) {
-            try {
-                String path =
-                        Common.class
-                                .getProtectionDomain()
-                                .getCodeSource()
-                                .getLocation()
-                                .toURI()
-                                .getPath();
-                path = new File(path).getPath();
-                return Paths.get(path).getParent().getParent();
-            } catch (URISyntaxException e) {
-                throw new RuntimeException(e);
-            }
+            return Paths.get(path).getParent().getParent();
         } else if (DeployMode.CLUSTER == MODE || DeployMode.RUN_APPLICATION == MODE) {
-            return Paths.get("");
+            return Paths.get(path).getParent().getParent();
         } else {
             throw new IllegalStateException("deploy mode not support : " + MODE);
         }
@@ -117,27 +123,37 @@ public class Common {
         return appRootDir().resolve("starter");
     }
 
-    /** Plugin Root Dir */
+    /**
+     * Plugin Root Dir
+     */
     public static Path pluginRootDir() {
         return Paths.get(getSeaTunnelHome(), "plugins");
     }
 
-    /** Plugin Connector Jar Dir */
+    /**
+     * Plugin Connector Jar Dir
+     */
     public static Path connectorJarDir(String engine) {
         return Paths.get(getSeaTunnelHome(), "connectors", engine.toLowerCase());
     }
 
-    /** Plugin Connector Dir */
+    /**
+     * Plugin Connector Dir
+     */
     public static Path connectorDir() {
         return Paths.get(getSeaTunnelHome(), "connectors");
     }
 
-    /** lib Dir */
+    /**
+     * lib Dir
+     */
     public static Path libDir() {
         return Paths.get(getSeaTunnelHome(), "lib");
     }
 
-    /** return lib jars, which located in 'lib/*' or 'lib/{dir}/*'. */
+    /**
+     * return lib jars, which located in 'lib/*' or 'lib/{dir}/*'.
+     */
     public static List<Path> getLibJars() {
         Path libRootDir = Common.libDir();
         if (!Files.exists(libRootDir) || !Files.isDirectory(libRootDir)) {
@@ -152,7 +168,9 @@ public class Common {
         }
     }
 
-    /** return the jar package configured in env jars */
+    /**
+     * return the jar package configured in env jars
+     */
     public static Set<Path> getThirdPartyJars(String paths) {
 
         return Arrays.stream(paths.split(";"))
@@ -166,7 +184,9 @@ public class Common {
         return appRootDir().resolve("plugins.tar.gz");
     }
 
-    /** return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'. */
+    /**
+     * return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'.
+     */
     public static List<Path> getPluginsJarDependencies() {
         Path pluginRootDir = Common.pluginRootDir();
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
@@ -174,9 +194,9 @@ public class Common {
         }
         try (Stream<Path> stream = Files.walk(pluginRootDir, PLUGIN_LIB_DIR_DEPTH, FOLLOW_LINKS)) {
             return stream.filter(
-                            it ->
-                                    pluginRootDir.relativize(it).getNameCount()
-                                            == PLUGIN_LIB_DIR_DEPTH)
+                    it ->
+                            pluginRootDir.relativize(it).getNameCount()
+                                    == PLUGIN_LIB_DIR_DEPTH)
                     .filter(it -> it.getParent().endsWith("lib"))
                     .filter(it -> it.getFileName().toString().endsWith(".jar"))
                     .collect(Collectors.toList());
