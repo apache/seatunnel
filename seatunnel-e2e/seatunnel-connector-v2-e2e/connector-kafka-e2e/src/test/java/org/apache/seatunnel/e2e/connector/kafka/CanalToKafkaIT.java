@@ -65,11 +65,13 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK})
+        type = {EngineType.SPARK},
+        disabledReason = "Spark engine will lose the row kind of record")
 public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(CanalToKafkaIT.class);
@@ -79,8 +81,6 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
     private static final String CANAL_DOCKER_IMAGE = "chinayin/canal:1.1.6";
 
     private static final String CANAL_HOST = "canal_e2e";
-
-    private static final int CANAL_PORT = 11111;
 
     // ----------------------------------------------------------------------------
     // kafka
@@ -98,7 +98,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
     // mysql
     private static final String MYSQL_HOST = "mysql_e2e";
 
-    private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
+    private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer();
 
     private final UniqueDatabase inventoryDatabase =
             new UniqueDatabase(MYSQL_CONTAINER, "canal", "mysqluser", "mysqlpw");
@@ -124,18 +124,16 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 
-    private static MySqlContainer createMySqlContainer(MySqlVersion version) {
-        MySqlContainer mySqlContainer =
-                new MySqlContainer(version)
-                        .withConfigurationOverride("docker/server-gtids/my.cnf")
-                        .withSetupSQL("docker/setup.sql")
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(MYSQL_HOST)
-                        .withDatabaseName("canal")
-                        .withUsername("st_user")
-                        .withPassword("seatunnel")
-                        .withLogConsumer(new Slf4jLogConsumer(LOG));
-        return mySqlContainer;
+    private static MySqlContainer createMySqlContainer() {
+        return new MySqlContainer(MySqlVersion.V8_0)
+                .withConfigurationOverride("docker/server-gtids/my.cnf")
+                .withSetupSQL("docker/setup.sql")
+                .withNetwork(NETWORK)
+                .withNetworkAliases(MYSQL_HOST)
+                .withDatabaseName("canal")
+                .withUsername("st_user")
+                .withPassword("seatunnel")
+                .withLogConsumer(new Slf4jLogConsumer(LOG));
     }
 
     private void createCanalContainer() {
@@ -165,7 +163,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
     }
 
-    private void createPostgreSQLContainer() throws ClassNotFoundException {
+    private void createPostgreSQLContainer() {
         POSTGRESQL_CONTAINER =
                 new PostgreSQLContainer<>(DockerImageName.parse(PG_IMAGE))
                         .withNetwork(NETWORK)
@@ -219,9 +217,9 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testKafkaSinkCanalFormat(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/kafkasource_canal_to_kafka.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        ArrayList<Object> result = new ArrayList<>();
         List<String> expectedResult =
                 Arrays.asList(
                         "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"INSERT\"}",
@@ -239,22 +237,27 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                         "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"7.88\"},\"type\":\"INSERT\"}",
                         "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"DELETE\"}");
 
+        ArrayList<String> result = new ArrayList<>();
         ArrayList<String> topics = new ArrayList<>();
         topics.add(KAFKA_TOPIC);
         kafkaConsumer.subscribe(topics);
-        ConsumerRecords<String, String> consumerRecords =
-                kafkaConsumer.poll(Duration.ofSeconds(10000));
-        for (ConsumerRecord<String, String> record : consumerRecords) {
-            result.add(record.value());
-        }
-        Assertions.assertEquals(expectedResult, result);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            ConsumerRecords<String, String> consumerRecords =
+                                    kafkaConsumer.poll(Duration.ofMillis(1000));
+                            for (ConsumerRecord<String, String> record : consumerRecords) {
+                                result.add(record.value());
+                            }
+                            Assertions.assertEquals(expectedResult, result);
+                        });
     }
 
     @TestTemplate
     public void testCanalFormatKafkaCdcToPgsql(TestContainer container)
             throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult =
-                container.executeJob("/kafkasource_canal_cdc_to_pgsql.conf");
+                container.executeJob("/canalFormatIT/kafka_source_canal_cdc_to_pgsql.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         List<Object> actual = new ArrayList<>();
         try (Connection connection =

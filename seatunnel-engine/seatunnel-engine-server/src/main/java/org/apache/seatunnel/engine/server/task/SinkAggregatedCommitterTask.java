@@ -224,7 +224,8 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                                     (CheckpointBarrier) barrier,
                                     Collections.singletonList(
                                             new ActionSubtaskState(
-                                                    ActionStateKey.of(sink), -1, states))));
+                                                    ActionStateKey.of(sink), -1, states))))
+                    .join();
         }
     }
 

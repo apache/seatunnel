@@ -259,10 +259,6 @@ public class PipelineBaseScheduler implements JobScheduler {
                                                 task.getTaskGroupLocation(),
                                                 ExecutionState.FAILED,
                                                 state.getThrowableMsg()));
-                                throw new SeaTunnelEngineException(
-                                        String.format(
-                                                "deploy task %s failed, error msg: \n%s",
-                                                task.getTaskFullName(), state.getThrowableMsg()));
                             }
                         } catch (Exception e) {
                             throw new SeaTunnelEngineException(e);

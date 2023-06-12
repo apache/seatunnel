@@ -204,7 +204,7 @@
                 <include>net.snowflake.snowflake-jdbc:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
-            <outputDirectory>/plugins/jdbc/lib</outputDirectory>
+            <outputDirectory>/lib</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
     </dependencySets>
