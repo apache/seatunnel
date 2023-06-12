@@ -66,6 +66,7 @@ the value related to rule type
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
+
 the whole config obey with `hocon` style
 
 ```hocon
