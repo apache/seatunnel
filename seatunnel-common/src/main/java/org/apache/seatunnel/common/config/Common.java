@@ -65,13 +65,13 @@ public class Common {
      * When running seatunnel in --master yarn or --master mesos, you can put plugins related files in plugins dir.
      */
     public static Path appRootDir() {
-            try {
-                String path = Common.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
-                path = new File(path).getPath();
-                return Paths.get(path).getParent().getParent();
-            } catch (URISyntaxException e) {
-                throw new RuntimeException(e);
-            }
+        try {
+            String path = Common.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
+            path = new File(path).getPath();
+            return Paths.get(path).getParent().getParent();
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static Path appLibDir() {
