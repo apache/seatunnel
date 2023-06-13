@@ -47,7 +47,7 @@ ENV SEATUNNEL_HOME = "/opt/seatunnel"
 
 RUN mkdir -p $SEATUNNEL_HOME
 
-RUN wget https://archive.apache.org/dist/incubator/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-incubating-${SEATUNNEL_VERSION}-bin.tar.gz
+RUN wget https://archive.apache.org/dist/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-incubating-${SEATUNNEL_VERSION}-bin.tar.gz
 RUN tar -xzvf apache-seatunnel-incubating-${SEATUNNEL_VERSION}-bin.tar.gz
 
 RUN cp -r apache-seatunnel-incubating-${SEATUNNEL_VERSION}/* $SEATUNNEL_HOME/
@@ -111,7 +111,7 @@ flink-kubernetes-operator-5f466b8549-mgchb             1/1     Running   3 (23h 
 
 ## Run SeaTunnel Application
 
-**Run Application:**: SeaTunnel already providers out-of-the-box [configurations](https://github.com/apache/incubator-seatunnel/tree/dev/config).
+**Run Application:**: SeaTunnel already providers out-of-the-box [configurations](https://github.com/apache/seatunnel/tree/dev/config).
 
 <Tabs
   groupId="engine-type"
@@ -121,7 +121,7 @@ flink-kubernetes-operator-5f466b8549-mgchb             1/1     Running   3 (23h 
   ]}>
 <TabItem value="flink">
 
-In this guide we are going to use [seatunnel.streaming.conf](https://github.com/apache/incubator-seatunnel/blob/2.3.0-release/config/v2.streaming.conf.template):
+In this guide we are going to use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.0-release/config/v2.streaming.conf.template):
 
 ```conf
 env {

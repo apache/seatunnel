@@ -23,7 +23,7 @@ Or you can download it by terminal
 
 ```shell
 export version="2.3.0-beta"
-wget "https://archive.apache.org/dist/incubator/seatunnel/${version}/apache-seatunnel-incubating-${version}-bin.tar.gz"
+wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-incubating-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-incubating-${version}-bin.tar.gz"
 ```
 

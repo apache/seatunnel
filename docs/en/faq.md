@@ -6,7 +6,7 @@ SeaTunnel now uses computing engines such as Spark and Flink to complete resourc
 
 ## I have a question, and I cannot solve it by myself
 
-I have encountered a problem when using SeaTunnel and I cannot solve it by myself. What should I do? First, search in [Issue list](https://github.com/apache/incubator-seatunnel/issues) or [mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) to see if someone has already asked the same question and got an answer. If you cannot find an answer to your question, you can contact community members for help in [these ways](https://github.com/apache/incubator-seatunnel#contact-us).
+I have encountered a problem when using SeaTunnel and I cannot solve it by myself. What should I do? First, search in [Issue list](https://github.com/apache/seatunnel/issues) or [mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) to see if someone has already asked the same question and got an answer. If you cannot find an answer to your question, you can contact community members for help in [these ways](https://github.com/apache/seatunnel#contact-us).
 
 ## How do I declare a variable?
 
@@ -116,7 +116,7 @@ sink {
 }
 ```
 
-In addition, SeaTunnel has implemented a `Hive` output plugin after version `1.5.7` in `1.x` branch; in `2.x` branch. The Hive plugin for the Spark engine has been supported from version `2.0.5`: https://github.com/apache/incubator-seatunnel/issues/910.
+In addition, SeaTunnel has implemented a `Hive` output plugin after version `1.5.7` in `1.x` branch; in `2.x` branch. The Hive plugin for the Spark engine has been supported from version `2.0.5`: https://github.com/apache/seatunnel/issues/910.
 
 ## How does SeaTunnel write multiple instances of ClickHouse to achieve load balancing?
 
@@ -310,11 +310,11 @@ Data conversion can be achieved through the following two plug-ins:
 
 Detailed data type conversion reference: [ClickHouse Data Type Check List](https://interestinglab.github.io/seatunnel-docs/#/en/configuration/output-plugins/Clickhouse?id=clickhouse-data-type-check-list)
 
-Refer to issue:[#488](https://github.com/apache/incubator-seatunnel/issues/488) [#382](https://github.com/apache/incubator-seatunnel/issues/382).
+Refer to issue:[#488](https://github.com/apache/seatunnel/issues/488) [#382](https://github.com/apache/seatunnel/issues/382).
 
 ## How does SeaTunnel access kerberos-authenticated HDFS, YARN, Hive and other resources?
 
-Please refer to: [#590](https://github.com/apache/incubator-seatunnel/issues/590).
+Please refer to: [#590](https://github.com/apache/seatunnel/issues/590).
 
 ## How do I troubleshoot NoClassDefFoundError, ClassNotFoundException and other issues?
 
