@@ -206,6 +206,6 @@ source {
 ### next version
 
 - Add SqlServer CDC Source Connector
-- [Doc] Add SqlServer CDC Source Connector document ([3993](https://github.com/apache/incubator-seatunnel/pull/3993))
-- [Feature] Support multi-table read ([4377](https://github.com/apache/incubator-seatunnel/pull/4377))
+- [Doc] Add SqlServer CDC Source Connector document ([3993](https://github.com/apache/seatunnel/pull/3993))
+- [Feature] Support multi-table read ([4377](https://github.com/apache/seatunnel/pull/4377))
 

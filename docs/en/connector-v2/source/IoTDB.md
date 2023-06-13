@@ -221,7 +221,7 @@ Loaded to SeaTunnelRow data format is the following:
 
 ### 2.3.0-beta 2022-10-20
 
-- [Improve] Improve IoTDB Source Connector ([2917](https://github.com/apache/incubator-seatunnel/pull/2917))
+- [Improve] Improve IoTDB Source Connector ([2917](https://github.com/apache/seatunnel/pull/2917))
   - Support extract timestamp、device、measurement from SeaTunnelRow
   - Support TINYINT、SMALLINT
   - Support flush cache to database before prepareCommit
