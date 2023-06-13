@@ -64,10 +64,16 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected final String suffix;
     protected final String defaultUrl;
 
+    protected final Optional<String> defaultSchema;
+
     protected Connection defaultConnection;
 
     public AbstractJdbcCatalog(
-            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String defaultSchema) {
 
         checkArgument(StringUtils.isNotBlank(username));
         urlInfo.getDefaultDatabase()
@@ -78,10 +84,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         this.defaultDatabase = urlInfo.getDefaultDatabase().get();
         this.username = username;
         this.pwd = pwd;
-        String baseUrl = urlInfo.getUrlWithoutDatabase();
-        this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+        this.baseUrl = urlInfo.getUrlWithoutDatabase();
         this.defaultUrl = urlInfo.getOrigin();
         this.suffix = urlInfo.getSuffix();
+        this.defaultSchema = Optional.ofNullable(defaultSchema);
     }
 
     @Override
@@ -245,6 +251,13 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
         if (!databaseExists(tablePath.getDatabaseName())) {
             throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
+        }
+        if (defaultSchema.isPresent()) {
+            tablePath =
+                    new TablePath(
+                            tablePath.getDatabaseName(),
+                            defaultSchema.get(),
+                            tablePath.getTableName());
         }
         if (!createTableInternal(tablePath, table) && !ignoreIfExists) {
             throw new TableAlreadyExistException(catalogName, tablePath);
