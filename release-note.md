@@ -92,6 +92,7 @@
 - [Connector-V2] [Doris] Add a jobId to the doris label to distinguish between tasks (#4839) (#4853)
 - [Connector-v2] [Mongodb]Refactor mongodb connector (#4620)
 - [Connector-v2] [Jdbc] Populate primary key when jdbc sink is created using CatalogTable (#4755)
+- [Connector-v2] [Neo4j] Supports neo4j sink batch write mode (#4835)
 - [Transform-V2] Optimize SQL Transform package and Fix Spark type conversion bug of transform (#4490)
 
 ### CI

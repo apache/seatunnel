@@ -14,16 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.seatunnel.connectors.seatunnel.neo4j.exception;
 
-package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+public enum Neo4jConnectorErrorCode implements SeaTunnelErrorCode {
+    DATE_BASE_ERROR("NEO4J-01", "Neo4j Database Error");
+    private final String code;
+    private final String description;
 
-import org.apache.seatunnel.common.constants.PluginType;
+    Neo4jConnectorErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
+    }
 
-public class Neo4jSourceQueryInfo extends Neo4jQueryInfo {
+    @Override
+    public String getCode() {
+        return code;
+    }
 
-    public Neo4jSourceQueryInfo(Config pluginConfig) {
-        super(pluginConfig, PluginType.SOURCE);
+    @Override
+    public String getDescription() {
+        return description;
     }
 }
