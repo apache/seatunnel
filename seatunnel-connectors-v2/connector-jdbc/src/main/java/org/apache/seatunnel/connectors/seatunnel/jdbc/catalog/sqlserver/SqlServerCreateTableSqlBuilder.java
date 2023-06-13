@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -29,16 +29,16 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
-import com.mysql.cj.MysqlType;
-
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class MysqlCreateTableSqlBuilder {
+public class SqlServerCreateTableSqlBuilder {
 
     private final String tableName;
     private List<Column> columns;
@@ -53,15 +53,15 @@ public class MysqlCreateTableSqlBuilder {
 
     private List<ConstraintKey> constraintKeys;
 
-    private MysqlDataTypeConvertor mysqlDataTypeConvertor;
+    private SqlServerDataTypeConvertor sqlServerDataTypeConvertor;
 
-    private MysqlCreateTableSqlBuilder(String tableName) {
+    private SqlServerCreateTableSqlBuilder(String tableName) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
-        this.mysqlDataTypeConvertor = new MysqlDataTypeConvertor();
+        this.sqlServerDataTypeConvertor = new SqlServerDataTypeConvertor();
     }
 
-    public static MysqlCreateTableSqlBuilder builder(
+    public static SqlServerCreateTableSqlBuilder builder(
             TablePath tablePath, CatalogTable catalogTable) {
         checkNotNull(tablePath, "tablePath must not be null");
         checkNotNull(catalogTable, "catalogTable must not be null");
@@ -69,7 +69,7 @@ public class MysqlCreateTableSqlBuilder {
         TableSchema tableSchema = catalogTable.getTableSchema();
         checkNotNull(tableSchema, "tableSchema must not be null");
 
-        return new MysqlCreateTableSqlBuilder(tablePath.getTableName())
+        return new SqlServerCreateTableSqlBuilder(tablePath.getTableName())
                 .comment(catalogTable.getComment())
                 // todo: set charset and collate
                 .engine(null)
@@ -79,48 +79,54 @@ public class MysqlCreateTableSqlBuilder {
                 .addColumn(tableSchema.getColumns());
     }
 
-    public MysqlCreateTableSqlBuilder addColumn(List<Column> columns) {
+    public SqlServerCreateTableSqlBuilder addColumn(List<Column> columns) {
         checkArgument(CollectionUtils.isNotEmpty(columns), "columns must not be empty");
         this.columns = columns;
         return this;
     }
 
-    public MysqlCreateTableSqlBuilder primaryKey(PrimaryKey primaryKey) {
+    public SqlServerCreateTableSqlBuilder primaryKey(PrimaryKey primaryKey) {
         this.primaryKey = primaryKey;
         return this;
     }
 
-    public MysqlCreateTableSqlBuilder constraintKeys(List<ConstraintKey> constraintKeys) {
+    public SqlServerCreateTableSqlBuilder constraintKeys(List<ConstraintKey> constraintKeys) {
         this.constraintKeys = constraintKeys;
         return this;
     }
 
-    public MysqlCreateTableSqlBuilder engine(String engine) {
+    public SqlServerCreateTableSqlBuilder engine(String engine) {
         this.engine = engine;
         return this;
     }
 
-    public MysqlCreateTableSqlBuilder charset(String charset) {
+    public SqlServerCreateTableSqlBuilder charset(String charset) {
         this.charset = charset;
         return this;
     }
 
-    public MysqlCreateTableSqlBuilder collate(String collate) {
+    public SqlServerCreateTableSqlBuilder collate(String collate) {
         this.collate = collate;
         return this;
     }
 
-    public MysqlCreateTableSqlBuilder comment(String comment) {
+    public SqlServerCreateTableSqlBuilder comment(String comment) {
         this.comment = comment;
         return this;
     }
 
-    public String build(String catalogName) {
+    public String build(TablePath tablePath, CatalogTable catalogTable) {
         List<String> sqls = new ArrayList<>();
+        String sqlTableName = tablePath.getFullName();
+        Map<String, String> columnComments = new HashMap<>();
         sqls.add(
                 String.format(
-                        "CREATE TABLE IF NOT EXISTS %s (\n%s\n)",
-                        tableName, buildColumnsIdentifySql(catalogName)));
+                        "IF OBJECT_ID('%s', 'U') IS NULL \n"
+                                + "BEGIN \n"
+                                + "CREATE TABLE %s ( \n%s\n)",
+                        sqlTableName,
+                        sqlTableName,
+                        buildColumnsIdentifySql(catalogTable.getCatalogName(), columnComments)));
         if (engine != null) {
             sqls.add("ENGINE = " + engine);
         }
@@ -130,16 +136,38 @@ public class MysqlCreateTableSqlBuilder {
         if (collate != null) {
             sqls.add("COLLATE = " + collate);
         }
+        String sqlTableSql = String.join(" ", sqls) + ";";
+        StringBuilder tableAndColumnComment = new StringBuilder();
         if (comment != null) {
             sqls.add("COMMENT = '" + comment + "'");
+            tableAndColumnComment.append(
+                    String.format(
+                            "EXEC %s.sys.sp_addextendedproperty 'MS_Description', N'%s', 'schema', N'%s', 'table', N'%s';\n",
+                            tablePath.getDatabaseName(),
+                            comment,
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName()));
         }
-        return String.join(" ", sqls) + ";";
+        String columnComment =
+                "EXEC %s.sys.sp_addextendedproperty 'MS_Description', N'%s', 'schema', N'%s', 'table', N'%s', 'column', N'%s';\n";
+        columnComments.forEach(
+                (fieldName, com) -> {
+                    tableAndColumnComment.append(
+                            String.format(
+                                    columnComment,
+                                    tablePath.getDatabaseName(),
+                                    com,
+                                    tablePath.getSchemaName(),
+                                    tablePath.getTableName(),
+                                    fieldName));
+                });
+        return String.join("\n", sqlTableSql, tableAndColumnComment.toString(), "END");
     }
 
-    private String buildColumnsIdentifySql(String catalogName) {
+    private String buildColumnsIdentifySql(String catalogName, Map<String, String> columnComments) {
         List<String> columnSqls = new ArrayList<>();
         for (Column column : columns) {
-            columnSqls.add("\t" + buildColumnIdentifySql(column, catalogName));
+            columnSqls.add("\t" + buildColumnIdentifySql(column, catalogName, columnComments));
         }
         if (primaryKey != null) {
             columnSqls.add("\t" + buildPrimaryKeySql());
@@ -149,16 +177,17 @@ public class MysqlCreateTableSqlBuilder {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())) {
                     continue;
                 }
-                //                columnSqls.add("\t" + buildConstraintKeySql(constraintKey));
             }
         }
         return String.join(", \n", columnSqls);
     }
 
-    private String buildColumnIdentifySql(Column column, String catalogName) {
+    private String buildColumnIdentifySql(
+            Column column, String catalogName, Map<String, String> columnComments) {
         final List<String> columnSqls = new ArrayList<>();
         columnSqls.add(column.getName());
-        if (StringUtils.equals(catalogName, "mysql")) {
+        String tyNameDef = "";
+        if (StringUtils.equals(catalogName, "sqlserver")) {
             columnSqls.add(column.getSourceType());
         } else {
             // Column name
@@ -166,60 +195,46 @@ public class MysqlCreateTableSqlBuilder {
             boolean isBytes = StringUtils.equals(dataType.name(), SqlType.BYTES.name());
             Long columnLength = column.getLongColumnLength();
             Long bitLen = column.getBitLen();
+            bitLen = bitLen == -1 || bitLen <= 8 ? bitLen : bitLen >> 3;
             if (isBytes) {
-                if (bitLen >= 0 && bitLen <= 64) {
-                    columnSqls.add(MysqlType.BIT.getName());
-                    columnSqls.add("(" + (bitLen == 0 ? 1 : bitLen) + ")");
+                if (bitLen > 8000 || bitLen == -1) {
+                    columnSqls.add(SqlServerType.VARBINARY.getName());
                 } else {
-                    bitLen = bitLen == -1 ? bitLen : bitLen >> 3;
-                    if (bitLen >= 0 && bitLen <= 255) {
-                        columnSqls.add(MysqlType.TINYBLOB.getName());
-                    } else if (bitLen <= 16383) {
-                        columnSqls.add(MysqlType.BLOB.getName());
-                    } else if (bitLen <= 16777215) {
-                        columnSqls.add(MysqlType.MEDIUMBLOB.getName());
-                    } else {
-                        columnSqls.add(MysqlType.LONGBLOB.getName());
-                    }
+                    columnSqls.add(SqlServerType.BINARY.getName());
+                    tyNameDef = SqlServerType.BINARY.getName();
                 }
+                columnSqls.add("(" + (bitLen == -1 || bitLen > 8000 ? "max)" : bitLen + ")"));
             } else {
-                if (columnLength >= 16383 && columnLength <= 65535) {
-                    columnSqls.add(MysqlType.TEXT.getName());
-                } else if (columnLength >= 65535 && columnLength <= 16777215) {
-                    columnSqls.add(MysqlType.MEDIUMTEXT.getName());
-                } else if (columnLength > 16777215 || columnLength == -1) {
-                    columnSqls.add(MysqlType.LONGTEXT.getName());
-                } else {
-                    // Column type
-                    columnSqls.add(
-                            mysqlDataTypeConvertor
-                                    .toConnectorType(column.getDataType(), null)
-                                    .getName());
-                    // Column length
-                    // add judge is need column legth
-                    if (column.getColumnLength() != null) {
-                        final String name =
-                                mysqlDataTypeConvertor
-                                        .toConnectorType(column.getDataType(), null)
-                                        .getName();
-                        String fieSql = "";
-                        List<String> list = new ArrayList<>();
-                        list.add(MysqlType.VARCHAR.getName());
-                        list.add(MysqlType.CHAR.getName());
-                        list.add(MysqlType.BIGINT.getName());
-                        list.add(MysqlType.INT.getName());
-                        if (StringUtils.equals(name, MysqlType.DECIMAL.getName())) {
-                            DecimalType decimalType = (DecimalType) column.getDataType();
-                            fieSql =
-                                    String.format(
-                                            "(%d, %d)",
-                                            decimalType.getPrecision(), decimalType.getScale());
-                            columnSqls.add(fieSql);
-                        } else if (list.contains(name)) {
-                            fieSql = "(" + column.getLongColumnLength() + ")";
-                            columnSqls.add(fieSql);
+                // Add column type
+                SqlServerType sqlServerType =
+                        sqlServerDataTypeConvertor.toConnectorType(column.getDataType(), null);
+                String typeName = sqlServerType.getName();
+                String fieldSuffixSql = null;
+                tyNameDef = typeName;
+                // Add column length
+                if (StringUtils.equals(SqlServerType.VARCHAR.getName(), typeName)) {
+                    if (columnLength > 8000 || columnLength == -1) {
+                        columnSqls.add(typeName);
+                        fieldSuffixSql = "(max)";
+                    } else if (columnLength > 4000) {
+                        columnSqls.add(SqlServerType.VARCHAR.getName());
+                        fieldSuffixSql = "(" + columnLength + ")";
+                    } else {
+                        columnSqls.add(SqlServerType.NVARCHAR.getName());
+                        if (columnLength > 0) {
+                            fieldSuffixSql = "(" + columnLength + ")";
                         }
                     }
+                    columnSqls.add(fieldSuffixSql);
+                } else if (StringUtils.equals(SqlServerType.DECIMAL.getName(), typeName)) {
+                    columnSqls.add(typeName);
+                    DecimalType decimalType = (DecimalType) column.getDataType();
+                    columnSqls.add(
+                            String.format(
+                                    "(%d, %d)",
+                                    decimalType.getPrecision(), decimalType.getScale()));
+                } else {
+                    columnSqls.add(typeName);
                 }
             }
         }
@@ -229,19 +244,30 @@ public class MysqlCreateTableSqlBuilder {
         } else {
             columnSqls.add("NOT NULL");
         }
-        // TODO support default value
+        // default value
+        //        if (column.getDefaultValue() != null) {
+        //            String defaultValue = "'" + column.getDefaultValue().toString() + "'";
+        //            if (StringUtils.equals(SqlServerType.BINARY.getName(), tyNameDef)
+        //                    && defaultValue.contains("b'")) {
+        //                String rep = defaultValue.replace("b", "").replace("'", "");
+        //                defaultValue = "0x" + Integer.toHexString(Integer.parseInt(rep));
+        //            } else if (StringUtils.equals(SqlServerType.BIT.getName(), tyNameDef)
+        //                    && defaultValue.contains("b'")) {
+        //                defaultValue = defaultValue.replace("b", "").replace("'", "");
+        //            }
+        //            columnSqls.add("DEFAULT " + defaultValue);
+        //        }
+        // comment
         if (column.getComment() != null) {
-            columnSqls.add("COMMENT '" + column.getComment() + "'");
+            columnComments.put(column.getName(), column.getComment());
         }
 
         return String.join(" ", columnSqls);
     }
 
     private String buildPrimaryKeySql() {
-        String key =
-                primaryKey.getColumnNames().stream()
-                        .map(columnName -> "`" + columnName + "`")
-                        .collect(Collectors.joining(", "));
+        //                        .map(columnName -> "`" + columnName + "`")
+        String key = String.join(", ", primaryKey.getColumnNames());
         // add sort type
         return String.format("PRIMARY KEY (%s)", key);
     }

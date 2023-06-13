@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql;
-
-import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -28,38 +26,32 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 
-import org.apache.commons.lang3.StringUtils;
-
 import com.google.auto.service.AutoService;
 
 import java.util.Optional;
 
 @AutoService(Factory.class)
-public class MySqlCatalogFactory implements CatalogFactory {
-
-    public static final String IDENTIFIER = "MySQL";
+public class OracleCatalogFactory implements CatalogFactory {
 
     @Override
     public String factoryIdentifier() {
-        return IDENTIFIER;
+        return "Oracle";
     }
 
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
         String urlWithDatabase = options.get(JdbcCatalogOptions.BASE_URL);
-        Preconditions.checkArgument(
-                StringUtils.isNoneBlank(urlWithDatabase),
-                "Miss config <base-url>! Please check your config.");
-        JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
+        JdbcUrlUtil.UrlInfo urlInfo = OracleURLParser.parse(urlWithDatabase);
         Optional<String> defaultDatabase = urlInfo.getDefaultDatabase();
         if (!defaultDatabase.isPresent()) {
             throw new OptionValidationException(JdbcCatalogOptions.BASE_URL);
         }
-        return new MySqlCatalog(
+        return new OracleCatalog(
                 catalogName,
                 options.get(JdbcCatalogOptions.USERNAME),
                 options.get(JdbcCatalogOptions.PASSWORD),
-                urlInfo);
+                urlInfo,
+                options.get(JdbcCatalogOptions.SCHEMA));
     }
 
     @Override

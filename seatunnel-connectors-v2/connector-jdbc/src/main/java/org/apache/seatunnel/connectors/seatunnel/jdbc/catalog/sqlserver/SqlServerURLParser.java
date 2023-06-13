@@ -77,12 +77,16 @@ public class SqlServerURLParser {
 
         String suffix =
                 props.entrySet().stream()
+                        .filter(
+                                e ->
+                                        !e.getKey().equals("databaseName")
+                                                && !e.getKey().equals("database"))
                         .map(e -> e.getKey() + "=" + e.getValue())
-                        .collect(Collectors.joining(";", ";", ""));
+                        .collect(Collectors.joining(";", "", ""));
         suffix = Optional.ofNullable(suffix).orElse("");
         return new JdbcUrlUtil.UrlInfo(
                 url,
-                String.format("jdbc:sqlserver://%s:%s", serverName, port) + suffix,
+                String.format("jdbc:sqlserver://%s:%s", serverName, port) + ";" + suffix,
                 serverName,
                 port,
                 dbInstance,

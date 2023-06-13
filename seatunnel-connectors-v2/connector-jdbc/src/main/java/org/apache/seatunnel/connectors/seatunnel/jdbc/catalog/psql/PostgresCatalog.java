@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -34,7 +34,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalo
 
 import com.mysql.cj.MysqlType;
 import com.mysql.cj.jdbc.result.ResultSetImpl;
-import com.mysql.cj.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -54,25 +53,79 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Slf4j
-public class MySqlCatalog extends AbstractJdbcCatalog {
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_BIT;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_BYTEA;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_CHAR;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_CHARACTER;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_CHARACTER_VARYING;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_GEOGRAPHY;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_GEOMETRY;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_INTERVAL;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_TEXT;
 
-    protected static final Set<String> SYS_DATABASES = new HashSet<>(4);
-    private final String SELECT_COLUMNS =
-            "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME ='%s'";
+@Slf4j
+public class PostgresCatalog extends AbstractJdbcCatalog {
+
+    private static final String SELECT_COLUMNS_SQL =
+            "SELECT \n"
+                    + "    a.attname AS column_name, \n"
+                    + "\t\tt.typname as type_name,\n"
+                    + "    CASE \n"
+                    + "        WHEN t.typname = 'varchar' THEN t.typname || '(' || (a.atttypmod - 4) || ')'\n"
+                    + "        WHEN t.typname = 'bpchar' THEN 'char' || '(' || (a.atttypmod - 4) || ')'\n"
+                    + "        WHEN t.typname = 'numeric' OR t.typname = 'decimal' THEN t.typname || '(' || ((a.atttypmod - 4) >> 16) || ', ' || ((a.atttypmod - 4) & 65535) || ')'\n"
+                    + "        WHEN t.typname = 'bit' OR t.typname = 'bit varying' THEN t.typname || '(' || (a.atttypmod - 4) || ')'\n"
+                    + "        ELSE t.typname\n"
+                    + "    END AS full_type_name,\n"
+                    + "    CASE\n"
+                    + "        WHEN t.typname IN ('varchar', 'bpchar', 'bit', 'bit varying') THEN a.atttypmod - 4\n"
+                    + "        WHEN t.typname IN ('numeric', 'decimal') THEN (a.atttypmod - 4) >> 16\n"
+                    + "        ELSE NULL\n"
+                    + "    END AS column_length,\n"
+                    + "\t\tCASE\n"
+                    + "        WHEN t.typname IN ('numeric', 'decimal') THEN (a.atttypmod - 4) & 65535\n"
+                    + "        ELSE NULL\n"
+                    + "    END AS column_scale,\n"
+                    + "\t\td.description AS column_comment,\n"
+                    + "\t\tpg_get_expr(ad.adbin, ad.adrelid) AS default_value,\n"
+                    + "\t\tCASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS is_nullable\n"
+                    + "FROM \n"
+                    + "    pg_class c\n"
+                    + "    JOIN pg_namespace n ON c.relnamespace = n.oid\n"
+                    + "    JOIN pg_attribute a ON a.attrelid = c.oid\n"
+                    + "    JOIN pg_type t ON a.atttypid = t.oid\n"
+                    + "    LEFT JOIN pg_description d ON c.oid = d.objoid AND a.attnum = d.objsubid\n"
+                    + "    LEFT JOIN pg_attrdef ad ON a.attnum = ad.adnum AND a.attrelid = ad.adrelid\n"
+                    + "WHERE \n"
+                    + "    n.nspname = '%s'\n"
+                    + "    AND c.relname = '%s'\n"
+                    + "    AND a.attnum > 0\n"
+                    + "ORDER BY \n"
+                    + "    a.attnum;";
+
+    protected static final Set<String> SYS_DATABASES = new HashSet<>(9);
 
     static {
         SYS_DATABASES.add("information_schema");
-        SYS_DATABASES.add("mysql");
-        SYS_DATABASES.add("performance_schema");
-        SYS_DATABASES.add("sys");
+        SYS_DATABASES.add("pg_catalog");
+        SYS_DATABASES.add("root");
+        SYS_DATABASES.add("pg_toast");
+        SYS_DATABASES.add("pg_temp_1");
+        SYS_DATABASES.add("pg_toast_temp_1");
+        SYS_DATABASES.add("postgres");
+        SYS_DATABASES.add("template0");
+        SYS_DATABASES.add("template1");
     }
 
     protected final Map<String, Connection> connectionMap;
 
-    public MySqlCatalog(
-            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
-        super(catalogName, username, pwd, urlInfo, null);
+    public PostgresCatalog(
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String defaultSchema) {
+        super(catalogName, username, pwd, urlInfo, defaultSchema);
         this.connectionMap = new ConcurrentHashMap<>();
     }
 
@@ -104,7 +157,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
     @Override
     public List<String> listDatabases() throws CatalogException {
-        try (PreparedStatement ps = defaultConnection.prepareStatement("SHOW DATABASES;")) {
+        try (PreparedStatement ps =
+                defaultConnection.prepareStatement("select datname from pg_database;")) {
 
             List<String> databases = new ArrayList<>();
             ResultSet rs = ps.executeQuery();
@@ -132,14 +186,21 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
         String dbUrl = getUrlFromDatabaseName(databaseName);
         Connection connection = getConnection(dbUrl);
-        try (PreparedStatement ps = connection.prepareStatement("SHOW TABLES;")) {
+        try (PreparedStatement ps =
+                connection.prepareStatement(
+                        "SELECT table_schema, table_name FROM information_schema.tables;")) {
 
             ResultSet rs = ps.executeQuery();
 
             List<String> tables = new ArrayList<>();
 
             while (rs.next()) {
-                tables.add(rs.getString(1));
+                String schemaName = rs.getString("table_schema");
+                String tableName = rs.getString("table_name");
+                if (org.apache.commons.lang3.StringUtils.isNotBlank(schemaName)
+                        && !SYS_DATABASES.contains(schemaName)) {
+                    tables.add(schemaName + "." + tableName);
+                }
             }
 
             return tables;
@@ -160,36 +221,50 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         Connection conn = getConnection(dbUrl);
         try {
             DatabaseMetaData metaData = conn.getMetaData();
-
             Optional<PrimaryKey> primaryKey =
-                    getPrimaryKey(metaData, tablePath.getDatabaseName(), tablePath.getTableName());
+                    getPrimaryKey(
+                            metaData,
+                            tablePath.getDatabaseName(),
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName());
             List<ConstraintKey> constraintKeys =
                     getConstraintKeys(
-                            metaData, tablePath.getDatabaseName(), tablePath.getTableName());
+                            metaData,
+                            tablePath.getDatabaseName(),
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName());
+
             String sql =
                     String.format(
-                            SELECT_COLUMNS, tablePath.getDatabaseName(), tablePath.getTableName());
+                            SELECT_COLUMNS_SQL,
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName());
             try (PreparedStatement ps = conn.prepareStatement(sql);
-                    ResultSet resultSet = ps.executeQuery(); ) {
-
+                    ResultSet resultSet = ps.executeQuery()) {
                 TableSchema.Builder builder = TableSchema.builder();
+
+                // add column
                 while (resultSet.next()) {
-                    buildTable(resultSet, builder);
+                    buildColumn(resultSet, builder);
                 }
+
                 // add primary key
                 primaryKey.ifPresent(builder::primaryKey);
                 // add constraint key
                 constraintKeys.forEach(builder::constraintKey);
                 TableIdentifier tableIdentifier =
                         TableIdentifier.of(
-                                catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
+                                catalogName,
+                                tablePath.getDatabaseName(),
+                                tablePath.getSchemaName(),
+                                tablePath.getTableName());
                 return CatalogTable.of(
                         tableIdentifier,
                         builder.build(),
                         buildConnectorOptions(tablePath),
                         Collections.emptyList(),
                         "",
-                        "mysql");
+                        "postgres");
             }
 
         } catch (Exception e) {
@@ -198,43 +273,41 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         }
     }
 
-    private void buildTable(ResultSet resultSet, TableSchema.Builder builder) throws SQLException {
-        String columnName = resultSet.getString("COLUMN_NAME");
-        String sourceType = resultSet.getString("COLUMN_TYPE");
-        String typeName = resultSet.getString("DATA_TYPE").toUpperCase();
-        int precision = resultSet.getInt("NUMERIC_PRECISION");
-        int scale = resultSet.getInt("NUMERIC_SCALE");
-        long columnLength = resultSet.getLong("CHARACTER_MAXIMUM_LENGTH");
-        long octetLength = resultSet.getLong("CHARACTER_OCTET_LENGTH");
-        SeaTunnelDataType<?> type = fromJdbcType(typeName, precision, scale);
-        String comment = resultSet.getString("COLUMN_COMMENT");
-        Object defaultValue = resultSet.getObject("COLUMN_DEFAULT");
-        String isNullableStr = resultSet.getString("IS_NULLABLE");
-        boolean isNullable = isNullableStr.equals("YES");
+    private void buildColumn(ResultSet resultSet, TableSchema.Builder builder) throws SQLException {
+        String columnName = resultSet.getString("column_name");
+        String typeName = resultSet.getString("type_name");
+        String fullTypeName = resultSet.getString("full_type_name");
+        long columnLength = resultSet.getLong("column_length");
+        long columnScale = resultSet.getLong("column_scale");
+        String columnComment = resultSet.getString("column_comment");
+        Object defaultValue = resultSet.getObject("default_value");
+        boolean isNullable = resultSet.getString("is_nullable").equals("YES");
+
+        if (defaultValue != null && defaultValue.toString().contains("regclass"))
+            defaultValue = null;
+
+        SeaTunnelDataType<?> type = fromJdbcType(typeName, columnLength, columnScale);
         long bitLen = 0;
-        MysqlType mysqlType = MysqlType.valueOf(typeName);
-        switch (mysqlType) {
-            case BIT:
-                bitLen = precision;
+        switch (typeName) {
+            case PG_BYTEA:
+                bitLen = -1;
                 break;
-            case CHAR:
-            case VARCHAR:
-                columnLength = octetLength;
+            case PG_TEXT:
+                columnLength = -1;
                 break;
-            case BINARY:
-            case VARBINARY:
-                // Uniform conversion to bits
-                bitLen = octetLength * 4 * 8L;
+            case PG_INTERVAL:
+                columnLength = 50;
                 break;
-            case BLOB:
-            case TINYBLOB:
-            case MEDIUMBLOB:
-            case LONGBLOB:
-                bitLen = columnLength << 3;
+            case PG_GEOMETRY:
+            case PG_GEOGRAPHY:
+                columnLength = 255;
                 break;
-            case JSON:
-                columnLength = 4 * 1024 * 1024 * 1024L;
+            case PG_BIT:
+                bitLen = columnLength;
                 break;
+            case PG_CHAR:
+            case PG_CHARACTER:
+            case PG_CHARACTER_VARYING:
             default:
                 break;
         }
@@ -246,64 +319,42 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                         0,
                         isNullable,
                         defaultValue,
-                        comment,
-                        sourceType,
-                        sourceType.contains("unsigned"),
-                        sourceType.contains("zerofill"),
+                        columnComment,
+                        fullTypeName,
+                        false,
+                        false,
                         bitLen,
                         null,
                         columnLength);
         builder.column(physicalColumn);
     }
 
-    public static Map<String, Object> getColumnsDefaultValue(TablePath tablePath, Connection conn) {
-        StringBuilder queryBuf = new StringBuilder("SHOW FULL COLUMNS FROM ");
-        queryBuf.append(StringUtils.quoteIdentifier(tablePath.getTableName(), "`", false));
-        queryBuf.append(" FROM ");
-        queryBuf.append(StringUtils.quoteIdentifier(tablePath.getDatabaseName(), "`", false));
-        try (PreparedStatement ps2 = conn.prepareStatement(queryBuf.toString())) {
-            ResultSet rs = ps2.executeQuery();
-            Map<String, Object> result = new HashMap<>();
-            while (rs.next()) {
-                String field = rs.getString("Field");
-                Object defaultValue = rs.getObject("Default");
-                result.put(field, defaultValue);
-            }
-            return result;
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format(
-                            "Failed getting table(%s) columns default value",
-                            tablePath.getFullName()),
-                    e);
-        }
-    }
-
-    // todo: If the origin source is mysql, we can directly use create table like to create the
     @Override
     protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
             throws CatalogException {
+        String createTableSql = new PostgresCreateTableSqlBuilder(table).build(tablePath);
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
-
-        String createTableSql =
-                MysqlCreateTableSqlBuilder.builder(tablePath, table).build(table.getCatalogName());
-        Connection connection = getConnection(dbUrl);
+        Connection conn = getConnection(dbUrl);
         log.info("create table sql: {}", createTableSql);
-        try (PreparedStatement ps = connection.prepareStatement(createTableSql)) {
-            return ps.execute();
+        try (PreparedStatement ps = conn.prepareStatement(createTableSql)) {
+            ps.execute();
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed creating table %s", tablePath.getFullName()), e);
         }
+        return true;
     }
 
     @Override
     protected boolean dropTableInternal(TablePath tablePath) throws CatalogException {
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
+
+        String schemaName = tablePath.getSchemaName();
+        String tableName = tablePath.getTableName();
+
+        String sql = "DROP TABLE IF EXISTS \"" + schemaName + "\".\"" + tableName + "\"";
         Connection connection = getConnection(dbUrl);
-        try (PreparedStatement ps =
-                connection.prepareStatement(
-                        String.format("DROP TABLE IF EXISTS %s;", tablePath.getFullName()))) {
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
             // Will there exist concurrent drop for one table?
             return ps.execute();
         } catch (SQLException e) {
@@ -314,9 +365,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected boolean createDatabaseInternal(String databaseName) throws CatalogException {
-        try (PreparedStatement ps =
-                defaultConnection.prepareStatement(
-                        String.format("CREATE DATABASE `%s`;", databaseName))) {
+        String sql = "CREATE DATABASE \"" + databaseName + "\"";
+        try (PreparedStatement ps = defaultConnection.prepareStatement(sql)) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(
@@ -328,10 +378,20 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        try {
+            return databaseExists(tablePath.getDatabaseName())
+                    && listTables(tablePath.getDatabaseName())
+                            .contains(tablePath.getSchemaAndTableName());
+        } catch (DatabaseNotExistException e) {
+            return false;
+        }
+    }
+
+    @Override
     protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
-        try (PreparedStatement ps =
-                defaultConnection.prepareStatement(
-                        String.format("DROP DATABASE `%s`;", databaseName))) {
+        String sql = "DROP DATABASE IF EXISTS \"" + databaseName + "\"";
+        try (PreparedStatement ps = defaultConnection.prepareStatement(sql)) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(
@@ -343,25 +403,25 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     }
 
     /**
-     * @see com.mysql.cj.MysqlType
+     * @see MysqlType
      * @see ResultSetImpl#getObjectStoredProc(int, int)
      */
     @SuppressWarnings("unchecked")
     private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
-        MysqlType mysqlType = MysqlType.getByName(metadata.getColumnTypeName(colIndex));
+        String columnTypeName = metadata.getColumnTypeName(colIndex);
         Map<String, Object> dataTypeProperties = new HashMap<>();
-        dataTypeProperties.put(MysqlDataTypeConvertor.PRECISION, metadata.getPrecision(colIndex));
-        dataTypeProperties.put(MysqlDataTypeConvertor.SCALE, metadata.getScale(colIndex));
-        return new MysqlDataTypeConvertor().toSeaTunnelType(mysqlType, dataTypeProperties);
+        dataTypeProperties.put(
+                PostgresDataTypeConvertor.PRECISION, metadata.getPrecision(colIndex));
+        dataTypeProperties.put(PostgresDataTypeConvertor.SCALE, metadata.getScale(colIndex));
+        return new PostgresDataTypeConvertor().toSeaTunnelType(columnTypeName, dataTypeProperties);
     }
 
-    private SeaTunnelDataType<?> fromJdbcType(String typeName, int precision, int scale) {
-        MysqlType mysqlType = MysqlType.getByName(typeName);
+    private SeaTunnelDataType<?> fromJdbcType(String typeName, long precision, long scale) {
         Map<String, Object> dataTypeProperties = new HashMap<>();
-        dataTypeProperties.put(MysqlDataTypeConvertor.PRECISION, precision);
-        dataTypeProperties.put(MysqlDataTypeConvertor.SCALE, scale);
-        return new MysqlDataTypeConvertor().toSeaTunnelType(mysqlType, dataTypeProperties);
+        dataTypeProperties.put(PostgresDataTypeConvertor.PRECISION, precision);
+        dataTypeProperties.put(PostgresDataTypeConvertor.SCALE, scale);
+        return new PostgresDataTypeConvertor().toSeaTunnelType(typeName, dataTypeProperties);
     }
 
     @SuppressWarnings("MagicNumber")
