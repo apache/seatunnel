@@ -20,11 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.milvus.sink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusOptions;
+import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 
 import com.theokanning.openai.embedding.EmbeddingRequest;
 import com.theokanning.openai.embedding.EmbeddingResult;
 import com.theokanning.openai.service.OpenAiService;
 import io.milvus.client.MilvusServiceClient;
+import io.milvus.grpc.DataType;
 import io.milvus.grpc.DescribeCollectionResponse;
 import io.milvus.param.ConnectParam;
 import io.milvus.param.R;
@@ -42,6 +44,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.common.exception.CommonErrorCode.ILLEGAL_ARGUMENT;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorErrorCode.RESPONSE_FAILED;
+
 public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final MilvusServiceClient milvusClient;
@@ -50,7 +56,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private OpenAiService service;
 
-    private final List<FieldType> fields;
+    private final List<FieldType> metaFields;
 
     public MilvusSinkWriter(MilvusOptions milvusOptions) {
         this.milvusOptions = milvusOptions;
@@ -79,7 +85,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         DescCollResponseWrapper wrapper =
                 new DescCollResponseWrapper(describeCollectionResponseR.getData());
 
-        fields = wrapper.getFields();
+        this.metaFields = wrapper.getFields();
 
         if (milvusOptions.getEmbeddingsFields() != null) {
             service = new OpenAiService(milvusOptions.getOpenaiApiKey());
@@ -95,15 +101,31 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
         builder = builder.withCollectionName(milvusOptions.getCollectionName());
 
-        for (int i = 0; i < this.fields.size(); i++) {
+        for (int i = 0; i < this.metaFields.size(); i++) {
+
+            FieldType fieldType = this.metaFields.get(i);
+
+            if (fieldType.isPrimaryKey()) {
+                if (!(element.getField(i) instanceof Number)
+                        && !(element.getField(i) instanceof String)) {
+                    throw new MilvusConnectorException(
+                            ILLEGAL_ARGUMENT, "Primary key field only supports number and string.");
+                }
+            }
+
             if (milvusOptions.getPartitionField() != null
-                    && milvusOptions.getPartitionField().equals(this.fields.get(i).getName())) {
+                    && milvusOptions.getPartitionField().equals(fieldType.getName())) {
                 builder.withPartitionName(String.valueOf(element.getField(i)));
             }
             if (milvusOptions.getEmbeddingsFields() != null) {
                 List<String> embeddingsFields =
                         Arrays.asList(milvusOptions.getEmbeddingsFields().split(","));
-                if (embeddingsFields.contains(this.fields.get(i).getName())) {
+                if (embeddingsFields.contains(fieldType.getName())) {
+                    if (fieldType.getDataType() != DataType.BinaryVector
+                            || fieldType.getDataType() != DataType.FloatVector) {
+                        throw new MilvusConnectorException(
+                                ILLEGAL_ARGUMENT, "Vector field only supports binary and float.");
+                    }
                     EmbeddingResult embeddings =
                             service.createEmbeddings(
                                     EmbeddingRequest.builder()
@@ -117,21 +139,18 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                             embedding.stream().map(Double::floatValue).collect(Collectors.toList());
                     InsertParam.Field field =
                             new InsertParam.Field(
-                                    this.fields.get(i).getName(),
-                                    Collections.singletonList(collect));
+                                    fieldType.getName(), Collections.singletonList(collect));
                     fields.add(field);
                     continue;
                 }
             }
+
+            judgmentParameterType(fieldType, element.getField(i));
+
             InsertParam.Field field =
                     new InsertParam.Field(
-                            this.fields.get(i).getName(),
-                            Collections.singletonList(element.getField(i)));
+                            fieldType.getName(), Collections.singletonList(element.getField(i)));
             fields.add(field);
-        }
-
-        if (milvusOptions.getPartitionField() != null) {
-            builder.withPartitionName(milvusOptions.getPartitionField());
         }
 
         InsertParam build = builder.withFields(fields).build();
@@ -156,7 +175,52 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private void handleResponseStatus(R<?> r) {
         if (r.getStatus() != R.Status.Success.getCode()) {
-            throw new RuntimeException(r.getMessage());
+            throw new MilvusConnectorException(RESPONSE_FAILED, r.getMessage(), r.getException());
+        }
+    }
+
+    private void judgmentParameterType(FieldType fieldType, Object value) {
+        switch (fieldType.getDataType()) {
+            case Bool:
+                if (!(value instanceof Boolean)) {
+                    throw new MilvusConnectorException(
+                            UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
+                }
+            case Int8:
+            case Int16:
+            case Int32:
+                if (!(value instanceof Integer)
+                        && !(value instanceof Byte)
+                        && !(value instanceof Short)) {
+                    throw new MilvusConnectorException(
+                            UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
+                }
+            case Int64:
+                if (!(value instanceof Long)
+                        && !(value instanceof Integer)
+                        && !(value instanceof Byte)
+                        && !(value instanceof Short)) {
+                    throw new MilvusConnectorException(
+                            UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
+                }
+            case Float:
+                if (!(value instanceof Float)) {
+                    throw new MilvusConnectorException(
+                            UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
+                }
+            case Double:
+                if (!(value instanceof Float) && !(value instanceof Double)) {
+                    throw new MilvusConnectorException(
+                            UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
+                }
+            case VarChar:
+                if (!(value instanceof String)) {
+                    throw new MilvusConnectorException(
+                            UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
+                }
+            default:
+                throw new MilvusConnectorException(
+                        UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
         }
     }
 }
