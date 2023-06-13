@@ -15,15 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
+package org.apache.seatunnel.connectors.seatunnel.neo4j.constants;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+public enum CypherEnum {
+    BATCH("batch", "a variable in cypher that represents a batch of data");
+    private final String value;
+    private final String description;
 
-import org.apache.seatunnel.common.constants.PluginType;
+    CypherEnum(String value, String description) {
+        this.value = value;
+        this.description = description;
+    }
 
-public class Neo4jSourceQueryInfo extends Neo4jQueryInfo {
-
-    public Neo4jSourceQueryInfo(Config pluginConfig) {
-        super(pluginConfig, PluginType.SOURCE);
+    public String getValue() {
+        return value;
     }
 }

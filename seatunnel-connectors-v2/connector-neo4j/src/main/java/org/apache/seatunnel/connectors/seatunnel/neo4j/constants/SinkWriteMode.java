@@ -15,15 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
+package org.apache.seatunnel.connectors.seatunnel.neo4j.constants;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.common.constants.PluginType;
-
-public class Neo4jSourceQueryInfo extends Neo4jQueryInfo {
-
-    public Neo4jSourceQueryInfo(Config pluginConfig) {
-        super(pluginConfig, PluginType.SOURCE);
-    }
+public enum SinkWriteMode {
+    ONE_BY_ONE,
+    BATCH
 }
