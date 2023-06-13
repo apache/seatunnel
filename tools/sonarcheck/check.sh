@@ -18,4 +18,4 @@ if [ ! "$SONAR_TOKEN" ]; then
   echo "SONAR_TOKEN environment is null, skip check"
   exit 0
 fi
-./mvnw --batch-mode verify sonar:sonar -Dmaven.test.skip=true -Dsonar.host.url=https://sonarcloud.io -Dsonar.organization=apache -Dsonar.projectKey=apache_incubator-seatunnel -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
+./mvnw --batch-mode verify sonar:sonar -Dmaven.test.skip=true -Dsonar.host.url=https://sonarcloud.io -Dsonar.organization=apache -Dsonar.projectKey=apache_seatunnel -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
