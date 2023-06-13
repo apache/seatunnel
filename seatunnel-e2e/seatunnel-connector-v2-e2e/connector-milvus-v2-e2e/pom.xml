@@ -8,7 +8,6 @@
         <version>2.3.2-SNAPSHOT</version>
     </parent>
 
-    <groupId>org.example</groupId>
     <artifactId>connector-milvus-v2-e2e</artifactId>
 
     <name>SeaTunnel : E2E : Connector V2 : Milvus</name>
