@@ -106,7 +106,10 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             FieldType fieldType = this.metaFields.get(i);
 
             if (fieldType.isPrimaryKey()) {
-                if (!(element.getField(i) instanceof Number)
+                if (!(element.getField(i) instanceof Long)
+                        && !(element.getField(i) instanceof Integer)
+                        && !(element.getField(i) instanceof Byte)
+                        && !(element.getField(i) instanceof Short)
                         && !(element.getField(i) instanceof String)) {
                     throw new MilvusConnectorException(
                             ILLEGAL_ARGUMENT, "Primary key field only supports number and string.");
@@ -122,7 +125,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         Arrays.asList(milvusOptions.getEmbeddingsFields().split(","));
                 if (embeddingsFields.contains(fieldType.getName())) {
                     if (fieldType.getDataType() != DataType.BinaryVector
-                            || fieldType.getDataType() != DataType.FloatVector) {
+                            && fieldType.getDataType() != DataType.FloatVector) {
                         throw new MilvusConnectorException(
                                 ILLEGAL_ARGUMENT, "Vector field only supports binary and float.");
                     }
@@ -186,6 +189,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                     throw new MilvusConnectorException(
                             UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
                 }
+                break;
             case Int8:
             case Int16:
             case Int32:
@@ -195,6 +199,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                     throw new MilvusConnectorException(
                             UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
                 }
+                break;
             case Int64:
                 if (!(value instanceof Long)
                         && !(value instanceof Integer)
@@ -203,21 +208,25 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                     throw new MilvusConnectorException(
                             UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
                 }
+                break;
             case Float:
                 if (!(value instanceof Float)) {
                     throw new MilvusConnectorException(
                             UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
                 }
+                break;
             case Double:
                 if (!(value instanceof Float) && !(value instanceof Double)) {
                     throw new MilvusConnectorException(
                             UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
                 }
+                break;
             case VarChar:
                 if (!(value instanceof String)) {
                     throw new MilvusConnectorException(
                             UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
                 }
+                break;
             default:
                 throw new MilvusConnectorException(
                         UNSUPPORTED_DATA_TYPE, UNSUPPORTED_DATA_TYPE.getDescription());
