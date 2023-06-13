@@ -19,7 +19,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-connector-v2-e2e</artifactId>
-        <version>2.3.2-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
 
     <artifactId>connector-milvus-v2-e2e</artifactId>
@@ -32,6 +32,12 @@
 
     <dependencies>
         <!-- SeaTunnel connectors -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-fake</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-milvus</artifactId>
