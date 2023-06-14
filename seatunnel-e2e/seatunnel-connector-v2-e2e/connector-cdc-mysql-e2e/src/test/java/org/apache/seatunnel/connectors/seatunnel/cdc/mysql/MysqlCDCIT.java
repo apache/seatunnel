@@ -98,7 +98,6 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger("mysql-docker-image")));
-
         return mySqlContainer;
     }
 
