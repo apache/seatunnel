@@ -14,29 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.seatunnel.connectors.seatunnel.neo4j.exception;
 
-package org.apache.seatunnel.api.sink;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
-import org.apache.seatunnel.api.common.metrics.MetricsContext;
+public enum Neo4jConnectorErrorCode implements SeaTunnelErrorCode {
+    DATE_BASE_ERROR("NEO4J-01", "Neo4j Database Error");
+    private final String code;
+    private final String description;
 
-/** The default {@link SinkWriter.Context} implement class. */
-public class DefaultSinkWriterContext implements SinkWriter.Context {
-    private final int subtask;
-
-    public DefaultSinkWriterContext(int subtask) {
-        this.subtask = subtask;
+    Neo4jConnectorErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
     }
 
     @Override
-    public int getIndexOfSubtask() {
-        return subtask;
+    public String getCode() {
+        return code;
     }
 
     @Override
-    public MetricsContext getMetricsContext() {
-        // TODO Waiting for Flink and Spark to implement MetricsContext
-        // https://github.com/apache/seatunnel/issues/3431
-        return new AbstractMetricsContext() {};
+    public String getDescription() {
+        return description;
     }
 }
