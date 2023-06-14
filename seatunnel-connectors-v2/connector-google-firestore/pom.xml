@@ -31,7 +31,7 @@
 
     <properties>
         <firestore.version>3.7.10</firestore.version>
-        <guava.version>31.1-android</guava.version>
+        <guava.version>32.0.0-android</guava.version>
     </properties>
 
     <dependencies>
