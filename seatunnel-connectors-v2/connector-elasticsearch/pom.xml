@@ -31,7 +31,7 @@
 
     <properties>
         <elasticsearch-rest-client.version>7.5.1</elasticsearch-rest-client.version>
-        <guava.version>31.1-jre</guava.version>
+        <guava.version>32.0.0-jre</guava.version>
     </properties>
 
     <dependencies>
