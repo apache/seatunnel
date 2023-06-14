@@ -27,7 +27,7 @@
 
     <properties>
         <hadoop3.version>3.1.4</hadoop3.version>
-        <guava.version>27.0-jre</guava.version>
+        <guava.version>32.0.0-jre</guava.version>
     </properties>
 
     <dependencyManagement>
