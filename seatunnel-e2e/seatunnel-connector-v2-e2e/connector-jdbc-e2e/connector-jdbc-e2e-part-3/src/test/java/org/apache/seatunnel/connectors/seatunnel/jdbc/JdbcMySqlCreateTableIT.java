@@ -271,9 +271,9 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
 
         mysql_container.setPortBindings(
                 Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
-
+        DockerImageName oracleImageName = DockerImageName.parse(ORACLE_IMAGE);
         oracle_container =
-                new OracleContainer(imageName)
+                new OracleContainer(oracleImageName)
                         .withDatabaseName(DATABASE)
                         .withUsername(USERNAME)
                         .withPassword(PASSWORD)
