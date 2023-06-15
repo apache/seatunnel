@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
@@ -200,7 +201,7 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     static JdbcUrlUtil.UrlInfo pg =
             JdbcUrlUtil.getUrlInfo("jdbc:postgresql://postgres-e2e:5432/pg");
     static JdbcUrlUtil.UrlInfo oracle =
-            JdbcUrlUtil.getUrlInfo("jdbc:oracle:thin:@e2e_oracleDb:1521/TESTUSER");
+            OracleURLParser.parse("jdbc:oracle:thin:@e2e_oracleDb:1521/TESTUSER");
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedSqlServerFactory =

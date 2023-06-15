@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
@@ -220,8 +221,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                 new MSSQLServerContainer<>(imageName)
                         .withNetwork(TestSuiteBase.NETWORK)
                         .withNetworkAliases(SQLSERVER_CONTAINER_HOST)
-                        .withDatabaseName("test")
-                        .withUsername(USERNAME)
                         .withPassword(PASSWORD)
                         .acceptLicense()
                         .withLogConsumer(
@@ -308,7 +307,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     static JdbcUrlUtil.UrlInfo pg =
             JdbcUrlUtil.getUrlInfo("jdbc:postgresql://postgres-e2e:5432/pg");
     static JdbcUrlUtil.UrlInfo oracle =
-            JdbcUrlUtil.getUrlInfo("jdbc:oracle:thin:@e2e_oracleDb:1521/TESTUSER");
+            OracleURLParser.parse("jdbc:oracle:thin:@e2e_oracleDb:1521/TESTUSER");
 
     @TestTemplate
     public void testAutoCreateTable(TestContainer container)
