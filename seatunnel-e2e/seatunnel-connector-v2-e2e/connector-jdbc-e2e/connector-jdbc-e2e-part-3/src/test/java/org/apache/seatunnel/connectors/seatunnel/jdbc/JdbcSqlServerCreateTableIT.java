@@ -162,7 +162,7 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     private static final int ORACLE_PORT = 1521;
     //    private static final String ORACLE_URL = "jdbc:oracle:thin:@" + HOST + ":%s/%s";
     private static final String USERNAME = "testUser";
-    private static final String PASSWORD = "testPassword";
+    private static final String PASSWORD = "Abc!@#135_seatunnel";
     private static final String DATABASE = "TESTUSER";
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
@@ -273,9 +273,9 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
         Class.forName(POSTGRESQL_CONTAINER.getDriverClassName());
 
         log.info("pg data initialization succeeded. Procedure");
-
+        DockerImageName mysqlImageName = DockerImageName.parse(MYSQL_IMAGE);
         mysql_container =
-                new MySQLContainer<>(imageName)
+                new MySQLContainer<>(mysqlImageName)
                         .withUsername(MYSQL_USERNAME)
                         .withPassword(MYSQL_PASSWORD)
                         .withDatabaseName(MYSQL_DATABASE)
@@ -335,13 +335,12 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
         TablePath tablePathOracle = TablePath.of("TESTUSER", "sqlserver_auto_create_oracle");
 
         SqlServerCatalog sqlServerCatalog =
-                new SqlServerCatalog("sqlserver", "sa", "testPassword", sqlParse, "dbo");
-        MySqlCatalog mySqlCatalog =
-                new MySqlCatalog("mysql", "root", "Abc!@#135_seatunnel", MysqlUrlInfo);
+                new SqlServerCatalog("sqlserver", username, password, sqlParse, "dbo");
+        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo);
         PostgresCatalog postgresCatalog =
-                new PostgresCatalog("postgres", "testUser", "testPassword", pg, "public");
+                new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public");
         OracleCatalog oracleCatalog =
-                new OracleCatalog("oracle", "testUser", "testPassword", oracle, "TESTUSER");
+                new OracleCatalog("oracle", "testUser", PASSWORD, oracle, "TESTUSER");
         mySqlCatalog.open();
         sqlServerCatalog.open();
         postgresCatalog.open();

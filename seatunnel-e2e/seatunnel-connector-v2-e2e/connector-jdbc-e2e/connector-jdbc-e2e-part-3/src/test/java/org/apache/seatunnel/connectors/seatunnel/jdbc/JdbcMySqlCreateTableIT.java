@@ -100,7 +100,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private static final String MYSQL_SINK = "sink";
 
     private static final String MYSQL_USERNAME = "root";
-    private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
+    private static final String PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 3306;
     //    private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
 
@@ -112,7 +112,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private static final int ORACLE_PORT = 1521;
     //    private static final String ORACLE_URL = "jdbc:oracle:thin:@" + HOST + ":%s/%s";
     private static final String USERNAME = "testUser";
-    private static final String PASSWORD = "testPassword";
     private static final String DATABASE = "TESTUSER";
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
@@ -257,11 +256,11 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         Class.forName(POSTGRESQL_CONTAINER.getDriverClassName());
 
         log.info("pg data initialization succeeded. Procedure");
-
+        DockerImageName mysqlImageName = DockerImageName.parse(MYSQL_IMAGE);
         mysql_container =
-                new MySQLContainer<>(imageName)
+                new MySQLContainer<>(mysqlImageName)
                         .withUsername(MYSQL_USERNAME)
-                        .withPassword(MYSQL_PASSWORD)
+                        .withPassword(PASSWORD)
                         .withDatabaseName(MYSQL_DATABASE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(MYSQL_CONTAINER_HOST)
@@ -319,13 +318,12 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         TablePath tablePathOracle = TablePath.of("TESTUSER", "mysql_auto_create_oracle");
 
         SqlServerCatalog sqlServerCatalog =
-                new SqlServerCatalog("sqlserver", "sa", "testPassword", sqlParse, "dbo");
-        MySqlCatalog mySqlCatalog =
-                new MySqlCatalog("mysql", "root", "Abc!@#135_seatunnel", MysqlUrlInfo);
+                new SqlServerCatalog("sqlserver", "sa", PASSWORD, sqlParse, "dbo");
+        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo);
         PostgresCatalog postgresCatalog =
-                new PostgresCatalog("postgres", "testUser", "testPassword", pg, "public");
+                new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public");
         OracleCatalog oracleCatalog =
-                new OracleCatalog("oracle", "testUser", "testPassword", oracle, "TESTUSER");
+                new OracleCatalog("oracle", "testUser", PASSWORD, oracle, "TESTUSER");
         mySqlCatalog.open();
         sqlServerCatalog.open();
         postgresCatalog.open();
