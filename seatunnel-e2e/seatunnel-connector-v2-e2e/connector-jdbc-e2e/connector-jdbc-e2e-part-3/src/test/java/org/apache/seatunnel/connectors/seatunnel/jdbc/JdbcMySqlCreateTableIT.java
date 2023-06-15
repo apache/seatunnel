@@ -125,7 +125,15 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private static final String mysqlCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'auto' AND table_name = 'mysql_auto_create_m') AS table_exists";
     private static final String sqlserverCheck =
-            "SELECT CASE WHEN OBJECT_ID('mysql_auto_create_sql', 'U') IS NOT NULL THEN 1 ELSE 0 END AS table_exists;\n";
+            "IF EXISTS (\n" +
+                    "    SELECT 1\n" +
+                    "    FROM testauto.sys.tables t\n" +
+                    "    JOIN testauto.sys.schemas s ON t.schema_id = s.schema_id\n" +
+                    "    WHERE t.name = 'mysql_auto_create_sql' AND s.name = 'dbo'\n" +
+                    ")\n" +
+                    "    SELECT 1 AS table_exists;\n" +
+                    "ELSE\n" +
+                    "    SELECT 0 AS table_exists;";
     private static final String pgCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'mysql_auto_create_pg') AS table_exists;\n";
     private static final String oracleCheck =
@@ -282,7 +290,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                         .withExposedPorts(ORACLE_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
-
+        oracle_container.withCommand("bash", "-c", "echo \"CREATE USER admin IDENTIFIED BY admin; GRANT DBA TO admin;\" | sqlplus / as sysdba");
         oracle_container.setPortBindings(
                 Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
     }
@@ -291,22 +299,24 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     @BeforeAll
     public void startUp() throws Exception {
         initContainer();
-        given().ignoreExceptions()
-                .await()
-                .atLeast(100, TimeUnit.MILLISECONDS)
-                .pollInterval(500, TimeUnit.MILLISECONDS)
-                .atMost(2, TimeUnit.MINUTES)
-                .untilAsserted(this::initializeJdbcTable);
+
+        initializeJdbcTable();
+//        given().ignoreExceptions()
+//                .await()
+//                .atLeast(100, TimeUnit.MILLISECONDS)
+//                .pollInterval(500, TimeUnit.MILLISECONDS)
+//                .atMost(2, TimeUnit.MINUTES)
+//                .untilAsserted(this::initializeJdbcTable);
     }
 
     static JdbcUrlUtil.UrlInfo sqlParse =
-            SqlServerURLParser.parse("jdbc:sqlserver://sqlserver-e2e:1434;database=testauto");
+            SqlServerURLParser.parse("jdbc:sqlserver://localhost:1433;database=testauto");
     static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://mysql-e2e:3306/liuliTest?useSSL=false");
+            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3306/liuliTest?useSSL=false");
     static JdbcUrlUtil.UrlInfo pg =
-            JdbcUrlUtil.getUrlInfo("jdbc:postgresql://postgres-e2e:5432/pg");
+            JdbcUrlUtil.getUrlInfo("jdbc:postgresql://localhost:5432/pg");
     static JdbcUrlUtil.UrlInfo oracle =
-            OracleURLParser.parse("jdbc:oracle:thin:@e2e_oracleDb:1521/TESTUSER");
+            OracleURLParser.parse("jdbc:oracle:thin:@localhost:1521/TESTUSER");
 
     @TestTemplate
     public void testAutoCreateTable(TestContainer container)
@@ -323,7 +333,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         PostgresCatalog postgresCatalog =
                 new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public");
         OracleCatalog oracleCatalog =
-                new OracleCatalog("oracle", "testUser", PASSWORD, oracle, "TESTUSER");
+                new OracleCatalog("oracle", "admin", "admin", oracle, "TESTUSER");
         mySqlCatalog.open();
         sqlServerCatalog.open();
         postgresCatalog.open();
