@@ -17,7 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -27,6 +35,7 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MSSQLServerContainer;
@@ -52,7 +61,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
@@ -282,6 +290,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     }
 
     @Override
+    @BeforeAll
     public void startUp() throws Exception {
         initContainer();
         given().ignoreExceptions()
@@ -292,49 +301,61 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                 .untilAsserted(this::initializeJdbcTable);
     }
 
+    static JdbcUrlUtil.UrlInfo sqlParse =
+            SqlServerURLParser.parse("jdbc:sqlserver://sqlserver-e2e:1434;database=testauto");
+    static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
+            JdbcUrlUtil.getUrlInfo("jdbc:mysql://mysql-e2e:3306/liuliTest?useSSL=false");
+    static JdbcUrlUtil.UrlInfo pg =
+            JdbcUrlUtil.getUrlInfo("jdbc:postgresql://postgres-e2e:5432/pg");
+    static JdbcUrlUtil.UrlInfo oracle =
+            JdbcUrlUtil.getUrlInfo("jdbc:oracle:thin:@e2e_oracleDb:1521/TESTUSER");
+
     @TestTemplate
     public void testAutoCreateTable(TestContainer container)
             throws IOException, InterruptedException {
-        for (String CONFIG_FILE : CONFIG_FILE) {
-            log.info(CONFIG_FILE + " container is executeJob");
-            Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
-            //            Assertions.assertEquals(0, execResult.getExitCode());
-            log.info(CONFIG_FILE + " e2e test catalog create table");
-            if (CONFIG_FILE.equals(mysqlConf)) {
-                await().atMost(60000, TimeUnit.MILLISECONDS)
-                        .untilAsserted(
-                                () -> {
-                                    Assertions.assertTrue(checkMysql(mysqlCheck));
-                                });
-            } else if (CONFIG_FILE.equals(sqlConf)) {
-                await().atMost(60000, TimeUnit.MILLISECONDS)
-                        .untilAsserted(
-                                () -> {
-                                    Assertions.assertTrue(checkSqlServer(sqlserverCheck));
-                                });
-            } else if (CONFIG_FILE.equals(pgConf)) {
-                await().atMost(60000, TimeUnit.MILLISECONDS)
-                        .untilAsserted(
-                                () -> {
-                                    Assertions.assertTrue(checkPG(pgCheck));
-                                });
-            } else if (CONFIG_FILE.equals(oracleConf)) {
-                await().atMost(60000, TimeUnit.MILLISECONDS)
-                        .untilAsserted(
-                                () -> {
-                                    Assertions.assertTrue(checkOracle(oracleCheck));
-                                });
-            } else {
-                log.info(CONFIG_FILE + " auto create table executor conf is error ");
-                Assertions.assertTrue(false);
-            }
-            // delete table
-            executeSqlServerSQL("drop table dbo.mysql_auto_create_sql");
-            executeMysqlSQL("drop table mysql_auto_create_m");
-            executeMysqlSQL("drop table mysql_auto_create");
-            executeOracleSQL("drop table mysql_auto_create_oracle");
-            executePGSQL("drop table public.mysql_auto_create_pg");
-        }
+        TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
+        TablePath tablePathMySql_Mysql = TablePath.of("auto", "mysql_auto_create_mysql");
+        TablePath tablePathSQL = TablePath.of("testauto", "dbo", "mysql_auto_create_sql");
+        TablePath tablePathPG = TablePath.of("pg", "public", "mysql_auto_create_pg");
+        TablePath tablePathOracle = TablePath.of("TESTUSER", "mysql_auto_create_oracle");
+
+        SqlServerCatalog sqlServerCatalog =
+                new SqlServerCatalog("sqlserver", "sa", "testPassword", sqlParse, "dbo");
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", "root", "Abc!@#135_seatunnel", MysqlUrlInfo);
+        PostgresCatalog postgresCatalog =
+                new PostgresCatalog("postgres", "testUser", "testPassword", pg, "public");
+        OracleCatalog oracleCatalog =
+                new OracleCatalog("oracle", "testUser", "testPassword", oracle, "TESTUSER");
+        mySqlCatalog.open();
+        sqlServerCatalog.open();
+        postgresCatalog.open();
+        oracleCatalog.open();
+
+        CatalogTable mysqlTable = mySqlCatalog.getTable(tablePathMySql);
+
+        sqlServerCatalog.createTable(tablePathMySql_Mysql, mysqlTable, true);
+        postgresCatalog.createTable(tablePathPG, mysqlTable, true);
+        oracleCatalog.createTable(tablePathOracle, mysqlTable, true);
+        mySqlCatalog.createTable(tablePathMySql, mysqlTable, true);
+
+        Assertions.assertTrue(checkMysql(mysqlCheck));
+        Assertions.assertTrue(checkOracle(oracleCheck));
+        Assertions.assertTrue(checkSqlServer(sqlserverCheck));
+        Assertions.assertTrue(checkPG(pgCheck));
+
+        // delete table
+        log.info("delete table");
+        sqlServerCatalog.dropTable(tablePathMySql_Mysql, true);
+        sqlServerCatalog.dropTable(tablePathSQL, true);
+        postgresCatalog.dropTable(tablePathPG, true);
+        oracleCatalog.dropTable(tablePathOracle, true);
+        mySqlCatalog.dropTable(tablePathMySql, true);
+
+        sqlServerCatalog.close();
+        mySqlCatalog.close();
+        postgresCatalog.close();
+        // delete table
     }
 
     private void executeSqlServerSQL(String sql) {

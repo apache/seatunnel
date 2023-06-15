@@ -17,7 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -27,6 +35,7 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MSSQLServerContainer;
@@ -52,7 +61,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
@@ -63,7 +71,7 @@ import static org.awaitility.Awaitility.given;
 public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestResource {
 
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
-    private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
+    private static final String SQLSERVER_CONTAINER_HOST = "sqlserver-e2e";
     private static final String SQLSERVER_SOURCE = "source";
     private static final String SQLSERVER_SINK = "sink";
     private static final int SQLSERVER_CONTAINER_PORT = 1433;
@@ -77,6 +85,9 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
 
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList(sqlConf, mysqlConf, pgConf, oracleConf);
+
+    private static final String CREATE_DATABASE = "CREATE DATABASE testauto;";
+
     private static final String CREATE_TABLE_SQL =
             "IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'sqlserver_auto_create' AND schema_id = SCHEMA_ID('dbo'))\n"
                     + "BEGIN\n"
@@ -182,6 +193,15 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
         return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
     }
 
+    static JdbcUrlUtil.UrlInfo sqlParse =
+            SqlServerURLParser.parse("jdbc:sqlserver://sqlserver-e2e:1434;database=testauto");
+    static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
+            JdbcUrlUtil.getUrlInfo("jdbc:mysql://mysql-e2e:3306/liuliTest?useSSL=false");
+    static JdbcUrlUtil.UrlInfo pg =
+            JdbcUrlUtil.getUrlInfo("jdbc:postgresql://postgres-e2e:5432/pg");
+    static JdbcUrlUtil.UrlInfo oracle =
+            JdbcUrlUtil.getUrlInfo("jdbc:oracle:thin:@e2e_oracleDb:1521/TESTUSER");
+
     @TestContainerExtension
     private final ContainerExtendedFactory extendedSqlServerFactory =
             container -> {
@@ -214,8 +234,6 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
                 new MSSQLServerContainer<>(imageName)
                         .withNetwork(TestSuiteBase.NETWORK)
                         .withNetworkAliases(SQLSERVER_CONTAINER_HOST)
-                        .withDatabaseName("test")
-                        .withUsername(USERNAME)
                         .withPassword(PASSWORD)
                         .acceptLicense()
                         .withLogConsumer(
@@ -242,14 +260,14 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
                                 DockerImageName.parse(PG_IMAGE)
                                         .asCompatibleSubstituteFor("postgres"))
                         .withNetwork(TestSuiteBase.NETWORK)
-                        .withNetworkAliases("postgresql")
+                        .withNetworkAliases("postgre-e2e")
                         .withDatabaseName("pg")
                         .withUsername(USERNAME)
                         .withPassword(PASSWORD)
                         .withCommand("postgres -c max_prepared_transactions=100")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
-        Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER)).join();
+
         log.info("PostgreSQL container started");
         Class.forName(POSTGRESQL_CONTAINER.getDriverClassName());
 
@@ -283,10 +301,18 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
 
         oracle_container.setPortBindings(
                 Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
+        Startables.deepStart(
+                        Stream.of(
+                                POSTGRESQL_CONTAINER,
+                                sqlserver_container,
+                                mysql_container,
+                                oracle_container))
+                .join();
         log.info(" container is up ");
     }
 
     @Override
+    @BeforeAll
     public void startUp() throws Exception {
         initContainer();
         given().ignoreExceptions()
@@ -300,47 +326,49 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     @TestTemplate
     public void testAutoCreateTable(TestContainer container)
             throws IOException, InterruptedException {
-        for (String CONFIG_FILE : CONFIG_FILE) {
-            log.info(CONFIG_FILE + ": is execute");
-            Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
-            //            Assertions.assertEquals(0, execResult.getExitCode());
-            log.info(" e2e test catalog create table");
-            if (CONFIG_FILE.equals(mysqlConf)) {
-                await().atMost(60000, TimeUnit.MILLISECONDS)
-                        .untilAsserted(
-                                () -> {
-                                    Assertions.assertTrue(checkMysql(mysqlCheck));
-                                });
-            } else if (CONFIG_FILE.equals(sqlConf)) {
-                await().atMost(60000, TimeUnit.MILLISECONDS)
-                        .untilAsserted(
-                                () -> {
-                                    Assertions.assertTrue(checkSqlServer(sqlserverCheck));
-                                });
-            } else if (CONFIG_FILE.equals(pgConf)) {
-                await().atMost(60000, TimeUnit.MILLISECONDS)
-                        .untilAsserted(
-                                () -> {
-                                    Assertions.assertTrue(checkPG(pgCheck));
-                                });
-            } else if (CONFIG_FILE.equals(oracleConf)) {
-                await().atMost(60000, TimeUnit.MILLISECONDS)
-                        .untilAsserted(
-                                () -> {
-                                    Assertions.assertTrue(checkOracle(oracleCheck));
-                                });
-            } else {
-                log.info(CONFIG_FILE + " auto create table executor conf is error ");
-                Assertions.assertTrue(false);
-            }
-            // delete table
-            log.info("delete table");
-            executeSqlServerSQL("drop table dbo.sqlserver_auto_create");
-            executeSqlServerSQL("drop table dbo.sqlserver_auto_create_s");
-            executeMysqlSQL("drop table sqlserver_auto_create_mysql");
-            executeOracleSQL("drop table sqlserver_auto_create_oracle");
-            executePGSQL("drop table public.sqlserver_auto_create_pg");
-        }
+
+        TablePath tablePathSQL = TablePath.of("testauto", "dbo", "sqlserver_auto_create");
+        TablePath tablePathSQL_Sql = TablePath.of("testauto", "dbo", "sqlserver_auto_create_sql");
+        TablePath tablePathMySql = TablePath.of("auto", "sqlserver_auto_create_mysql");
+        TablePath tablePathPG = TablePath.of("pg", "public", "sqlserver_auto_create_pg");
+        TablePath tablePathOracle = TablePath.of("TESTUSER", "sqlserver_auto_create_oracle");
+
+        SqlServerCatalog sqlServerCatalog =
+                new SqlServerCatalog("sqlserver", "sa", "testPassword", sqlParse, "dbo");
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", "root", "Abc!@#135_seatunnel", MysqlUrlInfo);
+        PostgresCatalog postgresCatalog =
+                new PostgresCatalog("postgres", "testUser", "testPassword", pg, "public");
+        OracleCatalog oracleCatalog =
+                new OracleCatalog("oracle", "testUser", "testPassword", oracle, "TESTUSER");
+        mySqlCatalog.open();
+        sqlServerCatalog.open();
+        postgresCatalog.open();
+        oracleCatalog.open();
+
+        CatalogTable sqlServerCatalogTable = sqlServerCatalog.getTable(tablePathSQL);
+
+        sqlServerCatalog.createTable(tablePathSQL_Sql, sqlServerCatalogTable, true);
+        postgresCatalog.createTable(tablePathPG, sqlServerCatalogTable, true);
+        oracleCatalog.createTable(tablePathOracle, sqlServerCatalogTable, true);
+        mySqlCatalog.createTable(tablePathMySql, sqlServerCatalogTable, true);
+
+        Assertions.assertTrue(checkMysql(mysqlCheck));
+        Assertions.assertTrue(checkOracle(oracleCheck));
+        Assertions.assertTrue(checkSqlServer(sqlserverCheck));
+        Assertions.assertTrue(checkPG(pgCheck));
+
+        // delete table
+        log.info("delete table");
+        sqlServerCatalog.dropTable(tablePathSQL_Sql, true);
+        sqlServerCatalog.dropTable(tablePathSQL, true);
+        postgresCatalog.dropTable(tablePathPG, true);
+        oracleCatalog.dropTable(tablePathOracle, true);
+        mySqlCatalog.dropTable(tablePathMySql, true);
+
+        sqlServerCatalog.close();
+        mySqlCatalog.close();
+        postgresCatalog.close();
     }
 
     private void executeSqlServerSQL(String sql) {
@@ -426,9 +454,9 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     private void initializeJdbcTable() {
         try (Connection connection = getJdbcSqlServerConnection()) {
             Statement statement = connection.createStatement();
+            statement.execute(CREATE_DATABASE);
             statement.execute(CREATE_TABLE_SQL);
             statement.execute(getInsertSql);
-
             //            statement.executeBatch();
         } catch (SQLException e) {
             throw new RuntimeException("Initializing PostgreSql table failed!", e);
