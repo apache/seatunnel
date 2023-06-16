@@ -9,6 +9,7 @@ Write data to Apache milvus.
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [cdc](../../concept/connector-v2-features.md)
 
 ## Options
 
