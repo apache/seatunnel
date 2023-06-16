@@ -79,21 +79,5 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     @Override
     public void abort(List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws Exception {
         super.abort(aggregatedCommitInfos);
-        HiveMetaStoreProxy hiveMetaStore = HiveMetaStoreProxy.getInstance(pluginConfig);
-        for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
-            Map<String, List<String>> partitionDirAndValuesMap =
-                    aggregatedCommitInfo.getPartitionDirAndValuesMap();
-            List<String> partitions =
-                    partitionDirAndValuesMap.keySet().stream()
-                            .map(partition -> partition.replaceAll("\\\\", "/"))
-                            .collect(Collectors.toList());
-            try {
-                hiveMetaStore.dropPartitions(dbName, tableName, partitions);
-                log.info("Remove these partitions {}", partitions);
-            } catch (TException e) {
-                log.error("Failed to remove these partitions {}", partitions, e);
-            }
-        }
-        hiveMetaStore.close();
     }
 }
