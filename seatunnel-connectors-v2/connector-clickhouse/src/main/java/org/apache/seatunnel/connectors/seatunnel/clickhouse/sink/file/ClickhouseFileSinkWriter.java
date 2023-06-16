@@ -213,14 +213,16 @@ public class ClickhouseFileSinkWriter
         String data =
                 this.readerOption.getFields().stream()
                                 .map(
-                                        field ->
-                                                row.getField(
-                                                                this.readerOption
-                                                                        .getSeaTunnelRowType()
-                                                                        .indexOf(field))
-                                                        .toString())
-                                .collect(Collectors.joining(readerOption.getFileFieldsDelimiter()))
-                        + "\n";
+                                        field -> {
+                                                      Object fieldValue = row.getField(this.readerOption.getSeaTunnelRowType().indexOf(field));
+                                                      
+                                                      if (fieldValue == null) {
+                                                          return "";
+                                                      } else {
+                                                          return fieldValue.toString();
+                                                      }
+                                                  }
+                                ).collect(Collectors.joining(readerOption.getFileFieldsDelimiter())) + "\n";
         MappedByteBuffer buffer =
                 fileChannel.map(
                         FileChannel.MapMode.READ_WRITE,
