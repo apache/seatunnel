@@ -29,6 +29,7 @@ import org.apache.seatunnel.core.starter.flink.utils.ConfigKeyName;
 import org.apache.seatunnel.core.starter.flink.utils.EnvironmentUtil;
 import org.apache.seatunnel.core.starter.flink.utils.TableUtil;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
@@ -44,6 +45,8 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.table.expressions.Expression;
+import org.apache.flink.table.expressions.ExpressionParser;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.TernaryBoolean;
 
@@ -320,9 +323,10 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
             if (!TableUtil.tableExists(tableEnvironment, name)) {
                 if (config.hasPath("field_name")) {
                     String fieldName = config.getString("field_name");
-                    tableEnvironment.registerDataStream(name, dataStream, fieldName);
+                    Expression[] expression = getExpression(fieldName);
+                    tableEnvironment.createTemporaryView(name, dataStream, expression);
                 } else {
-                    tableEnvironment.registerDataStream(name, dataStream);
+                    tableEnvironment.createTemporaryView(name, dataStream);
                 }
             }
         }
@@ -337,5 +341,14 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
             }
         }
         return INSTANCE;
+    }
+
+    public static Expression[] getExpression(String fieldNames) {
+        String[] fieldNameArray = StringUtils.split(fieldNames, ",");
+        Expression[] fieldsExpression = new Expression[fieldNameArray.length];
+        for (int i = 0; i < fieldNameArray.length; i++) {
+            fieldsExpression[i] = ExpressionParser.parseExpression(fieldNameArray[i]);
+        }
+        return fieldsExpression;
     }
 }

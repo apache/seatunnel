@@ -322,7 +322,7 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                     String fieldName = config.getString("field_name");
                     tableEnvironment.registerDataStream(name, dataStream, fieldName);
                 } else {
-                    tableEnvironment.registerDataStream(name, dataStream);
+                    tableEnvironment.createTemporaryView(name, dataStream);
                 }
             }
         }
