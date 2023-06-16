@@ -44,7 +44,8 @@ public final class TableUtil {
                 .returns(typeInfo);
     }
 
-    public static boolean tableExists(TableEnvironment tableEnvironment, String name) {
-        return Arrays.asList(tableEnvironment.listTables()).contains(name);
+    public static boolean tableExists(TableEnvironment tableEnvironment, String tableName) {
+        return Arrays.asList(tableEnvironment.listTables()).stream()
+                .anyMatch(table -> table.equals(tableName));
     }
 }

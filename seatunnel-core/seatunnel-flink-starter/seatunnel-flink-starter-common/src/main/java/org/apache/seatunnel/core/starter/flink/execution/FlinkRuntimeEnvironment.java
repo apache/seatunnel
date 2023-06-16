@@ -293,10 +293,10 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
             if (config.hasPath(ConfigKeyName.CHECKPOINT_CLEANUP_MODE)) {
                 boolean cleanup = config.getBoolean(ConfigKeyName.CHECKPOINT_CLEANUP_MODE);
                 if (cleanup) {
-                    checkpointConfig.enableExternalizedCheckpoints(
+                    checkpointConfig.setExternalizedCheckpointCleanup(
                             CheckpointConfig.ExternalizedCheckpointCleanup.DELETE_ON_CANCELLATION);
                 } else {
-                    checkpointConfig.enableExternalizedCheckpoints(
+                    checkpointConfig.setExternalizedCheckpointCleanup(
                             CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
                 }
             }
