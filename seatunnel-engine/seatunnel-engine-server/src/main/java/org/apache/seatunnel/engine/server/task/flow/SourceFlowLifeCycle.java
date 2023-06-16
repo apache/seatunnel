@@ -133,6 +133,11 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     public void collect() throws Exception {
         if (!prepareClose) {
             reader.pollNext(collector);
+            if (collector.getRowCountThisPollNext() == 0) {
+                Thread.sleep(100);
+            } else {
+                collector.resetRowCountThisPollNext();
+            }
         }
     }
 
@@ -163,7 +168,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                             enumeratorTaskAddress)
                     .get();
         } catch (InterruptedException | ExecutionException e) {
-            log.warn("source register failed {}", e);
+            log.warn("source register failed.", e);
             throw new RuntimeException(e);
         }
     }
@@ -177,7 +182,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                             enumeratorTaskAddress)
                     .get();
         } catch (InterruptedException | ExecutionException e) {
-            log.warn("source request split failed [{}]", e);
+            log.warn("source request split failed.", e);
             throw new RuntimeException(e);
         }
     }
@@ -192,7 +197,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                             enumeratorTaskAddress)
                     .get();
         } catch (InterruptedException | ExecutionException e) {
-            log.warn("source request split failed {}", e);
+            log.warn("source request split failed.", e);
             throw new RuntimeException(e);
         }
     }
@@ -258,7 +263,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                             enumeratorTaskAddress)
                     .get();
         } catch (InterruptedException | ExecutionException e) {
-            log.warn("source request split failed {}", e);
+            log.warn("source request split failed.", e);
             throw new RuntimeException(e);
         }
     }

@@ -30,7 +30,7 @@ public class PulsarSplitEnumeratorState implements Serializable {
         this.assignedPartitions = assignedPartitions;
     }
 
-    public Set<TopicPartition> assignedPartitions() {
+    public Set<TopicPartition> getAssignedPartitions() {
         return assignedPartitions;
     }
 }

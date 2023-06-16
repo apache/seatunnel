@@ -233,14 +233,15 @@ public class JsonUtils {
     }
 
     public static ObjectNode parseObject(String text) {
+        return parseObject(text.getBytes());
+    }
+
+    public static ObjectNode parseObject(byte[] content) {
         try {
-            if (text.isEmpty()) {
-                return parseObject(text, ObjectNode.class);
-            } else {
-                return (ObjectNode) OBJECT_MAPPER.readTree(text);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("String json deserialization exception.", e);
+            return (ObjectNode) OBJECT_MAPPER.readTree(content);
+        } catch (IOException e) {
+            throw new RuntimeException(
+                    "String json deserialization exception." + new String(content), e);
         }
     }
 

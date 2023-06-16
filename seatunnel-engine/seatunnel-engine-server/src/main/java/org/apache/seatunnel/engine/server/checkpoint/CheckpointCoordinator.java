@@ -18,9 +18,13 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
@@ -40,8 +44,10 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.SneakyThrows;
 
 import java.time.Instant;
@@ -130,6 +136,10 @@ public class CheckpointCoordinator {
 
     private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
 
+    private final IMap<Object, Object> runningJobStateIMap;
+
+    private final String checkpointStateImapKey;
+
     @SneakyThrows
     public CheckpointCoordinator(
             CheckpointManager manager,
@@ -139,13 +149,17 @@ public class CheckpointCoordinator {
             CheckpointPlan plan,
             CheckpointIDCounter checkpointIdCounter,
             PipelineState pipelineState,
-            ExecutorService executorService) {
+            ExecutorService executorService,
+            IMap<Object, Object> runningJobStateIMap,
+            boolean isStartWithSavePoint) {
 
         this.executorService = executorService;
         this.checkpointManager = manager;
         this.checkpointStorage = checkpointStorage;
         this.jobId = jobId;
         this.pipelineId = plan.getPipelineId();
+        this.checkpointStateImapKey = "checkpoint_state_" + jobId + "_" + pipelineId;
+        this.runningJobStateIMap = runningJobStateIMap;
         this.plan = plan;
         this.coordinatorConfig = checkpointConfig;
         this.tolerableFailureCheckpoints = coordinatorConfig.getTolerableFailureCheckpoints();
@@ -173,6 +187,27 @@ public class CheckpointCoordinator {
                     serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
         }
         this.checkpointCoordinatorFuture = new CompletableFuture();
+
+        // For job restore from master node active switch
+        CheckpointCoordinatorStatus checkpointCoordinatorStatus =
+                (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
+
+        // This is not a new job
+        if (isStartWithSavePoint) {
+            updateStatus(CheckpointCoordinatorStatus.RUNNING);
+            return;
+        }
+
+        // If checkpointCoordinatorStatus is not null it means this CheckpointCoordinator is created
+        // by job restore from master node active switch
+        if (checkpointCoordinatorStatus != null) {
+            if (checkpointCoordinatorStatus.isEndState()) {
+                this.checkpointCoordinatorFuture.complete(
+                        new CheckpointCoordinatorState(checkpointCoordinatorStatus, null));
+            } else {
+                updateStatus(CheckpointCoordinatorStatus.RUNNING);
+            }
+        }
     }
 
     public int getPipelineId() {
@@ -222,6 +257,7 @@ public class CheckpointCoordinator {
             return;
         }
         cleanPendingCheckpoint(reason);
+        updateStatus(CheckpointCoordinatorStatus.FAILED);
         checkpointCoordinatorFuture.complete(
                 new CheckpointCoordinatorState(
                         CheckpointCoordinatorStatus.FAILED, errorByPhysicalVertex.get()));
@@ -279,6 +315,11 @@ public class CheckpointCoordinator {
                 .toArray(InvocationFuture[]::new);
     }
 
+    public void reportCheckpointErrorFromTask(String errorMsg) {
+        handleCoordinatorError(
+                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR, new SeaTunnelException(errorMsg));
+    }
+
     private void scheduleTriggerPendingCheckpoint(long delayMills) {
         scheduleTriggerPendingCheckpoint(CHECKPOINT_TYPE, delayMills);
     }
@@ -301,6 +342,7 @@ public class CheckpointCoordinator {
         LOG.info("received restore CheckpointCoordinator with alreadyStarted= " + alreadyStarted);
         errorByPhysicalVertex = new AtomicReference<>();
         checkpointCoordinatorFuture = new CompletableFuture<>();
+        updateStatus(CheckpointCoordinatorStatus.RUNNING);
         cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
         shutdown = false;
         if (alreadyStarted) {
@@ -573,6 +615,8 @@ public class CheckpointCoordinator {
                 // TODO: clear related future & scheduler task
                 pendingCheckpoints.clear();
             }
+            pipelineTaskStatus.clear();
+            readyToCloseStartingTask.clear();
             pendingCounter.set(0);
             scheduler.shutdownNow();
             scheduler =
@@ -608,7 +652,7 @@ public class CheckpointCoordinator {
                         : SubtaskStatus.RUNNING);
     }
 
-    public void completePendingCheckpoint(CompletedCheckpoint completedCheckpoint) {
+    public synchronized void completePendingCheckpoint(CompletedCheckpoint completedCheckpoint) {
         LOG.debug(
                 "pending checkpoint({}/{}@{}) completed! cost: {}, trigger: {}, completed: {}",
                 completedCheckpoint.getCheckpointId(),
@@ -670,8 +714,15 @@ public class CheckpointCoordinator {
         latestCompletedCheckpoint = completedCheckpoint;
         if (isCompleted()) {
             cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);
-            checkpointCoordinatorFuture.complete(
-                    new CheckpointCoordinatorState(CheckpointCoordinatorStatus.FINISHED, null));
+            if (latestCompletedCheckpoint.getCheckpointType().equals(SAVEPOINT_TYPE)) {
+                updateStatus(CheckpointCoordinatorStatus.SUSPEND);
+                checkpointCoordinatorFuture.complete(
+                        new CheckpointCoordinatorState(CheckpointCoordinatorStatus.SUSPEND, null));
+            } else {
+                updateStatus(CheckpointCoordinatorStatus.FINISHED);
+                checkpointCoordinatorFuture.complete(
+                        new CheckpointCoordinatorState(CheckpointCoordinatorStatus.FINISHED, null));
+            }
         }
     }
 
@@ -710,9 +761,36 @@ public class CheckpointCoordinator {
             return new PassiveCompletableFuture<>(checkpointCoordinatorFuture);
         }
         cleanPendingCheckpoint(CheckpointCloseReason.PIPELINE_END);
+        updateStatus(CheckpointCoordinatorStatus.CANCELED);
         CheckpointCoordinatorState checkpointCoordinatorState =
                 new CheckpointCoordinatorState(CheckpointCoordinatorStatus.CANCELED, null);
         checkpointCoordinatorFuture.complete(checkpointCoordinatorState);
         return new PassiveCompletableFuture<>(checkpointCoordinatorFuture);
+    }
+
+    private synchronized void updateStatus(@NonNull CheckpointCoordinatorStatus targetStatus) {
+        try {
+            RetryUtils.retryWithException(
+                    () -> {
+                        LOG.info(
+                                String.format(
+                                        "Turn %s state from %s to %s",
+                                        checkpointStateImapKey,
+                                        runningJobStateIMap.get(checkpointStateImapKey),
+                                        targetStatus));
+                        runningJobStateIMap.set(checkpointStateImapKey, targetStatus);
+                        return null;
+                    },
+                    new RetryUtils.RetryMaterial(
+                            Constant.OPERATION_RETRY_TIME,
+                            true,
+                            exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                            Constant.OPERATION_RETRY_SLEEP));
+        } catch (Exception e) {
+            LOG.warn(
+                    String.format(
+                            "Set %s state %s to IMap failed, skip do it",
+                            checkpointStateImapKey, targetStatus));
+        }
     }
 }
