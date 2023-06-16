@@ -68,7 +68,7 @@ import java.util.stream.Stream;
 public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResource {
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
-    private static final int SQLSERVER_CONTAINER_PORT = 1433;
+    private static final int SQLSERVER_CONTAINER_PORT = 14333;
     private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
 
     private static final String PG_IMAGE = "postgis/postgis";
@@ -85,7 +85,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
 
     private static final String MYSQL_USERNAME = "root";
     private static final String PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 3306;
+    private static final int MYSQL_PORT = 33061;
     //    private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
 
     private static final String MYSQL_DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
@@ -93,7 +93,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private static final String ORACLE_IMAGE = "gvenzl/oracle-xe:21-slim-faststart";
     private static final String ORACLE_NETWORK_ALIASES = "e2e_oracleDb";
     private static final String ORACLE_DRIVER_CLASS = "oracle.jdbc.OracleDriver";
-    private static final int ORACLE_PORT = 1521;
+    private static final int ORACLE_PORT = 15211;
     //    private static final String ORACLE_URL = "jdbc:oracle:thin:@" + HOST + ":%s/%s";
     private static final String USERNAME = "testUser";
     private static final String DATABASE = "TESTUSER";
@@ -225,9 +225,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
 
         sqlserver_container.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", SQLSERVER_CONTAINER_PORT, SQLSERVER_CONTAINER_PORT)));
+                Lists.newArrayList(String.format("%s:%s", SQLSERVER_CONTAINER_PORT, 1433)));
 
         try {
             Class.forName(sqlserver_container.getDriverClassName());
@@ -250,7 +248,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
         POSTGRESQL_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", 5432, 5432)));
+                Lists.newArrayList(String.format("%s:%s", 54323, 5432)));
         //        Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER)).join();
         log.info("PostgreSQL container started");
         Class.forName(POSTGRESQL_CONTAINER.getDriverClassName());
@@ -270,7 +268,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
 
         mysql_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
+                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3306)));
         DockerImageName oracleImageName = DockerImageName.parse(ORACLE_IMAGE);
         oracle_container =
                 new OracleContainer(oracleImageName)
@@ -287,7 +285,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                 "-c",
                 "echo \"CREATE USER admin IDENTIFIED BY admin; GRANT DBA TO admin;\" | sqlplus / as sysdba");
         oracle_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
+                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, 1521)));
         Startables.deepStart(
                         Stream.of(
                                 POSTGRESQL_CONTAINER,
@@ -306,12 +304,12 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     }
 
     static JdbcUrlUtil.UrlInfo sqlParse =
-            SqlServerURLParser.parse("jdbc:sqlserver://localhost:1433;database=testauto");
+            SqlServerURLParser.parse("jdbc:sqlserver://localhost:14333;database=testauto");
     static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3306/auto?useSSL=false");
-    static JdbcUrlUtil.UrlInfo pg = JdbcUrlUtil.getUrlInfo("jdbc:postgresql://localhost:5432/pg");
+            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:33061/auto?useSSL=false");
+    static JdbcUrlUtil.UrlInfo pg = JdbcUrlUtil.getUrlInfo("jdbc:postgresql://localhost:54323/pg");
     static JdbcUrlUtil.UrlInfo oracle =
-            OracleURLParser.parse("jdbc:oracle:thin:@localhost:1521/TESTUSER");
+            OracleURLParser.parse("jdbc:oracle:thin:@localhost:15211/TESTUSER");
 
     @TestTemplate
     public void testAutoCreateTable(TestContainer container)
