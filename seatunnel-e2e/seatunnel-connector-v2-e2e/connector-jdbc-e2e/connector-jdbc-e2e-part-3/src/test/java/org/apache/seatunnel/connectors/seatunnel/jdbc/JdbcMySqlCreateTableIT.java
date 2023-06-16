@@ -251,7 +251,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
         POSTGRESQL_CONTAINER.setPortBindings(
                 Lists.newArrayList(String.format("%s:%s", 5432, 5432)));
-        Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER)).join();
+//        Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER)).join();
         log.info("PostgreSQL container started");
         Class.forName(POSTGRESQL_CONTAINER.getDriverClassName());
 
