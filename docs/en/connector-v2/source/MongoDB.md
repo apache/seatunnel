@@ -38,9 +38,9 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 Data Type Mapping
 -----------------
 
-The following table lists the field data type mapping from MongoDB BSON type to Seatunnel data type.
+The following table lists the field data type mapping from MongoDB BSON type to SeaTunnel data type.
 
-| MongoDB BSON type | Seatunnel Data type |
+| MongoDB BSON type | SeaTunnel Data type |
 |-------------------|---------------------|
 | ObjectId          | STRING              |
 | String            | STRING              |
@@ -55,9 +55,9 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 | Object            | ROW                 |
 | Array             | ARRAY               |
 
-For specific types in MongoDB, we use Extended JSON format to map them to Seatunnel STRING type.
+For specific types in MongoDB, we use Extended JSON format to map them to SeaTunnel STRING type.
 
-| MongoDB BSON type |                                       Seatunnel STRING                                       |
+| MongoDB BSON type |                                       SeaTunnel STRING                                       |
 |-------------------|----------------------------------------------------------------------------------------------|
 | Symbol            | {"_value": {"$symbol": "12"}}                                                                |
 | RegularExpression | {"_value": {"$regularExpression": {"pattern": "^9$", "options": "i"}}}                       |

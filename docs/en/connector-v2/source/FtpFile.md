@@ -121,7 +121,7 @@ For example, set like following:
 
 `skip_header_row_number = 2`
 
-then Seatunnel will skip the first 2 lines from source files
+then SeaTunnel will skip the first 2 lines from source files
 
 ### schema [config]
 
