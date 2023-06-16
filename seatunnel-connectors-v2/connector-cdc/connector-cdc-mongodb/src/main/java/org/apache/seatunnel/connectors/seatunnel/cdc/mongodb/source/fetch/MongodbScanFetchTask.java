@@ -151,11 +151,11 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
                 dataBackfillTask.execute(taskContext);
             }
         } catch (Exception e) {
-            log.error(
+            throw new MongodbConnectorException(
+                    ILLEGAL_ARGUMENT,
                     String.format(
-                            "Execute snapshot read subtask for mongo split %s fail", snapshotSplit),
-                    e);
-            throw e;
+                            "Execute snapshot read subtask for mongodb split %s fail",
+                            snapshotSplit));
         } finally {
             taskRunning = false;
         }
@@ -207,7 +207,9 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     @Override
-    public void shutdown() {}
+    public void shutdown() {
+        taskRunning = false;
+    }
 
     @Override
     public SnapshotSplit getSplit() {

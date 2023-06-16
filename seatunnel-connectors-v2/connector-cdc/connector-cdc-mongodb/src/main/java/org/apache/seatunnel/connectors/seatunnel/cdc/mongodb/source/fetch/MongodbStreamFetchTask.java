@@ -101,7 +101,7 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     @Override
-    public void execute(Context context) throws Exception {
+    public void execute(Context context) {
         MongodbFetchTaskContext taskContext = (MongodbFetchTaskContext) context;
         this.sourceConfig = taskContext.getSourceConfig();
 
@@ -189,8 +189,8 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                 }
             }
         } catch (Exception e) {
-            log.error("Poll change stream records failed ", e);
-            throw e;
+            throw new MongodbConnectorException(
+                    ILLEGAL_ARGUMENT, "Poll change stream records failed");
         } finally {
             taskRunning = false;
             if (changeStreamCursor != null) {
@@ -205,7 +205,9 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     @Override
-    public void shutdown() {}
+    public void shutdown() {
+        taskRunning = false;
+    }
 
     @Override
     public IncrementalSplit getSplit() {

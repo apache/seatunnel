@@ -57,6 +57,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.BsonUtils.compareBsonValue;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getDocumentKey;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getResumeToken;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.createMongoClient;
 
 public class MongodbFetchTaskContext implements FetchTask.Context {
 
@@ -196,5 +197,8 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
     }
 
     @Override
-    public void close() {}
+    public void close() {
+        Runtime.getRuntime()
+                .addShutdownHook(new Thread(() -> createMongoClient(sourceConfig).close()));
+    }
 }
