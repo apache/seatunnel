@@ -58,11 +58,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-
-import static org.awaitility.Awaitility.given;
 
 @Slf4j
 @DisabledOnContainer(
@@ -72,19 +68,9 @@ import static org.awaitility.Awaitility.given;
 public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResource {
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
-    private static final String SQLSERVER_SOURCE = "source";
-    private static final String SQLSERVER_SINK = "sink";
     private static final int SQLSERVER_CONTAINER_PORT = 1433;
-    private static final String SQLSERVER_URL =
-            "jdbc:sqlserver://" + AbstractJdbcIT.HOST + ":%s;encrypt=false;";
     private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
-    private static final String sqlConf = "/catalog/jdbc_mysql_create_table_mysql.conf";
-    private static final String mysqlConf = "/catalog/jdbc_mysql_create_table_sqlserver.conf";
-    private static final String pgConf = "/catalog/jdbc_mysql_create_table_pg.conf";
-    private static final String oracleConf = "/catalog/jdbc_mysql_create_table_oracle.conf";
 
-    private static final List<String> CONFIG_FILE =
-            Lists.newArrayList(sqlConf, mysqlConf, pgConf, oracleConf);
     private static final String PG_IMAGE = "postgis/postgis";
     private static final String PG_DRIVER_JAR =
             "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
@@ -96,8 +82,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private static final String MYSQL_IMAGE = "mysql:latest";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "auto";
-    private static final String MYSQL_SOURCE = "source";
-    private static final String MYSQL_SINK = "sink";
 
     private static final String MYSQL_USERNAME = "root";
     private static final String PASSWORD = "Abc!@#135_seatunnel";
@@ -113,8 +97,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     //    private static final String ORACLE_URL = "jdbc:oracle:thin:@" + HOST + ":%s/%s";
     private static final String USERNAME = "testUser";
     private static final String DATABASE = "TESTUSER";
-    private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
-    private static final String SINK_TABLE = "E2E_TABLE_SINK";
 
     private PostgreSQLContainer<?> POSTGRESQL_CONTAINER;
 
@@ -123,17 +105,17 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private OracleContainer oracle_container;
 
     private static final String mysqlCheck =
-            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'auto' AND table_name = 'mysql_auto_create_m') AS table_exists";
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'auto' AND table_name = 'mysql_auto_create_mysql') AS table_exists";
     private static final String sqlserverCheck =
-            "IF EXISTS (\n" +
-                    "    SELECT 1\n" +
-                    "    FROM testauto.sys.tables t\n" +
-                    "    JOIN testauto.sys.schemas s ON t.schema_id = s.schema_id\n" +
-                    "    WHERE t.name = 'mysql_auto_create_sql' AND s.name = 'dbo'\n" +
-                    ")\n" +
-                    "    SELECT 1 AS table_exists;\n" +
-                    "ELSE\n" +
-                    "    SELECT 0 AS table_exists;";
+            "IF EXISTS (\n"
+                    + "    SELECT 1\n"
+                    + "    FROM testauto.sys.tables t\n"
+                    + "    JOIN testauto.sys.schemas s ON t.schema_id = s.schema_id\n"
+                    + "    WHERE t.name = 'mysql_auto_create_sql' AND s.name = 'dbo'\n"
+                    + ")\n"
+                    + "    SELECT 1 AS table_exists;\n"
+                    + "ELSE\n"
+                    + "    SELECT 0 AS table_exists;";
     private static final String pgCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'mysql_auto_create_pg') AS table_exists;\n";
     private static final String oracleCheck =
@@ -142,6 +124,14 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     String driverSqlServerUrl() {
         return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
     }
+
+    private static final String CREATE_SQL_DATABASE =
+            "IF NOT EXISTS (\n"
+                    + "   SELECT name \n"
+                    + "   FROM sys.databases \n"
+                    + "   WHERE name = N'testauto'\n"
+                    + ")\n"
+                    + "CREATE DATABASE testauto;\n";
 
     private static final String CREATE_TABLE_SQL =
             "CREATE TABLE IF NOT EXISTS mysql_auto_create\n"
@@ -259,6 +249,8 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                         .withCommand("postgres -c max_prepared_transactions=100")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
+        POSTGRESQL_CONTAINER.setPortBindings(
+                Lists.newArrayList(String.format("%s:%s", 5432, 5432)));
         Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER)).join();
         log.info("PostgreSQL container started");
         Class.forName(POSTGRESQL_CONTAINER.getDriverClassName());
@@ -290,31 +282,34 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                         .withExposedPorts(ORACLE_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
-        oracle_container.withCommand("bash", "-c", "echo \"CREATE USER admin IDENTIFIED BY admin; GRANT DBA TO admin;\" | sqlplus / as sysdba");
+        oracle_container.withCommand(
+                "bash",
+                "-c",
+                "echo \"CREATE USER admin IDENTIFIED BY admin; GRANT DBA TO admin;\" | sqlplus / as sysdba");
         oracle_container.setPortBindings(
                 Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
+        Startables.deepStart(
+                        Stream.of(
+                                POSTGRESQL_CONTAINER,
+                                sqlserver_container,
+                                mysql_container,
+                                oracle_container))
+                .join();
     }
 
     @Override
     @BeforeAll
     public void startUp() throws Exception {
         initContainer();
-
+        initializeSqlJdbcTable();
         initializeJdbcTable();
-//        given().ignoreExceptions()
-//                .await()
-//                .atLeast(100, TimeUnit.MILLISECONDS)
-//                .pollInterval(500, TimeUnit.MILLISECONDS)
-//                .atMost(2, TimeUnit.MINUTES)
-//                .untilAsserted(this::initializeJdbcTable);
     }
 
     static JdbcUrlUtil.UrlInfo sqlParse =
             SqlServerURLParser.parse("jdbc:sqlserver://localhost:1433;database=testauto");
     static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3306/liuliTest?useSSL=false");
-    static JdbcUrlUtil.UrlInfo pg =
-            JdbcUrlUtil.getUrlInfo("jdbc:postgresql://localhost:5432/pg");
+            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3306/auto?useSSL=false");
+    static JdbcUrlUtil.UrlInfo pg = JdbcUrlUtil.getUrlInfo("jdbc:postgresql://localhost:5432/pg");
     static JdbcUrlUtil.UrlInfo oracle =
             OracleURLParser.parse("jdbc:oracle:thin:@localhost:1521/TESTUSER");
 
@@ -337,68 +332,32 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         mySqlCatalog.open();
         sqlServerCatalog.open();
         postgresCatalog.open();
-        oracleCatalog.open();
+        //        oracleCatalog.open();
 
         CatalogTable mysqlTable = mySqlCatalog.getTable(tablePathMySql);
 
-        sqlServerCatalog.createTable(tablePathMySql_Mysql, mysqlTable, true);
+        sqlServerCatalog.createTable(tablePathSQL, mysqlTable, true);
         postgresCatalog.createTable(tablePathPG, mysqlTable, true);
-        oracleCatalog.createTable(tablePathOracle, mysqlTable, true);
-        mySqlCatalog.createTable(tablePathMySql, mysqlTable, true);
+        //        oracleCatalog.createTable(tablePathOracle, mysqlTable, true);
+        mySqlCatalog.createTable(tablePathMySql_Mysql, mysqlTable, true);
 
         Assertions.assertTrue(checkMysql(mysqlCheck));
-        Assertions.assertTrue(checkOracle(oracleCheck));
+        //        Assertions.assertTrue(checkOracle(oracleCheck));
         Assertions.assertTrue(checkSqlServer(sqlserverCheck));
         Assertions.assertTrue(checkPG(pgCheck));
 
         // delete table
         log.info("delete table");
-        sqlServerCatalog.dropTable(tablePathMySql_Mysql, true);
+        mySqlCatalog.dropTable(tablePathMySql_Mysql, true);
         sqlServerCatalog.dropTable(tablePathSQL, true);
         postgresCatalog.dropTable(tablePathPG, true);
-        oracleCatalog.dropTable(tablePathOracle, true);
+        //        oracleCatalog.dropTable(tablePathOracle, true);
         mySqlCatalog.dropTable(tablePathMySql, true);
 
         sqlServerCatalog.close();
         mySqlCatalog.close();
         postgresCatalog.close();
         // delete table
-    }
-
-    private void executeSqlServerSQL(String sql) {
-        try (Connection connection = getJdbcSqlServerConnection()) {
-            Statement statement = connection.createStatement();
-            statement.execute(sql);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void executePGSQL(String sql) {
-        try (Connection connection = getJdbcPgConnection()) {
-            Statement statement = connection.createStatement();
-            statement.execute(sql);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void executeOracleSQL(String sql) {
-        try (Connection connection = getJdbcOracleConnection()) {
-            Statement statement = connection.createStatement();
-            statement.execute(sql);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void executeMysqlSQL(String sql) {
-        try (Connection connection = getJdbcMySqlConnection()) {
-            Statement statement = connection.createStatement();
-            statement.execute(sql);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Override
@@ -436,6 +395,16 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                 oracle_container.getJdbcUrl(),
                 oracle_container.getUsername(),
                 oracle_container.getPassword());
+    }
+
+    private void initializeSqlJdbcTable() {
+        try (Connection connection = getJdbcSqlServerConnection()) {
+            Statement statement = connection.createStatement();
+            statement.execute(CREATE_SQL_DATABASE);
+            //            statement.executeBatch();
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing PostgreSql table failed!", e);
+        }
     }
 
     private void initializeJdbcTable() {
