@@ -15,28 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.connectors.seatunnel.neo4j.constants;
 
-import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
-import org.apache.seatunnel.api.common.metrics.MetricsContext;
-
-/** The default {@link SinkWriter.Context} implement class. */
-public class DefaultSinkWriterContext implements SinkWriter.Context {
-    private final int subtask;
-
-    public DefaultSinkWriterContext(int subtask) {
-        this.subtask = subtask;
-    }
-
-    @Override
-    public int getIndexOfSubtask() {
-        return subtask;
-    }
-
-    @Override
-    public MetricsContext getMetricsContext() {
-        // TODO Waiting for Flink and Spark to implement MetricsContext
-        // https://github.com/apache/seatunnel/issues/3431
-        return new AbstractMetricsContext() {};
-    }
+public enum SinkWriteMode {
+    ONE_BY_ONE,
+    BATCH
 }

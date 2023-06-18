@@ -64,5 +64,5 @@ source {
 
 ### Next Version
 
-- Change plugin name from `KuduSource` to `Kudu` [3432](https://github.com/apache/incubator-seatunnel/pull/3432)
+- Change plugin name from `KuduSource` to `Kudu` [3432](https://github.com/apache/seatunnel/pull/3432)
 
