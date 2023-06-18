@@ -42,7 +42,13 @@ public class JdbcOceanBasedbIT extends AbstractJdbcIT {
     private static final int PORT = 2881;
     private static final String DATABASE = "seatunnel";
     private static final String URL =
-            "jdbc:mysql://" + HOST + ":" + PORT + "/" + DATABASE + "?createDatabaseIfNotExist=true&_enable_convert_real_to_decimal=true";
+            "jdbc:mysql://"
+                    + HOST
+                    + ":"
+                    + PORT
+                    + "/"
+                    + DATABASE
+                    + "?createDatabaseIfNotExist=true&_enable_convert_real_to_decimal=true";
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
     private static final String SOURCE_TABLE = "e2e_ob_source";
