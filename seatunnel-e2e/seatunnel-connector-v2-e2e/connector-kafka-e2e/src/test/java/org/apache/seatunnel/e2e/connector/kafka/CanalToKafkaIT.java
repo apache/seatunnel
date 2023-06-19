@@ -90,8 +90,6 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_HOST = "kafka_e2e";
 
-    private static final int KAFKA_PORT = 9097;
-
     private static KafkaContainer KAFKA_CONTAINER;
 
     private KafkaConsumer<String, String> kafkaConsumer;
@@ -163,9 +161,6 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
-        KAFKA_CONTAINER.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", KAFKA_PORT, KAFKA_PORT)));
     }
 
     private void createPostgreSQLContainer() {
@@ -311,7 +306,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                 ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
                 "org.apache.kafka.common.serialization.StringDeserializer");
         prop.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        prop.put(ConsumerConfig.GROUP_ID_CONFIG, "seatunnel-canal-sink-group");
+        prop.put(ConsumerConfig.GROUP_ID_CONFIG, "CONF");
         prop.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
         kafkaConsumer = new KafkaConsumer<>(prop);
     }
@@ -338,14 +333,8 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     @Override
     public void tearDown() {
-        if (MYSQL_CONTAINER != null) {
-            MYSQL_CONTAINER.close();
-        }
-        if (KAFKA_CONTAINER != null) {
-            KAFKA_CONTAINER.close();
-        }
-        if (CANAL_CONTAINER != null) {
-            CANAL_CONTAINER.close();
-        }
+        MYSQL_CONTAINER.close();
+        KAFKA_CONTAINER.close();
+        CANAL_CONTAINER.close();
     }
 }

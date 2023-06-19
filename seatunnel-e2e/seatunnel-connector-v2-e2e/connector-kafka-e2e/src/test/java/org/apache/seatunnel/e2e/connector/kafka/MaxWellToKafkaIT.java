@@ -66,11 +66,13 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK})
+        type = {EngineType.SPARK},
+        disabledReason = "Spark engine will lose the row kind of record")
 public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(MaxWellToKafkaIT.class);
@@ -127,17 +129,15 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
             };
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
-        MySqlContainer mySqlContainer =
-                new MySqlContainer(version)
-                        .withConfigurationOverride("docker/server-gtids/my.cnf")
-                        .withSetupSQL("docker/setup.sql")
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(MYSQL_HOST)
-                        .withDatabaseName(MYSQL_DATABASE)
-                        .withUsername(MYSQL_USER_NAME)
-                        .withPassword(MYSQL_USER_PASSWORD)
-                        .withLogConsumer(new Slf4jLogConsumer(LOG));
-        return mySqlContainer;
+        return new MySqlContainer(MySqlVersion.V8_0)
+                .withConfigurationOverride("docker/server-gtids/my.cnf")
+                .withSetupSQL("docker/setup.sql")
+                .withNetwork(NETWORK)
+                .withNetworkAliases(MYSQL_HOST)
+                .withDatabaseName(MYSQL_DATABASE)
+                .withUsername(MYSQL_USER_NAME)
+                .withPassword(MYSQL_USER_PASSWORD)
+                .withLogConsumer(new Slf4jLogConsumer(LOG));
     }
 
     private void createMaxWellContainer() {
@@ -221,9 +221,8 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
     public void testKafkaSinkMaxWellFormat(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/kafkasource_maxwell_to_kafka.conf");
+                container.executeJob("/maxwellForMatIt/kafkasource_maxwell_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        ArrayList<Object> result = new ArrayList<>();
         List<String> expectedResult =
                 Arrays.asList(
                         "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"INSERT\"}",
@@ -241,22 +240,27 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
                         "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"7.88\"},\"type\":\"INSERT\"}",
                         "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"DELETE\"}");
 
+        ArrayList<String> result = new ArrayList<>();
         ArrayList<String> topics = new ArrayList<>();
         topics.add(KAFKA_TOPIC);
         kafkaConsumer.subscribe(topics);
-        ConsumerRecords<String, String> consumerRecords =
-                kafkaConsumer.poll(Duration.ofSeconds(10000));
-        for (ConsumerRecord<String, String> record : consumerRecords) {
-            result.add(record.value());
-        }
-        Assertions.assertEquals(expectedResult, result);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            ConsumerRecords<String, String> consumerRecords =
+                                    kafkaConsumer.poll(Duration.ofMillis(1000));
+                            for (ConsumerRecord<String, String> record : consumerRecords) {
+                                result.add(record.value());
+                            }
+                            Assertions.assertEquals(expectedResult, result);
+                        });
     }
 
     @TestTemplate
     public void testMaxWellFormatKafkaCdcToPgsql(TestContainer container)
             throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult =
-                container.executeJob("/kafkasource_maxwell_cdc_to_pgsql.conf");
+                container.executeJob("/maxwellForMatIt/kafkasource_maxwell_cdc_to_pgsql.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         List<Object> actual = new ArrayList<>();
         try (Connection connection =
