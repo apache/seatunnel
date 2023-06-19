@@ -77,7 +77,6 @@ public class HdfsConfiguration extends AbstractConfiguration {
                 .forEach(
                         entry -> {
                             String key = entry.getKey().replace(SEATUNNEL_HADOOP_PREFIX, "");
-                            ;
                             String value = entry.getValue();
                             hadoopConf.set(key, value);
                         });
