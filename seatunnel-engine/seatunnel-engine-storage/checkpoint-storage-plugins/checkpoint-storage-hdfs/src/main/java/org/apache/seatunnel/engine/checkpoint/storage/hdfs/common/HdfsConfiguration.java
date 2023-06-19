@@ -51,7 +51,6 @@ public class HdfsConfiguration extends AbstractConfiguration {
 
     private static final String SEATUNNEL_HADOOP_PREFIX = "seatunnel.hadoop.";
 
-
     @Override
     public Configuration buildConfiguration(Map<String, String> config)
             throws CheckpointStorageException {
@@ -72,17 +71,16 @@ public class HdfsConfiguration extends AbstractConfiguration {
                 authenticateKerberos(kerberosPrincipal, kerberosKeytabFilePath, hadoopConf);
             }
         }
-         //  support other hdfs optional config keys
-         config
-         .entrySet()
-         .stream()
-         .filter(entry -> entry.getKey().startsWith(SEATUNNEL_HADOOP_PREFIX))
-         .forEach(
-                 entry -> {
-                     String key = entry.getKey().replace(SEATUNNEL_HADOOP_PREFIX, "");;
-                     String value = entry.getValue();
-                     hadoopConf.set(key, value);
-                 });
+        //  support other hdfs optional config keys
+        config.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(SEATUNNEL_HADOOP_PREFIX))
+                .forEach(
+                        entry -> {
+                            String key = entry.getKey().replace(SEATUNNEL_HADOOP_PREFIX, "");
+                            ;
+                            String value = entry.getValue();
+                            hadoopConf.set(key, value);
+                        });
         return hadoopConf;
     }
 
