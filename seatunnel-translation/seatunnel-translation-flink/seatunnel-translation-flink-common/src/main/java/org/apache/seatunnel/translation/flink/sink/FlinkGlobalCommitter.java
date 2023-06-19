@@ -75,6 +75,8 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
 
     @Override
     public void close() throws Exception {
-        aggregatedCommitter.close();
+        if (aggregatedCommitter != null) {
+            aggregatedCommitter.close();
+        }
     }
 }

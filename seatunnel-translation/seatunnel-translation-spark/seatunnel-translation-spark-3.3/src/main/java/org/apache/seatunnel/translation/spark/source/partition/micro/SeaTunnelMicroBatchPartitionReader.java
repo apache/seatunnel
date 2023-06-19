@@ -44,6 +44,8 @@ public class SeaTunnelMicroBatchPartitionReader implements PartitionReader<Inter
 
     @Override
     public void close() throws IOException {
-        partitionReader.close();
+        if (partitionReader != null) {
+            partitionReader.close();
+        }
     }
 }

@@ -42,6 +42,8 @@ public class SeaTunnelBatchPartitionReader implements PartitionReader<InternalRo
 
     @Override
     public void close() throws IOException {
-        partitionReader.close();
+        if (partitionReader != null) {
+            partitionReader.close();
+        }
     }
 }

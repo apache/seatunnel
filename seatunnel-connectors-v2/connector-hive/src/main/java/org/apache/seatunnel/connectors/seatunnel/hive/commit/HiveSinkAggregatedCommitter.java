@@ -72,7 +72,9 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                 }
             }
         }
-        hiveMetaStore.close();
+        if (hiveMetaStore != null) {
+            hiveMetaStore.close();
+        }
         return errorCommitInfos;
     }
 
@@ -94,6 +96,8 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                 log.error("Failed to remove these partitions {}", partitions, e);
             }
         }
-        hiveMetaStore.close();
+        if (hiveMetaStore != null) {
+            hiveMetaStore.close();
+        }
     }
 }

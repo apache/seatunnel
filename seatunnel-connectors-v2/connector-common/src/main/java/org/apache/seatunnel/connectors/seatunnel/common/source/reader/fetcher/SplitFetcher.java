@@ -85,7 +85,9 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
             errorHandler.accept(t);
         } finally {
             try {
-                splitReader.close();
+                if (splitReader != null) {
+                    splitReader.close();
+                }
             } catch (Exception e) {
                 errorHandler.accept(e);
             } finally {

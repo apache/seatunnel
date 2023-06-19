@@ -88,6 +88,8 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     @Override
     public void close() throws Exception {
-        sinkWriter.close();
+        if (sinkWriter != null) {
+            sinkWriter.close();
+        }
     }
 }

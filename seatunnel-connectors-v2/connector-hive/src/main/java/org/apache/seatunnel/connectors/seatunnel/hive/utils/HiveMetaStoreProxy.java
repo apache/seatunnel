@@ -36,7 +36,6 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
-import java.util.Objects;
 
 @Slf4j
 public class HiveMetaStoreProxy {
@@ -106,7 +105,7 @@ public class HiveMetaStoreProxy {
     }
 
     public synchronized void close() {
-        if (Objects.nonNull(hiveMetaStoreClient)) {
+        if (hiveMetaStoreClient != null) {
             hiveMetaStoreClient.close();
             HiveMetaStoreProxy.INSTANCE = null;
         }

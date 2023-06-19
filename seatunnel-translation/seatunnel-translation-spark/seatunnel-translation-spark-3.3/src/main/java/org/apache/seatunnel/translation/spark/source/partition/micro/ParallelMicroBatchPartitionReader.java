@@ -192,8 +192,12 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
 
     @Override
     public void close() throws IOException {
-        fileSystem.close();
-        executor.shutdown();
+        if (fileSystem != null) {
+            fileSystem.close();
+        }
+        if (executor != null) {
+            executor.shutdown();
+        }
         super.close();
     }
 }

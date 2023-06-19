@@ -66,7 +66,9 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
 
     @Override
     public void close() {
-        hazelcastClient.getHazelcastInstance().shutdown();
+        if (hazelcastClient.getHazelcastInstance() != null) {
+            hazelcastClient.getHazelcastInstance().shutdown();
+        }
     }
 
     public ILogger getLogger() {

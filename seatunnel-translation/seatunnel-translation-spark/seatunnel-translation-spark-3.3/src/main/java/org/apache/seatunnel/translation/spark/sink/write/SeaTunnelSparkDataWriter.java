@@ -74,7 +74,9 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
         SeaTunnelSparkWriterCommitMessage<CommitInfoT> seaTunnelSparkWriterCommitMessage =
                 new SeaTunnelSparkWriterCommitMessage<>(latestCommitInfoT);
         cleanCommitInfo();
-        sinkWriter.close();
+        if (sinkWriter != null) {
+            sinkWriter.close();
+        }
         return seaTunnelSparkWriterCommitMessage;
     }
 

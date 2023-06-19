@@ -170,10 +170,12 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
     @AfterAll
     @Override
     public void tearDown() throws Exception {
-        if (Objects.nonNull(influxDB)) {
+        if (influxDB != null) {
             influxDB.close();
         }
-        influxdbContainer.stop();
+        if (influxdbContainer != null) {
+            influxdbContainer.stop();
+        }
     }
 
     @TestTemplate
