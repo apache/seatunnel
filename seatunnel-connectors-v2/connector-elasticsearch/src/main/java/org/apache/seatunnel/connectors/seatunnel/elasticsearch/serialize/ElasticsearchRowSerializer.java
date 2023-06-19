@@ -38,7 +38,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-/** use in elasticsearch version >= 7.* */
+/** use in elasticsearch version >= 2.x and <= 8.x */
 public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
     private final SeaTunnelRowType seaTunnelRowType;
     private final ObjectMapper objectMapper = new ObjectMapper();

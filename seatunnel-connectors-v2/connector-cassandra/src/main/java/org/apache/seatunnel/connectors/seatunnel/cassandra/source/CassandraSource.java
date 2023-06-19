@@ -32,7 +32,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
-import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParameters;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.util.TypeConvertUtil;
@@ -53,7 +53,7 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow>
         implements SupportColumnProjection {
 
     private SeaTunnelRowType rowTypeInfo;
-    private CassandraConfig cassandraConfig;
+    private final CassandraParameters cassandraParameters = new CassandraParameters();
 
     @Override
     public String getPluginName() {
@@ -61,8 +61,9 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow>
     }
 
     @Override
-    public void prepare(Config config) throws PrepareFailException {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(config, HOST, KEYSPACE, CQL);
+    public void prepare(Config pluginConfig) throws PrepareFailException {
+        CheckResult checkResult =
+                CheckConfigUtil.checkAllExists(pluginConfig, HOST.key(), KEYSPACE.key(), CQL.key());
         if (!checkResult.isSuccess()) {
             throw new CassandraConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -70,26 +71,26 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow>
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, checkResult.getMsg()));
         }
-        this.cassandraConfig = CassandraConfig.getCassandraConfig(config);
+        this.cassandraParameters.buildWithConfig(pluginConfig);
         try (CqlSession currentSession =
                 CassandraClient.getCqlSessionBuilder(
-                                cassandraConfig.getHost(),
-                                cassandraConfig.getKeyspace(),
-                                cassandraConfig.getUsername(),
-                                cassandraConfig.getPassword(),
-                                cassandraConfig.getDatacenter())
+                                pluginConfig.getString(HOST.key()),
+                                pluginConfig.getString(KEYSPACE.key()),
+                                cassandraParameters.getUsername(),
+                                cassandraParameters.getPassword(),
+                                cassandraParameters.getDatacenter())
                         .build()) {
             Row rs =
                     currentSession
                             .execute(
                                     CassandraClient.createSimpleStatement(
-                                            cassandraConfig.getCql(),
-                                            cassandraConfig.getConsistencyLevel()))
+                                            pluginConfig.getString(CQL.key()),
+                                            cassandraParameters.getConsistencyLevel()))
                             .one();
             if (rs == null) {
                 throw new CassandraConnectorException(
                         CassandraConnectorErrorCode.NO_DATA_IN_SOURCE_TABLE,
-                        "No data select from this cql: " + cassandraConfig.getCql());
+                        "No data select from this cql: " + pluginConfig.getConfig(CQL.key()));
             }
             int columnSize = rs.getColumnDefinitions().size();
             String[] fieldNames = new String[columnSize];
@@ -121,6 +122,6 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow>
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
             SingleSplitReaderContext readerContext) throws Exception {
-        return new CassandraSourceReader(cassandraConfig, readerContext);
+        return new CassandraSourceReader(cassandraParameters, readerContext);
     }
 }

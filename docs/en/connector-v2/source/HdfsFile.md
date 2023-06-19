@@ -281,12 +281,12 @@ HdfsFile {
 
 ### 2.3.0-beta 2022-10-20
 
-- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
-- [Improve] Support extract partition from SeaTunnelRow fields ([3085](https://github.com/apache/incubator-seatunnel/pull/3085))
-- [Improve] Support parse field from file path ([2985](https://github.com/apache/incubator-seatunnel/pull/2985))
+- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/seatunnel/pull/2980))
+- [Improve] Support extract partition from SeaTunnelRow fields ([3085](https://github.com/apache/seatunnel/pull/3085))
+- [Improve] Support parse field from file path ([2985](https://github.com/apache/seatunnel/pull/2985))
 
 ### next version
 
-- [Improve] Support skip header for csv and txt files ([3900](https://github.com/apache/incubator-seatunnel/pull/3840))
-- [Improve] Support kerberos authentication ([3840](https://github.com/apache/incubator-seatunnel/pull/3840))
+- [Improve] Support skip header for csv and txt files ([3900](https://github.com/apache/seatunnel/pull/3840))
+- [Improve] Support kerberos authentication ([3840](https://github.com/apache/seatunnel/pull/3840))
 

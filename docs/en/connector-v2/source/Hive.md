@@ -98,6 +98,6 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ### Next version
 
-- [Improve] Support kerberos authentication ([3840](https://github.com/apache/incubator-seatunnel/pull/3840))
-- Support user-defined partitions ([3842](https://github.com/apache/incubator-seatunnel/pull/3842))
+- [Improve] Support kerberos authentication ([3840](https://github.com/apache/seatunnel/pull/3840))
+- Support user-defined partitions ([3842](https://github.com/apache/seatunnel/pull/3842))
 
