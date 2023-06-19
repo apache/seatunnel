@@ -178,7 +178,7 @@ public class SelectDBStageLoad implements Serializable {
     }
 
     public void close() {
-        if(this.loadExecutorService!=null){
+        if (this.loadExecutorService != null) {
             this.loadExecutorService.shutdown();
         }
     }

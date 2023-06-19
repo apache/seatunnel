@@ -114,7 +114,7 @@ public class HudiSourceReader implements SourceReader<SeaTunnelRow, HudiSourceSp
                             }
                             output.collect(new SeaTunnelRow(datas));
                         }
-                        if(reader!=null){
+                        if (reader != null) {
                             reader.close();
                         }
                     } catch (Exception e) {

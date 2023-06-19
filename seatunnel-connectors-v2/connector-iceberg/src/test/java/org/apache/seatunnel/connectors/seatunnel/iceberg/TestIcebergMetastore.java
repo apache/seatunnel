@@ -61,7 +61,7 @@ public class TestIcebergMetastore {
 
     @AfterEach
     public void close() throws Exception {
-        if(METASTORE!=null){
+        if (METASTORE != null) {
             METASTORE.stop();
         }
     }
