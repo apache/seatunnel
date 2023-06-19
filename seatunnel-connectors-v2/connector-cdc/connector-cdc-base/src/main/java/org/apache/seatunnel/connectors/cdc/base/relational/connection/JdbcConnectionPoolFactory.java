@@ -48,7 +48,7 @@ public abstract class JdbcConnectionPoolFactory {
         config.addDataSourceProperty("cachePrepStmts", "true");
         config.addDataSourceProperty("prepStmtCacheSize", "250");
         config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-
+        config.setDriverClassName(sourceConfig.getDriverClassName());
         return new HikariDataSource(config);
     }
 
