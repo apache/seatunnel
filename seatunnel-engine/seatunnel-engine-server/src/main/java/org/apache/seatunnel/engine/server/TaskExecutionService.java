@@ -160,8 +160,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     public void shutdown() {
         isRunning = false;
-        executorService.shutdownNow();
-        scheduledExecutorService.shutdown();
+        if (executorService != null) {
+            executorService.shutdownNow();
+        }
+        if (scheduledExecutorService != null) {
+            scheduledExecutorService.shutdown();
+        }
     }
 
     public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {

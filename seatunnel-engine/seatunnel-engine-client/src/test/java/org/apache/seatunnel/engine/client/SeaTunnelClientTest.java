@@ -372,6 +372,8 @@ public class SeaTunnelClientTest {
 
     @AfterAll
     public static void after() {
-        INSTANCE.shutdown();
+        if (INSTANCE != null) {
+            INSTANCE.shutdown();
+        }
     }
 }

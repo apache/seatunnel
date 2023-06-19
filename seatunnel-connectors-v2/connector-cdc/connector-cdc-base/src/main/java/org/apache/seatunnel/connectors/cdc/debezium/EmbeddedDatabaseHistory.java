@@ -111,7 +111,9 @@ public class EmbeddedDatabaseHistory implements DatabaseHistory {
 
     @Override
     public void stop() {
-        listener.stopped();
+        if (listener != null) {
+            listener.stopped();
+        }
     }
 
     @Override

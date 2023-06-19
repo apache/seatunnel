@@ -370,8 +370,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             });
 
             // shutdown on worker node
-            node2.shutdown();
-
+            if (node2 != null) {
+                node2.shutdown();
+            }
             Awaitility.await()
                     .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
@@ -491,8 +492,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
             Thread.sleep(5000);
             // shutdown on worker node
-            node2.shutdown();
-
+            if (node2 != null) {
+                node2.shutdown();
+            }
             Awaitility.await()
                     .atMost(360000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
@@ -615,7 +617,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             });
 
             // shutdown master node
-            node1.shutdown();
+            if (node1 != null) {
+                node1.shutdown();
+            }
 
             Awaitility.await()
                     .atMost(600000, TimeUnit.MILLISECONDS)
@@ -725,7 +729,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             });
 
             // shutdown master node
-            node1.shutdown();
+            if (node1 != null) {
+                node1.shutdown();
+            }
 
             Awaitility.await()
                     .atMost(600000, TimeUnit.MILLISECONDS)

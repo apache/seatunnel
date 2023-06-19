@@ -178,7 +178,9 @@ public class SelectDBStageLoad implements Serializable {
     }
 
     public void close() {
-        this.loadExecutorService.shutdown();
+        if(this.loadExecutorService!=null){
+            this.loadExecutorService.shutdown();
+        }
     }
 
     public void setCurrentCheckpointID(long currentCheckpointID) {

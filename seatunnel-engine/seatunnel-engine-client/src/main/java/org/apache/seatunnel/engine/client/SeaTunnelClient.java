@@ -82,7 +82,9 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
     }
 
     public void shutdown() {
-        hazelcastClient.shutdown();
+        if (hazelcastClient != null) {
+            hazelcastClient.shutdown();
+        }
     }
 
     /**

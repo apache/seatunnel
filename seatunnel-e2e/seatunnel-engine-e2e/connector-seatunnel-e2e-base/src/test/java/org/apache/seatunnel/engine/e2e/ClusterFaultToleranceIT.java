@@ -356,8 +356,9 @@ public class ClusterFaultToleranceIT {
             // shutdown on worker node
             log.info(
                     "=====================================shutdown node2=================================");
-            node2.shutdown();
-
+            if (node2 != null) {
+                node2.shutdown();
+            }
             Awaitility.await()
                     .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
@@ -454,8 +455,9 @@ public class ClusterFaultToleranceIT {
 
             Thread.sleep(5000);
             // shutdown on worker node
-            node2.shutdown();
-
+            if (node2 != null) {
+                node2.shutdown();
+            }
             Awaitility.await()
                     .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
@@ -571,8 +573,9 @@ public class ClusterFaultToleranceIT {
                             });
 
             // shutdown master node
-            node1.shutdown();
-
+            if (node1 != null) {
+                node1.shutdown();
+            }
             Awaitility.await()
                     .atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
@@ -675,7 +678,9 @@ public class ClusterFaultToleranceIT {
                             });
 
             // shutdown master node
-            node1.shutdown();
+            if (node1 != null) {
+                node1.shutdown();
+            }
 
             Awaitility.await()
                     .atMost(600000, TimeUnit.MILLISECONDS)
@@ -844,8 +849,12 @@ public class ClusterFaultToleranceIT {
 
             Thread.sleep(5000);
             // shutdown all node
-            node1.shutdown();
-            node2.shutdown();
+            if (node1 != null) {
+                node1.shutdown();
+            }
+            if (node2 != null) {
+                node2.shutdown();
+            }
 
             log.info(
                     "==========================================All node is done========================================");
@@ -1063,9 +1072,12 @@ public class ClusterFaultToleranceIT {
 
             Thread.sleep(5000);
             // shutdown all node
-            node1.shutdown();
-            node2.shutdown();
-
+            if (node1 != null) {
+                node1.shutdown();
+            }
+            if (node2 != null) {
+                node2.shutdown();
+            }
             log.info(
                     "==========================================All node is done========================================");
             Thread.sleep(10000);

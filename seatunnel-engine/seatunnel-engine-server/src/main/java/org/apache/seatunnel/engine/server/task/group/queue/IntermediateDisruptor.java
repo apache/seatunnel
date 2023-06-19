@@ -63,6 +63,8 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
 
     @Override
     public void close() throws IOException {
-        getIntermediateQueue().shutdown();
+        if (getIntermediateQueue() != null) {
+            getIntermediateQueue().shutdown();
+        }
     }
 }

@@ -132,7 +132,9 @@ public class ParallelBatchPartitionReader {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        executorService.shutdown();
+        if (executorService != null) {
+            executorService.shutdown();
+        }
     }
 
     public class InternalParallelSource<SplitT extends SourceSplit, StateT extends Serializable>

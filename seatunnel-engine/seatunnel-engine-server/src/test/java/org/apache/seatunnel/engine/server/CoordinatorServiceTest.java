@@ -66,7 +66,9 @@ public class CoordinatorServiceTest {
         }
 
         // shutdown instance1
-        instance1.shutdown();
+        if (instance1 != null) {
+            instance1.shutdown();
+        }
         await().atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
@@ -79,7 +81,9 @@ public class CoordinatorServiceTest {
                                 Assertions.assertTrue(false);
                             }
                         });
-        instance2.shutdown();
+        if (instance2 != null) {
+            instance2.shutdown();
+        }
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
@@ -186,7 +190,9 @@ public class CoordinatorServiceTest {
                                         JobStatus.RUNNING, coordinatorService.getJobStatus(jobId)));
 
         // test master node shutdown
-        instance1.shutdown();
+        if (instance1 != null) {
+            instance1.shutdown();
+        }
         await().atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
@@ -234,6 +240,8 @@ public class CoordinatorServiceTest {
                                 Assertions.assertEquals(
                                         JobStatus.CANCELED,
                                         server2.getCoordinatorService().getJobStatus(jobId)));
-        instance2.shutdown();
+        if (instance2 != null) {
+            instance2.shutdown();
+        }
     }
 }

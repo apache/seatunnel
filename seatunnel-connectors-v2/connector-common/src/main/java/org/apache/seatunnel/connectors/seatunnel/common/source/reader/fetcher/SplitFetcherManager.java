@@ -131,7 +131,9 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
     public synchronized void close(long timeoutMs) throws Exception {
         closed = true;
         fetchers.values().forEach(SplitFetcher::shutdown);
-        executors.shutdown();
+        if (executors != null) {
+            executors.shutdown();
+        }
         if (!executors.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS)) {
             log.warn(
                     "Failed to close the source reader in {} ms. There are still {} split fetchers running",
