@@ -6,7 +6,7 @@
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key Features
 
