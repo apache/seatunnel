@@ -280,7 +280,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 OneSignal {
     url = "https://onesignal.com/api/v1/apps"
-    password = "Seatunnel-test"
+    password = "SeaTunnel-test"
     schema = {
        fields {
          id = string

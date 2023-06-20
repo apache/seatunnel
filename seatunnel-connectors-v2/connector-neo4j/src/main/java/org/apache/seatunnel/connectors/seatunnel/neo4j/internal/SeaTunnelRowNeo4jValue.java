@@ -31,11 +31,11 @@ import java.util.Map;
  * This class includes the seatunnelRow and implements the neo4j.driver.internal.AsValue interface.
  * This class will be able to convert to neo4j.driver.Value quickly without any extra effort.
  */
-public class SeatunnelRowNeo4jValue implements AsValue {
+public class SeaTunnelRowNeo4jValue implements AsValue {
     private final SeaTunnelRowType seaTunnelRowType;
     private final SeaTunnelRow seaTunnelRow;
 
-    public SeatunnelRowNeo4jValue(SeaTunnelRowType seaTunnelRowType, SeaTunnelRow seaTunnelRow) {
+    public SeaTunnelRowNeo4jValue(SeaTunnelRowType seaTunnelRowType, SeaTunnelRow seaTunnelRow) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.seaTunnelRow = seaTunnelRow;
     }
