@@ -278,7 +278,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ```hocon
 Lemlist {
     url = "https://api.lemlist.com/api/campaigns"
-    password = "Seatunnel-test"
+    password = "SeaTunnel-test"
     schema {
        fields {
          _id = string
