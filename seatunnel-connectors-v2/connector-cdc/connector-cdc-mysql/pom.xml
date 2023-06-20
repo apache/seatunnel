@@ -66,8 +66,8 @@
             <artifactId>debezium-connector-mysql</artifactId>
             <exclusions>
                 <exclusion>
-                    <artifactId>mysql-connector-java</artifactId>
                     <groupId>mysql</groupId>
+                    <artifactId>mysql-connector-java</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
