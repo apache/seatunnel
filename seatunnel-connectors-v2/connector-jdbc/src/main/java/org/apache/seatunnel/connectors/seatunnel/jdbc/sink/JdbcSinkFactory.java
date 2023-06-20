@@ -78,6 +78,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
         Map<String, String> catalogOptions = config.get(CatalogOptions.CATALOG_OPTIONS);
         Optional<String> optionalTable = config.getOptional(TABLE);
         if (!optionalTable.isPresent()) {
+            catalogOptions = catalogOptions == null ? new HashMap<>() : catalogOptions;
             String prefix = catalogOptions.get(JdbcCatalogOptions.TABLE_PREFIX.key());
             String suffix = catalogOptions.get(JdbcCatalogOptions.TABLE_SUFFIX.key());
             if (StringUtils.isNotEmpty(prefix) || StringUtils.isNotEmpty(suffix)) {
