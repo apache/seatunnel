@@ -228,5 +228,5 @@ sink {
 
 ### Next Version
 
-- [Feature]Refactor mongodb source connector([4620](https://github.com/apache/incubator-seatunnel/pull/4620))
+- [Feature]Refactor mongodb source connector([4620](https://github.com/apache/seatunnel/pull/4620))
 

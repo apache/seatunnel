@@ -1,4 +1,4 @@
-# Apache SeaTunnel 
+# Apache SeaTunnel
 
 <img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" height="200px" align="right" />
 
