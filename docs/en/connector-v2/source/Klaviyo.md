@@ -282,7 +282,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ```hocon
 Klaviyo {
     url = "https://a.klaviyo.com/api/lists/"
-    private_key = "Seatunnel-test"
+    private_key = "SeaTunnel-test"
     revision = "2020-10-17"
     method = "GET"
     format = "json"
