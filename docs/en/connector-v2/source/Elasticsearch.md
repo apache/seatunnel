@@ -195,6 +195,6 @@ source {
 ### next version
 
 - Add Elasticsearch Source Connector
-- [Feature] Support https protocol & compatible with opensearch ([3997](https://github.com/apache/incubator-seatunnel/pull/3997))
+- [Feature] Support https protocol & compatible with opensearch ([3997](https://github.com/apache/seatunnel/pull/3997))
 - [Feature] Support DSL
 

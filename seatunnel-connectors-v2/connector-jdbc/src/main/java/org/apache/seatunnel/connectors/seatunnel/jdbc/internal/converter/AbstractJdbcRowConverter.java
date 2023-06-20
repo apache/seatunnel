@@ -35,7 +35,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Optional;
 
-/** Base class for all converters that convert between JDBC object and Seatunnel internal object. */
+/** Base class for all converters that convert between JDBC object and SeaTunnel internal object. */
 public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
 
     public abstract String converterName();
