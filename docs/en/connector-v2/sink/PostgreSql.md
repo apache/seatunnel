@@ -6,7 +6,7 @@
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key Features
 
@@ -36,7 +36,7 @@ semantics (using XA transaction guarantee).
 
 ## Data Type Mapping
 
-|                         PostgreSQL Data type                         |                                                              Seatunnel Data type                                                               |
+|                         PostgreSQL Data type                         |                                                              SeaTunnel Data type                                                               |
 |----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
 | BOOL<br/>                                                            | BOOLEAN                                                                                                                                        |
 | _BOOL<br/>                                                           | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |

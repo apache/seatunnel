@@ -6,7 +6,7 @@
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key Features
 
@@ -38,7 +38,7 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                         PostgreSQL Data type                         |                                                              Seatunnel Data type                                                               |
+|                         PostgreSQL Data type                         |                                                              SeaTunnel Data type                                                               |
 |----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
 | BOOL<br/>                                                            | BOOLEAN                                                                                                                                        |
 | _BOOL<br/>                                                           | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |
@@ -107,7 +107,7 @@ source{
 }
 
 transform {
-    # please go to https://seatunnel.apache.org/docs/transform/sql
+    # please go to https://seatunnel.apache.org/docs/transform-v2/sql
 }
 
 sink {
