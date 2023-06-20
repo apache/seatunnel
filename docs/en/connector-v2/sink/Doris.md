@@ -6,7 +6,7 @@
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key Features
 
@@ -46,6 +46,33 @@ Version Supported
 | sink.buffer-size    | int    | No       | 256 * 1024 | the buffer size to cache data for stream load.                                                                                                                                                                                                                                               |
 | sink.buffer-count   | int    | No       | 3          | the buffer count to cache data for stream load.                                                                                                                                                                                                                                              |
 | doris.config        | map    | yes      | -          | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql,and supported formats.                                                                                                                                                    |
+
+## Data Type Mapping
+
+| Doris Data type | SeaTunnel Data type                     |
+|-----------------|-----------------------------------------|
+| BOOLEAN         | BOOLEAN                                 |
+| TINYINT         | TINYINT                                 |
+| SMALLINT        | SMALLINT<br/>TINYINT                    |
+| INT             | INT<br/>SMALLINT<br/>TINYINT            |
+| BIGINT          | BIGINT<br/>INT<br/>SMALLINT<br/>TINYINT |
+| LARGEINT        | BIGINT<br/>INT<br/>SMALLINT<br/>TINYINT |
+| FLOAT           | FLOAT                                   |
+| DOUBLE          | DOUBLE<br/>FLOAT                        |
+| DECIMAL         | DECIMAL<br/>DOUBLE<br/>FLOAT            |
+| DATE            | DATE                                    |
+| DATETIME        | TIMESTAMP                               |
+| CHAR            | STRING                                  |
+| VARCHAR         | STRING                                  |
+| STRING          | STRING                                  |
+| ARRAY           | ARRAY                                   |
+| MAP             | MAP                                     |
+| JSON            | STRING                                  |
+| HLL             | Not supported yet                       |
+| BITMAP          | Not supported yet                       |
+| QUANTILE_STATE  | Not supported yet                       |
+| STRUCT          | Not supported yet                       |
+
 
 #### Supported import data formats
 
