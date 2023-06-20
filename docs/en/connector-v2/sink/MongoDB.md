@@ -34,9 +34,9 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 Data Type Mapping
 -----------------
 
-The following table lists the field data type mapping from MongoDB BSON type to Seatunnel data type.
+The following table lists the field data type mapping from MongoDB BSON type to SeaTunnel data type.
 
-| Seatunnel Data Type | MongoDB BSON Type |
+| SeaTunnel Data Type | MongoDB BSON Type |
 |---------------------|-------------------|
 | STRING              | ObjectId          |
 | STRING              | String            |
@@ -199,7 +199,7 @@ The necessity for using transactions can be greatly avoided by designing systems
 By specifying a clear primary key and using the upsert method, exactly-once write semantics can be achieved.
 
 If upsert-key is defined in the configuration, the MongoDB sink will use upsert semantics instead of regular INSERT statements. We combine the primary keys declared in upsert-key as the MongoDB reserved primary key and use upsert mode for writing to ensure idempotent writes.
-In the event of a failure, Seatunnel jobs will recover from the last successful checkpoint and reprocess, which may result in duplicate message processing during recovery. It is highly recommended to use upsert mode, as it helps to avoid violating database primary key constraints and generating duplicate data if records need to be reprocessed.
+In the event of a failure, SeaTunnel jobs will recover from the last successful checkpoint and reprocess, which may result in duplicate message processing during recovery. It is highly recommended to use upsert mode, as it helps to avoid violating database primary key constraints and generating duplicate data if records need to be reprocessed.
 
 ```bash
 sink {

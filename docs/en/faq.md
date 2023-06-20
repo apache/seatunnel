@@ -334,7 +334,7 @@ Just configure hdfs-site.xml properly. Refer to: https://www.cnblogs.com/suanec/
 
 ## I want to learn the source code of SeaTunnel. Where should I start?
 
-SeaTunnel has a completely abstract and structured code implementation, and many people have chosen SeaTunnel As a way to learn Spark. You can learn the source code from the main program entry: Seatunnel.java
+SeaTunnel has a completely abstract and structured code implementation, and many people have chosen SeaTunnel As a way to learn Spark. You can learn the source code from the main program entry: SeaTunnel.java
 
 ## When SeaTunnel developers develop their own plugins, do they need to understand the SeaTunnel code? Should these plugins be integrated into the SeaTunnel project?
 
