@@ -26,7 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkQueryInfo
 import org.apache.seatunnel.connectors.seatunnel.neo4j.constants.CypherEnum;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.neo4j.internal.SeatunnelRowNeo4jValue;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.internal.SeaTunnelRowNeo4jValue;
 
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Query;
@@ -56,7 +56,7 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     private final transient Session session;
 
     private final SeaTunnelRowType seaTunnelRowType;
-    private final List<SeatunnelRowNeo4jValue> writeBuffer;
+    private final List<SeaTunnelRowNeo4jValue> writeBuffer;
     private final Integer maxBatchSize;
 
     public Neo4jSinkWriter(
@@ -93,7 +93,7 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     }
 
     private void writeByBatchSize(SeaTunnelRow element) {
-        writeBuffer.add(new SeatunnelRowNeo4jValue(seaTunnelRowType, element));
+        writeBuffer.add(new SeaTunnelRowNeo4jValue(seaTunnelRowType, element));
         tryWriteByBatchSize();
     }
 

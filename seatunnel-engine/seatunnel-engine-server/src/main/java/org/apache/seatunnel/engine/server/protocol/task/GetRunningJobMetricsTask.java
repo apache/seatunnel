@@ -17,33 +17,34 @@
 
 package org.apache.seatunnel.engine.server.protocol.task;
 
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCodec;
-import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetRunningJobMetricsCodec;
+import org.apache.seatunnel.engine.server.operation.GetRunningJobMetricsOperation;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class GetJobMetricsTask extends AbstractSeaTunnelMessageTask<Long, String> {
+public class GetRunningJobMetricsTask extends AbstractSeaTunnelMessageTask<Void, String> {
 
-    protected GetJobMetricsTask(ClientMessage clientMessage, Node node, Connection connection) {
+    protected GetRunningJobMetricsTask(
+            ClientMessage clientMessage, Node node, Connection connection) {
         super(
                 clientMessage,
                 node,
                 connection,
-                SeaTunnelGetJobMetricsCodec::decodeRequest,
-                SeaTunnelGetJobMetricsCodec::encodeResponse);
+                m -> null,
+                SeaTunnelGetRunningJobMetricsCodec::encodeResponse);
     }
 
     @Override
     protected Operation prepareOperation() {
-        return new GetJobMetricsOperation(parameters);
+        return new GetRunningJobMetricsOperation();
     }
 
     @Override
     public String getMethodName() {
-        return "getJobMetrics";
+        return "getRunningJobMetrics";
     }
 
     @Override
