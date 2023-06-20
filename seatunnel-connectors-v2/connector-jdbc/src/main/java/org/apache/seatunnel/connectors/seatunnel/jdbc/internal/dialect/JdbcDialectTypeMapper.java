@@ -26,6 +26,6 @@ import java.sql.SQLException;
 /** Separate the jdbc meta-information type to SeaTunnelDataType into the interface. */
 public interface JdbcDialectTypeMapper extends Serializable {
 
-    /** Convert ResultSetMetaData to Seatunnel data type {@link SeaTunnelDataType}. */
+    /** Convert ResultSetMetaData to SeaTunnel data type {@link SeaTunnelDataType}. */
     SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException;
 }

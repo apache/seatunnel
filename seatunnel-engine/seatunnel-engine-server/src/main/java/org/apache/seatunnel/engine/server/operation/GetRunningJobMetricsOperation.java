@@ -32,17 +32,12 @@ import java.util.concurrent.ExecutionException;
 
 import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJsonString;
 
-public class GetJobMetricsOperation extends Operation
+public class GetRunningJobMetricsOperation extends Operation
         implements IdentifiedDataSerializable, AllowedDuringPassiveState {
-    private long jobId;
 
     private String response;
 
-    public GetJobMetricsOperation() {}
-
-    public GetJobMetricsOperation(long jobId) {
-        this.jobId = jobId;
-    }
+    public GetRunningJobMetricsOperation() {}
 
     @Override
     public final int getFactoryId() {
@@ -51,19 +46,17 @@ public class GetJobMetricsOperation extends Operation
 
     @Override
     public int getClassId() {
-        return ClientToServerOperationDataSerializerHook.GET_JOB_METRICS_OPERATOR;
+        return ClientToServerOperationDataSerializerHook.GET_RUNNING_JOB_METRICS_OPERATOR;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeLong(jobId);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        jobId = in.readLong();
     }
 
     @Override
@@ -73,13 +66,11 @@ public class GetJobMetricsOperation extends Operation
                 CompletableFuture.supplyAsync(
                         () -> {
                             return toJsonString(
-                                    service.getCoordinatorService()
-                                            .getJobMetrics(jobId)
-                                            .getMetrics());
+                                    service.getCoordinatorService().getRunningJobMetrics());
                         },
                         getNodeEngine()
                                 .getExecutionService()
-                                .getExecutor("get_job_metrics_operation"));
+                                .getExecutor("get_running_job_metrics_operation"));
 
         try {
             response = future.get();
