@@ -105,7 +105,8 @@ public final class EnvironmentUtil {
         return CheckResult.success();
     }
 
-    public static void initConfiguration(Config config, Configuration configuration) {
+    public static Configuration initConfiguration(Config config) {
+        Configuration configuration = new Configuration();
         if (config.hasPath("pipeline")) {
             Config pipeline = config.getConfig("pipeline");
             if (pipeline.hasPath("jars")) {
@@ -116,5 +117,6 @@ public final class EnvironmentUtil {
                         PipelineOptions.CLASSPATHS.key(), pipeline.getString("classpaths"));
             }
         }
+        return configuration;
     }
 }

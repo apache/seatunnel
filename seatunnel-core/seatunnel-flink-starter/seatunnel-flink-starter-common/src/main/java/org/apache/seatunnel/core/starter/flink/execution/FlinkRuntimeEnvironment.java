@@ -30,7 +30,6 @@ import org.apache.seatunnel.core.starter.flink.utils.EnvironmentUtil;
 import org.apache.seatunnel.core.starter.flink.utils.TableUtil;
 
 import org.apache.flink.api.common.RuntimeExecutionMode;
-import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
@@ -50,6 +49,7 @@ import org.apache.flink.util.TernaryBoolean;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -175,17 +175,14 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
         tableEnvironment =
                 StreamTableEnvironment.create(getStreamExecutionEnvironment(), environmentSettings);
         TableConfig config = tableEnvironment.getConfig();
-        if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME)
-                && this.config.hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
-            long max = this.config.getLong(ConfigKeyName.MAX_STATE_RETENTION_TIME);
-            long min = this.config.getLong(ConfigKeyName.MIN_STATE_RETENTION_TIME);
-            config.setIdleStateRetentionTime(Time.seconds(min), Time.seconds(max));
+        if (this.config.hasPath(ConfigKeyName.TABLE_TTL)) {
+            long ttl = this.config.getLong(ConfigKeyName.TABLE_TTL);
+            config.setIdleStateRetention(Duration.ofMillis(ttl));
         }
     }
 
     private void createStreamEnvironment() {
-        Configuration configuration = new Configuration();
-        EnvironmentUtil.initConfiguration(config, configuration);
+        Configuration configuration = EnvironmentUtil.initConfiguration(config);
         environment = StreamExecutionEnvironment.getExecutionEnvironment(configuration);
         setTimeCharacteristic();
 

@@ -43,8 +43,7 @@ public class ConfigKeyName {
     public static final String RESTART_FAILURE_INTERVAL = "execution.restart.failureInterval";
     public static final String RESTART_FAILURE_RATE = "execution.restart.failureRate";
     public static final String RESTART_DELAY_INTERVAL = "execution.restart.delayInterval";
-    public static final String MAX_STATE_RETENTION_TIME = "execution.query.state.max-retention";
-    public static final String MIN_STATE_RETENTION_TIME = "execution.query.state.min-retention";
+    public static final String TABLE_TTL = "table.exec.state.ttl";
     public static final String STATE_BACKEND = "execution.state.backend";
     public static final String PLANNER = "execution.planner";
 }
