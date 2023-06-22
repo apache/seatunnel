@@ -151,6 +151,7 @@ seatunnel:
           kerberosPrincipal: your-kerberos-principal
           kerberosKeytab: your-kerberos-keytab  
 ```
+
 if HDFS is in HA mode , you can config like this:
 
 ```yaml
@@ -170,9 +171,10 @@ seatunnel:
           seatunnel.hadoop.dfs.client.failover.proxy.provider.usdp-bing: org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider"
 
 ```
+
 if HDFS has  some other configs in `hdfs-site.xml` or `core-site.xml` , just set HDFS config by using  `seatunnel.hadoop.`  prefix.
 
-#### LocalFile 
+#### LocalFile
 
 ```yaml
 seatunnel:
