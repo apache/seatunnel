@@ -16,7 +16,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 
 |            name             |  type   | required |  default value  |
 |-----------------------------|---------|----------|-----------------|
-| nodeUrls                   | list    | yes      | -               |
+| nodeUrls                    | list    | yes      | -               |
 | base-url                    | string  | yes      | -               |
 | username                    | string  | yes      | -               |
 | password                    | string  | yes      | -               |
