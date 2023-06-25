@@ -40,7 +40,10 @@ public class DocumentRowDataDeserializer implements DocumentDeserializer<SeaTunn
     private final boolean flatSyncString;
 
     public DocumentRowDataDeserializer(
-            String[] fieldNames, SeaTunnelDataType<?> dataTypes, boolean flatSyncString, boolean allowNull) {
+            String[] fieldNames,
+            SeaTunnelDataType<?> dataTypes,
+            boolean flatSyncString,
+            boolean allowNull) {
         if (fieldNames == null || fieldNames.length < 1) {
             throw new MongodbConnectorException(ILLEGAL_ARGUMENT, "fieldName is empty");
         }
