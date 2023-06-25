@@ -34,7 +34,7 @@ import java.util.List;
 
 public class ClientCommandArgsTest {
     @Test
-    public void test_user_defined_paramsCommand() throws URISyntaxException {
+    public void testUserDefinedParamsCommand() throws URISyntaxException {
         String[] args = {
             "-c", "/args/user_defined_params.conf", "-e", "local", "-i", "fake_table=tttt"
         };
