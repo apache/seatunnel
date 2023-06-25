@@ -18,7 +18,9 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
+import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
@@ -45,9 +47,12 @@ import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.cluster.Address;
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
@@ -55,9 +60,12 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.NonNull;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -67,6 +75,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.api.common.metrics.MetricTags.JOB_ID;
+import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMetricsMap;
 
 public class CoordinatorService {
     private final NodeEngineImpl nodeEngine;
@@ -528,6 +539,73 @@ public class CoordinatorService {
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(runningJobMaster.getCurrJobMetrics());
         JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
         return jobMetricsImap != null ? jobMetricsImap.merge(jobMetrics) : jobMetrics;
+    }
+
+    public Map<Long, JobMetrics> getRunningJobMetrics() {
+        final Set<Long> runningJobIds = runningJobMasterMap.keySet();
+
+        Set<Address> addresses = new HashSet<>();
+        ownedSlotProfilesIMap.forEach(
+                (pipelineLocation, ownedSlotProfilesIMap) -> {
+                    if (runningJobIds.contains(pipelineLocation.getJobId())) {
+                        ownedSlotProfilesIMap
+                                .values()
+                                .forEach(
+                                        ownedSlotProfile -> {
+                                            addresses.add(ownedSlotProfile.getWorker());
+                                        });
+                    }
+                });
+
+        List<RawJobMetrics> metrics = new ArrayList<>();
+
+        addresses.forEach(
+                address -> {
+                    try {
+                        if (nodeEngine.getClusterService().getMember(address) != null) {
+                            RawJobMetrics rawJobMetrics =
+                                    (RawJobMetrics)
+                                            NodeEngineUtil.sendOperationToMemberNode(
+                                                            nodeEngine,
+                                                            new GetMetricsOperation(
+                                                                    dis ->
+                                                                            (dis.tagValue(JOB_ID)
+                                                                                            != null
+                                                                                    && runningJobIds
+                                                                                            .contains(
+                                                                                                    Long
+                                                                                                            .parseLong(
+                                                                                                                    dis
+                                                                                                                            .tagValue(
+                                                                                                                                    JOB_ID))))),
+                                                            address)
+                                                    .get();
+                            metrics.add(rawJobMetrics);
+                        }
+                    }
+                    // HazelcastInstanceNotActiveException. It means that the node is
+                    // offline, so waiting for the taskGroup to restore can be successful
+                    catch (HazelcastInstanceNotActiveException e) {
+                        logger.warning(
+                                String.format(
+                                        "get metrics with exception: %s.",
+                                        ExceptionUtils.getMessage(e)));
+                    } catch (Exception e) {
+                        throw new SeaTunnelException(e.getMessage());
+                    }
+                });
+
+        Map<Long, JobMetrics> longJobMetricsMap = toJobMetricsMap(metrics);
+
+        longJobMetricsMap.forEach(
+                (jobId, jobMetrics) -> {
+                    JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
+                    if (jobMetricsImap != null) {
+                        longJobMetricsMap.put(jobId, jobMetricsImap.merge(jobMetrics));
+                    }
+                });
+
+        return longJobMetricsMap;
     }
 
     public JobDAGInfo getJobInfo(long jobId) {

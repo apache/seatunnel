@@ -160,5 +160,5 @@ source {
 
 ### next version
 
-- [Feature] Add Pulsar canal-format and e2e ([4111](https://github.com/apache/incubator-seatunnel/pull/4111))
+- [Feature] Add Pulsar canal-format and e2e ([4111](https://github.com/apache/seatunnel/pull/4111))
 
