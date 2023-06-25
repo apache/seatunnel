@@ -92,19 +92,17 @@ public class MongodbSource
             this.rowType = CatalogTableUtil.buildSimpleTextSchema();
         }
 
+        Boolean flatSyncString = MongodbConfig.FLAT_SYNC_STRING.defaultValue();
+        Boolean allowNull = MongodbConfig.ALLOW_NULL.defaultValue();
         if (pluginConfig.hasPath(MongodbConfig.FLAT_SYNC_STRING.key())) {
-            deserializer =
-                    new DocumentRowDataDeserializer(
-                            rowType.getFieldNames(),
-                            rowType,
-                            pluginConfig.getBoolean(MongodbConfig.FLAT_SYNC_STRING.key()));
-        } else {
-            deserializer =
-                    new DocumentRowDataDeserializer(
-                            rowType.getFieldNames(),
-                            rowType,
-                            MongodbConfig.FLAT_SYNC_STRING.defaultValue());
+            flatSyncString = pluginConfig.getBoolean(MongodbConfig.FLAT_SYNC_STRING.key());
         }
+        if (pluginConfig.hasPath(MongodbConfig.ALLOW_NULL.key())) {
+            allowNull = pluginConfig.getBoolean(MongodbConfig.ALLOW_NULL.key());
+        }
+        deserializer =
+                new DocumentRowDataDeserializer(
+                        rowType.getFieldNames(), rowType, flatSyncString, allowNull);
 
         SamplingSplitStrategy.Builder splitStrategyBuilder = SamplingSplitStrategy.builder();
         if (pluginConfig.hasPath(MongodbConfig.MATCH_QUERY.key())) {

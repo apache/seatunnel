@@ -40,11 +40,14 @@ public class DocumentRowDataDeserializer implements DocumentDeserializer<SeaTunn
     private final Boolean flatSyncString;
 
     public DocumentRowDataDeserializer(
-            String[] fieldNames, SeaTunnelDataType<?> dataTypes, Boolean flatSyncString) {
+            String[] fieldNames,
+            SeaTunnelDataType<?> dataTypes,
+            Boolean flatSyncString,
+            Boolean allowNull) {
         if (fieldNames == null || fieldNames.length < 1) {
             throw new MongodbConnectorException(ILLEGAL_ARGUMENT, "fieldName is empty");
         }
-        this.bsonConverters = new BsonToRowDataConverters();
+        this.bsonConverters = new BsonToRowDataConverters(allowNull);
         this.fieldNames = fieldNames;
         this.fieldTypes = ((SeaTunnelRowType) dataTypes).getFieldTypes();
         this.flatSyncString = flatSyncString;

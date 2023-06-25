@@ -55,6 +55,12 @@ public class BsonToRowDataConverters implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    private final boolean allowNull;
+
+    public BsonToRowDataConverters(boolean allowNull) {
+        this.allowNull = allowNull;
+    }
+
     @FunctionalInterface
     public interface BsonToRowDataConverter extends Serializable {
         Object convert(BsonValue bsonValue);
@@ -73,12 +79,12 @@ public class BsonToRowDataConverters implements Serializable {
         };
     }
 
-    private static SerializableFunction<BsonValue, Object> createNullSafeInternalConverter(
+    private SerializableFunction<BsonValue, Object> createNullSafeInternalConverter(
             SeaTunnelDataType<?> type) {
         return wrapIntoNullSafeInternalConverter(createInternalConverter(type), type);
     }
 
-    private static SerializableFunction<BsonValue, Object> wrapIntoNullSafeInternalConverter(
+    private SerializableFunction<BsonValue, Object> wrapIntoNullSafeInternalConverter(
             SerializableFunction<BsonValue, Object> internalConverter, SeaTunnelDataType<?> type) {
         return new SerializableFunction<BsonValue, Object>() {
             private static final long serialVersionUID = 1L;
@@ -86,9 +92,16 @@ public class BsonToRowDataConverters implements Serializable {
             @Override
             public Object apply(BsonValue bsonValue) {
                 if (isBsonValueNull(bsonValue) || isBsonDecimalNaN(bsonValue)) {
-                    throw new MongodbConnectorException(
-                            UNSUPPORTED_OPERATION,
-                            "Unable to convert to <" + type + "> from nullable value " + bsonValue);
+                    if (allowNull) {
+                        return null;
+                    } else {
+                        throw new MongodbConnectorException(
+                                UNSUPPORTED_OPERATION,
+                                "Unable to convert to <"
+                                        + type
+                                        + "> from nullable value "
+                                        + bsonValue);
+                    }
                 }
                 return internalConverter.apply(bsonValue);
             }
@@ -105,7 +118,7 @@ public class BsonToRowDataConverters implements Serializable {
         return bsonValue.isDecimal128() && bsonValue.asDecimal128().getValue().isNaN();
     }
 
-    private static SerializableFunction<BsonValue, Object> createInternalConverter(
+    private SerializableFunction<BsonValue, Object> createInternalConverter(
             SeaTunnelDataType<?> type) {
         switch (type.getSqlType()) {
             case NULL:
@@ -233,12 +246,11 @@ public class BsonToRowDataConverters implements Serializable {
         return Timestamp.from(instant).toLocalDateTime();
     }
 
-    private static SerializableFunction<BsonValue, Object> createRowConverter(
-            SeaTunnelRowType type) {
+    private SerializableFunction<BsonValue, Object> createRowConverter(SeaTunnelRowType type) {
         SeaTunnelDataType<?>[] fieldTypes = type.getFieldTypes();
         final SerializableFunction<BsonValue, Object>[] fieldConverters =
                 Arrays.stream(fieldTypes)
-                        .map(BsonToRowDataConverters::createNullSafeInternalConverter)
+                        .map(this::createNullSafeInternalConverter)
                         .toArray(SerializableFunction[]::new);
         int fieldCount = type.getTotalFields();
 
@@ -271,8 +283,7 @@ public class BsonToRowDataConverters implements Serializable {
         };
     }
 
-    private static SerializableFunction<BsonValue, Object> createArrayConverter(
-            ArrayType<?, ?> type) {
+    private SerializableFunction<BsonValue, Object> createArrayConverter(ArrayType<?, ?> type) {
         final SerializableFunction<BsonValue, Object> elementConverter =
                 createNullSafeInternalConverter(type.getElementType());
         return new SerializableFunction<BsonValue, Object>() {
@@ -299,7 +310,7 @@ public class BsonToRowDataConverters implements Serializable {
         };
     }
 
-    private static SerializableFunction<BsonValue, Object> createMapConverter(
+    private SerializableFunction<BsonValue, Object> createMapConverter(
             String typeSummary, SeaTunnelDataType<?> keyType, SeaTunnelDataType<?> valueType) {
         if (!keyType.getSqlType().equals(SqlType.STRING)) {
             throw new MongodbConnectorException(

@@ -104,6 +104,12 @@ public class MongodbConfig {
                     .withDescription(
                             "By utilizing flatSyncString, only one field attribute value can be set, and the field type must be a String. This operation will perform a string mapping on a single MongoDB data entry.");
 
+    public static final Option<Boolean> ALLOW_NULL =
+            Options.key("allow-null")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("allow null value when fields reading is null");
+
     // --------------------------------------------------------------------
     // The following are the sink parameters.
     // --------------------------------------------------------------------
