@@ -13,7 +13,11 @@ Key Features
 ------------
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [cdc](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
+
+**Tips**
+
+> 1.If you want to use CDC-written features, recommend enable the upsert-enable configuration.
 
 Description
 -----------
@@ -34,9 +38,9 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 Data Type Mapping
 -----------------
 
-The following table lists the field data type mapping from MongoDB BSON type to SeaTunnel data type.
+The following table lists the field data type mapping from MongoDB BSON type to Seatunnel data type.
 
-| SeaTunnel Data Type | MongoDB BSON Type |
+| Seatunnel Data Type | MongoDB BSON Type |
 |---------------------|-------------------|
 | STRING              | ObjectId          |
 | STRING              | String            |
@@ -62,23 +66,24 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 Sink Options
 ------------
 
-|         Name          |   Type   | Required | Default |                                                  Description                                                   |
-|-----------------------|----------|----------|---------|----------------------------------------------------------------------------------------------------------------|
-| uri                   | String   | Yes      | -       | The MongoDB connection uri.                                                                                    |
-| database              | String   | Yes      | -       | The name of MongoDB database to read or write.                                                                 |
-| collection            | String   | Yes      | -       | The name of MongoDB collection to read or write.                                                               |
-| schema                | String   | Yes      | -       | MongoDB's BSON and seatunnel data structure mapping                                                            |
-| buffer-flush.max-rows | String   | No       | 1000    | Specifies the maximum number of buffered rows per batch request.                                               |
-| buffer-flush.interval | String   | No       | 30000   | Specifies the retry time interval if writing records to database failed, the unit is seconds.                  |
-| retry.max             | String   | No       | 3       | Specifies the max retry times if writing records to database failed.                                           |
-| retry.interval        | Duration | No       | 1000    | Specifies the retry time interval if writing records to database failed, the unit is millisecond.              |
-| upsert-enable         | Boolean  | No       | false   | Whether to write documents via upsert mode.                                                                    |
-| upsert-key            | List     | No       | -       | The primary keys for upsert. Only valid in upsert mode. Keys are in `["id","name",...]` format for properties. |
+|         Name          |   Type   | Required | Default |                                            Description                                            |
+|-----------------------|----------|----------|---------|---------------------------------------------------------------------------------------------------|
+| uri                   | String   | Yes      | -       | The MongoDB connection uri.                                                                       |
+| database              | String   | Yes      | -       | The name of MongoDB database to read or write.                                                    |
+| collection            | String   | Yes      | -       | The name of MongoDB collection to read or write.                                                  |
+| schema                | String   | Yes      | -       | MongoDB's BSON and seatunnel data structure mapping                                               |
+| buffer-flush.max-rows | String   | No       | 1000    | Specifies the maximum number of buffered rows per batch request.                                  |
+| buffer-flush.interval | String   | No       | 30000   | Specifies the retry time interval if writing records to database failed, the unit is seconds.     |
+| retry.max             | String   | No       | 3       | Specifies the max retry times if writing records to database failed.                              |
+| retry.interval        | Duration | No       | 1000    | Specifies the retry time interval if writing records to database failed, the unit is millisecond. |
+| upsert-enable         | Boolean  | No       | false   | Whether to write documents via upsert mode.                                                       |
+| primary-key           | List     | No       | -       | The primary keys for upsert/update. Keys are in `["id","name",...]` format for properties.        |
 
 **Tips**
 
 > 1.The data flushing logic of the MongoDB Sink Connector is jointly controlled by three parameters: `buffer-flush.max-rows`, `buffer-flush.interval`, and `checkpoint.interval`.
 > Data flushing will be triggered if any of these conditions are met.<br/>
+> 2.Compatible with the historical parameter `upsert-key`. If `upsert-key` is set, please do not set `primary-key`.<br/>
 
 How to Create a MongoDB Data Synchronization Jobs
 -------------------------------------------------
@@ -198,8 +203,8 @@ The necessity for using transactions can be greatly avoided by designing systems
 
 By specifying a clear primary key and using the upsert method, exactly-once write semantics can be achieved.
 
-If upsert-key is defined in the configuration, the MongoDB sink will use upsert semantics instead of regular INSERT statements. We combine the primary keys declared in upsert-key as the MongoDB reserved primary key and use upsert mode for writing to ensure idempotent writes.
-In the event of a failure, SeaTunnel jobs will recover from the last successful checkpoint and reprocess, which may result in duplicate message processing during recovery. It is highly recommended to use upsert mode, as it helps to avoid violating database primary key constraints and generating duplicate data if records need to be reprocessed.
+If `primary-key` and `upsert-enable` is defined in the configuration, the MongoDB sink will use upsert semantics instead of regular INSERT statements. We combine the primary keys declared in upsert-key as the MongoDB reserved primary key and use upsert mode for writing to ensure idempotent writes.
+In the event of a failure, Seatunnel jobs will recover from the last successful checkpoint and reprocess, which may result in duplicate message processing during recovery. It is highly recommended to use upsert mode, as it helps to avoid violating database primary key constraints and generating duplicate data if records need to be reprocessed.
 
 ```bash
 sink {
@@ -208,7 +213,7 @@ sink {
     database = "test_db"
     collection = "users"
     upsert-enable = true
-    upsert-key = ["name","status"]
+    primary-key = ["name","status"]
     schema = {
       fields {
         _id = string
@@ -222,11 +227,15 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
+### 2.2.0-beta
 
 - Add MongoDB Source Connector
 
+### 2.3.1-release
+
+- [Feature]Refactor mongodb source connector([4620](https://github.com/apache/incubator-seatunnel/pull/4620))
+
 ### Next Version
 
-- [Feature]Refactor mongodb source connector([4620](https://github.com/apache/seatunnel/pull/4620))
+- [Feature]Mongodb support cdc sink([4833](https://github.com/apache/seatunnel/pull/4833))
 

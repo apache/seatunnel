@@ -21,6 +21,7 @@
 - [Connector-V2] [Kafka] Fix KafkaProducer resources have never been released. (#4302)
 - [Connector-V2] [Kafka] Fix the permission problem caused by client.id. (#4246)
 - [Connector-V2] [Kafka] Fix KafkaConsumerThread exit caused by commit offset error. (#4379)
+- [Connector-V2] [Mongodb] Mongodb support cdc sink. (#4833)
 - [Connector-V2] [kafka] Fix the problem that the partition information can not be obtained when kafka is restored (#4764)
 - [Connector-V2] [SFTP] Fix incorrect exception handling logic (#4720)
 - [Connector-V2] [File] Fix read temp file (#4876)

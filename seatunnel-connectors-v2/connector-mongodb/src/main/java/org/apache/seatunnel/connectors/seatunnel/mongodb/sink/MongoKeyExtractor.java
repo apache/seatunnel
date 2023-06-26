@@ -28,15 +28,15 @@ public class MongoKeyExtractor implements SerializableFunction<BsonDocument, Bso
 
     private static final long serialVersionUID = 1L;
 
-    private final String[] upsertKey;
+    private final String[] primaryKey;
 
     public MongoKeyExtractor(MongodbWriterOptions options) {
-        upsertKey = options.getUpsertKey();
+        primaryKey = options.getPrimaryKey();
     }
 
     @Override
     public BsonDocument apply(BsonDocument bsonDocument) {
-        return Arrays.stream(upsertKey)
+        return Arrays.stream(primaryKey)
                 .filter(bsonDocument::containsKey)
                 .collect(
                         Collectors.toMap(
