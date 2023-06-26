@@ -26,7 +26,6 @@
     <name>SeaTunnel : E2E : Connector V2 : Mongodb</name>
 
     <dependencies>
-        <!-- SeaTunnel connectors -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-mongodb</artifactId>
@@ -36,6 +35,12 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-assert</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-fake</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
