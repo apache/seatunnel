@@ -98,32 +98,38 @@ source {
         pk_id = bigint
         name = string
         score = int
+        sex = boolean
+        number = tinyint
+        height = float
+        sight = double
+        create_time = date
+        update_time = timestamp
       }
     }
     rows = [
       {
         kind = INSERT
-        fields = [1, "A", 100]
+        fields = [1, "A", 100, true, 1, 170.0, 4.3, "2020-02-02", "2020-02-02T02:02:02"]
       },
       {
         kind = INSERT
-        fields = [2, "B", 100]
+        fields = [2, "B", 100, true, 1, 170.0, 4.3, "2020-02-02", "2020-02-02T02:02:02"]
       },
       {
         kind = INSERT
-        fields = [3, "C", 100]
+        fields = [3, "C", 100, true, 1, 170.0, 4.3, "2020-02-02", "2020-02-02T02:02:02"]
       },
       {
         kind = UPDATE_BEFORE
-        fields = [1, "A", 100]
+        fields = [1, "A", 100, true, 1, 170.0, 4.3, "2020-02-02", "2020-02-02T02:02:02"]
       },
       {
         kind = UPDATE_AFTER
-        fields = [1, "A_1", 100]
+        fields = [1, "A_1", 100, true, 1, 170.0, 4.3, "2020-02-02", "2020-02-02T02:02:02"]
       },
       {
         kind = DELETE
-        fields = [2, "B", 100]
+        fields = [2, "B", 100, true, 1, 170.0, 4.3, "2020-02-02", "2020-02-02T02:02:02"]
       }
     ]
   }
