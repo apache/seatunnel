@@ -25,10 +25,6 @@
     <artifactId>connector-kafka-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Kafka</name>
 
-    <properties>
-        <postgresql.version>42.4.3</postgresql.version>
-    </properties>
-
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -94,7 +90,6 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <version>${postgresql.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
