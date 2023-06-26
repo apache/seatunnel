@@ -45,6 +45,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatError
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
+import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
@@ -266,6 +267,8 @@ public class KafkaSource
                                     .setIgnoreParseErrors(true)
                                     .build();
                     break;
+                case AVRO:
+                    deserializationSchema = new AvroDeserializationSchema(typeInfo);
                 default:
                     throw new SeaTunnelJsonFormatException(
                             CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
