@@ -176,6 +176,7 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         return new Builder();
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     public static class Builder {
         private MongodbClientProvider clientProvider;
 

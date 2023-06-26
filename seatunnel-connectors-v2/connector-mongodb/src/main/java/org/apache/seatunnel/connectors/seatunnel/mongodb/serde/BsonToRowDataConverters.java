@@ -233,6 +233,7 @@ public class BsonToRowDataConverters implements Serializable {
         return Timestamp.from(instant).toLocalDateTime();
     }
 
+    @SuppressWarnings("unchecked")
     private static SerializableFunction<BsonValue, Object> createRowConverter(
             SeaTunnelRowType type) {
         SeaTunnelDataType<?>[] fieldTypes = type.getFieldTypes();

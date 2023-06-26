@@ -41,8 +41,6 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.SamplingSplitStrategy;
 
-import org.bson.BsonDocument;
-
 import com.google.auto.service.AutoService;
 
 import java.util.ArrayList;
@@ -73,71 +71,56 @@ public class MongodbSource
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        if (pluginConfig.hasPath(MongodbConfig.URI.key())
-                && pluginConfig.hasPath(MongodbConfig.DATABASE.key())
-                && pluginConfig.hasPath(MongodbConfig.COLLECTION.key())) {
-            String connection = pluginConfig.getString(MongodbConfig.URI.key());
-            String database = pluginConfig.getString(MongodbConfig.DATABASE.key());
-            String collection = pluginConfig.getString(MongodbConfig.COLLECTION.key());
-            clientProvider =
-                    MongodbCollectionProvider.builder()
-                            .connectionString(connection)
-                            .database(database)
-                            .collection(collection)
-                            .build();
-        }
+        MongodbConfig.ProcessConfig processConfig = new MongodbConfig.ProcessConfig(pluginConfig);
+        clientProvider =
+                MongodbCollectionProvider.builder()
+                        .connectionString(pluginConfig.getString(MongodbConfig.URI.key()))
+                        .database(pluginConfig.getString(MongodbConfig.DATABASE.key()))
+                        .collection(pluginConfig.getString(MongodbConfig.COLLECTION.key()))
+                        .build();
+
         if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
             this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
         } else {
             this.rowType = CatalogTableUtil.buildSimpleTextSchema();
         }
 
-        if (pluginConfig.hasPath(MongodbConfig.FLAT_SYNC_STRING.key())) {
-            deserializer =
-                    new DocumentRowDataDeserializer(
-                            rowType.getFieldNames(),
-                            rowType,
-                            pluginConfig.getBoolean(MongodbConfig.FLAT_SYNC_STRING.key()));
-        } else {
-            deserializer =
-                    new DocumentRowDataDeserializer(
-                            rowType.getFieldNames(),
-                            rowType,
-                            MongodbConfig.FLAT_SYNC_STRING.defaultValue());
-        }
+        deserializer =
+                processConfig.processConfigValueIfPresent(
+                        MongodbConfig.FLAT_SYNC_STRING.key(),
+                        value ->
+                                new DocumentRowDataDeserializer(
+                                        rowType.getFieldNames(), rowType, value),
+                        MongodbConfig.FLAT_SYNC_STRING.defaultValue());
 
         SamplingSplitStrategy.Builder splitStrategyBuilder = SamplingSplitStrategy.builder();
-        if (pluginConfig.hasPath(MongodbConfig.MATCH_QUERY.key())) {
-            splitStrategyBuilder.setMatchQuery(
-                    BsonDocument.parse(pluginConfig.getString(MongodbConfig.MATCH_QUERY.key())));
-        }
-        if (pluginConfig.hasPath(MongodbConfig.SPLIT_KEY.key())) {
-            splitStrategyBuilder.setSplitKey(pluginConfig.getString(MongodbConfig.SPLIT_KEY.key()));
-        }
-        if (pluginConfig.hasPath(MongodbConfig.SPLIT_SIZE.key())) {
-            splitStrategyBuilder.setSizePerSplit(
-                    pluginConfig.getLong(MongodbConfig.SPLIT_SIZE.key()));
-        }
-        if (pluginConfig.hasPath(MongodbConfig.PROJECTION.key())) {
-            splitStrategyBuilder.setProjection(
-                    BsonDocument.parse(pluginConfig.getString(MongodbConfig.PROJECTION.key())));
-        }
+
+        processConfig.processConfigValueIfPresent(
+                MongodbConfig.MATCH_QUERY.key(), splitStrategyBuilder::setMatchQuery);
+
+        processConfig.processConfigValueIfPresent(
+                MongodbConfig.SPLIT_KEY.key(), splitStrategyBuilder::setSplitKey);
+
+        processConfig.processConfigValueIfPresent(
+                MongodbConfig.SPLIT_SIZE.key(), splitStrategyBuilder::setSizePerSplit);
+
+        processConfig.processConfigValueIfPresent(
+                MongodbConfig.PROJECTION.key(), splitStrategyBuilder::setProjection);
+
         splitStrategy = splitStrategyBuilder.setClientProvider(clientProvider).build();
 
         MongodbReadOptions.MongoReadOptionsBuilder mongoReadOptionsBuilder =
                 MongodbReadOptions.builder();
-        if (pluginConfig.hasPath(MongodbConfig.MAX_TIME_MIN.key())) {
-            mongoReadOptionsBuilder.setMaxTimeMS(
-                    pluginConfig.getLong(MongodbConfig.MAX_TIME_MIN.key()));
-        }
-        if (pluginConfig.hasPath(MongodbConfig.FETCH_SIZE.key())) {
-            mongoReadOptionsBuilder.setFetchSize(
-                    pluginConfig.getInt(MongodbConfig.FETCH_SIZE.key()));
-        }
-        if (pluginConfig.hasPath(MongodbConfig.CURSOR_NO_TIMEOUT.key())) {
-            mongoReadOptionsBuilder.setNoCursorTimeout(
-                    pluginConfig.getBoolean(MongodbConfig.CURSOR_NO_TIMEOUT.key()));
-        }
+
+        processConfig.processConfigValueIfPresent(
+                MongodbConfig.MAX_TIME_MIN.key(), mongoReadOptionsBuilder::setMaxTimeMin);
+
+        processConfig.processConfigValueIfPresent(
+                MongodbConfig.FETCH_SIZE.key(), mongoReadOptionsBuilder::setFetchSize);
+
+        processConfig.processConfigValueIfPresent(
+                MongodbConfig.CURSOR_NO_TIMEOUT.key(), mongoReadOptionsBuilder::setNoCursorTimeout);
+
         mongodbReadOptions = mongoReadOptionsBuilder.build();
     }
 

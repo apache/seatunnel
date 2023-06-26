@@ -51,6 +51,7 @@ public class MongodbReadOptions implements Serializable {
     }
 
     /** Builder for {@link MongodbReadOptions}. */
+    @SuppressWarnings("UnusedReturnValue")
     public static class MongoReadOptionsBuilder {
 
         private int fetchSize = FETCH_SIZE.defaultValue();
@@ -72,7 +73,7 @@ public class MongodbReadOptions implements Serializable {
             return this;
         }
 
-        public MongoReadOptionsBuilder setMaxTimeMS(long maxTimeMS) {
+        public MongoReadOptionsBuilder setMaxTimeMin(long maxTimeMS) {
             this.maxTimeMin = maxTimeMS;
             return this;
         }

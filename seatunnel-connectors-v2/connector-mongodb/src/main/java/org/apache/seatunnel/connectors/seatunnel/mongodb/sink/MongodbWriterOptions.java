@@ -70,6 +70,7 @@ public class MongodbWriterOptions implements Serializable {
     }
 
     /** Builder For {@link MongodbWriterOptions}. */
+    @SuppressWarnings("UnusedReturnValue")
     public static class Builder {
         protected String connectString;
 

@@ -27,6 +27,7 @@ import org.bson.json.JsonWriterSettings;
 
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class MongodbConfig {
 
@@ -37,11 +38,43 @@ public class MongodbConfig {
     public static final JsonWriterSettings DEFAULT_JSON_WRITER_SETTINGS =
             JsonWriterSettings.builder().outputMode(JsonMode.EXTENDED).build();
 
-    public static <T> void processConfigValueIfPresent(
-            Config pluginConfig, String configPath, Consumer<T> configAction) {
-        if (pluginConfig.hasPath(configPath)) {
-            T configValue = (T) pluginConfig.getValue(configPath).unwrapped();
-            configAction.accept(configValue);
+    public static class ProcessConfig {
+
+        Config pluginConfig;
+
+        public ProcessConfig(Config pluginConfig) {
+            this.pluginConfig = pluginConfig;
+        }
+
+        @SuppressWarnings("unchecked")
+        public <T> void processConfigValueIfPresent(String configPath, Consumer<T> configAction) {
+            if (pluginConfig.hasPath(configPath)) {
+                T configValue = (T) pluginConfig.getValue(configPath).unwrapped();
+                configAction.accept(configValue);
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        public <T> void processConfigValueIfPresent(
+                List<String> fallbackKeys, Consumer<T> configAction) {
+            fallbackKeys.forEach(
+                    key -> {
+                        if (pluginConfig.hasPath(key)) {
+                            T configValue = (T) pluginConfig.getValue(key).unwrapped();
+                            configAction.accept(configValue);
+                        }
+                    });
+        }
+
+        @SuppressWarnings("unchecked")
+        public <T, R> R processConfigValueIfPresent(
+                String configPath, Function<T, R> configAction, T defaultValue) {
+            if (pluginConfig.hasPath(configPath)) {
+                T configValue = (T) pluginConfig.getValue(configPath).unwrapped();
+                return configAction.apply(configValue);
+            } else {
+                return configAction.apply(defaultValue);
+            }
         }
     }
 
