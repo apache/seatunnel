@@ -283,7 +283,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ```hocon
 Notion {
     url = "https://api.notion.com/v1/users"
-    password = "Seatunnel-test"
+    password = "SeaTunnel-test"
     version = "2022-06-28"
     content_field = "$.results.*"
     schema = {
