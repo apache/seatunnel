@@ -15,27 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.file.cos;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.file.cos.sink.CosFileSinkFactory;
 
-public enum FileSystemType implements Serializable {
-    HDFS("HdfsFile"),
-    LOCAL("LocalFile"),
-    OSS("OssFile"),
-    OSS_JINDO("OssJindoFile"),
-    COS("CosFile"),
-    FTP("FtpFile"),
-    SFTP("SftpFile"),
-    S3("S3File");
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-    private final String fileSystemPluginName;
+public class CosFileFactoryTest {
 
-    FileSystemType(String fileSystemPluginName) {
-        this.fileSystemPluginName = fileSystemPluginName;
-    }
-
-    public String getFileSystemPluginName() {
-        return fileSystemPluginName;
+    @Test
+    void optionRule() {
+        Assertions.assertNotNull((new CosFileSinkFactory()).optionRule());
     }
 }
