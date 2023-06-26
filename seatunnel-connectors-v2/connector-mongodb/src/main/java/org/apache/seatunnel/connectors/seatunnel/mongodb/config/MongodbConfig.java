@@ -142,10 +142,11 @@ public class MongodbConfig {
                     .defaultValue(false)
                     .withDescription("Whether to write documents via upsert mode.");
 
-    public static final Option<List<String>> UPSERT_KEY =
-            Options.key("upsert-key")
+    public static final Option<List<String>> PRIMARY_KEY =
+            Options.key("primary-key")
                     .listType()
                     .noDefaultValue()
                     .withDescription(
-                            "The primary keys for upsert. Only valid in upsert mode. Keys are in csv format for properties.");
+                            "The primary keys for upsert/update. Keys are in csv format for properties.")
+                    .withFallbackKeys("upsert-key");
 }
