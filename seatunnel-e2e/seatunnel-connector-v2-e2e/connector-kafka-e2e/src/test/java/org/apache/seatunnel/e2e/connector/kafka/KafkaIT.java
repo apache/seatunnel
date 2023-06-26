@@ -275,6 +275,28 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         testKafkaGroupOffsetsToConsole(container);
     }
 
+    @TestTemplate
+    public void testFakeSourceToKafkaAvroFormat(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/avro/fake_source_to_kafka_avro_format.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testKafkaAvroToConsole(TestContainer container)
+            throws IOException, InterruptedException {
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_avro_topic",
+                        SEATUNNEL_ROW_TYPE,
+                        MessageFormat.AVRO,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(row -> serializer.serializeRow(row), 0, 100);
+        Container.ExecResult execResult = container.executeJob("/avro/kafka_avro_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     public void testKafkaLatestToConsole(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =

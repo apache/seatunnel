@@ -45,6 +45,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatError
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
+import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchema;
@@ -275,6 +276,9 @@ public class KafkaSource
                     }
                     deserializationSchema =
                             new DebeziumJsonDeserializationSchema(typeInfo, true, includeSchema);
+                    break;
+                case AVRO:
+                    deserializationSchema = new AvroDeserializationSchema(typeInfo);
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(
