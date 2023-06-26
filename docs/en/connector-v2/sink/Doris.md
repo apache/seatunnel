@@ -73,7 +73,6 @@ Version Supported
 | QUANTILE_STATE  | Not supported yet                       |
 | STRUCT          | Not supported yet                       |
 
-
 #### Supported import data formats
 
 The supported formats include CSV and JSON
@@ -82,7 +81,64 @@ The supported formats include CSV and JSON
 
 ### Simple:
 
-> This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to Doris Sink,FakeSource simulates CDC data with schema pk_id (bigint type), name (string type), and score (int type),Doris needs to create a table sink named test.e2e_table_sink and a corresponding table for it.
+> The following example describes writing multiple data types to Doris, and users need to create corresponding tables downstream
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  checkpoint.interval = 10000
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    map.size = 10
+    array.size = 10
+    bytes.length = 10
+    string.length = 10
+    schema = {
+      fields {
+        c_map = "map<string, array<int>>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(16, 1)"
+        c_null = "null"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
+    }
+    }
+}
+
+sink {
+  Doris {
+    fenodes = "doris_cdc_e2e:8030"
+    username = root
+    password = ""
+    table.identifier = "test.e2e_table_sink"
+    sink.label-prefix = "test-cdc"
+    sink.enable-2pc = "true"
+    sink.enable-delete = "true"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+### CDC(Change Data Capture) Event:
+
+> This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to Doris Sink,FakeSource simulates CDC data with schema, score (int type),Doris needs to create a table sink named test.e2e_table_sink and a corresponding table for it.
 
 ```hocon
 env {
