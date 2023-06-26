@@ -35,8 +35,18 @@ import java.util.List;
 public class ClientCommandArgsTest {
     @Test
     public void testUserDefinedParamsCommand() throws URISyntaxException {
+        int fakeParallelism = 16;
         String[] args = {
-            "-c", "/args/user_defined_params.conf", "-e", "local", "-i", "fake_table=tttt"
+            "-c",
+            "/args/user_defined_params.conf",
+            "-e",
+            "local",
+            "-i",
+            "fake_source_table=fake",
+            "-i",
+            "fake_parallelism=16",
+            "-i",
+            "fake_sink_table=sink",
         };
         ClientCommandArgs clientCommandArgs =
                 CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-zeta", true);
@@ -52,12 +62,14 @@ public class ClientCommandArgsTest {
         List<? extends ConfigObject> sourceConfig = config.getObjectList("source");
         for (ConfigObject configObject : sourceConfig) {
             String tableName = configObject.toConfig().getString("result_table_name");
-            Assertions.assertEquals(tableName, "tttt");
+            Assertions.assertEquals(tableName, "fake");
+            int parallelism = Integer.parseInt(configObject.toConfig().getString("parallelism"));
+            Assertions.assertEquals(fakeParallelism, parallelism);
         }
         List<? extends ConfigObject> sinkConfig = config.getObjectList("sink");
         for (ConfigObject sinkObject : sinkConfig) {
             String tableName = sinkObject.toConfig().getString("result_table_name");
-            Assertions.assertEquals(tableName, "tttt");
+            Assertions.assertEquals(tableName, "sink");
         }
     }
 }
