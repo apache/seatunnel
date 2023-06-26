@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
@@ -86,10 +87,12 @@ public class MongodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void write(SeaTunnelRow o) throws IOException {
-        bulkRequests.add(serializer.serializeToWriteModel(o));
-        if (isOverMaxBatchSizeLimit() || isOverMaxBatchIntervalLimit()) {
-            doBulkWrite();
+    public void write(SeaTunnelRow o) {
+        if (o.getRowKind() != RowKind.UPDATE_BEFORE) {
+            bulkRequests.add(serializer.serializeToWriteModel(o));
+            if (isOverMaxBatchSizeLimit() || isOverMaxBatchIntervalLimit()) {
+                doBulkWrite();
+            }
         }
     }
 
