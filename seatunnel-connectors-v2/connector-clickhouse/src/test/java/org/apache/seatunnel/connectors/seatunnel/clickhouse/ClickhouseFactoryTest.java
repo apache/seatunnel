@@ -27,9 +27,10 @@ import org.junit.jupiter.api.Test;
 import net.jpountz.xxhash.XXHash64;
 import net.jpountz.xxhash.XXHashFactory;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class ClickhouseFactoryTest {
     private static final XXHash64 HASH_INSTANCE = XXHashFactory.fastestInstance().hash64();
@@ -41,26 +42,38 @@ public class ClickhouseFactoryTest {
         Assertions.assertNotNull((new ClickhouseFileSinkFactory()).optionRule());
     }
 
-    public int getShard(Object shardValue) {
-        int shardWeightCount = 6;
-        int offset =
-                (int)
-                        ((HASH_INSTANCE.hash(
-                                                ByteBuffer.wrap(
-                                                        shardValue
-                                                                .toString()
-                                                                .getBytes(StandardCharsets.UTF_8)),
-                                                0)
-                                        & Long.MAX_VALUE)
-                                % shardWeightCount);
-        return offset;
-    }
-
     @Test
     public void testShared() {
-        String a = "a,b,c,d,e,f";
-        for (Object o : Arrays.stream(a.split(",")).toArray()) {
-            System.out.println(getShard(o));
+        // Create an instance of the XXHash64 algorithm
+        XXHashFactory factory = XXHashFactory.fastestInstance();
+        XXHash64 hash64 = factory.hash64();
+
+        // Define your input data
+        byte[] input;
+        ArrayList<String> strings = new ArrayList<>();
+
+        Map<Long, Long> resultCount = new HashMap<>();
+        for (int i = 1; i <= 1000000; i++) {
+            input = UUID.randomUUID().toString().getBytes();
+            // Calculate the hash value
+            long hashValue = hash64.hash(input, 0, input.length, 0);
+
+            // Apply modulo operation to get a non-negative result
+            int modulo = 10;
+            long nonNegativeResult = (hashValue & Long.MAX_VALUE) % modulo;
+            Long keyValue = resultCount.get(nonNegativeResult);
+
+            if (keyValue != null) {
+                resultCount.put(nonNegativeResult, keyValue + 1L);
+
+            } else {
+                resultCount.put(nonNegativeResult, 1L);
+            }
         }
+        Long totalResult = 0L;
+        for (Long key : resultCount.keySet()) {
+            totalResult += resultCount.get(key);
+        }
+        Assertions.assertEquals(1000000, totalResult);
     }
 }
