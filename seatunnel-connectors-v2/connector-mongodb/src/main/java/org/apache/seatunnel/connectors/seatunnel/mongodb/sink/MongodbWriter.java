@@ -33,7 +33,6 @@ import com.mongodb.client.model.BulkWriteOptions;
 import com.mongodb.client.model.WriteModel;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -61,6 +60,7 @@ public class MongodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private volatile long lastSendTime = 0L;
 
+    // TODO：Reserve parameters.
     private final SinkWriter.Context context;
 
     public MongodbWriter(
@@ -103,7 +103,7 @@ public class MongodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         doBulkWrite();
         if (collectionProvider != null) {
             collectionProvider.close();
