@@ -36,17 +36,25 @@ public class ClientCommandArgsTest {
     @Test
     public void testUserDefinedParamsCommand() throws URISyntaxException {
         int fakeParallelism = 16;
+        String username = "seatunnel=2.3.1";
+        String password = "dsjr42=4wfskahdsd=w1chh";
+        String fakeSourceTable = "fake";
+        String fakeSinkTable = "sink";
         String[] args = {
             "-c",
             "/args/user_defined_params.conf",
             "-e",
             "local",
             "-i",
-            "fake_source_table=fake",
+            "fake_source_table=" + fakeSourceTable,
             "-i",
-            "fake_parallelism=16",
+            "fake_parallelism=" + fakeParallelism,
             "-i",
-            "fake_sink_table=sink",
+            "fake_sink_table=" + fakeSinkTable,
+            "-i",
+            "password=" + password,
+            "-i",
+            "username=" + username
         };
         ClientCommandArgs clientCommandArgs =
                 CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-zeta", true);
@@ -59,17 +67,27 @@ public class ClientCommandArgsTest {
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
                                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
-        List<? extends ConfigObject> sourceConfig = config.getObjectList("source");
-        for (ConfigObject configObject : sourceConfig) {
-            String tableName = configObject.toConfig().getString("result_table_name");
-            Assertions.assertEquals(tableName, "fake");
-            int parallelism = Integer.parseInt(configObject.toConfig().getString("parallelism"));
+        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
+        for (ConfigObject configObject : sourceConfigs) {
+            Config sourceConfig = configObject.toConfig();
+
+            String tableName = sourceConfig.getString("result_table_name");
+            Assertions.assertEquals(tableName, fakeSourceTable);
+
+            int parallelism = Integer.parseInt(sourceConfig.getString("parallelism"));
             Assertions.assertEquals(fakeParallelism, parallelism);
+
+            Assertions.assertEquals(sourceConfig.getString("username"), username);
+            Assertions.assertEquals(sourceConfig.getString("password"), password);
         }
-        List<? extends ConfigObject> sinkConfig = config.getObjectList("sink");
-        for (ConfigObject sinkObject : sinkConfig) {
-            String tableName = sinkObject.toConfig().getString("result_table_name");
-            Assertions.assertEquals(tableName, "sink");
+        List<? extends ConfigObject> sinkConfigs = config.getObjectList("sink");
+        for (ConfigObject sinkObject : sinkConfigs) {
+            Config sinkConfig = sinkObject.toConfig();
+            String tableName = sinkConfig.getString("result_table_name");
+            Assertions.assertEquals(tableName, fakeSinkTable);
+
+            Assertions.assertEquals(sinkConfig.getString("username"), username);
+            Assertions.assertEquals(sinkConfig.getString("password"), password);
         }
     }
 }
