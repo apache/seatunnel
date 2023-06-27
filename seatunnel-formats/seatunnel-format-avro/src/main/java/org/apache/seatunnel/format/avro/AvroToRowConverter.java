@@ -47,13 +47,14 @@ public class AvroToRowConverter implements Serializable {
 
     private static final long serialVersionUID = 8177020083886379563L;
 
-    private final DatumReader<GenericRecord> reader;
+    private DatumReader<GenericRecord> reader = null;
 
-    public AvroToRowConverter() {
-        this.reader = createReader();
-    }
+    public AvroToRowConverter() {}
 
     public DatumReader<GenericRecord> getReader() {
+        if (reader == null) {
+            reader = createReader();
+        }
         return reader;
     }
 
@@ -63,7 +64,7 @@ public class AvroToRowConverter implements Serializable {
         datumReader.getData().addLogicalTypeConversion(new TimeConversions.DateConversion());
         datumReader
                 .getData()
-                .addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
+                .addLogicalTypeConversion(new TimeConversions.TimestampMillisConversion());
         return datumReader;
     }
 
@@ -72,7 +73,7 @@ public class AvroToRowConverter implements Serializable {
 
         Object[] values = new Object[fieldNames.length];
         for (int i = 0; i < fieldNames.length; i++) {
-            if (!record.hasField(fieldNames[i])) {
+            if (record.getSchema().getField(fieldNames[i]) == null) {
                 values[i] = null;
                 continue;
             }
@@ -126,7 +127,7 @@ public class AvroToRowConverter implements Serializable {
             default:
                 String errorMsg =
                         String.format(
-                                "SeaTunnel file connector is not supported for this data type [%s]",
+                                "SeaTunnel avro format is not supported for this data type [%s]",
                                 dataType.getSqlType());
                 throw new SeaTunnelAvroFormatException(
                         AvroFormatErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);

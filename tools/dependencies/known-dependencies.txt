@@ -38,3 +38,4 @@ listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar
 accessors-smart-2.4.7.jar
 asm-9.1.jar
 json-smart-2.4.7.jar
+avro-1.10.2.jar

@@ -32,7 +32,7 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 
 Kafka Topic.
 
-Currently two formats are supported:
+Currently, two formats are supported:
 
 1. Fill in the name of the topic.
 
@@ -108,7 +108,7 @@ Kafka distinguishes different transactions by different transactionId. This para
 
 ### format
 
-Data format. The default format is json. Optional text format. The default field separator is ",".
+Data format. The default format is json. Optional text, avro format. The default field separator is ",".
 If you customize the delimiter, add the "field_delimiter" option.
 
 ### field_delimiter

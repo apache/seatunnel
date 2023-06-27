@@ -269,6 +269,7 @@ public class KafkaSource
                     break;
                 case AVRO:
                     deserializationSchema = new AvroDeserializationSchema(typeInfo);
+                    break;
                 default:
                     throw new SeaTunnelJsonFormatException(
                             CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);

@@ -37,8 +37,6 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.io.DatumWriter;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -68,7 +66,7 @@ public class RowToAvroConverter implements Serializable {
         datumWriter.getData().addLogicalTypeConversion(new TimeConversions.DateConversion());
         datumWriter
                 .getData()
-                .addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
+                .addLogicalTypeConversion(new TimeConversions.TimestampMillisConversion());
         return datumWriter;
     }
 
@@ -150,8 +148,7 @@ public class RowToAvroConverter implements Serializable {
                 LogicalTypes.Decimal decimal = LogicalTypes.decimal(precision, scale);
                 return decimal.addToSchema(Schema.create(Schema.Type.BYTES));
             case TIMESTAMP:
-                return LogicalTypes.localTimestampMillis()
-                        .addToSchema(Schema.create(Schema.Type.LONG));
+                return LogicalTypes.timestampMillis().addToSchema(Schema.create(Schema.Type.LONG));
             case DATE:
                 return LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT));
             case NULL:
@@ -159,7 +156,7 @@ public class RowToAvroConverter implements Serializable {
             default:
                 String errorMsg =
                         String.format(
-                                "SeaTunnel file connector is not supported for this data type [%s]",
+                                "SeaTunnel avro format is not supported for this data type [%s]",
                                 seaTunnelDataType.getSqlType());
                 throw new SeaTunnelAvroFormatException(
                         AvroFormatErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);

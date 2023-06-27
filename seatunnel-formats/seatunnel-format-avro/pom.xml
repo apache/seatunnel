@@ -26,7 +26,7 @@
     <name>SeaTunnel : Formats : Avro</name>
 
     <properties>
-        <avro.version>1.11.1</avro.version>
+        <avro.version>1.10.2</avro.version>
     </properties>
 
     <dependencies>

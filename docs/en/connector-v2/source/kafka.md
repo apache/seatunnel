@@ -73,7 +73,7 @@ The structure of the data, including field names and field types.
 
 ## format
 
-Data format. The default format is json. Optional text format. The default field separator is ", ".
+Data format. The default format is json. Optional text, avro format. The default field separator is ", ".
 If you customize the delimiter, add the "field_delimiter" option.
 
 ## format_error_handle_way
