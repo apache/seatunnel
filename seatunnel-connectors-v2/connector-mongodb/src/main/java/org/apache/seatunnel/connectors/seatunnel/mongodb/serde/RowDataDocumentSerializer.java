@@ -43,7 +43,7 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.ILLEGAL_ARGU
 public class RowDataDocumentSerializer implements DocumentSerializer<SeaTunnelRow> {
 
     private final RowDataToBsonConverters.RowDataToBsonConverter rowDataToBsonConverter;
-    private final Boolean isUpsertEnable;
+    private final boolean isUpsertEnable;
     private final Function<BsonDocument, BsonDocument> filterConditions;
 
     private final Map<RowKind, WriteModelSupplier> writeModelSuppliers;

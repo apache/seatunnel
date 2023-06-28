@@ -33,7 +33,6 @@ import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCursor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -78,14 +77,14 @@ public class MongodbReader implements SourceReader<SeaTunnelRow, MongoSplit> {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         if (cursor != null) {
             cursor.close();
         }
     }
 
     @Override
-    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+    public void pollNext(Collector<SeaTunnelRow> output) {
         synchronized (output.getCheckpointLock()) {
             MongoSplit currentSplit = pendingSplits.poll();
             if (null != currentSplit) {
@@ -118,7 +117,7 @@ public class MongodbReader implements SourceReader<SeaTunnelRow, MongoSplit> {
     }
 
     @Override
-    public List<MongoSplit> snapshotState(long checkpointId) throws Exception {
+    public List<MongoSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(pendingSplits);
     }
 
@@ -135,7 +134,7 @@ public class MongodbReader implements SourceReader<SeaTunnelRow, MongoSplit> {
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) {}
 
     private void closeCurrentSplit() {
         Preconditions.checkNotNull(cursor);

@@ -152,22 +152,20 @@ public class MongodbSource
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, MongoSplit> createReader(SourceReader.Context readerContext)
-            throws Exception {
+    public SourceReader<SeaTunnelRow, MongoSplit> createReader(SourceReader.Context readerContext) {
         return new MongodbReader(readerContext, clientProvider, deserializer, mongodbReadOptions);
     }
 
     @Override
     public SourceSplitEnumerator<MongoSplit, ArrayList<MongoSplit>> createEnumerator(
-            SourceSplitEnumerator.Context<MongoSplit> enumeratorContext) throws Exception {
+            SourceSplitEnumerator.Context<MongoSplit> enumeratorContext) {
         return new MongodbSplitEnumerator(enumeratorContext, clientProvider, splitStrategy);
     }
 
     @Override
     public SourceSplitEnumerator<MongoSplit, ArrayList<MongoSplit>> restoreEnumerator(
             SourceSplitEnumerator.Context<MongoSplit> enumeratorContext,
-            ArrayList<MongoSplit> checkpointState)
-            throws Exception {
+            ArrayList<MongoSplit> checkpointState) {
         return new MongodbSplitEnumerator(
                 enumeratorContext, clientProvider, splitStrategy, checkpointState);
     }
