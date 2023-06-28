@@ -118,16 +118,16 @@ public class MongodbConfig {
     public static final Option<Long> BUFFER_FLUSH_INTERVAL =
             Options.key("buffer-flush.interval")
                     .longType()
-                    .defaultValue(30_000L)
+                    .defaultValue(30000L)
                     .withDescription(
-                            "Specifies the retry time interval if writing records to database failed.");
+                            "Specifies the maximum interval of buffered rows per batch request, the unit is millisecond.");
 
     public static final Option<Integer> RETRY_MAX =
             Options.key("retry.max")
                     .intType()
                     .defaultValue(3)
                     .withDescription(
-                            "Specifies the max retry times if writing records to database failed.");
+                            "Specifies the max number of retry if writing records to database failed.");
 
     public static final Option<Long> RETRY_INTERVAL =
             Options.key("retry.interval")
