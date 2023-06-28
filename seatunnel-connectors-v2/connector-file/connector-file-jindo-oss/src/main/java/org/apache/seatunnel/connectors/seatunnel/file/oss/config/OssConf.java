@@ -49,6 +49,8 @@ public class OssConf extends HadoopConf {
         ossOptions.put("fs.oss.accessKeyId", config.getString(OssConfig.ACCESS_KEY.key()));
         ossOptions.put("fs.oss.accessKeySecret", config.getString(OssConfig.ACCESS_SECRET.key()));
         ossOptions.put("fs.oss.endpoint", config.getString(OssConfig.ENDPOINT.key()));
+        ossOptions.put("fs.oss.upload.thread.concurrency", "20");
+        ossOptions.put("fs.oss.upload.queue.size", "100");
         hadoopConf.setExtraOptions(ossOptions);
         return hadoopConf;
     }
