@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 @Disabled("Disabled because it needs user's personal oceanbase account to run this test!")
-public class JdbcOceanbaseIT extends AbstractJdbcIT {
+public class JdbcOceanBaseOracleIT extends AbstractJdbcIT {
     private static final String OCEANBASE_IMAGE = "shihd/oceanbase:1.0";
     private static final String OCEANBASE_CONTAINER_HOST = "spark_e2e_oceanbase";
     private static final String OCEANBASE_DATABASE = "testdb";
@@ -51,7 +51,7 @@ public class JdbcOceanbaseIT extends AbstractJdbcIT {
     private static final String DRIVER_CLASS = "com.alipay.oceanbase.jdbc.Driver";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_oceanbase_mysql_source_and_oceanbase_oracle_sink.conf");
+            Lists.newArrayList("/jdbc_oceanbase_oracle_source_and_sink.conf");
 
     private static final String CREATE_SQL =
             "CREATE TABLE `people` (\n"

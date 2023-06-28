@@ -33,7 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class JdbcOceanBasedbIT extends AbstractJdbcIT {
+public class JdbcOceanBaseMysqlIT extends AbstractJdbcIT {
 
     private static final String OCEANBASE_IMAGE = "oceanbase/oceanbase-ce";
 
@@ -56,7 +56,7 @@ public class JdbcOceanBasedbIT extends AbstractJdbcIT {
     private static final String DRIVER_JAR =
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_oceanbase_source_and_sink.conf");
+            Lists.newArrayList("/jdbc_oceanbase_mysql_source_and_sink.conf");
 
     private static final String CREATE_SQL =
             "CREATE TABLE %s\n"
