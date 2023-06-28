@@ -38,7 +38,7 @@
         <module>connector-file-base-hadoop</module>
         <module>connector-file-sftp</module>
         <module>connector-file-s3</module>
-        <module>connector-file-oss-jindo</module>
+        <module>connector-file-jindo-oss</module>
     </modules>
 
     <properties>
