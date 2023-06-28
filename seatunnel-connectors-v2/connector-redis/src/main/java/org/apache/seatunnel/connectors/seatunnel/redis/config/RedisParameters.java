@@ -47,7 +47,7 @@ public class RedisParameters implements Serializable {
     private RedisConfig.RedisMode mode;
     private RedisConfig.HashKeyParseMode hashKeyParseMode;
     private List<String> redisNodes = Collections.emptyList();
-    private long expire = 0;
+    private long expire = RedisConfig.EXPIRE.defaultValue();
 
     public void buildWithConfig(Config config) {
         // set host

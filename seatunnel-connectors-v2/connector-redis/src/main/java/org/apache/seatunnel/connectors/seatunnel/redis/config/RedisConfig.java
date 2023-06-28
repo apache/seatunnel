@@ -105,7 +105,7 @@ public class RedisConfig {
     public static final Option<Long> EXPIRE =
             Options.key("expire")
                     .longType()
-                    .noDefaultValue()
+                    .defaultValue(-1L)
                     .withDescription("Set redis expiration time.");
 
     public enum Format {
