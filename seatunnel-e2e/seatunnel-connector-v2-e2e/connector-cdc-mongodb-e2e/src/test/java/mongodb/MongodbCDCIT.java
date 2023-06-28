@@ -92,7 +92,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
     private static final String SINK_SQL = "select name,description,weight from products";
 
     private static final String MYSQL_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.28/mysql-connector-java-8.0.28.jar";
+            "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
 
     private final UniqueDatabase inventoryDatabase =
             new UniqueDatabase(MYSQL_CONTAINER, MYSQL_DATABASE, "mysqluser", "mysqlpw");
@@ -107,7 +107,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         mySqlContainer.withUsername(MYSQL_USER_NAME);
         mySqlContainer.withPassword(MYSQL_USER_PASSWORD);
         // For local test use
-        mySqlContainer.setPortBindings(Collections.singletonList("3308:3306"));
+        // mySqlContainer.setPortBindings(Collections.singletonList("3308:3306"));
         return mySqlContainer;
     }
 
@@ -118,9 +118,9 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
                                         + MYSQL_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
     @BeforeAll
@@ -148,7 +148,6 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                 () -> {
                     try {
                         container.executeJob("/mongodbcdc_to_mysql.conf");
-                        container.tearDown();
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException();
@@ -176,31 +175,27 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                         });
 
         // insert update delete
-        //        upsertDeleteSourceTable();
-        //
-        //        await().atMost(240000, TimeUnit.MILLISECONDS)
-        //                .untilAsserted(
-        //                        () -> {
-        //                            Assertions.assertIterableEquals(
-        //                                    readMongodbData().stream()
-        //                                            .peek(e -> e.remove("_id"))
-        //                                            .map(Document::entrySet)
-        //                                            .map(Set::stream)
-        //                                            .map(
-        //                                                    entryStream ->
-        //                                                            entryStream
-        //
-        // .map(Map.Entry::getValue)
-        //                                                                    .collect(
-        //
-        // Collectors.toCollection(
-        //
-        // ArrayList
-        //
-        //  ::new)))
-        //                                            .collect(Collectors.toList()),
-        //                                    querySql());
-        //                        });
+        upsertDeleteSourceTable();
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    readMongodbData().stream()
+                                            .peek(e -> e.remove("_id"))
+                                            .map(Document::entrySet)
+                                            .map(Set::stream)
+                                            .map(
+                                                    entryStream ->
+                                                            entryStream
+                                                                    .map(Map.Entry::getValue)
+                                                                    .collect(
+                                                                            Collectors.toCollection(
+                                                                                    ArrayList
+                                                                                            ::new)))
+                                            .collect(Collectors.toList()),
+                                    querySql());
+                        });
     }
 
     private Connection getJdbcConnection() throws SQLException {

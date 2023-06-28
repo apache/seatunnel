@@ -127,7 +127,7 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 
 ## How to Create a MongoDB Data Synchronization Jobs
 
-The following example demonstrates how to create a data synchronization job that reads data from MongoDB and prints it on the local client:
+The following example demonstrates how to create a data synchronization job that reads cdc data from MongoDB and prints it on the local client:
 
 ```hocon
 env {
@@ -163,7 +163,7 @@ sink {
 }
 ```
 
-The following example demonstrates how to create a data synchronization job that reads data from MongoDB and cdc write to mysql database:
+The following example demonstrates how to create a data synchronization job that reads cdc data from MongoDB and write to mysql database:
 
 ```hocon
 env {
@@ -199,7 +199,7 @@ sink {
 }
 ```
 
-The following example demonstrates how to create a data synchronization job that read the data of multiple library tables mongodb and prints it on the local client:
+The following example demonstrates how to create a data synchronization job that read the cdc data of multiple library tables mongodb and prints it on the local client:
 
 ```hocon
 env {
@@ -267,7 +267,7 @@ sink {
 
 ## Changelog
 
-- Add MongoDB CDC Source Connector
+- [Feature]Add MongoDB CDC Source Connector([4923](https://github.com/apache/seatunnel/pull/4923))
 
 ### next version
 

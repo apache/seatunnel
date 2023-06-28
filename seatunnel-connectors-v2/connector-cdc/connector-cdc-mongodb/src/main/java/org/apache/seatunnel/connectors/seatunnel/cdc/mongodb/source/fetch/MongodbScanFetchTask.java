@@ -169,7 +169,12 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
         BsonDocument startKey = (BsonDocument) snapshotSplit.getSplitStart()[1];
         BsonDocument endKey = (BsonDocument) snapshotSplit.getSplitEnd()[1];
         BsonDocument hint = (BsonDocument) snapshotSplit.getSplitStart()[0];
-
+        log.info(
+                "Initializing snapshot split processing: TableId={}, StartKey={}, EndKey={}, Hint={}",
+                snapshotSplit.getTableId(),
+                startKey,
+                endKey,
+                hint);
         return collection
                 .find()
                 .min(startKey)
