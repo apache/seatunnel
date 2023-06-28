@@ -41,9 +41,9 @@ public class OceanBaseDialectFactory implements JdbcDialectFactory {
 
     @Override
     public JdbcDialect create(@Nonnull String driverType) {
-        if ("mysql".equalsIgnoreCase(driverType)) {
-            return new MysqlDialect();
+        if ("oracle".equalsIgnoreCase(driverType)) {
+            return new OracleDialect();
         }
-        return new OracleDialect();
+        return new MysqlDialect();
     }
 }
