@@ -25,9 +25,17 @@
     <artifactId>connector-kafka-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Kafka</name>
 
-    <properties>
-        <postgresql.version>42.4.3</postgresql.version>
-    </properties>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>connector-jdbc</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -82,7 +90,6 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <version>${postgresql.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -95,6 +102,11 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>kafka</artifactId>
             <version>${testcontainer.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
