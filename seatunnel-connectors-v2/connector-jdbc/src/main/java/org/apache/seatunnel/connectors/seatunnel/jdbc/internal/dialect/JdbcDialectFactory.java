@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
-import java.util.Optional;
-
 /**
  * A factory to create a specific {@link JdbcDialect}
  *
@@ -35,8 +33,18 @@ public interface JdbcDialectFactory {
      * @return <code>true</code> if this dialect understands the given URL; <code>false</code>
      *     otherwise.
      */
-    boolean acceptsURL(String url, Optional<String> driverTye);
+    boolean acceptsURL(String url);
 
     /** @return Creates a new instance of the {@link JdbcDialect}. */
     JdbcDialect create();
+
+    /**
+     * Create a {@link JdbcDialect} instance based on the driver type.
+     *
+     * @param driverType The driver type
+     * @return a new instance of {@link JdbcDialect}
+     */
+    default JdbcDialect create(String driverType) {
+        return create();
+    }
 }

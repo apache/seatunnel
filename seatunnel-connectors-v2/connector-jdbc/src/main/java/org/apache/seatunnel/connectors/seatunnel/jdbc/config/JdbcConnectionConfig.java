@@ -75,8 +75,8 @@ public class JdbcConnectionConfig implements Serializable {
         return driverName;
     }
 
-    public Optional<String> getDriverType() {
-        return Optional.ofNullable(driverType);
+    public String getDriverType() {
+        return driverType;
     }
 
     public boolean isAutoCommit() {

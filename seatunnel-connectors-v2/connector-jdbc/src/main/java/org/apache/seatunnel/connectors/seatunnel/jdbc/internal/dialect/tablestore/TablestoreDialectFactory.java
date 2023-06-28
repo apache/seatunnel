@@ -22,13 +22,11 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import com.google.auto.service.AutoService;
 
-import java.util.Optional;
-
 /** Factory for {@link TablestoreDialect}. */
 @AutoService(JdbcDialectFactory.class)
 public class TablestoreDialectFactory implements JdbcDialectFactory {
     @Override
-    public boolean acceptsURL(String url, Optional<String> driverTye) {
+    public boolean acceptsURL(String url) {
         return url.startsWith("jdbc:ots:https:");
     }
 

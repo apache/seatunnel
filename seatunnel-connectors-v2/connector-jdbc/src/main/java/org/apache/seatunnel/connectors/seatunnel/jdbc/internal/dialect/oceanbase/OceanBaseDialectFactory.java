@@ -19,18 +19,31 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbas
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
 
 import com.google.auto.service.AutoService;
+
+import javax.annotation.Nonnull;
 
 @AutoService(JdbcDialectFactory.class)
 public class OceanBaseDialectFactory implements JdbcDialectFactory {
     @Override
     public boolean acceptsURL(String url) {
-        return url.startsWith("jdbc:mysql:");
+        return url.startsWith("jdbc:oceanbase:");
     }
 
     @Override
     public JdbcDialect create() {
-        return new OceanBaseDialect();
+        throw new UnsupportedOperationException(
+                "Can't create JdbcDialect without driver type for OceanBase");
+    }
+
+    @Override
+    public JdbcDialect create(@Nonnull String driverType) {
+        if ("mysql".equalsIgnoreCase(driverType)) {
+            return new MysqlDialect();
+        }
+        return new OracleDialect();
     }
 }

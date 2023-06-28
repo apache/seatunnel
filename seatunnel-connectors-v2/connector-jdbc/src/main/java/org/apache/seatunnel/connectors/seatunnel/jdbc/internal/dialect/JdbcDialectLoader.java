@@ -25,7 +25,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
@@ -41,11 +40,12 @@ public final class JdbcDialectLoader {
      * Loads the unique JDBC Dialect that can handle the given database url.
      *
      * @param url A database URL.
+     * @param driverType The driver type.
      * @throws IllegalStateException if the loader cannot find exactly one dialect that can
      *     unambiguously process the given database URL.
      * @return The loaded dialect.
      */
-    public static JdbcDialect load(String url, Optional<String> driverTye) {
+    public static JdbcDialect load(String url, String driverType) {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         List<JdbcDialectFactory> foundFactories = discoverFactories(cl);
 
@@ -58,9 +58,7 @@ public final class JdbcDialectLoader {
         }
 
         final List<JdbcDialectFactory> matchingFactories =
-                foundFactories.stream()
-                        .filter(f -> f.acceptsURL(url, driverTye))
-                        .collect(Collectors.toList());
+                foundFactories.stream().filter(f -> f.acceptsURL(url)).collect(Collectors.toList());
 
         if (matchingFactories.isEmpty()) {
             throw new JdbcConnectorException(
@@ -92,7 +90,7 @@ public final class JdbcDialectLoader {
                                     .collect(Collectors.joining("\n"))));
         }
 
-        return matchingFactories.get(0).create();
+        return matchingFactories.get(0).create(driverType);
     }
 
     private static List<JdbcDialectFactory> discoverFactories(ClassLoader classLoader) {

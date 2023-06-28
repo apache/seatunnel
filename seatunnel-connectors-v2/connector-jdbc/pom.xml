@@ -46,7 +46,6 @@
         <snowflake.version>3.13.29</snowflake.version>
         <vertica.version>12.0.3-0</vertica.version>
         <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
-        <oceanbase.version>2.4.2</oceanbase.version>
     </properties>
 
     <dependencyManagement>
@@ -144,12 +143,6 @@
                 <version>${vertica.version}</version>
                 <scope>provided</scope>
             </dependency>
-            <dependency>
-                <groupId>com.oceanbase</groupId>
-                <artifactId>oceanbase-client</artifactId>
-                <version>${oceanbase.version}</version>
-                <scope>provided</scope>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -165,10 +158,7 @@
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.oceanbase</groupId>
-            <artifactId>oceanbase-client</artifactId>
-        </dependency>
+
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>

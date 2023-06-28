@@ -46,7 +46,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.ResultSetMetaData;
@@ -54,7 +53,6 @@ import java.util.ArrayList;
 
 @AutoService(SeaTunnelSource.class)
 @NoArgsConstructor
-@Slf4j
 public class JdbcSource
         implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState>,
                 SupportParallelism,
