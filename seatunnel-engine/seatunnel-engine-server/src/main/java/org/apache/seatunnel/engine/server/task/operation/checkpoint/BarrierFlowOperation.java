@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.engine.server.task.operation.checkpoint;
 
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointErrorReportOperation;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -34,8 +34,6 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
 
 @NoArgsConstructor
 @Slf4j
@@ -80,13 +78,23 @@ public class BarrierFlowOperation extends TaskOperation {
                                     .getExecutionContext(taskLocation.getTaskGroupLocation())
                                     .getTaskGroup()
                                     .getTask(taskLocation.getTaskID());
-                    try {
-                        log.debug("BarrierFlowOperation [{}]" + taskLocation);
-                        task.triggerBarrier(barrier);
-                    } catch (Exception e) {
-                        log.warn(ExceptionUtils.getMessage(e));
-                        sneakyThrow(e);
-                    }
+                    task.getExecutionContext()
+                            .getTaskExecutionService()
+                            .asyncExecuteFunction(
+                                    taskLocation.getTaskGroupLocation(),
+                                    () -> {
+                                        try {
+                                            log.debug(
+                                                    "CheckpointBarrierTriggerOperation [{}]",
+                                                    taskLocation);
+                                            task.triggerBarrier(barrier);
+                                        } catch (Exception e) {
+                                            task.getExecutionContext()
+                                                    .sendToMaster(
+                                                            new CheckpointErrorReportOperation(
+                                                                    taskLocation, e));
+                                        }
+                                    });
                     return null;
                 },
                 new RetryUtils.RetryMaterial(

@@ -64,6 +64,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected final String suffix;
     protected final String defaultUrl;
 
+    protected Connection defaultConnection;
+
     public AbstractJdbcCatalog(
             String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
 
@@ -107,8 +109,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public void open() throws CatalogException {
-        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
-            // test connection, fail early if we cannot connect to database
+        try {
+            defaultConnection = DriverManager.getConnection(defaultUrl, username, pwd);
         } catch (SQLException e) {
             throw new CatalogException(
                     String.format("Failed connecting to %s via JDBC.", defaultUrl), e);
@@ -119,6 +121,15 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public void close() throws CatalogException {
+        if (defaultConnection == null) {
+            return;
+        }
+        try {
+            defaultConnection.close();
+        } catch (SQLException e) {
+            throw new CatalogException(
+                    String.format("Failed to close %s via JDBC.", defaultUrl), e);
+        }
         LOG.info("Catalog {} closing", catalogName);
     }
 
@@ -198,11 +209,6 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             constraintKey.getColumnNames().add(constraintKeyColumn);
         }
         return new ArrayList<>(constraintKeyMap.values());
-    }
-
-    protected Optional<String> getColumnDefaultValue(
-            DatabaseMetaData metaData, String table, String column) throws SQLException {
-        return getColumnDefaultValue(metaData, null, null, table, column);
     }
 
     protected Optional<String> getColumnDefaultValue(

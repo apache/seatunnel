@@ -19,7 +19,6 @@ package org.apache.seatunnel.e2e.connector.file.local;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
@@ -36,7 +35,7 @@ import java.nio.file.Path;
 
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
-        type = {EngineType.SEATUNNEL},
+        type = {},
         disabledReason = "The apache-compress version is not compatible with apache-poi")
 public class LocalFileIT extends TestSuiteBase {
 
@@ -70,7 +69,7 @@ public class LocalFileIT extends TestSuiteBase {
     public void testLocalFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult excelWriteResult =
-                container.executeJob("/excel/fakesource_to_local_excel.conf");
+                container.executeJob("/excel/fake_to_local_excel.conf");
         Assertions.assertEquals(0, excelWriteResult.getExitCode(), excelWriteResult.getStderr());
         Container.ExecResult excelReadResult =
                 container.executeJob("/excel/local_excel_to_assert.conf");
@@ -78,7 +77,7 @@ public class LocalFileIT extends TestSuiteBase {
         Container.ExecResult excelProjectionReadResult =
                 container.executeJob("/excel/local_excel_projection_to_assert.conf");
         Assertions.assertEquals(
-                0, excelReadResult.getExitCode(), excelProjectionReadResult.getStderr());
+                0, excelProjectionReadResult.getExitCode(), excelProjectionReadResult.getStderr());
         // test write local text file
         Container.ExecResult textWriteResult =
                 container.executeJob("/text/fake_to_local_file_text.conf");
