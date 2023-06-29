@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointEndOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestoreOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOperation;
@@ -723,6 +724,9 @@ public class CheckpointCoordinator {
                 completedCheckpoint.getJobId());
         InvocationFuture<?>[] invocationFutures = notifyCheckpointCompleted(completedCheckpoint);
         CompletableFuture.allOf(invocationFutures).join();
+        // Execution to this point means that all notifyCheckpointCompleted have been completed
+        InvocationFuture<?>[] invocationFuturesForEnd = notifyCheckpointEnd(completedCheckpoint);
+        CompletableFuture.allOf(invocationFuturesForEnd).join();
         // TODO: notifyCheckpointCompleted fail
         latestCompletedCheckpoint = completedCheckpoint;
         if (isCompleted()) {
@@ -750,6 +754,20 @@ public class CheckpointCoordinator {
                                         taskLocation, checkpoint.getCheckpointId(), true))
                 .map(checkpointManager::sendOperationToMemberNode)
                 .toArray(InvocationFuture[]::new);
+    }
+
+    public InvocationFuture<?>[] notifyCheckpointEnd(CompletedCheckpoint checkpoint) {
+        if (checkpoint.getCheckpointType().isSchemaChangeAfterCheckpoint()
+                || checkpoint.getCheckpointType().isSchemaChangeBeforeCheckpoint()) {
+            return plan.getPipelineSubtasks().stream()
+                    .map(
+                            taskLocation ->
+                                    new CheckpointEndOperation(
+                                            taskLocation, checkpoint.getCheckpointId(), true))
+                    .map(checkpointManager::sendOperationToMemberNode)
+                    .toArray(InvocationFuture[]::new);
+        }
+        return new InvocationFuture[0];
     }
 
     public boolean isCompleted() {

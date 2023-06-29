@@ -386,6 +386,12 @@ public abstract class SeaTunnelTask extends AbstractTask {
         tryClose(checkpointId);
     }
 
+    @Override
+    public void notifyCheckpointEnd(long checkpointId) throws Exception {
+        notifyAllAction(listener -> listener.notifyCheckpointEnd(checkpointId));
+        tryClose(checkpointId);
+    }
+
     public void notifyAllAction(ConsumerWithException<InternalCheckpointListener> consumer) {
         allCycles.stream()
                 .filter(cycle -> cycle instanceof InternalCheckpointListener)

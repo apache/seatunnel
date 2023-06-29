@@ -296,14 +296,6 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         reader.notifyCheckpointComplete(checkpointId);
-        if (schemaChangePhase.get() != null
-                && schemaChangePhase.get().getCheckpointId() == checkpointId) {
-            log.info(
-                    "notify schema-change checkpoint[{}] completed, schemaChangePhase: [{}]",
-                    checkpointId,
-                    schemaChangePhase.get().getPhase());
-            schemaChangePhase.set(null);
-        }
     }
 
     @Override
@@ -315,6 +307,18 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                     String.format(
                             "schema-change checkpoint[%s] is aborted, schemaChangePhase: [%s]",
                             checkpointId, schemaChangePhase.get().getPhase()));
+        }
+    }
+
+    @Override
+    public void notifyCheckpointEnd(long checkpointId) throws Exception {
+        if (schemaChangePhase.get() != null
+                && schemaChangePhase.get().getCheckpointId() == checkpointId) {
+            log.info(
+                    "notify schema-change checkpoint[{}] end, schemaChangePhase: [{}]",
+                    checkpointId,
+                    schemaChangePhase.get().getPhase());
+            schemaChangePhase.set(null);
         }
     }
 
