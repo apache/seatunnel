@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.server;
 
+import io.prometheus.client.exporter.HTTPServer;
+import io.prometheus.client.hotspot.DefaultExports;
+import java.io.IOException;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 
@@ -27,8 +30,12 @@ import lombok.NonNull;
 
 public class SeaTunnelServerStarter {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         createHazelcastInstance();
+        DefaultExports.initialize();
+        HTTPServer httpServer = new HTTPServer.Builder()
+            .withPort(1234)
+            .build();
     }
 
     public static HazelcastInstanceImpl createHazelcastInstance(String clusterName) {
