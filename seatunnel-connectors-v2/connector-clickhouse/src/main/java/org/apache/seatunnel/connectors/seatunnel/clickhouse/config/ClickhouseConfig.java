@@ -75,6 +75,13 @@ public class ClickhouseConfig {
                     .noDefaultValue()
                     .withDescription("Clickhouse server password");
 
+    /** Clickhouse server timezone */
+    public static final Option<String> SERVER_TIME_ZONE =
+            Options.key("server_time_zone")
+                    .stringType()
+                    .defaultValue("UTC")
+                    .withDescription("Clickhouse server timezone");
+
     /** Split mode when table is distributed engine */
     public static final Option<Boolean> SPLIT_MODE =
             Options.key("split_mode")
