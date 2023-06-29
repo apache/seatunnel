@@ -91,7 +91,13 @@ public class FlinkStarter implements Starter {
         flinkCommandArgs.getVariables().stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
-                .forEach(variable -> command.add("-D" + variable));
+                .map(
+                        variable -> {
+                            command.add("-D" + variable);
+                            return variable.split("=", 2);
+                        })
+                .filter(pair -> pair.length == 2)
+                .forEach(pair -> System.setProperty(pair[0], pair[1]));
         return command;
     }
 }

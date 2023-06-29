@@ -70,6 +70,7 @@
 - [E2e] [Mysql-cdc] Removing the excess MySqlIncrementalSourceIT e2e reduces the CI time (#4738)
 
 ## Improve
+- [Core][Flink] Configuration files support dynamically replace user-defined variables at run time
 
 ### Core
 
