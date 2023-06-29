@@ -61,6 +61,7 @@
 - [Zeta] Fix task `notifyTaskStatusToMaster` failed when job not running or failed before run (#4847)
 - [Zeta] Fix cpu load problem (#4828)
 - [zeta] Fix the deadlock issue with JDBC driver loading (#4878)
+- [zeta] dynamically replace the value of the variable at runtime (#4950)
 
 ### E2E
 
