@@ -37,8 +37,12 @@ import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.client.config.ClientNetworkConfig;
+import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Member;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import lombok.extern.slf4j.Slf4j;
@@ -92,6 +96,13 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             if (StringUtils.isNotEmpty(clusterName)) {
                 clientConfig.setClusterName(clusterName);
+            }
+            if (null != instance) {
+                Address serverAddress = ((Member) instance.getLocalEndpoint()).getAddress();
+                String connectAddress = serverAddress.getHost() + ":" + serverAddress.getPort();
+
+                ClientNetworkConfig networkConfig = clientConfig.getNetworkConfig();
+                networkConfig.setAddresses(Lists.newArrayList(connectAddress));
             }
             engineClient = new SeaTunnelClient(clientConfig);
             if (clientCommandArgs.isListJob()) {
