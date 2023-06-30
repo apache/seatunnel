@@ -30,10 +30,10 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.index.I
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.index.IndexSerializerFactory;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.IndexTypeSerializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.IndexTypeSerializerFactory;
+import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import lombok.NonNull;
 
-import java.time.temporal.Temporal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -42,6 +42,8 @@ import java.util.function.Function;
 public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
     private final SeaTunnelRowType seaTunnelRowType;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private final JsonSerializationSchema serializationSchema;
 
     private final IndexSerializer indexSerializer;
 
@@ -61,6 +63,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
         this.keyExtractor =
                 KeyExtractor.createKeyExtractor(
                         seaTunnelRowType, indexInfo.getPrimaryKeys(), indexInfo.getKeyDelimiter());
+        this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
     }
 
     @Override
@@ -81,7 +84,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
 
     private String serializeUpsert(SeaTunnelRow row) {
         String key = keyExtractor.apply(row);
-        Map<String, Object> document = toDocumentMap(row);
+        String document = new String(serializationSchema.serialize(row));
 
         try {
             if (key != null) {
@@ -97,7 +100,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
                         .append("}")
                         .append("\n")
                         .append("{ \"doc\" :")
-                        .append(objectMapper.writeValueAsString(document))
+                        .append(document)
                         .append(", \"doc_as_upsert\" : true }")
                         .toString();
             } else {
@@ -111,7 +114,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
                         .append(objectMapper.writeValueAsString(indexMetadata))
                         .append("}")
                         .append("\n")
-                        .append(objectMapper.writeValueAsString(document))
+                        .append(document)
                         .toString();
             }
         } catch (JsonProcessingException e) {
@@ -141,22 +144,6 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
                     "Object json deserialization exception.",
                     e);
         }
-    }
-
-    private Map<String, Object> toDocumentMap(SeaTunnelRow row) {
-        String[] fieldNames = seaTunnelRowType.getFieldNames();
-        Map<String, Object> doc = new HashMap<>(fieldNames.length);
-        Object[] fields = row.getFields();
-        for (int i = 0; i < fieldNames.length; i++) {
-            Object value = fields[i];
-            if (value instanceof Temporal) {
-                // jackson not support jdk8 new time api
-                doc.put(fieldNames[i], value.toString());
-            } else {
-                doc.put(fieldNames[i], value);
-            }
-        }
-        return doc;
     }
 
     private Map<String, String> createMetadata(@NonNull SeaTunnelRow row, @NonNull String key) {
