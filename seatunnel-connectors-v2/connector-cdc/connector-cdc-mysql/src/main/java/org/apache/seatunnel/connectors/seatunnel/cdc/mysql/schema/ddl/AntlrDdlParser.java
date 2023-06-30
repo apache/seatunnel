@@ -51,11 +51,11 @@ public abstract class AntlrDdlParser<L extends Lexer, P extends Parser> implemen
 
     private final String terminator;
     private final boolean throwErrorsFromTreeWalk;
-    @Getter private DataTypeResolver dataTypeResolver;
-    private AntlrDdlParserListener antlrDdlParserListener;
+    @Getter private transient DataTypeResolver dataTypeResolver;
+    private transient AntlrDdlParserListener antlrDdlParserListener;
     private String currentSchema = null;
     @Getter private SchemaChanges schemaChanges = new SchemaChanges();
-    @Getter private TableEditor tableEditor;
+    @Getter private transient TableEditor tableEditor;
 
     public AntlrDdlParser(boolean throwErrorsFromTreeWalk) {
         this(";", throwErrorsFromTreeWalk);
@@ -64,6 +64,7 @@ public abstract class AntlrDdlParser<L extends Lexer, P extends Parser> implemen
     public void reset() {
         schemaChanges.reset();
         tableEditor = null;
+        antlrDdlParserListener = null;
     }
 
     public void parse(String ddlContent, TableEditor tableEditor) {

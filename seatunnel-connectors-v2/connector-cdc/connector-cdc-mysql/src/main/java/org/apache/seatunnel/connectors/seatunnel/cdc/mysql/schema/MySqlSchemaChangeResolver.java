@@ -43,7 +43,11 @@ public class MySqlSchemaChangeResolver implements SchemaChangeResolver {
     private final ConnectTableChangeSerializer tableChangeSerializer =
             new ConnectTableChangeSerializer();
 
-    public MySqlSchemaChangeResolver(MySqlValueConverters converters) {}
+    private MySqlAntlrDdlParser ddlParser;
+
+    public MySqlSchemaChangeResolver(MySqlValueConverters converters) {
+        this.ddlParser = new MySqlAntlrDdlParser(";", false, null);
+    }
 
     @Override
     public SchemaChangeEvent resolve(SourceRecord record, SeaTunnelDataType dataType) {
@@ -51,46 +55,48 @@ public class MySqlSchemaChangeResolver implements SchemaChangeResolver {
         String ddl = value.getString(HistoryRecord.Fields.DDL_STATEMENTS);
         List<Struct> tableChangesStruct =
                 (List<Struct>) value.get(HistoryRecord.Fields.TABLE_CHANGES);
-        if (tableChangesStruct.size() != 1) {
-            log.debug("Unsupported parse ddl: {}", ddl);
-            return null;
+        TableChanges tableChanges = tableChangeSerializer.deserialize(tableChangesStruct, false);
+        Iterator<TableChanges.TableChange> iterator = tableChanges.iterator();
+        TableChanges.TableChange tableChange = null;
+        while (iterator.hasNext()) {
+            if (tableChange != null) {
+                log.debug("Unsupported parse complex ddl: {}", ddl);
+                return null;
+            }
+            tableChange = iterator.next();
         }
 
-        TableChanges tableChanges = tableChangeSerializer.deserialize(tableChangesStruct, false);
         TablePath tablePath = SourceRecordUtils.getTablePath(record);
         SchemaChangeEvent schemaChangeEvent =
-                resolveTableChanges(ddl, tableChanges, tablePath, dataType);
-        if (schemaChangeEvent == null) {
-            log.debug("Unsupported parse ddl: {}", ddl);
-            return null;
-        }
+                resolveTableChanges(ddl, tableChange, tablePath, dataType);
         return schemaChangeEvent;
     }
 
     private SchemaChangeEvent resolveTableChanges(
             String ddl,
-            TableChanges tableChanges,
+            TableChanges.TableChange tableChange,
             TablePath tablePath,
             SeaTunnelDataType dataType) {
-        Iterator<TableChanges.TableChange> iterator = tableChanges.iterator();
-        iterator.hasNext();
-        TableChanges.TableChange tableChange = iterator.next();
-
         TableId tableId = tableChange.getId();
         TableChanges.TableChangeType tableChangeType = tableChange.getType();
         Table table = tableChange.getTable();
-        MySqlAntlrDdlParser ddlParser = new MySqlAntlrDdlParser(";", false, null);
-        ddlParser.setCurrentSchema(tablePath.getDatabaseName());
+
+        ddlParser.setCurrentDatabase(tablePath.getDatabaseName());
         switch (tableChangeType) {
             case ALTER:
                 SchemaChanges schemaChanges = ddlParser.getSchemaChanges();
                 schemaChanges.reset();
                 ddlParser.parse(ddl, table.edit());
                 List<SchemaChangeEvent> events = schemaChanges.getEvents();
+                if (events.size() != 1) {
+                    log.debug("Unsupported parse complex ddl: {}", ddl);
+                    return null;
+                }
                 return events.get(0);
             case CREATE:
             case DROP:
             default:
+                log.debug("Unsupported parse ddl type: {}, ddl: {}", tableChangeType, ddl);
                 return null;
         }
     }

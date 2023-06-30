@@ -124,7 +124,7 @@ public class CheckpointCoordinator {
 
     private final AtomicInteger pendingCounter = new AtomicInteger(0);
 
-    private final AtomicBoolean pauseGeneralCheckpoint = new AtomicBoolean(false);
+    private final AtomicBoolean schemaChanging = new AtomicBoolean(false);
 
     private final Object lock = new Object();
 
@@ -389,7 +389,7 @@ public class CheckpointCoordinator {
                 }
             }
 
-            if (pauseGeneralCheckpoint.get() && checkpointType.isGeneralCheckpoint()) {
+            if (schemaChanging.get() && checkpointType.isGeneralCheckpoint()) {
                 LOG.info("skip trigger generic-checkpoint because schema change in progress");
                 return;
             }
@@ -632,6 +632,7 @@ public class CheckpointCoordinator {
             pipelineTaskStatus.clear();
             readyToCloseStartingTask.clear();
             pendingCounter.set(0);
+            schemaChanging.set(false);
             scheduler.shutdownNow();
             scheduler =
                     Executors.newScheduledThreadPool(
@@ -745,7 +746,7 @@ public class CheckpointCoordinator {
 
     public InvocationFuture<?>[] notifyCheckpointCompleted(CompletedCheckpoint checkpoint) {
         if (checkpoint.getCheckpointType().isSchemaChangeAfterCheckpoint()) {
-            notifySchemaChangeAfterCheckpointCompleted(checkpoint);
+            completeSchemaChangeAfterCheckpoint(checkpoint);
         }
         return plan.getPipelineSubtasks().stream()
                 .map(
@@ -757,8 +758,7 @@ public class CheckpointCoordinator {
     }
 
     public InvocationFuture<?>[] notifyCheckpointEnd(CompletedCheckpoint checkpoint) {
-        if (checkpoint.getCheckpointType().isSchemaChangeAfterCheckpoint()
-                || checkpoint.getCheckpointType().isSchemaChangeBeforeCheckpoint()) {
+        if (checkpoint.getCheckpointType().isSchemaChangeCheckpoint()) {
             return plan.getPipelineSubtasks().stream()
                     .map(
                             taskLocation ->
@@ -828,8 +828,8 @@ public class CheckpointCoordinator {
         }
     }
 
-    protected void triggerSchemaChangeBeforeCheckpoint() {
-        if (pauseGeneralCheckpoint.compareAndSet(false, true)) {
+    protected void scheduleSchemaChangeBeforeCheckpoint() {
+        if (schemaChanging.compareAndSet(false, true)) {
             LOG.info(
                     "stop trigger general-checkpoint({}@{}) because schema change in progress.",
                     pipelineId,
@@ -838,26 +838,26 @@ public class CheckpointCoordinator {
             scheduleTriggerPendingCheckpoint(CheckpointType.SCHEMA_CHANGE_BEFORE_POINT_TYPE, 0);
         } else {
             LOG.warn(
-                    "schema-change-before checkpoint({}@{}) is already triggered.",
+                    "schema-change-before checkpoint({}@{}) is already scheduled.",
                     pipelineId,
                     jobId);
         }
     }
 
-    protected void triggerSchemaChangeAfterCheckpoint() {
-        if (pauseGeneralCheckpoint.get()) {
+    protected void scheduleSchemaChangeAfterCheckpoint() {
+        if (schemaChanging.get()) {
             LOG.info("schedule schema-change-after checkpoint({}@{}).", pipelineId, jobId);
             scheduleTriggerPendingCheckpoint(CheckpointType.SCHEMA_CHANGE_AFTER_POINT_TYPE, 0);
         } else {
             LOG.warn(
-                    "schema-change-after checkpoint({}@{}) is already triggered.",
+                    "schema-change-after checkpoint({}@{}) is already scheduled.",
                     pipelineId,
                     jobId);
         }
     }
 
-    protected void notifySchemaChangeAfterCheckpointCompleted(CompletedCheckpoint checkpoint) {
-        if (pauseGeneralCheckpoint.compareAndSet(true, false)) {
+    protected void completeSchemaChangeAfterCheckpoint(CompletedCheckpoint checkpoint) {
+        if (schemaChanging.compareAndSet(true, false)) {
             LOG.info(
                     "completed schema-change-after checkpoint({}/{}@{}).",
                     checkpoint.getCheckpointId(),

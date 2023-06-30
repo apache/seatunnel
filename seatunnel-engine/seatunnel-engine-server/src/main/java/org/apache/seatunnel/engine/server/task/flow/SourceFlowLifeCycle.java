@@ -143,7 +143,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     public void collect() throws Exception {
         if (!prepareClose) {
             if (schemaChanging()) {
-                log.debug("schema is changing, stop collect data from source reader");
+                log.debug("schema is changing, stop reader collect records");
 
                 Thread.sleep(200);
                 return;
@@ -283,7 +283,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                                 schemaChangePhase.get().getPhase()));
             }
             log.info(
-                    "lock checkpoint[{}] waiting for complete..., schemaChangePhase: [{}]",
+                    "lock checkpoint[{}] waiting for complete..., phase: [{}]",
                     barrier.getId(),
                     schemaChangePhase.get().getPhase());
         }
@@ -305,7 +305,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 && schemaChangePhase.get().getCheckpointId() == checkpointId) {
             throw new IllegalStateException(
                     String.format(
-                            "schema-change checkpoint[%s] is aborted, schemaChangePhase: [%s]",
+                            "schema-change checkpoint[%s] is aborted, phase: [%s]",
                             checkpointId, schemaChangePhase.get().getPhase()));
         }
     }
@@ -315,7 +315,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         if (schemaChangePhase.get() != null
                 && schemaChangePhase.get().getCheckpointId() == checkpointId) {
             log.info(
-                    "notify schema-change checkpoint[{}] end, schemaChangePhase: [{}]",
+                    "notify schema-change checkpoint[{}] end, phase: [{}]",
                     checkpointId,
                     schemaChangePhase.get().getPhase());
             schemaChangePhase.set(null);

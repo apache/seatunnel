@@ -66,7 +66,7 @@ public class ColumnDefinitionParserListener extends MySqlParserBaseListener {
             ColumnEditor columnEditor,
             MySqlAntlrDdlParser parser,
             List<ParseTreeListener> listeners) {
-        this(columnEditor, parser, listeners, true);
+        this(columnEditor, parser, listeners, false);
     }
 
     public Column getColumn() {

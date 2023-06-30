@@ -279,7 +279,7 @@ public class CheckpointManager {
             return;
         }
 
-        coordinator.triggerSchemaChangeBeforeCheckpoint();
+        coordinator.scheduleSchemaChangeBeforeCheckpoint();
     }
 
     public void triggerSchemaChangeAfterCheckpoint(
@@ -295,7 +295,7 @@ public class CheckpointManager {
             return;
         }
 
-        coordinator.triggerSchemaChangeAfterCheckpoint();
+        coordinator.scheduleSchemaChangeAfterCheckpoint();
     }
 
     public boolean isSavePointEnd() {
