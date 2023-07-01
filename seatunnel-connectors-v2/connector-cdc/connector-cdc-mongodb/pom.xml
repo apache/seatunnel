@@ -32,7 +32,6 @@
         <mongo.driver.version>4.7.1</mongo.driver.version>
         <avro.version>1.11.1</avro.version>
         <mongo-kafka-connect.version>1.10.1</mongo-kafka-connect.version>
-        <debezium-connector-mongodb.version>1.6.4.Final</debezium-connector-mongodb.version>
         <annotations.vserion>24.0.1</annotations.vserion>
         <junit.vserion>4.13.2</junit.vserion>
     </properties>

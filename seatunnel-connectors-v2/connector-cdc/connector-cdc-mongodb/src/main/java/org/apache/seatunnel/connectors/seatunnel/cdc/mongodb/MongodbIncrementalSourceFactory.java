@@ -63,7 +63,9 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory, Supp
                         MongodbSourceOptions.POLL_MAX_BATCH_SIZE,
                         MongodbSourceOptions.POLL_AWAIT_TIME_MILLIS,
                         MongodbSourceOptions.HEARTBEAT_INTERVAL_MILLIS,
-                        MongodbSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB)
+                        MongodbSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
+                        MongodbSourceOptions.STARTUP_MODE,
+                        MongodbSourceOptions.STOP_MODE)
                 .build();
     }
 
