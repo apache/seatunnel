@@ -222,6 +222,30 @@ map:
            fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
 ```
 
+if you used kafka, the kafka used must support creating a compact topic, you can config like this :
+
+```yaml
+map:
+    engine*:
+       map-store:
+         enabled: true
+         initial-mode: EAGER
+         factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+         properties:
+           type: kafka
+           bootstrap.servers: localhost:9092
+           storage.compact.topic.prefix: imap-
+           storage.compact.topic.replication.factor: 3
+           consumer.override.auto.offset.reset: earliest
+           producer.override.acks: all
+  
+```
+
++ The configuration with the prefix 'consumer.override.' is used to override the configuration of the consumer
++ The configuration with the prefix 'producer.override.' is used to override the configuration of the producer
++ The configuration with the prefix 'admin.override.' is used to override the configuration of the admin
++ The configuration with the prefix 'topic.override.' is used to override the configuration of the topic
+
 ## 6. Config SeaTunnel Engine Client
 
 All SeaTunnel Engine Client config in `hazelcast-client.yaml`.

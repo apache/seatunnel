@@ -35,7 +35,11 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
+import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.config.Config;
@@ -59,6 +63,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 @Slf4j
 public class ClusterFaultToleranceIT {
 
+    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
+
     public static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
     public static final String DYNAMIC_JOB_MODE = "dynamic_job_mode";
@@ -67,6 +73,11 @@ public class ClusterFaultToleranceIT {
             "dynamic_test_row_num_per_parallelism";
 
     public static final String DYNAMIC_TEST_PARALLELISM = "dynamic_test_parallelism";
+
+    private static KafkaContainer kafkaContainer =
+            new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE_NAME))
+                    .withLogConsumer(
+                            new Slf4jLogConsumer(DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
@@ -1151,6 +1162,219 @@ public class ClusterFaultToleranceIT {
 
             if (node2 != null) {
                 node2.shutdown();
+            }
+        }
+    }
+
+    @SuppressWarnings("checkstyle:RegexpSingleline")
+    @Test
+    public void testStreamJobRestoreFromKafkaInAllNodeDown()
+            throws ExecutionException, InterruptedException {
+
+        kafkaContainer.start();
+        String BOOTSTRAP_SERVERS = kafkaContainer.getBootstrapServers();
+        String TOPIC_PREFIX = "imap-";
+        Integer TOPIC_REPLICATION_FACTOR = 1;
+
+        String testCaseName = "testStreamJobRestoreFromKafkaInAllNodeDown";
+        String testClusterName =
+                "ClusterFaultToleranceIT_testStreamJobRestoreFromKafkaInAllNodeDown_"
+                        + System.currentTimeMillis();
+        int testRowNumber = 1000;
+        int testParallelism = 6;
+        HazelcastInstanceImpl node1 = null;
+        HazelcastInstanceImpl node2 = null;
+        SeaTunnelClient engineClient = null;
+
+        try {
+            String yaml =
+                    "hazelcast:\n"
+                            + "  cluster-name: seatunnel\n"
+                            + "  network:\n"
+                            + "    rest-api:\n"
+                            + "      enabled: true\n"
+                            + "      endpoint-groups:\n"
+                            + "        CLUSTER_WRITE:\n"
+                            + "          enabled: true\n"
+                            + "    join:\n"
+                            + "      tcp-ip:\n"
+                            + "        enabled: true\n"
+                            + "        member-list:\n"
+                            + "          - localhost\n"
+                            + "    port:\n"
+                            + "      auto-increment: true\n"
+                            + "      port-count: 100\n"
+                            + "      port: 5801\n"
+                            + "  map:\n"
+                            + "    engine*:\n"
+                            + "      map-store:\n"
+                            + "        enabled: true\n"
+                            + "        initial-mode: EAGER\n"
+                            + "        factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory\n"
+                            + "        properties:\n"
+                            + "          type: kafka\n"
+                            + "          bootstrap.servers: "
+                            + BOOTSTRAP_SERVERS
+                            + "\n"
+                            + "          storage.compact.topic.prefix: "
+                            + TOPIC_PREFIX
+                            + "\n"
+                            + "          storage.compact.topic.replication.factor: "
+                            + TOPIC_REPLICATION_FACTOR
+                            + "\n"
+                            + "  properties:\n"
+                            + "    hazelcast.invocation.max.retry.count: 200\n"
+                            + "    hazelcast.tcp.join.port.try.count: 30\n"
+                            + "    hazelcast.invocation.retry.pause.millis: 2000\n"
+                            + "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n"
+                            + "    hazelcast.logging.type: log4j2\n"
+                            + "    hazelcast.operation.generic.thread.count: 200\n";
+
+            Config hazelcastConfig = Config.loadFromString(yaml);
+            hazelcastConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+            seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+
+            // waiting all node added to cluster
+            HazelcastInstanceImpl finalNode = node1;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalNode.getCluster().getMembers().size()));
+
+            Common.setDeployMode(DeployMode.CLIENT);
+            ImmutablePair<String, String> testResources =
+                    createTestResources(
+                            testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testCaseName);
+
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            JobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            Long jobId = clientJobProxy.getJobId();
+
+            ClientJobProxy finalClientJobProxy = clientJobProxy;
+            Awaitility.await()
+                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                // Wait some tasks commit finished, and we can get rows from the
+                                // sink target dir
+                                Thread.sleep(2000);
+                                System.out.println(
+                                        "\n================================="
+                                                + FileUtils.getFileLineNumberFromDir(
+                                                        testResources.getLeft())
+                                                + "=================================\n");
+                                Assertions.assertTrue(
+                                        JobStatus.RUNNING.equals(finalClientJobProxy.getJobStatus())
+                                                && FileUtils.getFileLineNumberFromDir(
+                                                                testResources.getLeft())
+                                                        > 1);
+                            });
+
+            Thread.sleep(5000);
+            // shutdown all node
+            node1.shutdown();
+            node2.shutdown();
+
+            log.info(
+                    "==========================================All node is done========================================");
+            Thread.sleep(10000);
+
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+
+            log.info(
+                    "==========================================All node is start, begin check node size ========================================");
+            // waiting all node added to cluster
+            HazelcastInstanceImpl restoreFinalNode = node1;
+            Awaitility.await()
+                    .atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, restoreFinalNode.getCluster().getMembers().size()));
+
+            log.info(
+                    "==========================================All node is running========================================");
+            engineClient = new SeaTunnelClient(clientConfig);
+            ClientJobProxy newClientJobProxy = engineClient.createJobClient().getJobProxy(jobId);
+            CompletableFuture<JobStatus> waitForJobCompleteFuture =
+                    CompletableFuture.supplyAsync(newClientJobProxy::waitForJobComplete);
+
+            Thread.sleep(10000);
+
+            Awaitility.await()
+                    .atMost(100000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                // Wait job write all rows in file
+                                Thread.sleep(2000);
+                                System.out.println(
+                                        "\n================================="
+                                                + FileUtils.getFileLineNumberFromDir(
+                                                        testResources.getLeft())
+                                                + "=================================\n");
+                                JobStatus jobStatus = null;
+                                try {
+                                    jobStatus = newClientJobProxy.getJobStatus();
+                                } catch (Exception e) {
+                                    log.error(ExceptionUtils.getMessage(e));
+                                }
+
+                                Assertions.assertTrue(
+                                        JobStatus.RUNNING.equals(jobStatus)
+                                                && testRowNumber * testParallelism
+                                                        == FileUtils.getFileLineNumberFromDir(
+                                                                testResources.getLeft()));
+                            });
+
+            // sleep 10s and expect the job don't write more rows.
+            Thread.sleep(10000);
+            log.info(
+                    "==========================================Cancel Job========================================");
+            newClientJobProxy.cancelJob();
+
+            Awaitility.await()
+                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            waitForJobCompleteFuture.isDone()
+                                                    && JobStatus.CANCELED.equals(
+                                                            waitForJobCompleteFuture.get())));
+            // prove that the task was restarted
+            Long fileLineNumberFromDir =
+                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
+            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+
+        } finally {
+            log.info(
+                    "==========================================Clean test resource ========================================");
+            if (engineClient != null) {
+                engineClient.shutdown();
+            }
+
+            if (node1 != null) {
+                node1.shutdown();
+            }
+
+            if (node2 != null) {
+                node2.shutdown();
+            }
+            if (kafkaContainer != null) {
+                kafkaContainer.close();
             }
         }
     }

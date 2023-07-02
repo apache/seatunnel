@@ -23,29 +23,49 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel-engine-storage</artifactId>
+        <artifactId>imap-storage-plugins</artifactId>
         <version>${revision}</version>
     </parent>
 
-    <artifactId>imap-storage-plugins</artifactId>
-    <packaging>pom</packaging>
-    <name>SeaTunnel : Engine : Storage : IMap Storage Plugins :</name>
+    <groupId>org.apache.seatunnel</groupId>
+    <artifactId>imap-storage-kafka</artifactId>
+    <name>SeaTunnel : Engine : Storage : IMap Storage Plugins : Kafka</name>
 
-    <modules>
-        <module>imap-storage-file</module>
-        <module>imap-storage-kafka</module>
-    </modules>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <kafka.version>3.4.1</kafka.version>
+    </properties>
 
     <dependencies>
         <dependency>
-            <groupId>com.google.auto.service</groupId>
-            <artifactId>auto-service</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>imap-storage-api</artifactId>
+            <artifactId>serializer-protobuf</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <version>${kafka.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>kafka</artifactId>
+            <version>${testcontainer.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
-
 </project>
