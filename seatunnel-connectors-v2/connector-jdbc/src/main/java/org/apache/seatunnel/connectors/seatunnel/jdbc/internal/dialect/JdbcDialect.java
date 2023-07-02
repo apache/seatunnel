@@ -19,6 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.sql.Connection;
@@ -63,9 +66,13 @@ public interface JdbcDialect extends Serializable {
     default String quoteIdentifier(String identifier) {
         return identifier;
     }
+    /** Quotes the identifier for database name or field name */
+    default String quoteDatabaseIdentifier(String identifier) {
+        return identifier;
+    }
 
     default String tableIdentifier(String database, String tableName) {
-        return quoteIdentifier(database) + "." + quoteIdentifier(tableName);
+        return quoteDatabaseIdentifier(database) + "." + quoteIdentifier(tableName);
     }
 
     /**
@@ -195,5 +202,19 @@ public interface JdbcDialect extends Serializable {
             Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
         PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
         return ps.getMetaData();
+    }
+
+    default String getFieldIde(String identifier, String fieldIde) {
+        if (StringUtils.isEmpty(fieldIde)) {
+            return identifier;
+        }
+        switch (FieldIdeEnum.valueOf(fieldIde.toUpperCase())) {
+            case LOWERCASE:
+                return identifier.toLowerCase();
+            case UPPERCASE:
+                return identifier.toUpperCase();
+            default:
+                return identifier;
+        }
     }
 }

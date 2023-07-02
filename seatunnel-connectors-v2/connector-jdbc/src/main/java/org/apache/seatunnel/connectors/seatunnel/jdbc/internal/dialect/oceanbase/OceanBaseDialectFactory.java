@@ -40,7 +40,7 @@ public class OceanBaseDialectFactory implements JdbcDialectFactory {
     }
 
     @Override
-    public JdbcDialect create(@Nonnull String compatibleMode) {
+    public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
         if ("oracle".equalsIgnoreCase(compatibleMode)) {
             return new OracleDialect();
         }

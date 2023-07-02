@@ -144,4 +144,10 @@ public interface JdbcOptions {
                     .intType()
                     .noDefaultValue()
                     .withDescription("partition num");
+
+    Option<String> FIELD_IDE =
+            Options.key("field_ide")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Whether case conversion is required");
 }
