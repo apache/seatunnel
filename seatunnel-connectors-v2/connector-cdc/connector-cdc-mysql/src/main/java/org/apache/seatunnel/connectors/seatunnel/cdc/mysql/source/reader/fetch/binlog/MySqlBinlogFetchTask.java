@@ -43,6 +43,7 @@ import io.debezium.util.Clock;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset.NO_STOPPING_OFFSET;
 
@@ -104,6 +105,9 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         private final ErrorHandler errorHandler;
         private ChangeEventSourceContext context;
 
+        // Control end-watermark-event send
+        private final AtomicBoolean sendEndWatermarkKind = new AtomicBoolean(false);
+
         public MySqlBinlogSplitReadTask(
                 MySqlConnectorConfig connectorConfig,
                 MySqlOffsetContext offsetContext,
@@ -142,7 +146,8 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                 final BinlogOffset currentBinlogOffset =
                         getBinlogPosition(offsetContext.getOffset());
                 // reach the high watermark, the binlog fetcher should be finished
-                if (currentBinlogOffset.isAtOrAfter(binlogSplit.getStopOffset())) {
+                if (currentBinlogOffset.isAtOrAfter(binlogSplit.getStopOffset())
+                        && sendEndWatermarkKind.compareAndSet(false, true)) {
                     // send binlog end event
                     try {
                         dispatcher.dispatchWatermarkEvent(
@@ -150,6 +155,9 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                                 binlogSplit,
                                 currentBinlogOffset,
                                 WatermarkKind.END);
+                        // Unregister event listener and close connection after end-watermark-event
+                        // send
+                        super.releaseResource();
                     } catch (InterruptedException e) {
                         LOG.error("Send signal event error.", e);
                         errorHandler.setProducerThrowable(
