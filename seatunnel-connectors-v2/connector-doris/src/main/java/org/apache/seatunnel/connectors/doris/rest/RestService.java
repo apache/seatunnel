@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.doris.rest;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
@@ -491,11 +492,17 @@ public class RestService implements Serializable {
         return schema;
     }
 
-    public static List<PartitionDefinition> findPartitions(DorisConfig dorisConfig, Logger logger)
+    public static List<PartitionDefinition> findPartitions(
+            SeaTunnelRowType rowType, DorisConfig dorisConfig, Logger logger)
             throws DorisConnectorException {
         String[] tableIdentifiers = parseIdentifier(dorisConfig.getTableIdentifier(), logger);
-        String readFields =
-                StringUtils.isBlank(dorisConfig.getReadField()) ? "*" : dorisConfig.getReadField();
+        String readFields = "*";
+        if (rowType.getFieldNames().length != 0) {
+            readFields = String.join(",", rowType.getFieldNames());
+        }
+        //        String readFields =
+        //                StringUtils.isBlank(dorisConfig.getReadField()) ? "*" :
+        // dorisConfig.getReadField();
         String sql =
                 "select "
                         + readFields
@@ -524,7 +531,7 @@ public class RestService implements Serializable {
         return tabletsMapToPartition(
                 dorisConfig,
                 be2Tablets,
-                queryPlan.getOpaquedQueryPlan(),
+                queryPlan.getOpaqued_query_plan(),
                 tableIdentifiers[0],
                 tableIdentifiers[1],
                 logger);
