@@ -48,6 +48,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -205,7 +206,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         int scale = resultSet.getInt("NUMERIC_SCALE");
         long columnLength = resultSet.getLong("CHARACTER_MAXIMUM_LENGTH");
         long octetLength = resultSet.getLong("CHARACTER_OCTET_LENGTH");
-        if (sourceType.contains("unsigned")) {
+        if (sourceType.toLowerCase(Locale.ROOT).contains("unsigned")) {
             typeName += "_UNSIGNED";
         }
         SeaTunnelDataType<?> type = fromJdbcType(typeName, precision, scale);
