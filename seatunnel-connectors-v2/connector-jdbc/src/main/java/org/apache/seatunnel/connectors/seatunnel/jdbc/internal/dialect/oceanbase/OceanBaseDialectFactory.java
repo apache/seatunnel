@@ -36,12 +36,12 @@ public class OceanBaseDialectFactory implements JdbcDialectFactory {
     @Override
     public JdbcDialect create() {
         throw new UnsupportedOperationException(
-                "Can't create JdbcDialect without driver type for OceanBase");
+                "Can't create JdbcDialect without compatible mode for OceanBase");
     }
 
     @Override
-    public JdbcDialect create(@Nonnull String driverType) {
-        if ("oracle".equalsIgnoreCase(driverType)) {
+    public JdbcDialect create(@Nonnull String compatibleMode) {
+        if ("oracle".equalsIgnoreCase(compatibleMode)) {
             return new OracleDialect();
         }
         return new MysqlDialect();

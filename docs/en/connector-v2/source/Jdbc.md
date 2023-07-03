@@ -35,7 +35,7 @@ supports query SQL and can achieve projection effect.
 | user                         | String | No       | -               |
 | password                     | String | No       | -               |
 | query                        | String | Yes      | -               |
-| driver_type                  | String | Yes      | -               |
+| compatible_mode              | String | No       | -               |
 | connection_check_timeout_sec | Int    | No       | 30              |
 | partition_column             | String | No       | -               |
 | partition_upper_bound        | Long   | No       | -               |
@@ -64,9 +64,9 @@ The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/tes
 
 Query statement
 
-### driver_type [string]
+### compatible_mode [string]
 
-Use this field to represent the OceanBase  driver. e.g 'mysql'
+The compatible mode of database, required when the database supports multiple compatible modes. For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.
 
 ### connection_check_timeout_sec [int]
 

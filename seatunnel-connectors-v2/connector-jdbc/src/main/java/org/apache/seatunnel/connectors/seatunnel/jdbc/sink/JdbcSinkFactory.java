@@ -85,7 +85,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
         JdbcDialect dialect =
                 JdbcDialectLoader.load(
                         sinkConfig.getJdbcConnectionConfig().getUrl(),
-                        sinkConfig.getJdbcConnectionConfig().getDriverType());
+                        sinkConfig.getJdbcConnectionConfig().getCompatibleMode());
         return () ->
                 new JdbcSink(
                         options,

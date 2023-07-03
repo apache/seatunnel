@@ -101,7 +101,7 @@ public class JdbcSource
         this.jdbcDialect =
                 JdbcDialectLoader.load(
                         jdbcSourceConfig.getJdbcConnectionConfig().getUrl(),
-                        jdbcSourceConfig.getJdbcConnectionConfig().getDriverType());
+                        jdbcSourceConfig.getJdbcConnectionConfig().getCompatibleMode());
         try (Connection connection = jdbcConnectionProvider.getOrEstablishConnection()) {
             this.typeInfo = initTableField(connection);
             this.partitionParameter =

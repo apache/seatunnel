@@ -107,7 +107,7 @@ public class JdbcSink
         this.dialect =
                 JdbcDialectLoader.load(
                         jdbcSinkConfig.getJdbcConnectionConfig().getUrl(),
-                        jdbcSinkConfig.getJdbcConnectionConfig().getDriverType());
+                        jdbcSinkConfig.getJdbcConnectionConfig().getCompatibleMode());
         this.dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
     }
 

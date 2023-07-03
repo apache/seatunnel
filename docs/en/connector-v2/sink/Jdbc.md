@@ -33,7 +33,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | user                                      | String  | No       | -             |
 | password                                  | String  | No       | -             |
 | query                                     | String  | No       | -             |
-| driver_type                               | String  | No       | -             |
+| compatible_mode                           | String  | No       | -             |
 | database                                  | String  | No       | -             |
 | table                                     | String  | No       | -             |
 | primary_keys                              | Array   | No       | -             |
@@ -70,9 +70,9 @@ The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/tes
 
 Use this sql write upstream input datas to database. e.g `INSERT ...`
 
-### driver_type [string]
+### compatible_mode [string]
 
-Use this field to represent the OceanBase  driver. e.g 'mysql'
+The compatible mode of database, required when the database supports multiple compatible modes. For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.
 
 ### database [string]
 

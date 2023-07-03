@@ -41,10 +41,10 @@ public interface JdbcDialectFactory {
     /**
      * Create a {@link JdbcDialect} instance based on the driver type.
      *
-     * @param driverType The driver type
+     * @param compatibleMode The compatible mode
      * @return a new instance of {@link JdbcDialect}
      */
-    default JdbcDialect create(String driverType) {
+    default JdbcDialect create(String compatibleMode) {
         return create();
     }
 }
