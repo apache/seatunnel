@@ -205,6 +205,9 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         int scale = resultSet.getInt("NUMERIC_SCALE");
         long columnLength = resultSet.getLong("CHARACTER_MAXIMUM_LENGTH");
         long octetLength = resultSet.getLong("CHARACTER_OCTET_LENGTH");
+        if (sourceType.contains("unsigned")) {
+            typeName += "_UNSIGNED";
+        }
         SeaTunnelDataType<?> type = fromJdbcType(typeName, precision, scale);
         String comment = resultSet.getString("COLUMN_COMMENT");
         Object defaultValue = resultSet.getObject("COLUMN_DEFAULT");
