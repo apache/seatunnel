@@ -230,7 +230,6 @@ public class NumericFunction {
             case "DOUBLE":
             case "FLOAT":
                 {
-                    l:
                     if (scale == 0) {
                         double d;
                         switch (roundingMode) {
