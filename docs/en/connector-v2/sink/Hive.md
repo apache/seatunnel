@@ -36,6 +36,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | metastore_uri        | string | yes      | -             |
 | compress_codec       | string | no       | none          |
 | hdfs_site_path       | string | no       | -             |
+| hive_site_path       | string | no       | -             |
 | kerberos_principal   | string | no       | -             |
 | kerberos_keytab_path | string | no       | -             |
 | common-options       |        | no       | -             |
@@ -51,6 +52,10 @@ Hive metastore uri
 ### hdfs_site_path [string]
 
 The path of `hdfs-site.xml`, used to load ha configuration of namenodes
+
+### hive_site_path [string]
+
+The path of `hive-site.xml`, used to authentication hive metastore
 
 ### kerberos_principal [string]
 
