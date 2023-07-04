@@ -37,6 +37,12 @@ public class HiveConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Hive metastore uri");
+
+    public static final Option<String> HIVE_SITE_PATH =
+            Options.key("hive_site_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The path of hive-site.xml");
     public static final String TEXT_INPUT_FORMAT_CLASSNAME =
             "org.apache.hadoop.mapred.TextInputFormat";
     public static final String TEXT_OUTPUT_FORMAT_CLASSNAME =
