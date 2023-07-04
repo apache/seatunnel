@@ -55,10 +55,19 @@ public class KuduOutputFormat implements Serializable {
     private KuduSession kuduSession;
     private KuduTable kuduTable;
 
+    private final String kerberosPrincipal;
+
+    private final String kerberosKeytabPath;
+
+    private final String krb5ConfPath;
+
     public KuduOutputFormat(KuduSinkConfig kuduSinkConfig) {
         this.kuduMaster = kuduSinkConfig.getKuduMaster();
         this.kuduTableName = kuduSinkConfig.getKuduTableName();
         this.saveMode = kuduSinkConfig.getSaveMode();
+        this.kerberosPrincipal = kuduSinkConfig.getKerberosPrincipal();
+        this.kerberosKeytabPath = kuduSinkConfig.getKerberosKeytabPath();
+        this.krb5ConfPath = kuduSinkConfig.getKrb5ConfPath();
         init();
     }
 
@@ -166,10 +175,7 @@ public class KuduOutputFormat implements Serializable {
     }
 
     private void init() {
-        KuduClient.KuduClientBuilder kuduClientBuilder =
-                new KuduClient.KuduClientBuilder(kuduMaster);
-        kuduClientBuilder.defaultOperationTimeoutMs(TIMEOUTMS);
-        this.kuduClient = kuduClientBuilder.build();
+        this.kuduClient = KuduClientUtils.getKuduClient(kuduMaster, kerberosKeytabPath, kerberosPrincipal, krb5ConfPath, TIMEOUTMS);
         this.kuduSession = kuduClient.newSession();
         this.kuduSession.setTimeoutMillis(SESSIONTIMEOUTMS);
         this.kuduSession.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_SYNC);

@@ -59,7 +59,7 @@ import java.util.List;
 @AutoService(SeaTunnelSource.class)
 public class KuduSource
         implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit, KuduSourceState>,
-                SupportParallelism {
+        SupportParallelism {
     private SeaTunnelRowType rowTypeInfo;
     private KuduInputFormat kuduInputFormat;
     private PartitionParameter partitionParameter;
@@ -125,7 +125,10 @@ public class KuduSource
             kudumaster = config.getString(KuduSourceConfig.KUDU_MASTER.key());
             tableName = config.getString(KuduSourceConfig.TABLE_NAME.key());
             columnslist = config.getString(KuduSourceConfig.COLUMNS_LIST.key());
-            kuduInputFormat = new KuduInputFormat(kudumaster, tableName, columnslist);
+            String kerberosKeytabPath = config.getString(KuduSourceConfig.KERBEROS_KEYTAB_PATH.key());
+            String kerberosPrincipal = config.getString(KuduSourceConfig.KERBEROS_PRINCIPAL.key());
+            String krb5ConfPath = config.getString(KuduSourceConfig.KRB5_CONF_PATH.key());
+            kuduInputFormat = new KuduInputFormat(kudumaster, tableName, columnslist, kerberosKeytabPath, kerberosPrincipal, krb5ConfPath);
         } else {
             throw new KuduConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
