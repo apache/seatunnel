@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.Map;
+import java.util.Random;
 
 @Slf4j
 public class TestUtils {
@@ -64,5 +65,10 @@ public class TestUtils {
 
     public static String getClusterName(String testClassName) {
         return System.getProperty("user.name") + "_" + testClassName;
+    }
+
+    public static String creatRandomClusterName(String namePrefix) {
+        Random random = new Random();
+        return namePrefix + "-" + random.nextInt(1000000);
     }
 }
