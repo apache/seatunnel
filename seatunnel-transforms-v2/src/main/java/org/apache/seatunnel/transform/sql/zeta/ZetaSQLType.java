@@ -27,6 +27,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import net.sf.jsqlparser.expression.BinaryExpression;
+import net.sf.jsqlparser.expression.CaseExpression;
 import net.sf.jsqlparser.expression.CastExpression;
 import net.sf.jsqlparser.expression.DoubleValue;
 import net.sf.jsqlparser.expression.Expression;
@@ -38,6 +39,7 @@ import net.sf.jsqlparser.expression.Parenthesis;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.TimeKeyExpression;
 import net.sf.jsqlparser.expression.operators.arithmetic.Concat;
+import net.sf.jsqlparser.expression.operators.relational.ComparisonOperator;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.schema.Column;
 
@@ -106,6 +108,12 @@ public class ZetaSQLType {
         if (expression instanceof Concat) {
             return BasicType.STRING_TYPE;
         }
+        if (expression instanceof CaseExpression) {
+            return getCaseType((CaseExpression) expression);
+        }
+        if (expression instanceof ComparisonOperator) {
+            return BasicType.BOOLEAN_TYPE;
+        }
         if (expression instanceof CastExpression) {
             return getCastType((CastExpression) expression);
         }
@@ -147,6 +155,10 @@ public class ZetaSQLType {
         throw new TransformException(
                 CommonErrorCode.UNSUPPORTED_OPERATION,
                 String.format("Unsupported SQL Expression: %s ", expression.toString()));
+    }
+
+    private SeaTunnelDataType<?> getCaseType(CaseExpression caseExpression) {
+        return getExpressionType(caseExpression.getElseExpression());
     }
 
     private SeaTunnelDataType<?> getCastType(CastExpression castExpression) {

@@ -29,6 +29,7 @@ import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.SystemFunction;
 
 import net.sf.jsqlparser.expression.BinaryExpression;
+import net.sf.jsqlparser.expression.CaseExpression;
 import net.sf.jsqlparser.expression.CastExpression;
 import net.sf.jsqlparser.expression.DoubleValue;
 import net.sf.jsqlparser.expression.Expression;
@@ -39,12 +40,14 @@ import net.sf.jsqlparser.expression.NullValue;
 import net.sf.jsqlparser.expression.Parenthesis;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.TimeKeyExpression;
+import net.sf.jsqlparser.expression.WhenClause;
 import net.sf.jsqlparser.expression.operators.arithmetic.Addition;
 import net.sf.jsqlparser.expression.operators.arithmetic.Concat;
 import net.sf.jsqlparser.expression.operators.arithmetic.Division;
 import net.sf.jsqlparser.expression.operators.arithmetic.Modulo;
 import net.sf.jsqlparser.expression.operators.arithmetic.Multiplication;
 import net.sf.jsqlparser.expression.operators.arithmetic.Subtraction;
+import net.sf.jsqlparser.expression.operators.relational.ComparisonOperator;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.schema.Column;
 
@@ -52,6 +55,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class ZetaSQLFunction {
     // ============================internal functions=====================
@@ -162,6 +166,7 @@ public class ZetaSQLFunction {
     public static final String NULLIF = "NULLIF";
 
     private final SeaTunnelRowType inputRowType;
+    private final ZetaSQLFilter zetaSQLFilter;
     private final ZetaSQLType zetaSQLType;
 
     private final List<ZetaUDF> udfList;
@@ -170,6 +175,7 @@ public class ZetaSQLFunction {
             SeaTunnelRowType inputRowType, ZetaSQLType zetaSQLType, List<ZetaUDF> udfList) {
         this.inputRowType = inputRowType;
         this.zetaSQLType = zetaSQLType;
+        this.zetaSQLFilter = new ZetaSQLFilter(this);
         this.udfList = udfList;
     }
 
@@ -219,6 +225,13 @@ public class ZetaSQLFunction {
         if (expression instanceof Parenthesis) {
             Parenthesis parenthesis = (Parenthesis) expression;
             return computeForValue(parenthesis.getExpression(), inputFields);
+        }
+        if (expression instanceof ComparisonOperator) {
+            return zetaSQLFilter.executeFilter(expression, inputFields);
+        }
+        if (expression instanceof CaseExpression) {
+            CaseExpression caseExpression = (CaseExpression) expression;
+            return executeCaseExpr(caseExpression, inputFields);
         }
         if (expression instanceof BinaryExpression) {
             return executeBinaryExpr((BinaryExpression) expression, inputFields);
@@ -433,6 +446,22 @@ public class ZetaSQLFunction {
         throw new TransformException(
                 CommonErrorCode.UNSUPPORTED_OPERATION,
                 String.format("Unsupported TimeKey expression: %s", timeKeyExpr));
+    }
+
+    public Object executeCaseExpr(CaseExpression caseExpression, Object[] inputFields) {
+        Expression switchExpr = caseExpression.getSwitchExpression();
+        Object switchValue = switchExpr == null ? null : computeForValue(switchExpr, inputFields);
+        for (WhenClause whenClause : caseExpression.getWhenClauses()) {
+            final Object when = computeForValue(whenClause.getWhenExpression(), inputFields);
+            // match: case [column] when column1 compare other, add by javalover123
+            boolean isComparison = whenClause.getWhenExpression() instanceof ComparisonOperator;
+            if (isComparison && (boolean) when) {
+                return computeForValue(whenClause.getThenExpression(), inputFields);
+            } else if (!isComparison && Objects.equals(switchValue, when)) {
+                return computeForValue(whenClause.getThenExpression(), inputFields);
+            }
+        }
+        return computeForValue(caseExpression.getElseExpression(), inputFields);
     }
 
     public Object executeCastExpr(CastExpression castExpression, Object arg) {
