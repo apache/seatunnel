@@ -58,6 +58,8 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     protected static final List<Document> TEST_SPLIT_DATASET = generateTestDataSet(10);
 
+    protected static final List<Document> TEST_NULL_DATASET = generateTestNullDataSet();
+
     protected static final String MONGODB_IMAGE = "mongo:latest";
 
     protected static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
@@ -73,6 +75,8 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
     protected static final String MONGODB_MATCH_RESULT_TABLE = "test_match_op_result_db";
 
     protected static final String MONGODB_SPLIT_RESULT_TABLE = "test_split_op_result_db";
+
+    protected static final String MONGODB_NULL_RESULT_TABLE = "test_null_result_db";
 
     protected static final String MONGODB_SINK_TABLE = "test_source_sink_table";
 
@@ -105,6 +109,12 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
         sourceSplitTable.deleteMany(new Document());
         sourceSplitTable.insertMany(TEST_SPLIT_DATASET);
+
+        MongoCollection<Document> nullTable =
+                client.getDatabase(MONGODB_DATABASE)
+                        .getCollection(MongodbIT.MONGODB_NULL_RESULT_TABLE);
+        nullTable.deleteMany(new Document());
+        nullTable.insertMany(MongodbIT.TEST_NULL_DATASET);
     }
 
     protected void clearDate(String table) {
@@ -161,6 +171,261 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                                                     "c_double",
                                                     RANDOM.nextDouble() * Double.MAX_VALUE)));
         }
+        return dataSet;
+    }
+
+    public static List<Document> generateTestNullDataSet() {
+        List<Document> dataSet = new ArrayList<>();
+
+        dataSet.add(
+                new Document(
+                                "c_map",
+                                new Document("OQBqH", randomString())
+                                        .append("rkvlO", randomString())
+                                        .append("pCMEX", randomString())
+                                        .append("DAgdj", randomString())
+                                        .append("dsJag", randomString()))
+                        .append(
+                                "c_array",
+                                Arrays.asList(
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt()))
+                        .append("c_string", randomString())
+                        .append("c_boolean", RANDOM.nextBoolean())
+                        .append("c_int", 1)
+                        .append("c_bigint", RANDOM.nextLong())
+                        .append("c_double", RANDOM.nextDouble() * Double.MAX_VALUE)
+                        .append(
+                                "c_row",
+                                new Document(
+                                                "c_map",
+                                                new Document("OQBqH", randomString())
+                                                        .append("rkvlO", randomString())
+                                                        .append("pCMEX", randomString())
+                                                        .append("DAgdj", randomString())
+                                                        .append("dsJag", randomString()))
+                                        .append(
+                                                "c_array",
+                                                Arrays.asList(
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt()))
+                                        .append("c_string", randomString())
+                                        .append("c_boolean", RANDOM.nextBoolean())
+                                        .append("c_int", RANDOM.nextInt())
+                                        .append("c_bigint", RANDOM.nextLong())
+                                        .append(
+                                                "c_double",
+                                                RANDOM.nextDouble() * Double.MAX_VALUE)));
+        dataSet.add(
+                new Document("c_map", null)
+                        .append(
+                                "c_array",
+                                Arrays.asList(
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt()))
+                        .append("c_string", randomString())
+                        .append("c_boolean", RANDOM.nextBoolean())
+                        .append("c_int", 1)
+                        .append("c_bigint", RANDOM.nextLong())
+                        .append("c_double", RANDOM.nextDouble() * Double.MAX_VALUE)
+                        .append("c_row", null));
+        dataSet.add(
+                new Document(
+                                "c_map",
+                                new Document("OQBqH", null)
+                                        .append("rkvlO", randomString())
+                                        .append("pCMEX", randomString())
+                                        .append("DAgdj", randomString())
+                                        .append("dsJag", randomString()))
+                        .append(
+                                "c_array",
+                                Arrays.asList(
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt()))
+                        .append("c_string", null)
+                        .append("c_boolean", RANDOM.nextBoolean())
+                        .append("c_int", 1)
+                        .append("c_bigint", RANDOM.nextLong())
+                        .append("c_double", null)
+                        .append(
+                                "c_row",
+                                new Document(
+                                                "c_map",
+                                                new Document("OQBqH", null)
+                                                        .append("rkvlO", randomString())
+                                                        .append("pCMEX", randomString())
+                                                        .append("DAgdj", randomString())
+                                                        .append("dsJag", randomString()))
+                                        .append(
+                                                "c_array",
+                                                Arrays.asList(
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt(),
+                                                        null,
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt()))
+                                        .append("c_string", null)
+                                        .append("c_boolean", RANDOM.nextBoolean())
+                                        .append("c_int", RANDOM.nextInt())
+                                        .append("c_bigint", RANDOM.nextLong())
+                                        .append(
+                                                "c_double",
+                                                RANDOM.nextDouble() * Double.MAX_VALUE)));
+        dataSet.add(
+                new Document(
+                                "c_map",
+                                new Document("OQBqH", randomString())
+                                        .append("rkvlO", randomString())
+                                        .append("pCMEX", randomString())
+                                        .append("DAgdj", randomString())
+                                        .append("dsJag", randomString()))
+                        .append("c_array", null)
+                        .append("c_string", null)
+                        .append("c_boolean", RANDOM.nextBoolean())
+                        .append("c_int", 1)
+                        .append("c_bigint", null)
+                        .append("c_double", RANDOM.nextDouble() * Double.MAX_VALUE)
+                        .append(
+                                "c_row",
+                                new Document(
+                                                "c_map",
+                                                new Document("OQBqH", randomString())
+                                                        .append("rkvlO", randomString())
+                                                        .append("pCMEX", randomString())
+                                                        .append("DAgdj", randomString())
+                                                        .append("dsJag", randomString()))
+                                        .append(
+                                                "c_array",
+                                                Arrays.asList(
+                                                        null,
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt()))
+                                        .append("c_string", randomString())
+                                        .append("c_boolean", null)
+                                        .append("c_int", RANDOM.nextInt())
+                                        .append("c_bigint", null)
+                                        .append(
+                                                "c_double",
+                                                RANDOM.nextDouble() * Double.MAX_VALUE)));
+        dataSet.add(
+                new Document(
+                                "c_map",
+                                new Document("OQBqH", randomString())
+                                        .append("rkvlO", randomString())
+                                        .append("pCMEX", randomString())
+                                        .append("DAgdj", randomString())
+                                        .append("dsJag", randomString()))
+                        .append(
+                                "c_array",
+                                Arrays.asList(
+                                        null,
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt()))
+                        .append("c_string", randomString())
+                        .append("c_boolean", null)
+                        .append("c_int", null)
+                        .append("c_bigint", RANDOM.nextLong())
+                        .append("c_double", RANDOM.nextDouble() * Double.MAX_VALUE)
+                        .append(
+                                "c_row",
+                                new Document(
+                                                "c_map",
+                                                new Document("OQBqH", randomString())
+                                                        .append("rkvlO", randomString())
+                                                        .append("pCMEX", randomString())
+                                                        .append("DAgdj", randomString())
+                                                        .append("dsJag", randomString()))
+                                        .append(
+                                                "c_array",
+                                                Arrays.asList(
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt()))
+                                        .append("c_string", null)
+                                        .append("c_boolean", null)
+                                        .append("c_int", null)
+                                        .append("c_bigint", RANDOM.nextLong())
+                                        .append(
+                                                "c_double",
+                                                RANDOM.nextDouble() * Double.MAX_VALUE)));
+        dataSet.add(
+                new Document(
+                                "c_map",
+                                new Document("OQBqH", randomString())
+                                        .append("rkvlO", randomString())
+                                        .append("pCMEX", randomString())
+                                        .append("DAgdj", null)
+                                        .append("dsJag", randomString()))
+                        .append(
+                                "c_array",
+                                Arrays.asList(
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt(),
+                                        RANDOM.nextInt()))
+                        .append("c_string", randomString())
+                        .append("c_boolean", RANDOM.nextBoolean())
+                        .append("c_int", 1)
+                        .append("c_bigint", null)
+                        .append("c_double", RANDOM.nextDouble() * Double.MAX_VALUE)
+                        .append(
+                                "c_row",
+                                new Document(
+                                                "c_map",
+                                                new Document("OQBqH", randomString())
+                                                        .append("rkvlO", randomString())
+                                                        .append("pCMEX", randomString())
+                                                        .append("DAgdj", randomString())
+                                                        .append("dsJag", randomString()))
+                                        .append(
+                                                "c_array",
+                                                Arrays.asList(
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt(),
+                                                        RANDOM.nextInt()))
+                                        .append("c_string", randomString())
+                                        .append("c_boolean", RANDOM.nextBoolean())
+                                        .append("c_int", null)
+                                        .append("c_bigint", RANDOM.nextLong())
+                                        .append("c_double", null)));
+        dataSet.add(
+                new Document("c_map", null)
+                        .append("c_array", null)
+                        .append("c_string", randomString())
+                        .append("c_boolean", RANDOM.nextBoolean())
+                        .append("c_int", 1)
+                        .append("c_bigint", RANDOM.nextLong())
+                        .append("c_double", RANDOM.nextDouble() * Double.MAX_VALUE)
+                        .append(
+                                "c_row",
+                                new Document("c_map", null)
+                                        .append("c_array", null)
+                                        .append("c_string", null)
+                                        .append("c_boolean", null)
+                                        .append("c_int", null)
+                                        .append("c_bigint", null)
+                                        .append("c_double", null)));
         return dataSet;
     }
 

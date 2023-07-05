@@ -140,4 +140,19 @@ public class MongodbIT extends AbstractMongodbIT {
                         .collect(Collectors.toList()));
         clearDate(MONGODB_SPLIT_RESULT_TABLE);
     }
+
+    @TestTemplate
+    public void testMongodbNullValue(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult queryResult =
+                container.executeJob("/nullValueIT/mongodb_nullvalue_source_to_assert.conf");
+        Assertions.assertEquals(0, queryResult.getExitCode(), queryResult.getStderr());
+
+        Assertions.assertIterableEquals(
+                TEST_NULL_DATASET.stream().peek(e -> e.remove("_id")).collect(Collectors.toList()),
+                readMongodbData(MONGODB_NULL_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_NULL_RESULT_TABLE);
+    }
 }
