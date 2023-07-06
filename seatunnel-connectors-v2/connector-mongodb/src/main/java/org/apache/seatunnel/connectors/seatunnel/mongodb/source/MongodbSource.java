@@ -46,6 +46,7 @@ import org.bson.BsonDocument;
 import com.google.auto.service.AutoService;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
@@ -111,6 +112,17 @@ public class MongodbSource
             splitStrategyBuilder.setMatchQuery(
                     BsonDocument.parse(pluginConfig.getString(MongodbConfig.MATCH_QUERY.key())));
         }
+
+        List<String> fallbackKeys = MongodbConfig.MATCH_QUERY.getFallbackKeys();
+        fallbackKeys.forEach(
+                key -> {
+                    if (pluginConfig.hasPath(key)) {
+                        splitStrategyBuilder.setMatchQuery(
+                                BsonDocument.parse(
+                                        pluginConfig.getString(MongodbConfig.MATCH_QUERY.key())));
+                    }
+                });
+
         if (pluginConfig.hasPath(MongodbConfig.SPLIT_KEY.key())) {
             splitStrategyBuilder.setSplitKey(pluginConfig.getString(MongodbConfig.SPLIT_KEY.key()));
         }
