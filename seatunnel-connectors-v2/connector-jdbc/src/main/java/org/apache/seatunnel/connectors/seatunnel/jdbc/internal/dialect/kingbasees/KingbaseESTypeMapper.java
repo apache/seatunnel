@@ -82,32 +82,19 @@ public class KingbaseESTypeMapper implements JdbcDialectTypeMapper {
         switch (kbType) {
             case KB_BOOLEAN:
                 return BasicType.BOOLEAN_TYPE;
-            case KB_BOOLEAN_ARRAY:
-                return ArrayType.BOOLEAN_ARRAY_TYPE;
-            case KB_BYTEA_ARRAY:
-                return ArrayType.BYTE_ARRAY_TYPE;
             case KB_SMALLINT:
                 return BasicType.SHORT_TYPE;
             case KB_SMALLSERIAL:
             case KB_INTEGER:
             case KB_SERIAL:
                 return BasicType.INT_TYPE;
-            case KB_SMALLINT_ARRAY:
-            case KB_INTEGER_ARRAY:
-                return ArrayType.INT_ARRAY_TYPE;
             case KB_BIGINT:
             case KB_BIGSERIAL:
                 return BasicType.LONG_TYPE;
-            case KB_BIGINT_ARRAY:
-                return ArrayType.LONG_ARRAY_TYPE;
             case KB_REAL:
                 return BasicType.FLOAT_TYPE;
-            case KB_REAL_ARRAY:
-                return ArrayType.FLOAT_ARRAY_TYPE;
             case KB_DOUBLE_PRECISION:
                 return BasicType.DOUBLE_TYPE;
-            case KB_DOUBLE_PRECISION_ARRAY:
-                return ArrayType.DOUBLE_ARRAY_TYPE;
             case KB_NUMERIC:
                 // see SPARK-26538: handle numeric without explicit precision and scale.
                 if (precision > 0) {
@@ -119,16 +106,22 @@ public class KingbaseESTypeMapper implements JdbcDialectTypeMapper {
             case KB_CHARACTER_VARYING:
             case KB_TEXT:
                 return BasicType.STRING_TYPE;
-            case KB_CHAR_ARRAY:
-            case KB_CHARACTER_VARYING_ARRAY:
-            case KB_TEXT_ARRAY:
-                return ArrayType.STRING_ARRAY_TYPE;
             case KB_TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case KB_TIME:
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case KB_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
+            case KB_CHAR_ARRAY:
+            case KB_CHARACTER_VARYING_ARRAY:
+            case KB_TEXT_ARRAY:
+            case KB_DOUBLE_PRECISION_ARRAY:
+            case KB_REAL_ARRAY:
+            case KB_BIGINT_ARRAY:
+            case KB_SMALLINT_ARRAY:
+            case KB_INTEGER_ARRAY:
+            case KB_BYTEA_ARRAY:
+            case KB_BOOLEAN_ARRAY:
             case KB_TIMESTAMP_ARRAY:
             case KB_NUMERIC_ARRAY:
             case KB_TIMESTAMPTZ:

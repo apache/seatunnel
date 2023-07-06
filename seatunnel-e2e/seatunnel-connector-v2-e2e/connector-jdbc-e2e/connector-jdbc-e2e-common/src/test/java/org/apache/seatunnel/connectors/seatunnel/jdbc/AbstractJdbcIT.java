@@ -193,7 +193,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     public String buildTableInfoWithSchema(String schema, String table) {
         if (StringUtils.isNotBlank(schema)) {
-            return quoteIdentifier(schema) + "." + quoteIdentifier(table);
+            return schema + "." + table;
         } else {
             return quoteIdentifier(table);
         }

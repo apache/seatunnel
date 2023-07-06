@@ -17,12 +17,17 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
  */
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -62,30 +67,20 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                     "    c1  SMALLSERIAL,\n" +
                     "    c2  SERIAL,\n" +
                     "    c3  BIGSERIAL,\n" +
-                    "    c4  BYTEA,\n" +
                     "    c5  INT2,\n" +
-                    "    c6  _INT2,\n" +
                     "    c7  INT4,\n" +
-                    "    c8  _INT4,\n" +
                     "    c9 INT8,\n" +
-                    "    c10 _INT8,\n" +
                     "    c11 FLOAT4,\n" +
-                    "    c12 _FLOAT4,\n" +
                     "    c13 FLOAT8,\n" +
-                    "    c14 _FLOAT8,\n" +
                     "    c15 NUMERIC,\n" +
                     "    c16 BOOL,\n" +
-                    "    c17 _BOOL,\n" +
                     "    c18 TIMESTAMP,\n" +
                     "    c19 DATE,\n" +
                     "    c20 TIME,\n" +
                     "    c21 TEXT,\n" +
-                    "    c22 _TEXT,\n" +
                     "    c23 BPCHAR,\n" +
-                    "    c24 _BPCHAR,\n" +
                     "    c25 CHARACTER,\n" +
-                    "    c26 VARCHAR,\n" +
-                    "    c27 _VARCHAR\n" +
+                    "    c26 VARCHAR\n" +
                     ");\n";
 
     @Override
@@ -135,30 +130,20 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                         "c1",
                         "c2",
                         "c3",
-                        "c4",
                         "c5",
-                        "c6",
                         "c7",
-                        "c8",
                         "c9",
-                        "c10",
                         "c11",
-                        "c12",
                         "c13",
-                        "c14",
                         "c15",
                         "c16",
-                        "c17",
                         "c18",
                         "c19",
                         "c20",
                         "c21",
-                        "c22",
                         "c23",
-                        "c24",
                         "c25",
-                        "c26",
-                        "c27"
+                        "c26"
                 };
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
@@ -168,30 +153,20 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                                     i,
                                     Long.parseLong(String.valueOf(i)),
                                     Long.parseLong(String.valueOf(i)),
-                                    new byte[]{1, 2},
                                     (short) i,
-                                    new short[]{1, 2},
                                     i,
-                                    new int[]{1, 2},
                                     Long.parseLong(String.valueOf(i)),
-                                    new long[]{1L, 2L},
                                     Float.parseFloat("1.1"),
-                                    new float[]{1.1F, 1.2F},
                                     Double.parseDouble("1.1"),
-                                    new double[]{1.1, 1.2},
                                     BigDecimal.valueOf(i, 10),
                                     true,
-                                    new boolean[]{false, true},
                                     LocalDateTime.now(),
                                     LocalDate.now(),
                                     LocalTime.now(),
                                     String.valueOf(i),
-                                    new String[]{"1", "2"},
                                     String.valueOf(i),
-                                    new String[]{"1", "2"},
                                     String.valueOf(1),
-                                    String.valueOf(i),
-                                    new String[]{"1", "2"}
+                                    String.valueOf(i)
                             });
             rows.add(row);
         }
@@ -252,4 +227,25 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                 + ")";
     }
 
+
+    @TestTemplate
+    public void testJdbcDb(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        List<String> configFiles = jdbcCase.getConfigFile();
+        for (String configFile : configFiles) {
+            Container.ExecResult execResult = container.executeJob(configFile);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        }
+
+        compareResult();
+        clearTable(KINGBASE_SCHEMA, jdbcCase.getSinkTable());
+    }
+
+    public void clearTable(String schema, String table) {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("TRUNCATE TABLE " + schema + "."+table);
+        } catch (SQLException e) {
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, e);
+        }
+    }
 }

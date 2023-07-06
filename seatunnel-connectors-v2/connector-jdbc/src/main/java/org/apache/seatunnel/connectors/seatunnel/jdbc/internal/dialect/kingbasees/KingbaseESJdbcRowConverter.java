@@ -104,10 +104,6 @@ public class KingbaseESJdbcRowConverter extends AbstractJdbcRowConverter {
                     fields[fieldIndex] = null;
                     break;
                 case ROW:
-                    String value = ((KBobject) rs.getObject(resultSetIndex)).getValue();
-                    String type = ((KBobject) rs.getObject(resultSetIndex)).getType();
-                    fields[fieldIndex] = new SeaTunnelRow(new Object[] {type, value});
-                    break;
                 case MAP:
                 case ARRAY:
                 default:
