@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
+package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StarRocksFlushTuple;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink.entity.StreamLoadResponse;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.committer.StarRocksCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.state.StarRocksSinkState;
 
-import com.google.common.base.Strings;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,14 +32,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
-public class StarRocksSinkManager {
+public class StarRocksSinkManager implements StreamLoadManager {
 
     private final SinkConfig sinkConfig;
     private final List<byte[]> batchList;
@@ -49,12 +52,15 @@ public class StarRocksSinkManager {
     private int batchRowCount = 0;
     private long batchBytesSize = 0;
     private final Integer batchIntervalMs;
+    private LabelGenerator labelGenerator;
 
-    public StarRocksSinkManager(SinkConfig sinkConfig, List<String> fileNames) {
+    public StarRocksSinkManager(
+            LabelGenerator labelGenerator, SinkConfig sinkConfig, List<String> fileNames) {
         this.sinkConfig = sinkConfig;
         this.batchList = new ArrayList<>();
         this.batchIntervalMs = sinkConfig.getBatchIntervalMs();
-        starrocksStreamLoadVisitor = new StarRocksStreamLoadVisitor(sinkConfig, fileNames);
+        this.starrocksStreamLoadVisitor = new StarRocksStreamLoadVisitor(sinkConfig, fileNames);
+        this.labelGenerator = labelGenerator;
     }
 
     private void tryInit() throws IOException {
@@ -84,6 +90,9 @@ public class StarRocksSinkManager {
         }
     }
 
+    @Override
+    public void init() {}
+
     public synchronized void write(String record) throws IOException {
         tryInit();
         checkFlushException();
@@ -97,6 +106,12 @@ public class StarRocksSinkManager {
         }
     }
 
+    @Override
+    public void callback(StreamLoadResponse response) {}
+
+    @Override
+    public void callback(Throwable e) {}
+
     public synchronized void close() throws IOException {
         if (scheduledFuture != null) {
             scheduledFuture.cancel(false);
@@ -106,12 +121,15 @@ public class StarRocksSinkManager {
         flush();
     }
 
+    @Override
+    public void beginTransaction(long checkpointId) {}
+
     public synchronized void flush() throws IOException {
         checkFlushException();
         if (batchList.isEmpty()) {
             return;
         }
-        String label = createBatchLabel();
+        String label = labelGenerator.genLabel();
         StarRocksFlushTuple tuple =
                 new StarRocksFlushTuple(label, batchBytesSize, new ArrayList<>(batchList));
         for (int i = 0; i <= sinkConfig.getMaxRetries(); i++) {
@@ -131,7 +149,7 @@ public class StarRocksSinkManager {
 
                 if (e instanceof StarRocksConnectorException
                         && ((StarRocksConnectorException) e).needReCreateLabel()) {
-                    String newLabel = createBatchLabel();
+                    String newLabel = labelGenerator.genLabel();
                     log.warn(
                             String.format(
                                     "Batch label changed from [%s] to [%s]",
@@ -157,18 +175,35 @@ public class StarRocksSinkManager {
         batchBytesSize = 0;
     }
 
+    @Override
+    public ArrayList<StarRocksSinkState> snapshot(long checkpointId) {
+        return null;
+    }
+
+    @Override
+    public Optional<StarRocksCommitInfo> prepareCommit() {
+        return Optional.empty();
+    }
+
+    @Override
+    public boolean commit(String transactionId) {
+        return false;
+    }
+
+    @Override
+    public boolean abort(long checkpointId, int subTaskIndex) {
+        return false;
+    }
+
+    @Override
+    public boolean abort() {
+        return false;
+    }
+
     private void checkFlushException() {
         if (flushException != null) {
             throw new StarRocksConnectorException(
                     StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, flushException);
         }
-    }
-
-    public String createBatchLabel() {
-        StringBuilder sb = new StringBuilder();
-        if (!Strings.isNullOrEmpty(sinkConfig.getLabelPrefix())) {
-            sb.append(sinkConfig.getLabelPrefix());
-        }
-        return sb.append(UUID.randomUUID()).toString();
     }
 }

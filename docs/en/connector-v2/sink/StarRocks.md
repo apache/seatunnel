@@ -7,9 +7,17 @@
 Used to send data to StarRocks. Both support streaming and batch mode.
 The internal implementation of StarRocks sink connector is cached and imported by stream load in batches.
 
+:::tip
+
+Version Supported
+
+* exactly-once supported  `StarRocks version is >= 2.4.x`
+
+:::
+
 ## Key features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
 
 ## Options
@@ -30,6 +38,8 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | retry_backoff_multiplier_ms | int     | no       | -               |
 | max_retry_backoff_ms        | int     | no       | -               |
 | enable_upsert_delete        | boolean | no       | false           |
+| enable_exactly_once         | boolean | no       | false           |
+| flush_frequency_ms          | long    | no       | 50              |
 | save_mode_create_template   | string  | no       | see below       |
 | starrocks.config            | map     | no       | -               |
 
@@ -88,6 +98,14 @@ The amount of time to wait before attempting to retry a request to `StarRocks`
 ### enable_upsert_delete [boolean]
 
 Whether to enable upsert/delete, only supports PrimaryKey model.
+
+### enable_exactly_once [bool]
+
+Whether to enable two-phase commit (2pc), the default is true, to ensure Exactly-Once semantics. For two-phase commit, please refer to [here](https://docs.starrocks.io/zh-cn/latest/loading/Stream_Load_transaction_interface).
+
+### flush_frequency_ms [long]
+
+trigger flush frequency for batch writing on Exactly-Once semantics
 
 ### save_mode_create_template [string]
 
@@ -195,6 +213,22 @@ sink {
     
     // Support upsert/delete event synchronization (enable_upsert_delete=true), only supports PrimaryKey model.
     enable_upsert_delete = true
+  }
+}
+```
+
+Support load data ON EOS semantics
+
+```hocon
+sink {
+  StarRocks {
+    nodeUrls = ["e2e_starRocksdb:8030"]
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    enable_exactly_once = true
+    flush_frequency_ms= 30000
   }
 }
 ```

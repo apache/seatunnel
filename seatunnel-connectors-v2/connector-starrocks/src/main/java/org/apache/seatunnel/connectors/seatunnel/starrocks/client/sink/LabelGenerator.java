@@ -15,19 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
+package org.apache.seatunnel.connectors.seatunnel.starrocks.client.sink;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.Setter;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 
-import java.util.List;
+import java.util.UUID;
 
-@AllArgsConstructor
-@Getter
-@Setter
-public class StarRocksFlushTuple {
-    private String label;
-    private Long bytes;
-    private List<byte[]> rows;
+public class LabelGenerator {
+    private String labelPrefix;
+    private boolean enableExactlyOnce;
+
+    public LabelGenerator(SinkConfig sinkConfig) {
+        this.labelPrefix = sinkConfig.getLabelPrefix();
+        this.enableExactlyOnce = sinkConfig.isEnableExactlyOnce();
+    }
+
+    public String genLabel(long chkId, int subTaskIndex) {
+        return enableExactlyOnce
+                ? labelPrefix + "_" + chkId + "_" + subTaskIndex
+                : labelPrefix + "_" + UUID.randomUUID();
+    }
+
+    public String genLabel() {
+        return labelPrefix + "_" + UUID.randomUUID();
+    }
 }

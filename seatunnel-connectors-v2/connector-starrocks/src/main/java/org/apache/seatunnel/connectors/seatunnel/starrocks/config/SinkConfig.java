@@ -35,7 +35,7 @@ public class SinkConfig implements Serializable {
 
     public enum StreamLoadFormat {
         CSV,
-        JSON;
+        JSON
     }
 
     private List<String> nodeUrls;
@@ -55,7 +55,9 @@ public class SinkConfig implements Serializable {
     private int retryBackoffMultiplierMs;
     private int maxRetryBackoffMs;
     private boolean enableUpsertDelete;
-
+    private long sinkChunkLimit;
+    private boolean enableExactlyOnce;
+    private long flushFrequencyMs;
     private String saveModeCreateTemplate;
 
     @Getter private final Map<String, Object> streamLoadProps = new HashMap<>();
@@ -89,6 +91,31 @@ public class SinkConfig implements Serializable {
         config.getOptional(StarRocksSinkOptions.COLUMN_SEPARATOR)
                 .ifPresent(sinkConfig::setColumnSeparator);
         sinkConfig.setLoadFormat(config.get(StarRocksSinkOptions.LOAD_FORMAT));
+
+        if (!config.getOptional(StarRocksSinkOptions.SINK_CHUNK_LIMIT).isPresent()) {
+            sinkConfig.setSinkChunkLimit(
+                    sinkConfig.getLoadFormat() == StreamLoadFormat.JSON
+                            ? StarRocksSinkOptions.SINK_CHUNK_LIMIT.defaultValue()
+                            : 10737418240L);
+        }
+
+        if (sinkConfig.getLoadFormat() == StreamLoadFormat.JSON) {
+            sinkConfig.setSinkChunkLimit(
+                    Math.min(
+                            StarRocksSinkOptions.SINK_CHUNK_LIMIT.defaultValue(),
+                            sinkConfig.getSinkChunkLimit()));
+        } else {
+            sinkConfig.setSinkChunkLimit(Math.min(10737418240L, sinkConfig.getSinkChunkLimit()));
+        }
+
+        config.getOptional(StarRocksSinkOptions.ENABLE_EXACTLY_ONCE)
+                .ifPresent(sinkConfig::setEnableExactlyOnce);
+        config.getOptional(StarRocksSinkOptions.FLUSH_FREQUENCY_ON_EOS)
+                .ifPresent(sinkConfig::setFlushFrequencyMs);
         return sinkConfig;
+    }
+
+    private void setFlushFrequencyMs(long flushFrequencyMs) {
+        this.flushFrequencyMs = Math.max(flushFrequencyMs, 50);
     }
 }

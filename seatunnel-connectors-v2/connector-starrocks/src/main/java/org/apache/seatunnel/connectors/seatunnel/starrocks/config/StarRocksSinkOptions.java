@@ -26,6 +26,7 @@ import java.util.Map;
 
 @SuppressWarnings("MagicNumber")
 public interface StarRocksSinkOptions {
+
     Option<List<String>> NODE_URLS =
             Options.key("nodeUrls")
                     .listType()
@@ -133,4 +134,22 @@ public interface StarRocksSinkOptions {
                     .enumType(StreamLoadFormat.class)
                     .defaultValue(StreamLoadFormat.JSON)
                     .withDescription("");
+
+    Option<Long> SINK_CHUNK_LIMIT =
+            Options.key("starrocks.config.chunk_limit")
+                    .longType()
+                    .defaultValue((long) 3 * 1024 * 1024 * 1024)
+                    .withDescription("Data chunk size in a http request for stream load");
+
+    Option<Boolean> ENABLE_EXACTLY_ONCE =
+            Options.key("enable_exactly_once")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("enable exactly-once while loading");
+
+    Option<Long> FLUSH_FREQUENCY_ON_EOS =
+            Options.key("flush_frequency_ms")
+                    .longType()
+                    .defaultValue(50L)
+                    .withDescription("flush frequency on exactly-once semantics");
 }
