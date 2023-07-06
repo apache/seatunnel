@@ -73,10 +73,11 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 | retry.interval        | Duration | No       | 1000    | Specifies the retry time interval if writing records to database failed, the unit is millisecond.                            |
 | upsert-enable         | Boolean  | No       | false   | Whether to write documents via upsert mode.                                                                                  |
 | primary-key           | List     | No       | -       | The primary keys for upsert/update. Keys are in `["id","name",...]` format for properties.                                   |
+| common-options        |          | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                      |
 
-**Tips**
+### Tips
 
-> 1.The data flushing logic of the MongoDB Sink Connector is jointly controlled by three parameters: `buffer-flush.max-rows`, `buffer-flush.interval`, and `checkpoint.interval`.
+> 1.The data flushing logic of the MongoDB Sink Connector is jointly controlled by three parameters: `buffer-flush.max-rows`, `buffer-flush.interval`, and `checkpoint.interval`.<br/>
 > Data flushing will be triggered if any of these conditions are met.<br/>
 > 2.Compatible with the historical parameter `upsert-key`. If `upsert-key` is set, please do not set `primary-key`.<br/>
 
