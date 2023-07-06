@@ -65,7 +65,7 @@ public class KingbaseESTypeMapper implements JdbcDialectTypeMapper {
     private static final String KB_CHAR = "BPCHAR";
     private static final String KB_CHAR_ARRAY = "_BPCHAR";
     private static final String KB_CHARACTER = "CHARACTER";
-    private static final String KB_CHARACTER_ARRAY = "_CHARACTER";
+
     private static final String KB_CHARACTER_VARYING = "VARCHAR";
     private static final String KB_CHARACTER_VARYING_ARRAY = "_VARCHAR";
     private static final String KB_JSON = "JSON";
@@ -127,7 +127,6 @@ public class KingbaseESTypeMapper implements JdbcDialectTypeMapper {
                         new String[] {"type", "value"},
                         new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
             case KB_CHAR_ARRAY:
-            case KB_CHARACTER_ARRAY:
             case KB_CHARACTER_VARYING_ARRAY:
             case KB_TEXT_ARRAY:
                 return ArrayType.STRING_ARRAY_TYPE;
