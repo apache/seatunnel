@@ -84,8 +84,6 @@ public class KingbaseESTypeMapper implements JdbcDialectTypeMapper {
                 return BasicType.BOOLEAN_TYPE;
             case KB_BOOLEAN_ARRAY:
                 return ArrayType.BOOLEAN_ARRAY_TYPE;
-            case KB_BYTEA:
-                return PrimitiveByteArrayType.INSTANCE;
             case KB_BYTEA_ARRAY:
                 return ArrayType.BYTE_ARRAY_TYPE;
             case KB_SMALLINT:
@@ -139,6 +137,7 @@ public class KingbaseESTypeMapper implements JdbcDialectTypeMapper {
             case KB_DATE_ARRAY:
             case KB_JSONB:
             case KB_JSON:
+            case KB_BYTEA:
             default:
                 throw new JdbcConnectorException(
                         CommonErrorCode.UNSUPPORTED_OPERATION,

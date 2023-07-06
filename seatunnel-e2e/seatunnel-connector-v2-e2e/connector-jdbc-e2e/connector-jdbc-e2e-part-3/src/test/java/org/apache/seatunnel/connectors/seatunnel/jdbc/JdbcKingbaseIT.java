@@ -63,30 +63,29 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                     "    c2  SERIAL,\n" +
                     "    c3  BIGSERIAL,\n" +
                     "    c4  BYTEA,\n" +
-                    "    c5  _BYTEA,\n" +
-                    "    c6  INT2,\n" +
-                    "    c7  _INT2,\n" +
-                    "    c8  INT4,\n" +
-                    "    c9  _INT4,\n" +
-                    "    c10 INT8,\n" +
-                    "    c11 _INT8,\n" +
-                    "    c12 FLOAT4,\n" +
-                    "    c13 _FLOAT4,\n" +
-                    "    c14 FLOAT8,\n" +
-                    "    c15 _FLOAT8,\n" +
-                    "    c16 NUMERIC,\n" +
-                    "    c17 BOOL,\n" +
-                    "    c18 _BOOL,\n" +
-                    "    c19 TIMESTAMP,\n" +
-                    "    c20 DATE,\n" +
-                    "    c21 TIME,\n" +
-                    "    c22 TEXT,\n" +
-                    "    c23 _TEXT,\n" +
-                    "    c24 BPCHAR,\n" +
-                    "    c25 _BPCHAR,\n" +
-                    "    c26 CHARACTER,\n" +
-                    "    c27 VARCHAR,\n" +
-                    "    c28 _VARCHAR\n" +
+                    "    c5  INT2,\n" +
+                    "    c6  _INT2,\n" +
+                    "    c7  INT4,\n" +
+                    "    c8  _INT4,\n" +
+                    "    c9 INT8,\n" +
+                    "    c10 _INT8,\n" +
+                    "    c11 FLOAT4,\n" +
+                    "    c12 _FLOAT4,\n" +
+                    "    c13 FLOAT8,\n" +
+                    "    c14 _FLOAT8,\n" +
+                    "    c15 NUMERIC,\n" +
+                    "    c16 BOOL,\n" +
+                    "    c17 _BOOL,\n" +
+                    "    c18 TIMESTAMP,\n" +
+                    "    c19 DATE,\n" +
+                    "    c20 TIME,\n" +
+                    "    c21 TEXT,\n" +
+                    "    c22 _TEXT,\n" +
+                    "    c23 BPCHAR,\n" +
+                    "    c24 _BPCHAR,\n" +
+                    "    c25 CHARACTER,\n" +
+                    "    c26 VARCHAR,\n" +
+                    "    c27 _VARCHAR\n" +
                     ");\n";
 
     @Override
@@ -159,8 +158,7 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                         "c24",
                         "c25",
                         "c26",
-                        "c27",
-                        "c28"
+                        "c27"
                 };
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
@@ -171,20 +169,19 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                                     Long.parseLong(String.valueOf(i)),
                                     Long.parseLong(String.valueOf(i)),
                                     new byte[]{1, 2},
-                                    new Byte[]{1, 2},
                                     (short) i,
-                                    new Short[]{1, 2},
+                                    new short[]{1, 2},
                                     i,
-                                    new Integer[]{1, 2},
+                                    new int[]{1, 2},
                                     Long.parseLong(String.valueOf(i)),
-                                    new Long[]{1L, 2L},
+                                    new long[]{1L, 2L},
                                     Float.parseFloat("1.1"),
-                                    new Float[]{1.1F, 1.2F},
+                                    new float[]{1.1F, 1.2F},
                                     Double.parseDouble("1.1"),
-                                    new Double[]{1.1, 1.2},
+                                    new double[]{1.1, 1.2},
                                     BigDecimal.valueOf(i, 10),
                                     true,
-                                    new Boolean[]{false, true},
+                                    new boolean[]{false, true},
                                     LocalDateTime.now(),
                                     LocalDate.now(),
                                     LocalTime.now(),
@@ -192,7 +189,7 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                                     new String[]{"1", "2"},
                                     String.valueOf(i),
                                     new String[]{"1", "2"},
-                                    String.valueOf(i),
+                                    String.valueOf(1),
                                     String.valueOf(i),
                                     new String[]{"1", "2"}
                             });
@@ -205,6 +202,8 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
     @Override
     GenericContainer<?> initContainer() {
         GenericContainer<?> container = new GenericContainer<>(KINGBASE_IMAGE)
+                .withNetwork(NETWORK)
+                .withNetworkAliases(KINGBASE_CONTAINER_HOST)
                 .withEnv("KINGBASE_SYSTEM_PASSWORD", "123456")
                 .withFileSystemBind("license.dat", "/home/kingbase/license.dat")
                 .withLogConsumer(
@@ -235,6 +234,7 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
         }
     }
+
     public String insertTable(String schema, String table, String... fields) {
         String columns =
                 String.join(", ", fields);
