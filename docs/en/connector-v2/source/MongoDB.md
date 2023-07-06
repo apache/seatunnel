@@ -80,6 +80,11 @@ For specific types in MongoDB, we use Extended JSON format to map them to SeaTun
 | max.time-min         | Long    | No       | 600              | This parameter is a MongoDB query option that limits the maximum execution time for query operations. The value of maxTimeMin is in Minute. If the execution time of the query exceeds the specified time limit, MongoDB will terminate the operation and return an error.                                     |
 | flat.sync-string     | Boolean | No       | true             | By utilizing flatSyncString, only one field attribute value can be set, and the field type must be a String. This operation will perform a string mapping on a single MongoDB data entry.                                                                                                                      |
 | allow.null           | Boolean | No       | false            | If set to true, exceptions will be ignored if a null value is encountered.                                                                                                                                                                                                                                     |
+| common-options       |         | No       | -                | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                                                                        |
+
+### Tips
+
+> 1.The parameter `match.query` is compatible with the historical old version parameter `matchQuery`, and they are equivalent replacements.<br/>
 
 ## How to Create a MongoDB Data Synchronization Jobs
 
