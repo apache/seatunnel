@@ -40,14 +40,14 @@ import java.util.List;
 import java.util.Map;
 
 public class JdbcKingbaseIT extends AbstractJdbcIT {
-    private static final String KINGBASE_IMAGE = "godmeowicesun/kinKINGBASE";
+    private static final String KINGBASE_IMAGE = "huzhihui/kingbase";
     private static final String KINGBASE_CONTAINER_HOST = "e2e_KINGBASEDb";
-    private static final String KINGBASE_DATABASE = "seatunnel";
+    private static final String KINGBASE_DATABASE = "test";
     private static final String KINGBASE_SOURCE = "e2e_table_source";
     private static final String KINGBASE_SINK = "e2e_table_sink";
 
-    private static final String KINGBASE_USERNAME = "root";
-    private static final String KINGBASE_PASSWORD = "root";
+    private static final String KINGBASE_USERNAME = "SYSTEM";
+    private static final String KINGBASE_PASSWORD = "123456";
     private static final int KINGBASE_PORT = 54321;
     private static final String KINGBASE_URL = "jdbc:kingbase8://" + HOST + ":%s/test";
     private static final String DRIVER_CLASS = "com.kingbase8.Driver";
@@ -55,36 +55,45 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_kingbase_source_and_sink.conf");
     private static final String CREATE_SQL =
-            "CREATE TABLE IF NOT EXISTS kb_e2e_source_table (\n"
-                    + "  gid SERIAL PRIMARY KEY,\n"
-                    + "  text_col TEXT,\n"
-                    + "  varchar_col VARCHAR(255),\n"
-                    + "  char_col CHAR(10),\n"
-                    + "  boolean_col bool,\n"
-                    + "  smallint_col int2,\n"
-                    + "  integer_col int4,\n"
-                    + "  bigint_col BIGINT,\n"
-                    + "  decimal_col DECIMAL(10, 2),\n"
-                    + "  numeric_col NUMERIC(8, 4),\n"
-                    + "  real_col float4,\n"
-                    + "  double_precision_col float8,\n"
-                    + "  smallserial_col SMALLSERIAL,\n"
-                    + "  serial_col SERIAL,\n"
-                    + "  bigserial_col BIGSERIAL,\n"
-                    + "  date_col DATE,\n"
-                    + "  timestamp_col TIMESTAMP,\n"
-                    + "  bpchar_col BPCHAR(10),\n"
-                    + "  age INT NOT null,\n"
-                    + "  name VARCHAR(255) NOT null,\n"
-                    + "  point geometry(POINT, 4326),\n"
-                    + "  linestring geometry(LINESTRING, 4326),\n"
-                    + "  polygon_colums geometry(POLYGON, 4326),\n"
-                    + "  multipoint geometry(MULTIPOINT, 4326),\n"
-                    + "  multilinestring geometry(MULTILINESTRING, 4326),\n"
-                    + "  multipolygon geometry(MULTIPOLYGON, 4326),\n"
-                    + "  geometrycollection geometry(GEOMETRYCOLLECTION, 4326),\n"
-                    + "  geog geography(POINT, 4326)\n"
-                    + ")";
+            "create table public.test_table\n" +
+                    "(\n" +
+                    "    c1  SMALLSERIAL,\n" +
+                    "    c2  SERIAL,\n" +
+                    "    c3  BIGSERIAL,\n" +
+                    "    c4  BYTEA,\n" +
+                    "    c5  _BYTEA,\n" +
+                    "    c6  INT2,\n" +
+                    "    c7  _INT2,\n" +
+                    "    c8  INT4,\n" +
+                    "    c9  _INT4,\n" +
+                    "    c10 INT8,\n" +
+                    "    c11 _INT8,\n" +
+                    "    c12 FLOAT4,\n" +
+                    "    c13 _FLOAT4,\n" +
+                    "    c14 FLOAT8,\n" +
+                    "    c15 _FLOAT8,\n" +
+                    "    c16 NUMERIC,\n" +
+                    "    c17 _NUMERIC,\n" +
+                    "    c18 BOOL,\n" +
+                    "    c19 _BOOL,\n" +
+                    "    c20 TIMESTAMP,\n" +
+                    "    c21 _TIMESTAMP,\n" +
+                    "    c22 TIMESTAMPTZ,\n" +
+                    "    c23 _TIMESTAMPTZ,\n" +
+                    "    c24 DATE,\n" +
+                    "    c25 _DATE,\n" +
+                    "    c26 TIME,\n" +
+                    "    c27 _TIME,\n" +
+                    "    c28 TEXT,\n" +
+                    "    c29 _TEXT,\n" +
+                    "    c30 BPCHAR,\n" +
+                    "    c31 _BPCHAR,\n" +
+                    "    c32 CHARACTER,\n" +
+                    "    c34 VARCHAR,\n" +
+                    "    c35 _VARCHAR,\n" +
+                    "    c36 JSON,\n" +
+                    "    c37 JSONB\n" +
+                    ");\n";
 
     @Override
     JdbcCase getJdbcCase() {
@@ -118,7 +127,8 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() throws SQLException, IOException {}
+    void compareResult() throws SQLException, IOException {
+    }
 
     @Override
     String driverUrl() {
@@ -128,42 +138,42 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
-                new String[] {
-                    "varchar_10_col",
-                    "char_10_col",
-                    "text_col",
-                    "decimal_col",
-                    "float_col",
-                    "int_col",
-                    "tinyint_col",
-                    "smallint_col",
-                    "double_col",
-                    "bigint_col",
-                    "date_col",
-                    "timestamp_col",
-                    "datetime_col",
-                    "blob_col"
+                new String[]{
+                        "varchar_10_col",
+                        "char_10_col",
+                        "text_col",
+                        "decimal_col",
+                        "float_col",
+                        "int_col",
+                        "tinyint_col",
+                        "smallint_col",
+                        "double_col",
+                        "bigint_col",
+                        "date_col",
+                        "timestamp_col",
+                        "datetime_col",
+                        "blob_col"
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
-                            new Object[] {
-                                String.format("f1_%s", i),
-                                String.format("f1_%s", i),
-                                String.format("f1_text_%s", i),
-                                BigDecimal.valueOf(i, 10),
-                                Float.parseFloat("1.1"),
-                                i,
-                                Short.valueOf("1"),
-                                Short.valueOf("1"),
-                                Double.parseDouble("1.1"),
-                                Long.parseLong("1"),
-                                Date.valueOf(LocalDate.now()),
-                                new Timestamp(System.currentTimeMillis()),
-                                Timestamp.valueOf(LocalDateTime.now()),
-                                "test".getBytes()
+                            new Object[]{
+                                    String.format("f1_%s", i),
+                                    String.format("f1_%s", i),
+                                    String.format("f1_text_%s", i),
+                                    BigDecimal.valueOf(i, 10),
+                                    Float.parseFloat("1.1"),
+                                    i,
+                                    Short.valueOf("1"),
+                                    Short.valueOf("1"),
+                                    Double.parseDouble("1.1"),
+                                    Long.parseLong("1"),
+                                    Date.valueOf(LocalDate.now()),
+                                    new Timestamp(System.currentTimeMillis()),
+                                    Timestamp.valueOf(LocalDateTime.now()),
+                                    "test".getBytes()
                             });
             rows.add(row);
         }
@@ -185,16 +195,5 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                 Lists.newArrayList(String.format("%s:%s", KINGBASE_PORT, KINGBASE_PORT)));
 
         return container;
-    }
-
-    @Override
-    protected void createSchemaIfNeeded() {
-        String sql = "CREATE DATABASE " + KINGBASE_DATABASE;
-        try {
-            connection.prepareStatement(sql).executeUpdate();
-        } catch (Exception e) {
-            throw new SeaTunnelRuntimeException(
-                    JdbcITErrorCode.CREATE_TABLE_FAILED, "Fail to execute sql " + sql, e);
-        }
     }
 }
