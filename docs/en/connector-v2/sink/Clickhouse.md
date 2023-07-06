@@ -58,7 +58,7 @@ In addition to the above mandatory parameters that must be specified by `clickho
 
 ### bulk_size [number]
 
-The number of rows written through [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) each time, the `default is 20000` .
+The number of rows written through [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) each time, the `default is 20000`, if checkpoints are enabled, writing will also occur at the times when the checkpoints are satisfied .
 
 ### split_mode [boolean]
 
