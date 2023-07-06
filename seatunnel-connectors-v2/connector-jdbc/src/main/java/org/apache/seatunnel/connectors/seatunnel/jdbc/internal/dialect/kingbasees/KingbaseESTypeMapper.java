@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
@@ -122,10 +121,6 @@ public class KingbaseESTypeMapper implements JdbcDialectTypeMapper {
             case KB_CHARACTER_VARYING:
             case KB_TEXT:
                 return BasicType.STRING_TYPE;
-            case KB_JSON:
-                return new SeaTunnelRowType(
-                        new String[] {"type", "value"},
-                        new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
             case KB_CHAR_ARRAY:
             case KB_CHARACTER_VARYING_ARRAY:
             case KB_TEXT_ARRAY:
@@ -143,6 +138,7 @@ public class KingbaseESTypeMapper implements JdbcDialectTypeMapper {
             case KB_TIME_ARRAY:
             case KB_DATE_ARRAY:
             case KB_JSONB:
+            case KB_JSON:
             default:
                 throw new JdbcConnectorException(
                         CommonErrorCode.UNSUPPORTED_OPERATION,

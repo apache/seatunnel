@@ -16,11 +16,13 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
  * limitations under the License.
  */
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -29,20 +31,20 @@ import com.google.common.collect.Lists;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.sql.Date;
 import java.sql.SQLException;
-import java.sql.Timestamp;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalTime;
+import java.util.*;
+import java.util.stream.Collectors;
 
+@Slf4j
 public class JdbcKingbaseIT extends AbstractJdbcIT {
-    private static final String KINGBASE_IMAGE = "huzhihui/kingbase";
+    private static final String KINGBASE_IMAGE = "huzhihui/kingbase:v8r6";
     private static final String KINGBASE_CONTAINER_HOST = "e2e_KINGBASEDb";
     private static final String KINGBASE_DATABASE = "test";
+    private static final String KINGBASE_SCHEMA = "public";
     private static final String KINGBASE_SOURCE = "e2e_table_source";
     private static final String KINGBASE_SINK = "e2e_table_sink";
 
@@ -55,7 +57,7 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_kingbase_source_and_sink.conf");
     private static final String CREATE_SQL =
-            "create table public.test_table\n" +
+            "create table %s \n" +
                     "(\n" +
                     "    c1  SMALLSERIAL,\n" +
                     "    c2  SERIAL,\n" +
@@ -73,26 +75,18 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                     "    c14 FLOAT8,\n" +
                     "    c15 _FLOAT8,\n" +
                     "    c16 NUMERIC,\n" +
-                    "    c17 _NUMERIC,\n" +
-                    "    c18 BOOL,\n" +
-                    "    c19 _BOOL,\n" +
-                    "    c20 TIMESTAMP,\n" +
-                    "    c21 _TIMESTAMP,\n" +
-                    "    c22 TIMESTAMPTZ,\n" +
-                    "    c23 _TIMESTAMPTZ,\n" +
-                    "    c24 DATE,\n" +
-                    "    c25 _DATE,\n" +
-                    "    c26 TIME,\n" +
-                    "    c27 _TIME,\n" +
-                    "    c28 TEXT,\n" +
-                    "    c29 _TEXT,\n" +
-                    "    c30 BPCHAR,\n" +
-                    "    c31 _BPCHAR,\n" +
-                    "    c32 CHARACTER,\n" +
-                    "    c34 VARCHAR,\n" +
-                    "    c35 _VARCHAR,\n" +
-                    "    c36 JSON,\n" +
-                    "    c37 JSONB\n" +
+                    "    c17 BOOL,\n" +
+                    "    c18 _BOOL,\n" +
+                    "    c19 TIMESTAMP,\n" +
+                    "    c20 DATE,\n" +
+                    "    c21 TIME,\n" +
+                    "    c22 TEXT,\n" +
+                    "    c23 _TEXT,\n" +
+                    "    c24 BPCHAR,\n" +
+                    "    c25 _BPCHAR,\n" +
+                    "    c26 CHARACTER,\n" +
+                    "    c27 VARCHAR,\n" +
+                    "    c28 _VARCHAR\n" +
                     ");\n";
 
     @Override
@@ -102,7 +96,7 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
         Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
         String[] fieldNames = testDataSet.getKey();
 
-        String insertSql = insertTable(KINGBASE_DATABASE, KINGBASE_SOURCE, fieldNames);
+        String insertSql = insertTable(KINGBASE_SCHEMA, KINGBASE_SOURCE, fieldNames);
 
         return JdbcCase.builder()
                 .dockerImage(KINGBASE_IMAGE)
@@ -139,41 +133,68 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[]{
-                        "varchar_10_col",
-                        "char_10_col",
-                        "text_col",
-                        "decimal_col",
-                        "float_col",
-                        "int_col",
-                        "tinyint_col",
-                        "smallint_col",
-                        "double_col",
-                        "bigint_col",
-                        "date_col",
-                        "timestamp_col",
-                        "datetime_col",
-                        "blob_col"
+                        "c1",
+                        "c2",
+                        "c3",
+                        "c4",
+                        "c5",
+                        "c6",
+                        "c7",
+                        "c8",
+                        "c9",
+                        "c10",
+                        "c11",
+                        "c12",
+                        "c13",
+                        "c14",
+                        "c15",
+                        "c16",
+                        "c17",
+                        "c18",
+                        "c19",
+                        "c20",
+                        "c21",
+                        "c22",
+                        "c23",
+                        "c24",
+                        "c25",
+                        "c26",
+                        "c27",
+                        "c28"
                 };
-
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[]{
-                                    String.format("f1_%s", i),
-                                    String.format("f1_%s", i),
-                                    String.format("f1_text_%s", i),
-                                    BigDecimal.valueOf(i, 10),
-                                    Float.parseFloat("1.1"),
                                     i,
-                                    Short.valueOf("1"),
-                                    Short.valueOf("1"),
+                                    Long.parseLong(String.valueOf(i)),
+                                    Long.parseLong(String.valueOf(i)),
+                                    new byte[]{1, 2},
+                                    new Byte[]{1, 2},
+                                    (short) i,
+                                    new Short[]{1, 2},
+                                    i,
+                                    new Integer[]{1, 2},
+                                    Long.parseLong(String.valueOf(i)),
+                                    new Long[]{1L, 2L},
+                                    Float.parseFloat("1.1"),
+                                    new Float[]{1.1F, 1.2F},
                                     Double.parseDouble("1.1"),
-                                    Long.parseLong("1"),
-                                    Date.valueOf(LocalDate.now()),
-                                    new Timestamp(System.currentTimeMillis()),
-                                    Timestamp.valueOf(LocalDateTime.now()),
-                                    "test".getBytes()
+                                    new Double[]{1.1, 1.2},
+                                    BigDecimal.valueOf(i, 10),
+                                    true,
+                                    new Boolean[]{false, true},
+                                    LocalDateTime.now(),
+                                    LocalDate.now(),
+                                    LocalTime.now(),
+                                    String.valueOf(i),
+                                    new String[]{"1", "2"},
+                                    String.valueOf(i),
+                                    new String[]{"1", "2"},
+                                    String.valueOf(i),
+                                    String.valueOf(i),
+                                    new String[]{"1", "2"}
                             });
             rows.add(row);
         }
@@ -183,17 +204,52 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
 
     @Override
     GenericContainer<?> initContainer() {
-        GenericContainer<?> container =
-                new GenericContainer<>(KINGBASE_IMAGE)
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(KINGBASE_CONTAINER_HOST)
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger(KINGBASE_IMAGE)));
-
+        GenericContainer<?> container = new GenericContainer<>(KINGBASE_IMAGE)
+                .withEnv("KINGBASE_SYSTEM_PASSWORD", "123456")
+                .withFileSystemBind("license.dat", "/home/kingbase/license.dat")
+                .withLogConsumer(
+                        new Slf4jLogConsumer(
+                                DockerLoggerFactory.getLogger(KINGBASE_IMAGE)));
         container.setPortBindings(
                 Lists.newArrayList(String.format("%s:%s", KINGBASE_PORT, KINGBASE_PORT)));
-
         return container;
     }
+
+    protected void createNeededTables() {
+        try (Statement statement = connection.createStatement()) {
+            String createTemplate = jdbcCase.getCreateSql();
+
+            String createSource =
+                    String.format(
+                            createTemplate, KINGBASE_SCHEMA + "." + jdbcCase.getSourceTable());
+            String createSink =
+                    String.format(
+                            createTemplate, KINGBASE_SCHEMA + "." + jdbcCase.getSinkTable());
+
+            statement.execute(createSource);
+            statement.execute(createSink);
+
+            connection.commit();
+        } catch (Exception exception) {
+            log.error(ExceptionUtils.getMessage(exception));
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
+        }
+    }
+    public String insertTable(String schema, String table, String... fields) {
+        String columns =
+                String.join(", ", fields);
+        String placeholders = Arrays.stream(fields).map(f -> "?").collect(Collectors.joining(", "));
+
+        return "INSERT INTO "
+                + schema +
+                "." +
+                table
+                + " ("
+                + columns
+                + " )"
+                + " VALUES ("
+                + placeholders
+                + ")";
+    }
+
 }
