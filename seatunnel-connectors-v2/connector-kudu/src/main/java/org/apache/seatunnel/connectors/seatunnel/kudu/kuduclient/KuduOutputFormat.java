@@ -175,7 +175,9 @@ public class KuduOutputFormat implements Serializable {
     }
 
     private void init() {
-        this.kuduClient = KuduClientUtils.getKuduClient(kuduMaster, kerberosKeytabPath, kerberosPrincipal, krb5ConfPath, TIMEOUTMS);
+        this.kuduClient =
+                KuduClientUtils.getKuduClient(
+                        kuduMaster, kerberosKeytabPath, kerberosPrincipal, krb5ConfPath, TIMEOUTMS);
         this.kuduSession = kuduClient.newSession();
         this.kuduSession.setTimeoutMillis(SESSIONTIMEOUTMS);
         this.kuduSession.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_SYNC);

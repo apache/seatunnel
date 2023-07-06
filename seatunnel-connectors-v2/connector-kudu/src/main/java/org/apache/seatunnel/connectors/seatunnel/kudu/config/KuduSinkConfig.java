@@ -69,14 +69,11 @@ public class KuduSinkConfig {
                     .noDefaultValue()
                     .withDescription("Kerberos keytab file path");
 
-
     private SaveMode saveMode;
 
     private String kuduMaster;
 
-    /**
-     * Specifies the name of the table
-     */
+    /** Specifies the name of the table */
     private String kuduTableName;
 
     private String kerberosPrincipal;

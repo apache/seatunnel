@@ -49,7 +49,13 @@ import java.util.List;
 @Slf4j
 public class KuduInputFormat implements Serializable {
 
-    public KuduInputFormat(String kuduMaster, String tableName, String columnsList, String kerberosKeytabPath, String kerberosPrincipal, String krb5ConfPath) {
+    public KuduInputFormat(
+            String kuduMaster,
+            String tableName,
+            String columnsList,
+            String kerberosKeytabPath,
+            String kerberosPrincipal,
+            String krb5ConfPath) {
         this.kuduMaster = kuduMaster;
         this.columnsList = Arrays.asList(columnsList.split(","));
         this.tableName = tableName;
@@ -58,14 +64,10 @@ public class KuduInputFormat implements Serializable {
         this.krb5ConfPath = krb5ConfPath;
     }
 
-    /**
-     * Declare the global variable KuduClient and use it to manipulate the Kudu table
-     */
+    /** Declare the global variable KuduClient and use it to manipulate the Kudu table */
     public KuduClient kuduClient;
 
-    /**
-     * Specify kuduMaster address
-     */
+    /** Specify kuduMaster address */
     public String kuduMaster;
 
     public List<String> columnsList;
@@ -73,9 +75,7 @@ public class KuduInputFormat implements Serializable {
     public String keyColumn;
     public static final int TIMEOUTMS = 18000;
 
-    /**
-     * Specifies the name of the table
-     */
+    /** Specifies the name of the table */
     public String tableName;
 
     private final String kerberosPrincipal;
@@ -161,7 +161,9 @@ public class KuduInputFormat implements Serializable {
     }
 
     public void openInputFormat() {
-        this.kuduClient = KuduClientUtils.getKuduClient(kuduMaster, kerberosKeytabPath, kerberosPrincipal, krb5ConfPath, TIMEOUTMS);
+        this.kuduClient =
+                KuduClientUtils.getKuduClient(
+                        kuduMaster, kerberosKeytabPath, kerberosPrincipal, krb5ConfPath, TIMEOUTMS);
         log.info("The Kudu client is successfully initialized", kuduMaster, kuduClient);
     }
 
