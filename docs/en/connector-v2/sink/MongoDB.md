@@ -73,6 +73,7 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 | retry.interval        | Duration | No       | 1000    | Specifies the retry time interval if writing records to database failed, the unit is millisecond.                            |
 | upsert-enable         | Boolean  | No       | false   | Whether to write documents via upsert mode.                                                                                  |
 | primary-key           | List     | No       | -       | The primary keys for upsert/update. Keys are in `["id","name",...]` format for properties.                                   |
+| transaction           | Boolean  | No       | false   | Whether to use transactions in MongoSink (requires MongoDB 4.2+).                                                            |
 
 **Tips**
 
