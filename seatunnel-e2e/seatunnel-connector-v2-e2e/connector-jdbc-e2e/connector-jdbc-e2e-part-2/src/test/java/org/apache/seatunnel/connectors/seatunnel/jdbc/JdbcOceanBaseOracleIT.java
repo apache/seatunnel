@@ -114,22 +114,26 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
     }
 
     @Override
+    String[] getFieldNames() {
+        return new String[] {
+            "VARCHAR_10_COL",
+            "CHAR_10_COL",
+            "CLOB_COL",
+            "NUMBER_3_SF_2_DP",
+            "INTEGER_COL",
+            "FLOAT_COL",
+            "REAL_COL",
+            "BINARY_FLOAT_COL",
+            "BINARY_DOUBLE_COL",
+            "DATE_COL",
+            "TIMESTAMP_WITH_3_FRAC_SEC_COL",
+            "TIMESTAMP_WITH_LOCAL_TZ"
+        };
+    }
+
+    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
-        String[] fieldNames =
-                new String[] {
-                    "VARCHAR_10_COL",
-                    "CHAR_10_COL",
-                    "CLOB_COL",
-                    "NUMBER_3_SF_2_DP",
-                    "INTEGER_COL",
-                    "FLOAT_COL",
-                    "REAL_COL",
-                    "BINARY_FLOAT_COL",
-                    "BINARY_DOUBLE_COL",
-                    "DATE_COL",
-                    "TIMESTAMP_WITH_3_FRAC_SEC_COL",
-                    "TIMESTAMP_WITH_LOCAL_TZ"
-                };
+        String[] fieldNames = getFieldNames();
 
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {

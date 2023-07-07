@@ -22,9 +22,17 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Assertions;
+import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
+
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public abstract class JdbcOceanBaseITBase extends AbstractJdbcIT {
 
@@ -48,6 +56,8 @@ public abstract class JdbcOceanBaseITBase extends AbstractJdbcIT {
     abstract List<String> configFile();
 
     abstract String createSqlTemplate();
+
+    abstract String[] getFieldNames();
 
     @Override
     JdbcCase getJdbcCase() {
@@ -81,7 +91,43 @@ public abstract class JdbcOceanBaseITBase extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() {}
+    void compareResult() {
+        String sourceSql =
+                String.format(
+                        "select * from %s.%s order by 1", OCEANBASE_DATABASE, OCEANBASE_SOURCE);
+        String sinkSql =
+                String.format("select * from %s.%s order by 1", OCEANBASE_DATABASE, OCEANBASE_SINK);
+        try {
+            Statement sourceStatement = connection.createStatement();
+            Statement sinkStatement = connection.createStatement();
+            ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
+            ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
+            Assertions.assertEquals(
+                    sourceResultSet.getMetaData().getColumnCount(),
+                    sinkResultSet.getMetaData().getColumnCount());
+            while (sourceResultSet.next()) {
+                if (sinkResultSet.next()) {
+                    for (String column : getFieldNames()) {
+                        Object source = sourceResultSet.getObject(column);
+                        Object sink = sinkResultSet.getObject(column);
+                        if (!Objects.deepEquals(source, sink)) {
+                            InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
+                            InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
+                            String sourceValue =
+                                    IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
+                            String sinkValue =
+                                    IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
+                            Assertions.assertEquals(sourceValue, sinkValue);
+                        }
+                    }
+                }
+            }
+            sourceResultSet.last();
+            sinkResultSet.last();
+        } catch (Exception e) {
+            throw new RuntimeException("Compare result error", e);
+        }
+    }
 
     @Override
     String driverUrl() {
