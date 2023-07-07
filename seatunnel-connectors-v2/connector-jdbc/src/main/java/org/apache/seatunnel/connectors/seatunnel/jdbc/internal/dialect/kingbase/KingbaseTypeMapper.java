@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbasees;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase;
 
-import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -30,7 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
-public class KingbaseESTypeMapper implements JdbcDialectTypeMapper {
+public class KingbaseTypeMapper implements JdbcDialectTypeMapper {
 
     private static final String KB_SMALLSERIAL = "SMALLSERIAL";
     private static final String KB_SERIAL = "SERIAL";

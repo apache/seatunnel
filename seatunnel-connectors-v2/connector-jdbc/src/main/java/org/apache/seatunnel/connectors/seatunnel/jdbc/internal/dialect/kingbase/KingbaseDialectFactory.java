@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbasees;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
 import com.google.auto.service.AutoService;
 
-/** Factory for {@link KingbaseESDialect}. */
+/** Factory for {@link KingbaseDialect}. */
 @AutoService(JdbcDialectFactory.class)
-public class KingbaseESDialectFactory implements JdbcDialectFactory {
+public class KingbaseDialectFactory implements JdbcDialectFactory {
 
     @Override
     public boolean acceptsURL(String url) {
@@ -33,6 +33,6 @@ public class KingbaseESDialectFactory implements JdbcDialectFactory {
 
     @Override
     public JdbcDialect create() {
-        return new KingbaseESDialect();
+        return new KingbaseDialect();
     }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbasees;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -38,11 +38,11 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Optional;
 
-public class KingbaseESJdbcRowConverter extends AbstractJdbcRowConverter {
+public class KingbaseJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
     public String converterName() {
-        return "KingBaseES";
+        return "KingBase";
     }
 
     @Override
@@ -176,13 +176,6 @@ public class KingbaseESJdbcRowConverter extends AbstractJdbcRowConverter {
                     statement.setNull(statementIndex, java.sql.Types.NULL);
                     break;
                 case ROW:
-                    KBobject kBobject = new KBobject();
-                    kBobject.setType(
-                            (String) ((SeaTunnelRow) row.getField(fieldIndex)).getField(0));
-                    kBobject.setValue(
-                            (String) ((SeaTunnelRow) row.getField(fieldIndex)).getField(1));
-                    statement.setObject(statementIndex, kBobject);
-                    break;
                 case MAP:
                 case ARRAY:
                 default:

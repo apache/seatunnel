@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbasees;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -25,21 +25,21 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public class KingbaseESDialect implements JdbcDialect {
+public class KingbaseDialect implements JdbcDialect {
 
     @Override
     public String dialectName() {
-        return "KingbaseES";
+        return "Kingbase";
     }
 
     @Override
     public JdbcRowConverter getRowConverter() {
-        return new KingbaseESJdbcRowConverter();
+        return new KingbaseJdbcRowConverter();
     }
 
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
-        return new KingbaseESTypeMapper();
+        return new KingbaseTypeMapper();
     }
 
     @Override
