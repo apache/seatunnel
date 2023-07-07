@@ -125,18 +125,7 @@ public class KuduSource
             kudumaster = config.getString(KuduSourceConfig.KUDU_MASTER.key());
             tableName = config.getString(KuduSourceConfig.TABLE_NAME.key());
             columnslist = config.getString(KuduSourceConfig.COLUMNS_LIST.key());
-            String kerberosKeytabPath =
-                    config.getString(KuduSourceConfig.KERBEROS_KEYTAB_PATH.key());
-            String kerberosPrincipal = config.getString(KuduSourceConfig.KERBEROS_PRINCIPAL.key());
-            String krb5ConfPath = config.getString(KuduSourceConfig.KRB5_CONF_PATH.key());
-            kuduInputFormat =
-                    new KuduInputFormat(
-                            kudumaster,
-                            tableName,
-                            columnslist,
-                            kerberosKeytabPath,
-                            kerberosPrincipal,
-                            krb5ConfPath);
+            kuduInputFormat = new KuduInputFormat(kudumaster, tableName, columnslist);
         } else {
             throw new KuduConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

@@ -56,10 +56,5 @@
             <artifactId>connector-common</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-client-api</artifactId>
-            <version>3.3.2</version>
-        </dependency>
     </dependencies>
 </project>
