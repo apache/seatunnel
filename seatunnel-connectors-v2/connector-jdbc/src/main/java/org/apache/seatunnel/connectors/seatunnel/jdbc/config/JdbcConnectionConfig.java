@@ -58,6 +58,7 @@ public class JdbcConnectionConfig implements Serializable {
             builder.xaDataSourceClassName(config.get(JdbcOptions.XA_DATA_SOURCE_CLASS_NAME));
             builder.maxCommitAttempts(config.get(JdbcOptions.MAX_COMMIT_ATTEMPTS));
             builder.transactionTimeoutSec(config.get(JdbcOptions.TRANSACTION_TIMEOUT_SEC));
+            builder.maxRetries(0);
         }
 
         config.getOptional(JdbcOptions.USER).ifPresent(builder::username);
