@@ -56,7 +56,8 @@ public class MongodbConfig {
             Options.key("match.query")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Mongodb's query syntax.");
+                    .withDescription("Mongodb's query syntax.")
+                    .withFallbackKeys("matchQuery");
 
     public static final Option<String> PROJECTION =
             Options.key("match.projection")
