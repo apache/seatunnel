@@ -6,7 +6,7 @@
 >
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 >
   ## Key features
 
@@ -36,7 +36,7 @@ Read external data source data through JDBC.
 >
   ## Data Type Mapping
 
-|                             Snowflake Data type                             | Seatunnel Data type |
+|                             Snowflake Data type                             | SeaTunnel Data type |
 |-----------------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                                     | BOOLEAN             |
 | TINYINT<br/>SMALLINT<br/>BYTEINT<br/>                                       | SHORT_TYPE          |
@@ -102,7 +102,7 @@ Read external data source data through JDBC.
 > }
 > transform {
 > # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-> # please go to https://seatunnel.apache.org/docs/transform/sql
+> # please go to https://seatunnel.apache.org/docs/transform-v2/sql
 > }
 > sink {
 > Console {}

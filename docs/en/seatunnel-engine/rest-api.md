@@ -5,7 +5,7 @@ sidebar_position: 7
 
 # REST API
 
-Seatunnel has a monitoring API that can be used to query status and statistics of running jobs, as well as recent
+SeaTunnel has a monitoring API that can be used to query status and statistics of running jobs, as well as recent
 completed jobs. The monitoring API is a REST-ful API that accepts HTTP requests and responds with JSON data.
 
 ## Overview
