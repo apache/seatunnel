@@ -17,17 +17,12 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
  */
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -180,7 +175,7 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                 .withNetwork(NETWORK)
                 .withNetworkAliases(KINGBASE_CONTAINER_HOST)
                 .withEnv("KINGBASE_SYSTEM_PASSWORD", "123456")
-                .withFileSystemBind("license.dat", "/home/kingbase/license.dat")
+                .withFileSystemBind("assets/KMlicense.dat", "/home/kingbase/license.dat")
                 .withLogConsumer(
                         new Slf4jLogConsumer(
                                 DockerLoggerFactory.getLogger(KINGBASE_IMAGE)));
@@ -227,25 +222,6 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                 + ")";
     }
 
-
-    @TestTemplate
-    public void testJdbcDb(TestContainer container)
-            throws IOException, InterruptedException, SQLException {
-        List<String> configFiles = jdbcCase.getConfigFile();
-        for (String configFile : configFiles) {
-            Container.ExecResult execResult = container.executeJob(configFile);
-            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        }
-
-        compareResult();
-        clearTable(KINGBASE_SCHEMA, jdbcCase.getSinkTable());
-    }
-
     public void clearTable(String schema, String table) {
-        try (Statement statement = connection.createStatement()) {
-            statement.execute("TRUNCATE TABLE " + schema + "."+table);
-        } catch (SQLException e) {
-            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, e);
-        }
     }
 }
