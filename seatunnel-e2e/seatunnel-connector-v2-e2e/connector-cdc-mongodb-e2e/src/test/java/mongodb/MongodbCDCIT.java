@@ -95,12 +95,10 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
 
     private final UniqueDatabase inventoryDatabase =
-            new UniqueDatabase(MYSQL_CONTAINER, MYSQL_DATABASE, "mysqluser", "mysqlpw");
+            new UniqueDatabase(MYSQL_CONTAINER, MYSQL_DATABASE);
 
     private static MySqlContainer createMySqlContainer() {
         MySqlContainer mySqlContainer = new MySqlContainer(MySqlVersion.V8_0);
-        mySqlContainer.withConfigurationOverride("docker/server-gtids/my.cnf");
-        mySqlContainer.withSetupSQL("docker/setup.sql");
         mySqlContainer.withNetwork(NETWORK);
         mySqlContainer.withNetworkAliases(MYSQL_HOST);
         mySqlContainer.withDatabaseName(MYSQL_DATABASE);
