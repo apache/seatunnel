@@ -124,8 +124,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         // do nothing
         completedSplitWatermarks.forEach(
                 watermark ->
-                        context.getSplitCompletedOffsets()
-                                .put(watermark.getSplitId(), watermark.getHighWatermark()));
+                        context.getSplitCompletedOffsets().put(watermark.getSplitId(), watermark));
     }
 
     @Override
@@ -195,21 +194,31 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     private IncrementalSplit createIncrementalSplit(
             List<TableId> capturedTables, int index, boolean startWithSnapshotMinimumOffset) {
+        C sourceConfig = context.getSourceConfig();
         final List<SnapshotSplit> assignedSnapshotSplit =
                 context.getAssignedSnapshotSplit().values().stream()
                         .filter(split -> capturedTables.contains(split.getTableId()))
                         .sorted(Comparator.comparing(SourceSplitBase::splitId))
                         .collect(Collectors.toList());
 
-        Map<String, Offset> splitCompletedOffsets = context.getSplitCompletedOffsets();
+        Map<String, SnapshotSplitWatermark> splitCompletedOffsets =
+                context.getSplitCompletedOffsets();
         final List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos = new ArrayList<>();
         Offset minOffset = null;
         for (SnapshotSplit split : assignedSnapshotSplit) {
-            Offset changeLogOffset = splitCompletedOffsets.get(split.splitId());
+            SnapshotSplitWatermark splitWatermark = splitCompletedOffsets.get(split.splitId());
             if (startWithSnapshotMinimumOffset) {
                 // find the min offset of change log
-                if (minOffset == null || changeLogOffset.isBefore(minOffset)) {
-                    minOffset = changeLogOffset;
+                Offset splitOffset =
+                        sourceConfig.isExactlyOnce()
+                                ? splitWatermark.getHighWatermark()
+                                : splitWatermark.getLowWatermark();
+                if (minOffset == null || splitOffset.isBefore(minOffset)) {
+                    minOffset = splitOffset;
+                    LOG.debug(
+                            "Find the min offset {} of change log in split {}",
+                            splitOffset,
+                            splitWatermark);
                 }
             }
             completedSnapshotSplitInfos.add(
@@ -219,21 +228,26 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                             split.getSplitKeyType(),
                             split.getSplitStart(),
                             split.getSplitEnd(),
-                            changeLogOffset));
+                            splitWatermark));
         }
         for (TableId tableId : capturedTables) {
             Offset watermark = tableWatermarks.get(tableId);
             if (minOffset == null || (watermark != null && watermark.isBefore(minOffset))) {
                 minOffset = watermark;
+                LOG.debug(
+                        "Find the min offset {} of change log in table-watermarks {}",
+                        watermark,
+                        tableId);
             }
         }
-        C sourceConfig = context.getSourceConfig();
+        Offset incrementalSplitStartOffset =
+                minOffset != null
+                        ? minOffset
+                        : sourceConfig.getStartupConfig().getStartupOffset(offsetFactory);
         return new IncrementalSplit(
                 String.format(INCREMENTAL_SPLIT_ID, index),
                 capturedTables,
-                minOffset != null
-                        ? minOffset
-                        : sourceConfig.getStartupConfig().getStartupOffset(offsetFactory),
+                incrementalSplitStartOffset,
                 sourceConfig.getStopConfig().getStopOffset(offsetFactory),
                 completedSnapshotSplitInfos);
     }
