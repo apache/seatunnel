@@ -66,4 +66,13 @@ public interface CommonOptions {
                     .withDescription(
                             "When parallelism is not specified, the parallelism in env is used by default. "
                                     + "When parallelism is specified, it will override the parallelism in env.");
+
+    Option<Boolean> PARTITION_BALANCE =
+            Options.key("partition_balance")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "When partition_balance is set to true, "
+                                    + "in the sink process, a repartition will be performed first to ensure that the size of each partition is roughly the same, "
+                                    + "which can avoid problems caused by data skew, but it will consume some extra time. The default value is false");
 }

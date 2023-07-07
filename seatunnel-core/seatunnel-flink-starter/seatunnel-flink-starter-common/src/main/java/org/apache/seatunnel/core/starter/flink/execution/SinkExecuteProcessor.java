@@ -115,6 +115,17 @@ public class SinkExecuteProcessor
                 DataSaveMode dataSaveMode = saveModeSink.getDataSaveMode();
                 saveModeSink.handleSaveMode(dataSaveMode);
             }
+            Boolean needBalanceInEnv =
+                    flinkRuntimeEnvironment
+                            .getConfig()
+                            .getBoolean(CommonOptions.PARTITION_BALANCE.key());
+            boolean needBalance =
+                    needBalanceInEnv != null
+                            ? needBalanceInEnv
+                            : CommonOptions.PARTITION_BALANCE.defaultValue();
+            if (needBalance) {
+                stream = stream.shuffle();
+            }
             DataStreamSink<Row> dataStreamSink =
                     stream.sinkTo(SinkV1Adapter.wrap(new FlinkSink<>(seaTunnelSink)))
                             .name(seaTunnelSink.getPluginName());

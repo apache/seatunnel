@@ -110,6 +110,18 @@ public class SinkExecuteProcessor
                                         CommonOptions.PARALLELISM.key(),
                                         CommonOptions.PARALLELISM.defaultValue());
             }
+            Boolean needBalanceInEnv =
+                    sparkRuntimeEnvironment
+                            .getConfig()
+                            .getBoolean(CommonOptions.PARTITION_BALANCE.key());
+            boolean needBalance =
+                    needBalanceInEnv != null
+                            ? needBalanceInEnv
+                            : CommonOptions.PARTITION_BALANCE.defaultValue();
+
+            if (needBalance) {
+                dataset = dataset.repartition(parallelism);
+            }
             dataset.sparkSession().read().option(CommonOptions.PARALLELISM.key(), parallelism);
             // TODO modify checkpoint location
             seaTunnelSink.setTypeInfo(
