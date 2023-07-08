@@ -187,7 +187,7 @@ public class CheckpointCoordinator {
             CompletedCheckpoint tmpCheckpoint =
                     serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
             this.latestCompletedCheckpoint =
-                    new CheckpointCoordinator(
+                    new CompletedCheckpoint(
                             tmpCheckpoint.getJobId(),
                             tmpCheckpoint.getPipelineId(),
                             tmpCheckpoint.getCheckpointId(),
