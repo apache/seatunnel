@@ -36,6 +36,7 @@ import java.util.Iterator;
 import java.util.Map;
 
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isHighWatermarkEvent;
+import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isLowWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getFetchTimestamp;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getMessageTimestamp;
@@ -107,6 +108,9 @@ public class IncrementalSourceRecordEmitter<T>
             throws Exception {
         if (isWatermarkEvent(element)) {
             Offset watermark = getWatermark(element);
+            if (isLowWatermarkEvent(element) && splitState.isSnapshotSplitState()) {
+                splitState.asSnapshotSplitState().setLowWatermark(watermark);
+            }
             if (isHighWatermarkEvent(element) && splitState.isSnapshotSplitState()) {
                 splitState.asSnapshotSplitState().setHighWatermark(watermark);
             }

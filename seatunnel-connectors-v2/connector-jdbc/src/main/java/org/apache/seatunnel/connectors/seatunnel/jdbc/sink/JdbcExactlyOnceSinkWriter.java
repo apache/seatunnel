@@ -41,6 +41,8 @@ import org.apache.commons.lang3.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Throwables;
+
 import javax.transaction.xa.Xid;
 
 import java.io.IOException;
@@ -137,11 +139,22 @@ public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidIn
     @Override
     public Optional<XidInfo> prepareCommit() throws IOException {
         tryOpen();
-        prepareCurrentTx();
+
+        boolean emptyXaTransaction = false;
+        try {
+            prepareCurrentTx();
+        } catch (Exception e) {
+            if (Throwables.getRootCause(e) instanceof XaFacade.EmptyXaTransactionException) {
+                emptyXaTransaction = true;
+                LOG.info("skip prepare empty xa transaction, xid={}", currentXid);
+            } else {
+                throw e;
+            }
+        }
         this.currentXid = null;
         beginTx();
         checkState(prepareXid != null, "prepare xid must not be null");
-        return Optional.of(new XidInfo(prepareXid, 0));
+        return emptyXaTransaction ? Optional.empty() : Optional.of(new XidInfo(prepareXid, 0));
     }
 
     @Override
@@ -186,14 +199,22 @@ public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidIn
     private void prepareCurrentTx() throws IOException {
         checkState(currentXid != null, "no current xid");
         outputFormat.flush();
+
+        Exception endAndPrepareException = null;
         try {
             xaFacade.endAndPrepare(currentXid);
-            prepareXid = currentXid;
         } catch (Exception e) {
+            endAndPrepareException = e;
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.XA_OPERATION_FAILED,
                     "unable to prepare current xa transaction",
                     e);
+        } finally {
+            if (endAndPrepareException == null
+                    || Throwables.getRootCause(endAndPrepareException)
+                            instanceof XaFacade.EmptyXaTransactionException) {
+                prepareXid = currentXid;
+            }
         }
     }
 }
