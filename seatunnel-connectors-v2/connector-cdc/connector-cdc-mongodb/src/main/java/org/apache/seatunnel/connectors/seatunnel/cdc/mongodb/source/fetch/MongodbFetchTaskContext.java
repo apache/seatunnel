@@ -120,6 +120,11 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
     }
 
     @Override
+    public boolean isExactlyOnce() {
+        return true;
+    }
+
+    @Override
     public Offset getStreamOffset(SourceRecord record) {
         return new ChangeStreamOffset(getResumeToken(record));
     }

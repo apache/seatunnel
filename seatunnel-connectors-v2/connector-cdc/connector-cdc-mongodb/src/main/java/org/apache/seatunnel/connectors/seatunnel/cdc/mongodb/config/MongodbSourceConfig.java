@@ -114,4 +114,9 @@ public class MongodbSourceConfig implements SourceConfig {
     public int getSplitSize() {
         return splitSizeMB;
     }
+
+    @Override
+    public boolean isExactlyOnce() {
+        return true;
+    }
 }
