@@ -17,14 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset;
 
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
-
 import io.debezium.relational.TableId;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 
 import java.io.Serializable;
 import java.util.regex.Pattern;
@@ -34,42 +31,42 @@ import java.util.regex.Pattern;
 public class ChangeStreamDescriptor implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    @Nullable private final String database;
-    @Nullable private final String collection;
-    @Nullable private final Pattern databaseRegex;
-    @Nullable private final Pattern namespaceRegex;
+    private final String database;
+    private final String collection;
+    private final Pattern databaseRegex;
+    private final Pattern namespaceRegex;
 
-    @NotNull @Contract("_ -> new")
-    public static ChangeStreamDescriptor collection(@NotNull TableId collectionId) {
+    @Nonnull
+    public static ChangeStreamDescriptor collection(@Nonnull TableId collectionId) {
         return collection(collectionId.catalog(), collectionId.table());
     }
 
-    @NotNull @Contract("_, _ -> new")
+    @Nonnull
     public static ChangeStreamDescriptor collection(String database, String collection) {
         return new ChangeStreamDescriptor(database, collection, null, null);
     }
 
-    @NotNull @Contract("_ -> new")
+    @Nonnull
     public static ChangeStreamDescriptor database(String database) {
         return new ChangeStreamDescriptor(database, null, null, null);
     }
 
-    @NotNull @Contract("_, _ -> new")
+    @Nonnull
     public static ChangeStreamDescriptor database(String database, Pattern namespaceRegex) {
         return new ChangeStreamDescriptor(database, null, null, namespaceRegex);
     }
 
-    @NotNull @Contract("_ -> new")
+    @Nonnull
     public static ChangeStreamDescriptor deployment(Pattern databaseRegex) {
         return new ChangeStreamDescriptor(null, null, databaseRegex, null);
     }
 
-    @NotNull @Contract("_, _ -> new")
+    @Nonnull
     public static ChangeStreamDescriptor deployment(Pattern databaseRegex, Pattern namespaceRegex) {
         return new ChangeStreamDescriptor(null, null, databaseRegex, namespaceRegex);
     }
 
-    @NotNull @Contract(" -> new")
+    @Nonnull
     public static ChangeStreamDescriptor deployment() {
         return new ChangeStreamDescriptor(null, null, null, null);
     }

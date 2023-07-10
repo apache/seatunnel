@@ -21,14 +21,14 @@ import org.apache.commons.collections4.CollectionUtils;
 
 import org.bson.BsonDocument;
 import org.bson.conversions.Bson;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
 
 import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoDatabase;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+
+import javax.annotation.Nonnull;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -52,24 +52,24 @@ public class CollectionDiscoveryUtils {
 
     private CollectionDiscoveryUtils() {}
 
-    public static @NotNull List<String> databaseNames(
-            @NotNull MongoClient mongoClient, Predicate<String> databaseFilter) {
+    public static @Nonnull List<String> databaseNames(
+            @Nonnull MongoClient mongoClient, Predicate<String> databaseFilter) {
         List<String> databaseNames = new ArrayList<>();
         return mongoClient.listDatabaseNames().into(databaseNames).stream()
                 .filter(databaseFilter)
                 .collect(Collectors.toList());
     }
 
-    public static @NotNull List<String> collectionNames(
+    public static @Nonnull List<String> collectionNames(
             MongoClient mongoClient,
             List<String> databaseNames,
             Predicate<String> collectionFilter) {
         return collectionNames(mongoClient, databaseNames, collectionFilter, String::toString);
     }
 
-    public static <T> @NotNull List<T> collectionNames(
+    public static <T> @Nonnull List<T> collectionNames(
             MongoClient mongoClient,
-            @NotNull List<String> databaseNames,
+            @Nonnull List<String> databaseNames,
             Predicate<String> collectionFilter,
             Function<String, T> conversion) {
         List<T> collectionNames = new ArrayList<>();
@@ -101,8 +101,7 @@ public class CollectionDiscoveryUtils {
         return stringListFilter(CollectionDiscoveryUtils::isNotBuiltInCollections, collectionList);
     }
 
-    @Contract(pure = true)
-    public static @NotNull Predicate<String> anyMatch(List<Pattern> patterns) {
+    public static @Nonnull Predicate<String> anyMatch(List<Pattern> patterns) {
         return s -> patterns.stream().anyMatch(p -> p.matcher(s).matches());
     }
 
@@ -153,7 +152,7 @@ public class CollectionDiscoveryUtils {
                 && !"config".equals(databaseName);
     }
 
-    public static @NotNull Pattern completionPattern(@NotNull String pattern) {
+    public static @Nonnull Pattern completionPattern(@Nonnull String pattern) {
         if (pattern.startsWith("^") && pattern.endsWith("$")) {
             return Pattern.compile(pattern);
         }

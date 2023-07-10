@@ -22,9 +22,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
 import org.bson.BsonDocument;
-import org.jetbrains.annotations.NotNull;
 
 import io.debezium.relational.TableId;
+
+import javax.annotation.Nonnull;
 
 import java.util.Collection;
 
@@ -34,15 +35,15 @@ public interface SplitStrategy {
 
     Collection<SnapshotSplit> split(SplitContext splitContext);
 
-    default String splitId(@NotNull TableId collectionId, int chunkId) {
+    default String splitId(@Nonnull TableId collectionId, int chunkId) {
         return String.format("%s:%d", collectionId.identifier(), chunkId);
     }
 
-    default SeaTunnelRowType shardKeysToRowType(@NotNull BsonDocument shardKeys) {
+    default SeaTunnelRowType shardKeysToRowType(@Nonnull BsonDocument shardKeys) {
         return shardKeysToRowType(shardKeys.keySet());
     }
 
-    default SeaTunnelRowType shardKeysToRowType(@NotNull Collection<String> shardKeys) {
+    default SeaTunnelRowType shardKeysToRowType(@Nonnull Collection<String> shardKeys) {
         SeaTunnelDataType<?>[] fieldTypes =
                 shardKeys.stream()
                         // We cannot get the exact type of the shard key, only the ordering of the

@@ -38,10 +38,10 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.sender.MongoDBConne
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.dialect.MongodbDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamOffsetFactory;
 
-import org.jetbrains.annotations.NotNull;
-
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
+
+import javax.annotation.Nonnull;
 
 import java.util.Optional;
 
@@ -74,7 +74,7 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
 
     @Override
     public SourceConfig.Factory<MongodbSourceConfig> createSourceConfigFactory(
-            @NotNull ReadonlyConfig config) {
+            @Nonnull ReadonlyConfig config) {
         MongodbSourceConfigProvider.Builder builder =
                 MongodbSourceConfigProvider.newBuilder()
                         .hosts(config.get(MongodbSourceOptions.HOSTS))

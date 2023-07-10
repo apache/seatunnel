@@ -24,10 +24,11 @@ import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
 import org.bson.BsonInt64;
 import org.bson.BsonNumber;
-import org.jetbrains.annotations.NotNull;
 
 import com.mongodb.client.MongoClient;
 import io.debezium.relational.TableId;
+
+import javax.annotation.Nonnull;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.collStats;
 
@@ -49,7 +50,8 @@ public class SplitContext {
         this.chunkSizeMB = chunkSizeMB;
     }
 
-    @NotNull public static SplitContext of(MongodbSourceConfig sourceConfig, TableId collectionId) {
+    @Nonnull
+    public static SplitContext of(MongodbSourceConfig sourceConfig, TableId collectionId) {
         MongoClient mongoClient = MongodbUtils.createMongoClient(sourceConfig);
         BsonDocument collectionStats = collStats(mongoClient, collectionId);
         int chunkSizeMB = sourceConfig.getSplitSize();
@@ -84,7 +86,7 @@ public class SplitContext {
         return collectionStats.getBoolean("sharded", BsonBoolean.FALSE).getValue();
     }
 
-    private long getNumberValue(@NotNull BsonDocument document, String fieldName) {
+    private long getNumberValue(@Nonnull BsonDocument document, String fieldName) {
         BsonNumber number = document.getNumber(fieldName, new BsonInt64(0));
         return number.longValue();
     }

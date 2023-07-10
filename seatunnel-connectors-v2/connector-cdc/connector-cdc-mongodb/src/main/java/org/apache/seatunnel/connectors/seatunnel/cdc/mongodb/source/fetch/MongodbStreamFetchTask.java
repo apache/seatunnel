@@ -40,8 +40,6 @@ import org.bson.BsonInt64;
 import org.bson.BsonString;
 import org.bson.BsonTimestamp;
 import org.bson.Document;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
 
 import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
@@ -53,6 +51,7 @@ import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.time.Instant;
@@ -293,8 +292,8 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
         return null;
     }
 
-    @NotNull @Contract("_ -> param1")
-    private BsonDocument normalizeChangeStreamDocument(@NotNull BsonDocument changeStreamDocument) {
+    @Nonnull
+    private BsonDocument normalizeChangeStreamDocument(@Nonnull BsonDocument changeStreamDocument) {
         // _id: primary key of change document.
         BsonDocument normalizedDocument = normalizeKeyDocument(changeStreamDocument);
         changeStreamDocument.put(ID_FIELD, normalizedDocument);
@@ -323,14 +322,15 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
         return changeStreamDocument;
     }
 
-    @NotNull private BsonDocument normalizeKeyDocument(@NotNull BsonDocument changeStreamDocument) {
+    @Nonnull
+    private BsonDocument normalizeKeyDocument(@Nonnull BsonDocument changeStreamDocument) {
         BsonDocument documentKey = changeStreamDocument.getDocument(DOCUMENT_KEY);
         BsonDocument primaryKey = new BsonDocument(ID_FIELD, documentKey.get(ID_FIELD));
         return new BsonDocument(ID_FIELD, primaryKey);
     }
 
-    @NotNull @Contract("_ -> new")
-    private SourceRecord normalizeHeartbeatRecord(@NotNull SourceRecord heartbeatRecord) {
+    @Nonnull
+    private SourceRecord normalizeHeartbeatRecord(@Nonnull SourceRecord heartbeatRecord) {
         final Struct heartbeatValue =
                 new Struct(SchemaBuilder.struct().field(TS_MS_FIELD, Schema.INT64_SCHEMA).build());
         heartbeatValue.put(TS_MS_FIELD, Instant.now().toEpochMilli());
@@ -345,7 +345,8 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                 heartbeatValue);
     }
 
-    @NotNull private MongoNamespace getMongoNamespace(@NotNull BsonDocument changeStreamDocument) {
+    @Nonnull
+    private MongoNamespace getMongoNamespace(@Nonnull BsonDocument changeStreamDocument) {
         BsonDocument ns = changeStreamDocument.getDocument(NS_FIELD);
 
         return new MongoNamespace(

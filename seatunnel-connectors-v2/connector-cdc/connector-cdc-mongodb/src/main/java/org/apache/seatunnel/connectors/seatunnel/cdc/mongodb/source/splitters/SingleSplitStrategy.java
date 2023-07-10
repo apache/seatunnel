@@ -20,9 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.splitters;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
-import org.jetbrains.annotations.NotNull;
-
 import io.debezium.relational.TableId;
+
+import javax.annotation.Nonnull;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -35,13 +35,14 @@ public enum SingleSplitStrategy implements SplitStrategy {
     INSTANCE;
 
     @Override
-    public Collection<SnapshotSplit> split(@NotNull SplitContext splitContext) {
+    public Collection<SnapshotSplit> split(@Nonnull SplitContext splitContext) {
         TableId collectionId = splitContext.getCollectionId();
         SnapshotSplit snapshotSplit = createSnapshotSplit(collectionId);
         return Collections.singletonList(snapshotSplit);
     }
 
-    @NotNull private SnapshotSplit createSnapshotSplit(TableId collectionId) {
+    @Nonnull
+    private SnapshotSplit createSnapshotSplit(TableId collectionId) {
         SeaTunnelRowType rowType = shardKeysToRowType(Collections.singleton(ID_FIELD));
         return new SnapshotSplit(
                 splitId(collectionId, 0),

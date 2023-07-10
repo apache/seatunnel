@@ -30,8 +30,6 @@ import org.bson.BsonString;
 import org.bson.BsonTimestamp;
 import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
 
 import com.mongodb.ConnectionString;
 import com.mongodb.client.ChangeStreamIterable;
@@ -43,6 +41,8 @@ import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.FullDocument;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nonnull;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -81,7 +81,7 @@ public class MongodbUtils {
     private static final Map<TableId, MongoCollection<?>> cache = new ConcurrentHashMap<>();
 
     public static ChangeStreamDescriptor getChangeStreamDescriptor(
-            @NotNull MongodbSourceConfig sourceConfig,
+            @Nonnull MongodbSourceConfig sourceConfig,
             List<String> discoveredDatabases,
             List<String> discoveredCollections) {
         List<String> databaseList = sourceConfig.getDatabaseList();
@@ -137,8 +137,8 @@ public class MongodbUtils {
         return firstOfDiscoveredList.equals(firstOfIncludeList);
     }
 
-    public static @NotNull ChangeStreamIterable<Document> getChangeStreamIterable(
-            MongodbSourceConfig sourceConfig, @NotNull ChangeStreamDescriptor descriptor) {
+    public static @Nonnull ChangeStreamIterable<Document> getChangeStreamIterable(
+            MongodbSourceConfig sourceConfig, @Nonnull ChangeStreamDescriptor descriptor) {
         return getChangeStreamIterable(
                 createMongoClient(sourceConfig),
                 descriptor.getDatabase(),
@@ -149,9 +149,9 @@ public class MongodbUtils {
                 sourceConfig.isUpdateLookup());
     }
 
-    public static @NotNull ChangeStreamIterable<Document> getChangeStreamIterable(
+    public static @Nonnull ChangeStreamIterable<Document> getChangeStreamIterable(
             MongoClient mongoClient,
-            @NotNull ChangeStreamDescriptor descriptor,
+            @Nonnull ChangeStreamDescriptor descriptor,
             int batchSize,
             boolean updateLookup) {
         return getChangeStreamIterable(
@@ -164,7 +164,7 @@ public class MongodbUtils {
                 updateLookup);
     }
 
-    public static @NotNull ChangeStreamIterable<Document> getChangeStreamIterable(
+    public static @Nonnull ChangeStreamIterable<Document> getChangeStreamIterable(
             MongoClient mongoClient,
             String database,
             String collection,
@@ -264,8 +264,8 @@ public class MongodbUtils {
                 .orElse(null);
     }
 
-    public static @NotNull BsonDocument collStats(
-            @NotNull MongoClient mongoClient, @NotNull TableId collectionId) {
+    public static @Nonnull BsonDocument collStats(
+            @Nonnull MongoClient mongoClient, @Nonnull TableId collectionId) {
         BsonDocument collStatsCommand =
                 new BsonDocument("collStats", new BsonString(collectionId.table()));
         return mongoClient
@@ -273,7 +273,7 @@ public class MongodbUtils {
                 .runCommand(collStatsCommand, BsonDocument.class);
     }
 
-    public static @NotNull BsonDocument splitVector(
+    public static @Nonnull BsonDocument splitVector(
             MongoClient mongoClient,
             TableId collectionId,
             BsonDocument keyPattern,
@@ -281,9 +281,9 @@ public class MongodbUtils {
         return splitVector(mongoClient, collectionId, keyPattern, maxChunkSizeMB, null, null);
     }
 
-    public static @NotNull BsonDocument splitVector(
-            @NotNull MongoClient mongoClient,
-            @NotNull TableId collectionId,
+    public static @Nonnull BsonDocument splitVector(
+            @Nonnull MongoClient mongoClient,
+            @Nonnull TableId collectionId,
             BsonDocument keyPattern,
             int maxChunkSizeMB,
             BsonDocument min,
@@ -309,13 +309,13 @@ public class MongodbUtils {
         return isMasterResult.getDocument("$clusterTime").getTimestamp("clusterTime");
     }
 
-    public static @NotNull BsonDocument isMaster(@NotNull MongoClient mongoClient) {
+    public static @Nonnull BsonDocument isMaster(@Nonnull MongoClient mongoClient) {
         BsonDocument isMasterCommand = new BsonDocument("isMaster", new BsonInt32(1));
         return mongoClient.getDatabase("admin").runCommand(isMasterCommand, BsonDocument.class);
     }
 
-    public static @NotNull List<BsonDocument> readChunks(
-            MongoClient mongoClient, @NotNull BsonDocument collectionMetadata) {
+    public static @Nonnull List<BsonDocument> readChunks(
+            MongoClient mongoClient, @Nonnull BsonDocument collectionMetadata) {
         MongoCollection<BsonDocument> chunks =
                 getMongoCollection(mongoClient, TableId.parse("config.chunks"), BsonDocument.class);
         List<BsonDocument> collectionChunks = new ArrayList<>();
@@ -336,7 +336,7 @@ public class MongodbUtils {
     }
 
     public static BsonDocument readCollectionMetadata(
-            MongoClient mongoClient, @NotNull TableId collectionId) {
+            MongoClient mongoClient, @Nonnull TableId collectionId) {
         MongoCollection<BsonDocument> collection =
                 getMongoCollection(
                         mongoClient, TableId.parse("config.collections"), BsonDocument.class);
@@ -347,13 +347,13 @@ public class MongodbUtils {
                 .first();
     }
 
-    public static <T> @NotNull MongoCollection<T> getMongoCollection(
+    public static <T> @Nonnull MongoCollection<T> getMongoCollection(
             MongoClient mongoClient, TableId collectionId, Class<T> documentClass) {
         return getCollection(mongoClient, collectionId, documentClass);
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> @NotNull MongoCollection<T> getCollection(
+    public static <T> @Nonnull MongoCollection<T> getCollection(
             MongoClient mongoClient, TableId collectionId, Class<T> documentClass) {
         MongoCollection<?> cachedCollection = cache.get(collectionId);
         if (cachedCollection == null) {
@@ -371,8 +371,7 @@ public class MongodbUtils {
         return MongodbClientProvider.INSTANCE.getOrCreateMongoClient(sourceConfig);
     }
 
-    @Contract("_, _, _, _ -> new")
-    public static @NotNull ConnectionString buildConnectionString(
+    public static @Nonnull ConnectionString buildConnectionString(
             String username, String password, String hosts, String connectionOptions) {
         StringBuilder sb = new StringBuilder("mongodb://");
 
@@ -394,7 +393,7 @@ public class MongodbUtils {
     }
 
     private static void appendCredentials(
-            @NotNull StringBuilder sb, String username, String password) {
+            @Nonnull StringBuilder sb, String username, String password) {
         sb.append(encodeValue(username)).append(":").append(encodeValue(password)).append("@");
     }
 

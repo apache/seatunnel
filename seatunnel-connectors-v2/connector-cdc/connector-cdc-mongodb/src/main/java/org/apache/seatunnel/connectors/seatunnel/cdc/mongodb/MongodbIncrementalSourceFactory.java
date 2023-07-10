@@ -32,9 +32,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions;
 
-import org.jetbrains.annotations.NotNull;
-
 import com.google.auto.service.AutoService;
+
+import javax.annotation.Nonnull;
 
 import java.io.Serializable;
 import java.util.Collections;
@@ -98,7 +98,7 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory, Supp
     }
 
     @Override
-    public Result applyTables(@NotNull TableFactoryContext context) {
+    public Result applyTables(@Nonnull TableFactoryContext context) {
         return Result.of(context.getCatalogTables(), Collections.emptyList());
     }
 }

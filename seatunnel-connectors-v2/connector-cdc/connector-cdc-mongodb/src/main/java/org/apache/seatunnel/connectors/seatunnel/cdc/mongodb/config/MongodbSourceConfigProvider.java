@@ -24,9 +24,6 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
 
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -43,7 +40,6 @@ public class MongodbSourceConfigProvider {
 
     private MongodbSourceConfigProvider() {}
 
-    @NotNull @Contract(" -> new")
     public static Builder newBuilder() {
         return new Builder();
     }

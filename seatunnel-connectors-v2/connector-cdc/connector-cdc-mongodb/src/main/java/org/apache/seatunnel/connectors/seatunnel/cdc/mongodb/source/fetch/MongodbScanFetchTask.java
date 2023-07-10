@@ -35,8 +35,6 @@ import org.bson.BsonDocument;
 import org.bson.BsonInt64;
 import org.bson.BsonString;
 import org.bson.RawBsonDocument;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -45,6 +43,8 @@ import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nonnull;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -161,8 +161,9 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
         }
     }
 
-    @NotNull private MongoCursor<RawBsonDocument> getSnapshotCursor(
-            @NotNull SnapshotSplit snapshotSplit, MongodbSourceConfig sourceConfig) {
+    @Nonnull
+    private MongoCursor<RawBsonDocument> getSnapshotCursor(
+            @Nonnull SnapshotSplit snapshotSplit, MongodbSourceConfig sourceConfig) {
         MongoClient mongoClient = createMongoClient(sourceConfig);
         MongoCollection<RawBsonDocument> collection =
                 getMongoCollection(mongoClient, snapshotSplit.getTableId(), RawBsonDocument.class);
@@ -185,9 +186,10 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
                 .cursor();
     }
 
-    @NotNull private SourceRecord buildSourceRecord(
-            @NotNull MongodbSourceConfig sourceConfig,
-            @NotNull TableId collectionId,
+    @Nonnull
+    private SourceRecord buildSourceRecord(
+            @Nonnull MongodbSourceConfig sourceConfig,
+            @Nonnull TableId collectionId,
             BsonDocument keyDocument,
             BsonDocument valueDocument) {
         return MongodbRecordUtils.buildSourceRecord(
@@ -221,7 +223,6 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
         return snapshotSplit;
     }
 
-    @NotNull @Contract("_, _ -> new")
     private IncrementalSplit createBackfillStreamSplit(
             ChangeStreamOffset lowWatermark, ChangeStreamOffset highWatermark) {
         return new IncrementalSplit(
@@ -233,7 +234,7 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     private BsonDocument normalizeSnapshotDocument(
-            @NotNull final TableId collectionId, @NotNull final BsonDocument originalDocument) {
+            @Nonnull final TableId collectionId, @Nonnull final BsonDocument originalDocument) {
         return new BsonDocument()
                 .append(ID_FIELD, new BsonDocument(ID_FIELD, originalDocument.get(ID_FIELD)))
                 .append(OPERATION_TYPE, new BsonString(OPERATION_TYPE_INSERT))

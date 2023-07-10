@@ -27,12 +27,13 @@ import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.BsonMinKey;
 import org.bson.BsonValue;
-import org.jetbrains.annotations.NotNull;
 
 import com.mongodb.MongoCommandException;
 import com.mongodb.client.MongoClient;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nonnull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,7 +52,7 @@ public enum SplitVectorSplitStrategy implements SplitStrategy {
     INSTANCE;
 
     @Override
-    public Collection<SnapshotSplit> split(@NotNull SplitContext splitContext) {
+    public Collection<SnapshotSplit> split(@Nonnull SplitContext splitContext) {
         MongoClient mongoClient = splitContext.getMongoClient();
         TableId collectionId = splitContext.getCollectionId();
         int chunkSizeMB = splitContext.getChunkSizeMB();

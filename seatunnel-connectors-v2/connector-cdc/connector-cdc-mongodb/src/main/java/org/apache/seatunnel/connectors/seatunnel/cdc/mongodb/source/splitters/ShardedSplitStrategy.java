@@ -22,12 +22,13 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
 import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
-import org.jetbrains.annotations.NotNull;
 
 import com.mongodb.MongoQueryException;
 import com.mongodb.client.MongoClient;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nonnull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -48,7 +49,7 @@ public class ShardedSplitStrategy implements SplitStrategy {
     private ShardedSplitStrategy() {}
 
     @Override
-    public Collection<SnapshotSplit> split(@NotNull SplitContext splitContext) {
+    public Collection<SnapshotSplit> split(@Nonnull SplitContext splitContext) {
         TableId collectionId = splitContext.getCollectionId();
         MongoClient mongoClient = splitContext.getMongoClient();
 

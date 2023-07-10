@@ -31,7 +31,8 @@ import org.bson.BsonType;
 import org.bson.BsonUndefined;
 import org.bson.BsonValue;
 import org.bson.types.Decimal128;
-import org.jetbrains.annotations.NotNull;
+
+import javax.annotation.Nonnull;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -142,7 +143,7 @@ public class BsonUtils {
         return stringCache.computeIfAbsent(value, k -> k);
     }
 
-    public static int compareBsonDocument(@NotNull BsonDocument d1, @NotNull BsonDocument d2) {
+    public static int compareBsonDocument(@Nonnull BsonDocument d1, @Nonnull BsonDocument d2) {
         Iterator<Map.Entry<String, BsonValue>> iterator1 = d1.entrySet().iterator();
         Iterator<Map.Entry<String, BsonValue>> iterator2 = d2.entrySet().iterator();
 
@@ -182,7 +183,7 @@ public class BsonUtils {
         return compareBsonValue(smallestValueOfArray(a1), smallestValueOfArray(a2), false);
     }
 
-    private static BsonValue smallestValueOfArray(@NotNull BsonArray bsonArray) {
+    private static BsonValue smallestValueOfArray(@Nonnull BsonArray bsonArray) {
         if (bsonArray.isEmpty()) {
             return new BsonUndefined();
         }
@@ -199,7 +200,7 @@ public class BsonUtils {
                                         "Unable to find smallest value in the array."));
     }
 
-    public static int compareBsonBinary(@NotNull BsonBinary b1, @NotNull BsonBinary b2) {
+    public static int compareBsonBinary(@Nonnull BsonBinary b1, @Nonnull BsonBinary b2) {
         byte[] data1 = b1.getData();
         byte[] data2 = b2.getData();
 
@@ -224,7 +225,7 @@ public class BsonUtils {
     }
 
     public static int compareJavascriptWithScope(
-            @NotNull BsonJavaScriptWithScope c1, @NotNull BsonJavaScriptWithScope c2) {
+            @Nonnull BsonJavaScriptWithScope c1, @Nonnull BsonJavaScriptWithScope c2) {
         int result = c1.getCode().compareTo(c2.getCode());
         if (result != 0) {
             return result;
@@ -246,7 +247,7 @@ public class BsonUtils {
         return bsonValue != null && bsonValue.getBsonType() == BsonType.MAX_KEY;
     }
 
-    public static Decimal128 toDecimal128(@NotNull BsonValue bsonValue) {
+    public static Decimal128 toDecimal128(@Nonnull BsonValue bsonValue) {
         if (bsonValue.isNumber()) {
             return bsonValue.asNumber().decimal128Value();
         } else if (bsonValue.isDecimal128()) {
@@ -258,7 +259,7 @@ public class BsonUtils {
         }
     }
 
-    public static BsonDocument toBsonDocument(@NotNull BsonValue bsonValue) {
+    public static BsonDocument toBsonDocument(@Nonnull BsonValue bsonValue) {
         if (bsonValue.isDocument()) {
             return bsonValue.asDocument();
         } else if (bsonValue.isDBPointer()) {

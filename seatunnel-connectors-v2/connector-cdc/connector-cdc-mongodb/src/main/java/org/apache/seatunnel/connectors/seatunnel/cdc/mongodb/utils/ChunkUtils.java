@@ -22,8 +22,6 @@ import org.bson.BsonInt32;
 import org.bson.BsonMaxKey;
 import org.bson.BsonMinKey;
 import org.bson.BsonValue;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
 
@@ -31,20 +29,17 @@ public class ChunkUtils {
 
     private ChunkUtils() {}
 
-    @Contract("_ -> new")
-    public static Object @NotNull [] boundOfId(BsonValue bound) {
+    public static Object[] boundOfId(BsonValue bound) {
         return new Object[] {
             new BsonDocument(ID_FIELD, new BsonInt32(1)), new BsonDocument(ID_FIELD, bound)
         };
     }
 
-    @Contract(" -> new")
-    public static Object @NotNull [] minLowerBoundOfId() {
+    public static Object[] minLowerBoundOfId() {
         return boundOfId(new BsonMinKey());
     }
 
-    @Contract(" -> new")
-    public static Object @NotNull [] maxUpperBoundOfId() {
+    public static Object[] maxUpperBoundOfId() {
         return boundOfId(new BsonMaxKey());
     }
 }

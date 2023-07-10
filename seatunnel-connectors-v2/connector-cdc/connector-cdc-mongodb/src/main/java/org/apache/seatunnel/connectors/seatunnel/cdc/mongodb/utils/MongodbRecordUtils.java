@@ -25,14 +25,13 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
 import org.bson.json.JsonWriterSettings;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Unmodifiable;
 
 import com.mongodb.kafka.connect.source.json.formatter.DefaultJson;
 import com.mongodb.kafka.connect.source.schema.AvroSchemaDefaults;
 import com.mongodb.kafka.connect.source.schema.BsonValueToSchemaAndValue;
 import io.debezium.relational.TableId;
+
+import javax.annotation.Nonnull;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -62,16 +61,16 @@ public class MongodbRecordUtils {
         return BsonDocument.parse(getOffsetValue(sourceRecord, ID_FIELD));
     }
 
-    public static BsonDocument getDocumentKey(@NotNull SourceRecord sourceRecord) {
+    public static BsonDocument getDocumentKey(@Nonnull SourceRecord sourceRecord) {
         Struct value = (Struct) sourceRecord.value();
         return BsonDocument.parse(value.getString(DOCUMENT_KEY));
     }
 
-    public static String getOffsetValue(@NotNull SourceRecord sourceRecord, String key) {
+    public static String getOffsetValue(@Nonnull SourceRecord sourceRecord, String key) {
         return (String) sourceRecord.sourceOffset().get(key);
     }
 
-    public static @NotNull TableId getTableId(@NotNull SourceRecord dataRecord) {
+    public static @Nonnull TableId getTableId(@Nonnull SourceRecord dataRecord) {
         Struct value = (Struct) dataRecord.value();
         Struct source = value.getStruct(NS_FIELD);
         String dbName = source.getString(DB_FIELD);
@@ -79,22 +78,19 @@ public class MongodbRecordUtils {
         return new TableId(dbName, null, collName);
     }
 
-    @Contract(" -> new")
-    public static @NotNull BsonTimestamp currentBsonTimestamp() {
+    public static @Nonnull BsonTimestamp currentBsonTimestamp() {
         return bsonTimestampFromEpochMillis(System.currentTimeMillis());
     }
 
-    @Contract(value = " -> new", pure = true)
-    public static @NotNull BsonTimestamp maximumBsonTimestamp() {
+    public static @Nonnull BsonTimestamp maximumBsonTimestamp() {
         return new BsonTimestamp(Integer.MAX_VALUE, Integer.MAX_VALUE);
     }
 
-    @Contract("_ -> new")
-    public static @NotNull BsonTimestamp bsonTimestampFromEpochMillis(long epochMillis) {
+    public static @Nonnull BsonTimestamp bsonTimestampFromEpochMillis(long epochMillis) {
         return new BsonTimestamp((int) Instant.ofEpochMilli(epochMillis).getEpochSecond(), 1);
     }
 
-    public static @NotNull SourceRecord buildSourceRecord(
+    public static @Nonnull SourceRecord buildSourceRecord(
             final Map<String, String> partition,
             final Map<String, String> sourceOffset,
             final String topicName,
@@ -109,7 +105,7 @@ public class MongodbRecordUtils {
                 new DefaultJson().getJsonWriterSettings());
     }
 
-    public static @NotNull SourceRecord buildSourceRecord(
+    public static @Nonnull SourceRecord buildSourceRecord(
             Map<String, String> partition,
             Map<String, String> sourceOffset,
             String topicName,
@@ -134,15 +130,15 @@ public class MongodbRecordUtils {
                 valueSchemaAndValue.value());
     }
 
-    public static @NotNull Map<String, String> createSourceOffsetMap(
-            @NotNull BsonDocument idDocument, boolean isSnapshotRecord) {
+    public static @Nonnull Map<String, String> createSourceOffsetMap(
+            @Nonnull BsonDocument idDocument, boolean isSnapshotRecord) {
         Map<String, String> sourceOffset = new HashMap<>();
         sourceOffset.put(ID_FIELD, idDocument.toJson());
         sourceOffset.put("copy", String.valueOf(isSnapshotRecord));
         return sourceOffset;
     }
 
-    public static @NotNull @Unmodifiable Map<String, String> createPartitionMap(
+    public static @Nonnull Map<String, String> createPartitionMap(
             String hosts, String database, String collection) {
         StringBuilder builder = new StringBuilder();
         builder.append("mongodb://");
@@ -158,16 +154,12 @@ public class MongodbRecordUtils {
         return Collections.singletonMap(NS_FIELD, builder.toString());
     }
 
-    @Contract(pure = true)
-    public static @NotNull @Unmodifiable Map<String, Object> createHeartbeatPartitionMap(
-            String hosts) {
+    public static @Nonnull Map<String, Object> createHeartbeatPartitionMap(String hosts) {
         String builder = "mongodb://" + hosts + "/" + "__mongodb_heartbeats";
         return Collections.singletonMap(NS_FIELD, builder);
     }
 
-    @Contract(value = "_ -> new", pure = true)
-    public static @NotNull @Unmodifiable Map<String, String> createWatermarkPartitionMap(
-            String partition) {
+    public static @Nonnull Map<String, String> createWatermarkPartitionMap(String partition) {
         return Collections.singletonMap(NS_FIELD, partition);
     }
 }

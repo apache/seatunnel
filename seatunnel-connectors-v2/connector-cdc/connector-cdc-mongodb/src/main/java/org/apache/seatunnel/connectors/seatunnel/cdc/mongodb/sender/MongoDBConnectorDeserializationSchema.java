@@ -39,11 +39,10 @@ import org.bson.BsonValue;
 import org.bson.json.JsonMode;
 import org.bson.json.JsonWriterSettings;
 import org.bson.types.Decimal128;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import com.mongodb.client.model.changestream.OperationType;
+
+import javax.annotation.Nonnull;
 
 import java.io.Serializable;
 import java.lang.reflect.Array;
@@ -83,7 +82,7 @@ public class MongoDBConnectorDeserializationSchema
     }
 
     @Override
-    public void deserialize(@NotNull SourceRecord record, Collector<SeaTunnelRow> out) {
+    public void deserialize(@Nonnull SourceRecord record, Collector<SeaTunnelRow> out) {
         Struct value = (Struct) record.value();
         Schema valueSchema = record.valueSchema();
 
@@ -137,7 +136,7 @@ public class MongoDBConnectorDeserializationSchema
         return resultTypeInfo;
     }
 
-    private @NotNull OperationType operationTypeFor(@NotNull SourceRecord record) {
+    private @Nonnull OperationType operationTypeFor(@Nonnull SourceRecord record) {
         Struct value = (Struct) record.value();
         return OperationType.fromString(value.getString("operationType"));
     }
@@ -146,7 +145,7 @@ public class MongoDBConnectorDeserializationSchema
     private void emit(
             SourceRecord inRecord,
             SeaTunnelRow physicalRow,
-            @NotNull Collector<SeaTunnelRow> collector) {
+            @Nonnull Collector<SeaTunnelRow> collector) {
         collector.collect(physicalRow);
     }
 
@@ -156,7 +155,7 @@ public class MongoDBConnectorDeserializationSchema
     }
 
     private BsonDocument extractBsonDocument(
-            Struct value, @NotNull Schema valueSchema, String fieldName) {
+            Struct value, @Nonnull Schema valueSchema, String fieldName) {
         if (valueSchema.field(fieldName) != null) {
             String docString = value.getString(fieldName);
             if (docString != null) {
@@ -188,17 +187,13 @@ public class MongoDBConnectorDeserializationSchema
         };
     }
 
-    @Contract("_ -> new")
-    private static @NotNull SerializableFunction<BsonValue, Object> createNullSafeInternalConverter(
+    private static SerializableFunction<BsonValue, Object> createNullSafeInternalConverter(
             SeaTunnelDataType<?> type) {
         return wrapIntoNullSafeInternalConverter(createInternalConverter(type), type);
     }
 
-    @Contract(value = "_, _ -> new", pure = true)
-    private static @NotNull SerializableFunction<BsonValue, Object>
-            wrapIntoNullSafeInternalConverter(
-                    SerializableFunction<BsonValue, Object> internalConverter,
-                    SeaTunnelDataType<?> type) {
+    private static SerializableFunction<BsonValue, Object> wrapIntoNullSafeInternalConverter(
+            SerializableFunction<BsonValue, Object> internalConverter, SeaTunnelDataType<?> type) {
         return new SerializableFunction<BsonValue, Object>() {
             private static final long serialVersionUID = 1L;
 
@@ -220,12 +215,12 @@ public class MongoDBConnectorDeserializationSchema
                 || bsonValue.getBsonType() == BsonType.UNDEFINED;
     }
 
-    private static boolean isBsonDecimalNaN(@NotNull BsonValue bsonValue) {
+    private static boolean isBsonDecimalNaN(@Nonnull BsonValue bsonValue) {
         return bsonValue.isDecimal128() && bsonValue.asDecimal128().getValue().isNaN();
     }
 
     private static SerializableFunction<BsonValue, Object> createInternalConverter(
-            @NotNull SeaTunnelDataType<?> type) {
+            @Nonnull SeaTunnelDataType<?> type) {
         switch (type.getSqlType()) {
             case NULL:
                 return new SerializableFunction<BsonValue, Object>() {
@@ -335,7 +330,7 @@ public class MongoDBConnectorDeserializationSchema
         }
     }
 
-    private static LocalDateTime convertToLocalDateTime(@NotNull BsonValue bsonValue) {
+    private static LocalDateTime convertToLocalDateTime(BsonValue bsonValue) {
         Instant instant;
         if (bsonValue.isTimestamp()) {
             instant = Instant.ofEpochSecond(bsonValue.asTimestamp().getTime());
@@ -353,8 +348,8 @@ public class MongoDBConnectorDeserializationSchema
     }
 
     @SuppressWarnings("unchecked")
-    private static @NotNull SerializableFunction<BsonValue, Object> createRowConverter(
-            @NotNull SeaTunnelRowType type) {
+    private static SerializableFunction<BsonValue, Object> createRowConverter(
+            SeaTunnelRowType type) {
         SeaTunnelDataType<?>[] fieldTypes = type.getFieldTypes();
         final SerializableFunction<BsonValue, Object>[] fieldConverters =
                 Arrays.stream(fieldTypes)
@@ -391,8 +386,8 @@ public class MongoDBConnectorDeserializationSchema
         };
     }
 
-    private static @NotNull SerializableFunction<BsonValue, Object> createArrayConverter(
-            @NotNull ArrayType<?, ?> type) {
+    private static @Nonnull SerializableFunction<BsonValue, Object> createArrayConverter(
+            @Nonnull ArrayType<?, ?> type) {
         final SerializableFunction<BsonValue, Object> elementConverter =
                 createNullSafeInternalConverter(type.getElementType());
         return new SerializableFunction<BsonValue, Object>() {
@@ -419,9 +414,9 @@ public class MongoDBConnectorDeserializationSchema
         };
     }
 
-    private static @NotNull SerializableFunction<BsonValue, Object> createMapConverter(
+    private static @Nonnull SerializableFunction<BsonValue, Object> createMapConverter(
             String typeSummary,
-            @NotNull SeaTunnelDataType<?> keyType,
+            @Nonnull SeaTunnelDataType<?> keyType,
             SeaTunnelDataType<?> valueType) {
         if (!keyType.getSqlType().equals(SqlType.STRING)) {
             throw new MongodbConnectorException(
@@ -456,7 +451,7 @@ public class MongoDBConnectorDeserializationSchema
         };
     }
 
-    public static @Nullable BigDecimal fromBigDecimal(BigDecimal bd, int precision, int scale) {
+    public static BigDecimal fromBigDecimal(BigDecimal bd, int precision, int scale) {
         bd = bd.setScale(scale, RoundingMode.HALF_UP);
         if (bd.precision() > precision) {
             return null;
@@ -464,7 +459,7 @@ public class MongoDBConnectorDeserializationSchema
         return bd;
     }
 
-    private static boolean convertToBoolean(@NotNull BsonValue bsonValue) {
+    private static boolean convertToBoolean(@Nonnull BsonValue bsonValue) {
         if (bsonValue.isBoolean()) {
             return bsonValue.asBoolean().getValue();
         }
@@ -476,7 +471,7 @@ public class MongoDBConnectorDeserializationSchema
                         + bsonValue.getBsonType());
     }
 
-    private static double convertToDouble(@NotNull BsonValue bsonValue) {
+    private static double convertToDouble(@Nonnull BsonValue bsonValue) {
         if (bsonValue.isDouble()) {
             return bsonValue.asNumber().doubleValue();
         }
@@ -488,7 +483,7 @@ public class MongoDBConnectorDeserializationSchema
                         + bsonValue.getBsonType());
     }
 
-    private static int convertToInt(@NotNull BsonValue bsonValue) {
+    private static int convertToInt(@Nonnull BsonValue bsonValue) {
         if (bsonValue.isInt32()) {
             return bsonValue.asNumber().intValue();
         }
@@ -500,7 +495,7 @@ public class MongoDBConnectorDeserializationSchema
                         + bsonValue.getBsonType());
     }
 
-    private static String convertToString(@NotNull BsonValue bsonValue) {
+    private static String convertToString(@Nonnull BsonValue bsonValue) {
         if (bsonValue.isString()) {
             return bsonValue.asString().getValue();
         }
@@ -515,7 +510,7 @@ public class MongoDBConnectorDeserializationSchema
         return new BsonDocument(ENCODE_VALUE_FIELD, bsonValue).toJson(DEFAULT_JSON_WRITER_SETTINGS);
     }
 
-    private static byte[] convertToBinary(@NotNull BsonValue bsonValue) {
+    private static byte[] convertToBinary(@Nonnull BsonValue bsonValue) {
         if (bsonValue.isBinary()) {
             return bsonValue.asBinary().getData();
         }
@@ -524,7 +519,7 @@ public class MongoDBConnectorDeserializationSchema
                 "Unsupported BYTES value type: " + bsonValue.getClass().getSimpleName());
     }
 
-    private static long convertToLong(@NotNull BsonValue bsonValue) {
+    private static long convertToLong(@Nonnull BsonValue bsonValue) {
         if (bsonValue.isInt64()) {
             return bsonValue.asNumber().longValue();
         }
@@ -536,7 +531,7 @@ public class MongoDBConnectorDeserializationSchema
                         + bsonValue.getBsonType());
     }
 
-    private static BigDecimal convertToBigDecimal(@NotNull BsonValue bsonValue) {
+    private static BigDecimal convertToBigDecimal(@Nonnull BsonValue bsonValue) {
         if (bsonValue.isDecimal128()) {
             Decimal128 decimal128Value = bsonValue.asDecimal128().decimal128Value();
             if (decimal128Value.isFinite()) {

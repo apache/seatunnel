@@ -31,10 +31,11 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.splitters.Mo
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.CollectionDiscoveryUtils;
 
 import org.bson.BsonDocument;
-import org.jetbrains.annotations.NotNull;
 
 import com.mongodb.client.MongoClient;
 import io.debezium.relational.TableId;
+
+import javax.annotation.Nonnull;
 
 import java.util.List;
 import java.util.Map;
@@ -82,7 +83,7 @@ public class MongodbDialect implements DataSourceDialect<MongodbSourceConfig> {
     }
 
     @Override
-    public FetchTask<SourceSplitBase> createFetchTask(@NotNull SourceSplitBase sourceSplitBase) {
+    public FetchTask<SourceSplitBase> createFetchTask(@Nonnull SourceSplitBase sourceSplitBase) {
         if (sourceSplitBase.isSnapshotSplit()) {
             return new MongodbScanFetchTask(sourceSplitBase.asSnapshotSplit());
         } else {

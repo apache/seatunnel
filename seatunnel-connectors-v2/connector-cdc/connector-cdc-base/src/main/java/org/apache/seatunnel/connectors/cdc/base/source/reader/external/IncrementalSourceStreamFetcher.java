@@ -147,6 +147,8 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     private boolean shouldEmit(SourceRecord sourceRecord) {
         if (taskContext.isDataChangeRecord(sourceRecord)) {
             Offset position = taskContext.getStreamOffset(sourceRecord);
+            // TODO: The sourceRecord from MongoDB CDC and MySQL CDC are inconsistent. For
+            // compatibility, the getTableId method is commented out for now.
             // TableId tableId = getTableId(sourceRecord);
             if (!taskContext.isExactlyOnce()) {
                 //                log.trace(

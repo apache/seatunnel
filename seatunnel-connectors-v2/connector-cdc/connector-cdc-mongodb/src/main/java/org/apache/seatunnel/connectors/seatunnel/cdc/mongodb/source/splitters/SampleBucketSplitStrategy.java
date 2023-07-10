@@ -23,10 +23,11 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.bson.BsonDocument;
 import org.bson.BsonValue;
 import org.bson.conversions.Bson;
-import org.jetbrains.annotations.NotNull;
 
 import com.mongodb.client.MongoCollection;
 import io.debezium.relational.TableId;
+
+import javax.annotation.Nonnull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -50,8 +51,9 @@ public enum SampleBucketSplitStrategy implements SplitStrategy {
 
     private static final double DEFAULT_SAMPLING_RATE = 0.05;
 
-    @NotNull @Override
-    public Collection<SnapshotSplit> split(@NotNull SplitContext splitContext) {
+    @Nonnull
+    @Override
+    public Collection<SnapshotSplit> split(@Nonnull SplitContext splitContext) {
         long chunkSizeInBytes = (long) splitContext.getChunkSizeMB() * 1024 * 1024;
 
         long sizeInBytes = splitContext.getSizeInBytes();
@@ -123,7 +125,7 @@ public enum SampleBucketSplitStrategy implements SplitStrategy {
         return snapshotSplits;
     }
 
-    private BsonDocument bucketBounds(@NotNull BsonDocument bucket) {
+    private BsonDocument bucketBounds(@Nonnull BsonDocument bucket) {
         return bucket.getDocument(ID_FIELD);
     }
 

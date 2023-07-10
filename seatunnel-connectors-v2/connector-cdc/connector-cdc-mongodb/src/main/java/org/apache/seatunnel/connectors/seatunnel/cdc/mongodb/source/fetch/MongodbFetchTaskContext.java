@@ -33,7 +33,6 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.bson.BsonDocument;
 import org.bson.BsonType;
 import org.bson.BsonValue;
-import org.jetbrains.annotations.NotNull;
 
 import com.mongodb.client.model.changestream.OperationType;
 import io.debezium.connector.base.ChangeEventQueue;
@@ -41,6 +40,8 @@ import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
 import io.debezium.util.LoggingContext;
+
+import javax.annotation.Nonnull;
 
 import java.time.Duration;
 import java.util.Collection;
@@ -75,7 +76,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
         this.changeStreamDescriptor = changeStreamDescriptor;
     }
 
-    public void configure(@NotNull SourceSplitBase sourceSplitBase) {
+    public void configure(@Nonnull SourceSplitBase sourceSplitBase) {
         final int queueSize =
                 sourceSplitBase.isSnapshotSplit() ? Integer.MAX_VALUE : sourceConfig.getBatchSize();
         this.changeEventQueue =
@@ -136,7 +137,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
 
     @Override
     public boolean isRecordBetween(
-            SourceRecord record, @NotNull Object[] splitStart, @NotNull Object[] splitEnd) {
+            SourceRecord record, @Nonnull Object[] splitStart, @Nonnull Object[] splitEnd) {
         BsonDocument documentKey = getDocumentKey(record);
         BsonDocument splitKeys = (BsonDocument) ((Object[]) splitStart[0])[0];
         String firstKey = splitKeys.getFirstKey();
@@ -151,7 +152,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
         return isValueInRange(lowerBound, keyValue, upperBound);
     }
 
-    private boolean isFullRange(@NotNull BsonValue lowerBound, BsonValue upperBound) {
+    private boolean isFullRange(@Nonnull BsonValue lowerBound, BsonValue upperBound) {
         return lowerBound.getBsonType() == BsonType.MIN_KEY
                 && upperBound.getBsonType() == BsonType.MAX_KEY;
     }
@@ -162,7 +163,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
 
     @Override
     public void rewriteOutputBuffer(
-            Map<Struct, SourceRecord> outputBuffer, @NotNull SourceRecord changeRecord) {
+            Map<Struct, SourceRecord> outputBuffer, @Nonnull SourceRecord changeRecord) {
         Struct key = (Struct) changeRecord.key();
         Struct value = (Struct) changeRecord.value();
 
@@ -188,7 +189,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
 
     @Override
     public List<SourceRecord> formatMessageTimestamp(
-            @NotNull Collection<SourceRecord> snapshotRecords) {
+            @Nonnull Collection<SourceRecord> snapshotRecords) {
         return snapshotRecords.stream()
                 .peek(
                         record -> {

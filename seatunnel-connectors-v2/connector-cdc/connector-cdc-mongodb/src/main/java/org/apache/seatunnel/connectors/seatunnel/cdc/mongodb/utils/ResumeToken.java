@@ -22,8 +22,8 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbCo
 import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
 import org.bson.BsonValue;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
+
+import javax.annotation.Nonnull;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -35,8 +35,7 @@ public class ResumeToken {
 
     private static final int K_TIMESTAMP = 130;
 
-    @Contract("_ -> new")
-    public static @NotNull BsonTimestamp decodeTimestamp(BsonDocument resumeToken) {
+    public static @Nonnull BsonTimestamp decodeTimestamp(BsonDocument resumeToken) {
         Objects.requireNonNull(resumeToken, "Missing ResumeToken.");
         BsonValue bsonValue = resumeToken.get("_data");
         byte[] keyStringBytes = extractKeyStringBytes(bsonValue);
@@ -48,7 +47,7 @@ public class ResumeToken {
         return new BsonTimestamp(t, i);
     }
 
-    private static byte[] extractKeyStringBytes(@NotNull BsonValue bsonValue) {
+    private static byte[] extractKeyStringBytes(@Nonnull BsonValue bsonValue) {
         if (bsonValue.isBinary()) {
             return bsonValue.asBinary().getData();
         } else if (bsonValue.isString()) {
@@ -59,8 +58,7 @@ public class ResumeToken {
         }
     }
 
-    @Contract(pure = true)
-    private static void validateKeyType(byte @NotNull [] keyStringBytes) {
+    private static void validateKeyType(byte[] keyStringBytes) {
         int kType = keyStringBytes[0] & 0xff;
         if (kType != K_TIMESTAMP) {
             throw new MongodbConnectorException(
@@ -68,7 +66,7 @@ public class ResumeToken {
         }
     }
 
-    private static byte @NotNull [] hexToUint8Array(@NotNull String str) {
+    private static byte[] hexToUint8Array(@Nonnull String str) {
         int len = str.length();
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
