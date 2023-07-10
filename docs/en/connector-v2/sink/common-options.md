@@ -6,6 +6,8 @@
 |-------------------|--------|----------|---------------|
 | source_table_name | string | no       | -             |
 | parallelism       | int    | no       | -             |
+| partition_balance | boolean| no       | false         |
+
 
 ### source_table_name [string]
 
@@ -18,6 +20,16 @@ When `source_table_name` is specified, the current plug-in is processing the dat
 When `parallelism` is not specified, the `parallelism` in env is used by default.
 
 When parallelism is specified, it will override the parallelism in env.
+
+### partition_balance [boolean]
+When `partition_balance` is set to true, in the sink process, a repartition will be performed first to ensure that the size of each partition is roughly the same, which can avoid problems caused by data skew, but it will consume some extra time. 
+
+The default value is false, support Spark and Flink engine
+
+When `partition_balance` is not specified, the `partition_balance` in env is used by default.
+
+When `partition_balance` is specified, it will override the `partition_balance` in env.
+
 
 ## Examples
 
