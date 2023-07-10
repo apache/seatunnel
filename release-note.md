@@ -35,6 +35,7 @@
 - [Connector-v2] [File] Fix configuration file format and error comments (#4762)
 - [Connector-v2] [Jdbc] Fix oracle sql table identifier (#4754)
 - [Connector-v2] [Clickhouse] fix get clickhouse local table name with closing bracket from distributed table engineFull (#4710)
+- [Connector-v2] [CDC] Fix jdbc connection leak for mysql (#5037)
 
 ### Zeta(ST-Engine)
 

@@ -38,8 +38,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createMySqlConnection;
-
 @Slf4j
 public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
 
@@ -158,7 +156,7 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
         return new MySqlBinlogFetchTask.MySqlBinlogSplitReadTask(
                 new MySqlConnectorConfig(dezConf),
                 mySqlOffsetContext,
-                createMySqlConnection(context.getSourceConfig().getDbzConfiguration()),
+                context.getConnection(),
                 context.getDispatcher(),
                 context.getErrorHandler(),
                 context.getTaskContext(),
