@@ -73,7 +73,7 @@ function rm_exists_files() {
 ##############################################################
 #
 # Replace images path in markdown documents, the source path
-# in repo `apache/incubator-seatunnel` is like `images/<name>.png`
+# in repo `apache/seatunnel` is like `images/<name>.png`
 # and we should replace it to `images_en/<name>.png`
 #
 # Arguments:

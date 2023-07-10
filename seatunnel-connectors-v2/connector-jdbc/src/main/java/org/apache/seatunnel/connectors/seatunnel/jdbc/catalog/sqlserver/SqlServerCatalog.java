@@ -69,7 +69,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     @Override
     public List<String> listDatabases() throws CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-                PreparedStatement ps = conn.prepareStatement("SELECT NAME FROM SYS.DATABASES")) {
+                PreparedStatement ps = conn.prepareStatement("SELECT NAME FROM sys.databases")) {
 
             List<String> databases = new ArrayList<>();
             ResultSet rs = ps.executeQuery();

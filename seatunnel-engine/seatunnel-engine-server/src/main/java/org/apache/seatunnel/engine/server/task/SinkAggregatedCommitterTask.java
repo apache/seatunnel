@@ -179,6 +179,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
 
     @Override
     public void close() throws IOException {
+        super.close();
         aggregatedCommitter.close();
         progress.done();
         completableFuture.complete(null);
@@ -223,7 +224,8 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                                     (CheckpointBarrier) barrier,
                                     Collections.singletonList(
                                             new ActionSubtaskState(
-                                                    ActionStateKey.of(sink), -1, states))));
+                                                    ActionStateKey.of(sink), -1, states))))
+                    .join();
         }
     }
 
