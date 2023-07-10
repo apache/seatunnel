@@ -52,7 +52,7 @@ public class ServerIdRange implements Serializable {
 
     public long getServerId(int subTaskId) {
         checkArgument(subTaskId >= 0, "Subtask ID %s shouldn't be a negative number.", subTaskId);
-        if ((long)subTaskId > getNumberOfServerIds()) {
+        if ((long) subTaskId > getNumberOfServerIds()) {
             throw new IllegalArgumentException(
                     String.format(
                             "Subtask ID %s is out of server id range %s, "
