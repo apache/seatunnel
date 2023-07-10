@@ -6,7 +6,7 @@
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key Features
 
@@ -36,7 +36,7 @@ Read external data source data through JDBC.
 
 ### Mysql Mode
 
-|                                                          Mysql Data type                                                          |                                                                 Seatunnel Data type                                                                 |
+|                                                          Mysql Data type                                                          |                                                                 SeaTunnel Data type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
@@ -56,7 +56,7 @@ Read external data source data through JDBC.
 
 ### Oracle Mode
 
-|                     Oracle Data type                      | Seatunnel Data type |
+|                     Oracle Data type                      | SeaTunnel Data type |
 |-----------------------------------------------------------|---------------------|
 | Number(p), p <= 9                                         | INT                 |
 | Number(p), p <= 18                                        | BIGINT              |

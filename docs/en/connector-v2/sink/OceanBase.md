@@ -6,7 +6,7 @@
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key Features
 
@@ -32,7 +32,7 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 
 ### Mysql Mode
 
-|                                                          Mysql Data type                                                          |                                                                 Seatunnel Data type                                                                 |
+|                                                          Mysql Data type                                                          |                                                                 SeaTunnel Data type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
@@ -52,7 +52,7 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 
 ### Oracle Mode
 
-|                     Oracle Data type                      | Seatunnel Data type |
+|                     Oracle Data type                      | SeaTunnel Data type |
 |-----------------------------------------------------------|---------------------|
 | Number(p), p <= 9                                         | INT                 |
 | Number(p), p <= 18                                        | BIGINT              |

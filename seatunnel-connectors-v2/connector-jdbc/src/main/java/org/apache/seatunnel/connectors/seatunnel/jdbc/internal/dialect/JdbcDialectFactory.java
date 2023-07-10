@@ -39,7 +39,7 @@ public interface JdbcDialectFactory {
     JdbcDialect create();
 
     /**
-     * Create a {@link JdbcDialect} instance based on the driver type.
+     * Create a {@link JdbcDialect} instance based on the driver type and compatible mode.
      *
      * @param compatibleMode The compatible mode
      * @return a new instance of {@link JdbcDialect}
