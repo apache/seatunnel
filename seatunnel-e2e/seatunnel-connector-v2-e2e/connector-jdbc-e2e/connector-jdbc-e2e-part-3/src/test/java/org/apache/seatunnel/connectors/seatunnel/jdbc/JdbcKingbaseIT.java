@@ -16,18 +16,18 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
  * limitations under the License.
  */
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -36,7 +36,11 @@ import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -57,26 +61,26 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_kingbase_source_and_sink.conf");
     private static final String CREATE_SQL =
-            "create table %s \n" +
-                    "(\n" +
-                    "    c1  SMALLSERIAL,\n" +
-                    "    c2  SERIAL,\n" +
-                    "    c3  BIGSERIAL,\n" +
-                    "    c5  INT2,\n" +
-                    "    c7  INT4,\n" +
-                    "    c9 INT8,\n" +
-                    "    c11 FLOAT4,\n" +
-                    "    c13 FLOAT8,\n" +
-                    "    c15 NUMERIC,\n" +
-                    "    c16 BOOL,\n" +
-                    "    c18 TIMESTAMP,\n" +
-                    "    c19 DATE,\n" +
-                    "    c20 TIME,\n" +
-                    "    c21 TEXT,\n" +
-                    "    c23 BPCHAR,\n" +
-                    "    c25 CHARACTER,\n" +
-                    "    c26 VARCHAR\n" +
-                    ");\n";
+            "create table %s \n"
+                    + "(\n"
+                    + "    c1  SMALLSERIAL,\n"
+                    + "    c2  SERIAL,\n"
+                    + "    c3  BIGSERIAL,\n"
+                    + "    c5  INT2,\n"
+                    + "    c7  INT4,\n"
+                    + "    c9 INT8,\n"
+                    + "    c11 FLOAT4,\n"
+                    + "    c13 FLOAT8,\n"
+                    + "    c15 NUMERIC,\n"
+                    + "    c16 BOOL,\n"
+                    + "    c18 TIMESTAMP,\n"
+                    + "    c19 DATE,\n"
+                    + "    c20 TIME,\n"
+                    + "    c21 TEXT,\n"
+                    + "    c23 BPCHAR,\n"
+                    + "    c25 CHARACTER,\n"
+                    + "    c26 VARCHAR\n"
+                    + ");\n";
 
     @Override
     JdbcCase getJdbcCase() {
@@ -110,8 +114,7 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() throws SQLException, IOException {
-    }
+    void compareResult() throws SQLException, IOException {}
 
     @Override
     String driverUrl() {
@@ -121,47 +124,32 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
-                new String[]{
-                        "c1",
-                        "c2",
-                        "c3",
-                        "c5",
-                        "c7",
-                        "c9",
-                        "c11",
-                        "c13",
-                        "c15",
-                        "c16",
-                        "c18",
-                        "c19",
-                        "c20",
-                        "c21",
-                        "c23",
-                        "c25",
-                        "c26"
+                new String[] {
+                    "c1", "c2", "c3", "c5", "c7", "c9", "c11", "c13", "c15", "c16", "c18", "c19",
+                    "c20", "c21", "c23", "c25", "c26"
                 };
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
-                            new Object[]{
-                                    i,
-                                    Long.parseLong(String.valueOf(i)),
-                                    Long.parseLong(String.valueOf(i)),
-                                    (short) i,
-                                    i,
-                                    Long.parseLong(String.valueOf(i)),
-                                    Float.parseFloat("1.1"),
-                                    Double.parseDouble("1.1"),
-                                    BigDecimal.valueOf(i, 10),
-                                    true,
-                                    LocalDateTime.now(),
-                                    LocalDate.now(),
-                                    LocalTime.now(),
-                                    String.valueOf(i),
-                                    String.valueOf(i),
-                                    String.valueOf(1),
-                                    String.valueOf(i)
+                            new Object[] {
+                                i,
+                                Long.parseLong(String.valueOf(i)),
+                                Long.parseLong(String.valueOf(i)),
+                                (short) i,
+                                i,
+                                Long.parseLong(String.valueOf(i)),
+                                Float.parseFloat("1.1"),
+                                Double.parseDouble("1.1"),
+                                BigDecimal.valueOf(i, 10),
+                                true,
+                                LocalDateTime.now(),
+                                LocalDate.now(),
+                                LocalTime.now(),
+                                String.valueOf(i),
+                                String.valueOf(i),
+                                String.valueOf(1),
+                                String.valueOf(i)
                             });
             rows.add(row);
         }
@@ -171,14 +159,15 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
 
     @Override
     GenericContainer<?> initContainer() {
-        GenericContainer<?> container = new GenericContainer<>(KINGBASE_IMAGE)
-                .withNetwork(NETWORK)
-                .withNetworkAliases(KINGBASE_CONTAINER_HOST)
-                .withEnv("KINGBASE_SYSTEM_PASSWORD", "123456")
-                .withFileSystemBind("assets/KMlicense.dat", "/home/kingbase/license.dat")
-                .withLogConsumer(
-                        new Slf4jLogConsumer(
-                                DockerLoggerFactory.getLogger(KINGBASE_IMAGE)));
+        GenericContainer<?> container =
+                new GenericContainer<>(KINGBASE_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(KINGBASE_CONTAINER_HOST)
+                        .withEnv("KINGBASE_SYSTEM_PASSWORD", "123456")
+                        .withFileSystemBind("assets/KMlicense.dat", "/home/kingbase/license.dat")
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(KINGBASE_IMAGE)));
         container.setPortBindings(
                 Lists.newArrayList(String.format("%s:%s", KINGBASE_PORT, KINGBASE_PORT)));
         return container;
@@ -192,8 +181,7 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                     String.format(
                             createTemplate, KINGBASE_SCHEMA + "." + jdbcCase.getSourceTable());
             String createSink =
-                    String.format(
-                            createTemplate, KINGBASE_SCHEMA + "." + jdbcCase.getSinkTable());
+                    String.format(createTemplate, KINGBASE_SCHEMA + "." + jdbcCase.getSinkTable());
 
             statement.execute(createSource);
             statement.execute(createSink);
@@ -206,14 +194,13 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
     }
 
     public String insertTable(String schema, String table, String... fields) {
-        String columns =
-                String.join(", ", fields);
+        String columns = String.join(", ", fields);
         String placeholders = Arrays.stream(fields).map(f -> "?").collect(Collectors.joining(", "));
 
         return "INSERT INTO "
-                + schema +
-                "." +
-                table
+                + schema
+                + "."
+                + table
                 + " ("
                 + columns
                 + " )"
@@ -222,6 +209,5 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                 + ")";
     }
 
-    public void clearTable(String schema, String table) {
-    }
+    public void clearTable(String schema, String table) {}
 }
