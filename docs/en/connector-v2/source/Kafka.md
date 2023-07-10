@@ -32,22 +32,23 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ## Source Options
 
-|                Name                 |                                    Type                                     | Required |         Default          |                                                                                                                                                        Description                                                                                                                                                         |
+| Name                                | Type                                                                        | Required | Default                  | Description                                                                                                                                                                                                                                                                                                                |
 |-------------------------------------|-----------------------------------------------------------------------------|----------|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| topic                               | String                                                                      | yes      | -                        | Topic name(s) to read data from when the table is used as source. It also supports topic list for source by separating topic by comma like 'topic-1,topic-2'.                                                                                                                                                              |
-| bootstrap.servers                   | String                                                                      | yes      | -                        | Comma separated list of Kafka brokers.                                                                                                                                                                                                                                                                                     |
-| pattern                             | Boolean                                                                     | no       | false                    | If `pattern` is set to `true`,the regular expression for a pattern of topic names to read from. All topics in clients with names that match the specified regular expression will be subscribed by the consumer.                                                                                                           |
-| consumer.group                      | String                                                                      | no       | SeaTunnel-Consumer-Group | `Kafka consumer group id`, used to distinguish different consumer groups.                                                                                                                                                                                                                                                  |
-| commit_on_checkpoint                | Boolean                                                                     | no       | true                     | If true the consumer's offset will be periodically committed in the background.                                                                                                                                                                                                                                            |
-| kafka.config                        | Map                                                                         | no       | -                        | In addition to the above necessary parameters that must be specified by the `Kafka consumer` client, users can also specify multiple `consumer` client non-mandatory parameters, covering [all consumer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#consumerconfigs). |
-| schema                              | Config                                                                      | no       | -                        | The structure of the data, including field names and field types.                                                                                                                                                                                                                                                          |
-| format                              | String                                                                      | no       | json                     | Data format. The default format is json. Optional text format. The default field separator is ", ",if you customize the delimiter, add the "field_delimiter" option.                                                                                                                                                       |
-| format_error_handle_way             | String                                                                      | no       | fail                     | The processing method of data format error. The default value is fail, and the optional value is (fail, skip). When fail is selected, data format error will block and an exception will be thrown. When skip is selected, data format error will skip this line data.                                                     |
-| field_delimiter                     | String                                                                      | no       | ,                        | Customize the field delimiter for data format.                                                                                                                                                                                                                                                                             |
-| start_mode                          | StartMode[earliest],[group_offsets],[latest],[specific_offsets],[timestamp] | no       | group_offsets            | The initial consumption pattern of consumers.                                                                                                                                                                                                                                                                              |
-| start_mode.offsets                  | Config                                                                      | no       |                          | The offset required for consumption mode to be specific_offsets.                                                                                                                                                                                                                                                           |
-| start_mode.timestamp                | Long                                                                        | no       |                          | The time required for consumption mode to be "timestamp".                                                                                                                                                                                                                                                                  |
-| partition-discovery.interval-millis | Long                                                                        | no       | -1                       | The interval for dynamically discovering topics and partitions.                                                                                                                                                                                                                                                            |
+| topic                               | String                                                                      | Yes      | -                        | Topic name(s) to read data from when the table is used as source. It also supports topic list for source by separating topic by comma like 'topic-1,topic-2'.                                                                                                                                                              |
+| bootstrap.servers                   | String                                                                      | Yes      | -                        | Comma separated list of Kafka brokers.                                                                                                                                                                                                                                                                                     |
+| pattern                             | Boolean                                                                     | No       | false                    | If `pattern` is set to `true`,the regular expression for a pattern of topic names to read from. All topics in clients with names that match the specified regular expression will be subscribed by the consumer.                                                                                                           |
+| consumer.group                      | String                                                                      | No       | SeaTunnel-Consumer-Group | `Kafka consumer group id`, used to distinguish different consumer groups.                                                                                                                                                                                                                                                  |
+| commit_on_checkpoint                | Boolean                                                                     | No       | true                     | If true the consumer's offset will be periodically committed in the background.                                                                                                                                                                                                                                            |
+| kafka.config                        | Map                                                                         | No       | -                        | In addition to the above necessary parameters that must be specified by the `Kafka consumer` client, users can also specify multiple `consumer` client non-mandatory parameters, covering [all consumer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#consumerconfigs). |
+| schema                              | Config                                                                      | No       | -                        | The structure of the data, including field names and field types.                                                                                                                                                                                                                                                          |
+| format                              | String                                                                      | No       | json                     | Data format. The default format is json. Optional text format. The default field separator is ", ",if you customize the delimiter, add the "field_delimiter" option.                                                                                                                                                       |
+| format_error_handle_way             | String                                                                      | No       | fail                     | The processing method of data format error. The default value is fail, and the optional value is (fail, skip). When fail is selected, data format error will block and an exception will be thrown. When skip is selected, data format error will skip this line data.                                                     |
+| field_delimiter                     | String                                                                      | No       | ,                        | Customize the field delimiter for data format.                                                                                                                                                                                                                                                                             |
+| start_mode                          | StartMode[earliest],[group_offsets],[latest],[specific_offsets],[timestamp] | No       | group_offsets            | The initial consumption pattern of consumers.                                                                                                                                                                                                                                                                              |
+| start_mode.offsets                  | Config                                                                      | No       | -                        | The offset required for consumption mode to be specific_offsets.                                                                                                                                                                                                                                                           |
+| start_mode.timestamp                | Long                                                                        | No       | -                        | The time required for consumption mode to be "timestamp".                                                                                                                                                                                                                                                                  |
+| partition-discovery.interval-millis | Long                                                                        | No       | -1                       | The interval for dynamically discovering topics and partitions.                                                                                                                                                                                                                                                            |
+| common-options                      |                                                                             | No       | -                        | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                                                                                    |
 
 ## Task Example
 
@@ -62,7 +63,6 @@ env {
   execution.parallelism = 2
   job.mode = "BATCH"
 }
-
 source {
   Kafka {
     schema = {
@@ -83,7 +83,6 @@ source {
     }
   }  
 }
-
 sink {
   Console {}
 }
@@ -93,14 +92,12 @@ sink {
 
 ```hocon
 source {
-
     Kafka {
           topic = ".*seatunnel*."
           pattern = "true" 
           bootstrap.servers = "localhost:9092"
           consumer.group = "seatunnel_group"
     }
-
 }
 ```
 
@@ -117,7 +114,7 @@ source {
         kafka.config = {
             security.protocol=SASL_SSL
             sasl.mechanism=SCRAM-SHA-512
-            sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+            sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required username=\"username\" password=\"password\";"
             #security.protocol=SASL_SSL
             #sasl.mechanism=AWS_MSK_IAM
             #sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
@@ -153,7 +150,7 @@ source {
         kafka.config = {
             #security.protocol=SASL_SSL
             #sasl.mechanism=SCRAM-SHA-512
-            #sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+            #sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required username=\"username\" password=\"password\";"
             security.protocol=SASL_SSL
             sasl.mechanism=AWS_MSK_IAM
             sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
@@ -171,9 +168,9 @@ source {
 
 ### Next Version
 
-- [Improve] Support setting read starting offset or time at startup config ([3157](https://github.com/apache/incubator-seatunnel/pull/3157))
-- [Improve] Support for dynamic discover topic & partition in streaming mode ([3125](https://github.com/apache/incubator-seatunnel/pull/3125))
-- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
-- [Bug] Fixed the problem that parsing the offset format failed when the startup mode was offset([3810](https://github.com/apache/incubator-seatunnel/pull/3810))
-- [Feature] Kafka source supports data deserialization failure skipping([4364](https://github.com/apache/incubator-seatunnel/pull/4364))
+- [Improve] Support setting read starting offset or time at startup config ([3157](https://github.com/apache/seatunnel/pull/3157))
+- [Improve] Support for dynamic discover topic & partition in streaming mode ([3125](https://github.com/apache/seatunnel/pull/3125))
+- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/seatunnel/pull/3719)
+- [Bug] Fixed the problem that parsing the offset format failed when the startup mode was offset([3810](https://github.com/apache/seatunnel/pull/3810))
+- [Feature] Kafka source supports data deserialization failure skipping([4364](https://github.com/apache/seatunnel/pull/4364))
 
