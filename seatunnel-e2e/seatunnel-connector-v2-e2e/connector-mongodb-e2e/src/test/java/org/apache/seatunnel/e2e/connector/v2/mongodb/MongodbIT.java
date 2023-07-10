@@ -174,4 +174,31 @@ public class MongodbIT extends AbstractMongodbIT {
                         .collect(Collectors.toList()));
         clearDate(MONGODB_MATCH_RESULT_TABLE);
     }
+
+    @TestTemplate
+    public void testTransactionSinkAndUpsert(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult insertResult =
+                container.executeJob("/transactionIT/fake_source_to_transaction_sink_mongodb.conf");
+        Assertions.assertEquals(0, insertResult.getExitCode(), insertResult.getStderr());
+
+        Container.ExecResult assertSinkResult =
+                container.executeJob(
+                        "/transactionIT/mongodb_source_transaction_sink_to_assert.conf");
+        Assertions.assertEquals(0, assertSinkResult.getExitCode(), assertSinkResult.getStderr());
+
+        Container.ExecResult upsertResult =
+                container.executeJob(
+                        "/transactionIT/fake_source_to_transaction_upsert_mongodb.conf");
+        Assertions.assertEquals(0, upsertResult.getExitCode(), upsertResult.getStderr());
+
+        Container.ExecResult assertUpsertResult =
+                container.executeJob(
+                        "/transactionIT/mongodb_source_transaction_upsert_to_assert.conf");
+        Assertions.assertEquals(
+                0, assertUpsertResult.getExitCode(), assertUpsertResult.getStderr());
+
+        clearDate(MONGODB_TRANSACTION_SINK_TABLE);
+        clearDate(MONGODB_TRANSACTION_UPSERT_TABLE);
+    }
 }
