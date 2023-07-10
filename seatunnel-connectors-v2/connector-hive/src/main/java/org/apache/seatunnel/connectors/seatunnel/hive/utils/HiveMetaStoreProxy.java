@@ -19,12 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
@@ -35,6 +37,8 @@ import org.apache.thrift.TException;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
+import java.net.MalformedURLException;
 import java.util.List;
 import java.util.Objects;
 
@@ -51,11 +55,42 @@ public class HiveMetaStoreProxy {
                 && config.hasPath(BaseSourceConfig.KERBEROS_KEYTAB_PATH.key())) {
             String principal = config.getString(BaseSourceConfig.KERBEROS_PRINCIPAL.key());
             String keytabPath = config.getString(BaseSourceConfig.KERBEROS_KEYTAB_PATH.key());
+            String hdfsSitePath = config.getString(BaseSourceConfig.HDFS_SITE_PATH.key());
+            String kerberosKrb5ConfPath =
+                    config.getString(BaseSourceConfig.KERBEROS_KRB5_CONF_PATH.key());
+            System.setProperty("java.security.krb5.conf", kerberosKrb5ConfPath);
+            // System.setProperty("krb.principal", "hadoop");
+            log.info(
+                    "conf kerberosKrb5ConfPath:{},hdfsSitePath:{}",
+                    kerberosKrb5ConfPath,
+                    hdfsSitePath);
             Configuration configuration = new Configuration();
+            if (StringUtils.isNotEmpty(hdfsSitePath)) {
+                try {
+                    configuration.addResource(new File(hdfsSitePath).toURI().toURL());
+                } catch (MalformedURLException e) {
+                    log.error(ExceptionUtils.getMessage(e));
+                }
+            }
             FileSystemUtils.doKerberosAuthentication(configuration, principal, keytabPath);
         }
         if (config.hasPath(HiveConfig.HIVE_SITE_PATH.key())) {
-            hiveConf.addResource(config.getString(HiveConfig.HIVE_SITE_PATH.key()));
+            try {
+                hiveConf.addResource(
+                        new File(config.getString(HiveConfig.HIVE_SITE_PATH.key()))
+                                .toURI()
+                                .toURL());
+            } catch (MalformedURLException e) {
+                String errorMsg =
+                        String.format(
+                                "Using this hive_site uris [%s] to initialize "
+                                        + "hive metastore client instance failed",
+                                config.getString(HiveConfig.HIVE_SITE_PATH.key()));
+                throw new HiveConnectorException(
+                        HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED,
+                        errorMsg,
+                        e);
+            }
         }
         try {
             hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf);

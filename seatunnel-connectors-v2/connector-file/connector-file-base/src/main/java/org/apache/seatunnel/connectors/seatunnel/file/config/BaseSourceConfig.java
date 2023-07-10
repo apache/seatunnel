@@ -89,6 +89,12 @@ public class BaseSourceConfig {
                     .noDefaultValue()
                     .withDescription("Kerberos keytab file path");
 
+    public static final Option<String> KERBEROS_KRB5_CONF_PATH =
+            Options.key("kerberos_krb5_conf_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Kerberos krb5 conf file path");
+
     public static final Option<Long> SKIP_HEADER_ROW_NUMBER =
             Options.key("skip_header_row_number")
                     .longType()
