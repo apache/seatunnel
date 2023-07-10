@@ -154,7 +154,7 @@ public class MongodbIT extends AbstractMongodbIT {
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()));
         clearDate(MONGODB_NULL_RESULT_TABLE);
-    } 
+    }
 
     public void testCompatibleParameters(TestContainer container)
             throws IOException, InterruptedException {
