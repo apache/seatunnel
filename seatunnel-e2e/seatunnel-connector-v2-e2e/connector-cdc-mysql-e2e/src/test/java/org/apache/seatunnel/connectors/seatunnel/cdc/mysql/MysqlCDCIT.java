@@ -116,7 +116,7 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
+                                "mkdir -p /tmp/seatunnel/lib && cd /tmp/seatunnel/lib && wget "
                                         + driverUrl());
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
