@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Disabled;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -43,7 +44,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * If you want to run e2e, you need to download the certificate from
+ * https://www.kingbase.com.cn/sqwjxz/index.htm and modify the KM_LICENSE_PATH variable to the
+ * address where you downloaded the certificate. Also, remove the @Disabled annotation.
+ */
 @Slf4j
+@Disabled
 public class JdbcKingbaseIT extends AbstractJdbcIT {
     private static final String KINGBASE_IMAGE = "huzhihui/kingbase:v8r6";
     private static final String KINGBASE_CONTAINER_HOST = "e2e_KINGBASEDb";
@@ -57,6 +64,7 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
     private static final int KINGBASE_PORT = 54321;
     private static final String KINGBASE_URL = "jdbc:kingbase8://" + HOST + ":%s/test";
     private static final String DRIVER_CLASS = "com.kingbase8.Driver";
+    private static final String KM_LICENSE_PATH = "KM_LICENSE_PATH";
 
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_kingbase_source_and_sink.conf");
@@ -164,7 +172,7 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                         .withNetwork(NETWORK)
                         .withNetworkAliases(KINGBASE_CONTAINER_HOST)
                         .withEnv("KINGBASE_SYSTEM_PASSWORD", "123456")
-                        .withFileSystemBind("assets/KMlicense.dat", "/home/kingbase/license.dat")
+                        .withFileSystemBind(KM_LICENSE_PATH, "/home/kingbase/license.dat")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KINGBASE_IMAGE)));
