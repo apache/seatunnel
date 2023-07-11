@@ -52,5 +52,17 @@ public class TestSQLIT extends TestSuiteBase {
         Container.ExecResult sqlAllColumns =
                 container.executeJob("/sql_transform/sql_all_columns.conf");
         Assertions.assertEquals(0, sqlAllColumns.getExitCode());
+
+        // region case when
+        Container.ExecResult caseFieldWhenCondition =
+                container.executeJob("/sql_transform/case_field_when_condition.conf");
+        Assertions.assertEquals(0, caseFieldWhenCondition.getExitCode());
+        Container.ExecResult caseFieldWhenValue =
+                container.executeJob("/sql_transform/case_field_when_value.conf");
+        Assertions.assertEquals(0, caseFieldWhenValue.getExitCode());
+        Container.ExecResult caseWhenCondition =
+                container.executeJob("/sql_transform/case_when_condition.conf");
+        Assertions.assertEquals(0, caseWhenCondition.getExitCode());
+        // endregion
     }
 }
