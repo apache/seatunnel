@@ -150,4 +150,7 @@ public class MongodbConfig {
                     .withDescription(
                             "The primary keys for upsert/update. Keys are in csv format for properties.")
                     .withFallbackKeys("upsert-key");
+
+    public static final Option<Boolean> TRANSACTION =
+            Options.key("transaction").booleanType().defaultValue(false).withDescription(".");
 }
