@@ -38,7 +38,7 @@ public class MongodbWriterOptions implements Serializable {
 
     protected final boolean upsertEnable;
 
-    protected final String[] upsertKey;
+    protected final String[] primaryKey;
 
     protected final int retryMax;
 
@@ -51,7 +51,7 @@ public class MongodbWriterOptions implements Serializable {
             int flushSize,
             Long batchIntervalMs,
             boolean upsertEnable,
-            String[] upsertKey,
+            String[] primaryKey,
             int retryMax,
             Long retryInterval) {
         this.connectString = connectString;
@@ -60,7 +60,7 @@ public class MongodbWriterOptions implements Serializable {
         this.flushSize = flushSize;
         this.batchIntervalMs = batchIntervalMs;
         this.upsertEnable = upsertEnable;
-        this.upsertKey = upsertKey;
+        this.primaryKey = primaryKey;
         this.retryMax = retryMax;
         this.retryInterval = retryInterval;
     }
@@ -83,7 +83,7 @@ public class MongodbWriterOptions implements Serializable {
 
         protected boolean upsertEnable;
 
-        protected String[] upsertKey;
+        protected String[] primaryKey;
 
         protected int retryMax;
 
@@ -119,8 +119,8 @@ public class MongodbWriterOptions implements Serializable {
             return this;
         }
 
-        public Builder withUpsertKey(String[] upsertKey) {
-            this.upsertKey = upsertKey;
+        public Builder withPrimaryKey(String[] primaryKey) {
+            this.primaryKey = primaryKey;
             return this;
         }
 
@@ -142,7 +142,7 @@ public class MongodbWriterOptions implements Serializable {
                     flushSize,
                     batchIntervalMs,
                     upsertEnable,
-                    upsertKey,
+                    primaryKey,
                     retryMax,
                     retryInterval);
         }

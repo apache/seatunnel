@@ -140,7 +140,10 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
             for (SnapshotSplit split : finishedUnackedSplits.values()) {
                 completedSnapshotSplitWatermarks.add(
-                        new SnapshotSplitWatermark(split.splitId(), split.getHighWatermark()));
+                        new SnapshotSplitWatermark(
+                                split.splitId(),
+                                split.getLowWatermark(),
+                                split.getHighWatermark()));
             }
             CompletedSnapshotSplitsReportEvent reportEvent =
                     new CompletedSnapshotSplitsReportEvent();

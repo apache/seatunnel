@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.common.exception;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
-
 /** SeaTunnel global exception, used to tell user more clearly error messages */
 public class SeaTunnelRuntimeException extends RuntimeException {
     private final SeaTunnelErrorCode seaTunnelErrorCode;
@@ -36,17 +33,7 @@ public class SeaTunnelRuntimeException extends RuntimeException {
     }
 
     public SeaTunnelRuntimeException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
-        super(seaTunnelErrorCode.getErrorMessage() + " - " + getMessageFromThrowable(cause));
+        super(seaTunnelErrorCode.getErrorMessage(), cause);
         this.seaTunnelErrorCode = seaTunnelErrorCode;
-    }
-
-    public static String getMessageFromThrowable(Throwable cause) {
-        if (cause == null) {
-            return "";
-        }
-        StringWriter stringWriter = new StringWriter();
-        PrintWriter printWriter = new PrintWriter(stringWriter);
-        cause.printStackTrace(printWriter);
-        return stringWriter.toString();
     }
 }

@@ -207,7 +207,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         return metricsMap;
     }
 
-    private SeaTunnelServer getSeatunnelServer() {
+    private SeaTunnelServer getSeaTunnelServer() {
         Map<String, Object> extensionServices =
                 this.textCommandService.getNode().getNodeExtension().createExtensionServices();
         return (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
@@ -235,8 +235,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         .toObject(jobImmutableInformation.getLogicalDag());
 
         String jobMetrics =
-                getSeatunnelServer().getCoordinatorService().getJobMetrics(jobId).toJsonString();
-        JobStatus jobStatus = getSeatunnelServer().getCoordinatorService().getJobStatus(jobId);
+                getSeaTunnelServer().getCoordinatorService().getJobMetrics(jobId).toJsonString();
+        JobStatus jobStatus = getSeaTunnelServer().getCoordinatorService().getJobStatus(jobId);
 
         jobInfoJson
                 .add("jobId", jobId)

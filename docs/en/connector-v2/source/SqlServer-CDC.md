@@ -44,6 +44,7 @@ describes how to setup the SqlServer CDC connector to run SQL queries against Sq
 | chunk-key.even-distribution.factor.lower-bound | Double   | No       | 0.05          |
 | sample-sharding.threshold                      | int      | No       | 1000          |
 | inverse-sampling.rate                          | int      | No       | 1000          |
+| exactly_once                                   | Boolean  | No       | true          |
 | debezium.*                                     | config   | No       | -             |
 | format                                         | Enum     | No       | DEFAULT       |
 | common-options                                 |          | no       | -             |
@@ -157,6 +158,10 @@ The max retry times that the connector should retry to build database server con
 
 The connection pool size.
 
+### exactly_once [Boolean]
+
+Enable exactly once semantic.
+
 ### debezium [Config]
 
 Pass-through Debezium's properties to Debezium Embedded Engine which is used to capture data changes from SqlServer server.
@@ -206,6 +211,6 @@ source {
 ### next version
 
 - Add SqlServer CDC Source Connector
-- [Doc] Add SqlServer CDC Source Connector document ([3993](https://github.com/apache/incubator-seatunnel/pull/3993))
-- [Feature] Support multi-table read ([4377](https://github.com/apache/incubator-seatunnel/pull/4377))
+- [Doc] Add SqlServer CDC Source Connector document ([3993](https://github.com/apache/seatunnel/pull/3993))
+- [Feature] Support multi-table read ([4377](https://github.com/apache/seatunnel/pull/4377))
 
