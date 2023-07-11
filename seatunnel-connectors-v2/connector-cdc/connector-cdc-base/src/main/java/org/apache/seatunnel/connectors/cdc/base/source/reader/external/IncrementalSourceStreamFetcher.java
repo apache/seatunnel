@@ -174,8 +174,8 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
             if (hasEnterPureBinlogPhase(tableId, position)) {
                 return true;
             }
-            // not enter pure binlog mode and need to check whether the current record meets the emitting
-            // conditions.
+            // not enter pure binlog mode and need to check whether the current record meets the
+            // emitting conditions.
             if (finishedSplitsInfo.containsKey(tableId)) {
                 for (CompletedSnapshotSplitInfo splitInfo : finishedSplitsInfo.get(tableId)) {
                     if (taskContext.isRecordBetween(
