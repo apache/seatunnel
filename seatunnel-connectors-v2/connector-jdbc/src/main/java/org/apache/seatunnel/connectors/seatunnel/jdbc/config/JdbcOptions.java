@@ -36,6 +36,12 @@ public interface JdbcOptions {
                     .intType()
                     .defaultValue(30)
                     .withDescription("connection check time second");
+    Option<String> COMPATIBLE_MODE =
+            Options.key("compatible_mode")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The compatible mode of database, required when the database supports multiple compatible modes. For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.");
 
     Option<Integer> MAX_RETRIES =
             Options.key("max_retries").intType().defaultValue(0).withDescription("max_retired");
@@ -109,6 +115,12 @@ public interface JdbcOptions {
 
     Option<List<String>> PRIMARY_KEYS =
             Options.key("primary_keys").listType().noDefaultValue().withDescription("primary keys");
+
+    Option<Boolean> SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST =
+            Options.key("support_upsert_by_query_primary_key_exist")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("support upsert by query primary_key exist");
 
     Option<Boolean> ENABLE_UPSERT =
             Options.key("enable_upsert")
