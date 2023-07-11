@@ -33,6 +33,7 @@ public class JdbcSourceConfig implements Serializable {
 
     private JdbcConnectionConfig jdbcConnectionConfig;
     public String query;
+    public String compatibleMode;
     private String partitionColumn;
     private BigDecimal partitionUpperBound;
     private BigDecimal partitionLowerBound;
@@ -44,6 +45,7 @@ public class JdbcSourceConfig implements Serializable {
         builder.jdbcConnectionConfig(JdbcConnectionConfig.of(config));
         builder.query(config.get(JdbcOptions.QUERY));
         builder.fetchSize(config.get(JdbcOptions.FETCH_SIZE));
+        config.getOptional(JdbcOptions.COMPATIBLE_MODE).ifPresent(builder::compatibleMode);
         config.getOptional(JdbcOptions.PARTITION_COLUMN).ifPresent(builder::partitionColumn);
         config.getOptional(JdbcOptions.PARTITION_UPPER_BOUND)
                 .ifPresent(builder::partitionUpperBound);
