@@ -200,7 +200,7 @@ public class DorisDataTypeConvertor implements DataTypeConvertor<String> {
                 return TIMESTAMP;
             default:
                 throw new UnsupportedOperationException(
-                        String.format("Doesn't support HIVE type '%s''  yet.", sqlType));
+                        String.format("Doesn't support Doris type '%s''  yet.", sqlType));
         }
     }
 
