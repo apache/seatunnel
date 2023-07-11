@@ -24,7 +24,7 @@ When parallelism is specified, it will override the parallelism in env.
 
 When `partition_balance` is set to true, in the sink process, a repartition will be performed first to ensure that the size of each partition is roughly the same, which can avoid problems caused by data skew, but it will consume some extra time.
 
-The default value is false, support Spark and Flink engine
+The default value is false, only supported by Spark and Flink engine
 
 When `partition_balance` is not specified, the `partition_balance` in env is used by default.
 
