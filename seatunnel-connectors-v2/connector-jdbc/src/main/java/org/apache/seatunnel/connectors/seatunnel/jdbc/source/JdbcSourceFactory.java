@@ -54,6 +54,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.COMPATIBLE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DRIVER;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.FETCH_SIZE;
@@ -83,7 +84,10 @@ public class JdbcSourceFactory implements TableSourceFactory {
         JdbcConnectionProvider connectionProvider =
                 new SimpleJdbcConnectionProvider(config.getJdbcConnectionConfig());
         final String querySql = config.getQuery();
-        JdbcDialect dialect = JdbcDialectLoader.load(config.getJdbcConnectionConfig().getUrl());
+        JdbcDialect dialect =
+                JdbcDialectLoader.load(
+                        config.getJdbcConnectionConfig().getUrl(),
+                        config.getJdbcConnectionConfig().getCompatibleMode());
         TableSchema tableSchema = catalogTable.getTableSchema();
         SeaTunnelRowType rowType = tableSchema.toPhysicalRowDataType();
         Optional<PartitionParameter> partitionParameter =
@@ -228,7 +232,8 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         PARTITION_COLUMN,
                         PARTITION_UPPER_BOUND,
                         PARTITION_LOWER_BOUND,
-                        PARTITION_NUM)
+                        PARTITION_NUM,
+                        COMPATIBLE_MODE)
                 .build();
     }
 
