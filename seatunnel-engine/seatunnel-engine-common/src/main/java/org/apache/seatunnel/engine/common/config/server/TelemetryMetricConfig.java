@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.engine.common.config.server;
 
-import java.io.Serializable;
 import lombok.Data;
+
+import java.io.Serializable;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

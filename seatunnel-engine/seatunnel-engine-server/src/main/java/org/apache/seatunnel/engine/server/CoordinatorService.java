@@ -760,60 +760,73 @@ public class CoordinatorService {
 
         if (runningJobInfoIMap != null) {
             runningJobInfoIMap
-                .keySet()
-                .forEach(
-                    jobId -> {
-                        if (runningJobStateIMap.get(jobId) != null) {
-                            JobStatus jobStatus =
-                                (JobStatus) runningJobStateIMap.get(jobId);
-                            switch (jobStatus) {
-                                case CREATED:
-                                    createdJobCount.addAndGet(1);
-                                    break;
-                                case SCHEDULED:
-                                    scheduledJobCount.addAndGet(1);
-                                    break;
-                                case RUNNING:
-                                    runningJobCount.addAndGet(1);
-                                    break;
-                                case FAILING:
-                                    failingJobCount.addAndGet(1);
-                                    break;
-                                case FAILED:
-                                    failedJobCount.addAndGet(1);
-                                    break;
-                                case CANCELLING:
-                                    cancellingJobCount.addAndGet(1);
-                                    break;
-                                case CANCELED:
-                                    canceledJobCount.addAndGet(1);
-                                    break;
-                                case FINISHED:
-                                    finishedJobCount.addAndGet(1);
-                                    break;
-                                case RESTARTING:
-                                    restartingJobCount.addAndGet(1);
-                                    break;
-                                case SUSPENDED:
-                                    suspendedJobCount.addAndGet(1);
-                                    break;
-                                case RECONCILING:
-                                    reconcilingJobCount.addAndGet(1);
-                                    break;
-                                default:
-                            }
-                        }
-                    });
+                    .keySet()
+                    .forEach(
+                            jobId -> {
+                                if (runningJobStateIMap.get(jobId) != null) {
+                                    JobStatus jobStatus =
+                                            (JobStatus) runningJobStateIMap.get(jobId);
+                                    switch (jobStatus) {
+                                        case CREATED:
+                                            createdJobCount.addAndGet(1);
+                                            break;
+                                        case SCHEDULED:
+                                            scheduledJobCount.addAndGet(1);
+                                            break;
+                                        case RUNNING:
+                                            runningJobCount.addAndGet(1);
+                                            break;
+                                        case FAILING:
+                                            failingJobCount.addAndGet(1);
+                                            break;
+                                        case FAILED:
+                                            failedJobCount.addAndGet(1);
+                                            break;
+                                        case CANCELLING:
+                                            cancellingJobCount.addAndGet(1);
+                                            break;
+                                        case CANCELED:
+                                            canceledJobCount.addAndGet(1);
+                                            break;
+                                        case FINISHED:
+                                            finishedJobCount.addAndGet(1);
+                                            break;
+                                        case RESTARTING:
+                                            restartingJobCount.addAndGet(1);
+                                            break;
+                                        case SUSPENDED:
+                                            suspendedJobCount.addAndGet(1);
+                                            break;
+                                        case RECONCILING:
+                                            reconcilingJobCount.addAndGet(1);
+                                            break;
+                                        default:
+                                    }
+                                }
+                            });
         }
-        return new JobCounter(createdJobCount.longValue(), scheduledJobCount.longValue(), runningJobCount.longValue()
-        , failingJobCount.longValue(), failedJobCount.longValue(), cancellingJobCount.longValue(), canceledJobCount.longValue()
-        , finishedJobCount.longValue(), restartingJobCount.longValue(), suspendedJobCount.longValue(), reconcilingJobCount.longValue());
+        return new JobCounter(
+                createdJobCount.longValue(),
+                scheduledJobCount.longValue(),
+                runningJobCount.longValue(),
+                failingJobCount.longValue(),
+                failedJobCount.longValue(),
+                cancellingJobCount.longValue(),
+                canceledJobCount.longValue(),
+                finishedJobCount.longValue(),
+                restartingJobCount.longValue(),
+                suspendedJobCount.longValue(),
+                reconcilingJobCount.longValue());
     }
 
-    public ThreadPoolStatus getThreadPoolStatusMetrics(){
+    public ThreadPoolStatus getThreadPoolStatusMetrics() {
         ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
-        return new ThreadPoolStatus(threadPoolExecutor.getActiveCount(), threadPoolExecutor.getCorePoolSize()
-            , threadPoolExecutor.getMaximumPoolSize(), threadPoolExecutor.getPoolSize()
-            , threadPoolExecutor.getCompletedTaskCount(), threadPoolExecutor.getTaskCount());
+        return new ThreadPoolStatus(
+                threadPoolExecutor.getActiveCount(),
+                threadPoolExecutor.getCorePoolSize(),
+                threadPoolExecutor.getMaximumPoolSize(),
+                threadPoolExecutor.getPoolSize(),
+                threadPoolExecutor.getCompletedTaskCount(),
+                threadPoolExecutor.getTaskCount());
     }
 }

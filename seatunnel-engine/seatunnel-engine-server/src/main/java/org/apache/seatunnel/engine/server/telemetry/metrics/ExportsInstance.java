@@ -19,6 +19,8 @@ package org.apache.seatunnel.engine.server.telemetry.metrics;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.TelemetryMetricConfig;
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobMetricExports;
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ThreadPoolStatusExports;
 
 import com.hazelcast.instance.impl.Node;
 import io.prometheus.client.CollectorRegistry;
@@ -26,8 +28,6 @@ import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
 
 import java.io.IOException;
-import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobMetricExports;
-import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ThreadPoolStatusExports;
 
 public class ExportsInstance {
 
@@ -41,7 +41,7 @@ public class ExportsInstance {
     }
 
     private void start() throws IOException {
-        if(metricConfig.isLoadDefaultExports()){
+        if (metricConfig.isLoadDefaultExports()) {
             DefaultExports.initialize();
         }
         HTTPServer httpServer =

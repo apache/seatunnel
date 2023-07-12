@@ -152,14 +152,14 @@ public class ServerConfigOptions {
                     .withDescription("Whether to load default jvm exports.");
 
     public static final Option<TelemetryMetricConfig> TELEMETRY_METRIC =
-        Options.key("metric")
-               .type(new TypeReference<TelemetryMetricConfig>() {})
-               .defaultValue(new TelemetryMetricConfig())
-               .withDescription("The telemetry metric configuration.");
+            Options.key("metric")
+                    .type(new TypeReference<TelemetryMetricConfig>() {})
+                    .defaultValue(new TelemetryMetricConfig())
+                    .withDescription("The telemetry metric configuration.");
 
     public static final Option<TelemetryConfig> TELEMETRY =
-        Options.key("telemetry")
-               .type(new TypeReference<TelemetryConfig>() {})
-               .defaultValue(new TelemetryConfig())
-               .withDescription("The telemetry configuration.");
+            Options.key("telemetry")
+                    .type(new TypeReference<TelemetryConfig>() {})
+                    .defaultValue(new TelemetryConfig())
+                    .withDescription("The telemetry configuration.");
 }

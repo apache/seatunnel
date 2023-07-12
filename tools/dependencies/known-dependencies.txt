@@ -38,3 +38,10 @@ listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar
 accessors-smart-2.4.7.jar
 asm-9.1.jar
 json-smart-2.4.7.jar
+simpleclient-0.16.0.jar
+simpleclient_common-0.16.0.jar
+simpleclient_hotspot-0.16.0.jar
+simpleclient_httpserver-0.16.0.jar
+simpleclient_tracer_common-0.16.0.jar
+simpleclient_tracer_otel-0.16.0.jar
+simpleclient_tracer_otel_agent-0.16.0.jar
