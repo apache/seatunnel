@@ -69,7 +69,7 @@ public class DebeziumJsonSerDeSchemaTest {
             throws Exception {
         List<String> lines = readLines(resourceFile);
         DebeziumJsonDeserializationSchema deserializationSchema =
-                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, schemaInclude);
+                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, true, schemaInclude);
 
         SimpleCollector collector = new SimpleCollector();
 

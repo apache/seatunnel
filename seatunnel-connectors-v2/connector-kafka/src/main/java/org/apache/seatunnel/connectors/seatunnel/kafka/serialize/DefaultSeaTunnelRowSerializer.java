@@ -220,10 +220,10 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         .build();
             case CANAL_JSON:
                 return new CanalJsonSerializationSchema(rowType);
+            case DEBEZIUM_JSON:
+                return new DebeziumJsonSerializationSchema(rowType);
             case COMPATIBLE_DEBEZIUM_JSON:
                 return new CompatibleDebeziumJsonSerializationSchema(rowType, isKey);
-            case DEBEZIUM_FORMAT:
-                return new DebeziumJsonSerializationSchema(rowType);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);

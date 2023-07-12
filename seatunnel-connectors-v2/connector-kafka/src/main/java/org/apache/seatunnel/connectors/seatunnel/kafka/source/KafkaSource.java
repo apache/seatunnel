@@ -63,6 +63,7 @@ import java.util.Properties;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEBEZIUM_RECORD_INCLUDE_SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
@@ -268,7 +269,12 @@ public class KafkaSource
                                     .build();
                     break;
                 case DEBEZIUM_JSON:
-                    deserializationSchema = new DebeziumJsonDeserializationSchema(typeInfo, true);
+                    boolean includeSchema = DEBEZIUM_RECORD_INCLUDE_SCHEMA.defaultValue();
+                    if (config.hasPath(DEBEZIUM_RECORD_INCLUDE_SCHEMA.key())) {
+                        includeSchema = config.getBoolean(DEBEZIUM_RECORD_INCLUDE_SCHEMA.key());
+                    }
+                    deserializationSchema =
+                            new DebeziumJsonDeserializationSchema(typeInfo, true, includeSchema);
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(

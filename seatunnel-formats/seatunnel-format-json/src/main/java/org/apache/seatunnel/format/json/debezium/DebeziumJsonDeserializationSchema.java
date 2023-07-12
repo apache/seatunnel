@@ -18,7 +18,6 @@
 package org.apache.seatunnel.format.json.debezium;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
@@ -51,11 +50,23 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
 
     private final boolean ignoreParseErrors;
 
+    private final boolean debeziumEnabledSchema;
+
     public DebeziumJsonDeserializationSchema(SeaTunnelRowType rowType, boolean ignoreParseErrors) {
         this.rowType = rowType;
         this.ignoreParseErrors = ignoreParseErrors;
         this.jsonDeserializer =
                 new JsonDeserializationSchema(false, ignoreParseErrors, createJsonRowType(rowType));
+        this.debeziumEnabledSchema = false;
+    }
+
+    public DebeziumJsonDeserializationSchema(
+            SeaTunnelRowType rowType, boolean ignoreParseErrors, boolean debeziumEnabledSchema) {
+        this.rowType = rowType;
+        this.ignoreParseErrors = ignoreParseErrors;
+        this.jsonDeserializer =
+                new JsonDeserializationSchema(false, ignoreParseErrors, createJsonRowType(rowType));
+        this.debeziumEnabledSchema = debeziumEnabledSchema;
     }
 
     @Override
@@ -72,15 +83,15 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         }
 
         try {
-            ObjectNode jsonNode = (ObjectNode) convertBytes(message);
-            String op = jsonNode.get("op").asText();
+            JsonNode payload = getPayload(convertBytes(message));
+            String op = payload.get("op").asText();
 
             if (OP_CREATE.equals(op) || OP_READ.equals(op)) {
-                SeaTunnelRow insert = convertJsonNode(jsonNode.get("after"));
+                SeaTunnelRow insert = convertJsonNode(payload.get("after"));
                 insert.setRowKind(RowKind.INSERT);
                 out.collect(insert);
             } else if (OP_UPDATE.equals(op)) {
-                SeaTunnelRow before = convertJsonNode(jsonNode.get("before"));
+                SeaTunnelRow before = convertJsonNode(payload.get("before"));
                 if (before == null) {
                     throw new SeaTunnelJsonFormatException(
                             CommonErrorCode.UNSUPPORTED_DATA_TYPE,
@@ -89,11 +100,11 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 before.setRowKind(RowKind.UPDATE_BEFORE);
                 out.collect(before);
 
-                SeaTunnelRow after = convertJsonNode(jsonNode.get("after"));
+                SeaTunnelRow after = convertJsonNode(payload.get("after"));
                 after.setRowKind(RowKind.UPDATE_AFTER);
                 out.collect(after);
             } else if (OP_DELETE.equals(op)) {
-                SeaTunnelRow delete = convertJsonNode(jsonNode.get("before"));
+                SeaTunnelRow delete = convertJsonNode(payload.get("before"));
                 if (delete == null) {
                     throw new SeaTunnelJsonFormatException(
                             CommonErrorCode.UNSUPPORTED_DATA_TYPE,
@@ -119,6 +130,13 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                         t);
             }
         }
+    }
+
+    private JsonNode getPayload(JsonNode jsonNode) {
+        if (debeziumEnabledSchema) {
+            return jsonNode.get("payload");
+        }
+        return jsonNode;
     }
 
     private JsonNode convertBytes(byte[] message) {
