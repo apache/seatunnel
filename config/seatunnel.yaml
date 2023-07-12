@@ -35,3 +35,7 @@ seatunnel:
           namespace: /tmp/seatunnel/checkpoint_snapshot
           storage.type: hdfs
           fs.defaultFS: file:///tmp/ # Ensure that the directory has written permission
+    telemetry:
+      metric:
+        http-port: 1025
+        load-default-exports: false

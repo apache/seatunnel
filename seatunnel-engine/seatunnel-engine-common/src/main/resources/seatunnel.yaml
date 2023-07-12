@@ -34,3 +34,7 @@ seatunnel:
                     namespace: /tmp/seatunnel/checkpoint_snapshot/
                     storage.type: hdfs
                     fs.defaultFS: file:///tmp/
+        telemetry:
+            metric:
+                http-port: 1025
+                load-default-exports: false

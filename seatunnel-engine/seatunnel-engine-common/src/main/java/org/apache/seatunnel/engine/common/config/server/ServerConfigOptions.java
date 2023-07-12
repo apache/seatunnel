@@ -145,4 +145,28 @@ public class ServerConfigOptions {
                     .type(new TypeReference<Map<String, String>>() {})
                     .noDefaultValue()
                     .withDescription("The checkpoint storage instance configuration.");
+
+    public static final Option<Integer> TELEMETRY_METRIC_HTTP_PORT =
+            Options.key("http-port")
+                    .intType()
+                    .defaultValue(1024)
+                    .withDescription("The telemetry metric server's port.");
+
+    public static final Option<Boolean> TELEMETRY_METRIC_LOAD_DEFAULT_EXPORTS =
+            Options.key("load-default-exports")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("Whether to load default jvm exports.");
+
+    public static final Option<TelemetryMetricConfig> TELEMETRY_METRIC =
+        Options.key("metric")
+               .type(new TypeReference<TelemetryMetricConfig>() {})
+               .defaultValue(new TelemetryMetricConfig())
+               .withDescription("The telemetry metric configuration.");
+
+    public static final Option<TelemetryConfig> TELEMETRY =
+        Options.key("telemetry")
+               .type(new TypeReference<TelemetryConfig>() {})
+               .defaultValue(new TelemetryConfig())
+               .withDescription("The telemetry configuration.");
 }
