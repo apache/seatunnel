@@ -17,25 +17,22 @@
 
 package org.apache.seatunnel.engine.server;
 
-import io.prometheus.client.exporter.HTTPServer;
-import io.prometheus.client.hotspot.DefaultExports;
-import java.io.IOException;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceFactory;
 
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
+import com.hazelcast.instance.impl.Node;
 import lombok.NonNull;
+
+import java.io.IOException;
 
 public class SeaTunnelServerStarter {
 
     public static void main(String[] args) throws IOException {
         createHazelcastInstance();
-        DefaultExports.initialize();
-        HTTPServer httpServer = new HTTPServer.Builder()
-            .withPort(1234)
-            .build();
     }
 
     public static HazelcastInstanceImpl createHazelcastInstance(String clusterName) {
@@ -55,8 +52,15 @@ public class SeaTunnelServerStarter {
                 .getOriginal();
     }
 
-    public static HazelcastInstanceImpl createHazelcastInstance() {
+    public static HazelcastInstanceImpl createHazelcastInstance() throws IOException {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        return createHazelcastInstance(seaTunnelConfig);
+        HazelcastInstanceImpl hazelcastInstance = createHazelcastInstance(seaTunnelConfig);
+        createTelemetryInstance(hazelcastInstance.node, seaTunnelConfig);
+        return hazelcastInstance;
+    }
+
+    private static void createTelemetryInstance(
+            @NonNull Node node, final SeaTunnelConfig seaTunnelConfig) throws IOException {
+        ExportsInstanceFactory.newExportsInstance(node, seaTunnelConfig);
     }
 }

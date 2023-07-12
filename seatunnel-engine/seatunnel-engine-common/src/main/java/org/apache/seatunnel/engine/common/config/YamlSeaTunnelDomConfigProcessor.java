@@ -22,6 +22,8 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryMetricConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 
 import org.w3c.dom.Node;
@@ -131,6 +133,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
             } else if (ServerConfigOptions.CHECKPOINT.key().equals(name)) {
                 engineConfig.setCheckpointConfig(parseCheckpointConfig(node));
+            } else if (ServerConfigOptions.TELEMETRY.key().equals(name)) {
+                engineConfig.setTelemetryConfig(parseTelemetryConfig(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
@@ -205,5 +209,38 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             checkpointPluginConfig.put(name, getTextContent(node));
         }
         return checkpointPluginConfig;
+    }
+
+    private TelemetryConfig parseTelemetryConfig(Node telemetryNode) {
+        TelemetryConfig metricConfig = new TelemetryConfig();
+        for (Node node : childElements(telemetryNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.TELEMETRY_METRIC.key().equals(name)) {
+                metricConfig.setMetric(parseTelemetryMetricConfig(node));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+
+        return metricConfig;
+    }
+
+    private TelemetryMetricConfig parseTelemetryMetricConfig(Node metricNode) {
+        TelemetryMetricConfig metricConfig = new TelemetryMetricConfig();
+        for (Node node : childElements(metricNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.TELEMETRY_METRIC_HTTP_PORT.key().equals(name)) {
+                metricConfig.setHttpPort(
+                        getIntegerValue(
+                                ServerConfigOptions.TELEMETRY_METRIC_HTTP_PORT.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.TELEMETRY_METRIC_LOAD_DEFAULT_EXPORTS.key().equals(name)) {
+                metricConfig.setLoadDefaultExports(getBooleanValue(getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+
+        return metricConfig;
     }
 }
