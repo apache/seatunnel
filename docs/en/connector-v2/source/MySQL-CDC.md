@@ -45,6 +45,7 @@ describes how to set up the MySQL CDC connector to run SQL queries against MySQL
 | chunk-key.even-distribution.factor.lower-bound | Double   | No       | 0.05          |
 | sample-sharding.threshold                      | int      | No       | 1000          |
 | inverse-sampling.rate                          | int      | No       | 1000          |
+| exactly_once                                   | Boolean  | No       | true          |
 | debezium.*                                     | config   | No       | -             |
 | format                                         | Enum     | No       | DEFAULT       |
 | common-options                                 |          | no       | -             |
@@ -154,7 +155,7 @@ By default, a random number is generated between 5400 and 6400, though we recomm
 
 ### server-time-zone [String]
 
-The session time zone in database server.
+The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.
 
 ### connect.timeout.ms [long]
 
@@ -167,6 +168,10 @@ The max retry times that the connector should retry to build database server con
 ### connection.pool.size [Integer]
 
 The connection pool size.
+
+### exactly_once [Boolean]
+
+Enable exactly once semantic.
 
 ### debezium [Config]
 

@@ -211,7 +211,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         private SeaTunnelDataType<SeaTunnelRow> resultTypeInfo;
         private MetadataConverter[] metadataConverters = new MetadataConverter[0];
         private ValueValidator validator = (rowData, rowKind) -> {};
-        private ZoneId serverTimeZone = ZoneId.of("UTC");
+        private ZoneId serverTimeZone = ZoneId.systemDefault();
         private DebeziumDeserializationConverterFactory userDefinedConverterFactory =
                 DebeziumDeserializationConverterFactory.DEFAULT;
 
