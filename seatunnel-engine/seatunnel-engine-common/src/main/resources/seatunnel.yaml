@@ -37,4 +37,4 @@ seatunnel:
         telemetry:
             metric:
                 http-port: 1025
-                load-default-exports: false
+                load-default-exports: true

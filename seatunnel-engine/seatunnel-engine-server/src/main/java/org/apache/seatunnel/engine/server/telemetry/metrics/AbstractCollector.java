@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.engine.server.telemetry.metrics;
 
+import org.apache.seatunnel.engine.server.CoordinatorService;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+
 import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.logging.ILogger;
 import io.prometheus.client.Collector;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
-import org.apache.seatunnel.engine.server.CoordinatorService;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 public abstract class AbstractCollector extends Collector {
 
@@ -54,10 +54,6 @@ public abstract class AbstractCollector extends Collector {
     }
 
     protected CoordinatorService getCoordinatorService() {
-        if (isMaster()) {
-            return getServer().getCoordinatorService();
-        } else {
-            throw new SeaTunnelEngineException("This is not a master node now.");
-        }
+        return getServer().getCoordinatorService();
     }
 }

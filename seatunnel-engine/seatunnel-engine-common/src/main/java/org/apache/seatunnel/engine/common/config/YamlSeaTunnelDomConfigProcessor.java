@@ -239,7 +239,9 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue(
                                 ServerConfigOptions.TELEMETRY_METRIC_HTTP_PORT.key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.TELEMETRY_METRIC_LOAD_DEFAULT_EXPORTS.key().equals(name)) {
+            } else if (ServerConfigOptions.TELEMETRY_METRIC_LOAD_DEFAULT_EXPORTS
+                    .key()
+                    .equals(name)) {
                 metricConfig.setLoadDefaultExports(getBooleanValue(getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);

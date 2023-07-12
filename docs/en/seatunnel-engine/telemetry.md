@@ -19,7 +19,8 @@ seatunnel:
 ```
 
 ***********************************************
- Job info detail
+
+Job info detail
 ***********************************************
 createdJobCount           :                   0
 scheduledJobCount         :                   0
@@ -34,8 +35,11 @@ suspendedJobCount         :                   0
 reconcilingJobCount       :                   0
 
 ***********************************************
-     CoordinatorService Thread Pool Status
+
+        CoordinatorService Thread Pool Status
+
 ***********************************************
+
 activeCount               :                   0
 corePoolSize              :                   0
 maximumPoolSize           :          2147483647

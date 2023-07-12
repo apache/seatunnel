@@ -25,5 +25,4 @@ import java.io.Serializable;
 public class TelemetryConfig implements Serializable {
 
     private TelemetryMetricConfig metric = ServerConfigOptions.TELEMETRY_METRIC.defaultValue();
-
 }

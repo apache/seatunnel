@@ -707,3 +707,19 @@ The class org.apache.calcite.linq4j.tree.ConstantExpression contains code
 originating from the Calcite project (https://github.com/apache/calcite).
 
 =========================================================================
+
+Prometheus NOTICE
+
+=========================================================================
+Prometheus instrumentation library for JVM applications
+Copyright 2012-2015 The Prometheus Authors
+
+This product includes software developed at
+Boxever Ltd. (http://www.boxever.com/).
+
+This product includes software developed at
+SoundCloud Ltd. (http://soundcloud.com/).
+
+This product includes software developed as part of the
+Ocelli project by Netflix Inc. (https://github.com/Netflix/ocelli/).
+=========================================================================

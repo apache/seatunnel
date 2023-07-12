@@ -20,12 +20,13 @@ package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
 import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstance;
+import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 
 import io.prometheus.client.GaugeMetricFamily;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 
 public class JobMetricExports extends AbstractCollector {
 
@@ -40,10 +41,40 @@ public class JobMetricExports extends AbstractCollector {
         if (isMaster()) {
             CoordinatorService coordinatorService = getCoordinatorService();
             JobCounter jobCountMetrics = coordinatorService.getJobCountMetrics();
-            // TODO
-            mfs.add(new GaugeMetricFamily("jobMetric", "jobMetric", 1));
+            GaugeMetricFamily metricFamily =
+                    new GaugeMetricFamily(
+                            "st_job_count",
+                            "The job count of seatunnel cluster ",
+                            Collections.singletonList("type"));
+
+            metricFamily.addMetric(
+                    Collections.singletonList("canceled"), jobCountMetrics.getCanceledJobCount());
+            metricFamily.addMetric(
+                    Collections.singletonList("cancelling"),
+                    jobCountMetrics.getCancellingJobCount());
+            metricFamily.addMetric(
+                    Collections.singletonList("created"), jobCountMetrics.getCreatedJobCount());
+            metricFamily.addMetric(
+                    Collections.singletonList("failed"), jobCountMetrics.getFailedJobCount());
+            metricFamily.addMetric(
+                    Collections.singletonList("failing"), jobCountMetrics.getFailingJobCount());
+            metricFamily.addMetric(
+                    Collections.singletonList("finished"), jobCountMetrics.getFinishedJobCount());
+            metricFamily.addMetric(
+                    Collections.singletonList("reconciling"),
+                    jobCountMetrics.getReconcilingJobCount());
+            metricFamily.addMetric(
+                    Collections.singletonList("restarting"),
+                    jobCountMetrics.getRestartingJobCount());
+            metricFamily.addMetric(
+                    Collections.singletonList("running"), jobCountMetrics.getRunningJobCount());
+            metricFamily.addMetric(
+                    Collections.singletonList("scheduled"), jobCountMetrics.getScheduledJobCount());
+            metricFamily.addMetric(
+                    Collections.singletonList("suspended"), jobCountMetrics.getSuspendedJobCount());
+
+            mfs.add(metricFamily);
         }
         return mfs;
     }
 }
-
