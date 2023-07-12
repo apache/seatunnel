@@ -112,4 +112,10 @@ public class BaseSourceConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("To be read sheet name,only valid for excel files");
+
+    public static final Option<CompressFormat> COMPRESS_CODEC =
+            Options.key("compress_codec")
+                    .enumType(CompressFormat.class)
+                    .defaultValue(CompressFormat.NONE)
+                    .withDescription("Compression codec");
 }

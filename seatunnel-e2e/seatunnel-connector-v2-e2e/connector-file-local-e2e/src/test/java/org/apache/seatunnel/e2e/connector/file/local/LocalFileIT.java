@@ -47,6 +47,7 @@ public class LocalFileIT extends TestSuiteBase {
                 Path orcPath = ContainerUtil.getResourcesFile("/orc/e2e.orc").toPath();
                 Path parquetPath = ContainerUtil.getResourcesFile("/parquet/e2e.parquet").toPath();
                 Path textPath = ContainerUtil.getResourcesFile("/text/e2e.txt").toPath();
+                Path lzoTextPath = ContainerUtil.getResourcesFile("/text/e2e.lzo.txt").toPath();
                 Path excelPath = ContainerUtil.getResourcesFile("/excel/e2e.xlsx").toPath();
                 container.copyFileToContainer(
                         MountableFile.forHostPath(jsonPath),
@@ -60,6 +61,9 @@ public class LocalFileIT extends TestSuiteBase {
                 container.copyFileToContainer(
                         MountableFile.forHostPath(textPath),
                         "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt");
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(lzoTextPath),
+                        "/seatunnel/read/lzo_text/e2e.txt");
                 container.copyFileToContainer(
                         MountableFile.forHostPath(excelPath),
                         "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx");
@@ -82,6 +86,10 @@ public class LocalFileIT extends TestSuiteBase {
         Container.ExecResult textWriteResult =
                 container.executeJob("/text/fake_to_local_file_text.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
+        // test read local lzo text file
+        Container.ExecResult lzoTextReadResult =
+                container.executeJob("/text/local_file_text_lzo_to_assert.conf");
+        Assertions.assertEquals(0, lzoTextReadResult.getExitCode());
         // test read skip header
         Container.ExecResult textWriteAndSkipResult =
                 container.executeJob("/text/local_file_text_skip_headers.conf");
