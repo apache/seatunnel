@@ -114,14 +114,6 @@ public class DorisDataTypeConvertor implements DataTypeConvertor<String> {
                 return BasicType.VOID_TYPE;
             case BOOLEAN:
                 return BasicType.BOOLEAN_TYPE;
-                //            case BIT:
-                //                precision = (Integer)
-                // dataTypeProperties.get(MysqlDataTypeConvertor.PRECISION);
-                //                if (precision == 1) {
-                //                    return BasicType.BOOLEAN_TYPE;
-                //                } else {
-                //                    return PrimitiveByteArrayType.INSTANCE;
-                //                }
             case TINYINT:
                 return BasicType.BYTE_TYPE;
             case SMALLINT:
@@ -135,8 +127,6 @@ public class DorisDataTypeConvertor implements DataTypeConvertor<String> {
                 return BasicType.FLOAT_TYPE;
             case DOUBLE:
                 return BasicType.DOUBLE_TYPE;
-                //            case TIME:
-                //                return LocalTimeType.LOCAL_TIME_TYPE;
             case DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
             case TIMESTAMP:
@@ -176,7 +166,6 @@ public class DorisDataTypeConvertor implements DataTypeConvertor<String> {
                 return VARCHAR;
             case BOOLEAN:
                 return BOOLEAN;
-
             case TINYINT:
                 return TINYINT;
             case SMALLINT:
