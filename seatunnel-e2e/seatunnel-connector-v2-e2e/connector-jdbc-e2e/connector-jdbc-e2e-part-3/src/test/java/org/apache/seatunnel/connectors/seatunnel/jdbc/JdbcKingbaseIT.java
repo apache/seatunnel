@@ -45,12 +45,14 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * If you want to run e2e, you need to download the certificate from
+ * If you want to run this e2e, you need to download km license from
  * https://www.kingbase.com.cn/sqwjxz/index.htm and modify the KM_LICENSE_PATH variable to the
- * address where you downloaded the certificate. Also, remove the @Disabled annotation.
+ * address where you downloaded the certificate. Also, remove the @Disabled annotation. The spark
+ * engine does not support the TIME type.Two environment variables need to be added to the spark
+ * container: "LANG"="C.UTF-8", "JAVA_TOOL_OPTIONS"="-Dfile.encoding=UTF8"
  */
 @Slf4j
-@Disabled
+@Disabled("Due to copyright reasons, you need to download the trial version km license yourself")
 public class JdbcKingbaseIT extends AbstractJdbcIT {
     private static final String KINGBASE_IMAGE = "huzhihui/kingbase:v8r6";
     private static final String KINGBASE_CONTAINER_HOST = "e2e_KINGBASEDb";
