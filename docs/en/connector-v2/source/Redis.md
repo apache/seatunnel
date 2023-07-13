@@ -159,7 +159,7 @@ redis mode, `single` or `cluster`, default is `single`
 
 redis nodes information, used in cluster mode, must like as the following format:
 
-[host1:port1, host2:port2]
+["host1:port1", "host2:port2"]
 
 ### format [string]
 
@@ -259,5 +259,5 @@ Redis {
 
 ### next version
 
-- [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/incubator-seatunnel/pull/3188)
+- [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/seatunnel/pull/3188)
 

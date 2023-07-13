@@ -201,6 +201,6 @@ Some versions of the hive-exec package do not have libfb303-xxx.jar, so you also
 
 ### next version
 
-- [Feature] Support Hadoop3.x ([3046](https://github.com/apache/incubator-seatunnel/pull/3046))
-- [improve][api] Refactoring schema parse ([4157](https://github.com/apache/incubator-seatunnel/pull/4157))
+- [Feature] Support Hadoop3.x ([3046](https://github.com/apache/seatunnel/pull/3046))
+- [improve][api] Refactoring schema parse ([4157](https://github.com/apache/seatunnel/pull/4157))
 

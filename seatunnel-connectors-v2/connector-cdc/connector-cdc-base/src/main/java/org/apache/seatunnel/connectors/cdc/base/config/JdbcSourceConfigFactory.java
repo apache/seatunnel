@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 
+import lombok.Setter;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -55,6 +57,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected long connectTimeoutMillis = JdbcSourceOptions.CONNECT_TIMEOUT_MS.defaultValue();
     protected int connectMaxRetries = JdbcSourceOptions.CONNECT_MAX_RETRIES.defaultValue();
     protected int connectionPoolSize = JdbcSourceOptions.CONNECTION_POOL_SIZE.defaultValue();
+    @Setter protected boolean exactlyOnce = JdbcSourceOptions.EXACTLY_ONCE.defaultValue();
     protected Properties dbzProperties;
 
     /** Integer port number of the database server. */
@@ -242,6 +245,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.connectTimeoutMillis = config.get(JdbcSourceOptions.CONNECT_TIMEOUT_MS);
         this.connectMaxRetries = config.get(JdbcSourceOptions.CONNECT_MAX_RETRIES);
         this.connectionPoolSize = config.get(JdbcSourceOptions.CONNECTION_POOL_SIZE);
+        this.exactlyOnce = config.get(JdbcSourceOptions.EXACTLY_ONCE);
         this.dbzProperties = new Properties();
         config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
                 .ifPresent(map -> dbzProperties.putAll(map));

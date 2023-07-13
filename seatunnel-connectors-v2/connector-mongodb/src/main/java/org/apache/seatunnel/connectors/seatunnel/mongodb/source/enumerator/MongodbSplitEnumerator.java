@@ -29,7 +29,6 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit
 import com.mongodb.MongoNamespace;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -73,7 +72,7 @@ public class MongodbSplitEnumerator
     public void open() {}
 
     @Override
-    public synchronized void run() throws Exception {
+    public synchronized void run() {
         log.info("Starting MongoSplitEnumerator.");
         Set<Integer> readers = context.registeredReaders();
         pendingSplits.addAll(strategy.split());
@@ -86,7 +85,7 @@ public class MongodbSplitEnumerator
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         if (clientProvider != null) {
             clientProvider.close();
         }
@@ -121,12 +120,12 @@ public class MongodbSplitEnumerator
     }
 
     @Override
-    public ArrayList<MongoSplit> snapshotState(long checkpointId) throws Exception {
+    public ArrayList<MongoSplit> snapshotState(long checkpointId) {
         return pendingSplits;
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    public void notifyCheckpointComplete(long checkpointId) {
         // Do nothing
     }
 
