@@ -18,15 +18,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-
+import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
-
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
-
-import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -38,7 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class JdbcDmIT extends AbstractJdbcIT {
+public class JdbcDmUpsetIT extends AbstractJdbcIT {
 
     private static final String DM_IMAGE = "laglangyue/dmdb8";
     private static final String DM_CONTAINER_HOST = "e2e_dmdb";
@@ -54,7 +51,7 @@ public class JdbcDmIT extends AbstractJdbcIT {
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_dm_source_and_sink.conf");
+            Lists.newArrayList("/jdbc_dm_source_and_dm_upset_sink.conf");
     private static final String CREATE_SQL =
             "create table if not exists %s"
                     + "(\n"
@@ -96,7 +93,8 @@ public class JdbcDmIT extends AbstractJdbcIT {
                     + "    DM_VARBINARY        VARBINARY,\n"
                     + "    DM_LONGVARBINARY    LONGVARBINARY,\n"
                     + "    DM_IMAGE            IMAGE,\n"
-                    + "    DM_BFILE            BFILE\n"
+                    + "    DM_BFILE            BFILE,\n"
+                    + "    CONSTRAINT DMPKID PRIMARY KEY (DM_BIT) \n"
                     + ")";
 
     @Override
