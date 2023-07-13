@@ -891,3 +891,19 @@ Returns NULL if 'a' is equal to 'b', otherwise 'a'.
 Example:
 
 NULLIF(A, B)
+
+## Conditional Functions
+
+### CASE
+
+```sql
+CASE value WHEN compare_value THEN result [WHEN compare_value THEN result ...] [ELSE result] END
+CASE WHEN condition THEN result [WHEN condition THEN result ...] [ELSE result] END
+```
+
+Converts a value to another.
+
+Example:
+
+```CASE state WHEN 1 THEN 'on' ELSE 'off' END```
+```CASE WHEN state>0 THEN 1 ELSE 0 END```
