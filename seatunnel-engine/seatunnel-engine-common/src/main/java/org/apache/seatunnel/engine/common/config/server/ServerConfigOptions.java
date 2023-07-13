@@ -142,7 +142,7 @@ public class ServerConfigOptions {
     public static final Option<Integer> TELEMETRY_METRIC_HTTP_PORT =
             Options.key("http-port")
                     .intType()
-                    .defaultValue(1024)
+                    .defaultValue(9090)
                     .withDescription("The telemetry metric server's port.");
 
     public static final Option<Boolean> TELEMETRY_METRIC_LOAD_DEFAULT_EXPORTS =

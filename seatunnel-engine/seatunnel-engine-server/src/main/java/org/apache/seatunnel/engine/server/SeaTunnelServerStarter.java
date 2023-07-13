@@ -59,7 +59,7 @@ public class SeaTunnelServerStarter {
         return hazelcastInstance;
     }
 
-    private static void createTelemetryInstance(
+    public static void createTelemetryInstance(
             @NonNull Node node, final SeaTunnelConfig seaTunnelConfig) throws IOException {
         ExportsInstanceFactory.newExportsInstance(node, seaTunnelConfig);
     }
