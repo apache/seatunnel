@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.cos;
 
 import org.apache.seatunnel.connectors.seatunnel.file.cos.sink.CosFileSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.cos.source.CosFileSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,7 @@ public class CosFileFactoryTest {
 
     @Test
     void optionRule() {
+        Assertions.assertNotNull((new CosFileSourceFactory()).optionRule());
         Assertions.assertNotNull((new CosFileSinkFactory()).optionRule());
     }
 }

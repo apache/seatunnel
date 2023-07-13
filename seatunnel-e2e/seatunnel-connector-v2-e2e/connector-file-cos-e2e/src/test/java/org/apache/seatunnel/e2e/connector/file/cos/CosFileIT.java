@@ -31,30 +31,46 @@ import java.io.IOException;
 public class CosFileIT extends TestSuiteBase {
 
     @TestTemplate
-    public void testCosFileWrite(TestContainer container) throws IOException, InterruptedException {
-        // test write cos excel file
+    public void testCosFileWriteAndRead(TestContainer container)
+            throws IOException, InterruptedException {
+        // test cos excel file
         Container.ExecResult excelWriteResult =
                 container.executeJob("/excel/fake_to_cos_excel.conf");
         Assertions.assertEquals(0, excelWriteResult.getExitCode(), excelWriteResult.getStderr());
+        Container.ExecResult excelReadResult =
+                container.executeJob("/excel/cos_excel_to_assert.conf");
+        Assertions.assertEquals(0, excelReadResult.getExitCode(), excelReadResult.getStderr());
 
-        // test write cos text file
+        // test cos text file
         Container.ExecResult textWriteResult =
                 container.executeJob("/text/fake_to_cos_file_text.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
+        Container.ExecResult textReadResult =
+                container.executeJob("/text/cos_file_text_to_assert.conf");
+        Assertions.assertEquals(0, textReadResult.getExitCode());
 
-        // test write cos json file
+        // test cos json file
         Container.ExecResult jsonWriteResult =
                 container.executeJob("/json/fake_to_cos_file_json.conf");
         Assertions.assertEquals(0, jsonWriteResult.getExitCode());
+        Container.ExecResult jsonReadResult =
+                container.executeJob("/json/cos_file_json_to_assert.conf");
+        Assertions.assertEquals(0, jsonReadResult.getExitCode());
 
-        // test write cos orc file
+        // test cos orc file
         Container.ExecResult orcWriteResult =
                 container.executeJob("/orc/fake_to_cos_file_orc.conf");
         Assertions.assertEquals(0, orcWriteResult.getExitCode());
+        Container.ExecResult orcReadResult =
+                container.executeJob("/orc/cos_file_orc_to_assert.conf");
+        Assertions.assertEquals(0, orcReadResult.getExitCode());
 
-        // test write cos parquet file
+        // test cos parquet file
         Container.ExecResult parquetWriteResult =
                 container.executeJob("/parquet/fake_to_cos_file_parquet.conf");
         Assertions.assertEquals(0, parquetWriteResult.getExitCode());
+        Container.ExecResult parquetReadResult =
+                container.executeJob("/parquet/cos_file_parquet_to_assert.conf");
+        Assertions.assertEquals(0, parquetReadResult.getExitCode());
     }
 }
