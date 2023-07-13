@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg;
 
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 
 import org.apache.iceberg.CachingCatalog;
@@ -67,7 +68,7 @@ public class IcebergTableLoader implements Closeable, Serializable {
         }
     }
 
-    public static IcebergTableLoader create(SourceConfig sourceConfig) {
+    public static IcebergTableLoader create(CommonConfig sourceConfig) {
         IcebergCatalogFactory catalogFactory =
                 new IcebergCatalogFactory(
                         sourceConfig.getCatalogName(),
