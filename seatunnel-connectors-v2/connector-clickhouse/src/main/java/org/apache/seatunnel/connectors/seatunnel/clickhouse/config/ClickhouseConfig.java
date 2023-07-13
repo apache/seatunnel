@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 @SuppressWarnings("checkstyle:MagicNumber")
 public class ClickhouseConfig {
@@ -74,6 +75,13 @@ public class ClickhouseConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Clickhouse server password");
+
+    /** Clickhouse server timezone */
+    public static final Option<String> SERVER_TIME_ZONE =
+            Options.key("server_time_zone")
+                    .stringType()
+                    .defaultValue(TimeZone.getDefault().getID())
+                    .withDescription("Clickhouse server timezone");
 
     /** Split mode when table is distributed engine */
     public static final Option<Boolean> SPLIT_MODE =
