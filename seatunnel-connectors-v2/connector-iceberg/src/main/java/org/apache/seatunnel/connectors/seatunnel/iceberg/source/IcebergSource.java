@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -77,7 +78,7 @@ public class IcebergSource
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.sourceConfig = SourceConfig.loadConfig(pluginConfig);
+        this.sourceConfig = SourceConfig.loadConfig(ReadonlyConfig.fromConfig(pluginConfig));
         this.tableSchema = loadIcebergSchema(sourceConfig);
         this.seaTunnelRowType = loadSeaTunnelRowType(tableSchema, pluginConfig);
         this.projectedSchema = tableSchema.select(seaTunnelRowType.getFieldNames());

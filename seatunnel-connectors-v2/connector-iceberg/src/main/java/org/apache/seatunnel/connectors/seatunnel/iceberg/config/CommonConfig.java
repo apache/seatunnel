@@ -17,10 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Getter;
 import lombok.ToString;
@@ -86,6 +85,37 @@ public class CommonConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription(" the iceberg table fields");
 
+    // for kerberos
+    public static final Option<String> KERBEROS_PRINCIPAL =
+            Options.key("kerberos_principal")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("jdbc kerberos_principal");
+
+    public static final Option<String> KERBEROS_KEYTAB_PATH =
+            Options.key("kerberos_keytab_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("jdbc kerberos_keytab_path");
+
+    public static final Option<String> KERBEROS_KRB5_CONF_PATH =
+            Options.key("kerberos_krb5_conf_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("jdbc kerberos_keytab_path");
+
+    public static final Option<String> HDFS_SITE_PATH =
+            Options.key("hdfs_site_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("jdbc hdfs_site_path");
+
+    public static final Option<String> HIVE_SITE_PATH =
+            Options.key("hive_site_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("jdbc hive_site_path");
+
     private String catalogName;
     private IcebergCatalogType catalogType;
     private String uri;
@@ -94,23 +124,46 @@ public class CommonConfig implements Serializable {
     private String table;
     private boolean caseSensitive;
 
-    public CommonConfig(Config pluginConfig) {
-        String catalogType = checkArgumentNotNull(pluginConfig.getString(KEY_CATALOG_TYPE.key()));
+    // kerberos
+    private String kerberosPrincipal;
+    private String kerberosKeytabPath;
+    private String kerberosKrb5ConfPath;
+    private String hdfsSitePath;
+    private String hiveSitePath;
+
+    public CommonConfig(ReadonlyConfig pluginConfig) {
+        IcebergCatalogType catalogType = pluginConfig.getOptional(KEY_CATALOG_TYPE).get();
         checkArgument(
-                HADOOP.getType().equals(catalogType) || HIVE.getType().equals(catalogType),
+                HADOOP.equals(catalogType) || HIVE.equals(catalogType),
                 "Illegal catalogType: " + catalogType);
 
-        this.catalogType = IcebergCatalogType.valueOf(catalogType.toUpperCase());
-        this.catalogName = checkArgumentNotNull(pluginConfig.getString(KEY_CATALOG_NAME.key()));
-        if (pluginConfig.hasPath(KEY_URI.key())) {
-            this.uri = checkArgumentNotNull(pluginConfig.getString(KEY_URI.key()));
+        this.catalogType = catalogType;
+        this.catalogName = pluginConfig.getOptional(KEY_CATALOG_NAME).get();
+        if (pluginConfig.getOptional(KEY_URI).isPresent()) {
+            this.uri = pluginConfig.getOptional(KEY_URI).get();
         }
-        this.warehouse = checkArgumentNotNull(pluginConfig.getString(KEY_WAREHOUSE.key()));
-        this.namespace = checkArgumentNotNull(pluginConfig.getString(KEY_NAMESPACE.key()));
-        this.table = checkArgumentNotNull(pluginConfig.getString(KEY_TABLE.key()));
+        this.warehouse = pluginConfig.getOptional(KEY_WAREHOUSE).get();
+        this.namespace = pluginConfig.getOptional(KEY_NAMESPACE).get();
+        this.table = pluginConfig.getOptional(KEY_TABLE).get();
 
-        if (pluginConfig.hasPath(KEY_CASE_SENSITIVE.key())) {
-            this.caseSensitive = pluginConfig.getBoolean(KEY_CASE_SENSITIVE.key());
+        if (pluginConfig.getOptional(KEY_CASE_SENSITIVE).isPresent()) {
+            this.caseSensitive = pluginConfig.getOptional(KEY_CASE_SENSITIVE).get();
+        }
+
+        if (pluginConfig.getOptional(KERBEROS_PRINCIPAL).isPresent()) {
+            this.kerberosPrincipal = pluginConfig.getOptional(KERBEROS_PRINCIPAL).get();
+        }
+        if (pluginConfig.getOptional(KERBEROS_KEYTAB_PATH).isPresent()) {
+            this.kerberosKeytabPath = pluginConfig.getOptional(KERBEROS_KEYTAB_PATH).get();
+        }
+        if (pluginConfig.getOptional(KERBEROS_KRB5_CONF_PATH).isPresent()) {
+            this.kerberosKrb5ConfPath = pluginConfig.getOptional(KERBEROS_KRB5_CONF_PATH).get();
+        }
+        if (pluginConfig.getOptional(HDFS_SITE_PATH).isPresent()) {
+            this.hdfsSitePath = pluginConfig.getOptional(HDFS_SITE_PATH).get();
+        }
+        if (pluginConfig.getOptional(HIVE_SITE_PATH).isPresent()) {
+            this.hiveSitePath = pluginConfig.getOptional(HIVE_SITE_PATH).get();
         }
     }
 

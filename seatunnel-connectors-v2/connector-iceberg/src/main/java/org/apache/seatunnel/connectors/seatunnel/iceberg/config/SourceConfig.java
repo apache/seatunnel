@@ -19,10 +19,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergStreamScanStrategy;
 
 import org.apache.iceberg.expressions.Expression;
@@ -86,31 +85,30 @@ public class SourceConfig extends CommonConfig {
     private Integer splitLookback;
     private Long splitOpenFileCost;
 
-    public SourceConfig(Config pluginConfig) {
+    public SourceConfig(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
-        if (pluginConfig.hasPath(KEY_START_SNAPSHOT_TIMESTAMP.key())) {
-            this.startSnapshotTimestamp = pluginConfig.getLong(KEY_START_SNAPSHOT_TIMESTAMP.key());
+        if (pluginConfig.getOptional(KEY_START_SNAPSHOT_TIMESTAMP).isPresent()) {
+            this.startSnapshotTimestamp =
+                    pluginConfig.getOptional(KEY_START_SNAPSHOT_TIMESTAMP).get();
         }
-        if (pluginConfig.hasPath(KEY_START_SNAPSHOT_ID.key())) {
-            this.startSnapshotId = pluginConfig.getLong(KEY_START_SNAPSHOT_ID.key());
+        if (pluginConfig.getOptional(KEY_START_SNAPSHOT_ID).isPresent()) {
+            this.startSnapshotId = pluginConfig.getOptional(KEY_START_SNAPSHOT_ID).get();
         }
-        if (pluginConfig.hasPath(KEY_END_SNAPSHOT_ID.key())) {
-            this.endSnapshotId = pluginConfig.getLong(KEY_END_SNAPSHOT_ID.key());
+        if (pluginConfig.getOptional(KEY_END_SNAPSHOT_ID).isPresent()) {
+            this.endSnapshotId = pluginConfig.getOptional(KEY_END_SNAPSHOT_ID).get();
         }
-        if (pluginConfig.hasPath(KEY_USE_SNAPSHOT_ID.key())) {
-            this.useSnapshotId = pluginConfig.getLong(KEY_USE_SNAPSHOT_ID.key());
+        if (pluginConfig.getOptional(KEY_USE_SNAPSHOT_ID).isPresent()) {
+            this.useSnapshotId = pluginConfig.getOptional(KEY_USE_SNAPSHOT_ID).get();
         }
-        if (pluginConfig.hasPath(KEY_USE_SNAPSHOT_TIMESTAMP.key())) {
-            this.useSnapshotTimestamp = pluginConfig.getLong(KEY_USE_SNAPSHOT_TIMESTAMP.key());
+        if (pluginConfig.getOptional(KEY_USE_SNAPSHOT_TIMESTAMP).isPresent()) {
+            this.useSnapshotTimestamp = pluginConfig.getOptional(KEY_USE_SNAPSHOT_TIMESTAMP).get();
         }
-        if (pluginConfig.hasPath(KEY_STREAM_SCAN_STRATEGY.key())) {
-            this.streamScanStrategy =
-                    pluginConfig.getEnum(
-                            IcebergStreamScanStrategy.class, KEY_STREAM_SCAN_STRATEGY.key());
+        if (pluginConfig.getOptional(KEY_STREAM_SCAN_STRATEGY).isPresent()) {
+            this.streamScanStrategy = pluginConfig.getOptional(KEY_STREAM_SCAN_STRATEGY).get();
         }
     }
 
-    public static SourceConfig loadConfig(Config pluginConfig) {
+    public static SourceConfig loadConfig(ReadonlyConfig pluginConfig) {
         return new SourceConfig(pluginConfig);
     }
 }
