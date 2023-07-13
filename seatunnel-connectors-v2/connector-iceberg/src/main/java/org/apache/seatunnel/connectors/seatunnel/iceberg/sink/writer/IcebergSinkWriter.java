@@ -82,8 +82,6 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.format = FileFormat.valueOf(sinkConfig.getFileFormat().toUpperCase(Locale.ENGLISH));
         this.fileFactory = OutputFileFactory.builderFor(table, 1, 1).format(format).build();
         this.partition = createPartitionKey();
-
-        log.info("mustard: sink max row count: {}", sinkConfig.getMaxRow());
     }
 
     @Override
@@ -100,6 +98,13 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void close() throws IOException {
+        if (pendingRows.size() > 0) {
+            FileAppenderFactory<Record> appenderFactory = createAppenderFactory(null, null, null);
+            DataFile dataFile = prepareDataFile(pendingRows, appenderFactory);
+            table.newRowDelta().addRows(dataFile).commit();
+            pendingRows.clear();
+        }
+
         if (Objects.nonNull(icebergTableLoader)) {
             icebergTableLoader.close();
             pendingRows.clear();
