@@ -35,6 +35,7 @@
 - [Connector-v2] [File] Fix configuration file format and error comments (#4762)
 - [Connector-v2] [Jdbc] Fix oracle sql table identifier (#4754)
 - [Connector-v2] [Clickhouse] fix get clickhouse local table name with closing bracket from distributed table engineFull (#4710)
+- [Connector-v2] [CDC] Fix jdbc connection leak for mysql (#5037)
 
 ### Zeta(ST-Engine)
 
@@ -61,6 +62,7 @@
 - [Zeta] Fix task `notifyTaskStatusToMaster` failed when job not running or failed before run (#4847)
 - [Zeta] Fix cpu load problem (#4828)
 - [zeta] Fix the deadlock issue with JDBC driver loading (#4878)
+- [zeta] dynamically replace the value of the variable at runtime (#4950)
 
 ### E2E
 

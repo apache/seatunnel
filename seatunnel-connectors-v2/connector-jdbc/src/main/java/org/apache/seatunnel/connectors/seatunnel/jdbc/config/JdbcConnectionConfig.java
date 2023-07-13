@@ -27,6 +27,7 @@ public class JdbcConnectionConfig implements Serializable {
 
     public String url;
     public String driverName;
+    public String compatibleMode;
     public int connectionCheckTimeoutSeconds =
             JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
     public int maxRetries = JdbcOptions.MAX_RETRIES.defaultValue();
@@ -48,6 +49,7 @@ public class JdbcConnectionConfig implements Serializable {
     public static JdbcConnectionConfig of(ReadonlyConfig config) {
         JdbcConnectionConfig.Builder builder = JdbcConnectionConfig.builder();
         builder.url(config.get(JdbcOptions.URL));
+        builder.compatibleMode(config.get(JdbcOptions.COMPATIBLE_MODE));
         builder.driverName(config.get(JdbcOptions.DRIVER));
         builder.autoCommit(config.get(JdbcOptions.AUTO_COMMIT));
         builder.maxRetries(config.get(JdbcOptions.MAX_RETRIES));
@@ -58,6 +60,7 @@ public class JdbcConnectionConfig implements Serializable {
             builder.xaDataSourceClassName(config.get(JdbcOptions.XA_DATA_SOURCE_CLASS_NAME));
             builder.maxCommitAttempts(config.get(JdbcOptions.MAX_COMMIT_ATTEMPTS));
             builder.transactionTimeoutSec(config.get(JdbcOptions.TRANSACTION_TIMEOUT_SEC));
+            builder.maxRetries(0);
         }
 
         config.getOptional(JdbcOptions.USER).ifPresent(builder::username);
@@ -71,6 +74,10 @@ public class JdbcConnectionConfig implements Serializable {
 
     public String getDriverName() {
         return driverName;
+    }
+
+    public String getCompatibleMode() {
+        return compatibleMode;
     }
 
     public boolean isAutoCommit() {
@@ -120,6 +127,7 @@ public class JdbcConnectionConfig implements Serializable {
     public static final class Builder {
         private String url;
         private String driverName;
+        private String compatibleMode;
         private int connectionCheckTimeoutSeconds =
                 JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
         private int maxRetries = JdbcOptions.MAX_RETRIES.defaultValue();
@@ -142,6 +150,11 @@ public class JdbcConnectionConfig implements Serializable {
 
         public Builder driverName(String driverName) {
             this.driverName = driverName;
+            return this;
+        }
+
+        public Builder compatibleMode(String compatibleMode) {
+            this.compatibleMode = compatibleMode;
             return this;
         }
 
@@ -205,6 +218,7 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.batchSize = this.batchSize;
             jdbcConnectionConfig.batchIntervalMs = this.batchIntervalMs;
             jdbcConnectionConfig.driverName = this.driverName;
+            jdbcConnectionConfig.compatibleMode = this.compatibleMode;
             jdbcConnectionConfig.maxRetries = this.maxRetries;
             jdbcConnectionConfig.password = this.password;
             jdbcConnectionConfig.connectionCheckTimeoutSeconds = this.connectionCheckTimeoutSeconds;

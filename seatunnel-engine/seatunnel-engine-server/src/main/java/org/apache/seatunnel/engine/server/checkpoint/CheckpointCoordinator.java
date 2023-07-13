@@ -183,8 +183,19 @@ public class CheckpointCoordinator {
         this.checkpointIdCounter = checkpointIdCounter;
         this.readyToCloseStartingTask = new CopyOnWriteArraySet<>();
         if (pipelineState != null) {
-            this.latestCompletedCheckpoint =
+            // fix after the savepoint job is restored, the checkpoint file cannot be generated
+            CompletedCheckpoint tmpCheckpoint =
                     serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
+            this.latestCompletedCheckpoint =
+                    new CompletedCheckpoint(
+                            tmpCheckpoint.getJobId(),
+                            tmpCheckpoint.getPipelineId(),
+                            tmpCheckpoint.getCheckpointId(),
+                            tmpCheckpoint.getCheckpointTimestamp(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            tmpCheckpoint.getCompletedTimestamp(),
+                            tmpCheckpoint.getTaskStates(),
+                            tmpCheckpoint.getTaskStatistics());
         }
         this.checkpointCoordinatorFuture = new CompletableFuture();
 
