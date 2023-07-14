@@ -23,8 +23,10 @@ import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
+import java.io.IOException;
+
 public class SeaTunnelFlink {
-    public static void main(String[] args) throws CommandException {
+    public static void main(String[] args) throws CommandException, IOException {
         FlinkCommandArgs flinkCommandArgs =
                 CommandLineUtils.parse(
                         args,

@@ -35,10 +35,13 @@ public class SeaTunnelServerStarter {
         createHazelcastInstance();
     }
 
-    public static HazelcastInstanceImpl createHazelcastInstance(String clusterName) {
+    public static HazelcastInstanceImpl createHazelcastInstance(String clusterName)
+            throws IOException {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
-        return createHazelcastInstance(seaTunnelConfig);
+        HazelcastInstanceImpl hazelcastInstance = createHazelcastInstance(seaTunnelConfig);
+        createTelemetryInstance(hazelcastInstance.node, seaTunnelConfig);
+        return hazelcastInstance;
     }
 
     public static HazelcastInstanceImpl createHazelcastInstance(

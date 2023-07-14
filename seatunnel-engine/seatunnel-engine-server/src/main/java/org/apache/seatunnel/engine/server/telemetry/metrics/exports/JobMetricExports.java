@@ -43,7 +43,7 @@ public class JobMetricExports extends AbstractCollector {
             JobCounter jobCountMetrics = coordinatorService.getJobCountMetrics();
             GaugeMetricFamily metricFamily =
                     new GaugeMetricFamily(
-                            "st_job_count",
+                            "job_count",
                             "The job count of seatunnel cluster ",
                             Collections.singletonList("type"));
 

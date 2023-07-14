@@ -26,6 +26,8 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
+
 @Slf4j
 public class SeaTunnel {
 
@@ -35,7 +37,8 @@ public class SeaTunnel {
      * @param command commandArgs
      * @param <T> commandType
      */
-    public static <T extends CommandArgs> void run(Command<T> command) throws CommandException {
+    public static <T extends CommandArgs> void run(Command<T> command)
+            throws CommandException, IOException {
         try {
             command.execute();
         } catch (ConfigRuntimeException e) {
