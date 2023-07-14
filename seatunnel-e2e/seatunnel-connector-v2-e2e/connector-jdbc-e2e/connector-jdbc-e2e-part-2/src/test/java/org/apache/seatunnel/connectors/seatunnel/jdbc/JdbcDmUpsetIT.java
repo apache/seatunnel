@@ -231,7 +231,7 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
                         .withNetworkAliases(DM_CONTAINER_HOST)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 5236, 5236)));
+        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 5336, 5236)));
 
         return container;
     }
