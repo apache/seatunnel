@@ -44,11 +44,11 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
     private static final String DM_CONTAINER_HOST = "e2e_dmdb";
 
     private static final String DM_DATABASE = "SYSDBA";
-    private static final String DM_SOURCE = "e2e_table_source";
-    private static final String DM_SINK = "e2e_table_sink";
+    private static final String DM_SOURCE = "e2e_table_source_upset";
+    private static final String DM_SINK = "e2e_table_sink_upset";
     private static final String DM_USERNAME = "SYSDBA";
     private static final String DM_PASSWORD = "SYSDBA";
-    private static final int DM_PORT = 5236;
+    private static final int DM_PORT = 5336;
     private static final String DM_URL = "jdbc:dm://" + HOST + ":%s";
 
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
@@ -96,8 +96,7 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
                     + "    DM_VARBINARY        VARBINARY,\n"
                     + "    DM_LONGVARBINARY    LONGVARBINARY,\n"
                     + "    DM_IMAGE            IMAGE,\n"
-                    + "    DM_BFILE            BFILE,\n"
-                    + "    CONSTRAINT DMPKID PRIMARY KEY (DM_BIT) \n"
+                    + "    DM_BFILE            BFILE\n"
                     + ")";
 
     @Override
