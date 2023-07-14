@@ -23,6 +23,7 @@ import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
@@ -30,8 +31,9 @@ import java.nio.file.Paths;
 public class SeaTunnelEngineExample {
 
     public static void main(String[] args)
-            throws FileNotFoundException, URISyntaxException, CommandException {
-        String configurePath = args.length > 0 ? args[0] : "/examples/fake_to_console.conf";
+            throws IOException, URISyntaxException, CommandException {
+        String configurePath =
+                args.length > 0 ? args[0] : "/examples/stream_fakesource_to_file.conf";
         String configFile = getTestConfigFile(configurePath);
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setConfigFile(configFile);
@@ -39,7 +41,7 @@ public class SeaTunnelEngineExample {
         clientCommandArgs.setJobName(Paths.get(configFile).getFileName().toString());
         // Change Execution Mode to CLUSTER to use client mode, before do this, you should start
         // SeaTunnelEngineServerExample
-        clientCommandArgs.setMasterType(MasterType.LOCAL);
+        clientCommandArgs.setMasterType(MasterType.CLUSTER);
         SeaTunnel.run(clientCommandArgs.buildCommand());
     }
 

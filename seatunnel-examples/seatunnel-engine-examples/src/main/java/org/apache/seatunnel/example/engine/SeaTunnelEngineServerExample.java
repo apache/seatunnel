@@ -21,8 +21,10 @@ import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
 
+import java.io.IOException;
+
 public class SeaTunnelEngineServerExample {
-    public static void main(String[] args) throws CommandException {
+    public static void main(String[] args) throws CommandException, IOException {
         ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
         SeaTunnel.run(serverCommandArgs.buildCommand());
     }

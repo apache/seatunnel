@@ -29,11 +29,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class ThreadPoolStatusExports extends AbstractCollector {
+public class JobThreadPoolStatusExports extends AbstractCollector {
 
-    private static String HELP = "The %s of seatunnel coordinator executors cachedThreadPool";
+    private static String HELP =
+            "The %s of seatunnel coordinator job's executor cached thread pool";
 
-    public ThreadPoolStatusExports(ExportsInstance exportsInstance) {
+    public JobThreadPoolStatusExports(ExportsInstance exportsInstance) {
         super(exportsInstance);
     }
 
@@ -49,7 +50,7 @@ public class ThreadPoolStatusExports extends AbstractCollector {
         List<String> labelNames = Collections.singletonList("address");
         GaugeMetricFamily activeCount =
                 new GaugeMetricFamily(
-                        "st_thread_pool_activeCount",
+                        "job_thread_pool_activeCount",
                         String.format(HELP, "activeCount"),
                         labelNames);
         activeCount.addMetric(labelValues, threadPoolStatusMetrics.getActiveCount());
@@ -57,7 +58,7 @@ public class ThreadPoolStatusExports extends AbstractCollector {
 
         CounterMetricFamily completedTask =
                 new CounterMetricFamily(
-                        "st_thread_pool_completedTask",
+                        "job_thread_pool_completedTask",
                         String.format(HELP, "completedTask"),
                         labelNames);
         completedTask.addMetric(labelValues, threadPoolStatusMetrics.getCompletedTaskCount());
@@ -65,7 +66,7 @@ public class ThreadPoolStatusExports extends AbstractCollector {
 
         GaugeMetricFamily corePoolSize =
                 new GaugeMetricFamily(
-                        "st_thread_pool_corePoolSize",
+                        "job_thread_pool_corePoolSize",
                         String.format(HELP, "activeCount"),
                         labelNames);
         corePoolSize.addMetric(labelValues, threadPoolStatusMetrics.getCorePoolSize());
@@ -73,7 +74,7 @@ public class ThreadPoolStatusExports extends AbstractCollector {
 
         GaugeMetricFamily maximumPoolSize =
                 new GaugeMetricFamily(
-                        "st_thread_pool_maximumPoolSize",
+                        "job_thread_pool_maximumPoolSize",
                         String.format(HELP, "maximumPoolSize"),
                         labelNames);
         maximumPoolSize.addMetric(labelValues, threadPoolStatusMetrics.getMaximumPoolSize());
@@ -81,13 +82,13 @@ public class ThreadPoolStatusExports extends AbstractCollector {
 
         GaugeMetricFamily poolSize =
                 new GaugeMetricFamily(
-                        "st_thread_pool_poolSize", String.format(HELP, "poolSize"), labelNames);
+                        "job_thread_pool_poolSize", String.format(HELP, "poolSize"), labelNames);
         poolSize.addMetric(labelValues, threadPoolStatusMetrics.getPoolSize());
         mfs.add(poolSize);
 
         CounterMetricFamily taskCount =
                 new CounterMetricFamily(
-                        "st_thread_pool_task", String.format(HELP, "taskCount"), labelNames);
+                        "job_thread_pool_task", String.format(HELP, "taskCount"), labelNames);
         taskCount.addMetric(labelValues, threadPoolStatusMetrics.getTaskCount());
         mfs.add(taskCount);
 

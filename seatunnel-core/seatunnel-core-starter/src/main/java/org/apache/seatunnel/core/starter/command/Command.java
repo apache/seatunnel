@@ -20,6 +20,8 @@ package org.apache.seatunnel.core.starter.command;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
+import java.io.IOException;
+
 /**
  * Command interface, only has one method {@link Command#execute()}, used to execute the command
  *
@@ -28,5 +30,5 @@ import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 @FunctionalInterface
 public interface Command<T extends CommandArgs> {
 
-    void execute() throws CommandExecuteException, ConfigCheckException;
+    void execute() throws CommandExecuteException, ConfigCheckException, IOException;
 }

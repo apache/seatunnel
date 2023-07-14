@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.server.telemetry.metrics;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.TelemetryMetricConfig;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobMetricExports;
-import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ThreadPoolStatusExports;
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobThreadPoolStatusExports;
 
 import com.hazelcast.instance.impl.Node;
 import io.prometheus.client.CollectorRegistry;
@@ -47,9 +47,10 @@ public class ExportsInstance {
         HTTPServer httpServer =
                 new HTTPServer.Builder().withPort(metricConfig.getHttpPort()).build();
         CollectorRegistry collectorRegistry = CollectorRegistry.defaultRegistry;
-        //
+        // Job info detail
         new JobMetricExports(this).register(collectorRegistry);
-        new ThreadPoolStatusExports(this).register(collectorRegistry);
+        // Thread pool status
+        new JobThreadPoolStatusExports(this).register(collectorRegistry);
     }
 
     public Node getNode() {

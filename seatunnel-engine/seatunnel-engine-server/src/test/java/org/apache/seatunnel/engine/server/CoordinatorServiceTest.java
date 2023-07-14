@@ -31,9 +31,9 @@ import org.junit.jupiter.api.Test;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.MalformedURLException;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
@@ -41,7 +41,7 @@ import static org.awaitility.Awaitility.await;
 
 public class CoordinatorServiceTest {
     @Test
-    public void testMasterNodeActive() {
+    public void testMasterNodeActive() throws IOException {
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName("CoordinatorServiceTest_testMasterNodeActive"));
@@ -85,7 +85,7 @@ public class CoordinatorServiceTest {
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testClearCoordinatorService()
-            throws MalformedURLException, NoSuchMethodException, InvocationTargetException,
+            throws IOException, NoSuchMethodException, InvocationTargetException,
                     IllegalAccessException {
         HazelcastInstanceImpl coordinatorServiceTest =
                 SeaTunnelServerStarter.createHazelcastInstance(
@@ -141,7 +141,7 @@ public class CoordinatorServiceTest {
 
     @Test
     @Disabled("disabled because we can not know")
-    public void testJobRestoreWhenMasterNodeSwitch() throws InterruptedException {
+    public void testJobRestoreWhenMasterNodeSwitch() throws InterruptedException, IOException {
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName(
