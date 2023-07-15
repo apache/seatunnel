@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -84,12 +85,14 @@ public class JdbcSinkFactory implements TableSinkFactory {
         }
         final ReadonlyConfig options = config;
         JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
-        String fieldIde = config.get(JdbcOptions.FIELD_IDE);
+        FieldIdeEnum fieldIdeEnum = config.get(JdbcOptions.FIELD_IDE);
         JdbcDialect dialect =
                 JdbcDialectLoader.load(
                         sinkConfig.getJdbcConnectionConfig().getUrl(),
                         sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
-                        fieldIde);
+                        fieldIdeEnum == null
+                                ? FieldIdeEnum.ORIGINAL.getValue()
+                                : fieldIdeEnum.getValue());
         return () ->
                 new JdbcSink(
                         options,
