@@ -33,8 +33,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatc
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
-import org.apache.commons.lang3.SerializationUtils;
-
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Collections;
@@ -77,8 +75,7 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         tryOpen();
-        SeaTunnelRow copy = SerializationUtils.clone(element);
-        outputFormat.writeRecord(copy);
+        outputFormat.writeRecord(element);
     }
 
     @Override
