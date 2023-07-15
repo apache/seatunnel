@@ -53,7 +53,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 @Slf4j
@@ -96,7 +95,7 @@ public class IcebergSink
                         IcebergTableLoader.create(sinkConfig),
                         seaTunnelRowType,
                         1024,
-                        PARQUET,
+                        sinkConfig.getFileFormat(),
                         new HashMap<>(),
                         checkAndGetEqualityFieldIds(),
                         true);
@@ -121,7 +120,7 @@ public class IcebergSink
                             IcebergTableLoader.create(sinkConfig),
                             seaTunnelRowType,
                             1024,
-                            PARQUET,
+                            sinkConfig.getFileFormat(),
                             new HashMap<>(),
                             checkAndGetEqualityFieldIds(),
                             true);
@@ -141,7 +140,7 @@ public class IcebergSink
                             IcebergTableLoader.create(sinkConfig),
                             seaTunnelRowType,
                             1024,
-                            PARQUET,
+                            sinkConfig.getFileFormat(),
                             new HashMap<>(),
                             checkAndGetEqualityFieldIds(),
                             true);

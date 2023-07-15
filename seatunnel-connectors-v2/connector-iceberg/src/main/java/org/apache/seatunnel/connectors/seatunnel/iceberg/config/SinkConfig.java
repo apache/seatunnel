@@ -20,6 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.data.SupportedFileFormat;
+
+import org.apache.iceberg.FileFormat;
 
 import lombok.Getter;
 
@@ -37,8 +40,15 @@ public class SinkConfig extends CommonConfig {
     public static final Option<List<String>> PRIMARY_KEYS =
             Options.key("primary_keys").listType().noDefaultValue().withDescription("primary keys");
 
+    public static final Option<SupportedFileFormat> FILE_FORMAT =
+            Options.key("file_format")
+                    .enumType(SupportedFileFormat.class)
+                    .defaultValue(SupportedFileFormat.PARQUET)
+                    .withDescription("file format");
+
     @Getter private boolean enableUpsert = true;
     @Getter private List<String> primaryKeys;
+    @Getter private FileFormat fileFormat = FileFormat.PARQUET;
 
     public SinkConfig(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
@@ -47,6 +57,10 @@ public class SinkConfig extends CommonConfig {
         }
         if (pluginConfig.getOptional(PRIMARY_KEYS).isPresent()) {
             this.primaryKeys = pluginConfig.getOptional(PRIMARY_KEYS).get();
+        }
+        if (pluginConfig.getOptional(FILE_FORMAT).isPresent()) {
+            this.fileFormat =
+                    FileFormat.valueOf(pluginConfig.getOptional(FILE_FORMAT).get().name());
         }
     }
 }
