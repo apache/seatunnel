@@ -20,14 +20,15 @@ supports query SQL and can achieve projection effect.
 
 ## Options
 
-|      name      |  type  | required | default value |
-|----------------|--------|----------|---------------|
-| host           | string | yes      | -             |
-| database       | string | yes      | -             |
-| sql            | string | yes      | -             |
-| username       | string | yes      | -             |
-| password       | string | yes      | -             |
-| common-options |        | no       | -             |
+|       name       |  type  | required |     default value      |
+|------------------|--------|----------|------------------------|
+| host             | string | yes      | -                      |
+| database         | string | yes      | -                      |
+| sql              | string | yes      | -                      |
+| username         | string | yes      | -                      |
+| password         | string | yes      | -                      |
+| server_time_zone | string | no       | ZoneId.systemDefault() |
+| common-options   |        | no       | -                      |
 
 ### host [string]
 
@@ -49,6 +50,10 @@ The query sql used to search data though Clickhouse server
 
 `ClickHouse` user password
 
+### server_time_zone [string]
+
+The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
@@ -64,6 +69,7 @@ source {
     sql = "select * from test where age = 20 limit 100"
     username = "default"
     password = ""
+    server_time_zone = "UTC"
     result_table_name = "test"
   }
   
@@ -78,11 +84,11 @@ source {
 
 ### 2.3.0-beta 2022-10-20
 
-- [Improve] Clickhouse Source random use host when config multi-host ([3108](https://github.com/apache/incubator-seatunnel/pull/3108))
+- [Improve] Clickhouse Source random use host when config multi-host ([3108](https://github.com/apache/seatunnel/pull/3108))
 
 ### next version
 
-- [Improve] Clickhouse Source support nest type and array type([3047](https://github.com/apache/incubator-seatunnel/pull/3047))
+- [Improve] Clickhouse Source support nest type and array type([3047](https://github.com/apache/seatunnel/pull/3047))
 
-- [Improve] Clickhouse Source support geo type([3141](https://github.com/apache/incubator-seatunnel/pull/3141))
+- [Improve] Clickhouse Source support geo type([3141](https://github.com/apache/seatunnel/pull/3141))
 

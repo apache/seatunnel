@@ -99,7 +99,9 @@ public class JdbcSource
                 new SimpleJdbcConnectionProvider(jdbcSourceConfig.getJdbcConnectionConfig());
         this.query = jdbcSourceConfig.getQuery();
         this.jdbcDialect =
-                JdbcDialectLoader.load(jdbcSourceConfig.getJdbcConnectionConfig().getUrl());
+                JdbcDialectLoader.load(
+                        jdbcSourceConfig.getJdbcConnectionConfig().getUrl(),
+                        jdbcSourceConfig.getJdbcConnectionConfig().getCompatibleMode());
         try (Connection connection = jdbcConnectionProvider.getOrEstablishConnection()) {
             this.typeInfo = initTableField(connection);
             this.partitionParameter =

@@ -107,7 +107,7 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
                                                 log.debug(
                                                         "NotifyTaskRestoreOperation.finished "
                                                                 + restoredState);
-                                            } catch (Exception e) {
+                                            } catch (Throwable e) {
                                                 task.getExecutionContext()
                                                         .sendToMaster(
                                                                 new CheckpointErrorReportOperation(

@@ -142,6 +142,6 @@ ClickhouseFile {
 
 ### Next version
 
-- [BugFix] Fix generated data part name conflict and improve file commit logic [3416](https://github.com/apache/incubator-seatunnel/pull/3416)
-- [Feature] Support compatible_mode compatible with lower version Clickhouse  [3416](https://github.com/apache/incubator-seatunnel/pull/3416)
+- [BugFix] Fix generated data part name conflict and improve file commit logic [3416](https://github.com/apache/seatunnel/pull/3416)
+- [Feature] Support compatible_mode compatible with lower version Clickhouse  [3416](https://github.com/apache/seatunnel/pull/3416)
 

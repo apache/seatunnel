@@ -30,6 +30,8 @@ import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJsonString;
+
 public class GetJobMetricsOperation extends Operation
         implements IdentifiedDataSerializable, AllowedDuringPassiveState {
     private long jobId;
@@ -70,9 +72,10 @@ public class GetJobMetricsOperation extends Operation
         CompletableFuture<String> future =
                 CompletableFuture.supplyAsync(
                         () -> {
-                            return service.getCoordinatorService()
-                                    .getJobMetrics(jobId)
-                                    .toJsonString();
+                            return toJsonString(
+                                    service.getCoordinatorService()
+                                            .getJobMetrics(jobId)
+                                            .getMetrics());
                         },
                         getNodeEngine()
                                 .getExecutionService()

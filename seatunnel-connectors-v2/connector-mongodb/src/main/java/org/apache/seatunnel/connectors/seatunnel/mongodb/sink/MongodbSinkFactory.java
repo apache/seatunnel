@@ -48,7 +48,7 @@ public class MongodbSinkFactory implements TableSinkFactory {
                         MongodbConfig.RETRY_MAX,
                         MongodbConfig.RETRY_INTERVAL,
                         MongodbConfig.UPSERT_ENABLE,
-                        MongodbConfig.UPSERT_KEY)
+                        MongodbConfig.PRIMARY_KEY)
                 .build();
     }
 }
