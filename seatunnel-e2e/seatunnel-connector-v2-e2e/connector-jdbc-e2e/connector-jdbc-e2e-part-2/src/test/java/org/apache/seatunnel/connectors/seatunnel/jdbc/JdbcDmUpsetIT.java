@@ -38,7 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class JdbcDmIT extends AbstractJdbcIT {
+public class JdbcDmUpsetIT extends AbstractJdbcIT {
 
     private static final String DM_IMAGE = "laglangyue/dmdb8";
     private static final String DM_CONTAINER_HOST = "e2e_dmdb";
@@ -48,55 +48,40 @@ public class JdbcDmIT extends AbstractJdbcIT {
     private static final String DM_SINK = "e2e_table_sink";
     private static final String DM_USERNAME = "SYSDBA";
     private static final String DM_PASSWORD = "SYSDBA";
-    private static final int DM_PORT = 5236;
+    private static final int DM_PORT = 5336;
     private static final String DM_URL = "jdbc:dm://" + HOST + ":%s";
 
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_dm_source_and_sink.conf");
+            Lists.newArrayList("/jdbc_dm_source_and_dm_upset_sink.conf");
     private static final String CREATE_SQL =
             "create table if not exists %s"
                     + "(\n"
                     + "    DM_BIT              BIT,\n"
                     + "    DM_INT              INT,\n"
                     + "    DM_INTEGER          INTEGER,\n"
-                    + "    DM_PLS_INTEGER      PLS_INTEGER,\n"
                     + "    DM_TINYINT          TINYINT,\n"
                     + "\n"
                     + "    DM_BYTE             BYTE,\n"
                     + "    DM_SMALLINT         SMALLINT,\n"
                     + "    DM_BIGINT           BIGINT,\n"
                     + "\n"
-                    + "    DM_NUMERIC          NUMERIC,\n"
                     + "    DM_NUMBER           NUMBER,\n"
                     + "    DM_DECIMAL          DECIMAL,\n"
-                    + "    DM_DEC              DEC,\n"
-                    + "\n"
-                    + "    DM_REAL             REAL,\n"
                     + "    DM_FLOAT            FLOAT,\n"
                     + "    DM_DOUBLE_PRECISION DOUBLE PRECISION,\n"
                     + "    DM_DOUBLE           DOUBLE,\n"
                     + "\n"
                     + "    DM_CHAR             CHAR,\n"
-                    + "    DM_CHARACTER        CHARACTER,\n"
                     + "    DM_VARCHAR          VARCHAR,\n"
                     + "    DM_VARCHAR2         VARCHAR2,\n"
                     + "    DM_TEXT             TEXT,\n"
                     + "    DM_LONG             LONG,\n"
-                    + "    DM_LONGVARCHAR      LONGVARCHAR,\n"
-                    + "    DM_CLOB             CLOB,\n"
                     + "\n"
                     + "    DM_TIMESTAMP        TIMESTAMP,\n"
                     + "    DM_DATETIME         DATETIME,\n"
-                    + "    DM_DATE             DATE,\n"
-                    + "\n"
-                    + "    DM_BLOB             BLOB,\n"
-                    + "    DM_BINARY           BINARY,\n"
-                    + "    DM_VARBINARY        VARBINARY,\n"
-                    + "    DM_LONGVARBINARY    LONGVARBINARY,\n"
-                    + "    DM_IMAGE            IMAGE,\n"
-                    + "    DM_BFILE            BFILE\n"
+                    + "    DM_DATE             DATE\n"
                     + ")";
 
     @Override
@@ -145,36 +130,23 @@ public class JdbcDmIT extends AbstractJdbcIT {
                     "DM_BIT",
                     "DM_INT",
                     "DM_INTEGER",
-                    "DM_PLS_INTEGER",
                     "DM_TINYINT",
                     "DM_BYTE",
                     "DM_SMALLINT",
                     "DM_BIGINT",
-                    "DM_NUMERIC",
                     "DM_NUMBER",
                     "DM_DECIMAL",
-                    "DM_DEC",
-                    "DM_REAL",
                     "DM_FLOAT",
                     "DM_DOUBLE_PRECISION",
                     "DM_DOUBLE",
                     "DM_CHAR",
-                    "DM_CHARACTER",
                     "DM_VARCHAR",
                     "DM_VARCHAR2",
                     "DM_TEXT",
                     "DM_LONG",
-                    "DM_LONGVARCHAR",
-                    "DM_CLOB",
                     "DM_TIMESTAMP",
                     "DM_DATETIME",
-                    "DM_DATE",
-                    "DM_BLOB",
-                    "DM_BINARY",
-                    "DM_VARBINARY",
-                    "DM_LONGVARBINARY",
-                    "DM_IMAGE",
-                    "DM_BFILE"
+                    "DM_DATE"
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -185,36 +157,23 @@ public class JdbcDmIT extends AbstractJdbcIT {
                                 i % 2 == 0 ? (byte) 1 : (byte) 0,
                                 i,
                                 i,
-                                i,
                                 Short.valueOf("1"),
                                 Byte.valueOf("1"),
                                 i,
                                 Long.parseLong("1"),
-                                BigDecimal.valueOf(i, 0),
-                                BigDecimal.valueOf(i, 18),
                                 BigDecimal.valueOf(i, 18),
                                 BigDecimal.valueOf(i, 18),
                                 Float.parseFloat("1.1"),
-                                Float.parseFloat("1.1"),
                                 Double.parseDouble("1.1"),
                                 Double.parseDouble("1.1"),
-                                'f',
                                 'f',
                                 String.format("f1_%s", i),
                                 String.format("f1_%s", i),
                                 String.format("f1_%s", i),
                                 String.format("{\"aa\":\"bb_%s\"}", i),
-                                String.format("f1_%s", i),
-                                String.format("f1_%s", i),
                                 Timestamp.valueOf(LocalDateTime.now()),
                                 new Timestamp(System.currentTimeMillis()),
-                                Date.valueOf(LocalDate.now()),
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null
+                                Date.valueOf(LocalDate.now())
                             });
             rows.add(row);
         }
@@ -230,7 +189,7 @@ public class JdbcDmIT extends AbstractJdbcIT {
                         .withNetworkAliases(DM_CONTAINER_HOST)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 5236, 5236)));
+        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 5336, 5236)));
 
         return container;
     }
