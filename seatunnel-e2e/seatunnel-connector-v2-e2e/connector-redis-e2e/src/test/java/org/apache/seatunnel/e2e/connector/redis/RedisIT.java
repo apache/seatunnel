@@ -200,7 +200,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(100, jedis.llen("key_list"));
         // Clear data to prevent data duplication in the next TestContainer
-        jedis.del("key_list");
+        Thread.sleep(60 * 1000);
         Assertions.assertEquals(0, jedis.llen("key_list"));
     }
 }
