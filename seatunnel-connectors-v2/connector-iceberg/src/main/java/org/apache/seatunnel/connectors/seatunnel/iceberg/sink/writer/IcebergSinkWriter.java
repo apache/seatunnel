@@ -24,13 +24,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
-/**
- *
- *
- * @author mustard
- * @version 1.0
- * Create by 2023-07-05
- */
 @Slf4j
 public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 

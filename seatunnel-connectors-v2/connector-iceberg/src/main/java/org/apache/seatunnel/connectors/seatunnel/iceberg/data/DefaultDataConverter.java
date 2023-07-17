@@ -19,13 +19,6 @@ import java.util.*;
 
 import static org.apache.iceberg.types.Type.TypeID.*;
 
-/**
- *
- *
- * @author mustard
- * @version 1.0
- * Create by 2023-07-05
- */
 @RequiredArgsConstructor
 @Slf4j
 public class DefaultDataConverter implements DataConverter {

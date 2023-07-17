@@ -8,13 +8,6 @@ import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
 
-/**
- *
- *
- * @author mustard
- * @version 1.0
- * Create by 2023-07-05
- */
 @AutoService(Factory.class)
 public class IcebergSinkFactory implements TableSinkFactory {
 

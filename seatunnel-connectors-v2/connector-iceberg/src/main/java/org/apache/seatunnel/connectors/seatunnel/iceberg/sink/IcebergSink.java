@@ -28,13 +28,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-/**
- *
- *
- * @author mustard
- * @version 1.0
- * Create by 2023-07-05
- */
 @AutoService(SeaTunnelSink.class)
 public class IcebergSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 

@@ -6,13 +6,6 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-/**
- *
- *
- * @author mustard
- * @version 1.0
- * Create by 2023-07-05
- */
 @Getter
 @ToString
 public class SinkConfig extends CommonConfig {
