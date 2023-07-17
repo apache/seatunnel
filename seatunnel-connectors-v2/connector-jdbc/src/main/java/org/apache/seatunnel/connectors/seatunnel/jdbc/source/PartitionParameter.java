@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -28,6 +30,7 @@ import java.math.BigDecimal;
 public class PartitionParameter implements Serializable {
 
     String partitionColumnName;
+    SeaTunnelDataType<?> dataType;
     BigDecimal minValue;
     BigDecimal maxValue;
     Integer partitionNumber;

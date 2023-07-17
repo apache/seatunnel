@@ -85,6 +85,10 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory, Suppor
                         MySqlSourceOptions.STOP_MODE,
                         StopMode.TIMESTAMP,
                         SourceOptions.STOP_TIMESTAMP)
+                .conditional(
+                        MySqlSourceOptions.STARTUP_MODE,
+                        StartupMode.INITIAL,
+                        SourceOptions.EXACTLY_ONCE)
                 .build();
     }
 

@@ -35,6 +35,7 @@
 - [Connector-v2] [File] Fix configuration file format and error comments (#4762)
 - [Connector-v2] [Jdbc] Fix oracle sql table identifier (#4754)
 - [Connector-v2] [Clickhouse] fix get clickhouse local table name with closing bracket from distributed table engineFull (#4710)
+- [Connector-v2] [CDC] Fix jdbc connection leak for mysql (#5037)
 
 ### Zeta(ST-Engine)
 
@@ -176,3 +177,4 @@
 - [Docs] Add the generate sink sql parameter And example (#4769)
 - [Docs] Redshift add defaultRowFetchSize (#4616)
 - [Docs] Refactor connector-v2 docs using unified format Mysql (#4590)
+- [Docs] Add Value types in Java to Schema features (#5087)
