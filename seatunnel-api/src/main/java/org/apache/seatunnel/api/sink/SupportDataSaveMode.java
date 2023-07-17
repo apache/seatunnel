@@ -17,55 +17,16 @@
 
 package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-
-import java.util.List;
-import java.util.Locale;
-
 /** The Sink Connectors which support data SaveMode should implement this interface */
 public interface SupportDataSaveMode {
-
+    String SAVE_MODE_KEY = "savemode";
     /**
-     * We hope every sink connector use the same option name to config SaveMode, So I add
-     * checkOptions method to this interface. checkOptions method have a default implement to check
-     * whether `save_mode` parameter is in config.
+     * Return the value of DataSaveMode configured by user in the job config file.
      *
-     * @param config config of sink Connector
+     * @return
      */
-    default void checkOptions(Config config) {
-        if (config.hasPath(SinkCommonOptions.DATA_SAVE_MODE)) {
-            String tableSaveMode = config.getString(SinkCommonOptions.DATA_SAVE_MODE);
-            DataSaveMode dataSaveMode =
-                    DataSaveMode.valueOf(tableSaveMode.toUpperCase(Locale.ROOT));
-            if (!supportedDataSaveModeValues().contains(dataSaveMode)) {
-                throw new SeaTunnelRuntimeException(
-                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                        "This connector don't support save mode: " + dataSaveMode);
-            }
-        }
-    }
+    DataSaveMode getUserConfigSaveMode();
 
-    /**
-     * Get the {@link DataSaveMode} that the user configured
-     *
-     * @return DataSaveMode
-     */
-    DataSaveMode getDataSaveMode();
-
-    /**
-     * Return the {@link DataSaveMode} list supported by this connector
-     *
-     * @return the list of supported data save modes
-     */
-    List<DataSaveMode> supportedDataSaveModeValues();
-
-    /**
-     * The implementation of specific logic according to different {@link DataSaveMode}
-     *
-     * @param saveMode data save mode
-     */
-    void handleSaveMode(DataSaveMode saveMode);
+    /** The implementation of specific logic according to different {@link DataSaveMode} */
+    void handleSaveMode(DataSaveMode userConfigSaveMode);
 }
