@@ -54,7 +54,8 @@ public class JdbcDmIT extends AbstractJdbcIT {
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_dm_source_and_sink.conf");
+            Lists.newArrayList(
+                    "/jdbc_dm_source_and_sink.conf", "/jdbc_dm_source_and_dm_upset_sink.conf");
     private static final String CREATE_SQL =
             "create table if not exists %s"
                     + "(\n"
