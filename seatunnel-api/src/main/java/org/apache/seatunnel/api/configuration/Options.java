@@ -249,7 +249,7 @@ public class Options {
          * @param value The default value for the config option
          * @return The config option with the default value.
          */
-        public Option<T> defaultValue(T value) {
+        public SingleChoiceOption<T> defaultValue(T value) {
             return new SingleChoiceOption<T>(key, typeReference, optionValues, value);
         }
 
@@ -258,7 +258,7 @@ public class Options {
          *
          * @return The config option without a default value.
          */
-        public Option<T> noDefaultValue() {
+        public SingleChoiceOption<T> noDefaultValue() {
             return new SingleChoiceOption<T>(key, typeReference, optionValues, null);
         }
     }
