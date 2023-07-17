@@ -74,7 +74,7 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
         this.format = FileFormat.valueOf(sinkConfig.getFileFormat().toUpperCase(Locale.ENGLISH));
         this.fileFactory = OutputFileFactory.builderFor(table, 1, 1).format(format).build();
-        this.partition = createPartitionKey();
+        this.partition = p_createPartitionKey();
     }
 
     @Override
@@ -82,20 +82,14 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         pendingRows.add(defaultDataConverter.toIcebergStruct(element));
 
         if (pendingRows.size() >= sinkConfig.getMaxRow()) {
-            FileAppenderFactory<Record> appenderFactory = createAppenderFactory(null, null, null);
-            DataFile dataFile = prepareDataFile(pendingRows, appenderFactory);
-            table.newRowDelta().addRows(dataFile).commit();
-            pendingRows.clear();
+            p_write();
         }
     }
 
     @Override
     public void close() throws IOException {
         if (pendingRows.size() > 0) {
-            FileAppenderFactory<Record> appenderFactory = createAppenderFactory(null, null, null);
-            DataFile dataFile = prepareDataFile(pendingRows, appenderFactory);
-            table.newRowDelta().addRows(dataFile).commit();
-            pendingRows.clear();
+            p_write();
         }
 
         if (Objects.nonNull(icebergTableLoader)) {
@@ -104,7 +98,7 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
-    private PartitionKey createPartitionKey() {
+    private PartitionKey p_createPartitionKey() {
         if (table.spec().isUnpartitioned()) {
             return null;
         }
@@ -126,8 +120,8 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         );
     }
 
-    private DataFile prepareDataFile(List<Record> rowSet, FileAppenderFactory<Record> appenderFactory) throws IOException {
-        DataWriter<Record> writer = appenderFactory.newDataWriter(createEncryptedOutputFile(), format, partition);
+    private DataFile p_prepareDataFile(List<Record> rowSet, FileAppenderFactory<Record> appenderFactory) throws IOException {
+        DataWriter<Record> writer = appenderFactory.newDataWriter(p_createEncryptedOutputFile(), format, partition);
 
         try (DataWriter<Record> closeableWriter = writer) {
             for (Record row : rowSet) {
@@ -137,11 +131,18 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         return writer.toDataFile();
     }
 
-    private EncryptedOutputFile createEncryptedOutputFile() {
+    private EncryptedOutputFile p_createEncryptedOutputFile() {
         if (Objects.isNull(partition)) {
             return fileFactory.newOutputFile();
         } else {
             return fileFactory.newOutputFile(partition);
         }
+    }
+
+    private void p_write() throws IOException {
+        FileAppenderFactory<Record> appenderFactory = createAppenderFactory(null, null, null);
+        DataFile dataFile = p_prepareDataFile(pendingRows, appenderFactory);
+        table.newRowDelta().addRows(dataFile).commit();
+        pendingRows.clear();
     }
 }
