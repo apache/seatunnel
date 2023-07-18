@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.iceberg;
 
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 
 import org.apache.iceberg.CachingCatalog;
 import org.apache.iceberg.Table;

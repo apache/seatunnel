@@ -17,10 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.sink;
 
-import com.google.auto.service.AutoService;
-import lombok.SneakyThrows;
-import org.apache.iceberg.Schema;
-import org.apache.iceberg.types.Types;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -37,7 +35,12 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.IcebergSinkWriter;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.types.Types;
+
+import com.google.auto.service.AutoService;
+import lombok.SneakyThrows;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -77,7 +80,8 @@ public class IcebergSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
+            throws IOException {
         return new IcebergSinkWriter(context, tableSchema, seaTunnelRowType, sinkConfig);
     }
 
@@ -98,15 +102,17 @@ public class IcebergSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
             columnDataTypes.add(IcebergTypeMapper.mapping(column.type()));
         }
 
-        SeaTunnelRowType originalRowType = new SeaTunnelRowType(
-                columnNames.toArray(new String[0]),
-                columnDataTypes.toArray(new SeaTunnelDataType[0])
-        );
+        SeaTunnelRowType originalRowType =
+                new SeaTunnelRowType(
+                        columnNames.toArray(new String[0]),
+                        columnDataTypes.toArray(new SeaTunnelDataType[0]));
 
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, CommonConfig.KEY_FIELDS.key());
+        CheckResult checkResult =
+                CheckConfigUtil.checkAllExists(pluginConfig, CommonConfig.KEY_FIELDS.key());
 
         if (checkResult.isSuccess()) {
-            SeaTunnelRowType projectedRowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+            SeaTunnelRowType projectedRowType =
+                    CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
 
             for (int i = 0; i < projectedRowType.getFieldNames().length; i++) {
                 String fieldName = projectedRowType.getFieldName(i);

@@ -23,8 +23,8 @@ Sink connector for Apache Iceberg. It only can support batch mode at present.
 
 ## Options
 
-| name           | type    | required | default value |
-| -------------- | ------- | -------- | ------------- |
+|      name      |  type   | required | default value |
+|----------------|---------|----------|---------------|
 | catalog_name   | string  | yes      | -             |
 | catalog_type   | string  | yes      | -             |
 | uri            | string  | no       | -             |
@@ -60,7 +60,7 @@ The iceberg database name in the backend catalog.
 
 ### batch_size [int]
 
-For batch writing, when the number of buffered records reaches the number of `batch_size`, the data will be flushed into the database. 
+For batch writing, when the number of buffered records reaches the number of `batch_size`, the data will be flushed into the database.
 
 ### table [string]
 
@@ -119,10 +119,11 @@ hive-exec-xxx.jar
 libfb303-xxx.jar
 ```
 
-Some versions of the hive-exec package do not have libfb303-xxx.jar, so you also need to manually import the Jar package. 
+Some versions of the hive-exec package do not have libfb303-xxx.jar, so you also need to manually import the Jar package.
 
 ## Changelog
 
 ### 2.3.2 2023-07-18
 
 - Add Iceberg Sink Connector
+

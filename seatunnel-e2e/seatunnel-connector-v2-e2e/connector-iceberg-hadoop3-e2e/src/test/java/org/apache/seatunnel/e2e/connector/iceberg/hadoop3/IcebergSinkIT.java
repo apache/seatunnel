@@ -17,12 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.iceberg.hadoop3;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.iceberg.Schema;
-import org.apache.iceberg.catalog.Catalog;
-import org.apache.iceberg.catalog.Namespace;
-import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.types.Types;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -30,12 +24,21 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.catalog.Catalog;
+import org.apache.iceberg.catalog.Namespace;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.types.Types;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.utility.MountableFile;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
@@ -71,12 +74,10 @@ public class IcebergSinkIT extends TestSuiteBase implements TestResource {
 
     @AfterAll
     @Override
-    public void tearDown() throws Exception {
-    }
+    public void tearDown() throws Exception {}
 
     @TestTemplate
-    public void testIcebergSink(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testIcebergSink(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/iceberg/iceberg_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
@@ -87,5 +88,4 @@ public class IcebergSinkIT extends TestSuiteBase implements TestResource {
             CATALOG.createTable(TABLE, SCHEMA);
         }
     }
-
 }

@@ -1,15 +1,5 @@
 package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.iceberg.*;
-import org.apache.iceberg.data.GenericAppenderFactory;
-import org.apache.iceberg.data.GenericRecord;
-import org.apache.iceberg.data.Record;
-import org.apache.iceberg.encryption.EncryptedOutputFile;
-import org.apache.iceberg.io.DataWriter;
-import org.apache.iceberg.io.FileAppenderFactory;
-import org.apache.iceberg.io.OutputFileFactory;
-import org.apache.iceberg.util.ArrayUtil;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -18,6 +8,17 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.DataConverter;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.DefaultDataConverter;
+
+import org.apache.iceberg.data.GenericAppenderFactory;
+import org.apache.iceberg.data.GenericRecord;
+import org.apache.iceberg.data.Record;
+import org.apache.iceberg.encryption.EncryptedOutputFile;
+import org.apache.iceberg.io.DataWriter;
+import org.apache.iceberg.io.FileAppenderFactory;
+import org.apache.iceberg.io.OutputFileFactory;
+import org.apache.iceberg.util.ArrayUtil;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -112,18 +113,20 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         return partitionKey;
     }
 
-    protected FileAppenderFactory<Record> createAppenderFactory(List<Integer> equalityFieldIds, Schema eqDeleteSchema, Schema posDeleteRowSchema) {
+    protected FileAppenderFactory<Record> createAppenderFactory(
+            List<Integer> equalityFieldIds, Schema eqDeleteSchema, Schema posDeleteRowSchema) {
         return new GenericAppenderFactory(
                 table.schema(),
                 table.spec(),
                 ArrayUtil.toIntArray(equalityFieldIds),
                 eqDeleteSchema,
-                posDeleteRowSchema
-        );
+                posDeleteRowSchema);
     }
 
-    private DataFile prepareDataFile(List<Record> rowSet, FileAppenderFactory<Record> appenderFactory) throws IOException {
-        DataWriter<Record> writer = appenderFactory.newDataWriter(createEncryptedOutputFile(), format, partition);
+    private DataFile prepareDataFile(
+            List<Record> rowSet, FileAppenderFactory<Record> appenderFactory) throws IOException {
+        DataWriter<Record> writer =
+                appenderFactory.newDataWriter(createEncryptedOutputFile(), format, partition);
 
         try (DataWriter<Record> closeableWriter = writer) {
             for (Record row : rowSet) {
