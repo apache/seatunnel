@@ -161,6 +161,7 @@ public class JobHistoryService {
     public void storeFinishedJobState(JobMaster jobMaster) {
         JobState jobState = toJobStateMapper(jobMaster, false);
         jobState.setFinishTime(System.currentTimeMillis());
+        jobState.setErrorMessage(jobMaster.getErrorMessage());
         finishedJobStateImap.put(jobState.jobId, jobState, 14, TimeUnit.DAYS);
     }
 
@@ -223,7 +224,8 @@ public class JobHistoryService {
         JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
         String jobName = jobMaster.getJobImmutableInformation().getJobName();
         long submitTime = jobMaster.getJobImmutableInformation().getCreateTime();
-        return new JobState(jobId, jobName, jobStatus, submitTime, null, pipelineStateMapperMap);
+        return new JobState(
+                jobId, jobName, jobStatus, submitTime, null, pipelineStateMapperMap, null);
     }
 
     public void storeJobInfo(long jobId, JobDAGInfo jobInfo) {
@@ -239,6 +241,7 @@ public class JobHistoryService {
         private long submitTime;
         private Long finishTime;
         private Map<PipelineLocation, PipelineStateData> pipelineStateMapperMap;
+        private String errorMessage;
     }
 
     @AllArgsConstructor
