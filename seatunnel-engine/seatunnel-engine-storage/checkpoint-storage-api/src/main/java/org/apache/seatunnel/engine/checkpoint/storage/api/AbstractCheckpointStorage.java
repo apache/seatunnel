@@ -51,7 +51,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
      * serializer,default is protostuff,if necessary, consider other serialization methods,
      * temporarily hard-coding
      */
-    private final Serializer serializer = new ProtoStuffSerializer();
+    protected final Serializer serializer = new ProtoStuffSerializer();
 
     public static final String DEFAULT_CHECKPOINT_FILE_PATH_SPLIT = "/";
 

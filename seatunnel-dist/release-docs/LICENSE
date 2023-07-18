@@ -275,7 +275,8 @@ The text of each license is the standard Apache 2.0 license.
      (Apache-2.0) listenablefuture (com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava https://mvnrepository.com/artifact/com.google.guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava)
      (Apache-2.0) accessors-smart (com.google.guava:accessors-smart:2.4.7 - https://mvnrepository.com/artifact/net.minidev/accessors-smart)
      (Apache-2.0) json-smart (net.minidev:json-smart:2.4.7 - https://mvnrepository.com/artifact/net.minidev/json-smart)
-
+     (Apache-2.0) kafka-clients (org.apache.kafka:kafka-clients:3.4.1 - https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients)
+     (Apache-2.0) lz4-java (org.lz4:lz4-java:1.8.0 - https://mvnrepository.com/artifact/org.lz4/lz4-java)
 ========================================================================
 MOZILLA PUBLIC LICENSE License
 ========================================================================
@@ -294,6 +295,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (New BSD license) Protocol Buffer Java API (com.google.protobuf:protobuf-java:2.5.0 - http://code.google.com/p/protobuf)
      (BSD 3-Clause) Scala Library (org.scala-lang:scala-library:2.11.12 - http://www.scala-lang.org/)
      (BSD 3-Clause) Scala Library (org.ow2.asm:asm:9.1 - https://mvnrepository.com/artifact/org.ow2.asm/asm/)
+     (BSD 2-Clause) zstd-jni (com.github.luben:zstd-jni:1.5.2-1 - https://mvnrepository.com/artifact/com.github.luben/zstd-jni)
 ========================================================================
 CDDL License
 ========================================================================

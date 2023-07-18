@@ -23,29 +23,42 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel-engine-storage</artifactId>
+        <artifactId>checkpoint-storage-plugins</artifactId>
         <version>${revision}</version>
     </parent>
 
-    <artifactId>checkpoint-storage-plugins</artifactId>
-    <packaging>pom</packaging>
-    <name>SeaTunnel : Engine : Storage : Checkpoint Storage Plugins :</name>
-
-    <modules>
-        <module>checkpoint-storage-local-file</module>
-        <module>checkpoint-storage-hdfs</module>
-        <module>checkpoint-storage-kafka</module>
-    </modules>
+    <artifactId>checkpoint-storage-kafka</artifactId>
+    <name>SeaTunnel : Engine : Storage : Checkpoint Storage Plugins : Kafka</name>
 
     <dependencies>
         <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>checkpoint-storage-api</artifactId>
-            <version>${project.version}</version>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <version>3.4.1</version>
         </dependency>
         <dependency>
-            <groupId>com.google.auto.service</groupId>
-            <artifactId>auto-service</artifactId>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-collections4</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>kafka</artifactId>
+            <version>1.17.6</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

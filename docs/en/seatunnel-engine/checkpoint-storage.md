@@ -185,3 +185,25 @@ seatunnel:
 
 ```
 
+#### Kafka
+
+Kafka is not only a message queue but also a storage engine, especially the Kafka compact topic, which can be used as a kv storage engine; Kafka compact topic supports key merging and tombstone message deletion
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      max-concurrent: 1
+      tolerable-failure: 2
+      storage:
+        type: kafka
+        max-retained: 3
+        plugin-config:
+          bootstrap.servers: localhost:9092
+          storage.compact.topic.replication.factor: 1
+          storage.compact.topic.partition: 12
+          checkpoint.storage.compact.topic: checkpoint-storage-config
+```
+
