@@ -142,7 +142,7 @@ For a guide on how to set up Grafana server go to the [Installation](https://gra
 #### Monitoring Dashboard
 
 - Add Prometheus DataSource on Grafana.
-- Import `Seatunnel Cluster` monitoring dashboard by [Dashboard JSON](./grafana/grafanaDashboard.json) into Grafana.
+- Import `Seatunnel Cluster` monitoring dashboard by [Dashboard JSON](./grafana/dashboard.json) into Grafana.
 
 The [effect image](../images/cluster_monitoring.png) of the dashboard
 
