@@ -34,6 +34,7 @@ import org.apache.iceberg.hive.HiveCatalog;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import sun.security.krb5.KrbException;
 
 import java.io.File;
 import java.io.IOException;
@@ -155,9 +156,10 @@ public class IcebergCatalogFactory implements Serializable {
                         "Start Kerberos authentication using principal {} and keytab {}",
                         principal,
                         keytabPath);
+                sun.security.krb5.Config.refresh();
                 UserGroupInformation.loginUserFromKeytab(principal, keytabPath);
                 log.info("Kerberos authentication successful");
-            } catch (IOException e) {
+            } catch (IOException | KrbException e) {
                 throw new SeaTunnelException("check connectivity failed, " + e.getMessage(), e);
             }
         }
