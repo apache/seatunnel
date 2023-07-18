@@ -21,7 +21,6 @@ import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
 import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstance;
 
 import com.hazelcast.cluster.impl.MemberImpl;
-import com.hazelcast.internal.jmx.InstanceMBean;
 import io.prometheus.client.GaugeMetricFamily;
 
 import java.net.UnknownHostException;
