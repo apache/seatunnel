@@ -46,7 +46,7 @@ public class JobExecutionIT {
     private static HazelcastInstanceImpl hazelcastInstance;
 
     @BeforeAll
-    public static void beforeClass() throws Exception {
+    public static void beforeClass() {
         hazelcastInstance =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName("JobExecutionIT"));

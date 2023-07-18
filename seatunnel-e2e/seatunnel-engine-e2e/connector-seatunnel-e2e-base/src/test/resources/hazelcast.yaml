@@ -42,4 +42,3 @@ hazelcast:
     hazelcast.slow.operation.detector.stacktrace.logging.enabled: true
     hazelcast.logging.type: log4j2
     hazelcast.operation.generic.thread.count: 200
-#    hazelcast.jet.enabled: true

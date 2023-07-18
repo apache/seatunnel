@@ -25,8 +25,6 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.apache.commons.lang3.StringUtils;
 
-import java.io.IOException;
-
 /** This command is used to execute the SeaTunnel engine job by SeaTunnel API. */
 public class ServerExecuteCommand implements Command<ServerCommandArgs> {
 
@@ -37,7 +35,7 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
     }
 
     @Override
-    public void execute() throws IOException {
+    public void execute() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         if (StringUtils.isNotEmpty(serverCommandArgs.getClusterName())) {
             seaTunnelConfig.getHazelcastConfig().setClusterName(serverCommandArgs.getClusterName());

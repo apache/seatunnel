@@ -44,7 +44,10 @@ import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.internal.util.StringUtil;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
+import io.prometheus.client.exporter.common.TextFormat;
 
+import java.io.IOException;
+import java.io.StringWriter;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -57,6 +60,8 @@ import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TELEMETRY_METRICS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TELEMETRY_OPEN_METRICS_URL;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
@@ -91,6 +96,10 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 handleJobInfoById(httpGetCommand, uri);
             } else if (uri.startsWith(SYSTEM_MONITORING_INFORMATION)) {
                 getSystemMonitoringInformation(httpGetCommand);
+            } else if (uri.equals(TELEMETRY_METRICS_URL)) {
+                handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_004);
+            } else if (uri.equals(TELEMETRY_OPEN_METRICS_URL)) {
+                handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_OPENMETRICS_100);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -205,6 +214,31 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         metricsMap.put("sinkWriteCount", sinkWriteCount);
 
         return metricsMap;
+    }
+
+    private void handleMetrics(HttpGetCommand httpGetCommand, String contentType) {
+        StringWriter stringWriter = new StringWriter();
+        org.apache.seatunnel.engine.server.NodeExtension nodeExtension =
+                (org.apache.seatunnel.engine.server.NodeExtension)
+                        textCommandService.getNode().getNodeExtension();
+        try {
+            TextFormat.writeFormat(
+                    contentType,
+                    stringWriter,
+                    nodeExtension.getCollectorRegistry().metricFamilySamples());
+            this.prepareResponse(httpGetCommand, stringWriter.toString());
+        } catch (IOException e) {
+            httpGetCommand.send400();
+        } finally {
+            try {
+                if (stringWriter != null) {
+                    stringWriter.close();
+                }
+            } catch (IOException e) {
+                logger.warning("An error occurred while handling request " + httpGetCommand, e);
+                prepareResponse(SC_500, httpGetCommand, exceptionResponse(e));
+            }
+        }
     }
 
     private SeaTunnelServer getSeaTunnelServer() {

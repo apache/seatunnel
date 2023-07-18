@@ -26,7 +26,6 @@ import io.prometheus.client.CounterMetricFamily;
 import io.prometheus.client.GaugeMetricFamily;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class JobThreadPoolStatusExports extends AbstractCollector {
@@ -43,11 +42,11 @@ public class JobThreadPoolStatusExports extends AbstractCollector {
         List<MetricFamilySamples> mfs = new ArrayList();
         CoordinatorService coordinatorService = getCoordinatorService();
 
-        String address = getNode().getNodeEngine().getLocalMember().getAddress().toString();
-        List<String> labelValues = Collections.singletonList(address);
+        List<String> labelValues = labelValues(localAddress());
 
         ThreadPoolStatus threadPoolStatusMetrics = coordinatorService.getThreadPoolStatusMetrics();
-        List<String> labelNames = Collections.singletonList("address");
+        List<String> labelNames = clusterLabelNames(ADDRESS);
+
         GaugeMetricFamily activeCount =
                 new GaugeMetricFamily(
                         "job_thread_pool_activeCount",
@@ -67,7 +66,7 @@ public class JobThreadPoolStatusExports extends AbstractCollector {
         GaugeMetricFamily corePoolSize =
                 new GaugeMetricFamily(
                         "job_thread_pool_corePoolSize",
-                        String.format(HELP, "activeCount"),
+                        String.format(HELP, "corePoolSize"),
                         labelNames);
         corePoolSize.addMetric(labelValues, threadPoolStatusMetrics.getCorePoolSize());
         mfs.add(corePoolSize);

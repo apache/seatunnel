@@ -31,7 +31,6 @@ import org.junit.jupiter.api.Test;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
 
-import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -41,7 +40,7 @@ import static org.awaitility.Awaitility.await;
 
 public class CoordinatorServiceTest {
     @Test
-    public void testMasterNodeActive() throws IOException {
+    public void testMasterNodeActive() {
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName("CoordinatorServiceTest_testMasterNodeActive"));
@@ -85,8 +84,7 @@ public class CoordinatorServiceTest {
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testClearCoordinatorService()
-            throws IOException, NoSuchMethodException, InvocationTargetException,
-                    IllegalAccessException {
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         HazelcastInstanceImpl coordinatorServiceTest =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName(
@@ -141,7 +139,7 @@ public class CoordinatorServiceTest {
 
     @Test
     @Disabled("disabled because we can not know")
-    public void testJobRestoreWhenMasterNodeSwitch() throws InterruptedException, IOException {
+    public void testJobRestoreWhenMasterNodeSwitch() {
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName(
