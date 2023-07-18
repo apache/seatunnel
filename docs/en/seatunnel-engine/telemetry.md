@@ -125,6 +125,8 @@ scrape_configs:
   # The job name assigned to scraped metrics by default.
   - job_name: 'seatunnel'
     scrape_interval: 5s
+    # Metrics export path 
+    metrics_path: /hazelcast/rest/instance/metrics
     # List of labeled statically configured targets for this job.
     static_configs:
       # The targets specified by the static config.
