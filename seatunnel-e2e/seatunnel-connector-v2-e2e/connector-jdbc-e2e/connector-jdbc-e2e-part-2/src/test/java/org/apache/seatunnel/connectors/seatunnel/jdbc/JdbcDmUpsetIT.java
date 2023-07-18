@@ -44,8 +44,8 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
     private static final String DM_CONTAINER_HOST = "e2e_dmdb";
 
     private static final String DM_DATABASE = "SYSDBA";
-    private static final String DM_SOURCE = "e2e_table_source";
-    private static final String DM_SINK = "e2e_table_sink";
+    private static final String DM_SOURCE = "e2e_table_source_upset";
+    private static final String DM_SINK = "e2e_table_sink_upset";
     private static final String DM_USERNAME = "SYSDBA";
     private static final String DM_PASSWORD = "SYSDBA";
     private static final int DM_PORT = 5336;
