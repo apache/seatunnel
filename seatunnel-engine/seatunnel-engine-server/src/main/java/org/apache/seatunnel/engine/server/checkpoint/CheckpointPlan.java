@@ -28,7 +28,6 @@ import lombok.Getter;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 /** checkpoint plan info */
@@ -64,7 +63,7 @@ public class CheckpointPlan {
     public static final class Builder {
         private final Set<TaskLocation> pipelineSubtasks = new CopyOnWriteArraySet<>();
         private final Set<TaskLocation> startingSubtasks = new CopyOnWriteArraySet<>();
-        private final Map<ActionStateKey, Integer> pipelineActions = new ConcurrentHashMap<>();
+        private final Map<ActionStateKey, Integer> pipelineActions = new CopyOnWriteHashMap<>();
 
         private final Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions =
                 new CopyOnWriteHashMap<>();

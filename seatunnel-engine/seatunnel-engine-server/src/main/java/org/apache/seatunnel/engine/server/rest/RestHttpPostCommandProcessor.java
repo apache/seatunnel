@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -118,13 +118,14 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                         .getSerializationService()
                         .toData(jobImmutableInformation);
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-                coordinatorService.submitJob(Long.parseLong(jobConfig.getJobContext().getJobId()), data);
+                coordinatorService.submitJob(
+                        Long.parseLong(jobConfig.getJobContext().getJobId()), data);
         voidPassiveCompletableFuture.join();
 
         Long jobId = jobImmutableInformationEnv.getJobId();
-        this.prepareResponse(httpPostCommand, new JsonObject()
-                                                .add("jobId", jobId)
-                                                .add("jobName", requestParams.get("jobName")));
+        this.prepareResponse(
+                httpPostCommand,
+                new JsonObject().add("jobId", jobId).add("jobName", requestParams.get("jobName")));
     }
 
     @Override
