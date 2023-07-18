@@ -234,15 +234,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         TelemetryMetricConfig metricConfig = new TelemetryMetricConfig();
         for (Node node : childElements(metricNode)) {
             String name = cleanNodeName(node);
-            if (ServerConfigOptions.TELEMETRY_METRIC_HTTP_PORT.key().equals(name)) {
-                metricConfig.setHttpPort(
-                        getIntegerValue(
-                                ServerConfigOptions.TELEMETRY_METRIC_HTTP_PORT.key(),
-                                getTextContent(node)));
-            } else if (ServerConfigOptions.TELEMETRY_METRIC_LOAD_DEFAULT_EXPORTS
-                    .key()
-                    .equals(name)) {
-                metricConfig.setLoadDefaultExports(getBooleanValue(getTextContent(node)));
+            if (ServerConfigOptions.TELEMETRY_METRIC_ENABLED.key().equals(name)) {
+                metricConfig.setEnabled(getBooleanValue(getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

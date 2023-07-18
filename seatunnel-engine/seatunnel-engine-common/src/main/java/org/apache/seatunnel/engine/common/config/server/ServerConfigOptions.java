@@ -146,17 +146,11 @@ public class ServerConfigOptions {
                     .noDefaultValue()
                     .withDescription("The checkpoint storage instance configuration.");
 
-    public static final Option<Integer> TELEMETRY_METRIC_HTTP_PORT =
-            Options.key("http-port")
-                    .intType()
-                    .defaultValue(9090)
-                    .withDescription("The telemetry metric server's port.");
-
-    public static final Option<Boolean> TELEMETRY_METRIC_LOAD_DEFAULT_EXPORTS =
-            Options.key("load-default-exports")
+    public static final Option<Boolean> TELEMETRY_METRIC_ENABLED =
+            Options.key("enabled")
                     .booleanType()
                     .defaultValue(true)
-                    .withDescription("Whether to load default jvm exports.");
+                    .withDescription("Whether open metrics export.");
 
     public static final Option<TelemetryMetricConfig> TELEMETRY_METRIC =
             Options.key("metric")

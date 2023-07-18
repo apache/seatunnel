@@ -17,18 +17,13 @@
 
 package org.apache.seatunnel.engine.server.telemetry.metrics;
 
-import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-
 import com.hazelcast.instance.impl.Node;
 
-import java.io.IOException;
+public final class ExportsInstanceInitializer {
 
-public final class ExportsInstanceFactory {
+    private ExportsInstanceInitializer() {}
 
-    private ExportsInstanceFactory() {}
-
-    public static ExportsInstance newExportsInstance(Node node, SeaTunnelConfig seaTunnelConfig)
-            throws IOException {
-        return new ExportsInstance(node, seaTunnelConfig);
+    public static void init(Node node) {
+        new ExportsInstance(node);
     }
 }

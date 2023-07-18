@@ -25,4 +25,7 @@ public class RestConstant {
 
     public static final String SYSTEM_MONITORING_INFORMATION =
             "/hazelcast/rest/maps/system-monitoring-information";
+
+    public static final String TELEMETRY_METRICS_URL = "/hazelcast/rest/instance/metrics";
+    public static final String TELEMETRY_OPEN_METRICS_URL = "/hazelcast/rest/instance/openmetrics";
 }

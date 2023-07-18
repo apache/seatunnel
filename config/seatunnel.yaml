@@ -37,5 +37,4 @@ seatunnel:
           fs.defaultFS: file:///tmp/ # Ensure that the directory has written permission
     telemetry:
       metric:
-        http-port: 9090
-        load-default-exports: false
+        enabled: true

@@ -20,12 +20,23 @@ package org.apache.seatunnel.engine.server.telemetry.metrics;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
+import com.google.common.collect.Lists;
 import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.instance.impl.Node;
+import com.hazelcast.internal.cluster.ClusterService;
+import com.hazelcast.internal.jmx.ManagementService;
 import com.hazelcast.logging.ILogger;
 import io.prometheus.client.Collector;
+import io.prometheus.client.GaugeMetricFamily;
+
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.List;
 
 public abstract class AbstractCollector extends Collector {
+
+    protected static String CLUSTER = "cluster";
+    protected static String ADDRESS = "address";
 
     protected ExportsInstance exportsInstance;
 
@@ -55,5 +66,56 @@ public abstract class AbstractCollector extends Collector {
 
     protected CoordinatorService getCoordinatorService() {
         return getServer().getCoordinatorService();
+    }
+
+    protected ManagementService getManagementService() {
+        return getNode().hazelcastInstance.getManagementService();
+    }
+
+    protected ClusterService getClusterService() {
+        return getNode().getClusterService();
+    }
+
+    protected String localAddress() {
+        return getLocalMember().getInetAddress().getHostAddress()
+                + ":"
+                + getLocalMember().getPort();
+    }
+
+    protected String masterAddress() throws UnknownHostException {
+        return getClusterService().getMasterAddress().getInetAddress().getHostAddress()
+                + ":"
+                + getClusterService().getMasterAddress().getPort();
+    }
+
+    protected String getClusterName() {
+        return getNode().getConfig().getClusterName();
+    }
+
+    protected List<String> labelValues(String... values) {
+        List<String> labelValues = new ArrayList<>();
+        labelValues.add(getClusterName());
+        if (values != null) {
+            labelValues.addAll(Lists.newArrayList(values));
+        }
+        return labelValues;
+    }
+
+    protected List<String> clusterLabelNames(String... labels) {
+        List<String> labelNames = new ArrayList<>();
+        labelNames.add(CLUSTER);
+        if (labels != null) {
+            labelNames.addAll(Lists.newArrayList(labels));
+        }
+        return labelNames;
+    }
+
+    protected void longMetric(
+            GaugeMetricFamily metricFamily, long count, List<String> labelValues) {
+        metricFamily.addMetric(labelValues, count);
+    }
+
+    protected void intMetric(GaugeMetricFamily metricFamily, int count, List<String> labelValues) {
+        metricFamily.addMetric(labelValues, count);
     }
 }

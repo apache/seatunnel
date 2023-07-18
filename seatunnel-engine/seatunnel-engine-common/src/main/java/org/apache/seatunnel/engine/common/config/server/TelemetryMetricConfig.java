@@ -21,19 +21,8 @@ import lombok.Data;
 
 import java.io.Serializable;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 @Data
 public class TelemetryMetricConfig implements Serializable {
 
-    private int httpPort = ServerConfigOptions.TELEMETRY_METRIC_HTTP_PORT.defaultValue();
-    private boolean loadDefaultExports =
-            ServerConfigOptions.TELEMETRY_METRIC_LOAD_DEFAULT_EXPORTS.defaultValue();
-
-    public void setHttpPort(int httpPort) {
-        checkArgument(
-                httpPort >= 0,
-                "The number of http's port failed checkpoints must be a natural number.");
-        this.httpPort = httpPort;
-    }
+    private boolean enabled = ServerConfigOptions.TELEMETRY_METRIC_ENABLED.defaultValue();
 }
