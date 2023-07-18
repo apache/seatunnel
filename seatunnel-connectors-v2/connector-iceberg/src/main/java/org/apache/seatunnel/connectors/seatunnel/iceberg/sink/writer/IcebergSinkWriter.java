@@ -10,6 +10,7 @@ import org.apache.iceberg.io.DataWriter;
 import org.apache.iceberg.io.FileAppenderFactory;
 import org.apache.iceberg.io.OutputFileFactory;
 import org.apache.iceberg.util.ArrayUtil;
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -27,7 +28,7 @@ import java.util.Objects;
 @Slf4j
 public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private Context context;
+    private SinkWriter.Context context;
 
     private Schema tableSchema;
 
@@ -51,12 +52,14 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private OutputFileFactory fileFactory = null;
 
+    FileAppenderFactory<Record> appenderFactory = null;
 
     public IcebergSinkWriter(
-            Context context,
+            SinkWriter.Context context,
             Schema tableSchema,
             SeaTunnelRowType seaTunnelRowType,
             SinkConfig sinkConfig) {
+
         this.context = context;
         this.sinkConfig = sinkConfig;
         this.tableSchema = tableSchema;
@@ -74,23 +77,22 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
         this.format = FileFormat.valueOf(sinkConfig.getFileFormat().toUpperCase(Locale.ENGLISH));
         this.fileFactory = OutputFileFactory.builderFor(table, 1, 1).format(format).build();
-        this.partition = p_createPartitionKey();
+        this.partition = createPartitionKey();
+        this.appenderFactory = createAppenderFactory(null, null, null);
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         pendingRows.add(defaultDataConverter.toIcebergStruct(element));
 
-        if (pendingRows.size() >= sinkConfig.getMaxRow()) {
-            p_write();
+        if (pendingRows.size() >= sinkConfig.getBatchSize()) {
+            writeData();
         }
     }
 
     @Override
     public void close() throws IOException {
-        if (pendingRows.size() > 0) {
-            p_write();
-        }
+        writeData();
 
         if (Objects.nonNull(icebergTableLoader)) {
             icebergTableLoader.close();
@@ -98,7 +100,7 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
-    private PartitionKey p_createPartitionKey() {
+    private PartitionKey createPartitionKey() {
         if (table.spec().isUnpartitioned()) {
             return null;
         }
@@ -120,8 +122,8 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         );
     }
 
-    private DataFile p_prepareDataFile(List<Record> rowSet, FileAppenderFactory<Record> appenderFactory) throws IOException {
-        DataWriter<Record> writer = appenderFactory.newDataWriter(p_createEncryptedOutputFile(), format, partition);
+    private DataFile prepareDataFile(List<Record> rowSet, FileAppenderFactory<Record> appenderFactory) throws IOException {
+        DataWriter<Record> writer = appenderFactory.newDataWriter(createEncryptedOutputFile(), format, partition);
 
         try (DataWriter<Record> closeableWriter = writer) {
             for (Record row : rowSet) {
@@ -131,7 +133,7 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         return writer.toDataFile();
     }
 
-    private EncryptedOutputFile p_createEncryptedOutputFile() {
+    private EncryptedOutputFile createEncryptedOutputFile() {
         if (Objects.isNull(partition)) {
             return fileFactory.newOutputFile();
         } else {
@@ -139,10 +141,12 @@ public class IcebergSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
-    private void p_write() throws IOException {
-        FileAppenderFactory<Record> appenderFactory = createAppenderFactory(null, null, null);
-        DataFile dataFile = p_prepareDataFile(pendingRows, appenderFactory);
-        table.newRowDelta().addRows(dataFile).commit();
-        pendingRows.clear();
+    private void writeData() throws IOException {
+        if (pendingRows.size() > 0) {
+            DataFile dataFile = prepareDataFile(pendingRows, appenderFactory);
+            table.newRowDelta().addRows(dataFile).commit();
+
+            pendingRows.clear();
+        }
     }
 }

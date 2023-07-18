@@ -26,7 +26,8 @@ public class IcebergSinkFactory implements TableSinkFactory {
                         SinkConfig.KEY_FIELDS,
                         SinkConfig.KEY_NAMESPACE,
                         SinkConfig.KEY_TABLE,
-                        SinkConfig.KEY_WAREHOUSE
+                        SinkConfig.KEY_WAREHOUSE,
+                        SinkConfig.BATCH_SIZE
                 )
                 .optional(SinkConfig.KEY_URI)
                 .build();

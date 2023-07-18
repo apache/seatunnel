@@ -11,13 +11,15 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 public class SinkConfig extends CommonConfig {
     private static final long serialVersionUID = -196561967575264253L;
 
-    public static final Option<Integer> KEY_MAX_ROW =
-            Options.key("max_row")
+    public static final Option<Integer> BATCH_SIZE =
+            Options.key("batch_size")
                     .intType()
                     .defaultValue(1)
-                    .withDescription(" sink max row");
+                    .withDescription("batch size");
 
-    private int maxRow = 1;
+    private int batchSize;
+
+    private int batchIntervalMs;
 
     private final int maxDataSize = 1;
 
@@ -32,8 +34,8 @@ public class SinkConfig extends CommonConfig {
     public static SinkConfig loadConfig(Config pluginConfig) {
         SinkConfig sinkConfig = new SinkConfig(pluginConfig);
 
-        if (pluginConfig.hasPath(KEY_MAX_ROW.key())) {
-            sinkConfig.maxRow = pluginConfig.getInt(KEY_MAX_ROW.key());
+        if (pluginConfig.hasPath(BATCH_SIZE.key())) {
+            sinkConfig.batchSize = pluginConfig.getInt(BATCH_SIZE.key());
         }
 
         return sinkConfig;
