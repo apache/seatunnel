@@ -34,7 +34,7 @@ public abstract class SparkAbstractPluginExecuteProcessor<T>
     protected final List<? extends Config> pluginConfigs;
     protected final JobContext jobContext;
     protected final List<T> plugins;
-    protected static final String ENGINE_TYPE = "seatunnel";
+    protected static final String ENGINE_TYPE = "spark";
     protected static final String PLUGIN_NAME = "plugin_name";
     protected static final String RESULT_TABLE_NAME = "result_table_name";
     protected static final String SOURCE_TABLE_NAME = "source_table_name";
