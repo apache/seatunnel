@@ -21,9 +21,9 @@ seatunnel:
 
 ## Metrics
 
-The [metric text of prometheus](./prometheus/metrics.txt),which get from `http:{instanceHost}:5701/hazelcast/rest/instance/metrics`.
+The [metric text of prometheus](./prometheus/metrics.txt),which get from `http:{instanceHost}:5801/hazelcast/rest/instance/metrics`.
 
-The [metric text of openMetrics](./openmetrics/metrics.txt),which get from `http:{instanceHost}:5701/hazelcast/rest/instance/openmetrics`.
+The [metric text of openMetrics](./openmetrics/metrics.txt),which get from `http:{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
 
 Available metrics include the following categories.
 
@@ -130,7 +130,7 @@ scrape_configs:
     # List of labeled statically configured targets for this job.
     static_configs:
       # The targets specified by the static config.
-      - targets: ['localhost:5701']
+      - targets: ['localhost:5801']
       # Labels assigned to all metrics scraped from the targets.
       # labels: [<labelName>:<labelValue>]
 ```
