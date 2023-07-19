@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
@@ -69,7 +70,11 @@ import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
-        value = {},
+        value = {
+            TestContainerId.FLINK_1_13,
+            TestContainerId.FLINK_1_14,
+            TestContainerId.FLINK_1_15
+        },
         type = {EngineType.SPARK},
         disabledReason = "Spark engine will lose the row kind of record")
 public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
