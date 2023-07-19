@@ -49,6 +49,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
 | sheet_name                | string  | no       | -                   |
+| compress_codec            | string  | no       | none                |
 
 ### path [string]
 
@@ -224,6 +225,11 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ### sheet_name [string]
 
 Reader the sheet of the workbook,Only used when file_format is excel.
+
+### compress_codec [string]
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
 
 ## Example
 
