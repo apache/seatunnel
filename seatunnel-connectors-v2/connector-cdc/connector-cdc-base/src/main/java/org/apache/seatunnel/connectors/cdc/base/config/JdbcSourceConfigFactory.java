@@ -60,7 +60,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     @Setter protected boolean exactlyOnce = JdbcSourceOptions.EXACTLY_ONCE.defaultValue();
     protected Properties dbzProperties;
 
-    /** Integer port number of the database server. */
+    /** String hostname of the database server. */
     public JdbcSourceConfigFactory hostname(String hostname) {
         this.hostname = hostname;
         return this;
