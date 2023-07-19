@@ -19,6 +19,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -30,6 +31,7 @@ import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -44,8 +46,8 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
     private static final String DM_CONTAINER_HOST = "e2e_dmdb";
 
     private static final String DM_DATABASE = "SYSDBA";
-    private static final String DM_SOURCE = "e2e_table_source_upset";
-    private static final String DM_SINK = "e2e_table_sink_upset";
+    private static final String DM_SOURCE = "E2E_TABLE_SOURCE_UPSET";
+    private static final String DM_SINK = "E2E_TABLE_SINK_UPSET";
     private static final String DM_USERNAME = "SYSDBA";
     private static final String DM_PASSWORD = "SYSDBA";
     private static final int DM_PORT = 5336;
@@ -83,6 +85,35 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
                     + "    DM_DATETIME         DATETIME,\n"
                     + "    DM_DATE             DATE\n"
                     + ")";
+    private static final String CREATE_SINKTABLE_SQL =
+            "create table if not exists %s"
+                    + "(\n"
+                    + "    DM_BIT              BIT,\n"
+                    + "    DM_INT              INT,\n"
+                    + "    DM_INTEGER          INTEGER,\n"
+                    + "    DM_TINYINT          TINYINT,\n"
+                    + "\n"
+                    + "    DM_BYTE             BYTE,\n"
+                    + "    DM_SMALLINT         SMALLINT,\n"
+                    + "    DM_BIGINT           BIGINT,\n"
+                    + "\n"
+                    + "    DM_NUMBER           NUMBER,\n"
+                    + "    DM_DECIMAL          DECIMAL,\n"
+                    + "    DM_FLOAT            FLOAT,\n"
+                    + "    DM_DOUBLE_PRECISION DOUBLE PRECISION,\n"
+                    + "    DM_DOUBLE           DOUBLE,\n"
+                    + "\n"
+                    + "    DM_CHAR             CHAR,\n"
+                    + "    DM_VARCHAR          VARCHAR,\n"
+                    + "    DM_VARCHAR2         VARCHAR2,\n"
+                    + "    DM_TEXT             TEXT,\n"
+                    + "    DM_LONG             LONG,\n"
+                    + "\n"
+                    + "    DM_TIMESTAMP        TIMESTAMP,\n"
+                    + "    DM_DATETIME         DATETIME,\n"
+                    + "    DM_DATE             DATE,\n"
+                    + "    CONSTRAINT DMPKID PRIMARY KEY (DM_BIT) \n"
+                    + ")";
 
     @Override
     JdbcCase getJdbcCase() {
@@ -117,6 +148,30 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
 
     @Override
     void compareResult() {}
+
+    @Override
+    protected void createNeededTables() {
+        try (Statement statement = connection.createStatement()) {
+            String createTemplate = jdbcCase.getCreateSql();
+
+            String createSource =
+                    String.format(
+                            createTemplate,
+                            buildTableInfoWithSchema(
+                                    jdbcCase.getDatabase(), jdbcCase.getSourceTable()));
+            String createSink =
+                    String.format(
+                            CREATE_SINKTABLE_SQL,
+                            buildTableInfoWithSchema(
+                                    jdbcCase.getDatabase(), jdbcCase.getSinkTable()));
+
+            statement.execute(createSource);
+            statement.execute(createSink);
+            connection.commit();
+        } catch (Exception exception) {
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
+        }
+    }
 
     @Override
     String driverUrl() {
