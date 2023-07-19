@@ -32,8 +32,7 @@ public class SeaTunnelEngineExample {
 
     public static void main(String[] args)
             throws IOException, URISyntaxException, CommandException {
-        String configurePath =
-                args.length > 0 ? args[0] : "/examples/fake_to_console.conf";
+        String configurePath = args.length > 0 ? args[0] : "/examples/fake_to_console.conf";
         String configFile = getTestConfigFile(configurePath);
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setConfigFile(configFile);
