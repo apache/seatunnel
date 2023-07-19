@@ -196,7 +196,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRedisWithExpire(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/redis-to-redis-1.conf");
+        Container.ExecResult execResult = container.executeJob("/redis-to-redis-expire.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(100, jedis.llen("key_list"));
         // Clear data to prevent data duplication in the next TestContainer
