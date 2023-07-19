@@ -28,6 +28,21 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 |------------|--------------------|------------------------------------------------------------------------------------------------------------------|
 | Clickhouse | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-clickhouse) |
 
+## Data Type Mapping
+
+| SeaTunnel Data type |                                                             Clickhouse Data type                                                              |
+|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| STRING              | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            |
+| INT                 | Int8 / UInt8 / Int16 / UInt16 / Int32                                                                                                         |
+| BIGINT              | UInt64 / Int64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond |
+| DOUBLE              | Float64                                                                                                                                       |
+| DECIMAL             | Decimal                                                                                                                                       |
+| FLOAT               | Float32                                                                                                                                       |
+| DATE                | Date                                                                                                                                          |
+| TIME                | DateTime                                                                                                                                      |
+| ARRAY               | Array                                                                                                                                         |
+| MAP                 | Map                                                                                                                                           |
+
 ## Sink Options
 
 |                 Name                  |  Type   | Required | Default |                                                                                                                                                 Description                                                                                                                                                 |
@@ -46,9 +61,51 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | allow_experimental_lightweight_delete | Boolean | No       | false   | Allow experimental lightweight delete based on `*MergeTree` table engine.                                                                                                                                                                                                                                   |
 | common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.                                                                                                                                                                                                        |
 
-## Examples
+## How to Create a Clickhouse Data Synchronization Jobs
 
-Simple
+The following example demonstrates how to create a data synchronization job that writes randomly generated data to a Clickhouse database:
+
+```bash
+# Set the basic configuration of the task to be performed
+env {
+  execution.parallelism = 1
+  job.mode = "BATCH"
+  checkpoint.interval  = 1000
+}
+
+source {
+  FakeSource {
+      row.num = 2
+      bigint.min = 0
+      bigint.max = 10000000
+      split.num = 1
+      split.read-interval = 300
+      schema {
+        fields {
+          c_bigint = bigint
+        }
+      }
+    }
+}
+
+sink {
+  Clickhouse {
+    host = "127.0.0.1:9092"
+    database = "default"
+    table = "test"
+    username = "xxxxx"
+    password = "xxxxx"
+  }
+}
+```
+
+### Tips
+
+> 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.md). <br/>
+> 2.The table to be written to needs to be created in advance before synchronization.<br/>
+> 3.When sink is writing to the ClickHouse table, you don't need to set its schema because the connector will query ClickHouse for the current table's schema information before writing.<br/>
+
+## Clickhouse Sink Config
 
 ```hocon
 sink {
@@ -56,9 +113,9 @@ sink {
     host = "localhost:8123"
     database = "default"
     table = "fake_all"
-    username = "default"
-    password = ""
-    clickhouse.confg = {
+    username = "xxxxx"
+    password = "xxxxx"
+    clickhouse.config = {
       max_rows_to_read = "100"
       read_overflow_mode = "throw"
     }
@@ -66,7 +123,7 @@ sink {
 }
 ```
 
-Split mode
+## Split Mode
 
 ```hocon
 sink {
@@ -74,8 +131,8 @@ sink {
     host = "localhost:8123"
     database = "default"
     table = "fake_all"
-    username = "default"
-    password = ""
+    username = "xxxxx"
+    password = "xxxxx"
     
     # split mode options
     split_mode = true
@@ -84,7 +141,7 @@ sink {
 }
 ```
 
-CDC(Change data capture)
+## CDC(Change data capture) Sink
 
 ```hocon
 sink {
@@ -92,8 +149,8 @@ sink {
     host = "localhost:8123"
     database = "default"
     table = "fake_all"
-    username = "default"
-    password = ""
+    username = "xxxxx"
+    password = "xxxxx"
     
     # cdc options
     primary_key = "id"
@@ -102,7 +159,7 @@ sink {
 }
 ```
 
-CDC(Change data capture) for *MergeTree engine
+## CDC(Change data capture) for *MergeTree engine
 
 ```hocon
 sink {
@@ -110,8 +167,8 @@ sink {
     host = "localhost:8123"
     database = "default"
     table = "fake_all"
-    username = "default"
-    password = ""
+    username = "xxxxx"
+    password = "xxxxx"
     
     # cdc options
     primary_key = "id"
@@ -120,22 +177,4 @@ sink {
   }
 }
 ```
-
-## Changelog
-
-### 2.2.0-beta 2022-09-26
-
-- Add ClickHouse Sink Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [Improve] Clickhouse Support Int128,Int256 Type ([3067](https://github.com/apache/seatunnel/pull/3067))
-
-### next version
-
-- [Improve] Clickhouse Sink support nest type and array type([3047](https://github.com/apache/seatunnel/pull/3047))
-- [Improve] Clickhouse Sink support geo type([3141](https://github.com/apache/seatunnel/pull/3141))
-- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3653](https://github.com/apache/seatunnel/pull/3653))
-- [Improve] Remove Clickhouse Fields Config ([3826](https://github.com/apache/seatunnel/pull/3826))
-- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/seatunnel/pull/3719)
 
