@@ -23,8 +23,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
-
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ServiceConfigurationError;
@@ -48,8 +46,6 @@ public final class JdbcDialectLoader {
      * @return The loaded dialect.
      */
     public static JdbcDialect load(String url, String compatibleMode) {
-        Preconditions.checkNotNull(
-                url, "Miss <Source> Jdbc config url ! Please check the config file.");
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         List<JdbcDialectFactory> foundFactories = discoverFactories(cl);
 
