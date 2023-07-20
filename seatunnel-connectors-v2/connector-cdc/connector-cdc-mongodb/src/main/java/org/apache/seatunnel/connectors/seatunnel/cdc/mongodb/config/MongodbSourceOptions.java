@@ -27,6 +27,8 @@ import org.bson.BsonDouble;
 import org.bson.json.JsonMode;
 import org.bson.json.JsonWriterSettings;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -232,39 +234,20 @@ public class MongodbSourceOptions extends SourceOptions {
                     .withDescription(
                             "Decides if the table options contains Debezium client properties that start with prefix 'debezium'.");
 
-    //    public static final Option<StartupMode> STARTUP_MODE =
-    //            Options.key(SourceOptions.STARTUP_MODE_KEY)
-    //                    .singleChoice(
-    //                            StartupMode.class,
-    //                            Arrays.asList(
-    //                                    StartupMode.INITIAL, StartupMode.EARLIEST,
-    // StartupMode.LATEST))
-    //                    .defaultValue(StartupMode.INITIAL)
-    //                    .withDescription(
-    //                            "Optional startup mode for CDC source, valid enumerations are "
-    //                                    + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n
-    // or \"specific\"");
-
     public static final Option<StartupMode> STARTUP_MODE =
             Options.key(SourceOptions.STARTUP_MODE_KEY)
-                    .enumType(StartupMode.class)
+                    .singleChoice(
+                            StartupMode.class,
+                            Arrays.asList(
+                                    StartupMode.INITIAL, StartupMode.EARLIEST, StartupMode.LATEST))
                     .defaultValue(StartupMode.INITIAL)
                     .withDescription(
                             "Optional startup mode for CDC source, valid enumerations are "
                                     + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
 
-    //    public static final Option<StopMode> STOP_MODE =
-    //            Options.key(SourceOptions.STOP_MODE_KEY)
-    //                    .singleChoice(StopMode.class, Collections.singletonList(StopMode.NEVER))
-    //                    .defaultValue(StopMode.NEVER)
-    //                    .withDescription(
-    //                            "Optional stop mode for CDC source, valid enumerations are "
-    //                                    + "\"never\", \"latest\", \"timestamp\"\n or
-    // \"specific\"");
-
     public static final Option<StopMode> STOP_MODE =
             Options.key(SourceOptions.STOP_MODE_KEY)
-                    .enumType(StopMode.class)
+                    .singleChoice(StopMode.class, Collections.singletonList(StopMode.NEVER))
                     .defaultValue(StopMode.NEVER)
                     .withDescription(
                             "Optional stop mode for CDC source, valid enumerations are "
