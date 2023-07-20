@@ -111,7 +111,7 @@ public class SinkExecuteProcessor
                                         CommonOptions.PARALLELISM.defaultValue());
             }
             if (sinkConfig.hashPath(CommonOptions.PARTITION_BALANCE.key())) {
-                boolean needBalance = sinkConfig.getBoolean();
+                boolean needBalance = sinkConfig.getBoolean(CommonOptions.PARTITION_BALANCE.key());
                 if (needBalance) {
                     dataset = dataset.repartition(parallelism);
                 }
