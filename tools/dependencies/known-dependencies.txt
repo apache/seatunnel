@@ -35,4 +35,4 @@ jsr305-1.3.9.jar
 jsr305-3.0.0.jar
 jsr305-3.0.2.jar
 listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar
-avro-1.10.2.jar
+avro-1.11.1.jar
