@@ -15,9 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package mongodb.source;
 
-public class SinkCommonOptions {
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.MongodbIncrementalSourceFactory;
 
-    public static final String DATA_SAVE_MODE = "save_mode";
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+public class MongodbIncrementalSourceFactoryTest {
+    @Test
+    public void testOptionRule() {
+        Assertions.assertNotNull((new MongodbIncrementalSourceFactory()).optionRule());
+    }
 }

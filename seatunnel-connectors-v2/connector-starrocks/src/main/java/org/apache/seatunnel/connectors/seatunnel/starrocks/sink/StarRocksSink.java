@@ -42,9 +42,6 @@ import org.apache.commons.lang3.StringUtils;
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
 
-import java.util.Collections;
-import java.util.List;
-
 @NoArgsConstructor
 @AutoService(SeaTunnelSink.class)
 public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
@@ -56,12 +53,11 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     private CatalogTable catalogTable;
 
-    public StarRocksSink(
-            DataSaveMode dataSaveMode, SinkConfig sinkConfig, CatalogTable catalogTable) {
-        this.dataSaveMode = dataSaveMode;
+    public StarRocksSink(SinkConfig sinkConfig, CatalogTable catalogTable) {
         this.sinkConfig = sinkConfig;
         this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
         this.catalogTable = catalogTable;
+        this.dataSaveMode = sinkConfig.getDataSaveMode();
     }
 
     @Override
@@ -77,7 +73,7 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         if (StringUtils.isEmpty(sinkConfig.getTable()) && catalogTable != null) {
             sinkConfig.setTable(catalogTable.getTableId().getTableName());
         }
-        dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
+        dataSaveMode = sinkConfig.getDataSaveMode();
     }
 
     private void autoCreateTable(String template) {
@@ -117,13 +113,8 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public DataSaveMode getDataSaveMode() {
+    public DataSaveMode getUserConfigSaveMode() {
         return dataSaveMode;
-    }
-
-    @Override
-    public List<DataSaveMode> supportedDataSaveModeValues() {
-        return Collections.singletonList(DataSaveMode.KEEP_SCHEMA_AND_DATA);
     }
 
     @Override
