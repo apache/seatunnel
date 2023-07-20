@@ -27,6 +27,8 @@ import org.junit.jupiter.api.BeforeAll;
 import java.util.HashMap;
 import java.util.Map;
 
+@Disabled(
+        "HDFS is not available in CI, if you want to run this test, please set up your own HDFS environment")
 public class HDFSFileCheckpointTest extends AbstractFileCheckPointTest {
 
     @BeforeAll
