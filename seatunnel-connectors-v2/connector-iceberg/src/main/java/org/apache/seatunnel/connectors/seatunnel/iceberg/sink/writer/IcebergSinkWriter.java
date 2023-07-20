@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer;
 
-import org.apache.iceberg.DataFile;
-import org.apache.iceberg.FileFormat;
-import org.apache.iceberg.PartitionKey;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -29,6 +26,11 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.DataConverter;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.DefaultDataConverter;
 
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.PartitionKey;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.data.GenericAppenderFactory;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;

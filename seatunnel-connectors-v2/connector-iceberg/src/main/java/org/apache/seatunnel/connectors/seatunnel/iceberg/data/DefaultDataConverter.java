@@ -17,45 +17,56 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.data;
 
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
+
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
-import org.apache.seatunnel.api.table.type.*;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
+
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.time.*;
-import java.util.*;
-
-import static org.apache.iceberg.types.Type.TypeID.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @RequiredArgsConstructor
 @Slf4j
 public class DefaultDataConverter implements DataConverter {
 
-    @NonNull
-    private final SeaTunnelRowType seaTunnelRowType;
+    @NonNull private final SeaTunnelRowType seaTunnelRowType;
 
-    @NonNull
-    private final Schema icebergSchema;
+    @NonNull private final Schema icebergSchema;
 
-    private final Map<Type.TypeID, Object[]> arrayTypeMap = new HashMap<Type.TypeID, Object[]>() {
-        {
-            put(BOOLEAN, new Boolean[0]);
-            put(INTEGER, new Integer[0]);
-            put(LONG, new Long[0]);
-            put(FLOAT, new Float[0]);
-            put(DOUBLE, new Double[0]);
-            put(STRING, new String[0]);
-        }
-    };
+    private final Map<Type.TypeID, Object[]> arrayTypeMap =
+            new HashMap<Type.TypeID, Object[]>() {
+                {
+                    put(Type.TypeID.BOOLEAN, new Boolean[0]);
+                    put(Type.TypeID.INTEGER, new Integer[0]);
+                    put(Type.TypeID.LONG, new Long[0]);
+                    put(Type.TypeID.FLOAT, new Float[0]);
+                    put(Type.TypeID.DOUBLE, new Double[0]);
+                    put(Type.TypeID.STRING, new String[0]);
+                }
+            };
 
     @Override
     public SeaTunnelRow toSeaTunnelRowStruct(@NonNull Record record) {
@@ -66,7 +77,8 @@ public class DefaultDataConverter implements DataConverter {
             SeaTunnelDataType<?> seaTunnelFieldType = seaTunnelRowType.getFieldType(i);
             Types.NestedField icebergField = icebergSchema.findField(seaTunnelFieldName);
             Object icebergValue = record.getField(seaTunnelFieldName);
-            seaTunnelRow.setField(i, convertToSeaTunnel(icebergField.type(), icebergValue, seaTunnelFieldType));
+            seaTunnelRow.setField(
+                    i, convertToSeaTunnel(icebergField.type(), icebergValue, seaTunnelFieldType));
         }
 
         return seaTunnelRow;
@@ -81,13 +93,18 @@ public class DefaultDataConverter implements DataConverter {
             SeaTunnelDataType<?> seaTunnelFieldType = seaTunnelRowType.getFieldType(i);
             Types.NestedField icebergField = icebergSchema.findField(seaTunnelFieldName);
             Object value = row.getField(i);
-            genericRecord.setField(seaTunnelFieldName, convertToIceberg(seaTunnelFieldType, icebergField.type(), value));
+            genericRecord.setField(
+                    seaTunnelFieldName,
+                    convertToIceberg(seaTunnelFieldType, icebergField.type(), value));
         }
 
         return genericRecord;
     }
 
-    private Object convertToIceberg(@NonNull SeaTunnelDataType<?> seaTunnelType, @NonNull Type icebergType, Object seaTunnelValue) {
+    private Object convertToIceberg(
+            @NonNull SeaTunnelDataType<?> seaTunnelType,
+            @NonNull Type icebergType,
+            Object seaTunnelValue) {
         if (Objects.isNull(seaTunnelValue)) {
             return null;
         }
@@ -108,7 +125,7 @@ public class DefaultDataConverter implements DataConverter {
             case DECIMAL:
                 return BigDecimal.class.cast(seaTunnelValue);
             case BYTES:
-                if (icebergType.typeId() == FIXED) {
+                if (icebergType.typeId() == Type.TypeID.FIXED) {
                     return (byte[]) seaTunnelValue;
                 }
                 return ByteBuffer.wrap((byte[]) seaTunnelValue);
@@ -130,7 +147,11 @@ public class DefaultDataConverter implements DataConverter {
                 GenericRecord record = GenericRecord.create(icebergStructType);
                 for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
                     String fieldName = seaTunnelRowType.getFieldName(i);
-                    Object fieldValue = convertToIceberg(seaTunnelRowType.getFieldType(i), icebergStructType.fieldType(fieldName), seaTunnelRow.getField(i));
+                    Object fieldValue =
+                            convertToIceberg(
+                                    seaTunnelRowType.getFieldType(i),
+                                    icebergStructType.fieldType(fieldName),
+                                    seaTunnelRow.getField(i));
                     record.setField(fieldName, fieldValue);
                 }
                 return record;
@@ -140,7 +161,11 @@ public class DefaultDataConverter implements DataConverter {
                 List icebergList = new ArrayList(seaTunnelList.length);
                 ArrayType seatunnelListType = (ArrayType) seaTunnelType;
                 for (int i = 0; i < seaTunnelList.length; i++) {
-                    icebergList.add(convertToIceberg(seatunnelListType.getElementType(), icebergListType.elementType(), seaTunnelList[i]));
+                    icebergList.add(
+                            convertToIceberg(
+                                    seatunnelListType.getElementType(),
+                                    icebergListType.elementType(),
+                                    seaTunnelList[i]));
                 }
                 return icebergList;
             case MAP:
@@ -149,15 +174,27 @@ public class DefaultDataConverter implements DataConverter {
                 Map icebergMap = new HashMap();
                 MapType seaTunnelMapType = (MapType) seaTunnelType;
                 for (Map.Entry entry : seaTunnelMap.entrySet()) {
-                    icebergMap.put(convertToIceberg(seaTunnelMapType.getKeyType(), icebergMapType.keyType(), entry.getKey()), convertToIceberg(seaTunnelMapType.getValueType(), icebergMapType.valueType(), entry.getValue()));
+                    icebergMap.put(
+                            convertToIceberg(
+                                    seaTunnelMapType.getKeyType(),
+                                    icebergMapType.keyType(),
+                                    entry.getKey()),
+                            convertToIceberg(
+                                    seaTunnelMapType.getValueType(),
+                                    icebergMapType.valueType(),
+                                    entry.getValue()));
                 }
                 return icebergMap;
             default:
-                throw new UnsupportedOperationException("Unsupported seatunnel type: " + seaTunnelType);
+                throw new UnsupportedOperationException(
+                        "Unsupported seatunnel type: " + seaTunnelType);
         }
     }
 
-    private Object convertToSeaTunnel(@NonNull Type icebergType, Object icebergValue, @NonNull SeaTunnelDataType<?> seaTunnelType) {
+    private Object convertToSeaTunnel(
+            @NonNull Type icebergType,
+            Object icebergValue,
+            @NonNull SeaTunnelDataType<?> seaTunnelType) {
         if (Objects.isNull(icebergValue)) {
             return null;
         }
@@ -198,7 +235,11 @@ public class DefaultDataConverter implements DataConverter {
                 SeaTunnelRow seatunnelRow = new SeaTunnelRow(seaTunnelRowType.getTotalFields());
                 for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
                     String seatunnelFieldName = seaTunnelRowType.getFieldName(i);
-                    Object seatunnelFieldValue = convertToSeaTunnel(icebergStructType.fieldType(seatunnelFieldName), icebergStruct.getField(seatunnelFieldName), seaTunnelRowType.getFieldType(i));
+                    Object seatunnelFieldValue =
+                            convertToSeaTunnel(
+                                    icebergStructType.fieldType(seatunnelFieldName),
+                                    icebergStruct.getField(seatunnelFieldName),
+                                    seaTunnelRowType.getFieldType(i));
                     seatunnelRow.setField(i, seatunnelFieldValue);
                 }
                 return seatunnelRow;
@@ -209,7 +250,11 @@ public class DefaultDataConverter implements DataConverter {
                 Types.ListType icebergListType = (Types.ListType) icebergType;
                 ArrayType seatunnelListType = (ArrayType) seaTunnelType;
                 for (int i = 0; i < icebergList.size(); i++) {
-                    seatunnelList.add(convertToSeaTunnel(icebergListType.elementType(), icebergList.get(i), seatunnelListType.getElementType()));
+                    seatunnelList.add(
+                            convertToSeaTunnel(
+                                    icebergListType.elementType(),
+                                    icebergList.get(i),
+                                    seatunnelListType.getElementType()));
                 }
                 return seatunnelList.toArray(arrayTypeMap.get(typeID));
             case MAP:
@@ -218,12 +263,21 @@ public class DefaultDataConverter implements DataConverter {
                 Map seatunnelMap = new HashMap();
                 MapType seatunnelMapType = (MapType) seaTunnelType;
                 for (Map.Entry entry : icebergMap.entrySet()) {
-                    seatunnelMap.put(convertToSeaTunnel(icebergMapType.keyType(), entry.getKey(), seatunnelMapType.getKeyType()), convertToSeaTunnel(icebergMapType.valueType(), entry.getValue(), seatunnelMapType.getValueType()));
+                    seatunnelMap.put(
+                            convertToSeaTunnel(
+                                    icebergMapType.keyType(),
+                                    entry.getKey(),
+                                    seatunnelMapType.getKeyType()),
+                            convertToSeaTunnel(
+                                    icebergMapType.valueType(),
+                                    entry.getValue(),
+                                    seatunnelMapType.getValueType()));
                 }
                 return seatunnelMap;
             default:
-                throw new IcebergConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, String.format("Unsupported iceberg type: %s", icebergType));
+                throw new IcebergConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        String.format("Unsupported iceberg type: %s", icebergType));
         }
     }
-
 }
