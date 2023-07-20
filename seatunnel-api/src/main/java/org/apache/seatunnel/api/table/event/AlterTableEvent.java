@@ -15,22 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.record;
+package org.apache.seatunnel.api.table.event;
 
-/** Change the schema of the task and flow. */
-public class SchemaBarrier implements Barrier {
-    @Override
-    public long getId() {
-        return -1;
-    }
+import org.apache.seatunnel.api.table.catalog.TablePath;
 
-    @Override
-    public boolean snapshot() {
-        return false;
-    }
+import lombok.ToString;
 
-    @Override
-    public boolean prepareClose() {
-        return false;
+@ToString(callSuper = true)
+public abstract class AlterTableEvent extends TableEvent {
+    public AlterTableEvent(TablePath tablePath) {
+        super(tablePath);
     }
 }

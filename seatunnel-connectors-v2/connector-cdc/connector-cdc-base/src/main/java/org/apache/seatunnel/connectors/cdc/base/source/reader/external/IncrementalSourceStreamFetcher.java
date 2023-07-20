@@ -18,10 +18,13 @@
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent;
+import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 
 import org.apache.kafka.connect.source.SourceRecord;
 
@@ -31,6 +34,7 @@ import io.debezium.pipeline.DataChangeEvent;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -45,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, SourceSplitBase> {
     private final FetchTask.Context taskContext;
+    private final SchemaChangeResolver schemaChangeResolver;
     private final ExecutorService executorService;
     private volatile ChangeEventQueue<DataChangeEvent> queue;
     private volatile Throwable readException;
@@ -57,8 +62,12 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
 
     private static final long READER_CLOSE_TIMEOUT_SECONDS = 30L;
 
-    public IncrementalSourceStreamFetcher(FetchTask.Context taskContext, int subTaskId) {
+    public IncrementalSourceStreamFetcher(
+            FetchTask.Context taskContext,
+            int subTaskId,
+            SchemaChangeResolver schemaChangeResolver) {
         this.taskContext = taskContext;
+        this.schemaChangeResolver = schemaChangeResolver;
         ThreadFactory threadFactory =
                 new ThreadFactoryBuilder().setNameFormat("debezium-reader-" + subTaskId).build();
         this.executorService = Executors.newSingleThreadExecutor(threadFactory);
@@ -95,10 +104,25 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     public Iterator<SourceRecords> pollSplitRecords()
             throws InterruptedException, SeaTunnelException {
         checkReadException();
-        final List<SourceRecord> sourceRecords = new ArrayList<>();
+
+        Iterator<SourceRecords> sourceRecordsIterator = Collections.emptyIterator();
         if (streamFetchTask.isRunning()) {
             List<DataChangeEvent> batch = queue.poll();
-            for (DataChangeEvent event : batch) {
+            if (!batch.isEmpty()) {
+                if (schemaChangeResolver != null) {
+                    sourceRecordsIterator = splitSchemaChangeStream(batch);
+                } else {
+                    sourceRecordsIterator = splitNormalStream(batch);
+                }
+            }
+        }
+        return sourceRecordsIterator;
+    }
+
+    private Iterator<SourceRecords> splitNormalStream(List<DataChangeEvent> batchEvents) {
+        List<SourceRecord> sourceRecords = new ArrayList<>();
+        if (streamFetchTask.isRunning()) {
+            for (DataChangeEvent event : batchEvents) {
                 if (shouldEmit(event.getRecord())) {
                     sourceRecords.add(event.getRecord());
                 }
@@ -106,6 +130,92 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         }
         List<SourceRecords> sourceRecordsSet = new ArrayList<>();
         sourceRecordsSet.add(new SourceRecords(sourceRecords));
+        return sourceRecordsSet.iterator();
+    }
+
+    /**
+     * Split schema change stream.
+     *
+     * <p>For example 1:
+     *
+     * <p>Before event batch: [a, b, c, SchemaChangeEvent-1, SchemaChangeEvent-2, d, e]
+     *
+     * <p>After event batch: [a, b, c, checkpoint-before] [SchemaChangeEvent-1, SchemaChangeEvent-2,
+     * checkpoint-after] [d, e]
+     *
+     * <p>For example 2:
+     *
+     * <p>Before event batch: [SchemaChangeEvent-1, SchemaChangeEvent-2, a, b, c, d, e]
+     *
+     * <p>After event batch: [checkpoint-before] [SchemaChangeEvent-1, SchemaChangeEvent-2,
+     * checkpoint-after] [a, b, c, d, e]
+     */
+    private Iterator<SourceRecords> splitSchemaChangeStream(List<DataChangeEvent> batchEvents) {
+        List<SourceRecords> sourceRecordsSet = new ArrayList<>();
+
+        List<SourceRecord> sourceRecordList = new ArrayList<>();
+        SourceRecord previousRecord = null;
+        for (int i = 0; i < batchEvents.size(); i++) {
+            DataChangeEvent event = batchEvents.get(i);
+            SourceRecord currentRecord = event.getRecord();
+            if (!shouldEmit(currentRecord)) {
+                continue;
+            }
+            if (!SourceRecordUtils.isDataChangeRecord(currentRecord)
+                    && !SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
+                sourceRecordList.add(currentRecord);
+                continue;
+            }
+
+            if (SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
+                if (!schemaChangeResolver.support(currentRecord)) {
+                    continue;
+                }
+
+                if (previousRecord == null) {
+                    // add schema-change-before to first
+                    sourceRecordList.add(
+                            WatermarkEvent.createSchemaChangeBeforeWatermark(currentRecord));
+                    sourceRecordsSet.add(new SourceRecords(sourceRecordList));
+                    sourceRecordList = new ArrayList<>();
+                    sourceRecordList.add(currentRecord);
+                } else if (SourceRecordUtils.isSchemaChangeEvent(previousRecord)) {
+                    sourceRecordList.add(currentRecord);
+                } else {
+                    sourceRecordList.add(
+                            WatermarkEvent.createSchemaChangeBeforeWatermark(currentRecord));
+                    sourceRecordsSet.add(new SourceRecords(sourceRecordList));
+                    sourceRecordList = new ArrayList<>();
+                    sourceRecordList.add(currentRecord);
+                }
+            } else if (SourceRecordUtils.isDataChangeRecord(currentRecord)) {
+                if (previousRecord == null
+                        || SourceRecordUtils.isDataChangeRecord(previousRecord)) {
+                    sourceRecordList.add(currentRecord);
+                } else {
+                    sourceRecordList.add(
+                            WatermarkEvent.createSchemaChangeAfterWatermark(currentRecord));
+                    sourceRecordsSet.add(new SourceRecords(sourceRecordList));
+                    sourceRecordList = new ArrayList<>();
+                    sourceRecordList.add(currentRecord);
+                }
+            }
+            previousRecord = currentRecord;
+            if (i == batchEvents.size() - 1) {
+                if (SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
+                    sourceRecordList.add(
+                            WatermarkEvent.createSchemaChangeAfterWatermark(currentRecord));
+                }
+                sourceRecordsSet.add(new SourceRecords(sourceRecordList));
+            }
+        }
+
+        if (sourceRecordsSet.size() > 1) {
+            log.debug(
+                    "Split events stream into {} batches and mark schema checkpoint before/after",
+                    sourceRecordsSet.size());
+        }
+
         return sourceRecordsSet.iterator();
     }
 
