@@ -27,8 +27,6 @@ import org.bson.BsonDouble;
 import org.bson.json.JsonMode;
 import org.bson.json.JsonWriterSettings;
 
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -236,18 +234,14 @@ public class MongodbSourceOptions extends SourceOptions {
 
     public static final Option<StartupMode> STARTUP_MODE =
             Options.key(SourceOptions.STARTUP_MODE_KEY)
-                    .singleChoice(
-                            StartupMode.class,
-                            Arrays.asList(
-                                    StartupMode.INITIAL, StartupMode.EARLIEST, StartupMode.LATEST))
+                    .enumType(StartupMode.class)
                     .defaultValue(StartupMode.INITIAL)
                     .withDescription(
                             "Optional startup mode for CDC source, valid enumerations are "
                                     + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
-
     public static final Option<StopMode> STOP_MODE =
             Options.key(SourceOptions.STOP_MODE_KEY)
-                    .singleChoice(StopMode.class, Collections.singletonList(StopMode.NEVER))
+                    .enumType(StopMode.class)
                     .defaultValue(StopMode.NEVER)
                     .withDescription(
                             "Optional stop mode for CDC source, valid enumerations are "
