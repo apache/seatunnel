@@ -21,6 +21,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
 import com.google.auto.service.AutoService;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psqllow.PostgresLowDialect;
+
+import javax.annotation.Nonnull;
 
 @AutoService(JdbcDialectFactory.class)
 public class PostgresDialectFactory implements JdbcDialectFactory {
@@ -31,6 +34,14 @@ public class PostgresDialectFactory implements JdbcDialectFactory {
 
     @Override
     public JdbcDialect create() {
+        throw new UnsupportedOperationException(
+                "Can't create JdbcDialect without compatible mode for Postgres");
+    }
+    @Override
+    public JdbcDialect create(@Nonnull String compatibleMode) {
+        if ("postgresLow".equalsIgnoreCase(compatibleMode)) {
+            return new PostgresLowDialect();
+        }
         return new PostgresDialect();
     }
 }
