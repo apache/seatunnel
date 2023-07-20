@@ -50,7 +50,8 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
     private static final String DM_SINK = "E2E_TABLE_SINK_UPSET";
     private static final String DM_USERNAME = "SYSDBA";
     private static final String DM_PASSWORD = "SYSDBA";
-    private static final int DM_PORT = 5336;
+    private static final int DOCKET_PORT = 5236;
+    private static final int JDBC_PORT = 5336;
     private static final String DM_URL = "jdbc:dm://" + HOST + ":%s";
 
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
@@ -118,7 +119,7 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
     @Override
     JdbcCase getJdbcCase() {
         Map<String, String> containerEnv = new HashMap<>();
-        String jdbcUrl = String.format(DM_URL, DM_PORT);
+        String jdbcUrl = String.format(DM_URL, JDBC_PORT);
         Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
         String[] fieldNames = testDataSet.getKey();
 
@@ -130,8 +131,8 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
                 .containerEnv(containerEnv)
                 .driverClass(DRIVER_CLASS)
                 .host(HOST)
-                .port(DM_PORT)
-                .localPort(DM_PORT)
+                .port(DOCKET_PORT)
+                .localPort(DOCKET_PORT)
                 .jdbcTemplate(DM_URL)
                 .jdbcUrl(jdbcUrl)
                 .userName(DM_USERNAME)
@@ -244,7 +245,8 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
                         .withNetworkAliases(DM_CONTAINER_HOST)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 5336, 5236)));
+        container.setPortBindings(
+                Lists.newArrayList(String.format("%s:%s", JDBC_PORT, DOCKET_PORT)));
 
         return container;
     }
