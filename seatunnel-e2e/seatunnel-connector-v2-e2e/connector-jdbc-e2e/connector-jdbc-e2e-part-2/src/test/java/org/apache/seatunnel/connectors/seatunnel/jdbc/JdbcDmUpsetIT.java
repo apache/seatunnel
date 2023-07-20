@@ -43,7 +43,7 @@ import java.util.Map;
 public class JdbcDmUpsetIT extends AbstractJdbcIT {
 
     private static final String DM_IMAGE = "laglangyue/dmdb8";
-    private static final String DM_CONTAINER_HOST = "e2e_dmdb";
+    private static final String DM_CONTAINER_HOST = "e2e_dmdb_upset";
 
     private static final String DM_DATABASE = "SYSDBA";
     private static final String DM_SOURCE = "E2E_TABLE_SOURCE_UPSET";
@@ -51,7 +51,7 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
     private static final String DM_USERNAME = "SYSDBA";
     private static final String DM_PASSWORD = "SYSDBA";
     private static final int DOCKET_PORT = 5236;
-    private static final int JDBC_PORT = 5336;
+    private static final int JDBC_PORT = 5236;
     private static final String DM_URL = "jdbc:dm://" + HOST + ":%s";
 
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
