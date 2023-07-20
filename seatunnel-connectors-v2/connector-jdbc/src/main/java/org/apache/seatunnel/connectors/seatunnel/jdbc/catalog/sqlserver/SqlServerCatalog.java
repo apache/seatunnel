@@ -16,7 +16,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
