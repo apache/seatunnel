@@ -46,9 +46,16 @@ public class SinkConfig extends CommonConfig {
                     .defaultValue(SupportedFileFormat.PARQUET)
                     .withDescription("file format");
 
+    public static final Option<Long> TARGET_FILE_SIZE_BYTES =
+            Options.key("target_file_size_bytes")
+                    .longType()
+                    .defaultValue(128 * 1024 * 1024L)
+                    .withDescription("target file size bytes");
+
     @Getter private boolean enableUpsert = true;
     @Getter private List<String> primaryKeys;
     @Getter private FileFormat fileFormat = FileFormat.PARQUET;
+    @Getter private long targetFileSizeBytes = 128 * 1024 * 1024L;
 
     public SinkConfig(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
@@ -61,6 +68,9 @@ public class SinkConfig extends CommonConfig {
         if (pluginConfig.getOptional(FILE_FORMAT).isPresent()) {
             this.fileFormat =
                     FileFormat.valueOf(pluginConfig.getOptional(FILE_FORMAT).get().name());
+        }
+        if (pluginConfig.getOptional(TARGET_FILE_SIZE_BYTES).isPresent()) {
+            this.targetFileSizeBytes = pluginConfig.getOptional(TARGET_FILE_SIZE_BYTES).get();
         }
     }
 }

@@ -94,7 +94,7 @@ public class IcebergSink
                 new SeaTunnelRowDataTaskWriterFactory(
                         IcebergTableLoader.create(sinkConfig),
                         seaTunnelRowType,
-                        1024,
+                        sinkConfig.getTargetFileSizeBytes(),
                         sinkConfig.getFileFormat(),
                         new HashMap<>(),
                         checkAndGetEqualityFieldIds(),
@@ -119,7 +119,7 @@ public class IcebergSink
                     new SeaTunnelRowDataTaskWriterFactory(
                             IcebergTableLoader.create(sinkConfig),
                             seaTunnelRowType,
-                            1024,
+                            sinkConfig.getTargetFileSizeBytes(),
                             sinkConfig.getFileFormat(),
                             new HashMap<>(),
                             checkAndGetEqualityFieldIds(),
@@ -139,7 +139,7 @@ public class IcebergSink
                     new SeaTunnelRowDataTaskWriterFactory(
                             IcebergTableLoader.create(sinkConfig),
                             seaTunnelRowType,
-                            1024,
+                            sinkConfig.getTargetFileSizeBytes(),
                             sinkConfig.getFileFormat(),
                             new HashMap<>(),
                             checkAndGetEqualityFieldIds(),

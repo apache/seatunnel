@@ -40,6 +40,7 @@ import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonCon
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HIVE;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig.ENABLE_UPSERT;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig.PRIMARY_KEYS;
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig.TARGET_FILE_SIZE_BYTES;
 
 @AutoService(Factory.class)
 public class IcebergSinkFactory implements TableSinkFactory {
@@ -62,6 +63,7 @@ public class IcebergSinkFactory implements TableSinkFactory {
                         HIVE_SITE_PATH)
                 .optional(ENABLE_UPSERT)
                 .optional(PRIMARY_KEYS)
+                .optional(TARGET_FILE_SIZE_BYTES)
                 .build();
     }
 
