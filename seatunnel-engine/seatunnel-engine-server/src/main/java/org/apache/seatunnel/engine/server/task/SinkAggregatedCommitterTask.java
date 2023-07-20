@@ -68,7 +68,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
 
     private static final long serialVersionUID = 5906594537520393503L;
 
-    private SeaTunnelTaskState currState;
+    private volatile SeaTunnelTaskState currState;
     private final SinkAction<?, ?, CommandInfoT, AggregatedCommitInfoT> sink;
     private final int maxWriterSize;
 
