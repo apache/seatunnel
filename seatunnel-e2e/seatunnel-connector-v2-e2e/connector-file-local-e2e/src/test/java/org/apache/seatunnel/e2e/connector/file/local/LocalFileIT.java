@@ -44,6 +44,7 @@ public class LocalFileIT extends TestSuiteBase {
     private final ContainerExtendedFactory extendedFactory =
             container -> {
                 Path jsonPath = ContainerUtil.getResourcesFile("/json/e2e.json").toPath();
+                Path lzoJsonPath = ContainerUtil.getResourcesFile("/json/e2e_lzo.json").toPath();
                 Path orcPath = ContainerUtil.getResourcesFile("/orc/e2e.orc").toPath();
                 Path parquetPath = ContainerUtil.getResourcesFile("/parquet/e2e.parquet").toPath();
                 Path textPath = ContainerUtil.getResourcesFile("/text/e2e.txt").toPath();
@@ -52,6 +53,9 @@ public class LocalFileIT extends TestSuiteBase {
                 container.copyFileToContainer(
                         MountableFile.forHostPath(jsonPath),
                         "/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json");
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(lzoJsonPath),
+                        "/seatunnel/read/lzo_json/e2e.json");
                 container.copyFileToContainer(
                         MountableFile.forHostPath(orcPath),
                         "/seatunnel/read/orc/name=tyrantlucifer/hobby=coding/e2e.orc");
@@ -71,6 +75,9 @@ public class LocalFileIT extends TestSuiteBase {
     @TestTemplate
     public void testLocalFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
+        /**
+         * excel
+         */
         Container.ExecResult excelWriteResult =
                 container.executeJob("/excel/fake_to_local_excel.conf");
         Assertions.assertEquals(0, excelWriteResult.getExitCode(), excelWriteResult.getStderr());
@@ -81,6 +88,9 @@ public class LocalFileIT extends TestSuiteBase {
                 container.executeJob("/excel/local_excel_projection_to_assert.conf");
         Assertions.assertEquals(
                 0, excelProjectionReadResult.getExitCode(), excelProjectionReadResult.getStderr());
+        /**
+         * text
+         */
         // test write local text file
         Container.ExecResult textWriteResult =
                 container.executeJob("/text/fake_to_local_file_text.conf");
@@ -101,6 +111,9 @@ public class LocalFileIT extends TestSuiteBase {
         Container.ExecResult textProjectionResult =
                 container.executeJob("/text/local_file_text_projection_to_assert.conf");
         Assertions.assertEquals(0, textProjectionResult.getExitCode());
+        /**
+         * json
+         */
         // test write local json file
         Container.ExecResult jsonWriteResult =
                 container.executeJob("/json/fake_to_local_file_json.conf");
@@ -109,6 +122,13 @@ public class LocalFileIT extends TestSuiteBase {
         Container.ExecResult jsonReadResult =
                 container.executeJob("/json/local_file_json_to_assert.conf");
         Assertions.assertEquals(0, jsonReadResult.getExitCode());
+        // test read lzo json file
+        Container.ExecResult lzoJsonReadResult =
+                container.executeJob("/json/local_file_json_lzo_to_console.conf");
+        Assertions.assertEquals(0, lzoJsonReadResult.getExitCode());
+        /**
+         * orc
+         */
         // test write local orc file
         Container.ExecResult orcWriteResult =
                 container.executeJob("/orc/fake_to_local_file_orc.conf");
@@ -121,6 +141,9 @@ public class LocalFileIT extends TestSuiteBase {
         Container.ExecResult orcProjectionResult =
                 container.executeJob("/orc/local_file_orc_projection_to_assert.conf");
         Assertions.assertEquals(0, orcProjectionResult.getExitCode());
+        /**
+         * parquet
+         */
         // test write local parquet file
         Container.ExecResult parquetWriteResult =
                 container.executeJob("/parquet/fake_to_local_file_parquet.conf");
