@@ -86,4 +86,34 @@ e.g.
 ```
 "f_int = 1024"
 ```
+## Example
 
+```
+source{
+  Doris {
+      fenodes = "doris_e2e:8030"
+      username = root
+      password = ""
+      table.identifier = "e2e_source.doris_e2e_table"
+      schema {
+            fields {
+            F_ID = "BIGINT"
+            F_INT = "INT"
+            F_BIGINT = "BIGINT"
+            F_TINYINT = "TINYINT"
+            F_SMALLINT = "SMALLINT"
+            F_DECIMAL = "DECIMAL(18,6)"
+            F_BOOLEAN = "BOOLEAN"
+            F_DOUBLE = "DOUBLE"
+            F_FLOAT = "FLOAT"
+            F_CHAR = "String"
+            F_VARCHAR_11 = "String"
+            F_STRING = "String"
+            F_DATETIME_P = "Timestamp"
+            F_DATETIME = "Timestamp"
+            F_DATE = "DATE"
+            }
+      }
+  }
+}
+```
