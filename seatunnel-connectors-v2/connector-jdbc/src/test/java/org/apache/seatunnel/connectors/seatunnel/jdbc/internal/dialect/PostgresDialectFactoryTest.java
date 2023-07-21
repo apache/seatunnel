@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialectFactory;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -34,6 +35,6 @@ public class PostgresDialectFactoryTest {
         String[] uniqueKeyField = {"id"};
         Optional<String> upsertStatement =
                 postgresLow.getUpsertStatement("test", "test_a", fields, uniqueKeyField);
-        System.out.println(upsertStatement);
+        Assertions.assertFalse(upsertStatement.isPresent());
     }
 }
