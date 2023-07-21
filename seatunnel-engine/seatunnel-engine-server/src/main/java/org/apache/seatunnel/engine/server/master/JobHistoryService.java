@@ -235,6 +235,7 @@ public class JobHistoryService {
     @AllArgsConstructor
     @Data
     public static final class JobState implements Serializable {
+        private static final long serialVersionUID = -1176348098833918960L;
         private Long jobId;
         private String jobName;
         private JobStatus jobStatus;
@@ -247,6 +248,7 @@ public class JobHistoryService {
     @AllArgsConstructor
     @Data
     public static final class PipelineStateData implements Serializable {
+        private static final long serialVersionUID = -7875004875757861958L;
         private PipelineStatus pipelineStatus;
         private Map<TaskGroupLocation, ExecutionState> executionStateMap;
     }
