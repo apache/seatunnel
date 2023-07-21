@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.data;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 
 import org.apache.iceberg.FieldMetrics;
 import org.apache.iceberg.Schema;
@@ -31,15 +33,19 @@ import org.apache.iceberg.orc.OrcValueWriter;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.orc.TypeDescription;
+import org.apache.orc.storage.ql.exec.vector.ColumnVector;
+import org.apache.orc.storage.ql.exec.vector.TimestampColumnVector;
 import org.apache.orc.storage.ql.exec.vector.VectorizedRowBatch;
 
+import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Stream;
 
 public class GenericOrcWriter implements OrcRowWriter<SeaTunnelRow> {
     private final RecordWriter writer;
 
-    private GenericOrcWriter(Schema expectedSchema, TypeDescription orcSchema) {
+    private GenericOrcWriter(
+            Schema expectedSchema, TypeDescription orcSchema, SeaTunnelRowType seaTunnelRowType) {
         Preconditions.checkArgument(
                 orcSchema.getCategory() == TypeDescription.Category.STRUCT,
                 "Top level must be a struct " + orcSchema);
@@ -47,16 +53,20 @@ public class GenericOrcWriter implements OrcRowWriter<SeaTunnelRow> {
         writer =
                 (RecordWriter)
                         OrcSchemaWithTypeVisitor.visit(
-                                expectedSchema, orcSchema, new WriteBuilder());
+                                expectedSchema, orcSchema, new WriteBuilder(seaTunnelRowType));
     }
 
     public static OrcRowWriter<SeaTunnelRow> buildWriter(
-            Schema expectedSchema, TypeDescription fileSchema) {
-        return new GenericOrcWriter(expectedSchema, fileSchema);
+            Schema expectedSchema, TypeDescription fileSchema, SeaTunnelRowType seaTunnelRowType) {
+        return new GenericOrcWriter(expectedSchema, fileSchema, seaTunnelRowType);
     }
 
     private static class WriteBuilder extends OrcSchemaWithTypeVisitor<OrcValueWriter<?>> {
-        private WriteBuilder() {}
+        SeaTunnelRowType seaTunnelRowType;
+
+        private WriteBuilder(SeaTunnelRowType seaTunnelRowType) {
+            this.seaTunnelRowType = seaTunnelRowType;
+        }
 
         @Override
         public OrcValueWriter<SeaTunnelRow> record(
@@ -85,45 +95,52 @@ public class GenericOrcWriter implements OrcRowWriter<SeaTunnelRow> {
         @Override
         public OrcValueWriter<?> primitive(
                 Type.PrimitiveType iPrimitive, TypeDescription primitive) {
-            switch (iPrimitive.typeId()) {
+            SqlType sqlType = seaTunnelRowType.getFieldTypes()[primitive.getId() - 1].getSqlType();
+
+            switch (sqlType) {
+                case STRING:
+                    return GenericOrcWriters.strings();
                 case BOOLEAN:
                     return GenericOrcWriters.booleans();
-                case INTEGER:
+                case TINYINT:
+                    return GenericOrcWriters.bytes();
+                case SMALLINT:
+                    return GenericOrcWriters.shorts();
+                case INT:
                     return GenericOrcWriters.ints();
-                case LONG:
+                case BIGINT:
                     return GenericOrcWriters.longs();
                 case FLOAT:
                     return GenericOrcWriters.floats(ORCSchemaUtil.fieldId(primitive));
                 case DOUBLE:
                     return GenericOrcWriters.doubles(ORCSchemaUtil.fieldId(primitive));
-                case DATE:
-                    return GenericOrcWriters.dates();
-                case TIME:
-                    return GenericOrcWriters.times();
-                case TIMESTAMP:
-                    Types.TimestampType timestampType = (Types.TimestampType) iPrimitive;
-                    if (timestampType.shouldAdjustToUTC()) {
-                        return GenericOrcWriters.timestampTz();
-                    } else {
-                        return GenericOrcWriters.timestamp();
-                    }
-                case STRING:
-                    return GenericOrcWriters.strings();
-                case UUID:
-                    return GenericOrcWriters.uuids();
-                case FIXED:
-                    return GenericOrcWriters.byteArrays();
-                case BINARY:
-                    return GenericOrcWriters.byteBuffers();
                 case DECIMAL:
                     Types.DecimalType decimalType = (Types.DecimalType) iPrimitive;
                     return GenericOrcWriters.decimal(decimalType.precision(), decimalType.scale());
+                case BYTES:
+                    return GenericOrcWriters.byteArrays();
+                case DATE:
+                    return GenericOrcWriters.dates();
+                case TIME:
+                    return TimeWriter.INSTANCE;
+                case TIMESTAMP:
+                    return GenericOrcWriters.timestamp();
+
                 default:
-                    throw new IllegalArgumentException(
-                            String.format(
-                                    "Invalid iceberg type %s corresponding to ORC type %s",
-                                    iPrimitive, primitive));
+                    throw new UnsupportedOperationException("Unsupported type: " + sqlType);
             }
+        }
+    }
+
+    private static class TimeWriter implements OrcValueWriter<LocalTime> {
+        private static final OrcValueWriter<LocalTime> INSTANCE = new TimeWriter();
+
+        @Override
+        public void nonNullWrite(int rowId, LocalTime data, ColumnVector output) {
+            TimestampColumnVector cv = (TimestampColumnVector) output;
+            cv.setIsUTC(true);
+            cv.time[rowId] = data.toNanoOfDay() / 1_000;
+            cv.nanos[rowId] = (int) (data.toNanoOfDay() % 1_000);
         }
     }
 

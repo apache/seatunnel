@@ -54,6 +54,7 @@ public class SeaTunnelAppenderFactory implements FileAppenderFactory<SeaTunnelRo
     private final int[] equalityFieldIds;
     private final Schema eqDeleteRowSchema;
     private final Schema posDeleteRowSchema;
+    private final SeaTunnelRowType seaTunnelRowType;
     private final Table table;
 
     private SeaTunnelRowType eqDeleteSeaTunnelSchema = null;
@@ -62,6 +63,7 @@ public class SeaTunnelAppenderFactory implements FileAppenderFactory<SeaTunnelRo
     public SeaTunnelAppenderFactory(
             Table table,
             Schema schema,
+            SeaTunnelRowType seaTunnelRowType,
             Map<String, String> props,
             PartitionSpec spec,
             int[] equalityFieldIds,
@@ -70,6 +72,7 @@ public class SeaTunnelAppenderFactory implements FileAppenderFactory<SeaTunnelRo
         checkNotNull(table, "Table shouldn't be null");
         this.table = table;
         this.schema = schema;
+        this.seaTunnelRowType = seaTunnelRowType;
         this.props = props;
         this.spec = spec;
         this.equalityFieldIds = equalityFieldIds;
@@ -100,7 +103,10 @@ public class SeaTunnelAppenderFactory implements FileAppenderFactory<SeaTunnelRo
             switch (format) {
                 case ORC:
                     return ORC.write(outputFile)
-                            .createWriterFunc(GenericOrcWriter::buildWriter)
+                            .createWriterFunc(
+                                    (iSchema, typDesc) ->
+                                            GenericOrcWriter.buildWriter(
+                                                    iSchema, typDesc, seaTunnelRowType))
                             .setAll(props)
                             .metricsConfig(metricsConfig)
                             .schema(schema)
@@ -109,7 +115,10 @@ public class SeaTunnelAppenderFactory implements FileAppenderFactory<SeaTunnelRo
 
                 case PARQUET:
                     return Parquet.write(outputFile)
-                            .createWriterFunc(GenericParquetWriter::buildWriter)
+                            .createWriterFunc(
+                                    messageType ->
+                                            GenericParquetWriter.buildWriter(
+                                                    messageType, seaTunnelRowType))
                             .setAll(props)
                             .metricsConfig(metricsConfig)
                             .schema(schema)
@@ -153,7 +162,11 @@ public class SeaTunnelAppenderFactory implements FileAppenderFactory<SeaTunnelRo
                 case ORC:
                     return ORC.writeDeletes(outputFile.encryptingOutputFile())
                             .createWriterFunc(
-                                    org.apache.iceberg.data.orc.GenericOrcWriter::buildWriter)
+                                    (iSchema, typDesc) ->
+                                            GenericOrcWriter.buildWriter(
+                                                    iSchema,
+                                                    typDesc,
+                                                    lazyEqDeleteSeaTunnelSchema()))
                             .withPartition(partition)
                             .overwrite()
                             .setAll(props)
@@ -166,7 +179,10 @@ public class SeaTunnelAppenderFactory implements FileAppenderFactory<SeaTunnelRo
 
                 case PARQUET:
                     return Parquet.writeDeletes(outputFile.encryptingOutputFile())
-                            .createWriterFunc(GenericParquetWriter::buildWriter)
+                            .createWriterFunc(
+                                    messageType ->
+                                            GenericParquetWriter.buildWriter(
+                                                    messageType, lazyEqDeleteSeaTunnelSchema()))
                             .withPartition(partition)
                             .overwrite()
                             .setAll(props)
@@ -195,7 +211,9 @@ public class SeaTunnelAppenderFactory implements FileAppenderFactory<SeaTunnelRo
                 case ORC:
                     return ORC.writeDeletes(outputFile.encryptingOutputFile())
                             .createWriterFunc(
-                                    org.apache.iceberg.data.orc.GenericOrcWriter::buildWriter)
+                                    (iSchema, typDesc) ->
+                                            GenericOrcWriter.buildWriter(
+                                                    iSchema, typDesc, lazyPosDeleteFlinkSchema()))
                             .withPartition(partition)
                             .overwrite()
                             .setAll(props)
@@ -207,7 +225,10 @@ public class SeaTunnelAppenderFactory implements FileAppenderFactory<SeaTunnelRo
 
                 case PARQUET:
                     return Parquet.writeDeletes(outputFile.encryptingOutputFile())
-                            .createWriterFunc(GenericParquetWriter::buildWriter)
+                            .createWriterFunc(
+                                    messageType ->
+                                            GenericParquetWriter.buildWriter(
+                                                    messageType, lazyPosDeleteFlinkSchema()))
                             .withPartition(partition)
                             .overwrite()
                             .setAll(props)

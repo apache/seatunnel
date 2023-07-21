@@ -89,7 +89,14 @@ public class SeaTunnelRowDataTaskWriterFactory
         if (equalityFieldIds == null || equalityFieldIds.isEmpty()) {
             this.appenderFactory =
                     new SeaTunnelAppenderFactory(
-                            table, schema, writeProperties, spec, null, null, null);
+                            table,
+                            schema,
+                            seaTunnelSchema,
+                            writeProperties,
+                            spec,
+                            null,
+                            null,
+                            null);
         } else if (upsert) {
             // In upsert mode, only the new row is emitted using INSERT row kind. Therefore, any
             // column of
@@ -103,6 +110,7 @@ public class SeaTunnelRowDataTaskWriterFactory
                     new SeaTunnelAppenderFactory(
                             table,
                             schema,
+                            seaTunnelSchema,
                             writeProperties,
                             spec,
                             ArrayUtil.toIntArray(equalityFieldIds),
@@ -113,6 +121,7 @@ public class SeaTunnelRowDataTaskWriterFactory
                     new SeaTunnelAppenderFactory(
                             table,
                             schema,
+                            seaTunnelSchema,
                             writeProperties,
                             spec,
                             ArrayUtil.toIntArray(equalityFieldIds),
