@@ -47,13 +47,12 @@ import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import static org.apache.seatunnel.engine.common.Constant.IMAP_CHECKPOINT_ID;
 
 /**
  * Used to manage all checkpoints for a job.
@@ -87,7 +86,8 @@ public class CheckpointManager {
             JobMaster jobMaster,
             Map<Integer, CheckpointPlan> checkpointPlanMap,
             CheckpointConfig checkpointConfig,
-            ExecutorService executorService)
+            ExecutorService executorService,
+            IMap<Object, Object> runningJobStateIMap)
             throws CheckpointStorageException {
         this.executorService = executorService;
         this.jobId = jobId;
@@ -99,8 +99,6 @@ public class CheckpointManager {
                                 CheckpointStorageFactory.class,
                                 checkpointConfig.getStorage().getStorage())
                         .create(checkpointConfig.getStorage().getStoragePluginConfig());
-        IMap<Integer, Long> checkpointIdMap =
-                nodeEngine.getHazelcastInstance().getMap(String.format(IMAP_CHECKPOINT_ID, jobId));
         this.coordinatorMap =
                 checkpointPlanMap
                         .values()
@@ -109,7 +107,7 @@ public class CheckpointManager {
                                 plan -> {
                                     IMapCheckpointIDCounter idCounter =
                                             new IMapCheckpointIDCounter(
-                                                    plan.getPipelineId(), checkpointIdMap);
+                                                    jobId, plan.getPipelineId(), nodeEngine);
                                     try {
                                         idCounter.start();
                                         PipelineState pipelineState =
@@ -135,7 +133,9 @@ public class CheckpointManager {
                                                 plan,
                                                 idCounter,
                                                 pipelineState,
-                                                executorService);
+                                                executorService,
+                                                runningJobStateIMap,
+                                                isStartWithSavePoint);
                                     } catch (Exception e) {
                                         ExceptionUtil.sneakyThrow(e);
                                     }
@@ -168,6 +168,9 @@ public class CheckpointManager {
     }
 
     public void reportedPipelineRunning(int pipelineId, boolean alreadyStarted) {
+        log.info(
+                "reported pipeline running stack: "
+                        + Arrays.toString(Thread.currentThread().getStackTrace()));
         getCheckpointCoordinator(pipelineId).restoreCoordinator(alreadyStarted);
     }
 
@@ -177,6 +180,10 @@ public class CheckpointManager {
 
     private CheckpointCoordinator getCheckpointCoordinator(TaskLocation taskLocation) {
         return getCheckpointCoordinator(taskLocation.getPipelineId());
+    }
+
+    public void reportCheckpointErrorFromTask(TaskLocation taskLocation, String errorMsg) {
+        getCheckpointCoordinator(taskLocation).reportCheckpointErrorFromTask(errorMsg);
     }
 
     private CheckpointCoordinator getCheckpointCoordinator(int pipelineId) {

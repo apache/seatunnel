@@ -22,7 +22,6 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
-import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
@@ -50,7 +49,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     private final List<TableId> alreadyProcessedTables;
     private final List<SnapshotSplit> remainingSplits;
     private final Map<String, SnapshotSplit> assignedSplits;
-    private final Map<String, Offset> splitCompletedOffsets;
+    private final Map<String, SnapshotSplitWatermark> splitCompletedOffsets;
     private boolean assignerCompleted;
     private final int currentParallelism;
     private final LinkedList<TableId> remainingTables;
@@ -107,7 +106,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
             List<TableId> alreadyProcessedTables,
             List<SnapshotSplit> remainingSplits,
             Map<String, SnapshotSplit> assignedSplits,
-            Map<String, Offset> splitCompletedOffsets,
+            Map<String, SnapshotSplitWatermark> splitCompletedOffsets,
             boolean assignerCompleted,
             List<TableId> remainingTables,
             boolean isTableIdCaseSensitive,
@@ -181,7 +180,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     @Override
     public void onCompletedSplits(List<SnapshotSplitWatermark> completedSplitWatermarks) {
         completedSplitWatermarks.forEach(
-                m -> this.splitCompletedOffsets.put(m.getSplitId(), m.getHighWatermark()));
+                watermark -> this.splitCompletedOffsets.put(watermark.getSplitId(), watermark));
         if (allSplitsCompleted()) {
             // Skip the waiting checkpoint when current parallelism is 1 which means we do not need
             // to care about the global output data order of snapshot splits and incremental split.
@@ -248,14 +247,6 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
      */
     public boolean isCompleted() {
         return assignerCompleted;
-    }
-
-    public Map<String, SnapshotSplit> getAssignedSplits() {
-        return assignedSplits;
-    }
-
-    public Map<String, Offset> getSplitCompletedOffsets() {
-        return splitCompletedOffsets;
     }
 
     // -------------------------------------------------------------------------------------------

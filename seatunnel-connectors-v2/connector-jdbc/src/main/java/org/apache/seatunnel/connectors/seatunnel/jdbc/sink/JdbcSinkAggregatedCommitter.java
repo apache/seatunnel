@@ -28,11 +28,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOpsImpl
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class JdbcSinkAggregatedCommitter
         implements SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo> {
 
@@ -67,6 +70,7 @@ public class JdbcSinkAggregatedCommitter
         return aggregatedCommitInfos.stream()
                 .map(
                         aggregatedCommitInfo -> {
+                            log.info("commit xid: " + aggregatedCommitInfo.getXidInfoList());
                             GroupXaOperationResult<XidInfo> result =
                                     xaGroupOps.commit(
                                             new ArrayList<>(aggregatedCommitInfo.getXidInfoList()),

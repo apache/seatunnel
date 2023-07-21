@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
@@ -66,7 +67,7 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
         Iterator<SourceRecords> dataIt = null;
         try {
             dataIt = currentFetcher.pollSplitRecords();
-        } catch (InterruptedException e) {
+        } catch (InterruptedException | SeaTunnelException e) {
             log.warn("fetch data failed.", e);
             throw new IOException(e);
         }

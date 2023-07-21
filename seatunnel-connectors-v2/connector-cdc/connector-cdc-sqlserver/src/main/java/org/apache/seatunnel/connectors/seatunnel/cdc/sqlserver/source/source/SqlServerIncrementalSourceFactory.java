@@ -83,6 +83,10 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory, Su
                         SqlServerSourceOptions.STOP_MODE,
                         StopMode.TIMESTAMP,
                         SourceOptions.STOP_TIMESTAMP)
+                .conditional(
+                        SqlServerSourceOptions.STARTUP_MODE,
+                        StartupMode.INITIAL,
+                        SourceOptions.EXACTLY_ONCE)
                 .build();
     }
 

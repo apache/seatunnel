@@ -36,7 +36,7 @@
     </properties>
 
     <build>
-        <finalName>apache-seatunnel-incubating-${project.version}</finalName>
+        <finalName>apache-seatunnel-${project.version}</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
@@ -97,6 +97,7 @@
                 <tablestore.version>5.13.9</tablestore.version>
                 <teradata.version>17.20.00.12</teradata.version>
                 <redshift.version>2.1.0.9</redshift.version>
+                <snowflake.version>3.13.29</snowflake.version>
 
                 <!-- Imap storage dependency package  -->
                 <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
@@ -104,7 +105,6 @@
                 <hadoop-aws.version>3.1.4</hadoop-aws.version>
                 <aws-java-sdk.version>1.11.271</aws-java-sdk.version>
                 <netty-buffer.version>4.1.89.Final</netty-buffer.version>
-
             </properties>
             <dependencies>
                 <!-- starters -->
@@ -274,7 +274,7 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>connector-file-oss-jindo</artifactId>
+                    <artifactId>connector-file-jindo-oss</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -466,6 +466,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-mongodb</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-cdc-sqlserver</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -584,6 +590,13 @@
                     <version>${redshift.version}</version>
                     <scope>provided</scope>
                 </dependency>
+
+                <dependency>
+                    <groupId>net.snowflake</groupId>
+                    <artifactId>snowflake-jdbc</artifactId>
+                    <version>${snowflake.version}</version>
+                    <scope>provided</scope>
+                </dependency>
                 <!-- jdbc driver end -->
 
                 <dependency>
@@ -687,7 +700,7 @@
                 </dependency>
             </dependencies>
             <build>
-                <finalName>apache-seatunnel-incubating-${project.version}</finalName>
+                <finalName>apache-seatunnel-${project.version}</finalName>
                 <plugins>
                     <plugin>
                         <artifactId>maven-assembly-plugin</artifactId>
