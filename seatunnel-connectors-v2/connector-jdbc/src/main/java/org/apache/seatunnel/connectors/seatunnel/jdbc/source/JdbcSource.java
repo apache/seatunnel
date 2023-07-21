@@ -113,8 +113,7 @@ public class JdbcSource
         if (partitionParameter != null) {
             this.query =
                     JdbcSourceFactory.obtainPartitionSql(
-                            partitionParameter.getPartitionColumnName(),
-                            jdbcSourceConfig.getQuery());
+                            jdbcDialect, partitionParameter, jdbcSourceConfig.getQuery());
         }
 
         this.inputFormat =
@@ -187,9 +186,10 @@ public class JdbcSource
     private PartitionParameter createPartitionParameter(Connection connection) {
         if (jdbcSourceConfig.getPartitionColumn().isPresent()) {
             String partitionColumn = jdbcSourceConfig.getPartitionColumn().get();
-            JdbcSourceFactory.validationPartitionColumn(partitionColumn, typeInfo);
+            SeaTunnelDataType<?> dataType =
+                    JdbcSourceFactory.validationPartitionColumn(partitionColumn, typeInfo);
             return JdbcSourceFactory.createPartitionParameter(
-                    jdbcSourceConfig, partitionColumn, connection);
+                    jdbcSourceConfig, partitionColumn, dataType, connection);
         } else {
             LOG.info(
                     "The partition_column parameter is not configured, and the source parallelism is set to 1");
