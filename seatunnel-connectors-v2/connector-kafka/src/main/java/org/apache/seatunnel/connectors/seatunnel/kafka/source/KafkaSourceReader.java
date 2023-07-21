@@ -166,14 +166,19 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                             } else {
                                                                 byte[] message = record.value();
                                                                 String[] rows =
-                                                                        StringUtils.split(
-                                                                                new String(message),
-                                                                                rowDelimiter);
+                                                                        new String(message)
+                                                                                .split(
+                                                                                        rowDelimiter,
+                                                                                        -1);
                                                                 for (String row : rows) {
-                                                                    deserializationSchema
-                                                                            .deserialize(
-                                                                                    row.getBytes(),
-                                                                                    output);
+                                                                    if (StringUtils.isNotBlank(
+                                                                            row)) {
+                                                                        deserializationSchema
+                                                                                .deserialize(
+                                                                                        row
+                                                                                                .getBytes(),
+                                                                                        output);
+                                                                    }
                                                                 }
                                                             }
                                                         } catch (Exception e) {
