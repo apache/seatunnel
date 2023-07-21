@@ -57,7 +57,7 @@ import static org.awaitility.Awaitility.given;
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
         disabledReason = "Currently SPARK and FLINK do not support cdc")
-public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
+public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResource {
     private static final String PG_IMAGE = "postgis/postgis";
     private static final String PG_DRIVER_JAR =
             "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
