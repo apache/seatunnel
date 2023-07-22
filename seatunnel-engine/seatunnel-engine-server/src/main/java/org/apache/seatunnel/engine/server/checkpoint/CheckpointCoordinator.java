@@ -328,7 +328,9 @@ public class CheckpointCoordinator {
 
     public void reportCheckpointErrorFromTask(String errorMsg) {
         handleCoordinatorError(
-                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR, new SeaTunnelException(errorMsg));
+                "report error from task",
+                new SeaTunnelException(errorMsg),
+                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
     }
 
     private void scheduleTriggerPendingCheckpoint(long delayMills) {
