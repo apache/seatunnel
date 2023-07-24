@@ -81,7 +81,6 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
 
     @Override
     public void execute(Context context) throws Exception {
-        log.info("=============================================");
         MongodbFetchTaskContext taskContext = (MongodbFetchTaskContext) context;
         MongodbSourceConfig sourceConfig = taskContext.getSourceConfig();
         MongodbDialect dialect = taskContext.getDialect();

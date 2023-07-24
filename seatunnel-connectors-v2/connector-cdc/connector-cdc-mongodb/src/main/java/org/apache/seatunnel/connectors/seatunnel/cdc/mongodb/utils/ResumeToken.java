@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils;
 
-import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
-
 import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
 import org.bson.BsonValue;
@@ -29,41 +27,33 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Objects;
 
-import static org.apache.seatunnel.common.exception.CommonErrorCode.ILLEGAL_ARGUMENT;
-
 public class ResumeToken {
 
     private static final int K_TIMESTAMP = 130;
 
-    public static @Nonnull BsonTimestamp decodeTimestamp(BsonDocument resumeToken) {
-        Objects.requireNonNull(resumeToken, "Missing ResumeToken.");
-        BsonValue bsonValue = resumeToken.get("_data");
-        byte[] keyStringBytes = extractKeyStringBytes(bsonValue);
-        validateKeyType(keyStringBytes);
+    public static BsonTimestamp decodeTimestamp(BsonDocument resumeToken) {
+        BsonValue bsonValue =
+                Objects.requireNonNull(resumeToken, "Missing ResumeToken.").get("_data");
+        final byte[] keyStringBytes;
+        // Resume Tokens format: https://www.mongodb.com/docs/manual/changeStreams/#resume-tokens
+        if (bsonValue.isBinary()) { // BinData
+            keyStringBytes = bsonValue.asBinary().getData();
+        } else if (bsonValue.isString()) { // Hex-encoded string (v0 or v1)
+            keyStringBytes = hexToUint8Array(bsonValue.asString().getValue());
+        } else {
+            throw new IllegalArgumentException(
+                    "Unknown resume token format: " + resumeToken.toJson());
+        }
 
         ByteBuffer buffer = ByteBuffer.wrap(keyStringBytes).order(ByteOrder.BIG_ENDIAN);
+        int kType = buffer.get() & 0xff;
+        if (kType != K_TIMESTAMP) {
+            throw new IllegalArgumentException("Unknown keyType of timestamp: " + kType);
+        }
+
         int t = buffer.getInt();
         int i = buffer.getInt();
         return new BsonTimestamp(t, i);
-    }
-
-    private static byte[] extractKeyStringBytes(@Nonnull BsonValue bsonValue) {
-        if (bsonValue.isBinary()) {
-            return bsonValue.asBinary().getData();
-        } else if (bsonValue.isString()) {
-            return hexToUint8Array(bsonValue.asString().getValue());
-        } else {
-            throw new MongodbConnectorException(
-                    ILLEGAL_ARGUMENT, "Unknown resume token format: " + bsonValue);
-        }
-    }
-
-    private static void validateKeyType(byte[] keyStringBytes) {
-        int kType = keyStringBytes[0] & 0xff;
-        if (kType != K_TIMESTAMP) {
-            throw new MongodbConnectorException(
-                    ILLEGAL_ARGUMENT, "Unknown keyType of timestamp: " + kType);
-        }
     }
 
     private static byte[] hexToUint8Array(@Nonnull String str) {
