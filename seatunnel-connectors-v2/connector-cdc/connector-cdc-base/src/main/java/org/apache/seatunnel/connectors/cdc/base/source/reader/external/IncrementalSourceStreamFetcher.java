@@ -29,7 +29,6 @@ import org.apache.kafka.connect.source.SourceRecord;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
-import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -43,8 +42,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-
-import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getTableId;
 
 /**
  * Fetcher to fetch data from table split, the split is the incremental split {@link
@@ -163,11 +160,14 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     private boolean shouldEmit(SourceRecord sourceRecord) {
         if (taskContext.isDataChangeRecord(sourceRecord)) {
             Offset position = taskContext.getStreamOffset(sourceRecord);
-            TableId tableId = getTableId(sourceRecord);
+            // TODO: The sourceRecord from MongoDB CDC and MySQL CDC are inconsistent. For
+            // compatibility, the getTableId method is commented out for now.
+            // TableId tableId = getTableId(sourceRecord);
             if (!taskContext.isExactlyOnce()) {
-                log.trace(
-                        "The table {} is not support exactly-once, so ignore the watermark check",
-                        tableId);
+                //                log.trace(
+                //                        "The table {} is not support exactly-once, so ignore the
+                // watermark check",
+                //                        tableId);
                 return position.isAfter(splitStartWatermark);
             }
             // check whether the pure binlog mode has been entered

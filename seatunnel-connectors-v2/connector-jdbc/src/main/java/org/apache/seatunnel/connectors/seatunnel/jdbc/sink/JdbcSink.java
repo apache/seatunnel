@@ -52,7 +52,6 @@ import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -104,7 +103,10 @@ public class JdbcSink
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.config = ReadonlyConfig.fromConfig(pluginConfig);
         this.jdbcSinkConfig = JdbcSinkConfig.of(config);
-        this.dialect = JdbcDialectLoader.load(jdbcSinkConfig.getJdbcConnectionConfig().getUrl());
+        this.dialect =
+                JdbcDialectLoader.load(
+                        jdbcSinkConfig.getJdbcConnectionConfig().getUrl(),
+                        jdbcSinkConfig.getJdbcConnectionConfig().getCompatibleMode());
         this.dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
     }
 
@@ -179,13 +181,8 @@ public class JdbcSink
     }
 
     @Override
-    public DataSaveMode getDataSaveMode() {
+    public DataSaveMode getUserConfigSaveMode() {
         return dataSaveMode;
-    }
-
-    @Override
-    public List<DataSaveMode> supportedDataSaveModeValues() {
-        return Collections.singletonList(DataSaveMode.KEEP_SCHEMA_AND_DATA);
     }
 
     @Override

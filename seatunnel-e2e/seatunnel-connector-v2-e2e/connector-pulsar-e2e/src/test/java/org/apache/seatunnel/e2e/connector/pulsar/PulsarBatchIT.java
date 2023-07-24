@@ -56,6 +56,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -113,6 +114,7 @@ public class PulsarBatchIT extends TestSuiteBase implements TestResource {
                 new PulsarContainer(DockerImageName.parse(PULSAR_IMAGE_NAME))
                         .withNetwork(NETWORK)
                         .withNetworkAliases(PULSAR_HOST)
+                        .withStartupTimeout(Duration.ofMinutes(3))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(PULSAR_IMAGE_NAME)));
