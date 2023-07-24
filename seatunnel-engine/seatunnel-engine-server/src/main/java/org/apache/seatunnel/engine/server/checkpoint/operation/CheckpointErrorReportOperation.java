@@ -23,7 +23,11 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
 import lombok.NoArgsConstructor;
+
+import java.io.IOException;
 
 @NoArgsConstructor
 public class CheckpointErrorReportOperation extends TaskOperation {
@@ -42,6 +46,18 @@ public class CheckpointErrorReportOperation extends TaskOperation {
                 .getJobMaster(taskLocation.getJobId())
                 .getCheckpointManager()
                 .reportCheckpointErrorFromTask(taskLocation, errorMsg);
+    }
+
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
+        out.writeString(errorMsg);
+    }
+
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
+        errorMsg = in.readString();
     }
 
     @Override
