@@ -3,6 +3,8 @@
 ## Bug fix
 
 ### Core
+- [Core] [API] Fixed generic class loss for lists (#4421)
+- [Core] [API] Fix parse nested row data type key changed upper (#4459)
 - [Starter][Flink]Support transform-v2 for flink #3396
 - [Flink] Support flink 1.14.x #3963
 ### Transformer
@@ -14,10 +16,6 @@
 ### Formats
 - [Canal]Support read canal format message #3950
 - [Debezium]Support debezium canal format message #3981
->>>>>>> 698bceb5f (add release-note)
-
-- [Core] [API] Fixed generic class loss for lists (#4421)
-- [Core] [API] Fix parse nested row data type key changed upper (#4459)
  
 ### Connector-V2
 
