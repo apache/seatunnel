@@ -319,8 +319,13 @@ public class CheckpointCoordinator {
             try {
                 LOG.info("start notify checkpoint completed, checkpoint:{}", completedCheckpoint);
                 InvocationFuture<?>[] invocationFutures =
-                        notifyCheckpointCompleted(completedCheckpoint.getCheckpointId());
+                        notifyCheckpointCompleted(completedCheckpoint);
                 CompletableFuture.allOf(invocationFutures).join();
+                // Execution to this point means that all notifyCheckpointCompleted have been
+                // completed
+                InvocationFuture<?>[] invocationFuturesForEnd =
+                        notifyCheckpointEnd(completedCheckpoint);
+                CompletableFuture.allOf(invocationFuturesForEnd).join();
             } catch (Throwable e) {
                 handleCoordinatorError(
                         "notify checkpoint completed failed",
@@ -745,7 +750,6 @@ public class CheckpointCoordinator {
                 completedCheckpoint.getCheckpointId(),
                 completedCheckpoint.getPipelineId(),
                 completedCheckpoint.getJobId());
-
         latestCompletedCheckpoint = completedCheckpoint;
         notifyCompleted(completedCheckpoint);
         if (isCompleted()) {
