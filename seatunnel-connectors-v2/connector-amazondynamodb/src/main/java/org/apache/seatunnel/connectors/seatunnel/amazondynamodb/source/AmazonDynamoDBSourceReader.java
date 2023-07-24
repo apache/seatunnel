@@ -82,8 +82,9 @@ public class AmazonDynamoDBSourceReader extends AbstractSingleSplitReader<SeaTun
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         Map<String, AttributeValue> lastKeyEvaluated = null;
 
+        ScanResponse scan;
         do {
-            ScanResponse scan =
+            scan =
                     dynamoDbClient.scan(
                             ScanRequest.builder()
                                     .tableName(amazondynamodbSourceOptions.getTable())
@@ -98,7 +99,7 @@ public class AmazonDynamoDBSourceReader extends AbstractSingleSplitReader<SeaTun
             }
             lastKeyEvaluated = scan.lastEvaluatedKey();
             Thread.sleep(amazondynamodbSourceOptions.getBatchIntervalMs());
-        } while (lastKeyEvaluated != null);
+        } while (scan.hasLastEvaluatedKey());
         context.signalNoMoreElement();
     }
 }
