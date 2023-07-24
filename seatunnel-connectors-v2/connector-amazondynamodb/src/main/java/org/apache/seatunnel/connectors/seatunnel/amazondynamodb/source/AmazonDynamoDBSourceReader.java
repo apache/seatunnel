@@ -97,7 +97,7 @@ public class AmazonDynamoDBSourceReader extends AbstractSingleSplitReader<SeaTun
                                 });
             }
             lastKeyEvaluated = scan.lastEvaluatedKey();
-            Thread.sleep(100);
+            Thread.sleep(amazondynamodbSourceOptions.getBatchIntervalMs());
         }while (lastKeyEvaluated != null);
         context.signalNoMoreElement();
     }
