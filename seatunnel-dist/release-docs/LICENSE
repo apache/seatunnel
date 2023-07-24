@@ -275,6 +275,11 @@ The text of each license is the standard Apache 2.0 license.
      (Apache-2.0) listenablefuture (com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava https://mvnrepository.com/artifact/com.google.guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava)
      (Apache-2.0) accessors-smart (com.google.guava:accessors-smart:2.4.7 - https://mvnrepository.com/artifact/net.minidev/accessors-smart)
      (Apache-2.0) json-smart (net.minidev:json-smart:2.4.7 - https://mvnrepository.com/artifact/net.minidev/json-smart)
+     (Apache-2.0) iceberg (org.apache.iceberg:iceberg-spark-runtime-3.3_2.12:1.3.0) - https://iceberg.apache.org/
+     (Apache-2.0) iceberg (org.apache.iceberg:iceberg-core:1.3.0) - https://iceberg.apache.org/
+     (Apache-2.0) iceberg (org.apache.iceberg:iceberg-api:1.3.0) - https://iceberg.apache.org/
+     (Apache-2.0) iceberg (org.apache.iceberg:iceberg-data:1.3.0) - https://iceberg.apache.org/
+     (Apache-2.0) iceberg (org.apache.iceberg:iceberg-orc:1.3.0) - https://iceberg.apache.org/
 
 ========================================================================
 MOZILLA PUBLIC LICENSE License

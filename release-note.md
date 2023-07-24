@@ -6,7 +6,7 @@
 
 - [Core] [API] Fixed generic class loss for lists (#4421)
 - [Core] [API] Fix parse nested row data type key changed upper (#4459)
- 
+
 ### Connector-V2
 
 - [Json-format] [Canal-Json] Fix json deserialize NPE (#4195)
@@ -36,6 +36,7 @@
 - [Connector-v2] [Jdbc] Fix oracle sql table identifier (#4754)
 - [Connector-v2] [Clickhouse] fix get clickhouse local table name with closing bracket from distributed table engineFull (#4710)
 - [Connector-v2] [CDC] Fix jdbc connection leak for mysql (#5037)
+- [Connector-v2] [Iceberg] Add Iceberg sink connector (#5072)
 
 ### Zeta(ST-Engine)
 
