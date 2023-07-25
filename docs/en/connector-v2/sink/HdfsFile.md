@@ -163,3 +163,24 @@ HdfsFile {
 }
 ```
 
+### For kerberos simple config
+
+```
+HdfsFile {
+    fs.defaultFS = "hdfs://hadoopcluster"
+    path = "/tmp/hive/warehouse/test2"
+    kerberos_principal = "your_principal@EXAMPLE.COM"
+    kerberos_keytab_path = "/path/to/your/keytab/file.keytab"
+}
+```
+
+### For compress simple config
+
+```
+HdfsFile {
+    fs.defaultFS = "hdfs://hadoopcluster"
+    path = "/tmp/hive/warehouse/test2"
+    compress_codec = "lzo"
+}
+```
+
