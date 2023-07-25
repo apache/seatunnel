@@ -46,7 +46,7 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [IoTDB](connector-v2/sink/IoTDB.md)                         | Sink   | GA     | 2.2.0-beta      |
 | [Jdbc](connector-v2/source/Jdbc.md)                         | Source | GA     | 2.2.0-beta      |
 | [Jdbc](connector-v2/sink/Jdbc.md)                           | Sink   | GA     | 2.2.0-beta      |
-| [Kafka](connector-v2/source/Kafka.md)                       | Source | GA     | 2.3.0           |
+| [Kafka](connector-v2/source/kafka.md)                       | Source | GA     | 2.3.0           |
 | [Kafka](connector-v2/sink/Kafka.md)                         | Sink   | GA     | 2.2.0-beta      |
 | [Kudu](connector-v2/source/Kudu.md)                         | Source | Beta   | 2.2.0-beta      |
 | [Kudu](connector-v2/sink/Kudu.md)                           | Sink   | Beta   | 2.2.0-beta      |
