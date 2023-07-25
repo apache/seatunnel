@@ -32,7 +32,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ## Source Options
 
-| Name                                | Type                                                                        | Required | Default                  | Description                                                                                                                                                                                                                                                                                                                |
+|                Name                 |                                    Type                                     | Required |         Default          |                                                                                                                                                        Description                                                                                                                                                         |
 |-------------------------------------|-----------------------------------------------------------------------------|----------|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | topic                               | String                                                                      | Yes      | -                        | Topic name(s) to read data from when the table is used as source. It also supports topic list for source by separating topic by comma like 'topic-1,topic-2'.                                                                                                                                                              |
 | bootstrap.servers                   | String                                                                      | Yes      | -                        | Comma separated list of Kafka brokers.                                                                                                                                                                                                                                                                                     |
@@ -159,18 +159,3 @@ source {
     }
 }
 ```
-
-## Changelog
-
-### 2.3.0-beta 2022-10-20
-
-- Add Kafka Source Connector
-
-### Next Version
-
-- [Improve] Support setting read starting offset or time at startup config ([3157](https://github.com/apache/seatunnel/pull/3157))
-- [Improve] Support for dynamic discover topic & partition in streaming mode ([3125](https://github.com/apache/seatunnel/pull/3125))
-- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/seatunnel/pull/3719)
-- [Bug] Fixed the problem that parsing the offset format failed when the startup mode was offset([3810](https://github.com/apache/seatunnel/pull/3810))
-- [Feature] Kafka source supports data deserialization failure skipping([4364](https://github.com/apache/seatunnel/pull/4364))
-
