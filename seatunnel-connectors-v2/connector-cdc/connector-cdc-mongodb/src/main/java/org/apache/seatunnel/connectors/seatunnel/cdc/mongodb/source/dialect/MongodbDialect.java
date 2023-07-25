@@ -34,6 +34,7 @@ import org.bson.BsonDocument;
 
 import com.mongodb.client.MongoClient;
 import io.debezium.relational.TableId;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
 
@@ -52,6 +53,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.Mongod
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.getCurrentClusterTime;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.getLatestResumeToken;
 
+@Slf4j
 public class MongodbDialect implements DataSourceDialect<MongodbSourceConfig> {
 
     private final Map<MongodbSourceConfig, CollectionDiscoveryUtils.CollectionDiscoveryInfo> cache =
@@ -137,6 +139,11 @@ public class MongodbDialect implements DataSourceDialect<MongodbSourceConfig> {
         ChangeStreamOffset changeStreamOffset;
         if (startupResumeToken != null) {
             changeStreamOffset = new ChangeStreamOffset(startupResumeToken);
+            log.info(
+                    "startup resume token={},change stream offset={}",
+                    startupResumeToken,
+                    changeStreamOffset);
+
         } else {
             changeStreamOffset = new ChangeStreamOffset(getCurrentClusterTime(mongoClient));
         }
