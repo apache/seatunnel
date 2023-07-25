@@ -2,9 +2,11 @@
 
 > Doris source connector
 
-## Description
+## Support Those Engines
 
-Used to read data from Doris.
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key features
 
@@ -15,81 +17,70 @@ Used to read data from Doris.
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
 
-## Options
+## Description
 
-|               name               |  type  | required | default value |
-|----------------------------------|--------|----------|---------------|
-| fenodes                          | string | yes      | -             |
-| username                         | string | yes      | -             |
-| password                         | string | yes      | -             |
-| table.identifier                 | string | yes      | -             |
-| schema                           | config | yes      | -             |
-| doris.filter.query               | string | no       | -             |
-| doris.batch.size                 | int    | no       | 1024          |
-| doris.request.query.timeout.s    | int    | no       | 3600          |
-| doris.exec.mem.limit             | long   | no       | 2147483648    |
-| doris.request.retries            | int    | no       | 3             |
-| doris.request.read.timeout.ms    | int    | no       | 30000         |
-| doris.request.connect.timeout.ms | int    | no       | 30000         |
+Used to read data from Doris.
+Doris Source will send a SQL to FE, FE will parse it into an execution plan, send it to BE, and BE will
+directly return the data
 
-### fenodes [string]
+## Supported DataSource Info
 
-`Doris` FE address, the format is `"fe_host:fe_http_port"`
+| Datasource |          Supported versions          | Driver | Url | Maven |
+|------------|--------------------------------------|--------|-----|-------|
+| Doris      | Only Doris2.0 or later is supported. | -      | -   | -     |
 
-### username [string]
+## Database Dependency
 
-`Doris` user username
+> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
 
-### password [string]
+## Data Type Mapping
 
-`Doris` user password
+|           Doris Data type            | SeaTunnel Data type                                                                                                                                 |
+|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| INT                                  | INT                                                                                                                                                 |
+| TINYINT                              | TINYINT                                                                                                                                             |
+| SMALLINT                             | SMALLINT                                                                                                                                            |
+| BIGINT                               | BIGINT                                                                                                                                              |
+| LARGEINT                             | `NOT SUPPORT`                                                                                                                                       |
+| BOOLEAN                              | BOOLEAN                                                                                                                                             |
+| DECIMAL                              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
+| FLOAT                                | FLOAT                                                                                                                                               |
+| DOUBLE                               | DOUBLE                                                                                                                                              |
+| CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
+| DATE                                 | DATE                                                                                                                                                |
+| DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
+| ARRAY<TYPE>                          | ARRAY<TYPE>                                                                                                                                         |
 
-### table.identifier [string]
+## Source Options
 
-The name of Doris database and table , the format is `"databases.tablename"`
+|               Name               |  Type  | Required |  Default   |                                             Description                                             |
+|----------------------------------|--------|----------|------------|-----------------------------------------------------------------------------------------------------|
+| fenodes                          | string | yes      | -          | FE address, the format is `"fe_host:fe_http_port"`                                                  |
+| username                         | string | yes      | -          | User username                                                                                       |
+| password                         | string | yes      | -          | User password                                                                                       |
+| table.identifier                 | string | yes      | -          | The name of Doris database and table , the format is `"databases.tablename"`                        |
+| schema                           | config | yes      | -          | The schema of the doris that you want to generate                                                   |
+| doris.filter.query               | string | no       | -          | Data filtering in doris. the format is "field = value".                                             |
+| doris.batch.size                 | int    | no       | 1024       | The maximum value that can be obtained by reading Doris BE once.                                    |
+| doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |
+| doris.exec.mem.limit             | long   | no       | 2147483648 | Maximum memory that can be used by a single be scan request. The default memory is 2G (2147483648). |
+| doris.request.retries            | int    | no       | 3          | Number of retries to send requests to Doris FE.                                                     |
+| doris.request.read.timeout.ms    | int    | no       | 30000      |                                                                                                     |
+| doris.request.connect.timeout.ms | int    | no       | 30000      |                                                                                                     |
 
-### schema [config]
+### Tips
 
-#### fields [Config]
+> It is not recommended to modify advanced parameters at will
 
-The schema of the doris that you want to generate
+## Task Example
 
-e.g.
-
-```
-schema {
-    fields {
-       F_INT = "INT"
-       F_BIGINT = "BIGINT"
-       F_TINYINT = "TINYINT"
-       F_SMALLINT = "SMALLINT"
-       F_DECIMAL = "DECIMAL(18,6)"
-       F_BOOLEAN = "BOOLEAN"
-       F_DOUBLE = "DOUBLE"
-       F_FLOAT = "FLOAT"
-       F_CHAR = "String"
-       F_VARCHAR_11 = "String"
-       F_STRING = "String"
-       F_DATETIME_P = "Timestamp"
-       F_DATETIME = "Timestamp"
-       F_DATE = "DATE" 
-    }
-  }
-```
-
-### doris.filter.query [string]
-
-Data filtering in doris. the format is "field = value".
-
-e.g.
+> This is an example of reading a Doris table and writing to Console.
 
 ```
-"f_int = 1024"
-```
-
-## Example
-
-```
+env {
+  execution.parallelism = 2
+  job.mode = "BATCH"
+}
 source{
   Doris {
       fenodes = "doris_e2e:8030"
@@ -116,6 +107,15 @@ source{
             }
       }
   }
+}
+
+transform {
+    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+    # please go to https://seatunnel.apache.org/docs/transform/sql
+}
+
+sink {
+    Console {}
 }
 ```
 
