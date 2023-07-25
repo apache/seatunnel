@@ -99,7 +99,9 @@ public class JdbcSource
                 new SimpleJdbcConnectionProvider(jdbcSourceConfig.getJdbcConnectionConfig());
         this.query = jdbcSourceConfig.getQuery();
         this.jdbcDialect =
-                JdbcDialectLoader.load(jdbcSourceConfig.getJdbcConnectionConfig().getUrl());
+                JdbcDialectLoader.load(
+                        jdbcSourceConfig.getJdbcConnectionConfig().getUrl(),
+                        jdbcSourceConfig.getJdbcConnectionConfig().getCompatibleMode());
         try (Connection connection = jdbcConnectionProvider.getOrEstablishConnection()) {
             this.typeInfo = initTableField(connection);
             this.partitionParameter =
@@ -111,8 +113,7 @@ public class JdbcSource
         if (partitionParameter != null) {
             this.query =
                     JdbcSourceFactory.obtainPartitionSql(
-                            partitionParameter.getPartitionColumnName(),
-                            jdbcSourceConfig.getQuery());
+                            jdbcDialect, partitionParameter, jdbcSourceConfig.getQuery());
         }
 
         this.inputFormat =
@@ -185,9 +186,10 @@ public class JdbcSource
     private PartitionParameter createPartitionParameter(Connection connection) {
         if (jdbcSourceConfig.getPartitionColumn().isPresent()) {
             String partitionColumn = jdbcSourceConfig.getPartitionColumn().get();
-            JdbcSourceFactory.validationPartitionColumn(partitionColumn, typeInfo);
+            SeaTunnelDataType<?> dataType =
+                    JdbcSourceFactory.validationPartitionColumn(partitionColumn, typeInfo);
             return JdbcSourceFactory.createPartitionParameter(
-                    jdbcSourceConfig, partitionColumn, connection);
+                    jdbcSourceConfig, partitionColumn, dataType, connection);
         } else {
             LOG.info(
                     "The partition_column parameter is not configured, and the source parallelism is set to 1");
