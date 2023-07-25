@@ -30,8 +30,7 @@ Used to read data from My Hours.
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-Supported DataSource Info
--------------------------
+## Supported DataSource Info
 
 In order to use the My Hours connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
