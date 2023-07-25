@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -58,6 +59,8 @@ public class SinkConfig implements Serializable {
 
     private String saveModeCreateTemplate;
 
+    private DataSaveMode dataSaveMode;
+
     @Getter private final Map<String, Object> streamLoadProps = new HashMap<>();
 
     public static SinkConfig of(ReadonlyConfig config) {
@@ -89,6 +92,7 @@ public class SinkConfig implements Serializable {
         config.getOptional(StarRocksSinkOptions.COLUMN_SEPARATOR)
                 .ifPresent(sinkConfig::setColumnSeparator);
         sinkConfig.setLoadFormat(config.get(StarRocksSinkOptions.LOAD_FORMAT));
+        sinkConfig.setDataSaveMode(config.get(StarRocksSinkOptions.SAVE_MODE));
         return sinkConfig;
     }
 }

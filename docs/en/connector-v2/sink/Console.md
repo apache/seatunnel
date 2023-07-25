@@ -88,5 +88,5 @@ sink {
 
 ### 2.3.0-beta 2022-10-20
 
-- [Improve] Console sink support print subtask index ([3000](https://github.com/apache/incubator-seatunnel/pull/3000))
+- [Improve] Console sink support print subtask index ([3000](https://github.com/apache/seatunnel/pull/3000))
 

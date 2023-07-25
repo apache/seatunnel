@@ -38,31 +38,35 @@ public class MongodbWriterOptions implements Serializable {
 
     protected final boolean upsertEnable;
 
-    protected final String[] upsertKey;
+    protected final String[] primaryKey;
 
     protected final int retryMax;
 
     protected final long retryInterval;
+
+    protected final boolean transaction;
 
     public MongodbWriterOptions(
             String connectString,
             String database,
             String collection,
             int flushSize,
-            Long batchIntervalMs,
+            long batchIntervalMs,
             boolean upsertEnable,
-            String[] upsertKey,
+            String[] primaryKey,
             int retryMax,
-            Long retryInterval) {
+            long retryInterval,
+            boolean transaction) {
         this.connectString = connectString;
         this.database = database;
         this.collection = collection;
         this.flushSize = flushSize;
         this.batchIntervalMs = batchIntervalMs;
         this.upsertEnable = upsertEnable;
-        this.upsertKey = upsertKey;
+        this.primaryKey = primaryKey;
         this.retryMax = retryMax;
         this.retryInterval = retryInterval;
+        this.transaction = transaction;
     }
 
     public static Builder builder() {
@@ -83,11 +87,13 @@ public class MongodbWriterOptions implements Serializable {
 
         protected boolean upsertEnable;
 
-        protected String[] upsertKey;
+        protected String[] primaryKey;
 
         protected int retryMax;
 
         protected long retryInterval;
+
+        protected boolean transaction;
 
         public Builder withConnectString(String connectString) {
             this.connectString = connectString;
@@ -119,8 +125,8 @@ public class MongodbWriterOptions implements Serializable {
             return this;
         }
 
-        public Builder withUpsertKey(String[] upsertKey) {
-            this.upsertKey = upsertKey;
+        public Builder withPrimaryKey(String[] primaryKey) {
+            this.primaryKey = primaryKey;
             return this;
         }
 
@@ -134,6 +140,11 @@ public class MongodbWriterOptions implements Serializable {
             return this;
         }
 
+        public Builder withTransaction(boolean transaction) {
+            this.transaction = transaction;
+            return this;
+        }
+
         public MongodbWriterOptions build() {
             return new MongodbWriterOptions(
                     connectString,
@@ -142,9 +153,10 @@ public class MongodbWriterOptions implements Serializable {
                     flushSize,
                     batchIntervalMs,
                     upsertEnable,
-                    upsertKey,
+                    primaryKey,
                     retryMax,
-                    retryInterval);
+                    retryInterval,
+                    transaction);
         }
     }
 }

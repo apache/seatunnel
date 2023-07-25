@@ -59,9 +59,17 @@ public interface JdbcDialect extends Serializable {
      */
     JdbcDialectTypeMapper getJdbcDialectTypeMapper();
 
+    default String hashModForField(String fieldName, int mod) {
+        return "ABS(MD5(" + quoteIdentifier(fieldName) + ") % " + mod + ")";
+    }
+
     /** Quotes the identifier for table name or field name */
     default String quoteIdentifier(String identifier) {
         return identifier;
+    }
+
+    default String tableIdentifier(String database, String tableName) {
+        return quoteIdentifier(database) + "." + quoteIdentifier(tableName);
     }
 
     /**
@@ -85,8 +93,8 @@ public interface JdbcDialect extends Serializable {
                         .map(fieldName -> ":" + fieldName)
                         .collect(Collectors.joining(", "));
         return String.format(
-                "INSERT INTO %s.%s (%s) VALUES (%s)",
-                quoteIdentifier(database), quoteIdentifier(tableName), columns, placeholders);
+                "INSERT INTO %s (%s) VALUES (%s)",
+                tableIdentifier(database, tableName), columns, placeholders);
     }
 
     /**
@@ -111,8 +119,8 @@ public interface JdbcDialect extends Serializable {
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
                         .collect(Collectors.joining(" AND "));
         return String.format(
-                "UPDATE %s.%s SET %s WHERE %s",
-                quoteIdentifier(database), quoteIdentifier(tableName), setClause, conditionClause);
+                "UPDATE %s SET %s WHERE %s",
+                tableIdentifier(database, tableName), setClause, conditionClause);
     }
 
     /**
@@ -132,8 +140,7 @@ public interface JdbcDialect extends Serializable {
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
                         .collect(Collectors.joining(" AND "));
         return String.format(
-                "DELETE FROM %s.%s WHERE %s",
-                quoteIdentifier(database), quoteIdentifier(tableName), conditionClause);
+                "DELETE FROM %s WHERE %s", tableIdentifier(database, tableName), conditionClause);
     }
 
     /**
@@ -153,8 +160,8 @@ public interface JdbcDialect extends Serializable {
                         .map(field -> format("%s = :%s", quoteIdentifier(field), field))
                         .collect(Collectors.joining(" AND "));
         return String.format(
-                "SELECT 1 FROM %s.%s WHERE %s",
-                quoteIdentifier(database), quoteIdentifier(tableName), fieldExpressions);
+                "SELECT 1 FROM %s WHERE %s",
+                tableIdentifier(database, tableName), fieldExpressions);
     }
 
     /**

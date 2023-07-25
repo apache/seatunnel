@@ -106,7 +106,7 @@ For example, set like following:
 
 `skip_header_row_number = 2`
 
-then Seatunnel will skip the first 2 lines from source files
+then SeaTunnel will skip the first 2 lines from source files
 
 ### file_format_type [string]
 
@@ -259,7 +259,7 @@ LocalFile {
 
 ### 2.3.0-beta 2022-10-20
 
-- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
-- [Improve] Support extract partition from SeaTunnelRow fields ([3085](https://github.com/apache/incubator-seatunnel/pull/3085))
-- [Improve] Support parse field from file path ([2985](https://github.com/apache/incubator-seatunnel/pull/2985))
+- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/seatunnel/pull/2980))
+- [Improve] Support extract partition from SeaTunnelRow fields ([3085](https://github.com/apache/seatunnel/pull/3085))
+- [Improve] Support parse field from file path ([2985](https://github.com/apache/seatunnel/pull/2985))
 

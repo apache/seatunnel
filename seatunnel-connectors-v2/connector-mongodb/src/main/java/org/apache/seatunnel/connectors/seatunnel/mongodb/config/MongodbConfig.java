@@ -56,7 +56,8 @@ public class MongodbConfig {
             Options.key("match.query")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Mongodb's query syntax.");
+                    .withDescription("Mongodb's query syntax.")
+                    .withFallbackKeys("matchQuery");
 
     public static final Option<String> PROJECTION =
             Options.key("match.projection")
@@ -118,16 +119,16 @@ public class MongodbConfig {
     public static final Option<Long> BUFFER_FLUSH_INTERVAL =
             Options.key("buffer-flush.interval")
                     .longType()
-                    .defaultValue(30_000L)
+                    .defaultValue(30000L)
                     .withDescription(
-                            "Specifies the retry time interval if writing records to database failed.");
+                            "Specifies the maximum interval of buffered rows per batch request, the unit is millisecond.");
 
     public static final Option<Integer> RETRY_MAX =
             Options.key("retry.max")
                     .intType()
                     .defaultValue(3)
                     .withDescription(
-                            "Specifies the max retry times if writing records to database failed.");
+                            "Specifies the max number of retry if writing records to database failed.");
 
     public static final Option<Long> RETRY_INTERVAL =
             Options.key("retry.interval")
@@ -142,10 +143,14 @@ public class MongodbConfig {
                     .defaultValue(false)
                     .withDescription("Whether to write documents via upsert mode.");
 
-    public static final Option<List<String>> UPSERT_KEY =
-            Options.key("upsert-key")
+    public static final Option<List<String>> PRIMARY_KEY =
+            Options.key("primary-key")
                     .listType()
                     .noDefaultValue()
                     .withDescription(
-                            "The primary keys for upsert. Only valid in upsert mode. Keys are in csv format for properties.");
+                            "The primary keys for upsert/update. Keys are in csv format for properties.")
+                    .withFallbackKeys("upsert-key");
+
+    public static final Option<Boolean> TRANSACTION =
+            Options.key("transaction").booleanType().defaultValue(false).withDescription(".");
 }

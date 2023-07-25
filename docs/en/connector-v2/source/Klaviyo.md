@@ -282,7 +282,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ```hocon
 Klaviyo {
     url = "https://a.klaviyo.com/api/lists/"
-    private_key = "Seatunnel-test"
+    private_key = "SeaTunnel-test"
     revision = "2020-10-17"
     method = "GET"
     format = "json"
@@ -308,5 +308,5 @@ Klaviyo {
 ### next version
 
 - Add Klaviyo Source Connector
-- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/incubator-seatunnel/pull/3510))
+- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/seatunnel/pull/3510))
 
