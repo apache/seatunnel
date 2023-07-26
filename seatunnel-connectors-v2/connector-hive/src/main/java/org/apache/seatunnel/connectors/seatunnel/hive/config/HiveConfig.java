@@ -53,6 +53,14 @@ public class HiveConfig {
                     .withDescription(
                             "The target partitions that user want to read from hive table, if user does not set this parameter, it will read all the data from hive table");
 
+    public static final Option<List<String>> READ_COLUMNS =
+            Options.key("read_columns")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The read column list of the data source, user can use it to implement field projection");
+
+
     public static final String TEXT_INPUT_FORMAT_CLASSNAME =
             "org.apache.hadoop.mapred.TextInputFormat";
     public static final String TEXT_OUTPUT_FORMAT_CLASSNAME =
