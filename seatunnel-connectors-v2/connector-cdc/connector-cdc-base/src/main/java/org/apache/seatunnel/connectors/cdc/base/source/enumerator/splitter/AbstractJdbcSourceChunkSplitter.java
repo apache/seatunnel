@@ -377,20 +377,6 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         return ObjectUtils.compare(obj1, obj2);
     }
 
-    private static Column getSplitColumn(Table table) {
-        List<Column> primaryKeys = table.primaryKeyColumns();
-        if (primaryKeys.isEmpty()) {
-            throw new UnsupportedOperationException(
-                    String.format(
-                            "Incremental snapshot for tables requires primary key,"
-                                    + " but table %s doesn't have primary key.",
-                            table.id()));
-        }
-
-        // use first field in primary key as the split key
-        return primaryKeys.get(0);
-    }
-
     @SuppressWarnings("MagicNumber")
     private static void maySleep(int count, TableId tableId) {
         // every 100 queries to sleep 1s
