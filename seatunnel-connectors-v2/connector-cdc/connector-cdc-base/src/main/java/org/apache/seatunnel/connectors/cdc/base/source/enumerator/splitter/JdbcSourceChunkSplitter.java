@@ -17,16 +17,22 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter;
 
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
+import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 
 /** The {@code ChunkSplitter} used to split table into a set of chunks for JDBC data source. */
 public interface JdbcSourceChunkSplitter extends ChunkSplitter {
@@ -160,5 +166,43 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
         return new SeaTunnelRowType(
                 new String[] {splitColumn.name()},
                 new SeaTunnelDataType[] {fromDbzColumn(splitColumn)});
+    }
+
+    default Column getSplitColumn(
+            JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
+            throws SQLException {
+        Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
+        if (primaryKey.isPresent()) {
+            List<String> pkColumns = primaryKey.get().getColumnNames();
+
+            Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
+            for (String pkColumn : pkColumns) {
+                Column column = table.columnWithName(pkColumn);
+                if (isEvenlySplitColumn(column)) {
+                    return column;
+                }
+            }
+        }
+
+        List<ConstraintKey> uniqueKeys = dialect.getUniqueKeys(jdbc, tableId);
+        if (!uniqueKeys.isEmpty()) {
+            Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
+            for (ConstraintKey uniqueKey : uniqueKeys) {
+                List<ConstraintKey.ConstraintKeyColumn> uniqueKeyColumns =
+                        uniqueKey.getColumnNames();
+                for (ConstraintKey.ConstraintKeyColumn uniqueKeyColumn : uniqueKeyColumns) {
+                    Column column = table.columnWithName(uniqueKeyColumn.getColumnName());
+                    if (isEvenlySplitColumn(column)) {
+                        return column;
+                    }
+                }
+            }
+        }
+
+        throw new UnsupportedOperationException(
+                String.format(
+                        "Incremental snapshot for tables requires primary key/unique key,"
+                                + " but table %s doesn't have primary key.",
+                        tableId));
     }
 }
