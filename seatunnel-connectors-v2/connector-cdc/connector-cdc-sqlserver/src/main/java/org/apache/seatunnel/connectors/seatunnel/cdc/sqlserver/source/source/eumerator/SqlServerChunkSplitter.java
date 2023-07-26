@@ -30,7 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlS
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
-import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
@@ -64,8 +63,7 @@ public class SqlServerChunkSplitter implements JdbcSourceChunkSplitter {
             log.info("Start splitting table {} into chunks...", tableId);
             long start = System.currentTimeMillis();
 
-            Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
-            Column splitColumn = getSplitColumn(table);
+            Column splitColumn = getSplitColumn(jdbc, dialect, tableId);
             final List<ChunkRange> chunks;
             try {
                 chunks = splitTableIntoChunks(jdbc, tableId, splitColumn);
@@ -389,19 +387,5 @@ public class SqlServerChunkSplitter implements JdbcSourceChunkSplitter {
             }
             log.info("JdbcSourceChunkSplitter has split {} chunks for table {}", count, tableId);
         }
-    }
-
-    public static Column getSplitColumn(Table table) {
-        List<Column> primaryKeys = table.primaryKeyColumns();
-        if (primaryKeys.isEmpty()) {
-            throw new UnsupportedOperationException(
-                    String.format(
-                            "Incremental snapshot for tables requires primary key,"
-                                    + " but table %s doesn't have primary key.",
-                            table.id()));
-        }
-
-        // use first field in primary key as the split key
-        return primaryKeys.get(0);
     }
 }

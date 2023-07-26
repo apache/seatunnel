@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -37,6 +38,7 @@ import com.google.auto.service.AutoService;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.AUTO_COMMIT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.BATCH_INTERVAL_MS;
@@ -78,6 +80,21 @@ public class JdbcSinkFactory implements TableSinkFactory {
             PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
             if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
                 map.put(PRIMARY_KEYS.key(), String.join(",", primaryKey.getColumnNames()));
+            } else {
+                Optional<ConstraintKey> keyOptional =
+                        catalogTable.getTableSchema().getConstraintKeys().stream()
+                                .filter(
+                                        key ->
+                                                ConstraintKey.ConstraintType.UNIQUE_KEY.equals(
+                                                        key.getConstraintType()))
+                                .findFirst();
+                if (keyOptional.isPresent()) {
+                    map.put(
+                            PRIMARY_KEYS.key(),
+                            keyOptional.get().getColumnNames().stream()
+                                    .map(key -> key.getColumnName())
+                                    .collect(Collectors.joining(",")));
+                }
             }
             config = ReadonlyConfig.fromMap(new HashMap<>(map));
         }

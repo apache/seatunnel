@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
-import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 
 import java.math.BigDecimal;
@@ -67,8 +66,7 @@ public class MySqlChunkSplitter implements JdbcSourceChunkSplitter {
             LOG.info("Start splitting table {} into chunks...", tableId);
             long start = System.currentTimeMillis();
 
-            Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
-            Column splitColumn = getSplitColumn(table);
+            Column splitColumn = getSplitColumn(jdbc, dialect, tableId);
             final List<ChunkRange> chunks;
             try {
                 chunks = splitTableIntoChunks(jdbc, tableId, splitColumn);
@@ -392,19 +390,5 @@ public class MySqlChunkSplitter implements JdbcSourceChunkSplitter {
             }
             LOG.info("JdbcSourceChunkSplitter has split {} chunks for table {}", count, tableId);
         }
-    }
-
-    public static Column getSplitColumn(Table table) {
-        List<Column> primaryKeys = table.primaryKeyColumns();
-        if (primaryKeys.isEmpty()) {
-            throw new UnsupportedOperationException(
-                    String.format(
-                            "Incremental snapshot for tables requires primary key,"
-                                    + " but table %s doesn't have primary key.",
-                            table.id()));
-        }
-
-        // use first field in primary key as the split key
-        return primaryKeys.get(0);
     }
 }
