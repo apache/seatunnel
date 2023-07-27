@@ -35,7 +35,7 @@ directly return the data
 
 ## Data Type Mapping
 
-|           Doris Data type            | SeaTunnel Data type                                                                                                                                 |
+|           Doris Data type            |                                                                 SeaTunnel Data type                                                                 |
 |--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | INT                                  | INT                                                                                                                                                 |
 | TINYINT                              | TINYINT                                                                                                                                             |
