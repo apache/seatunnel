@@ -71,12 +71,6 @@ public interface JdbcOptions {
                             "For queries that return a large number of objects, "
                                     + "you can configure the row fetch size used in the query to improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.");
 
-    Option<Integer> BATCH_INTERVAL_MS =
-            Options.key("batch_interval_ms")
-                    .intType()
-                    .defaultValue(1000)
-                    .withDescription("batch interval milliSecond");
-
     Option<Boolean> IS_EXACTLY_ONCE =
             Options.key("is_exactly_once")
                     .booleanType()
