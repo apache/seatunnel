@@ -19,9 +19,9 @@ package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
-import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstance;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 
+import com.hazelcast.instance.impl.Node;
 import io.prometheus.client.GaugeMetricFamily;
 
 import java.util.ArrayList;
@@ -29,8 +29,8 @@ import java.util.List;
 
 public class JobMetricExports extends AbstractCollector {
 
-    public JobMetricExports(ExportsInstance exportsInstance) {
-        super(exportsInstance);
+    public JobMetricExports(Node node) {
+        super(node);
     }
 
     @Override

@@ -19,9 +19,9 @@ package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
-import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstance;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
 
+import com.hazelcast.instance.impl.Node;
 import io.prometheus.client.CounterMetricFamily;
 import io.prometheus.client.GaugeMetricFamily;
 
@@ -33,8 +33,8 @@ public class JobThreadPoolStatusExports extends AbstractCollector {
     private static String HELP =
             "The %s of seatunnel coordinator job's executor cached thread pool";
 
-    public JobThreadPoolStatusExports(ExportsInstance exportsInstance) {
-        super(exportsInstance);
+    public JobThreadPoolStatusExports(Node node) {
+        super(node);
     }
 
     @Override
