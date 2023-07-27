@@ -38,14 +38,14 @@ public abstract class AbstractCollector extends Collector {
     protected static String CLUSTER = "cluster";
     protected static String ADDRESS = "address";
 
-    protected ExportsInstance exportsInstance;
+    protected Node node;
 
-    public AbstractCollector(final ExportsInstance exportsInstance) {
-        this.exportsInstance = exportsInstance;
+    public AbstractCollector(final Node node) {
+        this.node = node;
     }
 
     protected Node getNode() {
-        return exportsInstance.getNode();
+        return node;
     }
 
     protected ILogger getLogger(Class clazz) {

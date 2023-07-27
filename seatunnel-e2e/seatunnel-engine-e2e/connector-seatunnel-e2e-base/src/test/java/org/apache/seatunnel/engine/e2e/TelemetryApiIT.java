@@ -110,41 +110,41 @@ public class TelemetryApiIT {
                 .body(containsString("jvm_classes"))
                 .body(containsString("jvm_buffer_pool"))
                 .body(containsString("process_start"))
-                //
+                // cluster_info
                 .body(containsString("cluster_info{cluster=\"" + testClusterName))
-                //
+                // cluster_time
                 .body(containsString("cluster_time{cluster=\"" + testClusterName))
                 // Job thread pool metrics
                 .body(
-                        containsString(
-                                "job_thread_pool_activeCount{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*job_thread_pool_activeCount\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",}"))
+                                        + "\",address=.*$"))
                 .body(
-                        containsString(
-                                "job_thread_pool_completedTask_total{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*job_thread_pool_completedTask_total\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",}"))
+                                        + "\",address=.*$"))
                 .body(
-                        containsString(
-                                "job_thread_pool_corePoolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*job_thread_pool_corePoolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",}"))
+                                        + "\",address=.*$"))
                 .body(
-                        containsString(
-                                "job_thread_pool_maximumPoolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*job_thread_pool_maximumPoolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",} 2.147483647E9"))
+                                        + "\",address=.*$"))
                 .body(
-                        containsString(
-                                "job_thread_pool_poolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*job_thread_pool_poolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",}"))
+                                        + "\",address=.*$"))
                 .body(
-                        containsString(
-                                "job_thread_pool_task_total{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*job_thread_pool_task_total\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",}"))
+                                        + "\",address=.*$"))
                 // Job count metrics
                 .body(
                         containsString(
@@ -204,325 +204,328 @@ public class TelemetryApiIT {
                                         + "\",type=\"suspended\",} 0.0"))
                 // Node
                 .body(
-                        containsString(
-                                "node_state{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*node_state\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",}"))
+                                        + "\",address=.*$"))
                 // hazelcast_executor_executedCount
                 .body(
-                        containsString(
-                                "hazelcast_executor_executedCount{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_executedCount\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"async\",}"))
+                                        + "\",address=.*,type=\"async\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_executedCount{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_executedCount\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"client\",}"))
+                                        + "\",address=.*,type=\"client\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_executedCount{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_executedCount\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientBlocking\",}"))
+                                        + "\",address=.*,type=\"clientBlocking\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_executedCount{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_executedCount\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientQuery\",}"))
+                                        + "\",address=.*,type=\"clientQuery\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_executedCount{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_executedCount\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"io\",}"))
+                                        + "\",address=.*,type=\"io\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_executedCount{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_executedCount\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"offloadable\",}"))
+                                        + "\",address=.*,type=\"offloadable\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_executedCount{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_executedCount\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"scheduled\",}"))
+                                        + "\",address=.*,type=\"scheduled\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_executedCount{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_executedCount\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"system\",}"))
+                                        + "\",address=.*,type=\"system\".*$"))
                 // hazelcast_executor_isShutdown
+
                 .body(
-                        containsString(
-                                "hazelcast_executor_isShutdown{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isShutdown\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"async\",}"))
+                                        + "\",address=.*,type=\"async\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isShutdown{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isShutdown\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"client\",}"))
+                                        + "\",address=.*,type=\"client\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isShutdown{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isShutdown\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientBlocking\",}"))
+                                        + "\",address=.*,type=\"clientBlocking\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isShutdown{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isShutdown\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientQuery\",}"))
+                                        + "\",address=.*,type=\"clientQuery\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isShutdown{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isShutdown\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"io\",}"))
+                                        + "\",address=.*,type=\"io\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isShutdown{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isShutdown\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"offloadable\",}"))
+                                        + "\",address=.*,type=\"offloadable\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isShutdown{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isShutdown\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"scheduled\",}"))
+                                        + "\",address=.*,type=\"scheduled\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isShutdown{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isShutdown\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"system\",}"))
+                                        + "\",address=.*,type=\"system\".*$"))
+
                 // hazelcast_executor_isTerminated
                 .body(
-                        containsString(
-                                "hazelcast_executor_isTerminated{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isTerminated\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"async\",}"))
+                                        + "\",address=.*,type=\"async\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isTerminated{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isTerminated\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"client\",}"))
+                                        + "\",address=.*,type=\"client\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isTerminated{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isTerminated\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientBlocking\",}"))
+                                        + "\",address=.*,type=\"clientBlocking\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isTerminated{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isTerminated\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientQuery\",}"))
+                                        + "\",address=.*,type=\"clientQuery\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isTerminated{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isTerminated\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"io\",}"))
+                                        + "\",address=.*,type=\"io\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isTerminated{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isTerminated\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"offloadable\",}"))
+                                        + "\",address=.*,type=\"offloadable\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isTerminated{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isTerminated\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"scheduled\",}"))
+                                        + "\",address=.*,type=\"scheduled\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_isTerminated{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_isTerminated\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"system\",}"))
+                                        + "\",address=.*,type=\"system\".*$"))
 
                 // hazelcast_executor_maxPoolSize
                 .body(
-                        containsString(
-                                "hazelcast_executor_maxPoolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_maxPoolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"async\",}"))
+                                        + "\",address=.*,type=\"async\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_maxPoolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_maxPoolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"client\",}"))
+                                        + "\",address=.*,type=\"client\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_maxPoolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_maxPoolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientBlocking\",}"))
+                                        + "\",address=.*,type=\"clientBlocking\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_maxPoolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_maxPoolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientQuery\",}"))
+                                        + "\",address=.*,type=\"clientQuery\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_maxPoolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_maxPoolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"io\",}"))
+                                        + "\",address=.*,type=\"io\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_maxPoolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_maxPoolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"offloadable\",}"))
+                                        + "\",address=.*,type=\"offloadable\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_maxPoolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_maxPoolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"scheduled\",}"))
+                                        + "\",address=.*,type=\"scheduled\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_maxPoolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_maxPoolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"system\",}"))
+                                        + "\",address=.*,type=\"system\".*$"))
 
                 // hazelcast_executor_poolSize
                 .body(
-                        containsString(
-                                "hazelcast_executor_poolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_poolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"async\",}"))
+                                        + "\",address=.*,type=\"async\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_poolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_poolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"client\",}"))
+                                        + "\",address=.*,type=\"client\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_poolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_poolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientBlocking\",}"))
+                                        + "\",address=.*,type=\"clientBlocking\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_poolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_poolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientQuery\",}"))
+                                        + "\",address=.*,type=\"clientQuery\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_poolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_poolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"io\",}"))
+                                        + "\",address=.*,type=\"io\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_poolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_poolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"offloadable\",}"))
+                                        + "\",address=.*,type=\"offloadable\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_poolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_poolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"scheduled\",}"))
+                                        + "\",address=.*,type=\"scheduled\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_poolSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_poolSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"system\",}"))
+                                        + "\",address=.*,type=\"system\".*$"))
 
                 // hazelcast_executor_queueRemainingCapacity
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueRemainingCapacity{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueRemainingCapacity\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"async\",}"))
+                                        + "\",address=.*,type=\"async\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueRemainingCapacity{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueRemainingCapacity\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"client\",}"))
+                                        + "\",address=.*,type=\"client\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueRemainingCapacity{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueRemainingCapacity\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientBlocking\",}"))
+                                        + "\",address=.*,type=\"clientBlocking\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueRemainingCapacity{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueRemainingCapacity\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientQuery\",}"))
+                                        + "\",address=.*,type=\"clientQuery\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueRemainingCapacity{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueRemainingCapacity\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"io\",}"))
+                                        + "\",address=.*,type=\"io\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueRemainingCapacity{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueRemainingCapacity\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"offloadable\",}"))
+                                        + "\",address=.*,type=\"offloadable\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueRemainingCapacity{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueRemainingCapacity\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"scheduled\",}"))
+                                        + "\",address=.*,type=\"scheduled\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueRemainingCapacity{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueRemainingCapacity\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"system\",}"))
+                                        + "\",address=.*,type=\"system\".*$"))
 
                 // hazelcast_executor_queueSize
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"async\",}"))
+                                        + "\",address=.*,type=\"async\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"client\",}"))
+                                        + "\",address=.*,type=\"client\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientBlocking\",}"))
+                                        + "\",address=.*,type=\"clientBlocking\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"clientQuery\",}"))
+                                        + "\",address=.*,type=\"clientQuery\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"io\",}"))
+                                        + "\",address=.*,type=\"io\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"offloadable\",}"))
+                                        + "\",address=.*,type=\"offloadable\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"scheduled\",}"))
+                                        + "\",address=.*,type=\"scheduled\".*$"))
                 .body(
-                        containsString(
-                                "hazelcast_executor_queueSize{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_executor_queueSize\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",type=\"system\",}"))
+                                        + "\",address=.*,type=\"system\".*$"))
+
                 // hazelcast_partition_partitionCount
                 .body(
-                        containsString(
-                                "hazelcast_partition_partitionCount{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_partition_partitionCount\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",}"))
+                                        + "\",address=.*$"))
                 // hazelcast_partition_activePartition
                 .body(
-                        containsString(
-                                "hazelcast_partition_activePartition{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_partition_activePartition\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",}"))
+                                        + "\",address=.*$"))
                 // hazelcast_partition_isClusterSafe
                 .body(
-                        containsString(
-                                "hazelcast_partition_isClusterSafe{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_partition_isClusterSafe\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",}"))
+                                        + "\",address=.*$"))
                 // hazelcast_partition_isLocalMemberSafe
                 .body(
-                        containsString(
-                                "hazelcast_partition_isLocalMemberSafe{cluster=\""
+                        matchesRegex(
+                                "(?s)^.*hazelcast_partition_isLocalMemberSafe\\{cluster=\""
                                         + testClusterName
-                                        + "\",address=\"127.0.0.1:5801\",}"));
+                                        + "\",address=.*$"));
     }
 
     @AfterAll

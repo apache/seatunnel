@@ -18,8 +18,8 @@
 package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 
 import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
-import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstance;
 
+import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.jmx.InstanceMBean;
 import com.hazelcast.internal.jmx.PartitionServiceMBean;
 import io.prometheus.client.GaugeMetricFamily;
@@ -29,8 +29,8 @@ import java.util.List;
 
 public class NodeMetricExports extends AbstractCollector {
 
-    public NodeMetricExports(final ExportsInstance exportsInstance) {
-        super(exportsInstance);
+    public NodeMetricExports(Node node) {
+        super(node);
     }
 
     @Override

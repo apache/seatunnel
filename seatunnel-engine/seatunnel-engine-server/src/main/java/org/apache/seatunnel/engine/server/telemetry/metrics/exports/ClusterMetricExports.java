@@ -18,9 +18,9 @@
 package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 
 import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
-import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstance;
 
 import com.hazelcast.cluster.impl.MemberImpl;
+import com.hazelcast.instance.impl.Node;
 import io.prometheus.client.GaugeMetricFamily;
 
 import java.net.UnknownHostException;
@@ -30,8 +30,8 @@ import java.util.List;
 
 public class ClusterMetricExports extends AbstractCollector {
 
-    public ClusterMetricExports(final ExportsInstance exportsInstance) {
-        super(exportsInstance);
+    public ClusterMetricExports(Node node) {
+        super(node);
     }
 
     @Override

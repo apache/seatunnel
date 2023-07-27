@@ -17,13 +17,37 @@
 
 package org.apache.seatunnel.engine.server.telemetry.metrics;
 
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ClusterMetricExports;
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobMetricExports;
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobThreadPoolStatusExports;
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.NodeMetricExports;
+
 import com.hazelcast.instance.impl.Node;
+import io.prometheus.client.CollectorRegistry;
+import io.prometheus.client.hotspot.DefaultExports;
 
 public final class ExportsInstanceInitializer {
 
+    private static boolean initialized = false;
+
     private ExportsInstanceInitializer() {}
 
-    public static void init(Node node) {
-        new ExportsInstance(node);
+    public static synchronized void init(Node node) {
+        if (!initialized) {
+            // initialize jvm collector
+            DefaultExports.initialize();
+
+            // register collectors
+            CollectorRegistry collectorRegistry = CollectorRegistry.defaultRegistry;
+            // Job info detail
+            new JobMetricExports(node).register(collectorRegistry);
+            // Thread pool status
+            new JobThreadPoolStatusExports(node).register(collectorRegistry);
+            // Node metrics
+            new NodeMetricExports(node).register(collectorRegistry);
+            // Cluster metrics
+            new ClusterMetricExports(node).register(collectorRegistry);
+            initialized = true;
+        }
     }
 }
