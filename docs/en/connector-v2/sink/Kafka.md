@@ -108,8 +108,10 @@ Kafka distinguishes different transactions by different transactionId. This para
 
 ### format
 
-Data format. The default format is json. Optional text format. The default field separator is ",".
-If you customize the delimiter, add the "field_delimiter" option.
+Data format. The default format is json. Optional text format, canal-json and debezium-json.
+If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.
+If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.
+If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details.
 
 ### field_delimiter
 
@@ -209,8 +211,10 @@ sink {
 
 ### next version
 
-- [Improve] Support to specify multiple partition keys [3230](https://github.com/apache/seatunnel/pull/3230)
-- [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/seatunnel/pull/3711)
-- [Improve] Support extract topic from SeaTunnelRow fields [3742](https://github.com/apache/seatunnel/pull/3742)
-- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/seatunnel/pull/3719)
+- [Improve] Support to specify multiple partition keys [3230](https://github.com/apache/incubator-seatunnel/pull/3230)
+- [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/incubator-seatunnel/pull/3711)
+- [Improve] Support extract topic from SeaTunnelRow fields [3742](https://github.com/apache/incubator-seatunnel/pull/3742)
+- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
+- [Improve] Support read canal format message [3950](https://github.com/apache/incubator-seatunnel/pull/3950)
+- [Improve] Support read debezium format message [3981](https://github.com/apache/incubator-seatunnel/pull/3981)
 

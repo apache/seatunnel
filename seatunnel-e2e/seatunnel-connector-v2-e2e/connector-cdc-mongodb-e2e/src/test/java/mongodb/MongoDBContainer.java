@@ -84,6 +84,7 @@ public class MongoDBContainer extends GenericContainer<MongoDBContainer> {
         withExposedPorts(MONGODB_PORT);
         withCommand(ShardingClusterRole.startupCommand(clusterRole));
         waitingFor(clusterRole.waitStrategy);
+        withEnv("TZ", "Asia/Shanghai");
     }
 
     public void executeCommand(String command) {

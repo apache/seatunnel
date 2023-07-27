@@ -55,16 +55,16 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoField;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public class OrcWriteStrategy extends AbstractWriteStrategy {
-    private final Map<String, Writer> beingWrittenWriter;
+    private final LinkedHashMap<String, Writer> beingWrittenWriter;
 
     public OrcWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
-        this.beingWrittenWriter = new HashMap<>();
+        this.beingWrittenWriter = new LinkedHashMap<>();
     }
 
     @Override

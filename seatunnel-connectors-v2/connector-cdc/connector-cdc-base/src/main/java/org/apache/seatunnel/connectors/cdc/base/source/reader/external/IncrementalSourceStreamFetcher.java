@@ -165,10 +165,9 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
             Offset position = taskContext.getStreamOffset(sourceRecord);
             TableId tableId = getTableId(sourceRecord);
             if (!taskContext.isExactlyOnce()) {
-                //                log.trace(
-                //                        "The table {} is not support exactly-once, so ignore the
-                // watermark check",
-                //                        tableId);
+                log.trace(
+                        "The table {} is not support exactly-once, so ignore the watermark check",
+                        tableId);
                 return position.isAfter(splitStartWatermark);
             }
             // check whether the pure binlog mode has been entered
