@@ -180,9 +180,12 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         // index name -> index
         Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
         while (resultSet.next()) {
-            String indexName = resultSet.getString("INDEX_NAME");
             String columnName = resultSet.getString("COLUMN_NAME");
-            String unique = resultSet.getString("NON_UNIQUE");
+            if (columnName == null) {
+                continue;
+            }
+            String indexName = resultSet.getString("INDEX_NAME");
+            boolean noUnique = resultSet.getBoolean("NON_UNIQUE");
 
             ConstraintKey constraintKey =
                     constraintKeyMap.computeIfAbsent(
@@ -190,8 +193,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                             s -> {
                                 ConstraintKey.ConstraintType constraintType =
                                         ConstraintKey.ConstraintType.KEY;
-                                // 0 is unique.
-                                if ("0".equals(unique)) {
+                                if (!noUnique) {
                                     constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
                                 }
                                 return ConstraintKey.of(
