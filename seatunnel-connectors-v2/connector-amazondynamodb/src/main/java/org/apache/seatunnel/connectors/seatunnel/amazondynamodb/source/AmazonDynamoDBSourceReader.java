@@ -98,7 +98,7 @@ public class AmazonDynamoDBSourceReader extends AbstractSingleSplitReader<SeaTun
                                 });
             }
             lastKeyEvaluated = scan.lastEvaluatedKey();
-        } while (lastKeyEvaluated != null);
+        } while (lastKeyEvaluated != null && !lastKeyEvaluated.isEmpty());
         context.signalNoMoreElement();
     }
 }
