@@ -75,9 +75,7 @@ public class LocalFileIT extends TestSuiteBase {
     @TestTemplate
     public void testLocalFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
-        /**
-         * excel
-         */
+        /** excel */
         Container.ExecResult excelWriteResult =
                 container.executeJob("/excel/fake_to_local_excel.conf");
         Assertions.assertEquals(0, excelWriteResult.getExitCode(), excelWriteResult.getStderr());
@@ -88,9 +86,7 @@ public class LocalFileIT extends TestSuiteBase {
                 container.executeJob("/excel/local_excel_projection_to_assert.conf");
         Assertions.assertEquals(
                 0, excelProjectionReadResult.getExitCode(), excelProjectionReadResult.getStderr());
-        /**
-         * text
-         */
+        /** text */
         // test write local text file
         Container.ExecResult textWriteResult =
                 container.executeJob("/text/fake_to_local_file_text.conf");
@@ -111,9 +107,7 @@ public class LocalFileIT extends TestSuiteBase {
         Container.ExecResult textProjectionResult =
                 container.executeJob("/text/local_file_text_projection_to_assert.conf");
         Assertions.assertEquals(0, textProjectionResult.getExitCode());
-        /**
-         * json
-         */
+        /** json */
         // test write local json file
         Container.ExecResult jsonWriteResult =
                 container.executeJob("/json/fake_to_local_file_json.conf");
@@ -126,9 +120,7 @@ public class LocalFileIT extends TestSuiteBase {
         Container.ExecResult lzoJsonReadResult =
                 container.executeJob("/json/local_file_json_lzo_to_console.conf");
         Assertions.assertEquals(0, lzoJsonReadResult.getExitCode());
-        /**
-         * orc
-         */
+        /** orc */
         // test write local orc file
         Container.ExecResult orcWriteResult =
                 container.executeJob("/orc/fake_to_local_file_orc.conf");
@@ -141,9 +133,7 @@ public class LocalFileIT extends TestSuiteBase {
         Container.ExecResult orcProjectionResult =
                 container.executeJob("/orc/local_file_orc_projection_to_assert.conf");
         Assertions.assertEquals(0, orcProjectionResult.getExitCode());
-        /**
-         * parquet
-         */
+        /** parquet */
         // test write local parquet file
         Container.ExecResult parquetWriteResult =
                 container.executeJob("/parquet/fake_to_local_file_parquet.conf");
