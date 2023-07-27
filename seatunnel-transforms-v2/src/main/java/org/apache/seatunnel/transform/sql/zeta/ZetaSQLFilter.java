@@ -185,7 +185,7 @@ public class ZetaSQLFilter {
         return Pair.of(leftVal, rightVal);
     }
 
-    private boolean equalsToExpr(Pair<Object, Object> pair) {
+    boolean equalsToExpr(Pair<Object, Object> pair) {
         Object leftVal = pair.getLeft();
         Object rightVal = pair.getRight();
         if (leftVal == null || rightVal == null) {

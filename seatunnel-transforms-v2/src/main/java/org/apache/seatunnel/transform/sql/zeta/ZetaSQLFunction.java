@@ -28,6 +28,8 @@ import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.SystemFunction;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.CaseExpression;
 import net.sf.jsqlparser.expression.CastExpression;
@@ -55,7 +57,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public class ZetaSQLFunction {
     // ============================internal functions=====================
@@ -457,7 +458,7 @@ public class ZetaSQLFunction {
             boolean isComparison = whenClause.getWhenExpression() instanceof ComparisonOperator;
             if (isComparison && (boolean) when) {
                 return computeForValue(whenClause.getThenExpression(), inputFields);
-            } else if (!isComparison && Objects.equals(switchValue, when)) {
+            } else if (!isComparison && zetaSQLFilter.equalsToExpr(Pair.of(switchValue, when))) {
                 return computeForValue(whenClause.getThenExpression(), inputFields);
             }
         }
