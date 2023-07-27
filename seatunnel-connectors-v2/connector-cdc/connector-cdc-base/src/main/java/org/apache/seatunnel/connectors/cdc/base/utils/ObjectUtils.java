@@ -63,6 +63,8 @@ public class ObjectUtils {
                     ((BigInteger) minuend).subtract((BigInteger) subtrahend).toString());
         } else if (minuend instanceof BigDecimal) {
             return ((BigDecimal) minuend).subtract((BigDecimal) subtrahend);
+        } else if (minuend instanceof String) {
+            return BigDecimal.valueOf(Long.MAX_VALUE);
         } else {
             throw new UnsupportedOperationException(
                     String.format(

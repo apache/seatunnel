@@ -108,6 +108,8 @@ public class MongodbSourceOptions extends SourceOptions {
                     + "    { \"name\": \"source\","
                     + "      \"type\": [{\"name\": \"source\", \"type\": \"record\", \"fields\": ["
                     + "                {\"name\": \"ts_ms\", \"type\": \"long\"},"
+                    + "                {\"name\": \"table\", \"type\": [\"string\", \"null\"]},"
+                    + "                {\"name\": \"db\", \"type\": [\"string\", \"null\"]},"
                     + "                {\"name\": \"snapshot\", \"type\": [\"string\", \"null\"] } ]"
                     + "               }, \"null\" ] },"
                     + "    { \"name\": \"ts_ms\", \"type\": [\"long\", \"null\"]},"
