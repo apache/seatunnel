@@ -136,6 +136,7 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
             case INT:
             case BIGINT:
             case DECIMAL:
+            case STRING:
                 return true;
             default:
                 return false;

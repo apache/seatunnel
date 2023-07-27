@@ -47,6 +47,7 @@ import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -167,11 +168,14 @@ public class CheckpointManager {
     }
 
     public void reportedPipelineRunning(int pipelineId, boolean alreadyStarted) {
+        log.info(
+                "reported pipeline running stack: "
+                        + Arrays.toString(Thread.currentThread().getStackTrace()));
         getCheckpointCoordinator(pipelineId).restoreCoordinator(alreadyStarted);
     }
 
-    protected void handleCheckpointError(int pipelineId) {
-        jobMaster.handleCheckpointError(pipelineId);
+    protected void handleCheckpointError(int pipelineId, boolean neverRestore) {
+        jobMaster.handleCheckpointError(pipelineId, neverRestore);
     }
 
     private CheckpointCoordinator getCheckpointCoordinator(TaskLocation taskLocation) {

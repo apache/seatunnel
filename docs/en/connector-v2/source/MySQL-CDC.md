@@ -155,7 +155,7 @@ By default, a random number is generated between 5400 and 6400, though we recomm
 
 ### server-time-zone [String]
 
-The session time zone in database server.
+The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.
 
 ### connect.timeout.ms [long]
 

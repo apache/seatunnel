@@ -15,9 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state;
 
-public class SinkCommonOptions {
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-    public static final String DATA_SAVE_MODE = "save_mode";
+import java.io.Serializable;
+import java.util.List;
+
+@Data
+@AllArgsConstructor
+public class MongodbCommitInfo implements Serializable {
+    List<DocumentBulk> documentBulks;
 }
