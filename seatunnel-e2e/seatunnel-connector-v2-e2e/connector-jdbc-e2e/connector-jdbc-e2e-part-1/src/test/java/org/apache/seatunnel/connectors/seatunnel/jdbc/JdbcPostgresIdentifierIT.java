@@ -94,7 +94,7 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
                     + "  geog geography(POINT, 4326)\n"
                     + ")";
     private static final String PG_SINK_DDL =
-            "CREATE TABLE IF NOT EXISTS pg_ide_sink_table (\n"
+            "CREATE TABLE IF NOT EXISTS PG_IDE_SINK_TABLE (\n"
                     + "    GID SERIAL PRIMARY KEY,\n"
                     + "    TEXT_COL TEXT,\n"
                     + "    VARCHAR_COL VARCHAR(255),\n"
