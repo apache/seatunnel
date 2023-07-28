@@ -2,8 +2,8 @@
 
 ## Differences Between Connector V2 And Connector v1
 
-Since https://github.com/apache/incubator-seatunnel/issues/1608 We Added Connector V2 Features.
-Connector V2 is a connector defined based on the Seatunnel Connector API interface. Unlike Connector V1, Connector V2 supports the following features.
+Since https://github.com/apache/seatunnel/issues/1608 We Added Connector V2 Features.
+Connector V2 is a connector defined based on the SeaTunnel Connector API interface. Unlike Connector V1, Connector V2 supports the following features.
 
 * **Multi Engine Support** SeaTunnel Connector API is an engine independent API. The connectors developed based on this API can run in multiple engines. Currently, Flink and Spark are supported, and we will support other engines in the future.
 * **Multi Engine Version Support** Decoupling the connector from the engine through the translation layer solves the problem that most connectors need to modify the code in order to support a new version of the underlying engine.

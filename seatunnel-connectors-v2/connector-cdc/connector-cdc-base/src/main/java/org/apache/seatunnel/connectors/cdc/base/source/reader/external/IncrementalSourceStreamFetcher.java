@@ -92,7 +92,8 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     }
 
     @Override
-    public Iterator<SourceRecords> pollSplitRecords() throws InterruptedException {
+    public Iterator<SourceRecords> pollSplitRecords()
+            throws InterruptedException, SeaTunnelException {
         checkReadException();
         final List<SourceRecord> sourceRecords = new ArrayList<>();
         if (streamFetchTask.isRunning()) {
@@ -146,9 +147,19 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     private boolean shouldEmit(SourceRecord sourceRecord) {
         if (taskContext.isDataChangeRecord(sourceRecord)) {
             Offset position = taskContext.getStreamOffset(sourceRecord);
-            return position.isAfter(splitStartWatermark);
+            // TODO: The sourceRecord from MongoDB CDC and MySQL CDC are inconsistent. For
+            // compatibility, the getTableId method is commented out for now.
+            // TableId tableId = getTableId(sourceRecord);
+            if (!taskContext.isExactlyOnce()) {
+                //                log.trace(
+                //                        "The table {} is not support exactly-once, so ignore the
+                // watermark check",
+                //                        tableId);
+                return position.isAfter(splitStartWatermark);
+            }
             // TODO only the table who captured snapshot splits need to filter( Used to support
             // Exactly-Once )
+            return position.isAfter(splitStartWatermark);
         }
         return true;
     }

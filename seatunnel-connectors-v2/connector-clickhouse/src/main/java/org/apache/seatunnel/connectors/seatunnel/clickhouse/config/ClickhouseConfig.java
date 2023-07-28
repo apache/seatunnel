@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +75,15 @@ public class ClickhouseConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Clickhouse server password");
+
+    /** Clickhouse server timezone */
+    public static final Option<String> SERVER_TIME_ZONE =
+            Options.key("server_time_zone")
+                    .stringType()
+                    .defaultValue(ZoneId.systemDefault().getId())
+                    .withDescription(
+                            "The session time zone in database server."
+                                    + "If not set, then ZoneId.systemDefault() is used to determine the server time zone");
 
     /** Split mode when table is distributed engine */
     public static final Option<Boolean> SPLIT_MODE =

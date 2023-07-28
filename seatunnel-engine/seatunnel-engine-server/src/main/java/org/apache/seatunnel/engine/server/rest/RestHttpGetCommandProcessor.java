@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
@@ -42,6 +43,7 @@ import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.internal.util.StringUtil;
+import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 
@@ -207,7 +209,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         return metricsMap;
     }
 
-    private SeaTunnelServer getSeatunnelServer() {
+    private SeaTunnelServer getSeaTunnelServer() {
         Map<String, Object> extensionServices =
                 this.textCommandService.getNode().getNodeExtension().createExtensionServices();
         return (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
@@ -227,16 +229,18 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                         .getNodeEngine()
                                         .getSerializationService()
                                         .toObject(jobInfo.getJobImmutableInformation()));
+
+        ClassLoader classLoader =
+                new SeaTunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
         LogicalDag logicalDag =
-                this.textCommandService
-                        .getNode()
-                        .getNodeEngine()
-                        .getSerializationService()
-                        .toObject(jobImmutableInformation.getLogicalDag());
+                CustomClassLoadedObject.deserializeWithCustomClassLoader(
+                        this.textCommandService.getNode().getNodeEngine().getSerializationService(),
+                        classLoader,
+                        jobImmutableInformation.getLogicalDag());
 
         String jobMetrics =
-                getSeatunnelServer().getCoordinatorService().getJobMetrics(jobId).toJsonString();
-        JobStatus jobStatus = getSeatunnelServer().getCoordinatorService().getJobStatus(jobId);
+                getSeaTunnelServer().getCoordinatorService().getJobMetrics(jobId).toJsonString();
+        JobStatus jobStatus = getSeaTunnelServer().getCoordinatorService().getJobStatus(jobId);
 
         jobInfoJson
                 .add("jobId", jobId)

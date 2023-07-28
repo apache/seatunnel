@@ -43,7 +43,7 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
     private final ShuffleAction shuffleAction;
     private final int shuffleBatchSize;
     private final IQueue<Record<?>>[] shuffles;
-    private List<Record<?>> unsentBuffer;
+    private Map<Integer, List<Record<?>>> unsentBufferMap = new HashMap<>();
     private final Map<Integer, Barrier> alignedBarriers = new HashMap<>();
     private long currentCheckpointId = Long.MAX_VALUE;
     private int alignedBarriersCounter = 0;
@@ -71,6 +71,8 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
 
         for (int i = 0; i < shuffles.length; i++) {
             IQueue<Record<?>> shuffleQueue = shuffles[i];
+            List<Record<?>> unsentBuffer =
+                    unsentBufferMap.computeIfAbsent(i, k -> new LinkedList<>());
             if (shuffleQueue.size() == 0) {
                 emptyShuffleQueueCount++;
                 continue;
@@ -84,9 +86,9 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
             List<Record<?>> shuffleBatch = new LinkedList<>();
             if (alignedBarriersCounter > 0) {
                 shuffleBatch.add(shuffleQueue.take());
-            } else if (unsentBuffer != null && !unsentBuffer.isEmpty()) {
-                shuffleBatch = unsentBuffer;
-                unsentBuffer = null;
+            } else if (!unsentBuffer.isEmpty()) {
+                shuffleBatch.addAll(unsentBuffer);
+                unsentBuffer.clear();
             }
 
             shuffleQueue.drainTo(shuffleBatch, shuffleBatchSize);
@@ -121,9 +123,8 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
                     }
 
                     if (recordIndex + 1 < shuffleBatch.size()) {
-                        unsentBuffer =
-                                new LinkedList<>(
-                                        shuffleBatch.subList(recordIndex + 1, shuffleBatch.size()));
+                        unsentBuffer.addAll(
+                                shuffleBatch.subList(recordIndex + 1, shuffleBatch.size()));
                     }
                     break;
                 } else {

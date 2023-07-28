@@ -278,7 +278,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ```hocon
 Lemlist {
     url = "https://api.lemlist.com/api/campaigns"
-    password = "Seatunnel-test"
+    password = "SeaTunnel-test"
     schema {
        fields {
          _id = string
@@ -293,5 +293,5 @@ Lemlist {
 ### next version
 
 - Add Lemlist Source Connector
-- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/incubator-seatunnel/pull/3510))
+- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/seatunnel/pull/3510))
 

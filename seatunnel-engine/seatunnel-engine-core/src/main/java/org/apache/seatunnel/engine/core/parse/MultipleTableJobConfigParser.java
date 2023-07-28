@@ -231,12 +231,11 @@ public class MultipleTableJobConfigParser {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
         envOptions
-                .getOptional(EnvCommonOptions.CHECKPOINT_INTERVAL)
-                .ifPresent(
-                        interval ->
-                                jobConfig
-                                        .getEnvOptions()
-                                        .put(EnvCommonOptions.CHECKPOINT_INTERVAL.key(), interval));
+                .toMap()
+                .forEach(
+                        (k, v) -> {
+                            jobConfig.getEnvOptions().put(k, v);
+                        });
     }
 
     private static <T extends Factory> boolean isFallback(
@@ -409,9 +408,9 @@ public class MultipleTableJobConfigParser {
         SeaTunnelDataType<?> expectedType = getProducedType(inputs.get(0)._2());
         checkProducedTypeEquals(inputActions);
         int spareParallelism = inputs.get(0)._2().getParallelism();
+        int parallelism =
+                readonlyConfig.getOptional(CommonOptions.PARALLELISM).orElse(spareParallelism);
         if (fallback) {
-            int parallelism =
-                    readonlyConfig.getOptional(CommonOptions.PARALLELISM).orElse(spareParallelism);
             Tuple2<CatalogTable, Action> tuple =
                     fallbackParser.parseTransform(
                             config,
@@ -437,6 +436,7 @@ public class MultipleTableJobConfigParser {
         TransformAction transformAction =
                 new TransformAction(
                         id, actionName, new ArrayList<>(inputActions), transform, factoryUrls);
+        transformAction.setParallelism(parallelism);
         tableWithActionMap.put(
                 tableId,
                 Collections.singletonList(
@@ -615,7 +615,7 @@ public class MultipleTableJobConfigParser {
     public static void handleSaveMode(SeaTunnelSink<?, ?, ?, ?> sink) {
         if (SupportDataSaveMode.class.isAssignableFrom(sink.getClass())) {
             SupportDataSaveMode saveModeSink = (SupportDataSaveMode) sink;
-            DataSaveMode dataSaveMode = saveModeSink.getDataSaveMode();
+            DataSaveMode dataSaveMode = saveModeSink.getUserConfigSaveMode();
             saveModeSink.handleSaveMode(dataSaveMode);
         }
     }

@@ -131,10 +131,10 @@ Assert {
 
 ### 2.3.0-beta 2022-10-20
 
-- [Improve] 1.Support check the number of rows ([2844](https://github.com/apache/incubator-seatunnel/pull/2844)) ([3031](https://github.com/apache/incubator-seatunnel/pull/3031)):
+- [Improve] 1.Support check the number of rows ([2844](https://github.com/apache/seatunnel/pull/2844)) ([3031](https://github.com/apache/seatunnel/pull/3031)):
   - check rows not empty
   - check minimum number of rows
   - check maximum number of rows
-- [Improve] 2.Support direct define of data values(row) ([2844](https://github.com/apache/incubator-seatunnel/pull/2844)) ([3031](https://github.com/apache/incubator-seatunnel/pull/3031))
-- [Improve] 3.Support setting parallelism as 1 ([2844](https://github.com/apache/incubator-seatunnel/pull/2844)) ([3031](https://github.com/apache/incubator-seatunnel/pull/3031))
+- [Improve] 2.Support direct define of data values(row) ([2844](https://github.com/apache/seatunnel/pull/2844)) ([3031](https://github.com/apache/seatunnel/pull/3031))
+- [Improve] 3.Support setting parallelism as 1 ([2844](https://github.com/apache/seatunnel/pull/2844)) ([3031](https://github.com/apache/seatunnel/pull/3031))
 

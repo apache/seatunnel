@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
@@ -35,7 +36,7 @@ public interface Fetcher<T, Split> {
      * Fetched records from data source. The method should return null when reaching the end of the
      * split, the empty {@link Iterator} will be returned if the data of split is on pulling.
      */
-    Iterator<T> pollSplitRecords() throws InterruptedException;
+    Iterator<T> pollSplitRecords() throws InterruptedException, SeaTunnelException;
 
     /** Return the current fetch task is finished or not. */
     boolean isFinished();

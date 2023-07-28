@@ -219,10 +219,11 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     flush();
                 } catch (Exception e) {
                     LOG.warn("Writing records to JDBC failed.", e);
-                    throw new JdbcConnectorException(
-                            CommonErrorCode.FLUSH_DATA_FAILED,
-                            "Writing records to JDBC failed.",
-                            e);
+                    flushException =
+                            new JdbcConnectorException(
+                                    CommonErrorCode.FLUSH_DATA_FAILED,
+                                    "Writing records to JDBC failed.",
+                                    e);
                 }
             }
 
@@ -239,7 +240,14 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     public void updateExecutor(boolean reconnect) throws SQLException, ClassNotFoundException {
-        jdbcStatementExecutor.closeStatements();
+        try {
+            jdbcStatementExecutor.closeStatements();
+        } catch (SQLException e) {
+            if (!reconnect) {
+                throw e;
+            }
+            LOG.error("Close JDBC statement failed on reconnect.", e);
+        }
         jdbcStatementExecutor.prepareStatements(
                 reconnect
                         ? connectionProvider.reestablishConnection()
