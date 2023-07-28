@@ -6,6 +6,7 @@ import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.shade.com.google.common.collect.ImmutableMap;
 
 import java.util.Collections;
 import java.util.Map;
@@ -26,6 +27,12 @@ public interface DorisOptions {
     int DEFAULT_SINK_MAX_RETRIES = 3;
     int DEFAULT_SINK_BUFFER_SIZE = 256 * 1024;
     int DEFAULT_SINK_BUFFER_COUNT = 3;
+
+    Map<String, String> DEFAULT_CREATE_PROPERTIES = ImmutableMap.of(
+            "replication_allocation", "tag.location.default: 3",
+            "storage_format", "V2",
+            "disable_auto_compaction", "false"
+    );
 
     String DEFAULT_CREATE_TEMPLATE =
             "CREATE TABLE ${table_identifier}\n"
@@ -217,7 +224,10 @@ public interface DorisOptions {
                     .withDescription("");
 
     Option<Map<String, String>> CREATE_PROPERTIES =
-            Options.key("create.properties").mapType().noDefaultValue().withDescription("");
+            Options.key("create.properties")
+                    .mapType()
+                    .defaultValue(DEFAULT_CREATE_PROPERTIES)
+                    .withDescription("");
 
     OptionRule.Builder SINK_RULE =
             OptionRule.builder().required(FENODES, USERNAME, PASSWORD, TABLE_IDENTIFIER);

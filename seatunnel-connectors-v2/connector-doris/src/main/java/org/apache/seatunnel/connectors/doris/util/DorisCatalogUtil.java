@@ -171,7 +171,7 @@ public class DorisCatalogUtil {
                         distributionBucket.toUpperCase());
 
         String props = "";
-        if (!properties.isEmpty()) {
+        if (properties != null && !properties.isEmpty()) {
             props =
                     properties.entrySet().stream()
                             .map(
@@ -208,7 +208,7 @@ public class DorisCatalogUtil {
                             name,
                             type,
                             nullable ? " NULL" : " NOT NULL",
-                            nullable ? "" : " DEFAULT \"" + defaultValue + "\"",
+                            nullable || defaultValue == null ? "" : " DEFAULT \"" + defaultValue + "\"",
                             " COMMENT \"" + comment + "\""));
         }
 
