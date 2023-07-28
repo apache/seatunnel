@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.connectors.doris.config;
 
+import org.apache.seatunnel.shade.com.google.common.collect.ImmutableMap;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
-import org.apache.seatunnel.shade.com.google.common.collect.ImmutableMap;
 
 import java.util.Collections;
 import java.util.Map;
@@ -45,11 +46,11 @@ public interface DorisOptions {
     int DEFAULT_SINK_BUFFER_SIZE = 256 * 1024;
     int DEFAULT_SINK_BUFFER_COUNT = 3;
 
-    Map<String, String> DEFAULT_CREATE_PROPERTIES = ImmutableMap.of(
-            "replication_allocation", "tag.location.default: 3",
-            "storage_format", "V2",
-            "disable_auto_compaction", "false"
-    );
+    Map<String, String> DEFAULT_CREATE_PROPERTIES =
+            ImmutableMap.of(
+                    "replication_allocation", "tag.location.default: 3",
+                    "storage_format", "V2",
+                    "disable_auto_compaction", "false");
 
     String DEFAULT_CREATE_TEMPLATE =
             "CREATE TABLE ${table_identifier}\n"
@@ -250,7 +251,11 @@ public interface DorisOptions {
             OptionRule.builder().required(FENODES, USERNAME, PASSWORD, TABLE_IDENTIFIER);
 
     OptionRule.Builder CATALOG_RULE =
-            OptionRule.builder().required(FENODES, QUERY_PORT, USERNAME, PASSWORD)
+            OptionRule.builder()
+                    .required(FENODES, QUERY_PORT, USERNAME, PASSWORD)
                     .optional(SAVE_MODE)
-                    .conditional(SAVE_MODE, DataSaveMode.KEEP_SCHEMA_AND_DATA, CREATE_DISTRIBUTION_COLUMNS);
+                    .conditional(
+                            SAVE_MODE,
+                            DataSaveMode.KEEP_SCHEMA_AND_DATA,
+                            CREATE_DISTRIBUTION_COLUMNS);
 }

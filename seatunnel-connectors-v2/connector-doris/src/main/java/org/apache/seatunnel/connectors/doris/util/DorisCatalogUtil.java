@@ -208,7 +208,9 @@ public class DorisCatalogUtil {
                             name,
                             type,
                             nullable ? " NULL" : " NOT NULL",
-                            nullable || defaultValue == null ? "" : " DEFAULT \"" + defaultValue + "\"",
+                            nullable || defaultValue == null
+                                    ? ""
+                                    : " DEFAULT \"" + defaultValue + "\"",
                             " COMMENT \"" + comment + "\""));
         }
 
