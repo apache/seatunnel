@@ -231,12 +231,11 @@ public class MultipleTableJobConfigParser {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
         envOptions
-                .getOptional(EnvCommonOptions.CHECKPOINT_INTERVAL)
-                .ifPresent(
-                        interval ->
-                                jobConfig
-                                        .getEnvOptions()
-                                        .put(EnvCommonOptions.CHECKPOINT_INTERVAL.key(), interval));
+                .toMap()
+                .forEach(
+                        (k, v) -> {
+                            jobConfig.getEnvOptions().put(k, v);
+                        });
     }
 
     private static <T extends Factory> boolean isFallback(
