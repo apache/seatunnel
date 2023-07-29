@@ -24,6 +24,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 
 import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
+import org.bson.BsonValue;
 import org.bson.json.JsonWriterSettings;
 
 import com.mongodb.kafka.connect.source.json.formatter.DefaultJson;
@@ -39,6 +40,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.mongodb.kafka.connect.source.schema.AvroSchema.fromJson;
+import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isWatermarkEvent;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.COLL_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DB_FIELD;
@@ -46,6 +48,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NS_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OUTPUT_SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SOURCE_FIELD;
 
 public class MongodbRecordUtils {
 
@@ -117,6 +120,12 @@ public class MongodbRecordUtils {
         SchemaAndValue keySchemaAndValue =
                 schemaAndValue.toSchemaAndValue(
                         fromJson(AvroSchemaDefaults.DEFAULT_AVRO_KEY_SCHEMA), keyDocument);
+        BsonDocument source = valueDocument.get(SOURCE_FIELD).asDocument();
+        BsonValue table = valueDocument.get(NS_FIELD).asDocument().get(COLL_FIELD);
+        BsonValue db = valueDocument.get(NS_FIELD).asDocument().get(DB_FIELD);
+        source.append(TABLE_NAME_KEY, table);
+        source.append(DB_FIELD, db);
+        valueDocument.replace(SOURCE_FIELD, source);
         SchemaAndValue valueSchemaAndValue =
                 schemaAndValue.toSchemaAndValue(fromJson(OUTPUT_SCHEMA), valueDocument);
 

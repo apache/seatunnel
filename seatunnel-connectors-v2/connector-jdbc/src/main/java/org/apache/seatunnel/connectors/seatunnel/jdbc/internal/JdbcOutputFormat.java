@@ -219,10 +219,11 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     flush();
                 } catch (Exception e) {
                     LOG.warn("Writing records to JDBC failed.", e);
-                    throw new JdbcConnectorException(
-                            CommonErrorCode.FLUSH_DATA_FAILED,
-                            "Writing records to JDBC failed.",
-                            e);
+                    flushException =
+                            new JdbcConnectorException(
+                                    CommonErrorCode.FLUSH_DATA_FAILED,
+                                    "Writing records to JDBC failed.",
+                                    e);
                 }
             }
 

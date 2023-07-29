@@ -33,17 +33,18 @@ import lombok.NonNull;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class JsonWriteStrategy extends AbstractWriteStrategy {
     private final byte[] rowDelimiter;
     private SerializationSchema serializationSchema;
-    private final Map<String, FSDataOutputStream> beingWrittenOutputStream;
+    private final LinkedHashMap<String, FSDataOutputStream> beingWrittenOutputStream;
     private final Map<String, Boolean> isFirstWrite;
 
     public JsonWriteStrategy(FileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
-        this.beingWrittenOutputStream = new HashMap<>();
+        this.beingWrittenOutputStream = new LinkedHashMap<>();
         this.isFirstWrite = new HashMap<>();
         this.rowDelimiter = textFileSinkConfig.getRowDelimiter().getBytes();
     }
