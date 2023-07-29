@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
@@ -127,6 +128,32 @@ public class JobExecutionIT {
                                         objectCompletableFuture.isDone()
                                                 && JobStatus.CANCELED.equals(
                                                         objectCompletableFuture.get())));
+    }
+
+    @Test
+    public void testExpiredJobWasDeleted() throws Exception {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("job_expire");
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        JobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig);
+
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+        JobResult result = clientJobProxy.doWaitForJobComplete().get();
+        Assertions.assertEquals(result.getStatus(), JobStatus.FINISHED);
+        Awaitility.await()
+                .atMost(65, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertThrowsExactly(
+                                        NullPointerException.class,
+                                        () -> clientJobProxy.getJobStatus()));
     }
 
     @AfterAll
