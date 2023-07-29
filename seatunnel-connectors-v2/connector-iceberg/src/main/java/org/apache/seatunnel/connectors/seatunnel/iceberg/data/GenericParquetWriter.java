@@ -144,6 +144,18 @@ public class GenericParquetWriter extends BaseParquetWriter<SeaTunnelRow> {
                                     + seaTunnelRowType.getFieldTypes()[i].getSqlType());
             }
         }
+
+        // add option writer
+        for (int i = 0; i < messageType.getColumns().size(); i++) {
+            ColumnDescriptor columnDescriptor = messageType.getColumns().get(i);
+            newWriters.set(
+                    i,
+                    ParquetValueWriters.option(
+                            columnDescriptor.getPrimitiveType(),
+                            columnDescriptor.getMaxDefinitionLevel(),
+                            newWriters.get(i)));
+        }
+
         return new SeaTunnelRowWriter(newWriters);
     }
 
