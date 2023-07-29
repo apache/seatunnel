@@ -26,12 +26,15 @@ import org.apache.iceberg.data.parquet.BaseParquetWriter;
 import org.apache.iceberg.parquet.ParquetValueWriter;
 import org.apache.iceberg.parquet.ParquetValueWriters;
 import org.apache.iceberg.parquet.ParquetValueWriters.StructWriter;
+import org.apache.iceberg.types.TypeUtil;
+import org.apache.iceberg.util.DecimalUtil;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -41,10 +44,6 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.apache.iceberg.parquet.ParquetValueWriters.decimalAsFixed;
-import static org.apache.iceberg.parquet.ParquetValueWriters.decimalAsInteger;
-import static org.apache.iceberg.parquet.ParquetValueWriters.decimalAsLong;
 
 public class GenericParquetWriter extends BaseParquetWriter<SeaTunnelRow> {
 
@@ -150,6 +149,106 @@ public class GenericParquetWriter extends BaseParquetWriter<SeaTunnelRow> {
 
     private static final OffsetDateTime EPOCH = Instant.ofEpochSecond(0).atOffset(ZoneOffset.UTC);
     private static final LocalDate EPOCH_DAY = EPOCH.toLocalDate();
+
+    public static ParquetValueWriters.PrimitiveWriter<BigDecimal> decimalAsInteger(
+            ColumnDescriptor desc, int precision, int scale) {
+        return new IntegerDecimalWriter(desc, precision, scale);
+    }
+
+    public static ParquetValueWriters.PrimitiveWriter<BigDecimal> decimalAsLong(
+            ColumnDescriptor desc, int precision, int scale) {
+        return new LongDecimalWriter(desc, precision, scale);
+    }
+
+    public static ParquetValueWriters.PrimitiveWriter<BigDecimal> decimalAsFixed(
+            ColumnDescriptor desc, int precision, int scale) {
+        return new FixedDecimalWriter(desc, precision, scale);
+    }
+
+    private static class IntegerDecimalWriter
+            extends ParquetValueWriters.PrimitiveWriter<BigDecimal> {
+        private final int precision;
+        private final int scale;
+
+        private IntegerDecimalWriter(ColumnDescriptor desc, int precision, int scale) {
+            super(desc);
+            this.precision = precision;
+            this.scale = scale;
+        }
+
+        @Override
+        public void write(int repetitionLevel, BigDecimal decimal) {
+            decimal = decimal.setScale(scale);
+            Preconditions.checkArgument(
+                    decimal.scale() == scale,
+                    "Cannot write value as decimal(%s,%s), wrong scale: %s",
+                    precision,
+                    scale,
+                    decimal);
+            Preconditions.checkArgument(
+                    decimal.precision() <= precision,
+                    "Cannot write value as decimal(%s,%s), too large: %s",
+                    precision,
+                    scale,
+                    decimal);
+
+            column.writeInteger(repetitionLevel, decimal.unscaledValue().intValue());
+        }
+    }
+
+    private static class LongDecimalWriter extends ParquetValueWriters.PrimitiveWriter<BigDecimal> {
+        private final int precision;
+        private final int scale;
+
+        private LongDecimalWriter(ColumnDescriptor desc, int precision, int scale) {
+            super(desc);
+            this.precision = precision;
+            this.scale = scale;
+        }
+
+        @Override
+        public void write(int repetitionLevel, BigDecimal decimal) {
+            decimal = decimal.setScale(scale);
+            Preconditions.checkArgument(
+                    decimal.scale() == scale,
+                    "Cannot write value as decimal(%s,%s), wrong scale: %s",
+                    precision,
+                    scale,
+                    decimal);
+            Preconditions.checkArgument(
+                    decimal.precision() <= precision,
+                    "Cannot write value as decimal(%s,%s), too large: %s",
+                    precision,
+                    scale,
+                    decimal);
+
+            column.writeLong(repetitionLevel, decimal.unscaledValue().longValue());
+        }
+    }
+
+    private static class FixedDecimalWriter
+            extends ParquetValueWriters.PrimitiveWriter<BigDecimal> {
+        private final int precision;
+        private final int scale;
+        private final ThreadLocal<byte[]> bytes;
+
+        private FixedDecimalWriter(ColumnDescriptor desc, int precision, int scale) {
+            super(desc);
+            this.precision = precision;
+            this.scale = scale;
+            this.bytes =
+                    ThreadLocal.withInitial(
+                            () -> new byte[TypeUtil.decimalRequiredBytes(precision)]);
+        }
+
+        @Override
+        public void write(int repetitionLevel, BigDecimal decimal) {
+            decimal = decimal.setScale(scale);
+            byte[] binary =
+                    DecimalUtil.toReusedFixLengthBytes(precision, scale, decimal, bytes.get());
+            column.writeBinary(repetitionLevel, Binary.fromReusedByteArray(binary));
+        }
+    }
 
     private static class DateWriter extends ParquetValueWriters.PrimitiveWriter<LocalDate> {
         private DateWriter(ColumnDescriptor desc) {
