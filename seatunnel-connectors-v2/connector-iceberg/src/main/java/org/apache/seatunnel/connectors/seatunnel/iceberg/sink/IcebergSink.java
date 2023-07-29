@@ -48,6 +48,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
@@ -81,10 +82,15 @@ public class IcebergSink
     public IcebergSink(CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
         this.sinkConfig = new SinkConfig(readonlyConfig);
         this.catalogTable = catalogTable;
-        this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+        this.seaTunnelRowType =
+                convertLowerCaseSeaTunnelRowType(
+                        catalogTable.getTableSchema().toPhysicalRowDataType());
         if (null != catalogTable.getTableSchema().getPrimaryKey()) {
             this.equalityFieldColumns =
                     catalogTable.getTableSchema().getPrimaryKey().getColumnNames();
+        }
+        if (sinkConfig.getPrimaryKeys() != null && sinkConfig.getPrimaryKeys().size() > 0) {
+            this.equalityFieldColumns = sinkConfig.getPrimaryKeys();
         }
         try (IcebergTableLoader icebergTableLoader = IcebergTableLoader.create(sinkConfig)) {
             icebergTableLoader.open();
@@ -130,7 +136,7 @@ public class IcebergSink
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         if (null == this.seaTunnelRowType) {
-            this.seaTunnelRowType = seaTunnelRowType;
+            this.seaTunnelRowType = convertLowerCaseSeaTunnelRowType(seaTunnelRowType);
             this.equalityFieldColumns = sinkConfig.getPrimaryKeys();
         }
 
@@ -169,6 +175,14 @@ public class IcebergSink
     @Override
     public Optional<Serializer<IcebergAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
+    }
+
+    private SeaTunnelRowType convertLowerCaseSeaTunnelRowType(SeaTunnelRowType seaTunnelRowType) {
+        return new SeaTunnelRowType(
+                Arrays.stream(seaTunnelRowType.getFieldNames())
+                        .map(String::toLowerCase)
+                        .toArray(String[]::new),
+                seaTunnelRowType.getFieldTypes());
     }
 
     private List<Integer> checkAndGetEqualityFieldIds() {
