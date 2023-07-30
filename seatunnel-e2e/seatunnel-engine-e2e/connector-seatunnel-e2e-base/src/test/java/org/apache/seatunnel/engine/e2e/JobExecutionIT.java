@@ -19,14 +19,11 @@ package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
@@ -155,29 +152,15 @@ public class JobExecutionIT {
         CompletableFuture<JobResult> completableFuture =
                 CompletableFuture.supplyAsync(
                         () -> {
-                            try {
-                                return RetryUtils.retryWithException(
-                                        () -> {
-                                            PassiveCompletableFuture<JobResult> jobFuture =
-                                                    clientJobProxy.doWaitForJobComplete();
-                                            return jobFuture.get();
-                                        },
-                                        new RetryUtils.RetryMaterial(
-                                                100000,
-                                                true,
-                                                exception ->
-                                                        ExceptionUtil.isOperationNeedRetryException(
-                                                                exception),
-                                                Constant.OPERATION_RETRY_SLEEP));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
+                            PassiveCompletableFuture<JobResult> jobFuture =
+                                    clientJobProxy.doWaitForJobComplete();
+                            return jobFuture.join();
                         });
 
         await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
 
-        JobResult result = completableFuture.get();
+        JobResult result = completableFuture.join();
         Assertions.assertEquals(result.getStatus(), JobStatus.FAILED);
         Assertions.assertTrue(result.getError().startsWith("java.lang.NumberFormatException"));
     }

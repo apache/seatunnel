@@ -37,12 +37,6 @@ public class KafkaConnectJsonFormatOptions {
                     .defaultValue(true)
                     .withDescription("kafka connect value converter schema enabled.");
 
-    public static final Option<Boolean> DEBEZIUM_RECORD =
-            Options.key("from_debezium_record")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription("Debezium connect captured data.");
-
     public static boolean getKeyConverterSchemaEnabled(Map<String, String> options) {
         return Boolean.parseBoolean(
                 options.getOrDefault(KEY_CONVERTER_SCHEMA_ENABLED.key(), "true"));
@@ -51,9 +45,5 @@ public class KafkaConnectJsonFormatOptions {
     public static boolean getValueConverterSchemaEnabled(Map<String, String> options) {
         return Boolean.parseBoolean(
                 options.getOrDefault(VALUE_CONVERTER_SCHEMA_ENABLED.key(), "true"));
-    }
-
-    public static boolean getDebeziumRecordEnabled(Map<String, String> options) {
-        return Boolean.parseBoolean(options.getOrDefault(DEBEZIUM_RECORD.key(), "false"));
     }
 }

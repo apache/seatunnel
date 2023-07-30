@@ -27,7 +27,6 @@ source {
       }
     },
     format = COMPATIBLE_KAFKA_CONNECT_JSON
-    from_debezium_record = false
   }
 }
 

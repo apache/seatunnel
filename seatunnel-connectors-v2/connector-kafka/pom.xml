@@ -67,6 +67,11 @@
             <artifactId>seatunnel-format-compatible-connect-json</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>connect-json</artifactId>
+            <version>${kafka.client.version}</version>
+        </dependency>
 
     </dependencies>
 
