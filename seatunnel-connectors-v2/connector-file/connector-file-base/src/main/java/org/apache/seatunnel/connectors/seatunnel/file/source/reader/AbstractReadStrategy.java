@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
 import org.apache.hadoop.conf.Configuration;
@@ -153,8 +155,11 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         }
 
         if (fileNames.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Got no file, please check the configuration parameters such as: [file_filter_pattern]");
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.FILE_LIST_EMPTY,
+                    "The target file list is empty,"
+                            + "SeaTunnel will not be able to sync empty table, "
+                            + "please check the configuration parameters such as: [file_filter_pattern]");
         }
 
         return fileNames;
