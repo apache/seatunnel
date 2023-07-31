@@ -185,7 +185,6 @@ public class TransformExecuteProcessor
                     return null;
                 }
                 seaTunnelRow = outputRowConverter.convert(seaTunnelRow);
-
                 return new GenericRowWithSchema(seaTunnelRow.getFields(), structType);
             } catch (Exception e) {
                 throw new TaskExecuteException("Row convert failed, caused: " + e.getMessage(), e);
