@@ -72,7 +72,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected List<String> readColumns = new ArrayList<>();
     protected boolean isMergePartition = true;
     protected long skipHeaderNumber = BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.defaultValue();
-    protected boolean isKerberosAuthorization = false;
+    protected transient boolean isKerberosAuthorization = false;
 
     @Override
     public void init(HadoopConf conf) {

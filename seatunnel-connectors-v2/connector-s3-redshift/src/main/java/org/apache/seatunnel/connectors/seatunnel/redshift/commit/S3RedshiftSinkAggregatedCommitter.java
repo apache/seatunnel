@@ -35,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -58,7 +59,7 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
         aggregatedCommitInfos.forEach(
                 aggregatedCommitInfo -> {
                     try {
-                        for (Map.Entry<String, Map<String, String>> entry :
+                        for (Map.Entry<String, LinkedHashMap<String, String>> entry :
                                 aggregatedCommitInfo.getTransactionMap().entrySet()) {
                             for (Map.Entry<String, String> mvFileEntry :
                                     entry.getValue().entrySet()) {
@@ -92,7 +93,7 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
         aggregatedCommitInfos.forEach(
                 aggregatedCommitInfo -> {
                     try {
-                        for (Map.Entry<String, Map<String, String>> entry :
+                        for (Map.Entry<String, LinkedHashMap<String, String>> entry :
                                 aggregatedCommitInfo.getTransactionMap().entrySet()) {
                             // delete the transaction dir
                             fileSystemUtils.deleteFile(entry.getKey());

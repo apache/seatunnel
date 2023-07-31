@@ -394,7 +394,7 @@ public class PhysicalVertex {
     public boolean updateTaskState(
             @NonNull ExecutionState current, @NonNull ExecutionState targetState) {
         synchronized (this) {
-            LOGGER.fine(
+            LOGGER.info(
                     String.format(
                             "Try to update the task %s state from %s to %s",
                             taskFullName, current, targetState));
