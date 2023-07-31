@@ -124,7 +124,7 @@ public class RowConverter {
     /**
      * Convert SeaTunnel array to Paimon array {@link InternalArray}
      *
-     * @param array Seatunnel array object
+     * @param array SeaTunnel array object
      * @param dataType SeaTunnel array data type
      * @return Paimon array object {@link BinaryArray}
      */
@@ -324,7 +324,7 @@ public class RowConverter {
      * Convert SeaTunnel row {@link SeaTunnelRow} to Paimon row {@link InternalRow}
      *
      * @param seaTunnelRow SeaTunnel row object
-     * @param seaTunnelRowType Seatunnel row type
+     * @param seaTunnelRowType SeaTunnel row type
      * @return Paimon row object
      */
     public static InternalRow convert(

@@ -24,6 +24,7 @@ connector-amazondynamodb
 connector-assert
 connector-cassandra
 connector-cdc-mysql
+connector-cdc-mongodb
 connector-cdc-sqlserver
 connector-clickhouse
 connector-datahub

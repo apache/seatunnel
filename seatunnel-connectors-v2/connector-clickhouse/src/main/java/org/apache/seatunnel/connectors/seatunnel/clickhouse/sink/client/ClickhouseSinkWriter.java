@@ -90,6 +90,7 @@ public class ClickhouseSinkWriter
 
     @Override
     public Optional<CKCommitInfo> prepareCommit() throws IOException {
+        flush();
         return Optional.empty();
     }
 
@@ -99,23 +100,7 @@ public class ClickhouseSinkWriter
     @Override
     public void close() throws IOException {
         this.proxy.close();
-        for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
-            try (ClickHouseConnectionImpl needClosedConnection =
-                            batchStatement.getClickHouseConnection();
-                    JdbcBatchStatementExecutor needClosedStatement =
-                            batchStatement.getJdbcBatchStatementExecutor()) {
-                IntHolder intHolder = batchStatement.getIntHolder();
-                if (intHolder.getValue() > 0) {
-                    flush(needClosedStatement);
-                    intHolder.setValue(0);
-                }
-            } catch (SQLException e) {
-                throw new ClickhouseConnectorException(
-                        CommonErrorCode.SQL_OPERATION_FAILED,
-                        "Failed to close prepared statement.",
-                        e);
-            }
-        }
+        flush();
     }
 
     private void addIntoBatch(SeaTunnelRow row, JdbcBatchStatementExecutor clickHouseStatement) {
@@ -135,6 +120,26 @@ public class ClickhouseSinkWriter
                     CommonErrorCode.FLUSH_DATA_FAILED,
                     "Clickhouse execute batch statement error",
                     e);
+        }
+    }
+
+    private void flush() {
+        for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
+            try (ClickHouseConnectionImpl needClosedConnection =
+                            batchStatement.getClickHouseConnection();
+                    JdbcBatchStatementExecutor needClosedStatement =
+                            batchStatement.getJdbcBatchStatementExecutor()) {
+                IntHolder intHolder = batchStatement.getIntHolder();
+                if (intHolder.getValue() > 0) {
+                    flush(needClosedStatement);
+                    intHolder.setValue(0);
+                }
+            } catch (SQLException e) {
+                throw new ClickhouseConnectorException(
+                        CommonErrorCode.SQL_OPERATION_FAILED,
+                        "Failed to close prepared statement.",
+                        e);
+            }
         }
     }
 
