@@ -231,12 +231,11 @@ public class MultipleTableJobConfigParser {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
         envOptions
-                .getOptional(EnvCommonOptions.CHECKPOINT_INTERVAL)
-                .ifPresent(
-                        interval ->
-                                jobConfig
-                                        .getEnvOptions()
-                                        .put(EnvCommonOptions.CHECKPOINT_INTERVAL.key(), interval));
+                .toMap()
+                .forEach(
+                        (k, v) -> {
+                            jobConfig.getEnvOptions().put(k, v);
+                        });
     }
 
     private static <T extends Factory> boolean isFallback(
@@ -616,7 +615,7 @@ public class MultipleTableJobConfigParser {
     public static void handleSaveMode(SeaTunnelSink<?, ?, ?, ?> sink) {
         if (SupportDataSaveMode.class.isAssignableFrom(sink.getClass())) {
             SupportDataSaveMode saveModeSink = (SupportDataSaveMode) sink;
-            DataSaveMode dataSaveMode = saveModeSink.getDataSaveMode();
+            DataSaveMode dataSaveMode = saveModeSink.getUserConfigSaveMode();
             saveModeSink.handleSaveMode(dataSaveMode);
         }
     }

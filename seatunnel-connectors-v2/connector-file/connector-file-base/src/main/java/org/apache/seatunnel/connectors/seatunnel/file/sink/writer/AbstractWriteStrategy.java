@@ -50,6 +50,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -76,9 +77,9 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected String uuidPrefix;
 
     protected String transactionDirectory;
-    protected Map<String, String> needMoveFiles;
-    protected Map<String, String> beingWrittenFile = new HashMap<>();
-    private Map<String, List<String>> partitionDirAndValuesMap;
+    protected LinkedHashMap<String, String> needMoveFiles;
+    protected LinkedHashMap<String, String> beingWrittenFile = new LinkedHashMap<>();
+    private LinkedHashMap<String, List<String>> partitionDirAndValuesMap;
     protected SeaTunnelRowType seaTunnelRowType;
 
     // Checkpoint id from engine is start with 1
@@ -111,11 +112,16 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     @Override
     public void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException {
         if (currentBatchSize >= batchSize) {
-            this.partId++;
+            newFilePart();
             currentBatchSize = 0;
-            beingWrittenFile.clear();
         }
         currentBatchSize++;
+    }
+
+    public synchronized void newFilePart() {
+        this.partId++;
+        beingWrittenFile.clear();
+        log.debug("new file part: {}", partId);
     }
 
     protected SeaTunnelRowType buildSchemaWithRowType(
@@ -177,9 +183,9 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      * @return the map of partition directory
      */
     @Override
-    public Map<String, List<String>> generatorPartitionDir(SeaTunnelRow seaTunnelRow) {
+    public LinkedHashMap<String, List<String>> generatorPartitionDir(SeaTunnelRow seaTunnelRow) {
         List<Integer> partitionFieldsIndexInRow = fileSinkConfig.getPartitionFieldsIndexInRow();
-        Map<String, List<String>> partitionDirAndValuesMap = new HashMap<>(1);
+        LinkedHashMap<String, List<String>> partitionDirAndValuesMap = new LinkedHashMap<>(1);
         if (CollectionUtils.isEmpty(partitionFieldsIndexInRow)) {
             partitionDirAndValuesMap.put(BaseSinkConfig.NON_PARTITION, null);
             return partitionDirAndValuesMap;
@@ -258,12 +264,15 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     @Override
     public Optional<FileCommitInfo> prepareCommit() {
         this.finishAndCloseFile();
-        Map<String, String> commitMap = new HashMap<>(this.needMoveFiles);
-        Map<String, List<String>> copyMap =
+        LinkedHashMap<String, String> commitMap = new LinkedHashMap<>(this.needMoveFiles);
+        LinkedHashMap<String, List<String>> copyMap =
                 this.partitionDirAndValuesMap.entrySet().stream()
                         .collect(
                                 Collectors.toMap(
-                                        Map.Entry::getKey, e -> new ArrayList<>(e.getValue())));
+                                        Map.Entry::getKey,
+                                        e -> new ArrayList<>(e.getValue()),
+                                        (e1, e2) -> e1,
+                                        LinkedHashMap::new));
         return Optional.of(new FileCommitInfo(commitMap, copyMap, transactionDirectory));
     }
 
@@ -301,8 +310,8 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         this.checkpointId = checkpointId;
         this.transactionId = getTransactionId(checkpointId);
         this.transactionDirectory = getTransactionDir(this.transactionId);
-        this.needMoveFiles = new HashMap<>();
-        this.partitionDirAndValuesMap = new HashMap<>();
+        this.needMoveFiles = new LinkedHashMap<>();
+        this.partitionDirAndValuesMap = new LinkedHashMap<>();
     }
 
     private String getTransactionId(Long checkpointId) {
@@ -325,18 +334,21 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     @Override
     public List<FileSinkState> snapshotState(long checkpointId) {
-        Map<String, List<String>> commitMap =
+        LinkedHashMap<String, List<String>> commitMap =
                 this.partitionDirAndValuesMap.entrySet().stream()
                         .collect(
                                 Collectors.toMap(
-                                        Map.Entry::getKey, e -> new ArrayList<>(e.getValue())));
+                                        Map.Entry::getKey,
+                                        e -> new ArrayList<>(e.getValue()),
+                                        (e1, e2) -> e1,
+                                        LinkedHashMap::new));
         ArrayList<FileSinkState> fileState =
                 Lists.newArrayList(
                         new FileSinkState(
                                 this.transactionId,
                                 this.uuidPrefix,
                                 this.checkpointId,
-                                new HashMap<>(this.needMoveFiles),
+                                new LinkedHashMap<>(this.needMoveFiles),
                                 commitMap,
                                 this.getTransactionDir(transactionId)));
         this.beingWrittenFile.clear();
@@ -363,7 +375,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     }
 
     public String getOrCreateFilePathBeingWritten(@NonNull SeaTunnelRow seaTunnelRow) {
-        Map<String, List<String>> dataPartitionDirAndValuesMap =
+        LinkedHashMap<String, List<String>> dataPartitionDirAndValuesMap =
                 generatorPartitionDir(seaTunnelRow);
         String beingWrittenFileKey = dataPartitionDirAndValuesMap.keySet().toArray()[0].toString();
         // get filePath from beingWrittenFile
