@@ -38,6 +38,8 @@ public final class CatalogTable implements Serializable {
 
     private final String comment;
 
+    private final String catalogName;
+
     public static CatalogTable of(
             TableIdentifier tableId,
             TableSchema tableSchema,
@@ -47,17 +49,38 @@ public final class CatalogTable implements Serializable {
         return new CatalogTable(tableId, tableSchema, options, partitionKeys, comment);
     }
 
+    public static CatalogTable of(
+            TableIdentifier tableId,
+            TableSchema tableSchema,
+            Map<String, String> options,
+            List<String> partitionKeys,
+            String comment,
+            String catalogName) {
+        return new CatalogTable(tableId, tableSchema, options, partitionKeys, comment, catalogName);
+    }
+
     private CatalogTable(
             TableIdentifier tableId,
             TableSchema tableSchema,
             Map<String, String> options,
             List<String> partitionKeys,
             String comment) {
+        this(tableId, tableSchema, options, partitionKeys, comment, "");
+    }
+
+    private CatalogTable(
+            TableIdentifier tableId,
+            TableSchema tableSchema,
+            Map<String, String> options,
+            List<String> partitionKeys,
+            String comment,
+            String catalogName) {
         this.tableId = tableId;
         this.tableSchema = tableSchema;
         this.options = options;
         this.partitionKeys = partitionKeys;
         this.comment = comment;
+        this.catalogName = catalogName;
     }
 
     public TableIdentifier getTableId() {
@@ -78,6 +101,10 @@ public final class CatalogTable implements Serializable {
 
     public String getComment() {
         return comment;
+    }
+
+    public String getCatalogName() {
+        return catalogName;
     }
 
     @Override

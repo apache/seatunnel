@@ -705,14 +705,6 @@ public class CheckpointCoordinator {
                 completedCheckpoint.getCheckpointTimestamp(),
                 completedCheckpoint.getCompletedTimestamp());
         final long checkpointId = completedCheckpoint.getCheckpointId();
-        pendingCheckpoints.remove(checkpointId);
-        pendingCounter.decrementAndGet();
-        if (pendingCheckpoints.size() + 1 == coordinatorConfig.getMaxConcurrentCheckpoints()) {
-            // latest checkpoint completed time > checkpoint interval
-            if (completedCheckpoint.getCheckpointType().notFinalCheckpoint()) {
-                scheduleTriggerPendingCheckpoint(0L);
-            }
-        }
         completedCheckpoints.addLast(completedCheckpoint);
         try {
             byte[] states = serializer.serialize(completedCheckpoint);
@@ -752,6 +744,14 @@ public class CheckpointCoordinator {
                 completedCheckpoint.getJobId());
         latestCompletedCheckpoint = completedCheckpoint;
         notifyCompleted(completedCheckpoint);
+        pendingCheckpoints.remove(checkpointId);
+        pendingCounter.decrementAndGet();
+        if (pendingCheckpoints.size() + 1 == coordinatorConfig.getMaxConcurrentCheckpoints()) {
+            // latest checkpoint completed time > checkpoint interval
+            if (notFinalCheckpoint(completedCheckpoint.getCheckpointType())) {
+                scheduleTriggerPendingCheckpoint(0L);
+            }
+        }
         if (isCompleted()) {
             cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);
             if (latestCompletedCheckpoint.getCheckpointType().isSavepoint()) {

@@ -48,6 +48,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
 | sheet_name                | string  | no       | -                   |
+| file_filter_pattern       | string  | no       | -                   |
 
 ### host [string]
 
