@@ -748,7 +748,7 @@ public class CheckpointCoordinator {
         pendingCounter.decrementAndGet();
         if (pendingCheckpoints.size() + 1 == coordinatorConfig.getMaxConcurrentCheckpoints()) {
             // latest checkpoint completed time > checkpoint interval
-            if (notFinalCheckpoint(completedCheckpoint.getCheckpointType())) {
+            if (completedCheckpoint.getCheckpointType().notFinalCheckpoint()) {
                 scheduleTriggerPendingCheckpoint(0L);
             }
         }
