@@ -27,6 +27,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.Types;
 
 import com.google.auto.service.AutoService;
 
@@ -46,13 +47,74 @@ import static org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_TIME_TYPE;
 @AutoService(DataTypeConvertor.class)
 public class IcebergDataTypeConvertor implements DataTypeConvertor<String> {
 
+    public static final String PRECISION = "precision";
+    public static final String SCALE = "scale";
+
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
         if (connectorDataType == null) {
             return null;
         }
         Type.TypeID typeID = Type.TypeID.valueOf(connectorDataType.toUpperCase(Locale.ROOT));
-        switch (typeID) {
+        return toSeaTunnelType(typeID);
+    }
+
+    @Override
+    public SeaTunnelDataType<?> toSeaTunnelType(
+            String connectorDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException {
+        return toSeaTunnelType(connectorDataType);
+    }
+
+    @Override
+    public String toConnectorType(
+            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException {
+        return toConnectorTypeType(seaTunnelDataType, dataTypeProperties).typeId().toString();
+    }
+
+    public Type toConnectorTypeType(
+            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            throws DataTypeConvertException {
+        SqlType sqlType = seaTunnelDataType.getSqlType();
+        switch (sqlType) {
+            case STRING:
+                return Types.StringType.get();
+            case BOOLEAN:
+                return Types.BooleanType.get();
+            case TINYINT:
+            case SMALLINT:
+            case INT:
+                return Types.IntegerType.get();
+            case BIGINT:
+                return Types.LongType.get();
+            case FLOAT:
+                return Types.FloatType.get();
+            case DOUBLE:
+                return Types.DoubleType.get();
+            case DECIMAL:
+                return Types.DecimalType.of(
+                        (int) dataTypeProperties.get(PRECISION),
+                        (int) dataTypeProperties.get(SCALE));
+            case BYTES:
+                return Types.BinaryType.get();
+            case DATE:
+                return Types.DateType.get();
+            case TIME:
+                return Types.TimeType.get();
+            case TIMESTAMP:
+                return Types.TimestampType.withoutZone();
+            default:
+                throw new UnsupportedOperationException(
+                        String.format("Doesn't support Iceberg type '%s''  yet.", sqlType));
+        }
+    }
+
+    public SeaTunnelDataType<?> toSeaTunnelType(Type.TypeID typeId) {
+        if (typeId == null) {
+            return null;
+        }
+        switch (typeId) {
             case BOOLEAN:
                 return BOOLEAN_TYPE;
             case INTEGER:
@@ -82,53 +144,7 @@ public class IcebergDataTypeConvertor implements DataTypeConvertor<String> {
             default:
                 throw new IcebergConnectorException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        String.format("Unsupported iceberg type: %s", typeID));
-        }
-    }
-
-    @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(
-            String connectorDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
-        return toSeaTunnelType(connectorDataType);
-    }
-
-    @Override
-    public String toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
-        SqlType sqlType = seaTunnelDataType.getSqlType();
-        switch (sqlType) {
-            case MAP:
-            case ROW:
-            case STRING:
-            case NULL:
-                return Type.TypeID.STRING.toString();
-            case BOOLEAN:
-                return Type.TypeID.BOOLEAN.toString();
-            case TINYINT:
-            case SMALLINT:
-            case INT:
-                return Type.TypeID.INTEGER.toString();
-            case BIGINT:
-                return Type.TypeID.LONG.toString();
-            case FLOAT:
-                return Type.TypeID.FLOAT.toString();
-            case DOUBLE:
-                return Type.TypeID.DOUBLE.toString();
-            case DECIMAL:
-                return Type.TypeID.DECIMAL.toString();
-            case BYTES:
-                return Type.TypeID.FIXED.toString();
-            case DATE:
-                return Type.TypeID.DATE.toString();
-            case TIME:
-                return Type.TypeID.TIME.toString();
-            case TIMESTAMP:
-                return Type.TypeID.TIMESTAMP.toString();
-            default:
-                throw new UnsupportedOperationException(
-                        String.format("Doesn't support Iceberg type '%s''  yet.", sqlType));
+                        String.format("Unsupported iceberg type: %s", typeId));
         }
     }
 

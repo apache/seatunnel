@@ -19,12 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.Locale;
 
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.HDFS_SITE_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.HIVE_SITE_PATH;
@@ -43,6 +48,7 @@ import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfi
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig.TARGET_FILE_SIZE_BYTES;
 
 @AutoService(Factory.class)
+@Slf4j
 public class IcebergSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
@@ -70,6 +76,18 @@ public class IcebergSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
-        return () -> new IcebergSink(context.getCatalogTable(), config);
+        DataSaveMode saveMode;
+        if (config.toMap().get(SinkCommonOptions.DATA_SAVE_MODE) != null) {
+            saveMode =
+                    DataSaveMode.valueOf(
+                            config.toMap()
+                                    .get(SinkCommonOptions.DATA_SAVE_MODE)
+                                    .toUpperCase(Locale.ROOT));
+        } else {
+            log.warn("Data save mode is not set, use KEEP_SCHEMA_AND_DATA as default");
+            saveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
+        }
+
+        return () -> new IcebergSink(context.getCatalogTable(), config, saveMode);
     }
 }
