@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
@@ -109,7 +110,21 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPDATE} statement.
      */
     default String getUpdateStatement(
-            String database, String tableName, String[] fieldNames, String[] conditionFields) {
+            String database,
+            String tableName,
+            String[] fieldNames,
+            String[] conditionFields,
+            boolean isPrimaryKeyUpdated) {
+
+        fieldNames =
+                Arrays.stream(fieldNames)
+                        .filter(
+                                fieldName ->
+                                        isPrimaryKeyUpdated
+                                                || !Arrays.asList(conditionFields)
+                                                        .contains(fieldName))
+                        .toArray(String[]::new);
+
         String setClause =
                 Arrays.stream(fieldNames)
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
@@ -199,5 +214,9 @@ public interface JdbcDialect extends Serializable {
             Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
         PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
         return ps.getMetaData();
+    }
+
+    default String extractTableName(TablePath tablePath) {
+        return tablePath.getSchemaAndTableName();
     }
 }
