@@ -32,7 +32,7 @@ Version Supported
 
 ## Sink Options
 
-| Name                | Type   | Required | Default    | Description                                                                                                                                                                                                                                                                                  |
+|        Name         |  Type  | Required |  Default   |                                                                                                                                         Description                                                                                                                                          |
 |---------------------|--------|----------|------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | fenodes             | String | Yes      | -          | `Doris` cluster fenodes address, the format is `"fe_ip:fe_http_port, ..."`                                                                                                                                                                                                                   |
 | username            | String | Yes      | -          | `Doris` user username                                                                                                                                                                                                                                                                        |
@@ -49,7 +49,7 @@ Version Supported
 
 ## Data Type Mapping
 
-| Doris Data type | SeaTunnel Data type                     |
+| Doris Data type |           SeaTunnel Data type           |
 |-----------------|-----------------------------------------|
 | BOOLEAN         | BOOLEAN                                 |
 | TINYINT         | TINYINT                                 |
