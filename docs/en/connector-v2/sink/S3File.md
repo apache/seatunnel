@@ -47,7 +47,7 @@ To use this connector you need put hadoop-aws-3.1.4.jar and aws-java-sdk-bundle-
 
 ## Data Type Mapping
 
-SeaTunnel will write the data into the file in String format according to the SeaTunnel data type and file_format_type,
+SeaTunnel will write the data into the file in String format according to the SeaTunnel data type and file_format_type.
 
 ## Options
 
