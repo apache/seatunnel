@@ -37,9 +37,11 @@ import java.util.Optional;
 @AutoService(Factory.class)
 public class MySqlCatalogFactory implements CatalogFactory {
 
+    public static final String IDENTIFIER = "MySQL";
+
     @Override
     public String factoryIdentifier() {
-        return "MySQL";
+        return IDENTIFIER;
     }
 
     @Override
