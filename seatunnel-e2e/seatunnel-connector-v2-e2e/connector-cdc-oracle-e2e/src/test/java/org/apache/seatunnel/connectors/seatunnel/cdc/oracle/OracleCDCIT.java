@@ -1,0 +1,226 @@
+package org.apache.seatunnel.connectors.seatunnel.cdc.oracle;
+
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.OracleContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.images.builder.ImageFromDockerfile;
+import org.testcontainers.lifecycle.Startables;
+
+import lombok.extern.slf4j.Slf4j;
+import org.testcontainers.utility.DockerLoggerFactory;
+
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static org.awaitility.Awaitility.await;
+import static org.junit.Assert.assertNotNull;
+
+@Slf4j
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.SEATUNNEL},
+        disabledReason = "Currently SPARK and FLINK do not support cdc")
+public class OracleCDCIT extends TestSuiteBase implements TestResource {
+
+    private static final String ORACLE_IMAGE = "jark/oracle-xe-11g-r2-cdc:0.1";
+
+    private static final String HOST = "oracle-host";
+
+/*    public static final OracleContainer ORACLE_CONTAINER = new OracleContainer(new ImageFromDockerfile(ORACLE_IMAGE)
+            .withFileFromClasspath(".", "docker")
+            .withFileFromClasspath(
+                    "assets/activate-archivelog.sh",
+                    "docker/assets/activate-archivelog.sh")
+            .withFileFromClasspath(
+                    "assets/activate-archivelog.sql",
+                    "docker/assets/activate-archivelog.sql")
+    )
+            .withLogConsumer(
+                    new Slf4jLogConsumer(
+                            DockerLoggerFactory.getLogger("oracle-docker-image")));*/
+
+    public static final OracleContainer ORACLE_CONTAINER = new OracleContainer(ORACLE_IMAGE)
+            .withNetwork(NETWORK)
+            .withNetworkAliases(HOST)
+            .withLogConsumer(
+            new Slf4jLogConsumer(
+                    DockerLoggerFactory.getLogger("oracle-docker-image")));
+
+    public static final String CONNECTOR_USER = "dbzuser";
+
+    public static final String CONNECTOR_PWD = "dbz";
+
+    public static final String SCHEMA_USER = "debezium";
+
+    public static final String SCHEMA_PWD = "dbz";
+
+    public static final Pattern COMMENT_PATTERN = Pattern.compile("^(.*)--.*$");
+
+    private static final String SOURCE_SQL = "select * from DEBEZIUM.FULL_TYPES";
+    private static final String SINK_SQL = "select * from DEBEZIUM.FULL_TYPES_SINK";
+
+    @BeforeAll
+    @Override
+    public void startUp() throws Exception {
+        log.info("Starting containers...");
+        Startables.deepStart(Stream.of(ORACLE_CONTAINER)).join();
+        log.info("Containers are started.");
+    }
+
+    @TestTemplate
+    public void test(TestContainer container) throws Exception {
+        createAndInitialize(ORACLE_CONTAINER, "column_type_test");
+
+        updateSourceTable();
+
+        CompletableFuture<Void> executeJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                container.executeJob("/oraclecdc_to_console.conf");
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                            return null;
+                        });
+
+        // snapshot stage
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(SINK_SQL), querySql(SOURCE_SQL));
+                        });
+
+        // insert update delete
+        updateSourceTable();
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(SOURCE_SQL), querySql(SINK_SQL));
+                        });
+    }
+
+    public static void createAndInitialize(OracleContainer oracleContainer, String sqlFile)
+            throws Exception {
+        final String ddlFile = String.format("ddl/%s.sql", sqlFile);
+        final URL ddlTestFile = OracleCDCIT.class.getClassLoader().getResource(ddlFile);
+        assertNotNull("Cannot locate " + ddlFile, ddlTestFile);
+        try (Connection connection = testConnection(oracleContainer);
+                Statement statement = connection.createStatement()) {
+
+            final List<String> statements =
+                    Arrays.stream(
+                                    Files.readAllLines(Paths.get(ddlTestFile.toURI())).stream()
+                                            .map(String::trim)
+                                            .filter(x -> !x.startsWith("--") && !x.isEmpty())
+                                            .map(
+                                                    x -> {
+                                                        final Matcher m =
+                                                                COMMENT_PATTERN.matcher(x);
+                                                        return m.matches() ? m.group(1) : x;
+                                                    })
+                                            .collect(Collectors.joining("\n"))
+                                            .split(";"))
+                            .collect(Collectors.toList());
+
+            for (String stmt : statements) {
+                statement.execute(stmt);
+            }
+        }
+    }
+
+    public static Connection testConnection(OracleContainer oracleContainer) throws SQLException {
+        return DriverManager.getConnection(oracleContainer.getJdbcUrl(), SCHEMA_USER, SCHEMA_PWD);
+    }
+
+    private List<List<Object>> querySql(String sql) {
+        try (Connection connection = getJdbcConnection(ORACLE_CONTAINER)) {
+            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+            List<List<Object>> result = new ArrayList<>();
+            int columnCount = resultSet.getMetaData().getColumnCount();
+            while (resultSet.next()) {
+                ArrayList<Object> objects = new ArrayList<>();
+                for (int i = 1; i <= columnCount; i++) {
+                    objects.add(resultSet.getObject(i));
+                }
+                result.add(objects);
+            }
+            return result;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void executeSql(String sql) {
+        try (Connection connection = getJdbcConnection(ORACLE_CONTAINER)) {
+            connection.createStatement().execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static Connection getJdbcConnection(OracleContainer oracleContainer)
+            throws SQLException {
+        return DriverManager.getConnection(
+                oracleContainer.getJdbcUrl(), CONNECTOR_USER, CONNECTOR_PWD);
+    }
+
+    private void updateSourceTable() {
+        executeSql("INSERT INTO DEBEZIUM.FULL_TYPES VALUES (2, 'vc2', 'vc2', 'nvc2', 'c', 'nc',1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,1, 22, 333, 4444, 5555, 1, 99, 9999, 999999999, 999999999999999999,94, 9949, 999999994, 999999999999999949, 99999999999999999999999999999999999949,TO_DATE('2022-10-30', 'yyyy-mm-dd'),TO_TIMESTAMP('2022-10-30 12:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789 -11:00', 'yyyy-mm-dd HH24:MI:SS.FF5 TZH:TZM'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_CLOB ('col_clob'),utl_raw.cast_to_raw ('col_blob'))");
+
+        executeSql(
+                "INSERT INTO DEBEZIUM.FULL_TYPES VALUES (\n"
+                        + "    3, 'vc2', 'vc2', 'nvc2', 'c', 'nc',\n"
+                        + "    1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,\n"
+                        + "    1, 22, 333, 4444, 5555, 1, 99, 9999, 999999999, 999999999999999999,\n"
+                        + "    94, 9949, 999999994, 999999999999999949, 99999999999999999999999999999999999949,\n"
+                        + "    TO_DATE('2022-10-30', 'yyyy-mm-dd'),\n"
+                        + "    TO_TIMESTAMP('2022-10-30 12:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),\n"
+                        + "    TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),\n"
+                        + "    TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),\n"
+                        + "    TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),\n"
+                        + "    TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789 -11:00', 'yyyy-mm-dd HH24:MI:SS.FF5 TZH:TZM'),\n"
+                        + "    TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),\n"
+                        + "    TO_CLOB ('col_clob'),\n"
+                        + "    utl_raw.cast_to_raw ('col_blob')\n"
+                        + ")");
+
+        executeSql("DELETE FROM DEBEZIUM.FULL_TYPES where id = 2");
+
+        executeSql("UPDATE DEBEZIUM.FULL_TYPES SET VAL_VARCHAR = 'vc3' where id = 1");
+    }
+
+    @AfterAll
+    @Override
+    public void tearDown() throws Exception {
+        ORACLE_CONTAINER.stop();
+    }
+}
