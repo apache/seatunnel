@@ -232,7 +232,9 @@ public class ZetaSQLFunction {
         }
         if (expression instanceof CaseExpression) {
             CaseExpression caseExpression = (CaseExpression) expression;
-            return executeCaseExpr(caseExpression, inputFields);
+            final Object value = executeCaseExpr(caseExpression, inputFields);
+            SeaTunnelDataType<?> type = zetaSQLType.getExpressionType(expression);
+            return SystemFunction.castAs(value, type);
         }
         if (expression instanceof BinaryExpression) {
             return executeBinaryExpr((BinaryExpression) expression, inputFields);

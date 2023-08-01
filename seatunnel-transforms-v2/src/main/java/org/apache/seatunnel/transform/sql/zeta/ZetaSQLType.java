@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
 
+import org.apache.commons.collections4.CollectionUtils;
+
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.CaseExpression;
 import net.sf.jsqlparser.expression.CastExpression;
@@ -38,6 +40,7 @@ import net.sf.jsqlparser.expression.NullValue;
 import net.sf.jsqlparser.expression.Parenthesis;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.TimeKeyExpression;
+import net.sf.jsqlparser.expression.WhenClause;
 import net.sf.jsqlparser.expression.operators.arithmetic.Concat;
 import net.sf.jsqlparser.expression.operators.relational.ComparisonOperator;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
@@ -45,6 +48,7 @@ import net.sf.jsqlparser.schema.Column;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ZetaSQLType {
     public static final String DECIMAL = "DECIMAL";
@@ -157,8 +161,66 @@ public class ZetaSQLType {
                 String.format("Unsupported SQL Expression: %s ", expression.toString()));
     }
 
+    public SeaTunnelDataType<?> getMaxType(
+            SeaTunnelDataType<?> leftType, SeaTunnelDataType<?> rightType) {
+        if (leftType == null || rightType == null) {
+            return leftType != null ? leftType : rightType;
+        }
+        if (leftType.equals(rightType)) {
+            return leftType;
+        }
+        if (leftType.getSqlType() == SqlType.INT && rightType.getSqlType() == SqlType.INT) {
+            return BasicType.INT_TYPE;
+        }
+        if ((leftType.getSqlType() == SqlType.INT || leftType.getSqlType() == SqlType.BIGINT)
+                && (rightType.getSqlType() == SqlType.INT
+                        || rightType.getSqlType() == SqlType.BIGINT)) {
+            return BasicType.LONG_TYPE;
+        }
+        if (leftType.getSqlType() == SqlType.DECIMAL || rightType.getSqlType() == SqlType.DECIMAL) {
+            int precision = 0;
+            int scale = 0;
+            if (leftType.getSqlType() == SqlType.DECIMAL) {
+                DecimalType decimalType = (DecimalType) leftType;
+                precision = decimalType.getPrecision();
+                scale = decimalType.getScale();
+            }
+            if (rightType.getSqlType() == SqlType.DECIMAL) {
+                DecimalType decimalType = (DecimalType) rightType;
+                precision = Math.max(decimalType.getPrecision(), precision);
+                scale = Math.max(decimalType.getScale(), scale);
+            }
+            return new DecimalType(precision, scale);
+        }
+        if ((leftType.getSqlType() == SqlType.FLOAT || leftType.getSqlType() == SqlType.DOUBLE)
+                || (rightType.getSqlType() == SqlType.FLOAT
+                        || rightType.getSqlType() == SqlType.DOUBLE)) {
+            return BasicType.DOUBLE_TYPE;
+        }
+        throw new TransformException(
+                CommonErrorCode.UNSUPPORTED_OPERATION, leftType + " type not equals " + rightType);
+    }
+
+    public SeaTunnelDataType<?> getMaxType(List<SeaTunnelDataType<?>> types) {
+        if (CollectionUtils.isEmpty(types)) {
+            throw new TransformException(
+                    CommonErrorCode.UNSUPPORTED_OPERATION, "getMaxType parameter is null");
+        }
+        SeaTunnelDataType<?> result = types.get(0);
+        for (int i = 0, j = types.size(); i < j; i++) {
+            result = getMaxType(result, types.get(i));
+        }
+        return result;
+    }
+
     private SeaTunnelDataType<?> getCaseType(CaseExpression caseExpression) {
-        return getExpressionType(caseExpression.getElseExpression());
+        final List<SeaTunnelDataType<?>> types =
+                caseExpression.getWhenClauses().stream()
+                        .map(WhenClause::getThenExpression)
+                        .map(this::getExpressionType)
+                        .collect(Collectors.toList());
+        types.add(getExpressionType(caseExpression.getElseExpression()));
+        return getMaxType(types);
     }
 
     private SeaTunnelDataType<?> getCastType(CastExpression castExpression) {

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
 
@@ -25,6 +27,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 public class SystemFunction {
@@ -58,6 +61,18 @@ public class SystemFunction {
             return null;
         }
         return v1;
+    }
+
+    public static Object castAs(Object arg, SeaTunnelDataType<?> type) {
+        final ArrayList<Object> args = new ArrayList<>(4);
+        args.add(arg);
+        args.add(type.getSqlType().toString());
+        if (DecimalType.class.equals(type.getClass())) {
+            final DecimalType decimalType = (DecimalType) type;
+            args.add(decimalType.getPrecision());
+            args.add(decimalType.getScale());
+        }
+        return castAs(args);
     }
 
     public static Object castAs(List<Object> args) {
