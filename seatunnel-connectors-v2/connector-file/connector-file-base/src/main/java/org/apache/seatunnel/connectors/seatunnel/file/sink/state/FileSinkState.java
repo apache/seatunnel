@@ -21,8 +21,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 @Data
 @AllArgsConstructor
@@ -30,7 +30,7 @@ public class FileSinkState implements Serializable {
     private final String transactionId;
     private final String uuidPrefix;
     private final Long checkpointId;
-    private final Map<String, String> needMoveFiles;
-    private final Map<String, List<String>> partitionDirAndValuesMap;
+    private final LinkedHashMap<String, String> needMoveFiles;
+    private final LinkedHashMap<String, List<String>> partitionDirAndValuesMap;
     private final String transactionDir;
 }

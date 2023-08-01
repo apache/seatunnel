@@ -75,12 +75,6 @@ public class SinkExecuteProcessor
                                                     pluginIdentifier);
                                     seaTunnelSink.prepare(sinkConfig);
                                     seaTunnelSink.setJobContext(jobContext);
-                                    if (SupportDataSaveMode.class.isAssignableFrom(
-                                            seaTunnelSink.getClass())) {
-                                        SupportDataSaveMode saveModeSink =
-                                                (SupportDataSaveMode) seaTunnelSink;
-                                        saveModeSink.checkOptions(sinkConfig);
-                                    }
                                     return seaTunnelSink;
                                 })
                         .distinct()
@@ -115,7 +109,7 @@ public class SinkExecuteProcessor
                     (SeaTunnelRowType) TypeConverterUtils.convert(dataset.schema()));
             if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
                 SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
-                DataSaveMode dataSaveMode = saveModeSink.getDataSaveMode();
+                DataSaveMode dataSaveMode = saveModeSink.getUserConfigSaveMode();
                 saveModeSink.handleSaveMode(dataSaveMode);
             }
             SparkSinkInjector.inject(dataset.write(), seaTunnelSink)
