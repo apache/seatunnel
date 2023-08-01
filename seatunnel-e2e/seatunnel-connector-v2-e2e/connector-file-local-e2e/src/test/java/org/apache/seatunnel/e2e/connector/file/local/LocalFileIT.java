@@ -45,17 +45,13 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
                         container);
                 ContainerUtil.copyFileIntoContainers(
-                        "/json/e2e_lzo.json",
-                        "/seatunnel/read/lzo_json/e2e.json",
-                        container);
+                        "/json/e2e_lzo.json", "/seatunnel/read/lzo_json/e2e.json", container);
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e.txt",
                         "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
                         container);
                 ContainerUtil.copyFileIntoContainers(
-                        "/text/e2e.lzo.txt",
-                        "/seatunnel/read/lzo_text/e2e.txt",
-                        container);
+                        "/text/e2e.lzo.txt", "/seatunnel/read/lzo_text/e2e.txt", container);
                 ContainerUtil.copyFileIntoContainers(
                         "/excel/e2e.xlsx",
                         "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
