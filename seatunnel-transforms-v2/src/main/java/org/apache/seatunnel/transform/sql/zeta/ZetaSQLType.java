@@ -47,6 +47,8 @@ import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.schema.Column;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -163,8 +165,11 @@ public class ZetaSQLType {
 
     public SeaTunnelDataType<?> getMaxType(
             SeaTunnelDataType<?> leftType, SeaTunnelDataType<?> rightType) {
-        if (leftType == null || rightType == null) {
-            return leftType != null ? leftType : rightType;
+        if (leftType == null || BasicType.VOID_TYPE.equals(leftType)) {
+            return rightType;
+        }
+        if (rightType == null || BasicType.VOID_TYPE.equals(rightType)) {
+            return leftType;
         }
         if (leftType.equals(rightType)) {
             return leftType;
@@ -201,25 +206,28 @@ public class ZetaSQLType {
                 CommonErrorCode.UNSUPPORTED_OPERATION, leftType + " type not equals " + rightType);
     }
 
-    public SeaTunnelDataType<?> getMaxType(List<SeaTunnelDataType<?>> types) {
+    public SeaTunnelDataType<?> getMaxType(Collection<SeaTunnelDataType<?>> types) {
         if (CollectionUtils.isEmpty(types)) {
             throw new TransformException(
                     CommonErrorCode.UNSUPPORTED_OPERATION, "getMaxType parameter is null");
         }
-        SeaTunnelDataType<?> result = types.get(0);
-        for (int i = 0, j = types.size(); i < j; i++) {
-            result = getMaxType(result, types.get(i));
+        Iterator<SeaTunnelDataType<?>> iterator = types.iterator();
+        SeaTunnelDataType<?> result = iterator.next();
+        while (iterator.hasNext()) {
+            result = getMaxType(result, iterator.next());
         }
         return result;
     }
 
     private SeaTunnelDataType<?> getCaseType(CaseExpression caseExpression) {
-        final List<SeaTunnelDataType<?>> types =
+        final Collection<SeaTunnelDataType<?>> types =
                 caseExpression.getWhenClauses().stream()
                         .map(WhenClause::getThenExpression)
                         .map(this::getExpressionType)
-                        .collect(Collectors.toList());
-        types.add(getExpressionType(caseExpression.getElseExpression()));
+                        .collect(Collectors.toSet());
+        if (caseExpression.getElseExpression() != null) {
+            types.add(getExpressionType(caseExpression.getElseExpression()));
+        }
         return getMaxType(types);
     }
 
