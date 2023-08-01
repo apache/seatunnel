@@ -464,7 +464,8 @@ public class ZetaSQLFunction {
                 return computeForValue(whenClause.getThenExpression(), inputFields);
             }
         }
-        return computeForValue(caseExpression.getElseExpression(), inputFields);
+        final Expression elseExpression = caseExpression.getElseExpression();
+        return elseExpression == null ? null : computeForValue(elseExpression, inputFields);
     }
 
     public Object executeCastExpr(CastExpression castExpression, Object arg) {
