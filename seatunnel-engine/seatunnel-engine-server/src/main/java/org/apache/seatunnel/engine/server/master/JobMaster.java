@@ -74,13 +74,14 @@ import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 
@@ -139,6 +140,8 @@ public class JobMaster {
 
     private final IMap<Long, JobInfo> runningJobInfoIMap;
 
+    private final IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
+
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
 
@@ -154,6 +157,7 @@ public class JobMaster {
             @NonNull IMap runningJobStateTimestampsIMap,
             @NonNull IMap ownedSlotProfilesIMap,
             @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
+            @NonNull IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap,
             EngineConfig engineConfig) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
@@ -169,6 +173,7 @@ public class JobMaster {
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
+        this.metricsImap = metricsImap;
     }
 
     public void init(long initializationTimestamp, boolean restart, boolean canRestoreAgain)
@@ -242,7 +247,8 @@ public class JobMaster {
                         this,
                         checkpointPlanMap,
                         jobCheckpointConfig,
-                        executorService);
+                        executorService,
+                        runningJobStateIMap);
     }
 
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to
@@ -267,7 +273,8 @@ public class JobMaster {
 
         if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
             jobCheckpointConfig.setCheckpointInterval(
-                    (Long) jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
+                    Long.parseLong(
+                            jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()).toString()));
         }
         return jobCheckpointConfig;
     }
@@ -319,7 +326,10 @@ public class JobMaster {
         }
     }
 
-    public void handleCheckpointError(long pipelineId) {
+    public void handleCheckpointError(long pipelineId, boolean neverRestore) {
+        if (neverRestore) {
+            this.neverNeedRestore();
+        }
         this.physicalPlan
                 .getPipelineList()
                 .forEach(
@@ -400,23 +410,23 @@ public class JobMaster {
         removeJobIMap();
     }
 
-    public Address queryTaskGroupAddress(long taskGroupId) {
-        for (PipelineLocation pipelineLocation : ownedSlotProfilesIMap.keySet()) {
-            Optional<TaskGroupLocation> currentVertex =
-                    ownedSlotProfilesIMap.get(pipelineLocation).keySet().stream()
-                            .filter(
-                                    taskGroupLocation ->
-                                            taskGroupLocation.getTaskGroupId() == taskGroupId)
-                            .findFirst();
-            if (currentVertex.isPresent()) {
-                return ownedSlotProfilesIMap
-                        .get(pipelineLocation)
-                        .get(currentVertex.get())
-                        .getWorker();
+    public Address queryTaskGroupAddress(TaskGroupLocation taskGroupLocation) {
+
+        PipelineLocation pipelineLocation =
+                new PipelineLocation(
+                        taskGroupLocation.getJobId(), taskGroupLocation.getPipelineId());
+
+        Map<TaskGroupLocation, SlotProfile> taskGroupLocationSlotProfileMap =
+                ownedSlotProfilesIMap.get(pipelineLocation);
+
+        if (null != taskGroupLocationSlotProfileMap) {
+            SlotProfile slotProfile = taskGroupLocationSlotProfileMap.get(taskGroupLocation);
+            if (null != slotProfile) {
+                return slotProfile.getWorker();
             }
         }
         throw new IllegalArgumentException(
-                "can't find task group address from task group id: " + taskGroupId);
+                "can't find task group address from taskGroupLocation: " + taskGroupLocation);
     }
 
     public ClassLoader getClassLoader() {
@@ -449,53 +459,89 @@ public class JobMaster {
     }
 
     public List<RawJobMetrics> getCurrJobMetrics() {
-        return getCurrJobMetrics(ownedSlotProfilesIMap.values());
+
+        Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap = new HashMap<>();
+
+        ownedSlotProfilesIMap.forEach(
+                (pipelineLocation, map) -> {
+                    if (pipelineLocation.getJobId()
+                            == this.getJobImmutableInformation().getJobId()) {
+                        map.forEach(
+                                (taskGroupLocation, slotProfile) -> {
+                                    if (taskGroupLocation.getJobId()
+                                            == this.getJobImmutableInformation().getJobId()) {
+                                        taskGroupLocationSlotProfileMap.put(
+                                                taskGroupLocation, slotProfile.getWorker());
+                                    }
+                                });
+                    }
+                });
+        return getCurrJobMetrics(taskGroupLocationSlotProfileMap);
+    }
+
+    public List<RawJobMetrics> getCurrJobMetrics(List<PipelineLocation> pipelineLocations) {
+        Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap = new HashMap<>();
+
+        ownedSlotProfilesIMap.forEach(
+                (pipelineLocation, map) -> {
+                    if (pipelineLocations.contains(pipelineLocation)) {
+                        map.forEach(
+                                (taskGroupLocation, slotProfile) -> {
+                                    if (taskGroupLocation.getJobId()
+                                            == this.getJobImmutableInformation().getJobId()) {
+                                        taskGroupLocationSlotProfileMap.put(
+                                                taskGroupLocation, slotProfile.getWorker());
+                                    }
+                                });
+                    }
+                });
+        return getCurrJobMetrics(taskGroupLocationSlotProfileMap);
     }
 
     public List<RawJobMetrics> getCurrJobMetrics(
-            Collection<Map<TaskGroupLocation, SlotProfile>> groupLocations) {
-        List<RawJobMetrics> metrics = new ArrayList<>();
-        for (Map<TaskGroupLocation, SlotProfile> groupLocation : groupLocations) {
-            groupLocation.forEach(
-                    (taskGroupLocation, slotProfile) -> {
-                        if (taskGroupLocation.getJobId()
-                                == this.getJobImmutableInformation().getJobId()) {
-                            try {
-                                if (nodeEngine
-                                                .getClusterService()
-                                                .getMember(slotProfile.getWorker())
-                                        != null) {
-                                    RawJobMetrics rawJobMetrics =
-                                            (RawJobMetrics)
-                                                    NodeEngineUtil.sendOperationToMemberNode(
-                                                                    nodeEngine,
-                                                                    new GetTaskGroupMetricsOperation(
-                                                                            taskGroupLocation),
-                                                                    slotProfile.getWorker())
-                                                            .get();
-                                    metrics.add(rawJobMetrics);
-                                }
-                            }
-                            // HazelcastInstanceNotActiveException. It means that the node is
-                            // offline, so waiting for the taskGroup to restore can be successful
-                            catch (HazelcastInstanceNotActiveException e) {
-                                LOGGER.warning(
-                                        String.format(
-                                                "%s get current job metrics with exception: %s.",
-                                                taskGroupLocation, ExceptionUtils.getMessage(e)));
-                            } catch (Exception e) {
-                                throw new SeaTunnelException(e.getMessage());
-                            }
-                        }
-                    });
+            Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap) {
+        Map<Address, List<TaskGroupLocation>> taskGroupLocationMap = new HashMap<>();
+
+        for (Map.Entry<TaskGroupLocation, Address> entry :
+                taskGroupLocationSlotProfileMap.entrySet()) {
+            taskGroupLocationMap
+                    .computeIfAbsent(entry.getValue(), k -> new ArrayList<>())
+                    .add(entry.getKey());
         }
+        List<RawJobMetrics> metrics = new ArrayList<>();
+        taskGroupLocationMap.forEach(
+                (address, taskGroupLocations) -> {
+                    try {
+                        if (nodeEngine.getClusterService().getMember(address) != null) {
+                            RawJobMetrics rawJobMetrics =
+                                    (RawJobMetrics)
+                                            NodeEngineUtil.sendOperationToMemberNode(
+                                                            nodeEngine,
+                                                            new GetTaskGroupMetricsOperation(
+                                                                    taskGroupLocations),
+                                                            address)
+                                                    .get();
+                            metrics.add(rawJobMetrics);
+                        }
+                    }
+                    // HazelcastInstanceNotActiveException. It means that the node is
+                    // offline, so waiting for the taskGroup to restore can be successful
+                    catch (HazelcastInstanceNotActiveException e) {
+                        LOGGER.warning(
+                                String.format(
+                                        "%s get current job metrics with exception: %s.",
+                                        Arrays.toString(taskGroupLocations.toArray()),
+                                        ExceptionUtils.getMessage(e)));
+                    } catch (Exception e) {
+                        throw new SeaTunnelEngineException(ExceptionUtils.getMessage(e));
+                    }
+                });
         return metrics;
     }
 
     public void savePipelineMetricsToHistory(PipelineLocation pipelineLocation) {
         List<RawJobMetrics> currJobMetrics =
-                this.getCurrJobMetrics(
-                        Collections.singleton(this.getOwnedSlotProfiles(pipelineLocation)));
+                this.getCurrJobMetrics(Collections.singletonList(pipelineLocation));
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(currJobMetrics);
         long jobId = this.getJobImmutableInformation().getJobId();
         synchronized (this) {
@@ -509,46 +555,56 @@ public class JobMaster {
             PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
         if (pipelineStatus.equals(PipelineStatus.FINISHED) && !checkpointManager.isSavePointEnd()
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
-            IMap<TaskLocation, SeaTunnelMetricsContext> map =
-                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-            map.keySet().stream()
-                    .filter(
-                            taskLocation -> {
-                                return taskLocation
-                                        .getTaskGroupLocation()
-                                        .getPipelineLocation()
-                                        .equals(pipelineLocation);
-                            })
-                    .forEach(map::remove);
+            try {
+                metricsImap.lock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
+                        metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                if (centralMap != null) {
+                    List<TaskLocation> collect =
+                            centralMap.keySet().stream()
+                                    .filter(
+                                            taskLocation -> {
+                                                return taskLocation
+                                                        .getTaskGroupLocation()
+                                                        .getPipelineLocation()
+                                                        .equals(pipelineLocation);
+                                            })
+                                    .collect(Collectors.toList());
+                    collect.forEach(centralMap::remove);
+                    metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
+                }
+            } finally {
+                metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+            }
         }
     }
 
     private void cleanTaskGroupContext(PipelineLocation pipelineLocation) {
-        ownedSlotProfilesIMap
-                .get(pipelineLocation)
-                .forEach(
-                        (taskGroupLocation, slotProfile) -> {
-                            try {
-                                if (nodeEngine
-                                                .getClusterService()
-                                                .getMember(slotProfile.getWorker())
-                                        != null) {
-                                    NodeEngineUtil.sendOperationToMemberNode(
-                                                    nodeEngine,
-                                                    new CleanTaskGroupContextOperation(
-                                                            taskGroupLocation),
-                                                    slotProfile.getWorker())
-                                            .get();
-                                }
-                            } catch (HazelcastInstanceNotActiveException e) {
-                                LOGGER.warning(
-                                        String.format(
-                                                "%s clean TaskGroupContext with exception: %s.",
-                                                taskGroupLocation, ExceptionUtils.getMessage(e)));
-                            } catch (Exception e) {
-                                throw new SeaTunnelException(e.getMessage());
-                            }
-                        });
+        Map<TaskGroupLocation, SlotProfile> slotProfileMap =
+                ownedSlotProfilesIMap.get(pipelineLocation);
+        if (slotProfileMap == null) {
+            return;
+        }
+        slotProfileMap.forEach(
+                (taskGroupLocation, slotProfile) -> {
+                    try {
+                        if (nodeEngine.getClusterService().getMember(slotProfile.getWorker())
+                                != null) {
+                            NodeEngineUtil.sendOperationToMemberNode(
+                                            nodeEngine,
+                                            new CleanTaskGroupContextOperation(taskGroupLocation),
+                                            slotProfile.getWorker())
+                                    .get();
+                        }
+                    } catch (HazelcastInstanceNotActiveException e) {
+                        LOGGER.warning(
+                                String.format(
+                                        "%s clean TaskGroupContext with exception: %s.",
+                                        taskGroupLocation, ExceptionUtils.getMessage(e)));
+                    } catch (Exception e) {
+                        throw new SeaTunnelException(e.getMessage());
+                    }
+                });
     }
 
     public PhysicalPlan getPhysicalPlan() {
@@ -595,6 +651,11 @@ public class JobMaster {
 
     /** Execute savePoint, which will cause the job to end. */
     public CompletableFuture<Void> savePoint() {
+        LOGGER.info(
+                String.format(
+                        "Begin do save point for Job %s (%s) ",
+                        jobImmutableInformation.getJobConfig().getName(),
+                        jobImmutableInformation.getJobId()));
         PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
                 checkpointManager.triggerSavePoints();
         return CompletableFuture.allOf(passiveCompletableFutures);

@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  * Represent the column of {@link TableSchema}.
@@ -54,6 +55,24 @@ public abstract class Column implements Serializable {
 
     protected final String comment;
 
+    /** Field type in the database * */
+    protected final String sourceType;
+
+    /** Unsigned bit * */
+    protected final boolean isUnsigned;
+
+    /** Whether to use the 0 bit * */
+    protected final boolean isZeroFill;
+
+    /** Bit length * */
+    protected final Long bitLen;
+
+    /** integer may be cross the border * */
+    protected final Long longColumnLength;
+
+    /** your options * */
+    protected final Map<String, Object> options;
+
     protected Column(
             String name,
             SeaTunnelDataType<?> dataType,
@@ -61,12 +80,46 @@ public abstract class Column implements Serializable {
             boolean nullable,
             Object defaultValue,
             String comment) {
+        this(
+                name,
+                dataType,
+                columnLength,
+                nullable,
+                defaultValue,
+                comment,
+                null,
+                false,
+                false,
+                null,
+                0L,
+                null);
+    }
+
+    protected Column(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Integer columnLength,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sourceType,
+            boolean isUnsigned,
+            boolean isZeroFill,
+            Long bitLen,
+            Long longColumnLength,
+            Map<String, Object> options) {
         this.name = name;
         this.dataType = dataType;
         this.columnLength = columnLength;
         this.nullable = nullable;
         this.defaultValue = defaultValue;
         this.comment = comment;
+        this.sourceType = sourceType;
+        this.isUnsigned = isUnsigned;
+        this.isZeroFill = isZeroFill;
+        this.bitLen = bitLen;
+        this.longColumnLength = longColumnLength;
+        this.options = options;
     }
 
     /**
@@ -77,4 +130,7 @@ public abstract class Column implements Serializable {
 
     /** Returns a copy of the column with a replaced {@link SeaTunnelDataType}. */
     public abstract Column copy(SeaTunnelDataType<?> newType);
+
+    /** Returns a copy of the column. */
+    public abstract Column copy();
 }

@@ -179,6 +179,7 @@ map:
            type: hdfs
            namespace: /tmp/seatunnel/imap
            clusterName: seatunnel-cluster
+           storage.type: hdfs
            fs.defaultFS: hdfs://localhost:9000
 ```
 
@@ -195,7 +196,30 @@ map:
            type: hdfs
            namespace: /tmp/seatunnel/imap
            clusterName: seatunnel-cluster
+           storage.type: hdfs
            fs.defaultFS: file:///
+```
+
+if you used OSS, you can config like this:
+
+```yaml
+map:
+    engine*:
+       map-store:
+         enabled: true
+         initial-mode: EAGER
+         factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+         properties:
+           type: hdfs
+           namespace: /tmp/seatunnel/imap
+           clusterName: seatunnel-cluster
+           storage.type: oss
+           block.size: block size(bytes)
+           oss.bucket: oss://bucket name/
+           fs.oss.accessKeyId: OSS access key id
+           fs.oss.accessKeySecret: OSS access key secret
+           fs.oss.endpoint: OSS endpoint
+           fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
 ```
 
 ## 6. Config SeaTunnel Engine Client
@@ -224,9 +248,11 @@ hazelcast-client:
 
 ## 7. Start SeaTunnel Engine Server Node
 
+Can be started by a daemon with `-d`.
+
 ```shell
 mkdir -p $SEATUNNEL_HOME/logs
-nohup bin/seatunnel-cluster.sh 2>&1 &
+./bin/seatunnel-cluster.sh -d
 ```
 
 The logs will write in `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`

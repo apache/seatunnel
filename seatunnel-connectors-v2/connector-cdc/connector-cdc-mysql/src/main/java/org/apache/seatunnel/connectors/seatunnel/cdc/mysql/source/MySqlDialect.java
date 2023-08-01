@@ -33,8 +33,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.s
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.TableDiscoveryUtils;
 
-import com.github.shyiko.mysql.binlog.BinaryLogClient;
-import io.debezium.connector.mysql.MySqlConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
@@ -42,8 +40,6 @@ import io.debezium.relational.history.TableChanges;
 import java.sql.SQLException;
 import java.util.List;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createBinaryClient;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createMySqlConnection;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.isTableIdCaseSensitive;
 
 /** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
@@ -104,12 +100,7 @@ public class MySqlDialect implements JdbcDataSourceDialect {
     @Override
     public MySqlSourceFetchTaskContext createFetchTaskContext(
             SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
-        final MySqlConnection jdbcConnection =
-                createMySqlConnection(taskSourceConfig.getDbzConfiguration());
-        final BinaryLogClient binaryLogClient =
-                createBinaryClient(taskSourceConfig.getDbzConfiguration());
-        return new MySqlSourceFetchTaskContext(
-                taskSourceConfig, this, jdbcConnection, binaryLogClient);
+        return new MySqlSourceFetchTaskContext(taskSourceConfig, this);
     }
 
     @Override

@@ -27,6 +27,9 @@ import java.util.Map;
 @SuppressWarnings("MagicNumber")
 public class SourceOptions {
 
+    public static final String STARTUP_MODE_KEY = "startup.mode";
+    public static final String STOP_MODE_KEY = "stop.mode";
+
     public static final Option<Integer> SNAPSHOT_SPLIT_SIZE =
             Options.key("snapshot.split.size")
                     .intType()
@@ -40,14 +43,6 @@ public class SourceOptions {
                     .defaultValue(1024)
                     .withDescription(
                             "The maximum fetch size for per poll when read table snapshot.");
-
-    public static final Option<StartupMode> STARTUP_MODE =
-            Options.key("startup.mode")
-                    .enumType(StartupMode.class)
-                    .defaultValue(StartupMode.INITIAL)
-                    .withDescription(
-                            "Optional startup mode for CDC source, valid enumerations are "
-                                    + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
 
     public static final Option<Long> STARTUP_TIMESTAMP =
             Options.key("startup.timestamp")
@@ -73,14 +68,6 @@ public class SourceOptions {
                     .intType()
                     .defaultValue(1)
                     .withDescription("The number of parallel readers in the incremental phase.");
-
-    public static final Option<StopMode> STOP_MODE =
-            Options.key("stop.mode")
-                    .enumType(StopMode.class)
-                    .defaultValue(StopMode.NEVER)
-                    .withDescription(
-                            "Optional stop mode for CDC source, valid enumerations are "
-                                    + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
 
     public static final Option<Long> STOP_TIMESTAMP =
             Options.key("stop.timestamp")
@@ -115,23 +102,17 @@ public class SourceOptions {
                     .withDescription(
                             "Data format. The default format is seatunnel row. Optional compatible with debezium-json format.");
 
+    public static final Option<Boolean> EXACTLY_ONCE =
+            Options.key("exactly_once")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("Enable exactly once semantic.");
+
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()
+                .optional(FORMAT)
                 .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
                 .optional(INCREMENTAL_PARALLELISM)
-                .optional(STARTUP_MODE, STOP_MODE)
-                .optional(DEBEZIUM_PROPERTIES)
-                .conditional(STARTUP_MODE, StartupMode.TIMESTAMP, STARTUP_TIMESTAMP)
-                .conditional(
-                        STARTUP_MODE,
-                        StartupMode.SPECIFIC,
-                        STARTUP_SPECIFIC_OFFSET_FILE,
-                        STARTUP_SPECIFIC_OFFSET_POS)
-                .conditional(STOP_MODE, StopMode.TIMESTAMP, STOP_TIMESTAMP)
-                .conditional(
-                        STOP_MODE,
-                        StopMode.SPECIFIC,
-                        STOP_SPECIFIC_OFFSET_FILE,
-                        STOP_SPECIFIC_OFFSET_POS);
+                .optional(DEBEZIUM_PROPERTIES);
     }
 }

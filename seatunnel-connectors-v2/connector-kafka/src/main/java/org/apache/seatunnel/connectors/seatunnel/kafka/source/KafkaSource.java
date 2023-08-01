@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -39,11 +40,14 @@ import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
+import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
@@ -57,21 +61,20 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANAL_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEBEZIUM_RECORD_INCLUDE_SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_OFFSETS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_TIMESTAMP;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TEXT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 
 @AutoService(SeaTunnelSource.class)
@@ -84,6 +87,8 @@ public class KafkaSource
     private SeaTunnelRowType typeInfo;
     private JobContext jobContext;
     private long discoveryIntervalMillis = KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.defaultValue();
+    private MessageFormatErrorHandleWay messageFormatErrorHandleWay =
+            MessageFormatErrorHandleWay.FAIL;
 
     @Override
     public Boundedness getBoundedness() {
@@ -187,6 +192,19 @@ public class KafkaSource
                                     this.metadata.getProperties().put(key, value.unwrapped()));
         }
 
+        if (config.hasPath(MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION.key())) {
+            MessageFormatErrorHandleWay formatErrorWayOption =
+                    ReadonlyConfig.fromConfig(config).get(MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION);
+            switch (formatErrorWayOption) {
+                case FAIL:
+                case SKIP:
+                    this.messageFormatErrorHandleWay = formatErrorWayOption;
+                    break;
+                default:
+                    break;
+            }
+        }
+
         setDeserialization(config);
     }
 
@@ -198,7 +216,8 @@ public class KafkaSource
     @Override
     public SourceReader<SeaTunnelRow, KafkaSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new KafkaSourceReader(this.metadata, deserializationSchema, readerContext);
+        return new KafkaSourceReader(
+                this.metadata, deserializationSchema, readerContext, messageFormatErrorHandleWay);
     }
 
     @Override
@@ -227,15 +246,12 @@ public class KafkaSource
             Config schema = config.getConfig(SCHEMA.key());
             // todo: use KafkaDataTypeConvertor here?
             typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
-            String format = DEFAULT_FORMAT;
-            if (config.hasPath(FORMAT.key())) {
-                format = config.getString(FORMAT.key());
-            }
+            MessageFormat format = ReadonlyConfig.fromConfig(config).get(FORMAT);
             switch (format) {
-                case DEFAULT_FORMAT:
+                case JSON:
                     deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
                     break;
-                case TEXT_FORMAT:
+                case TEXT:
                     String delimiter = DEFAULT_FIELD_DELIMITER;
                     if (config.hasPath(FIELD_DELIMITER.key())) {
                         delimiter = config.getString(FIELD_DELIMITER.key());
@@ -246,11 +262,19 @@ public class KafkaSource
                                     .delimiter(delimiter)
                                     .build();
                     break;
-                case CANAL_FORMAT:
+                case CANAL_JSON:
                     deserializationSchema =
                             CanalJsonDeserializationSchema.builder(typeInfo)
                                     .setIgnoreParseErrors(true)
                                     .build();
+                    break;
+                case DEBEZIUM_JSON:
+                    boolean includeSchema = DEBEZIUM_RECORD_INCLUDE_SCHEMA.defaultValue();
+                    if (config.hasPath(DEBEZIUM_RECORD_INCLUDE_SCHEMA.key())) {
+                        includeSchema = config.getBoolean(DEBEZIUM_RECORD_INCLUDE_SCHEMA.key());
+                    }
+                    deserializationSchema =
+                            new DebeziumJsonDeserializationSchema(typeInfo, true, includeSchema);
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(

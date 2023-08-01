@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
@@ -59,9 +60,17 @@ public interface JdbcDialect extends Serializable {
      */
     JdbcDialectTypeMapper getJdbcDialectTypeMapper();
 
+    default String hashModForField(String fieldName, int mod) {
+        return "ABS(MD5(" + quoteIdentifier(fieldName) + ") % " + mod + ")";
+    }
+
     /** Quotes the identifier for table name or field name */
     default String quoteIdentifier(String identifier) {
         return identifier;
+    }
+
+    default String tableIdentifier(String database, String tableName) {
+        return quoteIdentifier(database) + "." + quoteIdentifier(tableName);
     }
 
     /**
@@ -85,8 +94,8 @@ public interface JdbcDialect extends Serializable {
                         .map(fieldName -> ":" + fieldName)
                         .collect(Collectors.joining(", "));
         return String.format(
-                "INSERT INTO %s.%s (%s) VALUES (%s)",
-                quoteIdentifier(database), quoteIdentifier(tableName), columns, placeholders);
+                "INSERT INTO %s (%s) VALUES (%s)",
+                tableIdentifier(database, tableName), columns, placeholders);
     }
 
     /**
@@ -101,7 +110,21 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPDATE} statement.
      */
     default String getUpdateStatement(
-            String database, String tableName, String[] fieldNames, String[] conditionFields) {
+            String database,
+            String tableName,
+            String[] fieldNames,
+            String[] conditionFields,
+            boolean isPrimaryKeyUpdated) {
+
+        fieldNames =
+                Arrays.stream(fieldNames)
+                        .filter(
+                                fieldName ->
+                                        isPrimaryKeyUpdated
+                                                || !Arrays.asList(conditionFields)
+                                                        .contains(fieldName))
+                        .toArray(String[]::new);
+
         String setClause =
                 Arrays.stream(fieldNames)
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
@@ -111,8 +134,8 @@ public interface JdbcDialect extends Serializable {
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
                         .collect(Collectors.joining(" AND "));
         return String.format(
-                "UPDATE %s.%s SET %s WHERE %s",
-                quoteIdentifier(database), quoteIdentifier(tableName), setClause, conditionClause);
+                "UPDATE %s SET %s WHERE %s",
+                tableIdentifier(database, tableName), setClause, conditionClause);
     }
 
     /**
@@ -132,8 +155,7 @@ public interface JdbcDialect extends Serializable {
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
                         .collect(Collectors.joining(" AND "));
         return String.format(
-                "DELETE FROM %s.%s WHERE %s",
-                quoteIdentifier(database), quoteIdentifier(tableName), conditionClause);
+                "DELETE FROM %s WHERE %s", tableIdentifier(database, tableName), conditionClause);
     }
 
     /**
@@ -153,8 +175,8 @@ public interface JdbcDialect extends Serializable {
                         .map(field -> format("%s = :%s", quoteIdentifier(field), field))
                         .collect(Collectors.joining(" AND "));
         return String.format(
-                "SELECT 1 FROM %s.%s WHERE %s",
-                quoteIdentifier(database), quoteIdentifier(tableName), fieldExpressions);
+                "SELECT 1 FROM %s WHERE %s",
+                tableIdentifier(database, tableName), fieldExpressions);
     }
 
     /**
@@ -192,5 +214,9 @@ public interface JdbcDialect extends Serializable {
             Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
         PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
         return ps.getMetaData();
+    }
+
+    default String extractTableName(TablePath tablePath) {
+        return tablePath.getSchemaAndTableName();
     }
 }

@@ -8,9 +8,9 @@ Read external data source data through JDBC.
 
 :::tip
 
-Warn: for license compliance, you have to provide database driver yourself, copy to `$SEATNUNNEL_HOME/plugins/jdbc/lib/` directory in order to make them work.
+Warn: for license compliance, you have to provide database driver yourself, copy to `$SEATNUNNEL_HOME/lib/` directory in order to make them work.
 
-e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` to `$SEATNUNNEL_HOME/plugins/jdbc/lib/`
+e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` to `$SEATNUNNEL_HOME/lib/`. For Spark/Flink, you should also copy it to `$SPARK_HOME/jars/` or `$FLINK_HOME/lib/`.
 
 :::
 
@@ -35,6 +35,7 @@ supports query SQL and can achieve projection effect.
 | user                         | String | No       | -               |
 | password                     | String | No       | -               |
 | query                        | String | Yes      | -               |
+| compatible_mode              | String | No       | -               |
 | connection_check_timeout_sec | Int    | No       | 30              |
 | partition_column             | String | No       | -               |
 | partition_upper_bound        | Long   | No       | -               |
@@ -62,6 +63,10 @@ The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/tes
 ### query [string]
 
 Query statement
+
+### compatible_mode [string]
+
+The compatible mode of database, required when the database supports multiple compatible modes. For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.
 
 ### connection_check_timeout_sec [int]
 
@@ -117,7 +122,10 @@ there are some reference value for params above.
 | saphana    | com.sap.db.jdbc.Driver                              | jdbc:sap://localhost:39015                                             | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                              |
 | doris      | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | teradata   | com.teradata.jdbc.TeraDriver                        | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                               |
-| Redshift   | com.amazon.redshift.jdbc42.Driver                   | jdbc:redshift://localhost:5439/testdb                                  | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                      |
+| Snowflake  | net.snowflake.client.jdbc.SnowflakeDriver           | jdbc:snowflake://<account_name>.snowflakecomputing.com                 | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                             |
+| Redshift   | com.amazon.redshift.jdbc42.Driver                   | jdbc:redshift://localhost:5439/testdb?defaultRowFetchSize=1000         | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                      |
+| Vertica    | com.vertica.jdbc.Driver                             | jdbc:vertica://localhost:5433                                          | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar             |
+| OceanBase  | com.oceanbase.jdbc.Driver                           | jdbc:oceanbase://localhost:2881                                        | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar              |
 
 ## Example
 
@@ -157,21 +165,22 @@ Jdbc {
 
 ### 2.3.0-beta 2022-10-20
 
-- [Feature] Support Phoenix JDBC Source ([2499](https://github.com/apache/incubator-seatunnel/pull/2499))
-- [Feature] Support SQL Server JDBC Source ([2646](https://github.com/apache/incubator-seatunnel/pull/2646))
-- [Feature] Support Oracle JDBC Source ([2550](https://github.com/apache/incubator-seatunnel/pull/2550))
-- [Feature] Support StarRocks JDBC Source ([3060](https://github.com/apache/incubator-seatunnel/pull/3060))
-- [Feature] Support GBase8a JDBC Source ([3026](https://github.com/apache/incubator-seatunnel/pull/3026))
-- [Feature] Support DB2 JDBC Source ([2410](https://github.com/apache/incubator-seatunnel/pull/2410))
+- [Feature] Support Phoenix JDBC Source ([2499](https://github.com/apache/seatunnel/pull/2499))
+- [Feature] Support SQL Server JDBC Source ([2646](https://github.com/apache/seatunnel/pull/2646))
+- [Feature] Support Oracle JDBC Source ([2550](https://github.com/apache/seatunnel/pull/2550))
+- [Feature] Support StarRocks JDBC Source ([3060](https://github.com/apache/seatunnel/pull/3060))
+- [Feature] Support GBase8a JDBC Source ([3026](https://github.com/apache/seatunnel/pull/3026))
+- [Feature] Support DB2 JDBC Source ([2410](https://github.com/apache/seatunnel/pull/2410))
 
 ### next version
 
-- [BugFix] Fix jdbc split bug ([3220](https://github.com/apache/incubator-seatunnel/pull/3220))
-- [Feature] Support Sqlite JDBC Source ([3089](https://github.com/apache/incubator-seatunnel/pull/3089))
-- [Feature] Support Tablestore Source ([3309](https://github.com/apache/incubator-seatunnel/pull/3309))
-- [Feature] Support Teradata JDBC　Source ([3362](https://github.com/apache/incubator-seatunnel/pull/3362))
-- [Feature] Support JDBC Fetch Size Config ([3478](https://github.com/apache/incubator-seatunnel/pull/3478))
-- [Feature] Support Doris JDBC Source ([3586](https://github.com/apache/incubator-seatunnel/pull/3586))
-- [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/incubator-seatunnel/pull/3615))
-- [BugFix] Fix jdbc connection reset bug ([3670](https://github.com/apache/incubator-seatunnel/pull/3670))
+- [BugFix] Fix jdbc split bug ([3220](https://github.com/apache/seatunnel/pull/3220))
+- [Feature] Support Sqlite JDBC Source ([3089](https://github.com/apache/seatunnel/pull/3089))
+- [Feature] Support Tablestore Source ([3309](https://github.com/apache/seatunnel/pull/3309))
+- [Feature] Support Teradata JDBC　Source ([3362](https://github.com/apache/seatunnel/pull/3362))
+- [Feature] Support JDBC Fetch Size Config ([3478](https://github.com/apache/seatunnel/pull/3478))
+- [Feature] Support Doris JDBC Source ([3586](https://github.com/apache/seatunnel/pull/3586))
+- [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/seatunnel/pull/3615))
+- [BugFix] Fix jdbc connection reset bug ([3670](https://github.com/apache/seatunnel/pull/3670))
+- [Improve] Add Vertica connector([#4303](https://github.com/apache/seatunnel/pull/4303))
 

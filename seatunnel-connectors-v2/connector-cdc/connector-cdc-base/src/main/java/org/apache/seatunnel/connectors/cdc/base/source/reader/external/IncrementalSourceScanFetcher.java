@@ -107,7 +107,8 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
     }
 
     @Override
-    public Iterator<SourceRecords> pollSplitRecords() throws InterruptedException {
+    public Iterator<SourceRecords> pollSplitRecords()
+            throws InterruptedException, SeaTunnelException {
         checkReadException();
 
         if (hasNextElement.get()) {
@@ -133,9 +134,16 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
 
                     if (highWatermark == null && isHighWatermarkEvent(record)) {
                         highWatermark = record;
-                        // snapshot events capture end and begin to capture binlog events
-                        reachChangeLogStart = true;
-                        continue;
+                        // snapshot events capture end
+                        if (taskContext.isExactlyOnce()) {
+                            // begin to capture binlog events
+                            reachChangeLogStart = true;
+                            continue;
+                        } else {
+                            // not support exactly-once, stop the loop
+                            reachChangeLogEnd = true;
+                            break;
+                        }
                     }
 
                     if (reachChangeLogStart && isEndWatermarkEvent(record)) {
@@ -192,13 +200,20 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
     @Override
     public void close() {
         try {
+            if (taskContext != null) {
+                taskContext.close();
+            }
+            if (snapshotSplitReadTask != null) {
+                snapshotSplitReadTask.shutdown();
+            }
             if (executorService != null) {
                 executorService.shutdown();
-                if (executorService.awaitTermination(
+                if (!executorService.awaitTermination(
                         READER_CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                     log.warn(
-                            "Failed to close the scan fetcher in {} seconds.",
+                            "Failed to close the scan fetcher in {} seconds. Service will execute force close(ExecutorService.shutdownNow)",
                             READER_CLOSE_TIMEOUT_SECONDS);
+                    executorService.shutdownNow();
                 }
             }
         } catch (Exception e) {
@@ -208,14 +223,11 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
 
     private boolean isChangeRecordInChunkRange(SourceRecord record) {
         if (taskContext.isDataChangeRecord(record)) {
+            // fix the between condition
             return taskContext.isRecordBetween(
                     record,
-                    null == currentSnapshotSplit.getSplitStart()
-                            ? null
-                            : new Object[] {currentSnapshotSplit.getSplitStart()},
-                    null == currentSnapshotSplit.getSplitEnd()
-                            ? null
-                            : new Object[] {currentSnapshotSplit.getSplitEnd()});
+                    currentSnapshotSplit.getSplitStart(),
+                    currentSnapshotSplit.getSplitEnd());
         }
         return false;
     }

@@ -41,6 +41,9 @@ public interface FetchTask<Split> {
     /** Returns current task is running or not. */
     boolean isRunning();
 
+    /** Close this task */
+    void shutdown();
+
     /** Returns the split that the task used. */
     Split getSplit();
 
@@ -54,6 +57,8 @@ public interface FetchTask<Split> {
 
         Tables.TableFilter getTableFilter();
 
+        boolean isExactlyOnce();
+
         Offset getStreamOffset(SourceRecord record);
 
         boolean isDataChangeRecord(SourceRecord record);
@@ -63,5 +68,7 @@ public interface FetchTask<Split> {
         void rewriteOutputBuffer(Map<Struct, SourceRecord> outputBuffer, SourceRecord changeRecord);
 
         List<SourceRecord> formatMessageTimestamp(Collection<SourceRecord> snapshotRecords);
+
+        void close();
     }
 }

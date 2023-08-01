@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -35,7 +36,6 @@ import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobComple
 import org.apache.commons.lang3.StringUtils;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
-import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
@@ -67,7 +67,7 @@ public class ClientJobProxy implements Job {
     private void submitJob(JobImmutableInformation jobImmutableInformation) {
         LOGGER.info(
                 String.format(
-                        "start submit job, job id: %s, with plugin jar %s",
+                        "Start submit job, job id: %s, with plugin jar %s",
                         jobImmutableInformation.getJobId(),
                         jobImmutableInformation.getPluginJarsUrls()));
         ClientMessage request =
@@ -79,6 +79,10 @@ public class ClientJobProxy implements Job {
         PassiveCompletableFuture<Void> submitJobFuture =
                 seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(request);
         submitJobFuture.join();
+        LOGGER.info(
+                String.format(
+                        "Submit job finished, job id: %s, job name: %s",
+                        jobImmutableInformation.getJobId(), jobImmutableInformation.getJobName()));
     }
 
     /**
@@ -100,8 +104,7 @@ public class ClientJobProxy implements Job {
                                     100000,
                                     true,
                                     exception ->
-                                            exception.getCause()
-                                                    instanceof OperationTimeoutException,
+                                            ExceptionUtil.isOperationNeedRetryException(exception),
                                     Constant.OPERATION_RETRY_SLEEP));
             if (jobResult == null) {
                 throw new SeaTunnelEngineException("failed to fetch job result");

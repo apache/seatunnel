@@ -22,11 +22,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
+import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonDeserializationSchema;
 import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonSerializationSchema;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonSerializationSchema;
+import org.apache.seatunnel.format.json.debezium.DebeziumJsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
@@ -40,11 +42,6 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CANAL_FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMPATIBLE_DEBEZIUM_JSON;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TEXT_FORMAT;
 
 @RequiredArgsConstructor
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
@@ -67,9 +64,9 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     }
 
     public static DefaultSeaTunnelRowSerializer create(
-            String topic, SeaTunnelRowType rowType, String format, String delimiter) {
+            String topic, SeaTunnelRowType rowType, MessageFormat format, String delimiter) {
         return new DefaultSeaTunnelRowSerializer(
-                topicExtractor(topic, rowType),
+                topicExtractor(topic, rowType, format),
                 partitionExtractor(null),
                 timestampExtractor(),
                 keyExtractor(null, rowType, format, delimiter),
@@ -81,10 +78,10 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             String topic,
             Integer partition,
             SeaTunnelRowType rowType,
-            String format,
+            MessageFormat format,
             String delimiter) {
         return new DefaultSeaTunnelRowSerializer(
-                topicExtractor(topic, rowType),
+                topicExtractor(topic, rowType, format),
                 partitionExtractor(partition),
                 timestampExtractor(),
                 keyExtractor(null, rowType, format, delimiter),
@@ -96,10 +93,10 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             String topic,
             List<String> keyFields,
             SeaTunnelRowType rowType,
-            String format,
+            MessageFormat format,
             String delimiter) {
         return new DefaultSeaTunnelRowSerializer(
-                topicExtractor(topic, rowType),
+                topicExtractor(topic, rowType, format),
                 partitionExtractor(null),
                 timestampExtractor(),
                 keyExtractor(keyFields, rowType, format, delimiter),
@@ -120,7 +117,13 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     }
 
     private static Function<SeaTunnelRow, String> topicExtractor(
-            String topic, SeaTunnelRowType rowType) {
+            String topic, SeaTunnelRowType rowType, MessageFormat format) {
+        if (MessageFormat.COMPATIBLE_DEBEZIUM_JSON.equals(format)) {
+            int topicFieldIndex =
+                    rowType.indexOf(CompatibleDebeziumJsonDeserializationSchema.FIELD_TOPIC);
+            return row -> row.getField(topicFieldIndex).toString();
+        }
+
         String regex = "\\$\\{(.*?)\\}";
         Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
         Matcher matcher = pattern.matcher(topic);
@@ -148,8 +151,11 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     }
 
     private static Function<SeaTunnelRow, byte[]> keyExtractor(
-            List<String> keyFields, SeaTunnelRowType rowType, String format, String delimiter) {
-        if (Config.COMPATIBLE_DEBEZIUM_JSON.equals(format)) {
+            List<String> keyFields,
+            SeaTunnelRowType rowType,
+            MessageFormat format,
+            String delimiter) {
+        if (MessageFormat.COMPATIBLE_DEBEZIUM_JSON.equals(format)) {
             CompatibleDebeziumJsonSerializationSchema serializationSchema =
                     new CompatibleDebeziumJsonSerializationSchema(rowType, true);
             return row -> serializationSchema.serialize(row);
@@ -168,7 +174,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     }
 
     private static Function<SeaTunnelRow, byte[]> valueExtractor(
-            SeaTunnelRowType rowType, String format, String delimiter) {
+            SeaTunnelRowType rowType, MessageFormat format, String delimiter) {
         SerializationSchema serializationSchema =
                 createSerializationSchema(rowType, format, delimiter, false);
         return row -> serializationSchema.serialize(row);
@@ -203,17 +209,19 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     }
 
     private static SerializationSchema createSerializationSchema(
-            SeaTunnelRowType rowType, String format, String delimiter, boolean isKey) {
+            SeaTunnelRowType rowType, MessageFormat format, String delimiter, boolean isKey) {
         switch (format) {
-            case DEFAULT_FORMAT:
+            case JSON:
                 return new JsonSerializationSchema(rowType);
-            case TEXT_FORMAT:
+            case TEXT:
                 return TextSerializationSchema.builder()
                         .seaTunnelRowType(rowType)
                         .delimiter(delimiter)
                         .build();
-            case CANAL_FORMAT:
+            case CANAL_JSON:
                 return new CanalJsonSerializationSchema(rowType);
+            case DEBEZIUM_JSON:
+                return new DebeziumJsonSerializationSchema(rowType);
             case COMPATIBLE_DEBEZIUM_JSON:
                 return new CompatibleDebeziumJsonSerializationSchema(rowType, isKey);
             default:

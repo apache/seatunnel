@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
+import java.util.Map;
+
 /** Representation of a physical column. */
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
@@ -38,6 +40,34 @@ public class PhysicalColumn extends Column {
         super(name, dataType, columnLength, nullable, defaultValue, comment);
     }
 
+    protected PhysicalColumn(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Integer columnLength,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sourceType,
+            boolean isUnsigned,
+            boolean isZeroFill,
+            Long bitLen,
+            Long longColumnLength,
+            Map<String, Object> options) {
+        super(
+                name,
+                dataType,
+                columnLength,
+                nullable,
+                defaultValue,
+                comment,
+                sourceType,
+                isUnsigned,
+                isZeroFill,
+                bitLen,
+                longColumnLength,
+                options);
+    }
+
     public static PhysicalColumn of(
             String name,
             SeaTunnelDataType<?> dataType,
@@ -48,6 +78,34 @@ public class PhysicalColumn extends Column {
         return new PhysicalColumn(name, dataType, columnLength, nullable, defaultValue, comment);
     }
 
+    public static PhysicalColumn of(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Integer columnLength,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sourceType,
+            boolean isUnsigned,
+            boolean isZeroFill,
+            Long bitLen,
+            Map<String, Object> options,
+            Long longColumnLength) {
+        return new PhysicalColumn(
+                name,
+                dataType,
+                columnLength,
+                nullable,
+                defaultValue,
+                comment,
+                sourceType,
+                isUnsigned,
+                isZeroFill,
+                bitLen,
+                longColumnLength,
+                options);
+    }
+
     @Override
     public boolean isPhysical() {
         return true;
@@ -55,6 +113,35 @@ public class PhysicalColumn extends Column {
 
     @Override
     public Column copy(SeaTunnelDataType<?> newType) {
-        return PhysicalColumn.of(name, newType, columnLength, nullable, defaultValue, comment);
+        return PhysicalColumn.of(
+                name,
+                newType,
+                columnLength,
+                nullable,
+                defaultValue,
+                comment,
+                sourceType,
+                isUnsigned,
+                isZeroFill,
+                bitLen,
+                options,
+                longColumnLength);
+    }
+
+    @Override
+    public Column copy() {
+        return PhysicalColumn.of(
+                name,
+                dataType,
+                columnLength,
+                nullable,
+                defaultValue,
+                comment,
+                sourceType,
+                isUnsigned,
+                isZeroFill,
+                bitLen,
+                options,
+                longColumnLength);
     }
 }

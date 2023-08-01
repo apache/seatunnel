@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
@@ -34,7 +33,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.rea
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.TableDiscoveryUtils;
 
-import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
@@ -48,7 +46,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.uti
 public class SqlServerDialect implements JdbcDataSourceDialect {
 
     private static final long serialVersionUID = 1L;
-    private final SourceConfig sourceConfig;
+    private final SqlServerSourceConfig sourceConfig;
 
     private transient SqlServerSchema sqlServerSchema;
 
@@ -96,7 +94,7 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
     @Override
     public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
         if (sqlServerSchema == null) {
-            sqlServerSchema = new SqlServerSchema();
+            sqlServerSchema = new SqlServerSchema(sourceConfig.getDbzConnectorConfig());
         }
         return sqlServerSchema.getTableSchema(jdbc, tableId);
     }
@@ -104,13 +102,8 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
     @Override
     public SqlServerSourceFetchTaskContext createFetchTaskContext(
             SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
-        final SqlServerConnection jdbcConnection =
-                createSqlServerConnection(taskSourceConfig.getDbzConfiguration());
-        final SqlServerConnection metaDataConnection =
-                createSqlServerConnection(taskSourceConfig.getDbzConfiguration());
 
-        return new SqlServerSourceFetchTaskContext(
-                taskSourceConfig, this, jdbcConnection, metaDataConnection);
+        return new SqlServerSourceFetchTaskContext(taskSourceConfig, this);
     }
 
     @Override

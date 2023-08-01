@@ -22,18 +22,19 @@ Version Supported
 
 ## Options
 
-|       name        |  type  | required |     default value      |
-|-------------------|--------|----------|------------------------|
-| load-url          | string | yes      | -                      |
-| jdbc-url          | string | yes      | -                      |
-| cluster-name      | string | yes      | -                      |
-| username          | string | yes      | -                      |
-| password          | string | yes      | -                      |
-| table.identifier  | string | yes      | -                      |
-| selectdb.config   | map    | yes      | -                      |
-| sink.buffer-size  | int    | no       | 10 * 1024 * 1024 (1MB) |
-| sink.buffer-count | int    | no       | 10000                  |
-| sink.max-retries  | int    | no       | 3                      |
+|        name        |  type  | required |     default value      |
+|--------------------|--------|----------|------------------------|
+| load-url           | string | yes      | -                      |
+| jdbc-url           | string | yes      | -                      |
+| cluster-name       | string | yes      | -                      |
+| username           | string | yes      | -                      |
+| password           | string | yes      | -                      |
+| table.identifier   | string | yes      | -                      |
+| sink.enable-delete | bool   | no       | false                  |
+| selectdb.config    | map    | yes      | -                      |
+| sink.buffer-size   | int    | no       | 10 * 1024 * 1024 (1MB) |
+| sink.buffer-count  | int    | no       | 10000                  |
+| sink.max-retries   | int    | no       | 3                      |
 
 ### load-url [string]
 
@@ -59,7 +60,13 @@ Version Supported
 
 The name of `SelectDB Cloud` table, the format is `database.table`
 
-### sink.properties [string]
+### sink.enable-delete [string]
+
+Whether to enable deletion. This option requires SelectDB Cloud table to enable batch delete function, and only supports Unique model.
+
+`ALTER TABLE example_db.my_table ENABLE FEATURE "BATCH_DELETE";`
+
+### selectdb.config [map]
 
 Write property configuration
 
@@ -137,6 +144,6 @@ sink {
 
 ### next version
 
-- [Feature] Support SelectDB Cloud Sink Connector [3958](https://github.com/apache/incubator-seatunnel/pull/3958)
-- [Improve] Refactor some SelectDB Cloud Sink code as well as support copy into batch and async flush and cdc [4312](https://github.com/apache/incubator-seatunnel/pull/4312)
+- [Feature] Support SelectDB Cloud Sink Connector [3958](https://github.com/apache/seatunnel/pull/3958)
+- [Improve] Refactor some SelectDB Cloud Sink code as well as support copy into batch and async flush and cdc [4312](https://github.com/apache/seatunnel/pull/4312)
 

@@ -41,12 +41,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
+
+import com.google.common.collect.Lists;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -57,19 +60,18 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.FLINK, EngineType.SPARK})
+        type = {EngineType.SPARK},
+        disabledReason = "Spark engine will lose the row kind of record")
 public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(CanalToKafkaIT.class);
@@ -80,17 +82,13 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String CANAL_HOST = "canal_e2e";
 
-    private static final int CANAL_PORT = 11111;
-
     // ----------------------------------------------------------------------------
     // kafka
-    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:latest";
+    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
     private static final String KAFKA_TOPIC = "test-canal-sink";
 
-    private static final int KAFKA_PORT = 9093;
-
-    private static final String KAFKA_HOST = "kafkaCluster";
+    private static final String KAFKA_HOST = "kafka_e2e";
 
     private static KafkaContainer KAFKA_CONTAINER;
 
@@ -100,9 +98,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
     // mysql
     private static final String MYSQL_HOST = "mysql_e2e";
 
-    private static final int MYSQL_PORT = 3306;
-
-    private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
+    private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer();
 
     private final UniqueDatabase inventoryDatabase =
             new UniqueDatabase(MYSQL_CONTAINER, "canal", "mysqluser", "mysqlpw");
@@ -128,21 +124,16 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 
-    private static MySqlContainer createMySqlContainer(MySqlVersion version) {
-        MySqlContainer mySqlContainer =
-                new MySqlContainer(version)
-                        .withConfigurationOverride("docker/server-gtids/my.cnf")
-                        .withSetupSQL("docker/setup.sql")
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(MYSQL_HOST)
-                        .withDatabaseName("canal")
-                        .withUsername("st_user")
-                        .withPassword("seatunnel")
-                        .withLogConsumer(new Slf4jLogConsumer(LOG));
-        mySqlContainer.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
-        return mySqlContainer;
+    private static MySqlContainer createMySqlContainer() {
+        return new MySqlContainer(MySqlVersion.V8_0)
+                .withConfigurationOverride("docker/server-gtids/my.cnf")
+                .withSetupSQL("docker/setup.sql")
+                .withNetwork(NETWORK)
+                .withNetworkAliases(MYSQL_HOST)
+                .withDatabaseName("canal")
+                .withUsername("st_user")
+                .withPassword("seatunnel")
+                .withLogConsumer(new Slf4jLogConsumer(LOG));
     }
 
     private void createCanalContainer() {
@@ -156,13 +147,10 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                                 "/app/server/conf/example/instance.properties")
                         .withNetwork(NETWORK)
                         .withNetworkAliases(CANAL_HOST)
-                        .withCommand()
+                        //                        .withCommand()
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CANAL_DOCKER_IMAGE)));
-        CANAL_CONTAINER.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", CANAL_PORT, CANAL_PORT)));
     }
 
     private void createKafkaContainer() {
@@ -173,12 +161,9 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
-        KAFKA_CONTAINER.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", KAFKA_PORT, KAFKA_PORT)));
     }
 
-    private void createPostgreSQLContainer() throws ClassNotFoundException {
+    private void createPostgreSQLContainer() {
         POSTGRESQL_CONTAINER =
                 new PostgreSQLContainer<>(DockerImageName.parse(PG_IMAGE))
                         .withNetwork(NETWORK)
@@ -190,7 +175,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     @BeforeAll
     @Override
-    public void startUp() throws ClassNotFoundException {
+    public void startUp() throws ClassNotFoundException, InterruptedException {
 
         LOG.info("The first stage: Starting Kafka containers...");
         createKafkaContainer();
@@ -225,14 +210,16 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initKafkaConsumer);
         inventoryDatabase.createAndInitialize();
+        // ensure canal has handled the data
+        Thread.sleep(10 * 1000);
     }
 
     @TestTemplate
     public void testKafkaSinkCanalFormat(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/kafkasource_canal_to_kafka.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        ArrayList<Object> result = new ArrayList<>();
         List<String> expectedResult =
                 Arrays.asList(
                         "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"INSERT\"}",
@@ -250,31 +237,36 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                         "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"7.88\"},\"type\":\"INSERT\"}",
                         "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"DELETE\"}");
 
+        ArrayList<String> result = new ArrayList<>();
         ArrayList<String> topics = new ArrayList<>();
         topics.add(KAFKA_TOPIC);
         kafkaConsumer.subscribe(topics);
-        ConsumerRecords<String, String> consumerRecords =
-                kafkaConsumer.poll(Duration.ofSeconds(10000));
-        for (ConsumerRecord<String, String> record : consumerRecords) {
-            result.add(record.value());
-        }
-        Assertions.assertEquals(expectedResult, result);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            ConsumerRecords<String, String> consumerRecords =
+                                    kafkaConsumer.poll(Duration.ofMillis(1000));
+                            for (ConsumerRecord<String, String> record : consumerRecords) {
+                                result.add(record.value());
+                            }
+                            Assertions.assertEquals(expectedResult, result);
+                        });
     }
 
     @TestTemplate
     public void testCanalFormatKafkaCdcToPgsql(TestContainer container)
             throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult =
-                container.executeJob("/kafkasource_canal_cdc_to_pgsql.conf");
+                container.executeJob("/canalFormatIT/kafka_source_canal_cdc_to_pgsql.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        Set<List<Object>> actual = new HashSet<>();
+        List<Object> actual = new ArrayList<>();
         try (Connection connection =
                 DriverManager.getConnection(
                         POSTGRESQL_CONTAINER.getJdbcUrl(),
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword())) {
             try (Statement statement = connection.createStatement()) {
-                ResultSet resultSet = statement.executeQuery("select * from sink");
+                ResultSet resultSet = statement.executeQuery("select * from sink order by id");
                 while (resultSet.next()) {
                     List<Object> row =
                             Arrays.asList(
@@ -286,23 +278,32 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                 }
             }
         }
-        Set<List<Object>> expected =
-                Stream.<List<Object>>of(
-                                Arrays.asList(102, "car battery", "12V car battery", "8.1"),
-                                Arrays.asList(
-                                        103,
-                                        "12-pack drill bits",
-                                        "12-pack of drill bits with sizes ranging from #40 to #3",
-                                        "0.8"),
-                                Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
-                                Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
-                                Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1.0"),
-                                Arrays.asList(
-                                        108, "jacket", "water resistent black wind breaker", "0.1"),
-                                Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
-                                Arrays.asList(107, "rocks", "box of assorted rocks", "7.88"))
-                        .collect(Collectors.toSet());
+        List<Object> expected =
+                Lists.newArrayList(
+                        Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
+                        Arrays.asList(102, "car battery", "12V car battery", "8.1"),
+                        Arrays.asList(
+                                103,
+                                "12-pack drill bits",
+                                "12-pack of drill bits with sizes ranging from #40 to #3",
+                                "0.8"),
+                        Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
+                        Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
+                        Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1.0"),
+                        Arrays.asList(107, "rocks", "box of assorted rocks", "7.88"),
+                        Arrays.asList(108, "jacket", "water resistent black wind breaker", "0.1"));
         Assertions.assertIterableEquals(expected, actual);
+
+        try (Connection connection =
+                DriverManager.getConnection(
+                        POSTGRESQL_CONTAINER.getJdbcUrl(),
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword())) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("truncate table sink");
+                LOG.info("testCanalFormatKafkaCdcToPgsql truncate table sink");
+            }
+        }
     }
 
     private void initKafkaConsumer() {

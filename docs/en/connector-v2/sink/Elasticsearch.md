@@ -13,7 +13,7 @@ Output data to `Elasticsearch`.
 
 Engine Supported
 
-* supported  `ElasticSearch version is >= 2.x and < 8.x`
+* supported  `ElasticSearch version is >= 2.x and <= 8.x`
 
 :::
 
@@ -181,6 +181,6 @@ sink {
 
 ### next version
 
-- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3673](https://github.com/apache/incubator-seatunnel/pull/3673))
-- [Feature] Support https protocol & compatible with opensearch ([3997](https://github.com/apache/incubator-seatunnel/pull/3997))
+- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3673](https://github.com/apache/seatunnel/pull/3673))
+- [Feature] Support https protocol & compatible with opensearch ([3997](https://github.com/apache/seatunnel/pull/3997))
 

@@ -28,6 +28,7 @@ Source connector for Apache Kafka.
 | common-options                      | config  | no       | -                        |
 | schema                              |         | no       | -                        |
 | format                              | String  | no       | json                     |
+| format_error_handle_way             | String  | no       | fail                     |
 | field_delimiter                     | String  | no       | ,                        |
 | start_mode                          | String  | no       | group_offsets            |
 | start_mode.offsets                  |         | no       |                          |
@@ -72,8 +73,16 @@ The structure of the data, including field names and field types.
 
 ## format
 
-Data format. The default format is json. Optional text format. The default field separator is ", ".
-If you customize the delimiter, add the "field_delimiter" option.
+Data format. The default format is json. Optional text format, canal-json and debezium-json.
+If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.
+If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.
+If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details.
+
+## format_error_handle_way
+
+The processing method of data format error. The default value is fail, and the optional value is (fail, skip).
+When fail is selected, data format error will block and an exception will be thrown.
+When skip is selected, data format error will skip this line data.
 
 ## field_delimiter
 
@@ -157,13 +166,15 @@ source {
         topic = "seatunnel"
         bootstrap.servers = "xx.amazonaws.com.cn:9096,xxx.amazonaws.com.cn:9096,xxxx.amazonaws.com.cn:9096"
         consumer.group = "seatunnel_group"
-        kafka.security.protocol=SASL_SSL
-        kafka.sasl.mechanism=SCRAM-SHA-512
-        kafka.sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
-        #kafka.security.protocol=SASL_SSL
-        #kafka.sasl.mechanism=AWS_MSK_IAM
-        #kafka.sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
-        #kafka.sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+        kafka.config = {
+            security.protocol=SASL_SSL
+            sasl.mechanism=SCRAM-SHA-512
+            sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+            #security.protocol=SASL_SSL
+            #sasl.mechanism=AWS_MSK_IAM
+            #sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
+            #sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+        }
     }
 }
 ```
@@ -191,13 +202,15 @@ source {
         topic = "seatunnel"
         bootstrap.servers = "xx.amazonaws.com.cn:9098,xxx.amazonaws.com.cn:9098,xxxx.amazonaws.com.cn:9098"
         consumer.group = "seatunnel_group"
-        #kafka.security.protocol=SASL_SSL
-        #kafka.sasl.mechanism=SCRAM-SHA-512
-        #kafka.sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
-        kafka.security.protocol=SASL_SSL
-        kafka.sasl.mechanism=AWS_MSK_IAM
-        kafka.sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
-        kafka.sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+        kafka.config = {
+            #security.protocol=SASL_SSL
+            #sasl.mechanism=SCRAM-SHA-512
+            #sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+            security.protocol=SASL_SSL
+            sasl.mechanism=AWS_MSK_IAM
+            sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
+            sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+        }
     }
 }
 ```
@@ -214,4 +227,6 @@ source {
 - [Improve] Support for dynamic discover topic & partition in streaming mode ([3125](https://github.com/apache/incubator-seatunnel/pull/3125))
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
 - [Bug] Fixed the problem that parsing the offset format failed when the startup mode was offset([3810](https://github.com/apache/incubator-seatunnel/pull/3810))
+- [Improve] Support read canal format message [3950](https://github.com/apache/incubator-seatunnel/pull/3950)
+- [Improve] Support read debezium format message [3981](https://github.com/apache/incubator-seatunnel/pull/3981)
 

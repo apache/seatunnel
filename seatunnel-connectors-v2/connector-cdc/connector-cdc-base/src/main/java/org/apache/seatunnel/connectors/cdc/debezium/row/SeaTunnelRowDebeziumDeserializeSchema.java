@@ -122,7 +122,13 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         Struct sourceStruct = messageStruct.getStruct(Envelope.FieldName.SOURCE);
         String databaseName = sourceStruct.getString(AbstractSourceInfo.DATABASE_NAME_KEY);
         String tableName = sourceStruct.getString(AbstractSourceInfo.TABLE_NAME_KEY);
-        String tableId = TablePath.of(databaseName, tableName).toString();
+        String schemaName = null;
+        try {
+            schemaName = sourceStruct.getString(AbstractSourceInfo.SCHEMA_NAME_KEY);
+        } catch (Throwable e) {
+            // ignore
+        }
+        String tableId = TablePath.of(databaseName, schemaName, tableName).toString();
         SeaTunnelRowDebeziumDeserializationConverters converters;
         if (!multipleTableRowConverters.isEmpty()) {
             converters = multipleTableRowConverters.get(tableId);
@@ -205,7 +211,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         private SeaTunnelDataType<SeaTunnelRow> resultTypeInfo;
         private MetadataConverter[] metadataConverters = new MetadataConverter[0];
         private ValueValidator validator = (rowData, rowKind) -> {};
-        private ZoneId serverTimeZone = ZoneId.of("UTC");
+        private ZoneId serverTimeZone = ZoneId.systemDefault();
         private DebeziumDeserializationConverterFactory userDefinedConverterFactory =
                 DebeziumDeserializationConverterFactory.DEFAULT;
 

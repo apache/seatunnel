@@ -165,7 +165,8 @@ public class PendingCheckpoint implements Checkpoint {
     }
 
     public void abortCheckpoint(CheckpointCloseReason closedReason, @Nullable Throwable cause) {
-        if (closedReason.equals(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET)) {
+        if (closedReason.equals(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET)
+                || closedReason.equals(CheckpointCloseReason.PIPELINE_END)) {
             completableFuture.complete(null);
         } else {
             this.failureCause = new CheckpointException(closedReason, cause);

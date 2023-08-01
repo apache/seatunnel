@@ -41,6 +41,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -114,6 +115,30 @@ public class MySqlUtils {
                                         "No result returned after running query [%s]", minQuery));
                     }
                     return rs.getObject(1);
+                });
+    }
+
+    public static Object[] sampleDataFromColumn(
+            JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
+            throws SQLException {
+        final String minQuery =
+                String.format(
+                        "SELECT %s FROM %s WHERE MOD((%s - (SELECT MIN(%s) FROM %s)), %s) = 0 ORDER BY %s",
+                        quote(columnName),
+                        quote(tableId),
+                        quote(columnName),
+                        quote(columnName),
+                        quote(tableId),
+                        inverseSamplingRate,
+                        quote(columnName));
+        return jdbc.queryAndMap(
+                minQuery,
+                resultSet -> {
+                    List<Object> results = new ArrayList<>();
+                    while (resultSet.next()) {
+                        results.add(resultSet.getObject(1));
+                    }
+                    return results.toArray();
                 });
     }
 
@@ -339,12 +364,15 @@ public class MySqlUtils {
     private static PreparedStatement initStatement(JdbcConnection jdbc, String sql, int fetchSize)
             throws SQLException {
         final Connection connection = jdbc.connection();
+        // Add MySQL metadata locks to prevent modification of table structure.
         connection.setAutoCommit(false);
         final PreparedStatement statement =
                 connection.prepareStatement(
                         sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-        if (fetchSize == 0) {
+        if (fetchSize <= 0) {
             statement.setFetchSize(Integer.MIN_VALUE);
+        } else {
+            statement.setFetchSize(fetchSize);
         }
         return statement;
     }

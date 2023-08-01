@@ -97,7 +97,10 @@ public class PipelineBaseScheduler implements JobScheduler {
                             pipeline,
                             jobMaster.getOwnedSlotProfiles(pipeline.getPipelineLocation()));
 
-            log.debug("slotProfiles: {}", slotProfiles);
+            log.debug(
+                    "slotProfiles: {}, PipelineLocation: {}",
+                    slotProfiles,
+                    pipeline.getPipelineLocation());
 
             // To ensure release pipeline resource after new master node active, we need store
             // slotProfiles first and then deploy tasks.
@@ -256,10 +259,6 @@ public class PipelineBaseScheduler implements JobScheduler {
                                                 task.getTaskGroupLocation(),
                                                 ExecutionState.FAILED,
                                                 state.getThrowableMsg()));
-                                throw new SeaTunnelEngineException(
-                                        String.format(
-                                                "deploy task %s failed, error msg: \n%s",
-                                                task.getTaskFullName(), state.getThrowableMsg()));
                             }
                         } catch (Exception e) {
                             throw new SeaTunnelEngineException(e);
@@ -288,8 +287,19 @@ public class PipelineBaseScheduler implements JobScheduler {
 
     private void deployPipeline(
             @NonNull SubPlan pipeline, Map<TaskGroupLocation, SlotProfile> slotProfiles) {
-        if (pipeline.updatePipelineState(PipelineStatus.SCHEDULED, PipelineStatus.DEPLOYING)) {
-
+        boolean changeStateSuccess = false;
+        try {
+            changeStateSuccess =
+                    pipeline.updatePipelineState(
+                            PipelineStatus.SCHEDULED, PipelineStatus.DEPLOYING);
+        } catch (Exception e) {
+            log.warn(
+                    "{} turn to state {} failed, cancel pipeline",
+                    pipeline.getPipelineFullName(),
+                    PipelineStatus.DEPLOYING);
+            pipeline.cancelPipeline();
+        }
+        if (changeStateSuccess) {
             try {
                 List<CompletableFuture<?>> deployCoordinatorFuture =
                         pipeline.getCoordinatorVertexList().stream()

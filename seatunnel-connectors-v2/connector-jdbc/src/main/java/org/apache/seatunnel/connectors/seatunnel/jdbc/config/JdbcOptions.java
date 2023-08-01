@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @SuppressWarnings("checkstyle:MagicNumber")
@@ -35,6 +36,12 @@ public interface JdbcOptions {
                     .intType()
                     .defaultValue(30)
                     .withDescription("connection check time second");
+    Option<String> COMPATIBLE_MODE =
+            Options.key("compatible_mode")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The compatible mode of database, required when the database supports multiple compatible modes. For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.");
 
     Option<Integer> MAX_RETRIES =
             Options.key("max_retries").intType().defaultValue(0).withDescription("max_retired");
@@ -67,7 +74,7 @@ public interface JdbcOptions {
     Option<Integer> BATCH_INTERVAL_MS =
             Options.key("batch_interval_ms")
                     .intType()
-                    .defaultValue(1000)
+                    .defaultValue(0)
                     .withDescription("batch interval milliSecond");
 
     Option<Boolean> IS_EXACTLY_ONCE =
@@ -79,7 +86,7 @@ public interface JdbcOptions {
     Option<Boolean> GENERATE_SINK_SQL =
             Options.key("generate_sink_sql")
                     .booleanType()
-                    .defaultValue(true)
+                    .defaultValue(false)
                     .withDescription("generate sql using the database table");
 
     Option<String> XA_DATA_SOURCE_CLASS_NAME =
@@ -115,6 +122,23 @@ public interface JdbcOptions {
                     .defaultValue(false)
                     .withDescription("support upsert by query primary_key exist");
 
+    Option<Boolean> ENABLE_UPSERT =
+            Options.key("enable_upsert")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("enable upsert by primary_keys exist");
+    Option<Boolean> IS_PRIMARY_KEY_UPDATED =
+            Options.key("is_primary_key_updated")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "is the primary key updated when performing an update operation");
+    Option<Boolean> SUPPORT_UPSERT_BY_INSERT_ONLY =
+            Options.key("support_upsert_by_insert_only")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("support upsert by insert only");
+
     /** source config */
     Option<String> PARTITION_COLUMN =
             Options.key("partition_column")
@@ -122,14 +146,14 @@ public interface JdbcOptions {
                     .noDefaultValue()
                     .withDescription("partition column");
 
-    Option<Long> PARTITION_UPPER_BOUND =
+    Option<BigDecimal> PARTITION_UPPER_BOUND =
             Options.key("partition_upper_bound")
-                    .longType()
+                    .bigDecimalType()
                     .noDefaultValue()
                     .withDescription("partition upper bound");
-    Option<Long> PARTITION_LOWER_BOUND =
+    Option<BigDecimal> PARTITION_LOWER_BOUND =
             Options.key("partition_lower_bound")
-                    .longType()
+                    .bigDecimalType()
                     .noDefaultValue()
                     .withDescription("partition lower bound");
     Option<Integer> PARTITION_NUM =

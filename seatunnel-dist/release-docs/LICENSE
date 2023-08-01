@@ -201,9 +201,9 @@
    limitations under the License.
 
 =======================================================================
-Apache SeaTunnel (Incubating) Subcomponents:
+Apache SeaTunnel Subcomponents:
 
-The Apache SeaTunnel(Incubating) project contains subcomponents with separate copyright
+The Apache SeaTunnel project contains subcomponents with separate copyright
 notices and license terms. Your use of the source code for the these
 subcomponents is subject to the terms and conditions of the following
 licenses.
@@ -273,7 +273,8 @@ The text of each license is the standard Apache 2.0 license.
      (Apache-2.0) failureaccess (com.google.guava:failureaccess:1.0 https://mvnrepository.com/artifact/com.google.guava/failureaccess/1.0)
      (Apache-2.0) j2objc-annotations (com.google.j2objc:j2objc-annotations:1.1 https://mvnrepository.com/artifact/com.google.j2objc/j2objc-annotations/1.1)
      (Apache-2.0) listenablefuture (com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava https://mvnrepository.com/artifact/com.google.guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava)
-
+     (Apache-2.0) accessors-smart (com.google.guava:accessors-smart:2.4.7 - https://mvnrepository.com/artifact/net.minidev/accessors-smart)
+     (Apache-2.0) json-smart (net.minidev:json-smart:2.4.7 - https://mvnrepository.com/artifact/net.minidev/json-smart)
 
 ========================================================================
 MOZILLA PUBLIC LICENSE License
@@ -292,7 +293,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
     
      (New BSD license) Protocol Buffer Java API (com.google.protobuf:protobuf-java:2.5.0 - http://code.google.com/p/protobuf)
      (BSD 3-Clause) Scala Library (org.scala-lang:scala-library:2.11.12 - http://www.scala-lang.org/)
-     
+     (BSD 3-Clause) Scala Library (org.ow2.asm:asm:9.1 - https://mvnrepository.com/artifact/org.ow2.asm/asm/)
 ========================================================================
 CDDL License
 ========================================================================

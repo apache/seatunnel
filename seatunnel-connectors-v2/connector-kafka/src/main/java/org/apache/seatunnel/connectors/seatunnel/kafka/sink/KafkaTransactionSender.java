@@ -122,6 +122,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     private KafkaInternalProducer<K, V> getTransactionProducer(
             Properties properties, String transactionId) {
+        close();
         Properties transactionProperties = (Properties) properties.clone();
         transactionProperties.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
         KafkaInternalProducer<K, V> transactionProducer =

@@ -20,12 +20,15 @@ package org.apache.seatunnel.api.common;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.List;
+
 public interface CommonOptions {
     Option<String> FACTORY_ID =
             Options.key("factory")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Identifier of the SPI factory class.");
+                    .withDescription("Identifier of the SPI factory class.")
+                    .withFallbackKeys("plugin_name");
 
     Option<String> PLUGIN_NAME =
             Options.key("plugin_name")
@@ -47,9 +50,9 @@ public interface CommonOptions {
                                     + "The data set (dataStream/dataset) registered here can be directly accessed by other plugins "
                                     + "by specifying source_table_name .");
 
-    Option<String> SOURCE_TABLE_NAME =
+    Option<List<String>> SOURCE_TABLE_NAME =
             Options.key("source_table_name")
-                    .stringType()
+                    .listType()
                     .noDefaultValue()
                     .withDescription(
                             "When source_table_name is not specified, "

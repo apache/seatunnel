@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
+import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
@@ -47,6 +48,7 @@ import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperati
 import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.common.collect.Lists;
+import com.hazelcast.instance.impl.NodeState;
 import com.hazelcast.internal.metrics.DynamicMetricsProvider;
 import com.hazelcast.internal.metrics.MetricDescriptor;
 import com.hazelcast.internal.metrics.MetricsCollectionContext;
@@ -69,6 +71,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -121,6 +124,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             new ConcurrentHashMap<>();
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> finishedExecutionContexts =
             new ConcurrentHashMap<>();
+
+    private final ConcurrentMap<TaskGroupLocation, Map<String, CompletableFuture<?>>>
+            taskAsyncFunctionFuture = new ConcurrentHashMap<>();
+
     private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures =
             new ConcurrentHashMap<>();
     private final SeaTunnelConfig seaTunnelConfig;
@@ -163,6 +170,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         if (taskGroupContext == null) {
             taskGroupContext = finishedExecutionContexts.get(taskGroupLocation);
         }
+        if (taskGroupContext == null) {
+            throw new TaskGroupContextNotFoundException(
+                    String.format("task group %s not found.", taskGroupLocation));
+        }
+        return taskGroupContext;
+    }
+
+    public TaskGroupContext getActiveExecutionContext(TaskGroupLocation taskGroupLocation) {
+        TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
+
         if (taskGroupContext == null) {
             throw new TaskGroupContextNotFoundException(
                     String.format("task group %s not found.", taskGroupLocation));
@@ -224,7 +241,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     public <T extends Task> T getTask(@NonNull TaskLocation taskLocation) {
         TaskGroupContext executionContext =
-                this.getExecutionContext(taskLocation.getTaskGroupLocation());
+                this.getActiveExecutionContext(taskLocation.getTaskGroupLocation());
         return executionContext.getTaskGroup().getTask(taskLocation.getTaskID());
     }
 
@@ -248,7 +265,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 taskGroup =
                         nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
             }
-            logger.fine(
+            logger.info(
                     String.format(
                             "deploying task %s, executionId [%s]",
                             taskGroup.getTaskGroupLocation(), taskImmutableInfo.getExecutionId()));
@@ -287,6 +304,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         try {
             taskGroup.init();
+            logger.info(
+                    String.format(
+                            "deploying TaskGroup %s init success",
+                            taskGroup.getTaskGroupLocation()));
             Collection<Task> tasks = taskGroup.getTasks();
             CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
             TaskGroupExecutionTracker executionTracker =
@@ -298,7 +319,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             .peek(
                                     task -> {
                                         TaskExecutionContext taskExecutionContext =
-                                                new TaskExecutionContext(task, nodeEngine);
+                                                new TaskExecutionContext(task, nodeEngine, this);
                                         task.setTaskExecutionContext(taskExecutionContext);
                                         taskExecutionContextMap.put(
                                                 task.getTaskID(), taskExecutionContext);
@@ -322,21 +343,38 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
             taskGroup.setTasksContext(taskExecutionContextMap);
+            logger.info(
+                    String.format(
+                            "deploying TaskGroup %s success", taskGroup.getTaskGroupLocation()));
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
             resultFuture.completeExceptionally(t);
         }
-        resultFuture.whenComplete(
+        resultFuture.whenCompleteAsync(
                 withTryCatch(
                         logger,
                         (r, s) -> {
+                            if (s != null) {
+                                logger.severe(
+                                        String.format(
+                                                "Task %s complete with error %s",
+                                                taskGroup.getTaskGroupLocation(),
+                                                ExceptionUtils.getMessage(s)));
+                            }
+                            if (r == null) {
+                                r =
+                                        new TaskExecutionState(
+                                                taskGroup.getTaskGroupLocation(),
+                                                ExecutionState.FAILED,
+                                                s);
+                            }
                             logger.info(
                                     String.format(
                                             "Task %s complete with state %s",
-                                            r != null ? r.getTaskGroupLocation() : "null",
-                                            r != null ? r.getExecutionState() : "null"));
+                                            r.getTaskGroupLocation(), r.getExecutionState()));
                             notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
-                        }));
+                        }),
+                executorService);
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
@@ -360,16 +398,24 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 notifyStateSuccess = true;
             } catch (InterruptedException e) {
                 logger.severe("send notify task status failed", e);
+            } catch (JobNotFoundException e) {
+                logger.warning("send notify task status failed because can't find job", e);
+                notifyStateSuccess = true;
             } catch (ExecutionException e) {
-                logger.warning(ExceptionUtils.getMessage(e));
-                logger.warning(
-                        String.format(
-                                "notify the job of the task(%s) status failed, retry in %s millis",
-                                taskGroupLocation, sleepTime));
-                try {
-                    Thread.sleep(sleepTime);
-                } catch (InterruptedException ex) {
-                    logger.severe(e);
+                if (e.getCause() instanceof JobNotFoundException) {
+                    logger.warning("send notify task status failed because can't find job", e);
+                    notifyStateSuccess = true;
+                } else {
+                    logger.warning(ExceptionUtils.getMessage(e));
+                    logger.warning(
+                            String.format(
+                                    "notify the job of the task(%s) status failed, retry in %s millis",
+                                    taskGroupLocation, sleepTime));
+                    try {
+                        Thread.sleep(sleepTime);
+                    } catch (InterruptedException ex) {
+                        logger.severe(e);
+                    }
                 }
             }
         }
@@ -393,6 +439,25 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             logger.warning(
                     String.format("need cancel taskId : %s is not exist", taskGroupLocation));
         }
+    }
+
+    public void asyncExecuteFunction(TaskGroupLocation taskGroupLocation, Runnable task) {
+        String id = UUID.randomUUID().toString();
+        logger.fine("accept async execute function from " + taskGroupLocation + " with id " + id);
+        if (!taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
+            taskAsyncFunctionFuture.put(taskGroupLocation, new ConcurrentHashMap<>());
+        }
+        CompletableFuture<?> future = CompletableFuture.runAsync(task, executorService);
+        taskAsyncFunctionFuture.get(taskGroupLocation).put(id, future);
+        future.whenComplete(
+                (r, e) -> {
+                    taskAsyncFunctionFuture.get(taskGroupLocation).remove(id);
+                    logger.fine(
+                            "remove async execute function from "
+                                    + taskGroupLocation
+                                    + " with id "
+                                    + id);
+                });
     }
 
     public void notifyCleanTaskGroupContext(TaskGroupLocation taskGroupLocation) {
@@ -436,42 +501,64 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                             task.provideDynamicMetrics(copy3, context);
                                         });
                     });
-            updateMetricsContextInImap();
         } catch (Throwable t) {
             logger.warning("Dynamic metric collection failed", t);
             throw t;
         }
     }
 
-    private synchronized void updateMetricsContextInImap() {
+    private void updateMetricsContextInImap() {
+        if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
+            logger.warning(
+                    String.format(
+                            "The Node is not ready yet, Node state %s,looking forward to the next "
+                                    + "scheduling",
+                            nodeEngine.getNode().getState()));
+            return;
+        }
+        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
         Map<TaskGroupLocation, TaskGroupContext> contextMap = new HashMap<>();
         contextMap.putAll(finishedExecutionContexts);
         contextMap.putAll(executionContexts);
-        try {
-            IMap<TaskLocation, SeaTunnelMetricsContext> map =
-                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-            contextMap.forEach(
-                    (taskGroupLocation, taskGroupContext) -> {
-                        taskGroupContext
-                                .getTaskGroup()
-                                .getTasks()
-                                .forEach(
-                                        task -> {
-                                            // MetricsContext only exists in SeaTunnelTask
-                                            if (task instanceof SeaTunnelTask) {
-                                                SeaTunnelTask seaTunnelTask = (SeaTunnelTask) task;
-                                                if (null != seaTunnelTask.getMetricsContext()) {
-                                                    map.put(
-                                                            seaTunnelTask.getTaskLocation(),
-                                                            seaTunnelTask.getMetricsContext());
-                                                }
+        HashMap<TaskLocation, SeaTunnelMetricsContext> localMap = new HashMap<>();
+        contextMap.forEach(
+                (taskGroupLocation, taskGroupContext) -> {
+                    taskGroupContext
+                            .getTaskGroup()
+                            .getTasks()
+                            .forEach(
+                                    task -> {
+                                        // MetricsContext only exists in SeaTunnelTask
+                                        if (task instanceof SeaTunnelTask) {
+                                            SeaTunnelTask seaTunnelTask = (SeaTunnelTask) task;
+                                            if (null != seaTunnelTask.getMetricsContext()) {
+                                                localMap.put(
+                                                        seaTunnelTask.getTaskLocation(),
+                                                        seaTunnelTask.getMetricsContext());
                                             }
-                                        });
-                    });
-        } catch (Exception e) {
-            logger.warning(
-                    "The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time",
-                    e);
+                                        }
+                                    });
+                });
+        if (localMap.size() > 0) {
+            try {
+                if (!metricsImap.tryLock(
+                        Constant.IMAP_RUNNING_JOB_METRICS_KEY, 2, TimeUnit.SECONDS)) {
+                    logger.info("try lock failed in update metrics");
+                    return;
+                }
+                HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
+                        metricsImap.computeIfAbsent(
+                                Constant.IMAP_RUNNING_JOB_METRICS_KEY, k -> new HashMap<>());
+                centralMap.putAll(localMap);
+                metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
+            } catch (Exception e) {
+                logger.warning(
+                        "The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time",
+                        e);
+            } finally {
+                metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+            }
         }
         this.printTaskExecutionRuntimeInfo();
     }
@@ -731,7 +818,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                     "cancellationFuture should be completed exceptionally");
                                 }
                                 exception(e);
-                                cancelAllTask();
+                                cancelAllTask(taskGroup.getTaskGroupLocation());
                             }));
         }
 
@@ -739,10 +826,24 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             executionException.compareAndSet(null, t);
         }
 
-        private void cancelAllTask() {
+        private void cancelAllTask(TaskGroupLocation taskGroupLocation) {
             try {
                 blockingFutures.forEach(f -> f.cancel(true));
                 currRunningTaskFuture.values().forEach(f -> f.cancel(true));
+            } catch (CancellationException ignore) {
+                // ignore
+            }
+            cancelAsyncFunction(taskGroupLocation);
+        }
+
+        private void cancelAsyncFunction(TaskGroupLocation taskGroupLocation) {
+            try {
+                if (taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
+                    taskAsyncFunctionFuture.remove(taskGroupLocation).values().stream()
+                            .filter(f -> !f.isDone())
+                            .filter(f -> !f.isCancelled())
+                            .forEach(f -> f.cancel(true));
+                }
             } catch (CancellationException ignore) {
                 // ignore
             }
@@ -756,9 +857,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             task.getTaskID(), taskGroupLocation));
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
+                // recycle classloader
+                executionContexts.get(taskGroupLocation).setClassLoader(null);
                 finishedExecutionContexts.put(
                         taskGroupLocation, executionContexts.remove(taskGroupLocation));
                 cancellationFutures.remove(taskGroupLocation);
+                cancelAsyncFunction(taskGroupLocation);
                 if (ex == null) {
                     future.complete(
                             new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED));
@@ -773,7 +877,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
             }
             if (!isCancel.get() && ex != null) {
-                cancelAllTask();
+                cancelAllTask(taskGroupLocation);
             }
         }
 

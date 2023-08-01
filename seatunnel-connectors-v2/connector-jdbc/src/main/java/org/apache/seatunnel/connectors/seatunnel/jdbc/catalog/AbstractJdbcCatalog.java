@@ -64,11 +64,18 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected final String suffix;
     protected final String defaultUrl;
 
+    protected final Optional<String> defaultSchema;
+
+    protected Connection defaultConnection;
+
     public AbstractJdbcCatalog(
-            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String defaultSchema) {
 
         checkArgument(StringUtils.isNotBlank(username));
-        checkArgument(StringUtils.isNotBlank(pwd));
         urlInfo.getDefaultDatabase()
                 .orElseThrow(
                         () -> new IllegalArgumentException("Can't find default database in url"));
@@ -77,10 +84,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         this.defaultDatabase = urlInfo.getDefaultDatabase().get();
         this.username = username;
         this.pwd = pwd;
-        String baseUrl = urlInfo.getUrlWithoutDatabase();
-        this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+        this.baseUrl = urlInfo.getUrlWithoutDatabase();
         this.defaultUrl = urlInfo.getOrigin();
         this.suffix = urlInfo.getSuffix();
+        this.defaultSchema = Optional.ofNullable(defaultSchema);
     }
 
     @Override
@@ -106,8 +113,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public void open() throws CatalogException {
-        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
-            // test connection, fail early if we cannot connect to database
+        try {
+            defaultConnection = DriverManager.getConnection(defaultUrl, username, pwd);
         } catch (SQLException e) {
             throw new CatalogException(
                     String.format("Failed connecting to %s via JDBC.", defaultUrl), e);
@@ -118,16 +125,31 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public void close() throws CatalogException {
+        if (defaultConnection == null) {
+            return;
+        }
+        try {
+            defaultConnection.close();
+        } catch (SQLException e) {
+            throw new CatalogException(
+                    String.format("Failed to close %s via JDBC.", defaultUrl), e);
+        }
         LOG.info("Catalog {} closing", catalogName);
     }
 
     protected Optional<PrimaryKey> getPrimaryKey(
             DatabaseMetaData metaData, String database, String table) throws SQLException {
+        return getPrimaryKey(metaData, database, table, table);
+    }
+
+    protected Optional<PrimaryKey> getPrimaryKey(
+            DatabaseMetaData metaData, String database, String schema, String table)
+            throws SQLException {
 
         // According to the Javadoc of java.sql.DatabaseMetaData#getPrimaryKeys,
         // the returned primary key columns are ordered by COLUMN_NAME, not by KEY_SEQ.
         // We need to sort them based on the KEY_SEQ value.
-        ResultSet rs = metaData.getPrimaryKeys(database, table, table);
+        ResultSet rs = metaData.getPrimaryKeys(database, schema, table);
 
         // seq -> column name
         List<Pair<Integer, String>> primaryKeyColumns = new ArrayList<>();
@@ -154,13 +176,22 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected List<ConstraintKey> getConstraintKeys(
             DatabaseMetaData metaData, String database, String table) throws SQLException {
-        ResultSet resultSet = metaData.getIndexInfo(database, table, table, false, false);
+        return getConstraintKeys(metaData, database, table, table);
+    }
+
+    protected List<ConstraintKey> getConstraintKeys(
+            DatabaseMetaData metaData, String database, String schema, String table)
+            throws SQLException {
+        ResultSet resultSet = metaData.getIndexInfo(database, schema, table, false, false);
         // index name -> index
         Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
         while (resultSet.next()) {
-            String indexName = resultSet.getString("INDEX_NAME");
             String columnName = resultSet.getString("COLUMN_NAME");
-            String unique = resultSet.getString("NON_UNIQUE");
+            if (columnName == null) {
+                continue;
+            }
+            String indexName = resultSet.getString("INDEX_NAME");
+            boolean noUnique = resultSet.getBoolean("NON_UNIQUE");
 
             ConstraintKey constraintKey =
                     constraintKeyMap.computeIfAbsent(
@@ -168,8 +199,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                             s -> {
                                 ConstraintKey.ConstraintType constraintType =
                                         ConstraintKey.ConstraintType.KEY;
-                                // 0 is unique.
-                                if ("0".equals(unique)) {
+                                if (!noUnique) {
                                     constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
                                 }
                                 return ConstraintKey.of(
@@ -188,8 +218,9 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     protected Optional<String> getColumnDefaultValue(
-            DatabaseMetaData metaData, String table, String column) throws SQLException {
-        try (ResultSet resultSet = metaData.getColumns(null, null, table, column)) {
+            DatabaseMetaData metaData, String database, String schema, String table, String column)
+            throws SQLException {
+        try (ResultSet resultSet = metaData.getColumns(database, schema, table, column)) {
             while (resultSet.next()) {
                 String defaultValue = resultSet.getString("COLUMN_DEF");
                 return Optional.ofNullable(defaultValue);
@@ -222,6 +253,13 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
         if (!databaseExists(tablePath.getDatabaseName())) {
             throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
+        }
+        if (defaultSchema.isPresent()) {
+            tablePath =
+                    new TablePath(
+                            tablePath.getDatabaseName(),
+                            defaultSchema.get(),
+                            tablePath.getTableName());
         }
         if (!createTableInternal(tablePath, table) && !ignoreIfExists) {
             throw new TableAlreadyExistException(catalogName, tablePath);

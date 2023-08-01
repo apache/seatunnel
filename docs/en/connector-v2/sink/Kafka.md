@@ -51,11 +51,9 @@ Currently two formats are supported:
 
 Kafka Brokers List.
 
-### kafka.* [kafka producer config]
+### kafka.config [kafka producer config]
 
 In addition to the above parameters that must be specified by the `Kafka producer` client, the user can also specify multiple non-mandatory parameters for the `producer` client, covering [all the producer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#producerconfigs).
-
-The way to specify the parameter is to add the prefix `kafka.` to the original parameter name. For example, the way to specify `request.timeout.ms` is: `kafka.request.timeout.ms = 60000` . If these non-essential parameters are not specified, they will use the default values given in the official Kafka documentation.
 
 ### semantics [string]
 
@@ -110,8 +108,10 @@ Kafka distinguishes different transactions by different transactionId. This para
 
 ### format
 
-Data format. The default format is json. Optional text format. The default field separator is ",".
-If you customize the delimiter, add the "field_delimiter" option.
+Data format. The default format is json. Optional text format, canal-json and debezium-json.
+If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.
+If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.
+If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details.
 
 ### field_delimiter
 
@@ -156,9 +156,11 @@ sink {
       format = json
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
-      kafka.security.protocol=SASL_SSL
-      kafka.sasl.mechanism=SCRAM-SHA-512
-      kafka.sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+      kafka.config = {
+         security.protocol=SASL_SSL
+         sasl.mechanism=SCRAM-SHA-512
+         sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+      }
   }
   
 }
@@ -190,10 +192,12 @@ sink {
       format = json
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
-      kafka.security.protocol=SASL_SSL
-      kafka.sasl.mechanism=AWS_MSK_IAM
-      kafka.sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
-      kafka.sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+      kafka.config = {
+         security.protocol=SASL_SSL
+         sasl.mechanism=AWS_MSK_IAM
+         sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
+         sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+      }
   }
   
 }
@@ -211,4 +215,6 @@ sink {
 - [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/incubator-seatunnel/pull/3711)
 - [Improve] Support extract topic from SeaTunnelRow fields [3742](https://github.com/apache/incubator-seatunnel/pull/3742)
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
+- [Improve] Support read canal format message [3950](https://github.com/apache/incubator-seatunnel/pull/3950)
+- [Improve] Support read debezium format message [3981](https://github.com/apache/incubator-seatunnel/pull/3981)
 

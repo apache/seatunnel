@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
@@ -62,15 +63,22 @@ import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.DataCollectionId;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.Collect;
+import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset.BINLOG_FILENAME_OFFSET_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createBinaryClient;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createMySqlConnection;
 
 /** The context for fetch task that fetching data of snapshot split from MySQL data source. */
+@Slf4j
 public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     private static final Logger LOG = LoggerFactory.getLogger(MySqlSourceFetchTaskContext.class);
@@ -89,13 +97,10 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private MySqlErrorHandler errorHandler;
 
     public MySqlSourceFetchTaskContext(
-            JdbcSourceConfig sourceConfig,
-            JdbcDataSourceDialect dataSourceDialect,
-            MySqlConnection connection,
-            BinaryLogClient binaryLogClient) {
+            JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dataSourceDialect) {
         super(sourceConfig, dataSourceDialect);
-        this.connection = connection;
-        this.binaryLogClient = binaryLogClient;
+        this.connection = createMySqlConnection(sourceConfig.getDbzConfiguration());
+        this.binaryLogClient = createBinaryClient(sourceConfig.getDbzConfiguration());
         this.metadataProvider = new MySqlEventMetadataProvider();
     }
 
@@ -157,6 +162,18 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                         changeEventSourceMetricsFactory.getStreamingMetrics(
                                 taskContext, queue, metadataProvider);
         this.errorHandler = new MySqlErrorHandler(connectorConfig.getLogicalName(), queue);
+    }
+
+    @Override
+    public void close() {
+        try {
+            this.connection.close();
+            this.binaryLogClient.disconnect();
+        } catch (SQLException e) {
+            log.warn("Failed to close connection", e);
+        } catch (IOException e) {
+            log.warn("Failed to close binaryLogClient", e);
+        }
     }
 
     @Override
@@ -311,12 +328,26 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 MySqlDatabaseSchema schema,
                 BinaryLogClient reusedBinaryLogClient) {
             super(config, schema);
-            this.reusedBinaryLogClient = reusedBinaryLogClient;
+            this.reusedBinaryLogClient = resetBinaryLogClient(reusedBinaryLogClient);
         }
 
         @Override
         public BinaryLogClient getBinaryLogClient() {
             return reusedBinaryLogClient;
+        }
+
+        /** reset the listener of binaryLogClient before fetch task start. */
+        private BinaryLogClient resetBinaryLogClient(BinaryLogClient binaryLogClient) {
+            Optional<Object> eventListenersField =
+                    ReflectionUtils.getField(
+                            binaryLogClient, BinaryLogClient.class, "eventListeners");
+            eventListenersField.ifPresent(o -> ((List<BinaryLogClient.EventListener>) o).clear());
+            Optional<Object> lifecycleListeners =
+                    ReflectionUtils.getField(
+                            binaryLogClient, BinaryLogClient.class, "lifecycleListeners");
+            lifecycleListeners.ifPresent(
+                    o -> ((List<BinaryLogClient.LifecycleListener>) o).clear());
+            return binaryLogClient;
         }
     }
 

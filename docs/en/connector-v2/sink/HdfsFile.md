@@ -26,6 +26,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] excel
 - [x] compress codec
   - [x] lzo
 
@@ -54,6 +55,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | kerberos_keytab_path             | string  | no       | -                                          |                                                           |
 | compress_codec                   | string  | no       | none                                       |                                                           |
 | common-options                   | object  | no       | -                                          |                                                           |
+| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format is excel.                      |
+| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format is excel.                      |
 
 ### fs.defaultFS [string]
 
@@ -99,7 +102,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet`
+`text` `json` `csv` `orc` `parquet` `excel`
 
 Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
 
@@ -163,7 +166,8 @@ The compress codec of files and the details that supported as the following show
 - csv: `lzo` `none`
 - orc: `lzo` `snappy` `lz4` `zlib` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
-- 
+
+Tips: excel type does not support any compression format
 
 ### kerberos_principal [string]
 
@@ -176,6 +180,14 @@ The keytab path of kerberos
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+
+### max_rows_in_memory [int]
+
+When File Format is Excel,The maximum number of data items that can be cached in the memory.
+
+### sheet_name [string]
+
+Writer the sheet of the workbook
 
 ## Example
 
@@ -243,21 +255,21 @@ HdfsFile {
 
 ### 2.3.0-beta 2022-10-20
 
-- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
-- [BugFix] Fix filesystem get error ([3117](https://github.com/apache/incubator-seatunnel/pull/3117))
-- [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/incubator-seatunnel/pull/3083))
+- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/seatunnel/pull/2980))
+- [BugFix] Fix filesystem get error ([3117](https://github.com/apache/seatunnel/pull/3117))
+- [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/seatunnel/pull/3083))
 
 ### 2.3.0 2022-12-30
 
-- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
+- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/seatunnel/pull/3258))
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
 
 ### Next version
 
-- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
-- [Improve] Support lzo compression for text in file format ([3782](https://github.com/apache/incubator-seatunnel/pull/3782))
-- [Improve] Support kerberos authentication ([3840](https://github.com/apache/incubator-seatunnel/pull/3840))
-- [Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
+- [Improve] Support lzo compression for text in file format ([3782](https://github.com/apache/seatunnel/pull/3782))
+- [Improve] Support kerberos authentication ([3840](https://github.com/apache/seatunnel/pull/3840))
+- [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
 

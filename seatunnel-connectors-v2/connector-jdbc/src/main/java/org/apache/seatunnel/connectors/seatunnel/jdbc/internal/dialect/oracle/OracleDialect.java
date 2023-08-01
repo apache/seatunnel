@@ -45,8 +45,23 @@ public class OracleDialect implements JdbcDialect {
     }
 
     @Override
+    public String hashModForField(String fieldName, int mod) {
+        return "MOD(ORA_HASH(" + quoteIdentifier(fieldName) + ")," + mod + ")";
+    }
+
+    @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new OracleTypeMapper();
+    }
+
+    @Override
+    public String quoteIdentifier(String identifier) {
+        return identifier;
+    }
+
+    @Override
+    public String tableIdentifier(String database, String tableName) {
+        return quoteIdentifier(tableName);
     }
 
     @Override
@@ -91,15 +106,14 @@ public class OracleDialect implements JdbcDialect {
 
         String upsertSQL =
                 String.format(
-                        " MERGE INTO %s.%s TARGET"
+                        " MERGE INTO %s TARGET"
                                 + " USING (%s) SOURCE"
                                 + " ON (%s) "
                                 + " WHEN MATCHED THEN"
                                 + " UPDATE SET %s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s)",
-                        database,
-                        tableName,
+                        tableIdentifier(database, tableName),
                         usingClause,
                         onConditions,
                         updateSetClause,

@@ -106,4 +106,17 @@ public class BaseSourceConfig {
                     .listType()
                     .noDefaultValue()
                     .withDescription("The columns list that the user want to read");
+
+    public static final Option<String> SHEET_NAME =
+            Options.key("sheet_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("To be read sheet name,only valid for excel files");
+
+    public static final Option<String> FILE_FILTER_PATTERN =
+            Options.key("file_filter_pattern")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "File pattern. The connector will filter some files base on the pattern.");
 }

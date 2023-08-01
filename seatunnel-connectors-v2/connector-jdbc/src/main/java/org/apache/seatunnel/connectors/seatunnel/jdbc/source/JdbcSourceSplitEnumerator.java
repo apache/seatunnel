@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -106,14 +107,21 @@ public class JdbcSourceSplitEnumerator
                     partitionParameter.getPartitionNumber() != null
                             ? partitionParameter.getPartitionNumber()
                             : enumeratorContext.currentParallelism();
-            JdbcNumericBetweenParametersProvider jdbcNumericBetweenParametersProvider =
-                    new JdbcNumericBetweenParametersProvider(
-                                    partitionParameter.minValue, partitionParameter.maxValue)
-                            .ofBatchNum(partitionNumber);
-            Serializable[][] parameterValues =
-                    jdbcNumericBetweenParametersProvider.getParameterValues();
-            for (int i = 0; i < parameterValues.length; i++) {
-                allSplit.add(new JdbcSourceSplit(parameterValues[i], i));
+            if (partitionParameter.getDataType().equals(BasicType.STRING_TYPE)) {
+                for (int i = 0; i < partitionNumber; i++) {
+                    allSplit.add(new JdbcSourceSplit(new Object[] {i}, i));
+                }
+            } else {
+                JdbcNumericBetweenParametersProvider jdbcNumericBetweenParametersProvider =
+                        new JdbcNumericBetweenParametersProvider(
+                                        partitionParameter.getMinValue(),
+                                        partitionParameter.getMaxValue())
+                                .ofBatchNum(partitionNumber);
+                Serializable[][] parameterValues =
+                        jdbcNumericBetweenParametersProvider.getParameterValues();
+                for (int i = 0; i < parameterValues.length; i++) {
+                    allSplit.add(new JdbcSourceSplit(parameterValues[i], i));
+                }
             }
         } else {
             allSplit.add(new JdbcSourceSplit(null, 0));

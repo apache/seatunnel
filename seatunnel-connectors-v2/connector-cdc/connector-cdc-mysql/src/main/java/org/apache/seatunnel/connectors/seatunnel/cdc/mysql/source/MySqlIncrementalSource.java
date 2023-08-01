@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportParallelism;
@@ -32,6 +33,8 @@ import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
@@ -57,6 +60,16 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     public MySqlIncrementalSource(
             ReadonlyConfig options, SeaTunnelDataType<SeaTunnelRow> dataType) {
         super(options, dataType);
+    }
+
+    @Override
+    public Option<StartupMode> getStartupModeOption() {
+        return MySqlSourceOptions.STARTUP_MODE;
+    }
+
+    @Override
+    public Option<StopMode> getStopModeOption() {
+        return MySqlSourceOptions.STOP_MODE;
     }
 
     @Override
@@ -93,11 +106,13 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         SeaTunnelDataType<SeaTunnelRow> physicalRowType;
         if (dataType == null) {
             // TODO: support metadata keys
-            Catalog mySqlCatalog = new MySqlCatalogFactory().createCatalog("mysql", config);
-            CatalogTable table =
-                    mySqlCatalog.getTable(
-                            TablePath.of(config.get(CatalogOptions.TABLE_NAMES).get(0)));
-            physicalRowType = table.getTableSchema().toPhysicalRowDataType();
+            try (Catalog catalog = new MySqlCatalogFactory().createCatalog("mysql", config)) {
+                catalog.open();
+                CatalogTable table =
+                        catalog.getTable(
+                                TablePath.of(config.get(CatalogOptions.TABLE_NAMES).get(0)));
+                physicalRowType = table.getTableSchema().toPhysicalRowDataType();
+            }
         } else {
             physicalRowType = dataType;
         }

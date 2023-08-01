@@ -28,6 +28,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] excel
 
 ## Options
 
@@ -54,6 +55,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | batch_size                       | int     | no       | 1000000                                               |                                                                                                        |
 | compress_codec                   | string  | no       | none                                                  |                                                                                                        |
 | common-options                   | object  | no       | -                                                     |                                                                                                        |
+| max_rows_in_memory               | int     | no       | -                                                     | Only used when file_format is excel.                                                                   |
+| sheet_name                       | string  | no       | Sheet${Random number}                                 | Only used when file_format is excel.                                                                   |
 
 ### path [string]
 
@@ -124,7 +127,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet`
+`text` `json` `csv` `orc` `parquet` `excel`
 
 Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
 
@@ -189,9 +192,19 @@ The compress codec of files and the details that supported as the following show
 - orc: `lzo` `snappy` `lz4` `zlib` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
+Tips: excel type does not support any compression format
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+
+### max_rows_in_memory [int]
+
+When File Format is Excel,The maximum number of data items that can be cached in the memory.
+
+### sheet_name [string]
+
+Writer the sheet of the workbook
 
 ## Example
 
@@ -271,18 +284,18 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
 
 ### 2.3.0 2022-12-30
 
-- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
+- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/seatunnel/pull/3258))
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
-- [Feature] Support S3A protocol ([3632](https://github.com/apache/incubator-seatunnel/pull/3632))
+- [Feature] Support S3A protocol ([3632](https://github.com/apache/seatunnel/pull/3632))
   - Allow user to add additional hadoop-s3 parameters
   - Allow the use of the s3a protocol
   - Decouple hadoop-aws dependencies
-- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
-- [Feature]Set S3 AK to optional ([3688](https://github.com/apache/incubator-seatunnel/pull/))
+- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
+- [Feature]Set S3 AK to optional ([3688](https://github.com/apache/seatunnel/pull/))
 
 ### Next version
 
-- ​	[Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+- ​	[Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
 
