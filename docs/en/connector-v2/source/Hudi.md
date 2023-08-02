@@ -39,7 +39,7 @@ In order to use this connector, You must ensure your spark/flink cluster already
 
 ## Source Options
 
-| Name                    | Type   | Required                     | Default | Description                                                                                                                                                                                           |
+|          Name           |  Type  |           Required           | Default |                                                                                              Description                                                                                              |
 |-------------------------|--------|------------------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | table.path              | String | Yes                          | -       | The hdfs root path of hudi table,such as 'hdfs://nameserivce/data/hudi/hudi_table/'.                                                                                                                  |
 | table.type              | String | Yes                          | -       | The type of hudi table. Now we only support 'cow', 'mor' is not support yet.                                                                                                                          |
