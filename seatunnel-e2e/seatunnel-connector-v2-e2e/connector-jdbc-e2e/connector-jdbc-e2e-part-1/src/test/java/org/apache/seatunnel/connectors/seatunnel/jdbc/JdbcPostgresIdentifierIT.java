@@ -236,7 +236,7 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
             Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
             Assertions.assertEquals(0, execResult.getExitCode());
             Assertions.assertIterableEquals(querySql(SOURCE_SQL), querySql(SINK_SQL));
-            executeSQL("truncate table pg_ide_sink_table");
+            executeSQL("truncate table PG_IDE_SINK_TABLE");
             log.info(CONFIG_FILE + " e2e test completed");
         }
     }
