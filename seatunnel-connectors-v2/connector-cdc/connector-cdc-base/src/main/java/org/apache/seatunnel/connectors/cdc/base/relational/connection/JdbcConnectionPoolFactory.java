@@ -35,6 +35,7 @@ public abstract class JdbcConnectionPoolFactory {
         String hostName = sourceConfig.getHostname();
         int port = sourceConfig.getPort();
 
+        config.setDriverClassName(sourceConfig.getDriverClassName());
         config.setPoolName(CONNECTION_POOL_PREFIX + hostName + ":" + port);
         config.setJdbcUrl(sourceConfig.getOriginUrl());
         config.setUsername(sourceConfig.getUsername());
