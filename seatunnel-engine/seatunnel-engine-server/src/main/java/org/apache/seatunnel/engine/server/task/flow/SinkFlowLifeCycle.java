@@ -109,6 +109,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     public void init() throws Exception {
         this.writerStateSerializer = sinkAction.getSink().getWriterStateSerializer();
         this.committer = sinkAction.getSink().createCommitter();
+        this.lastCommitInfo = Optional.empty();
     }
 
     @Override

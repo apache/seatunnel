@@ -53,7 +53,7 @@ public class SubPlan {
     private static final ILogger LOGGER = Logger.getLogger(SubPlan.class);
 
     /** The max num pipeline can restore. */
-    public static final int PIPELINE_MAX_RESTORE_NUM = 2; // TODO should set by config
+    public static final int PIPELINE_MAX_RESTORE_NUM = 3; // TODO should set by config
 
     private final List<PhysicalVertex> physicalVertexList;
 
@@ -332,6 +332,9 @@ public class SubPlan {
                             exception -> ExceptionUtil.isOperationNeedRetryException(exception),
                             Constant.OPERATION_RETRY_SLEEP));
             this.currPipelineStatus = endState;
+            LOGGER.info(
+                    String.format(
+                            "%s turn to end state %s.", pipelineFullName, currPipelineStatus));
         }
     }
 
@@ -511,11 +514,17 @@ public class SubPlan {
                         LOGGER.severe(message);
                         throw new IllegalStateException(message);
                     }
-
+                    LOGGER.info(
+                            String.format(
+                                    "Reset pipeline %s state to %s",
+                                    getPipelineFullName(), PipelineStatus.CREATED));
                     updateStateTimestamps(PipelineStatus.CREATED);
                     runningJobStateIMap.set(pipelineLocation, PipelineStatus.CREATED);
                     this.currPipelineStatus = PipelineStatus.CREATED;
-                    ;
+                    LOGGER.info(
+                            String.format(
+                                    "Reset pipeline %s state to %s complete",
+                                    getPipelineFullName(), PipelineStatus.CREATED));
                     return null;
                 },
                 new RetryUtils.RetryMaterial(

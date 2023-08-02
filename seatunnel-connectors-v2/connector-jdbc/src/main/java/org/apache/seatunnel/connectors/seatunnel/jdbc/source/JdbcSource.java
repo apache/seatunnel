@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -94,6 +95,7 @@ public class JdbcSource
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
+        ConfigValidator.of(config).validate(new JdbcSourceFactory().optionRule());
         this.jdbcSourceConfig = JdbcSourceConfig.of(config);
         this.jdbcConnectionProvider =
                 new SimpleJdbcConnectionProvider(jdbcSourceConfig.getJdbcConnectionConfig());
@@ -113,8 +115,7 @@ public class JdbcSource
         if (partitionParameter != null) {
             this.query =
                     JdbcSourceFactory.obtainPartitionSql(
-                            partitionParameter.getPartitionColumnName(),
-                            jdbcSourceConfig.getQuery());
+                            jdbcDialect, partitionParameter, jdbcSourceConfig.getQuery());
         }
 
         this.inputFormat =
@@ -187,9 +188,10 @@ public class JdbcSource
     private PartitionParameter createPartitionParameter(Connection connection) {
         if (jdbcSourceConfig.getPartitionColumn().isPresent()) {
             String partitionColumn = jdbcSourceConfig.getPartitionColumn().get();
-            JdbcSourceFactory.validationPartitionColumn(partitionColumn, typeInfo);
+            SeaTunnelDataType<?> dataType =
+                    JdbcSourceFactory.validationPartitionColumn(partitionColumn, typeInfo);
             return JdbcSourceFactory.createPartitionParameter(
-                    jdbcSourceConfig, partitionColumn, connection);
+                    jdbcSourceConfig, partitionColumn, dataType, connection);
         } else {
             LOG.info(
                     "The partition_column parameter is not configured, and the source parallelism is set to 1");
