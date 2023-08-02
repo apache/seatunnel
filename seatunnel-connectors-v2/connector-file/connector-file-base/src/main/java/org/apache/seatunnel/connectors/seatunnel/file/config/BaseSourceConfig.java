@@ -112,4 +112,11 @@ public class BaseSourceConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("To be read sheet name,only valid for excel files");
+
+    public static final Option<String> FILE_FILTER_PATTERN =
+            Options.key("file_filter_pattern")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "File pattern. The connector will filter some files base on the pattern.");
 }
