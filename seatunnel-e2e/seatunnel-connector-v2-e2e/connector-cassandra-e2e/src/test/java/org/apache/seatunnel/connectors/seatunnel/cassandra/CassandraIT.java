@@ -403,7 +403,9 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             this.session.close();
         }
         if (this.container != null) {
+            this.container.stop();
             this.container.close();
+            clearDockerImage(CASSANDRA_DOCKER_IMAGE);
         }
     }
 }

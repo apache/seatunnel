@@ -67,13 +67,14 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     private ElasticsearchContainer container;
 
     private EsRestClient esRestClient;
+    private static final String DOCKER_IMAGE = "elasticsearch:8.0.0";
 
     @BeforeEach
     @Override
     public void startUp() throws Exception {
         container =
                 new ElasticsearchContainer(
-                                DockerImageName.parse("elasticsearch:8.0.0")
+                                DockerImageName.parse(DOCKER_IMAGE)
                                         .asCompatibleSubstituteFor(
                                                 "docker.elastic.co/elasticsearch/elasticsearch"))
                         .withNetwork(NETWORK)
@@ -253,6 +254,10 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         if (Objects.nonNull(esRestClient)) {
             esRestClient.close();
         }
-        container.close();
+        if (container != null) {
+            container.stop();
+            container.close();
+            clearDockerImage(DOCKER_IMAGE);
+        }
     }
 }

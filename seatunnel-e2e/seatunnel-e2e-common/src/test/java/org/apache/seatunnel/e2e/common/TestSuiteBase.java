@@ -29,16 +29,36 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.testcontainers.containers.Network;
 
+import lombok.extern.slf4j.Slf4j;
+
+import java.io.IOException;
+
 @ExtendWith({
     ContainerTestingExtension.class,
     TestLoggerExtension.class,
     TestCaseInvocationContextProvider.class
 })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Slf4j
 public abstract class TestSuiteBase {
 
     protected static final Network NETWORK = TestContainer.NETWORK;
 
     @TestContainers
     private TestContainersFactory containersFactory = ContainerUtil::discoverTestContainers;
+
+    public Boolean clearDockerImage(String dockerImageName) {
+        String[] command = {"docker", "rmi", "-f", dockerImageName};
+        try {
+            Process process = Runtime.getRuntime().exec(command);
+            int exitCode = process.waitFor();
+            if (exitCode == 0) {
+                log.info(dockerImageName + " image is cleared");
+                return true;
+            }
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }

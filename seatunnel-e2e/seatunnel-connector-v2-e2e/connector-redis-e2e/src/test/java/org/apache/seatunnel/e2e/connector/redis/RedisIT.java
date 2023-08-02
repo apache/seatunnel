@@ -179,7 +179,9 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         }
 
         if (Objects.nonNull(redisContainer)) {
+            redisContainer.stop();
             redisContainer.close();
+            clearDockerImage(IMAGE);
         }
     }
 

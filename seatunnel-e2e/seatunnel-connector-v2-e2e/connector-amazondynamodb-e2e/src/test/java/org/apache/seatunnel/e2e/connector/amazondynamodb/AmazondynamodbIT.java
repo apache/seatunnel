@@ -133,7 +133,9 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
     @Override
     public void tearDown() throws Exception {
         if (dynamoDB != null) {
+            dynamoDB.stop();
             dynamoDB.close();
+            clearDockerImage(AMAZONDYNAMODB_DOCKER_IMAGE);
         }
     }
 

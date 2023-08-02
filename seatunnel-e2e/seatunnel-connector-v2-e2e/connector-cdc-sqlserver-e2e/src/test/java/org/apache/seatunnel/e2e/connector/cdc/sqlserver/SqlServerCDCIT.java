@@ -71,6 +71,8 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String HOST = "sqlserver-host";
 
+    private static final String DOCKER_IMAGE = "mcr.microsoft.com/mssql/server:2019-latest";
+
     private static final int PORT = 1433;
 
     private static final String STATEMENTS_PLACEHOLDER = "#";
@@ -85,7 +87,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     private static final String SINK_SQL = "select * from column_type_test.dbo.full_types_sink";
 
     public static final MSSQLServerContainer MSSQL_SERVER_CONTAINER =
-            new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2019-latest")
+            new MSSQLServerContainer<>(DOCKER_IMAGE)
                     .withPassword("Password!")
                     .withEnv("MSSQL_AGENT_ENABLED", "true")
                     .withEnv("MSSQL_PID", "Standard")
@@ -127,6 +129,8 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         log.info("Stopping containers...");
         if (MSSQL_SERVER_CONTAINER != null) {
             MSSQL_SERVER_CONTAINER.stop();
+            MSSQL_SERVER_CONTAINER.close();
+            clearDockerImage(DOCKER_IMAGE);
         }
         log.info("Containers are stopped.");
     }

@@ -110,7 +110,9 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
             hbaseConnection.close();
         }
         if (Objects.nonNull(hbaseContainer)) {
+            hbaseContainer.stop();
             hbaseContainer.close();
+            clearDockerImage(IMAGE);
         }
     }
 

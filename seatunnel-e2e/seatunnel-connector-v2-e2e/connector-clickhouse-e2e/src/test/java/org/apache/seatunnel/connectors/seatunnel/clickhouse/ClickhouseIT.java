@@ -422,6 +422,8 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         }
         if (this.container != null) {
             this.container.stop();
+            this.container.close();
+            clearDockerImage(CLICKHOUSE_DOCKER_IMAGE);
         }
     }
 }

@@ -119,7 +119,9 @@ public class DorisCDCSinkIT extends TestSuiteBase implements TestResource {
             jdbcConnection.close();
         }
         if (dorisServer != null) {
+            dorisServer.stop();
             dorisServer.close();
+            clearDockerImage(DOCKER_IMAGE);
         }
     }
 

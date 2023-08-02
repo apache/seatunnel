@@ -262,13 +262,16 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
     @AfterAll
     @Override
     public void tearDown() {
+        String containerName = mongodbContainer.getContainerName();
         // close Container
         if (Objects.nonNull(client)) {
             client.close();
         }
         MYSQL_CONTAINER.close();
         if (mongodbContainer != null) {
+            mongodbContainer.stop();
             mongodbContainer.close();
+            clearDockerImage(containerName);
         }
     }
 }

@@ -92,6 +92,8 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
         }
         if (this.container != null) {
             this.container.stop();
+            this.container.close();
+            clearDockerImage(CLICKHOUSE_DOCKER_IMAGE);
         }
     }
 

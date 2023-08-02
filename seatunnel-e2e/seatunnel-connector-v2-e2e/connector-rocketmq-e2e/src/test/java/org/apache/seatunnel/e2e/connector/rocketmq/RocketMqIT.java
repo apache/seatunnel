@@ -167,7 +167,9 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
             this.producer.shutdown();
         }
         if (this.rocketMqContainer != null) {
+            this.rocketMqContainer.stop();
             this.rocketMqContainer.close();
+            clearDockerImage(IMAGE);
         }
     }
 

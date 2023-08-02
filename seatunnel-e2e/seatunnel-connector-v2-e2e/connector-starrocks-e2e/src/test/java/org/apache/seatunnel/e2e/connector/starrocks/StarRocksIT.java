@@ -236,7 +236,9 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             jdbcConnection.close();
         }
         if (starRocksServer != null) {
+            starRocksServer.stop();
             starRocksServer.close();
+            clearDockerImage(DOCKER_IMAGE);
         }
     }
 

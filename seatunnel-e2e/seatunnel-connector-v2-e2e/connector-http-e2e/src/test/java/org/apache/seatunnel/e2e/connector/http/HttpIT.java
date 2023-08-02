@@ -81,6 +81,8 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     public void tearDown() {
         if (mockserverContainer != null) {
             mockserverContainer.stop();
+            mockserverContainer.close();
+            clearDockerImage(IMAGE);
         }
     }
 
