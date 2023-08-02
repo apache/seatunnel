@@ -173,7 +173,11 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
         if (Objects.nonNull(influxDB)) {
             influxDB.close();
         }
-        influxdbContainer.stop();
+        if (influxdbContainer != null) {
+            influxdbContainer.stop();
+            influxdbContainer.close();
+            clearDockerImage(IMAGE);
+        }
     }
 
     @TestTemplate

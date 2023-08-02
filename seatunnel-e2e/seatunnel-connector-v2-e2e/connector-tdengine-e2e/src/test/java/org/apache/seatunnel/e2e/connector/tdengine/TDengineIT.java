@@ -168,10 +168,13 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
         }
         if (tdengineServer1 != null) {
             tdengineServer1.stop();
+            tdengineServer1.close();
         }
         if (tdengineServer2 != null) {
             tdengineServer2.stop();
+            tdengineServer2.close();
         }
+        clearDockerImage(DOCKER_IMAGE);
     }
 
     /**

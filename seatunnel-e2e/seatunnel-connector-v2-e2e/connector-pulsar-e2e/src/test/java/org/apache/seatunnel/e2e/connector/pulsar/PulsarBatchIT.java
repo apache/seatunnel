@@ -133,6 +133,7 @@ public class PulsarBatchIT extends TestSuiteBase implements TestResource {
         pulsarContainer.close();
         client.close();
         producer.close();
+        clearDockerImage(PULSAR_IMAGE_NAME);
     }
 
     private void initTopic() throws PulsarClientException {

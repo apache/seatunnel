@@ -234,6 +234,8 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
         }
         if (iotdbServer != null) {
             iotdbServer.stop();
+            iotdbServer.close();
+            clearDockerImage(IOTDB_DOCKER_IMAGE);
         }
     }
 }

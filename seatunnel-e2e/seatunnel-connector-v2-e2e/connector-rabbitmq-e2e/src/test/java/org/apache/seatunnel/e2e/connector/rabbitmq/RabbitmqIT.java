@@ -213,7 +213,11 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         if (connection != null) {
             connection.close();
         }
-        rabbitmqContainer.close();
+        if (rabbitmqContainer != null) {
+            rabbitmqContainer.stop();
+            rabbitmqContainer.close();
+            clearDockerImage(IMAGE);
+        }
     }
 
     @TestTemplate
