@@ -105,8 +105,8 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
     public static final String PG_INTERVAL = "interval";
     public static final String PG_GEOMETRY = "geometry";
     public static final String PG_GEOGRAPHY = "geography";
-    private static final String PG_JSON = "json";
-    private static final String PG_JSONB = "jsonb";
+    public static final String PG_JSON = "json";
+    public static final String PG_JSONB = "jsonb";
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
