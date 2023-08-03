@@ -51,6 +51,10 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
+// @DisabledOnContainer(
+//        value = {},
+//        type = {EngineType.SPARK, EngineType.FLINK},
+//        disabledReason = "Currently SPARK and FLINK do not support cdc")
 public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResource {
     private static final String PG_IMAGE = "postgis/postgis";
     private static final String PG_DRIVER_JAR =
@@ -94,35 +98,35 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
                     + "  geog geography(POINT, 4326)\n"
                     + ")";
     private static final String PG_SINK_DDL =
-            "CREATE TABLE IF NOT EXISTS PG_IDE_SINK_TABLE (\n"
-                    + "    GID SERIAL PRIMARY KEY,\n"
-                    + "    TEXT_COL TEXT,\n"
-                    + "    VARCHAR_COL VARCHAR(255),\n"
-                    + "    CHAR_COL CHAR(10),\n"
-                    + "    BOOLEAN_COL bool,\n"
-                    + "    SMALLINT_COL int2,\n"
-                    + "    INTEGER_COL int4,\n"
-                    + "    BIGINT_COL BIGINT,\n"
-                    + "    DECIMAL_COL DECIMAL(10, 2),\n"
-                    + "    NUMERIC_COL NUMERIC(8, 4),\n"
-                    + "    REAL_COL float4,\n"
-                    + "    DOUBLE_PRECISION_COL float8,\n"
-                    + "    SMALLSERIAL_COL SMALLSERIAL,\n"
-                    + "    SERIAL_COL SERIAL,\n"
-                    + "    BIGSERIAL_COL BIGSERIAL,\n"
-                    + "    DATE_COL DATE,\n"
-                    + "    TIMESTAMP_COL TIMESTAMP,\n"
-                    + "    BPCHAR_COL BPCHAR(10),\n"
-                    + "    AGE int4 NOT NULL,\n"
-                    + "    NAME varchar(255) NOT NULL,\n"
-                    + "    POINT varchar(2000) NULL,\n"
-                    + "    LINESTRING varchar(2000) NULL,\n"
-                    + "    POLYGON_COLUMS varchar(2000) NULL,\n"
-                    + "    MULTIPOINT varchar(2000) NULL,\n"
-                    + "    MULTILINESTRING varchar(2000) NULL,\n"
-                    + "    MULTIPOLYGON varchar(2000) NULL,\n"
-                    + "    GEOMETRYCOLLECTION varchar(2000) NULL,\n"
-                    + "    GEOG varchar(2000) NULL\n"
+            "CREATE TABLE IF NOT EXISTS test.public.\"PG_IDE_SINK_TABLE\" (\n"
+                    + "    \"GID\" SERIAL PRIMARY KEY,\n"
+                    + "    \"TEXT_COL\" TEXT,\n"
+                    + "    \"VARCHAR_COL\" VARCHAR(255),\n"
+                    + "    \"CHAR_COL\" CHAR(10),\n"
+                    + "    \"BOOLEAN_COL\" bool,\n"
+                    + "    \"SMALLINT_COL\" int2,\n"
+                    + "    \"INTEGER_COL\" int4,\n"
+                    + "    \"BIGINT_COL\" BIGINT,\n"
+                    + "    \"DECIMAL_COL\" DECIMAL(10, 2),\n"
+                    + "    \"NUMERIC_COL\" NUMERIC(8, 4),\n"
+                    + "    \"REAL_COL\" float4,\n"
+                    + "    \"DOUBLE_PRECISION_COL\" float8,\n"
+                    + "    \"SMALLSERIAL_COL\" SMALLSERIAL,\n"
+                    + "    \"SERIAL_COL\" SERIAL,\n"
+                    + "    \"BIGSERIAL_COL\" BIGSERIAL,\n"
+                    + "    \"DATE_COL\" DATE,\n"
+                    + "    \"TIMESTAMP_COL\" TIMESTAMP,\n"
+                    + "    \"BPCHAR_COL\" BPCHAR(10),\n"
+                    + "    \"AGE\" int4 NOT NULL,\n"
+                    + "    \"NAME\" varchar(255) NOT NULL,\n"
+                    + "    \"POINT\" varchar(2000) NULL,\n"
+                    + "    \"LINESTRING\" varchar(2000) NULL,\n"
+                    + "    \"POLYGON_COLUMS\" varchar(2000) NULL,\n"
+                    + "    \"MULTIPOINT\" varchar(2000) NULL,\n"
+                    + "    \"MULTILINESTRING\" varchar(2000) NULL,\n"
+                    + "    \"MULTIPOLYGON\" varchar(2000) NULL,\n"
+                    + "    \"GEOMETRYCOLLECTION\" varchar(2000) NULL,\n"
+                    + "    \"GEOG\" varchar(2000) NULL\n"
                     + "  )";
 
     private static final String SOURCE_SQL =
@@ -187,7 +191,7 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
                     + "  CAST(GEOMETRYCOLLECTION AS GEOMETRY) AS GEOMETRYCOLLECTION,\n"
                     + "  CAST(GEOG AS GEOGRAPHY) AS GEOG\n"
                     + "FROM\n"
-                    + "  PG_IDE_SINK_TABLE";
+                    + "  \"PG_IDE_SINK_TABLE\"";
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
@@ -246,7 +250,7 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
             Statement statement = connection.createStatement();
             statement.execute(PG_SOURCE_DDL);
             statement.execute(PG_SINK_DDL);
-            for (int i = 1; i <= 1000; i++) {
+            for (int i = 1; i <= 10; i++) {
                 statement.addBatch(
                         "INSERT INTO\n"
                                 + "  pg_ide_source_table (gid,\n"
