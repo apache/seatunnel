@@ -19,10 +19,14 @@ package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
+
+import org.apache.commons.lang3.StringUtils;
 
 import org.w3c.dom.Node;
 
@@ -131,6 +135,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
             } else if (ServerConfigOptions.CHECKPOINT.key().equals(name)) {
                 engineConfig.setCheckpointConfig(parseCheckpointConfig(node));
+            } else if (ServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG.key().equals(name)) {
+                engineConfig.setConnectorJarStorageConfig(parseConnectorJarStorageConfig(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
@@ -205,5 +211,33 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             checkpointPluginConfig.put(name, getTextContent(node));
         }
         return checkpointPluginConfig;
+    }
+
+    private ConnectorJarStorageConfig parseConnectorJarStorageConfig(
+            Node connectorJarStorageConfigNode) {
+        ConnectorJarStorageConfig connectorJarStorageConfig = new ConnectorJarStorageConfig();
+        for (Node node : childElements(connectorJarStorageConfigNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE.key().equals(name)) {
+                String mode = getTextContent(node).toUpperCase();
+                if (StringUtils.isNotBlank(mode)
+                        && !Arrays.asList("SHARED", "ISOLATED").contains(mode)) {
+                    throw new IllegalArgumentException(
+                            ServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE
+                                    + " must in [SHARED, ISOLATED]");
+                }
+                connectorJarStorageConfig.setStorageMode(ConnectorJarStorageMode.valueOf(mode));
+            } else if (ServerConfigOptions.CONNECTOR_JAR_STORAGE_PATH.key().equals(name)) {
+                connectorJarStorageConfig.setStoragePath(getTextContent(node));
+            } else if (ServerConfigOptions.CONNECTOR_JAR_CLEANUP_TASK_INTERVAL.key().equals(name)) {
+                connectorJarStorageConfig.setCleanupTaskInterval(
+                        getIntegerValue(
+                                ServerConfigOptions.CONNECTOR_JAR_CLEANUP_TASK_INTERVAL.key(),
+                                getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return connectorJarStorageConfig;
     }
 }

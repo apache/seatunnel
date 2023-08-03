@@ -138,4 +138,29 @@ public class ServerConfigOptions {
                     .type(new TypeReference<Map<String, String>>() {})
                     .noDefaultValue()
                     .withDescription("The checkpoint storage instance configuration.");
+
+    public static final Option<ConnectorJarStorageMode> CONNECTOR_JAR_STORAGE_MODE =
+            Options.key("connector-jar-storage-mode")
+                    .type(new TypeReference<ConnectorJarStorageMode>() {})
+                    .defaultValue(ConnectorJarStorageMode.SHARED)
+                    .withDescription(
+                            "The storage mode of the connector jar package, including SHARED, ISOLATED. Default is SHARED");
+
+    public static final Option<String> CONNECTOR_JAR_STORAGE_PATH =
+            Options.key("connector-jar-storage-path")
+                    .type(new TypeReference<String>() {})
+                    .defaultValue("")
+                    .withDescription("The user defined connector jar storage path.");
+
+    public static final Option<Integer> CONNECTOR_JAR_CLEANUP_TASK_INTERVAL =
+            Options.key("connector-jar-cleanup-task-interval")
+                    .type(new TypeReference<Integer>() {})
+                    .defaultValue(3600)
+                    .withDescription("The user defined connector jar cleanup task interval.");
+
+    public static final Option<ConnectorJarStorageConfig> CONNECTOR_JAR_STORAGE_CONFIG =
+            Options.key("jar-storage")
+                    .type(new TypeReference<ConnectorJarStorageConfig>() {})
+                    .defaultValue(new ConnectorJarStorageConfig())
+                    .withDescription("The connector jar storage configuration.");
 }

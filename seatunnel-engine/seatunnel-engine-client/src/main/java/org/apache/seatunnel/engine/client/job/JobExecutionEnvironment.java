@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.dag.actions.Config;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDagGenerator;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -44,6 +45,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -70,6 +72,8 @@ public class JobExecutionEnvironment {
     private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
 
     private final JobClient jobClient;
+
+    private final ConnectorPackageClient connectorPackageClient;
 
     /** If the JobId is not empty, it is used to restore job from savePoint */
     public JobExecutionEnvironment(
@@ -107,6 +111,7 @@ public class JobExecutionEnvironment {
                                         })
                                 .collect(Collectors.toList())));
         LOGGER.info("add common jar in plugins :" + commonPluginJars);
+        this.connectorPackageClient = new ConnectorPackageClient(seaTunnelHazelcastClient);
     }
 
     public JobExecutionEnvironment(
@@ -154,7 +159,32 @@ public class JobExecutionEnvironment {
     private LogicalDag getLogicalDag() {
         ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
         actions.addAll(immutablePair.getLeft());
-        jarUrls.addAll(immutablePair.getRight());
+
+        try {
+            Set<URL> pluginJarStoragePathSet =
+                    connectorPackageClient.uploadCommonPluginJars(
+                            Long.parseLong(jobConfig.getJobContext().getJobId()), commonPluginJars);
+            Set<URL> pluginJars = immutablePair.getRight();
+            Iterator<URL> iterator = pluginJars.iterator();
+            while (iterator.hasNext()) {
+                URL pluginJarUrl = iterator.next();
+                if (commonPluginJars.contains(pluginJarUrl)) continue;
+                URL storagePath =
+                        connectorPackageClient.uploadConnectorPluginJar(
+                                Long.parseLong(jobConfig.getJobContext().getJobId()), pluginJarUrl);
+                pluginJarStoragePathSet.add(storagePath);
+            }
+            pluginJarStoragePathSet.addAll(pluginJarStoragePathSet);
+
+            jarUrls.addAll(pluginJarStoragePathSet);
+        } catch (MalformedURLException e) {
+            LOGGER.warning(String.format("File URL conversion failed!"));
+        }
+
+        actions.forEach(
+                action -> {
+                    Config config = action.getConfig();
+                });
         return getLogicalDagGenerator().generate();
     }
 }

@@ -253,4 +253,12 @@ public class SeaTunnelServer
             coordinatorService.printJobDetailInfo();
         }
     }
+
+    public SeaTunnelConfig getSeaTunnelConfig() {
+        return seaTunnelConfig;
+    }
+
+    public NodeEngineImpl getNodeEngine() {
+        return nodeEngine;
+    }
 }

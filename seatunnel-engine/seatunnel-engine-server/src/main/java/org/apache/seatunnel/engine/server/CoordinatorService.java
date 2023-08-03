@@ -40,6 +40,7 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
@@ -86,6 +87,8 @@ public class CoordinatorService {
     private volatile ResourceManager resourceManager;
 
     private JobHistoryService jobHistoryService;
+
+    private ConnectorPackageService connectorPackageService;
 
     /**
      * IMap key is jobId and value is {@link JobInfo}. Tuple2 key is JobMaster init timestamp and
@@ -170,6 +173,7 @@ public class CoordinatorService {
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
         masterActiveListener.scheduleAtFixedRate(
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
+        connectorPackageService = new ConnectorPackageService(seaTunnelServer);
     }
 
     public JobHistoryService getJobHistoryService() {
@@ -806,5 +810,9 @@ public class CoordinatorService {
                         suspendedJobCount,
                         "reconcilingJobCount",
                         reconcilingJobCount));
+    }
+
+    public ConnectorPackageService getConnectorPackageService() {
+        return connectorPackageService;
     }
 }
