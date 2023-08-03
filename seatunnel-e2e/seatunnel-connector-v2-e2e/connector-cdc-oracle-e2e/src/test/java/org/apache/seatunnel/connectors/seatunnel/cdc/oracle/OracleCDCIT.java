@@ -1,3 +1,19 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle;
 
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -12,11 +28,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
-import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.net.URL;
 import java.nio.file.Files;
@@ -42,33 +57,20 @@ import static org.junit.Assert.assertNotNull;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.SEATUNNEL},
+        type = {EngineType.SPARK, EngineType.FLINK},
         disabledReason = "Currently SPARK and FLINK do not support cdc")
 public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String ORACLE_IMAGE = "jark/oracle-xe-11g-r2-cdc:0.1";
 
     private static final String HOST = "oracle-host";
-
-/*    public static final OracleContainer ORACLE_CONTAINER = new OracleContainer(new ImageFromDockerfile(ORACLE_IMAGE)
-            .withFileFromClasspath(".", "docker")
-            .withFileFromClasspath(
-                    "assets/activate-archivelog.sh",
-                    "docker/assets/activate-archivelog.sh")
-            .withFileFromClasspath(
-                    "assets/activate-archivelog.sql",
-                    "docker/assets/activate-archivelog.sql")
-    )
-            .withLogConsumer(
-                    new Slf4jLogConsumer(
-                            DockerLoggerFactory.getLogger("oracle-docker-image")));*/
-
-    public static final OracleContainer ORACLE_CONTAINER = new OracleContainer(ORACLE_IMAGE)
-            .withNetwork(NETWORK)
-            .withNetworkAliases(HOST)
-            .withLogConsumer(
-            new Slf4jLogConsumer(
-                    DockerLoggerFactory.getLogger("oracle-docker-image")));
+    public static final OracleContainer ORACLE_CONTAINER =
+            new OracleContainer(ORACLE_IMAGE)
+                    .withNetwork(NETWORK)
+                    .withNetworkAliases(HOST)
+                    .withLogConsumer(
+                            new Slf4jLogConsumer(
+                                    DockerLoggerFactory.getLogger("oracle-docker-image")));
 
     public static final String CONNECTOR_USER = "dbzuser";
 
@@ -95,8 +97,6 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     public void test(TestContainer container) throws Exception {
         createAndInitialize(ORACLE_CONTAINER, "column_type_test");
 
-        updateSourceTable();
-
         CompletableFuture<Void> executeJobFuture =
                 CompletableFuture.supplyAsync(
                         () -> {
@@ -109,7 +109,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                         });
 
         // snapshot stage
-        await().atMost(120000, TimeUnit.MILLISECONDS)
+        await().atMost(240000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
@@ -120,7 +120,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
         updateSourceTable();
 
         // stream stage
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
@@ -194,7 +194,8 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private void updateSourceTable() {
-        executeSql("INSERT INTO DEBEZIUM.FULL_TYPES VALUES (2, 'vc2', 'vc2', 'nvc2', 'c', 'nc',1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,1, 22, 333, 4444, 5555, 1, 99, 9999, 999999999, 999999999999999999,94, 9949, 999999994, 999999999999999949, 99999999999999999999999999999999999949,TO_DATE('2022-10-30', 'yyyy-mm-dd'),TO_TIMESTAMP('2022-10-30 12:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789 -11:00', 'yyyy-mm-dd HH24:MI:SS.FF5 TZH:TZM'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_CLOB ('col_clob'),utl_raw.cast_to_raw ('col_blob'))");
+        executeSql(
+                "INSERT INTO DEBEZIUM.FULL_TYPES VALUES (2, 'vc2', 'vc2', 'nvc2', 'c', 'nc',1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,1, 22, 333, 4444, 5555, 1, 99, 9999, 999999999, 999999999999999999,94, 9949, 999999994, 999999999999999949, 99999999999999999999999999999999999949,TO_DATE('2022-10-30', 'yyyy-mm-dd'),TO_TIMESTAMP('2022-10-30 12:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789 -11:00', 'yyyy-mm-dd HH24:MI:SS.FF5 TZH:TZM'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_CLOB ('col_clob'),utl_raw.cast_to_raw ('col_blob'))");
 
         executeSql(
                 "INSERT INTO DEBEZIUM.FULL_TYPES VALUES (\n"

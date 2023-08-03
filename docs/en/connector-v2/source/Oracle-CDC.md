@@ -1,10 +1,10 @@
-# MySQL CDC
+# Oracle CDC
 
-> MySQL CDC source connector
+> Oracle CDC source connector
 
 ## Description
 
-The Oracle CDC connector allows for reading snapshot data and incremental data from MySQL database. This document
+The Oracle CDC connector allows for reading snapshot data and incremental data from Oracle database. This document
 describes how to set up the Oracle CDC connector to run SQL queries against Oracle databases.
 
 ## Key features
@@ -18,7 +18,7 @@ describes how to set up the Oracle CDC connector to run SQL queries against Orac
 
 ## Options
 
-| name                                           | type     | required | default value |
+|                      name                      |   type   | required | default value |
 |------------------------------------------------|----------|----------|---------------|
 | username                                       | String   | Yes      | -             |
 | password                                       | String   | Yes      | -             |
@@ -69,11 +69,11 @@ Table name of the database to monitor. The table name needs to include the datab
 
 ### base-url [String]
 
-URL has to be with database, like "jdbc:mysql://localhost:5432/db" or "jdbc:mysql://localhost:5432/db?useSSL=true".
+URL has to be with database, like "jdbc:mysql://localhost:5432/db" or "jdbc:oracle:thin:@oracle-host:52884:xe".
 
 ### startup.mode [Enum]
 
-Optional startup mode for MySQL CDC consumer, valid enumerations are "initial", "earliest", "latest" and "specific".
+Optional startup mode for Oracle CDC consumer, valid enumerations are "initial", "earliest", "latest" and "specific".
 
 ### startup.timestamp [Long]
 
@@ -95,7 +95,7 @@ Start from the specified binlog file position.
 
 ### stop.mode [Enum]
 
-Optional stop mode for MySQL CDC consumer, valid enumerations are "never".
+Optional stop mode for Oracle CDC consumer, valid enumerations are "never".
 
 ### stop.timestamp [Long]
 
@@ -159,6 +159,16 @@ The max retry times that the connector should retry to build database server con
 ### connection.pool.size [Integer]
 
 The connection pool size.
+
+### schema-names [List]
+
+Schema name of the database to monitor
+
+### scan.incremental.snapshot.chunk.key-column [String]
+
+The chunk key of table snapshot, captured tables are split into multiple chunks by a chunk key when read the snapshot of table.
+By default, the chunk key is the first column of the primary key and the chunk key is the RowId in oracle.
+This column must be a column of the primary key.
 
 ### exactly_once [Boolean]
 

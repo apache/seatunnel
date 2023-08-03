@@ -42,6 +42,7 @@ public class OracleTypeUtils {
             case Types.NVARCHAR:
             case Types.STRUCT:
             case Types.CLOB:
+            case OracleTypes.TIMESTAMPTZ:
                 return BasicType.STRING_TYPE;
             case Types.BLOB:
                 return PrimitiveByteArrayType.INSTANCE;
@@ -64,7 +65,6 @@ public class OracleTypeUtils {
                 return LocalTimeType.LOCAL_DATE_TYPE;
             case Types.TIMESTAMP:
             case Types.TIMESTAMP_WITH_TIMEZONE:
-            case OracleTypes.TIMESTAMPTZ:
             case OracleTypes.TIMESTAMPLTZ:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case Types.BOOLEAN:

@@ -43,7 +43,7 @@ import java.util.Map;
 
 public class OracleSnapshotFetchTask implements FetchTask<SourceSplitBase> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(OracleSnapshotSplitReadTask.class);
+    private static final Logger LOG = LoggerFactory.getLogger(OracleSnapshotFetchTask.class);
     private final SnapshotSplit split;
 
     private volatile boolean taskRunning = false;
