@@ -190,6 +190,8 @@ source {
     debezium {
         snapshot.mode = "never"
         decimal.handling.mode = "double"
+        debezium.log.mining.strategy = online_catalog
+        debezium.log.mining.continuous.mine = true
     }
   }
 }
