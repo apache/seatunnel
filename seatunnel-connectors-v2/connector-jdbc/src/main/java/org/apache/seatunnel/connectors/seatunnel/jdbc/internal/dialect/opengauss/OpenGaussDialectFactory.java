@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.opengauss;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+
+import com.google.auto.service.AutoService;
 
 @AutoService(JdbcDialectFactory.class)
 public class OpenGaussDialectFactory implements JdbcDialectFactory {
