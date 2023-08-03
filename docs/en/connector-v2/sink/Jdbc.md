@@ -157,7 +157,7 @@ In the case of is_exactly_once = "true", Xa transactions are used. This requires
 
 there are some reference value for params above.
 
-| datasource |                    driver                    |                                url                                 |             xa_data_source_class_name              |                                                    maven                                                    |
+| datasource | driver                                       | url                                                                | xa_data_source_class_name                          |                                                    maven                                                    |
 |------------|----------------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | MySQL      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | PostgreSQL | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                |
@@ -176,6 +176,7 @@ there are some reference value for params above.
 | Snowflake  | net.snowflake.client.jdbc.SnowflakeDriver    | jdbc:snowflake://<account_name>.snowflakecomputing.com             | /                                                  | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                             |
 | Vertica    | com.vertica.jdbc.Driver                      | jdbc:vertica://localhost:5433                                      | /                                                  | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar             |
 | OceanBase  | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                    | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar              |
+| OpenGauss  | org.opengauss.Driver                         | jdbc:opengauss://localhost:8080/test                               | org.opengauss.xa.PGXADataSource                    | https://mvnrepository.com/artifact/org.opengauss/opengauss-jdbc/5.0.0-og                                    |
 
 ## Example
 
