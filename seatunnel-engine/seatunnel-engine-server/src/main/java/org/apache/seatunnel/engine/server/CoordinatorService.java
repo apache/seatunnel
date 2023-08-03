@@ -173,7 +173,6 @@ public class CoordinatorService {
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
         masterActiveListener.scheduleAtFixedRate(
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
-        connectorPackageService = new ConnectorPackageService(seaTunnelServer);
     }
 
     public JobHistoryService getJobHistoryService() {
@@ -225,6 +224,8 @@ public class CoordinatorService {
                         nodeEngine
                                 .getHazelcastInstance()
                                 .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO));
+
+        connectorPackageService = new ConnectorPackageService(seaTunnelServer);
 
         List<CompletableFuture<Void>> collect =
                 runningJobInfoIMap.entrySet().stream()
