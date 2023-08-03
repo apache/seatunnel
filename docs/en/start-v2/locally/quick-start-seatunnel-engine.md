@@ -11,7 +11,7 @@ Before starting, make sure you have downloaded and deployed SeaTunnel as describ
 
 ## Step 2: Add Job Config File to define a job
 
-Edit `config/v2.batch.conf.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
+Edit `config/v2.batch.config.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
 The following is an example of the configuration file, which is the same as the example application mentioned above.
 
 ```hocon
@@ -60,7 +60,7 @@ You could start the application by the following commands
 
 ```shell
 cd "apache-seatunnel-incubating-${version}"
-./bin/seatunnel.sh --config ./config/v2.streaming.conf.template -e local
+./bin/seatunnel.sh --config ./config/v2.batch.config.template -e local
 
 ```
 

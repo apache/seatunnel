@@ -43,7 +43,7 @@ public class GetJobMetricsTask extends AbstractSeaTunnelMessageTask<Long, String
 
     @Override
     public String getMethodName() {
-        return "getJobStatus";
+        return "getJobMetrics";
     }
 
     @Override

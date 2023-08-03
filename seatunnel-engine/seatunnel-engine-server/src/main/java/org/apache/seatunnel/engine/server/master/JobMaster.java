@@ -273,7 +273,8 @@ public class JobMaster {
 
         if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
             jobCheckpointConfig.setCheckpointInterval(
-                    (Long) jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
+                    Long.parseLong(
+                            jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()).toString()));
         }
         return jobCheckpointConfig;
     }
@@ -325,7 +326,10 @@ public class JobMaster {
         }
     }
 
-    public void handleCheckpointError(long pipelineId) {
+    public void handleCheckpointError(long pipelineId, boolean neverRestore) {
+        if (neverRestore) {
+            this.neverNeedRestore();
+        }
         this.physicalPlan
                 .getPipelineList()
                 .forEach(

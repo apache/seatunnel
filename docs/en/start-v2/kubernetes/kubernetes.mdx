@@ -42,16 +42,14 @@ To run the image with SeaTunnel, first create a `Dockerfile`:
 ```Dockerfile
 FROM flink:1.13
 
-ENV SEATUNNEL_VERSION="2.3.0"
-ENV SEATUNNEL_HOME = "/opt/seatunnel"
+ENV SEATUNNEL_VERSION="2.3.2"
+ENV SEATUNNEL_HOME="/opt/seatunnel"
 
-RUN mkdir -p $SEATUNNEL_HOME
+RUN wget https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
+RUN tar -xzvf apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
+RUN mv apache-seatunnel-${SEATUNNEL_VERSION} ${SEATUNNEL_HOME}
 
-RUN wget https://archive.apache.org/dist/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-incubating-${SEATUNNEL_VERSION}-bin.tar.gz
-RUN tar -xzvf apache-seatunnel-incubating-${SEATUNNEL_VERSION}-bin.tar.gz
-
-RUN cp -r apache-seatunnel-incubating-${SEATUNNEL_VERSION}/* $SEATUNNEL_HOME/
-RUN rm -rf apache-seatunnel-incubating-${SEATUNNEL_VERSION}*
+RUN cd ${SEATUNNEL_HOME}||sh bin/install-plugin.sh ${SEATUNNEL_VERSION}
 ```
 
 Then run the following commands to build the image:
@@ -78,7 +76,7 @@ minikube image load seatunnel:2.3.0-flink-1.13
   ]}>
 <TabItem value="flink">
 
-The steps below provide a quick walk-through on setting up the Flink Kubernetes Operator.   
+The steps below provide a quick walk-through on setting up the Flink Kubernetes Operator.
 You can refer to [Flink Kubernetes Operator - Quick Start](https://nightlies.apache.org/flink/flink-kubernetes-operator-docs-main/docs/try-flink-kubernetes-operator/quick-start/) for more details.
 
 > Notice: All the Kubernetes resources bellow are created in default namespace.
@@ -206,7 +204,7 @@ spec:
               path: seatunnel.streaming.conf
   job:
     jarURI: local:///opt/seatunnel/starter/seatunnel-flink-starter.jar
-    entryClass: org.apache.seatunnel.core.starter.flink.SeatunnelFlink
+    entryClass: org.apache.seatunnel.core.starter.flink.SeaTunnelFlink
     args: ["--config", "/data/seatunnel.streaming.conf"]
     parallelism: 2
     upgradeMode: stateless
