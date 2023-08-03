@@ -402,7 +402,7 @@ jobs:
           fi
         env:
           MAVEN_OPTS: -Xmx2048m
-    updated-modules-integration-test-part-5:
+  updated-modules-integration-test-part-5:
       needs: [ changes, sanity-check ]
       if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
       runs-on: ${{ matrix.os }}
