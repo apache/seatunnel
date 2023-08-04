@@ -34,14 +34,14 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> {
-    private final WriteStrategy writeStrategy;
+    protected final WriteStrategy writeStrategy;
     private final FileSystemUtils fileSystemUtils;
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -67,7 +67,7 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
                 List<String> transactions = findTransactionList(jobId, uuidPrefix);
                 FileSinkAggregatedCommitter fileSinkAggregatedCommitter =
                         new FileSinkAggregatedCommitter(fileSystemUtils);
-                HashMap<String, FileSinkState> fileStatesMap = new HashMap<>();
+                LinkedHashMap<String, FileSinkState> fileStatesMap = new LinkedHashMap<>();
                 fileSinkStates.forEach(
                         fileSinkState ->
                                 fileStatesMap.put(fileSinkState.getTransactionId(), fileSinkState));

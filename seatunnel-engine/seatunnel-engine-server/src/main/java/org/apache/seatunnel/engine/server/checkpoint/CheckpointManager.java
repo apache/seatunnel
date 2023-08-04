@@ -174,8 +174,8 @@ public class CheckpointManager {
         getCheckpointCoordinator(pipelineId).restoreCoordinator(alreadyStarted);
     }
 
-    protected void handleCheckpointError(int pipelineId) {
-        jobMaster.handleCheckpointError(pipelineId);
+    protected void handleCheckpointError(int pipelineId, boolean neverRestore) {
+        jobMaster.handleCheckpointError(pipelineId, neverRestore);
     }
 
     private CheckpointCoordinator getCheckpointCoordinator(TaskLocation taskLocation) {

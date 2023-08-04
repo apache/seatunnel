@@ -32,10 +32,11 @@ import java.util.Optional;
 
 @AutoService(Factory.class)
 public class SqlServerCatalogFactory implements CatalogFactory {
+    public static final String IDENTIFIER = "SqlServer";
 
     @Override
     public String factoryIdentifier() {
-        return "SqlServer";
+        return IDENTIFIER;
     }
 
     @Override
@@ -50,7 +51,8 @@ public class SqlServerCatalogFactory implements CatalogFactory {
                 catalogName,
                 options.get(JdbcCatalogOptions.USERNAME),
                 options.get(JdbcCatalogOptions.PASSWORD),
-                urlInfo);
+                urlInfo,
+                options.get(JdbcCatalogOptions.SCHEMA));
     }
 
     @Override
