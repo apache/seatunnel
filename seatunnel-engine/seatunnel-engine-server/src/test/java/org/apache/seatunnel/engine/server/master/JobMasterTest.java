@@ -139,7 +139,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
         jobMaster.neverNeedRestore();
         // call checkpoint timeout
-        jobMaster.handleCheckpointError(1);
+        jobMaster.handleCheckpointError(1, false);
 
         PassiveCompletableFuture<JobResult> jobMasterCompleteFuture =
                 jobMaster.getJobMasterCompleteFuture();

@@ -36,10 +36,9 @@ Output data to aws s3 file system.
 ## Database Dependency
 
 > If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
-
+>
 > If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
-To use this connector you need put hadoop-aws-3.1.4.jar and aws-java-sdk-bundle-1.11.271.jar in ${SEATUNNEL_HOME}/lib dir.
-
+> To use this connector you need put hadoop-aws-3.1.4.jar and aws-java-sdk-bundle-1.11.271.jar in ${SEATUNNEL_HOME}/lib dir.
 
 ## Data Type Mapping
 
@@ -47,55 +46,51 @@ If write to `csv`, `text` file type, All column will be string.
 
 ### Orc File Type
 
-
-| SeaTunnel Data type   | Orc Data type          |
-|-----------------------|------------------------|
-| STRING                | STRING                 |
-| BOOLEAN               | BOOLEAN                |
-| TINYINT               | BYTE                   |
-| SMALLINT              | SHORT                  |
-| INT                   | INT                    |
-| BIGINT                | LONG                   |
-| FLOAT                 | FLOAT                  |
-| FLOAT                 | FLOAT                  |
-| DOUBLE                | DOUBLE                 |
-| DECIMAL               | DECIMAL                |
-| BYTES                 | BINARY                 |
-| DATE                  | DATE                   |
-| TIME <br/> TIMESTAMP  | TIMESTAMP              |
-| ROW                   | STRUCT                 |
-| NULL                  | UNSUPPORTED DATA TYPE  |
-| ARRAY                 | LIST                   |
-| Map                   | Map                    |
-
+| SeaTunnel Data type  |     Orc Data type     |
+|----------------------|-----------------------|
+| STRING               | STRING                |
+| BOOLEAN              | BOOLEAN               |
+| TINYINT              | BYTE                  |
+| SMALLINT             | SHORT                 |
+| INT                  | INT                   |
+| BIGINT               | LONG                  |
+| FLOAT                | FLOAT                 |
+| FLOAT                | FLOAT                 |
+| DOUBLE               | DOUBLE                |
+| DECIMAL              | DECIMAL               |
+| BYTES                | BINARY                |
+| DATE                 | DATE                  |
+| TIME <br/> TIMESTAMP | TIMESTAMP             |
+| ROW                  | STRUCT                |
+| NULL                 | UNSUPPORTED DATA TYPE |
+| ARRAY                | LIST                  |
+| Map                  | Map                   |
 
 ### Parquet File Type
 
-
-| SeaTunnel Data type   | Parquet Data type     |
-|-----------------------|-----------------------|
-| STRING                | STRING                |
-| BOOLEAN               | BOOLEAN               |
-| TINYINT               | INT_8                 |
-| SMALLINT              | INT_16                |
-| INT                   | INT32                 |
-| BIGINT                | INT64                 |
-| FLOAT                 | FLOAT                 |
-| FLOAT                 | FLOAT                 |
-| DOUBLE                | DOUBLE                |
-| DECIMAL               | DECIMAL               |
-| BYTES                 | BINARY                |
-| DATE                  | DATE                  |
-| TIME <br/> TIMESTAMP  | TIMESTAMP_MILLIS      |
-| ROW                   | GroupType             |
-| NULL                  | UNSUPPORTED DATA TYPE |
-| ARRAY                 | LIST                  |
-| Map                   | Map                   |
+| SeaTunnel Data type  |   Parquet Data type   |
+|----------------------|-----------------------|
+| STRING               | STRING                |
+| BOOLEAN              | BOOLEAN               |
+| TINYINT              | INT_8                 |
+| SMALLINT             | INT_16                |
+| INT                  | INT32                 |
+| BIGINT               | INT64                 |
+| FLOAT                | FLOAT                 |
+| FLOAT                | FLOAT                 |
+| DOUBLE               | DOUBLE                |
+| DECIMAL              | DECIMAL               |
+| BYTES                | BINARY                |
+| DATE                 | DATE                  |
+| TIME <br/> TIMESTAMP | TIMESTAMP_MILLIS      |
+| ROW                  | GroupType             |
+| NULL                 | UNSUPPORTED DATA TYPE |
+| ARRAY                | LIST                  |
+| Map                  | Map                   |
 
 ## Sink Options
 
-
-| name                             | type    | required | default value                                         | Description                                                                                                                                                           |
+|               name               |  type   | required |                     default value                     |                                                                              Description                                                                              |
 |----------------------------------|---------|----------|-------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                             | string  | yes      | -                                                     |                                                                                                                                                                       |
 | bucket                           | string  | yes      | -                                                     |                                                                                                                                                                       |
@@ -121,8 +116,8 @@ If write to `csv`, `text` file type, All column will be string.
 | max_rows_in_memory               | int     | no       | -                                                     | Only used when file_format is excel.                                                                                                                                  |
 | sheet_name                       | string  | no       | Sheet${Random number}                                 | Only used when file_format is excel.                                                                                                                                  |
 | hadoop_s3_properties             | map     | no       |                                                       | If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)       |
+|                                  |
 
-                                                                                                                             |
 ### hadoop_s3_properties [map]
 
 If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
@@ -133,7 +128,6 @@ hadoop_s3_properties {
       "fs.s3a.fast.upload.buffer" = "disk"
    }
 ```
-
 
 ### custom_filename [boolean]
 
@@ -169,7 +163,7 @@ We supported as the following file types:
 
 `text` `json` `csv` `orc` `parquet` `excel`
 
-Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
+Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
 ### field_delimiter [string]
 

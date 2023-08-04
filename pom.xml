@@ -55,7 +55,7 @@
 
     <properties>
         <!--todo The classification is too confusing, reclassify by type-->
-        <revision>2.3.2-SNAPSHOT</revision>
+        <revision>2.3.3-SNAPSHOT</revision>
         <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
@@ -141,11 +141,6 @@
         <awaitility.version>4.2.0</awaitility.version>
         <e2e.dependency.skip>true</e2e.dependency.skip>
 
-        <!-- Imap storage dependency package  -->
-        <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
-        <json-smart.version>2.4.7</json-smart.version>
-        <hadoop-aws.version>3.1.4</hadoop-aws.version>
-        <netty-buffer.version>4.1.60.Final</netty-buffer.version>
     </properties>
 
     <dependencyManagement>
@@ -450,39 +445,6 @@
                 <version>${project.version}</version>
                 <classifier>optional</classifier>
                 <scope>provided</scope>
-            </dependency>
-
-            <!-- Imap storage dependency package  -->
-            <dependency>
-                <groupId>org.apache.hadoop</groupId>
-                <artifactId>hadoop-aliyun</artifactId>
-                <version>${hadoop-aliyun.version}</version>
-                <scope>provided</scope>
-                <exclusions>
-                    <exclusion>
-                        <groupId>net.minidev</groupId>
-                        <artifactId>json-smart</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>net.minidev</groupId>
-                <artifactId>json-smart</artifactId>
-                <version>${json-smart.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.hadoop</groupId>
-                <artifactId>hadoop-aws</artifactId>
-                <version>${hadoop-aws.version}</version>
-                <scope>provided</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-buffer</artifactId>
-                <version>${netty-buffer.version}</version>
             </dependency>
 
         </dependencies>

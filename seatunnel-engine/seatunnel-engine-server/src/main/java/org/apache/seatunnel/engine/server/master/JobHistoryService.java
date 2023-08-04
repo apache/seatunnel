@@ -42,7 +42,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class JobHistoryService {
@@ -101,10 +103,15 @@ public class JobHistoryService {
     // Gets the status of a running and completed job
     public String listAllJob() {
         List<JobStatusData> status = new ArrayList<>();
+        Set<Long> runningJonIds =
+                runningJobMasterMap.values().stream()
+                        .map(master -> master.getJobImmutableInformation().getJobId())
+                        .collect(Collectors.toSet());
         Stream.concat(
                         runningJobMasterMap.values().stream()
                                 .map(master -> toJobStateMapper(master, true)),
-                        finishedJobStateImap.values().stream())
+                        finishedJobStateImap.values().stream()
+                                .filter(jobState -> !runningJonIds.contains(jobState.getJobId())))
                 .forEach(
                         jobState -> {
                             JobStatusData jobStatusData =
