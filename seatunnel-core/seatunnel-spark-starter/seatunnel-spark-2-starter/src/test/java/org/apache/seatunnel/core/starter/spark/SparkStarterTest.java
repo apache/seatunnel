@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.core.starter.spark;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -29,6 +27,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SparkStarterTest {
 
@@ -43,11 +43,11 @@ public class SparkStarterTest {
 
     @Test
     void testSparkOnYarnWithKerberos() throws IOException {
-        String path = Thread
-            .currentThread()
-            .getContextClassLoader()
-            .getResource("spark_application.conf")
-            .getPath();
+        String path =
+                Thread.currentThread()
+                        .getContextClassLoader()
+                        .getResource("spark_application.conf")
+                        .getPath();
         String[] args = {
             "-c",
             path,
