@@ -8,6 +8,7 @@
 - [Starter][Flink]Support transform-v2 for flink #3396
 - [Flink] Support flink 1.14.x #3963
 - [Core][Translation][Spark] Fix SeaTunnelRowConvertor fail to convert when schema contains row type (#5170)
+- [Core][Spark] remove duplicate properties,and add OriginalParameters #5226
 
 ### Transformer
 - [Spark] Support transform-v2 for spark (#3409)
