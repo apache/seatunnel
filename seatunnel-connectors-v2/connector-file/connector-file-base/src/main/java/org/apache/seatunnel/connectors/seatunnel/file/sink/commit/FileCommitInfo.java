@@ -21,8 +21,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 @Data
 @AllArgsConstructor
@@ -34,7 +34,7 @@ public class FileCommitInfo implements Serializable {
      *
      * <p>V is the target file path of the data file.
      */
-    private final Map<String, String> needMoveFiles;
+    private final LinkedHashMap<String, String> needMoveFiles;
 
     /**
      * Storage the partition information in map.
@@ -43,7 +43,7 @@ public class FileCommitInfo implements Serializable {
      *
      * <p>V is the list of partition column's values.
      */
-    private final Map<String, List<String>> partitionDirAndValuesMap;
+    private final LinkedHashMap<String, List<String>> partitionDirAndValuesMap;
 
     /** Storage the transaction directory */
     private final String transactionDir;

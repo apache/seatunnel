@@ -57,6 +57,7 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                 .optional(BaseSourceConfig.DATE_FORMAT)
                 .optional(BaseSourceConfig.DATETIME_FORMAT)
                 .optional(BaseSourceConfig.TIME_FORMAT)
+                .optional(BaseSourceConfig.FILE_FILTER_PATTERN)
                 .build();
     }
 

@@ -65,7 +65,10 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory, Suppor
                         JdbcSourceOptions.SERVER_TIME_ZONE,
                         JdbcSourceOptions.CONNECT_TIMEOUT_MS,
                         JdbcSourceOptions.CONNECT_MAX_RETRIES,
-                        JdbcSourceOptions.CONNECTION_POOL_SIZE)
+                        JdbcSourceOptions.CONNECTION_POOL_SIZE,
+                        JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
+                        JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
+                        JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD)
                 .optional(MySqlSourceOptions.STARTUP_MODE, MySqlSourceOptions.STOP_MODE)
                 .conditional(
                         MySqlSourceOptions.STARTUP_MODE,
@@ -85,6 +88,10 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory, Suppor
                         MySqlSourceOptions.STOP_MODE,
                         StopMode.TIMESTAMP,
                         SourceOptions.STOP_TIMESTAMP)
+                .conditional(
+                        MySqlSourceOptions.STARTUP_MODE,
+                        StartupMode.INITIAL,
+                        SourceOptions.EXACTLY_ONCE)
                 .build();
     }
 
