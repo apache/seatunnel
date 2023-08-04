@@ -70,9 +70,6 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver-e2e";
     private static final int SQLSERVER_CONTAINER_PORT = 1433;
-    private static final String SQLSERVER_URL =
-            "jdbc:sqlserver://" + AbstractJdbcIT.HOST + ":%s;encrypt=false;";
-    private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
 
     private static final String CREATE_DATABASE =
             "IF NOT EXISTS (\n"
@@ -143,7 +140,6 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 3306;
-    //    private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
 
     private static final String MYSQL_DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
 
@@ -151,12 +147,9 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     private static final String ORACLE_NETWORK_ALIASES = "e2e_oracleDb";
     private static final String ORACLE_DRIVER_CLASS = "oracle.jdbc.OracleDriver";
     private static final int ORACLE_PORT = 1521;
-    //    private static final String ORACLE_URL = "jdbc:oracle:thin:@" + HOST + ":%s/%s";
     private static final String USERNAME = "testUser";
     private static final String PASSWORD = "Abc!@#135_seatunnel";
     private static final String DATABASE = "TESTUSER";
-    private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
-    private static final String SINK_TABLE = "E2E_TABLE_SINK";
 
     private PostgreSQLContainer<?> POSTGRESQL_CONTAINER;
 
@@ -376,15 +369,19 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     public void tearDown() throws Exception {
         if (sqlserver_container != null) {
             sqlserver_container.close();
+            clearDockerImage(SQLSERVER_IMAGE);
         }
         if (mysql_container != null) {
             mysql_container.close();
+            clearDockerImage(MYSQL_IMAGE);
         }
         if (oracle_container != null) {
             oracle_container.close();
+            clearDockerImage(ORACLE_IMAGE);
         }
         if (POSTGRESQL_CONTAINER != null) {
             POSTGRESQL_CONTAINER.close();
+            clearDockerImage(PG_IMAGE);
         }
     }
 

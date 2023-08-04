@@ -69,7 +69,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
     private static final int SQLSERVER_CONTAINER_PORT = 14333;
-    private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
 
     private static final String PG_IMAGE = "postgis/postgis";
     private static final String PG_DRIVER_JAR =
@@ -86,7 +85,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private static final String MYSQL_USERNAME = "root";
     private static final String PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 33061;
-    //    private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
 
     private static final String MYSQL_DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
 
@@ -94,7 +92,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private static final String ORACLE_NETWORK_ALIASES = "e2e_oracleDb";
     private static final String ORACLE_DRIVER_CLASS = "oracle.jdbc.OracleDriver";
     private static final int ORACLE_PORT = 15211;
-    //    private static final String ORACLE_URL = "jdbc:oracle:thin:@" + HOST + ":%s/%s";
     private static final String USERNAME = "testUser";
     private static final String DATABASE = "TESTUSER";
 
@@ -197,7 +194,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                                         + driverMySqlUrl()
                                         + " && curl -O "
                                         + driverOracleUrl());
-                //                Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 
     String driverMySqlUrl() {
@@ -361,10 +357,22 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     @Override
     public void tearDown() throws Exception {
 
-        sqlserver_container.close();
-        mysql_container.close();
-        oracle_container.close();
-        POSTGRESQL_CONTAINER.close();
+        if (sqlserver_container != null) {
+            sqlserver_container.close();
+            clearDockerImage(SQLSERVER_IMAGE);
+        }
+        if (mysql_container != null) {
+            mysql_container.close();
+            clearDockerImage(MYSQL_IMAGE);
+        }
+        if (oracle_container != null) {
+            oracle_container.close();
+            clearDockerImage(ORACLE_IMAGE);
+        }
+        if (POSTGRESQL_CONTAINER != null) {
+            POSTGRESQL_CONTAINER.close();
+            clearDockerImage(PG_IMAGE);
+        }
     }
 
     private Connection getJdbcSqlServerConnection() throws SQLException {
