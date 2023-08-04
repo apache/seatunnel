@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SeaTunnelJobAware;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -84,7 +85,7 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      * @return Serializer of {@link StateT}
      */
     default Optional<Serializer<StateT>> getWriterStateSerializer() {
-        return Optional.empty();
+        return Optional.of(new DefaultSerializer());
     }
 
     /**
@@ -104,7 +105,7 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      * @return Serializer of {@link CommitInfoT}
      */
     default Optional<Serializer<CommitInfoT>> getCommitInfoSerializer() {
-        return Optional.empty();
+        return Optional.of(new DefaultSerializer());
     }
 
     /**
@@ -125,6 +126,6 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      * @return Serializer of {@link AggregatedCommitInfoT}
      */
     default Optional<Serializer<AggregatedCommitInfoT>> getAggregatedCommitInfoSerializer() {
-        return Optional.empty();
+        return Optional.of(new DefaultSerializer());
     }
 }
