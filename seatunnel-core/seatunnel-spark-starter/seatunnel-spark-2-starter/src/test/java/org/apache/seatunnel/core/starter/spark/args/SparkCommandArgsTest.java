@@ -18,6 +18,10 @@
 package org.apache.seatunnel.core.starter.spark.args;
 
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.core.starter.SeaTunnel;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.enums.EngineType;
+import org.apache.seatunnel.core.starter.spark.command.SparkTaskExecuteCommand;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 import org.junit.jupiter.api.Assertions;

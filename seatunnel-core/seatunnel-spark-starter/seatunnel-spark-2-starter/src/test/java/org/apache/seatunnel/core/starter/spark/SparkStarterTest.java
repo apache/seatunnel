@@ -17,15 +17,18 @@
 
 package org.apache.seatunnel.core.starter.spark;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SparkStarterTest {
 
@@ -36,5 +39,34 @@ public class SparkStarterTest {
         Map<String, String> sparkConf = SparkStarter.getSparkConf(file);
         assertEquals("SeaTunnel", sparkConf.get("job.name"));
         assertEquals("1", sparkConf.get("spark.executor.cores"));
+    }
+
+    @Test
+    void testSparkOnYarnWithKerberos() throws IOException {
+        String path = Thread
+            .currentThread()
+            .getContextClassLoader()
+            .getResource("spark_application.conf")
+            .getPath();
+        String[] args = {
+            "-c",
+            path,
+            "-e",
+            "client",
+            "-m",
+            "yarn",
+            "--queue",
+            "default",
+            "--principal",
+            "seatunnel@ST.COM",
+            "--keytab",
+            "/home/seatunnel/seatunnel.keytab",
+        };
+        SparkStarter sparkStarter = SparkStarter.getInstance(args);
+        List<String> commands = sparkStarter.buildCommands();
+        Assertions.assertNotNull(commands);
+        Assertions.assertTrue(commands.contains("--queue"));
+        Assertions.assertTrue(commands.contains("--principal"));
+        Assertions.assertTrue(commands.contains("--keytab"));
     }
 }
