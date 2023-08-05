@@ -359,19 +359,15 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
 
         if (sqlserver_container != null) {
             sqlserver_container.close();
-            clearDockerImage(SQLSERVER_IMAGE);
         }
         if (mysql_container != null) {
             mysql_container.close();
-            clearDockerImage(MYSQL_IMAGE);
         }
         if (oracle_container != null) {
             oracle_container.close();
-            clearDockerImage(ORACLE_IMAGE);
         }
         if (POSTGRESQL_CONTAINER != null) {
             POSTGRESQL_CONTAINER.close();
-            clearDockerImage(PG_IMAGE);
         }
     }
 
