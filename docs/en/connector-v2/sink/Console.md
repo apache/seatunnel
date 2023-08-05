@@ -55,7 +55,7 @@ sink {
 }
 ```
 
-### Multiple sources Simple:
+### Multiple Sources Simple:
 
 > This is a multiple source and you can specify a data source to write to the specified end
 
