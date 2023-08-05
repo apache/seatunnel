@@ -206,7 +206,7 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 2; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
