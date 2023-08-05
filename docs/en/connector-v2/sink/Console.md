@@ -73,6 +73,7 @@ source {
         id = "int"
         name = "string"
         age = "int"
+        sex = "string"
       }
     }
   }
