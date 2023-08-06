@@ -2,50 +2,80 @@
 
 > Kudu sink connector
 
-## Description
+## Support Those Engines
 
-Write data to Kudu.
-
-The tested kudu version is 1.11.1.
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key features
 
+- [x] [batch](../../concept/connector-v2-features.md)
+- [x] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
+- [x] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-## Options
+## Data Type Mapping
 
-|      name      |  type  | required | default value |
-|----------------|--------|----------|---------------|
-| kudu_master    | string | yes      | -             |
-| kudu_table     | string | yes      | -             |
-| save_mode      | string | yes      | -             |
-| common-options |        | no       | -             |
+| SeaTunnel Data type |      kudu Data type      |
+|---------------------|--------------------------|
+| BOOLEAN             | BOOL                     |
+| INT                 | INT8<br/>INT16<br/>INT32 |
+| BIGINT              | INT64                    |
+| DECIMAL(20,0)       | DECIMAL32                |
+| FLOAT               | FLOAT                    |
+| DOUBLE              | DOUBLE                   |
+| STRING              | STRING                   |
+| TIMESTAMP           | UNIXTIME_MICROS          |
+| ARRAY               | BINARY                   |
 
-### kudu_master [string]
+## Sink Options
 
-`kudu_master`  The address of kudu master,such as '192.168.88.110:7051'.
+|      Name      |  Type  | Required | Default |                                               Description                                                |
+|----------------|--------|----------|---------|----------------------------------------------------------------------------------------------------------|
+| kudu_master    | String | Yes      | -       | The address of kudu master,such as '192.168.88.110:7051'.                                                |
+| kudu_table     | String | Yes      | -       | The name of kudu table.                                                                                  |
+| save_mode      | String | No       | -       | Storage mode, we need support `overwrite` and `append`. `append` is now supported.                       |
+| common-options |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details. |
 
-### kudu_table [string]
+## Task Example
 
-`kudu_table` The name of kudu table..
+### Simple:
 
-### save_mode [string]
+> The following example refers to a Kudu table named "studentlyh2" with four fields: id, name, age, and sex, which will be imported into another Kudu table named "studentlyhresultflink" with the same table structure
 
-Storage mode, we need support `overwrite` and `append`. `append` is now supported.
+```hocon
 
-### common options
+# Defining the runtime environment
+env {
+  # You can set flink configuration here
+  execution.parallelism = 2
+  job.mode = "BATCH"
+}
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+source {
+   Kudu {
+      result_table_name = "studentlyh2"
+      kudu_master = "192.168.88.110:7051"
+      kudu_table = "studentlyh2"
+      columnsList = "id,name,age,sex"
+    }
+}
 
-## Example
+transform {
+    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+    # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+}
 
-```bash
-
- kudu {
+sink {
+     kudu {
       kudu_master = "192.168.88.110:7051"
       kudu_table = "studentlyhresultflink"
       save_mode="append"
    }
+}
 
 ```
 
