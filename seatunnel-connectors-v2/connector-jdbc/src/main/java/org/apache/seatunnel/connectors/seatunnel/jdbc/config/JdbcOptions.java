@@ -136,7 +136,7 @@ public interface JdbcOptions {
     Option<Boolean> SUPPORT_UPSERT_BY_INSERT_ONLY =
             Options.key("support_upsert_by_insert_only")
                     .booleanType()
-                    .defaultValue(false)
+                    .defaultValue(true)
                     .withDescription("support upsert by insert only");
 
     /** source config */
