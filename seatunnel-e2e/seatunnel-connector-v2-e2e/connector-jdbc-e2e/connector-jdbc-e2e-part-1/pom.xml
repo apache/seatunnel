@@ -45,6 +45,7 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>db2</artifactId>
             <version>${testcontainer.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>

@@ -30,7 +30,11 @@ import java.util.stream.Collectors;
 public class ClickhouseUtil {
 
     public static List<ClickHouseNode> createNodes(
-            String nodeAddress, String database, String username, String password) {
+            String nodeAddress,
+            String database,
+            String serverTimeZone,
+            String username,
+            String password) {
         return Arrays.stream(nodeAddress.split(","))
                 .map(
                         address -> {
@@ -42,12 +46,14 @@ public class ClickhouseUtil {
                                                 ClickHouseProtocol.HTTP,
                                                 Integer.parseInt(nodeAndPort[1]))
                                         .database(database)
+                                        .timeZone(serverTimeZone)
                                         .build();
                             }
                             return ClickHouseNode.builder()
                                     .host(nodeAndPort[0])
                                     .port(ClickHouseProtocol.HTTP, Integer.parseInt(nodeAndPort[1]))
                                     .database(database)
+                                    .timeZone(serverTimeZone)
                                     .credentials(
                                             ClickHouseCredentials.fromUserAndPassword(
                                                     username, password))

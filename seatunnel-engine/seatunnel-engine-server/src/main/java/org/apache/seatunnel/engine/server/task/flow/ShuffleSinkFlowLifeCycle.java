@@ -35,8 +35,6 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("MagicNumber")
 @Slf4j
@@ -113,43 +111,6 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle
         }
     }
 
-    public CompletableFuture<Boolean> registryScheduleFlushTask(
-            ScheduledExecutorService scheduledExecutorService) {
-        // todo Register when the job started, Unload at the end(pause/cancel/crash) of the job
-        CompletableFuture<Boolean> completedFuture = new CompletableFuture();
-        Runnable scheduleFlushTask =
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        if (!prepareClose
-                                && shuffleBufferSize > 0
-                                && System.currentTimeMillis() - lastModify
-                                        > shuffleBatchFlushInterval) {
-
-                            try {
-                                shuffleFlush();
-                            } catch (Exception e) {
-                                log.error("Execute schedule task error.", e);
-                            }
-                        }
-
-                        // submit next task
-                        if (!prepareClose) {
-                            Runnable nextScheduleFlushTask = this;
-                            scheduledExecutorService.schedule(
-                                    nextScheduleFlushTask,
-                                    shuffleBatchFlushInterval,
-                                    TimeUnit.MILLISECONDS);
-                        } else {
-                            completedFuture.complete(true);
-                        }
-                    }
-                };
-        scheduledExecutorService.schedule(
-                scheduleFlushTask, shuffleBatchFlushInterval, TimeUnit.MILLISECONDS);
-        return completedFuture;
-    }
-
     private synchronized void shuffleItem(Record<?> record) {
         String shuffleKey = shuffleStrategy.createShuffleKey(record, pipelineId, taskIndex);
         shuffleBuffer.computeIfAbsent(shuffleKey, key -> new LinkedList<>()).add(record);
@@ -160,8 +121,6 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle
                         && System.currentTimeMillis() - lastModify > shuffleBatchFlushInterval)) {
             shuffleFlush();
         }
-
-        lastModify = System.currentTimeMillis();
     }
 
     private synchronized void shuffleFlush() {
@@ -185,5 +144,6 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle
             shuffleQueueBatch.clear();
         }
         shuffleBufferSize = 0;
+        lastModify = System.currentTimeMillis();
     }
 }

@@ -80,7 +80,7 @@ public class ParallelEnumeratorContext<SplitT extends SourceSplit>
     @Override
     public MetricsContext getMetricsContext() {
         // TODO Waiting for Flink and Spark to implement MetricsContext
-        // https://github.com/apache/incubator-seatunnel/issues/3431
+        // https://github.com/apache/seatunnel/issues/3431
         return new AbstractMetricsContext() {};
     }
 }

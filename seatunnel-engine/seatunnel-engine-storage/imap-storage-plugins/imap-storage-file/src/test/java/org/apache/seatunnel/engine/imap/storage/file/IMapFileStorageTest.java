@@ -56,11 +56,13 @@ public class IMapFileStorageTest {
         CONF.set("fs.defaultFS", "file:///");
         CONF.set("fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem");
         STORAGE = new IMapFileStorage();
+
         Map<String, Object> properties = new HashMap<>();
+        properties.put("fs.defaultFS", "file:///");
+        properties.put("fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem");
         properties.put(FileConstants.FileInitProperties.BUSINESS_KEY, "random");
         properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "/tmp/imap-kris-test/2");
         properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, "test-one");
-        properties.put(FileConstants.FileInitProperties.HDFS_CONFIG_KEY, CONF);
         properties.put(WRITE_DATA_TIMEOUT_MILLISECONDS_KEY, 60L);
 
         STORAGE.initialize(properties);

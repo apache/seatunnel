@@ -6,7 +6,7 @@
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key Features
 
@@ -34,7 +34,7 @@ semantics (using XA transaction guarantee).
 
 ## Data Type Mapping
 
-|                                                          Mysql Data type                                                          |                                                                 Seatunnel Data type                                                                 |
+|                                                          Mysql Data type                                                          |                                                                 SeaTunnel Data type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
@@ -130,7 +130,10 @@ sink {
 }
 ```
 
+### Generate Sink SQL
+
 > This example  not need to write complex sql statements, you can configure the database name table name to automatically generate add statements for you
+
 ```
 sink {
     jdbc {
@@ -138,7 +141,7 @@ sink {
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
-        
+        # Automatically generate sql statements based on database table names
         generate_sink_sql = true
         database = test
         table = test_table

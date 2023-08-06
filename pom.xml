@@ -55,7 +55,7 @@
 
     <properties>
         <!--todo The classification is too confusing, reclassify by type-->
-        <revision>2.3.2-SNAPSHOT</revision>
+        <revision>2.3.3-SNAPSHOT</revision>
         <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
@@ -140,6 +140,7 @@
         <checker.qual.version>3.10.0</checker.qual.version>
         <awaitility.version>4.2.0</awaitility.version>
         <e2e.dependency.skip>true</e2e.dependency.skip>
+
     </properties>
 
     <dependencyManagement>
@@ -447,7 +448,6 @@
             </dependency>
 
         </dependencies>
-
     </dependencyManagement>
 
     <dependencies>
@@ -838,7 +838,7 @@
         </plugins>
     </build>
 
-    <url>https://github.com/apache/incubator-seatunnel</url>
+    <url>https://github.com/apache/seatunnel</url>
 
     <licenses>
         <license>
@@ -863,15 +863,15 @@
     </mailingLists>
 
     <scm>
-        <connection>scm:git:https://github.com/apache/incubator-seatunnel.git</connection>
-        <developerConnection>scm:git:https://github.com/apache/incubator-seatunnel.git</developerConnection>
-        <url>https://github.com/apache/incubator-seatunnel</url>
+        <connection>scm:git:https://github.com/apache/seatunnel.git</connection>
+        <developerConnection>scm:git:https://github.com/apache/seatunnel.git</developerConnection>
+        <url>https://github.com/apache/seatunnel</url>
         <tag>HEAD</tag>
     </scm>
 
     <issueManagement>
         <system>GitHub</system>
-        <url>https://github.com/apache/incubator-seatunnel/issues</url>
+        <url>https://github.com/apache/seatunnel/issues</url>
     </issueManagement>
 
     <profiles>

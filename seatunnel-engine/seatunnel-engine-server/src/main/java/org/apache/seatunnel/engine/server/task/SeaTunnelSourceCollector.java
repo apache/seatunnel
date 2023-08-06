@@ -40,6 +40,8 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
 
     private final Meter sourceReceivedQPS;
 
+    private volatile boolean emptyThisPollNext;
+
     public SeaTunnelSourceCollector(
             Object checkpointLock,
             List<OneInputFlowLifeCycle<Record<?>>> outputs,
@@ -54,6 +56,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     public void collect(T row) {
         try {
             sendRecordToNext(new Record<>(row));
+            emptyThisPollNext = false;
             sourceReceivedCount.inc();
             sourceReceivedQPS.markEvent();
         } catch (IOException e) {
@@ -64,6 +67,14 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     @Override
     public Object getCheckpointLock() {
         return checkpointLock;
+    }
+
+    public boolean isEmptyThisPollNext() {
+        return emptyThisPollNext;
+    }
+
+    public void resetEmptyThisPollNext() {
+        this.emptyThisPollNext = true;
     }
 
     public void sendRecordToNext(Record<?> record) throws IOException {

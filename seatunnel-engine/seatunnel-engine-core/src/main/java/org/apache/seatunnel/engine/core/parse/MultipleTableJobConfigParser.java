@@ -107,23 +107,27 @@ public class MultipleTableJobConfigParser {
     private final ReadonlyConfig envOptions;
 
     private final JobConfigParser fallbackParser;
+    private final boolean isStartWithSavePoint;
 
     public MultipleTableJobConfigParser(
             String jobDefineFilePath, IdGenerator idGenerator, JobConfig jobConfig) {
-        this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList());
+        this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList(), false);
     }
 
     public MultipleTableJobConfigParser(
             String jobDefineFilePath,
             IdGenerator idGenerator,
             JobConfig jobConfig,
-            List<URL> commonPluginJars) {
+            List<URL> commonPluginJars,
+            boolean isStartWithSavePoint) {
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
+        this.isStartWithSavePoint = isStartWithSavePoint;
         this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath));
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
-        this.fallbackParser = new JobConfigParser(idGenerator, commonPluginJars);
+        this.fallbackParser =
+                new JobConfigParser(idGenerator, commonPluginJars, isStartWithSavePoint);
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse() {
@@ -231,12 +235,11 @@ public class MultipleTableJobConfigParser {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
         envOptions
-                .getOptional(EnvCommonOptions.CHECKPOINT_INTERVAL)
-                .ifPresent(
-                        interval ->
-                                jobConfig
-                                        .getEnvOptions()
-                                        .put(EnvCommonOptions.CHECKPOINT_INTERVAL.key(), interval));
+                .toMap()
+                .forEach(
+                        (k, v) -> {
+                            jobConfig.getEnvOptions().put(k, v);
+                        });
     }
 
     private static <T extends Factory> boolean isFallback(
@@ -409,9 +412,9 @@ public class MultipleTableJobConfigParser {
         SeaTunnelDataType<?> expectedType = getProducedType(inputs.get(0)._2());
         checkProducedTypeEquals(inputActions);
         int spareParallelism = inputs.get(0)._2().getParallelism();
+        int parallelism =
+                readonlyConfig.getOptional(CommonOptions.PARALLELISM).orElse(spareParallelism);
         if (fallback) {
-            int parallelism =
-                    readonlyConfig.getOptional(CommonOptions.PARALLELISM).orElse(spareParallelism);
             Tuple2<CatalogTable, Action> tuple =
                     fallbackParser.parseTransform(
                             config,
@@ -437,6 +440,7 @@ public class MultipleTableJobConfigParser {
         TransformAction transformAction =
                 new TransformAction(
                         id, actionName, new ArrayList<>(inputActions), transform, factoryUrls);
+        transformAction.setParallelism(parallelism);
         tableWithActionMap.put(
                 tableId,
                 Collections.singletonList(
@@ -607,7 +611,9 @@ public class MultipleTableJobConfigParser {
                         sink,
                         factoryUrls,
                         actionConfig);
-        handleSaveMode(sink);
+        if (!isStartWithSavePoint) {
+            handleSaveMode(sink);
+        }
         sinkAction.setParallelism(parallelism);
         return sinkAction;
     }
@@ -615,7 +621,7 @@ public class MultipleTableJobConfigParser {
     public static void handleSaveMode(SeaTunnelSink<?, ?, ?, ?> sink) {
         if (SupportDataSaveMode.class.isAssignableFrom(sink.getClass())) {
             SupportDataSaveMode saveModeSink = (SupportDataSaveMode) sink;
-            DataSaveMode dataSaveMode = saveModeSink.getDataSaveMode();
+            DataSaveMode dataSaveMode = saveModeSink.getUserConfigSaveMode();
             saveModeSink.handleSaveMode(dataSaveMode);
         }
     }

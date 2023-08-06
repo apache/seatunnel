@@ -65,7 +65,7 @@ public class CanalJsonSerDeSchemaTest {
                 createCanalJsonDeserializationSchema(null, null);
         final SimpleCollector collector = new SimpleCollector();
 
-        deserializationSchema.deserialize(null, collector);
+        deserializationSchema.deserialize((byte[]) null, collector);
         assertEquals(0, collector.list.size());
     }
 

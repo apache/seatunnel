@@ -29,16 +29,16 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit
 
 import org.bson.BsonDocument;
 
-import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCursor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /** MongoReader reads MongoDB by splits (queries). */
 @Slf4j
@@ -71,43 +71,35 @@ public class MongodbReader implements SourceReader<SeaTunnelRow, MongoSplit> {
     }
 
     @Override
-    public void open() throws Exception {
+    public void open() {
         if (cursor != null) {
             cursor.close();
         }
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         if (cursor != null) {
             cursor.close();
         }
     }
 
     @Override
-    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+    public void pollNext(Collector<SeaTunnelRow> output) {
         synchronized (output.getCheckpointLock()) {
             MongoSplit currentSplit = pendingSplits.poll();
-            if (null != currentSplit) {
+            if (currentSplit != null) {
                 if (cursor != null) {
                     // current split is in-progress
                     return;
                 }
                 log.info("Prepared to read split {}", currentSplit.splitId());
-                FindIterable<BsonDocument> rs =
-                        clientProvider
-                                .getDefaultCollection()
-                                .find(currentSplit.getQuery())
-                                .projection(currentSplit.getProjection())
-                                .batchSize(readOptions.getFetchSize())
-                                .noCursorTimeout(readOptions.isNoCursorTimeout())
-                                .maxTime(readOptions.getMaxTimeMS(), TimeUnit.MINUTES);
-                cursor = rs.iterator();
-                while (cursor.hasNext()) {
-                    SeaTunnelRow deserialize = deserializer.deserialize(cursor.next());
-                    output.collect(deserialize);
+                try {
+                    getCursor(currentSplit);
+                    cursorToStream().map(deserializer::deserialize).forEach(output::collect);
+                } finally {
+                    closeCurrentSplit();
                 }
-                closeCurrentSplit();
             }
             if (noMoreSplit && pendingSplits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
@@ -117,8 +109,25 @@ public class MongodbReader implements SourceReader<SeaTunnelRow, MongoSplit> {
         }
     }
 
+    private void getCursor(MongoSplit split) {
+        cursor =
+                clientProvider
+                        .getDefaultCollection()
+                        .find(split.getQuery())
+                        .projection(split.getProjection())
+                        .batchSize(readOptions.getFetchSize())
+                        .noCursorTimeout(readOptions.isNoCursorTimeout())
+                        .maxTime(readOptions.getMaxTimeMS(), TimeUnit.MINUTES)
+                        .iterator();
+    }
+
+    private Stream<BsonDocument> cursorToStream() {
+        Iterable<BsonDocument> iterable = () -> cursor;
+        return StreamSupport.stream(iterable.spliterator(), false);
+    }
+
     @Override
-    public List<MongoSplit> snapshotState(long checkpointId) throws Exception {
+    public List<MongoSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(pendingSplits);
     }
 
@@ -135,7 +144,7 @@ public class MongodbReader implements SourceReader<SeaTunnelRow, MongoSplit> {
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) {}
 
     private void closeCurrentSplit() {
         Preconditions.checkNotNull(cursor);

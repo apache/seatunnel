@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
@@ -111,12 +112,16 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
                     (SqlServerSourceConfig) this.configFactory.create(0);
             TableId tableId =
                     this.dataSourceDialect.discoverDataCollections(sqlServerSourceConfig).get(0);
-            SqlServerConnection sqlServerConnection =
-                    createSqlServerConnection(sqlServerSourceConfig.getDbzConfiguration());
-            Table table =
-                    ((SqlServerDialect) dataSourceDialect)
-                            .queryTableSchema(sqlServerConnection, tableId)
-                            .getTable();
+            Table table;
+            try (SqlServerConnection sqlServerConnection =
+                    createSqlServerConnection(sqlServerSourceConfig.getDbzConfiguration())) {
+                table =
+                        ((SqlServerDialect) dataSourceDialect)
+                                .queryTableSchema(sqlServerConnection, tableId)
+                                .getTable();
+            } catch (Exception e) {
+                throw new SeaTunnelException(e);
+            }
             physicalRowType = convertFromTable(table);
         } else {
             physicalRowType = dataType;
