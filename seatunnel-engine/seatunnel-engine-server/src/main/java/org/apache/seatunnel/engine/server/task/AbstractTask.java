@@ -81,9 +81,7 @@ public abstract class AbstractTask implements Task {
     }
 
     @NonNull @Override
-    public ProgressState call() throws Exception {
-        return progress.toState();
-    }
+    public abstract ProgressState call() throws Exception;
 
     public TaskLocation getTaskLocation() {
         return this.taskLocation;

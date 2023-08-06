@@ -159,7 +159,7 @@ redis mode, `single` or `cluster`, default is `single`
 
 redis nodes information, used in cluster mode, must like as the following format:
 
-[host1:port1, host2:port2]
+["host1:port1", "host2:port2"]
 
 ### format [string]
 

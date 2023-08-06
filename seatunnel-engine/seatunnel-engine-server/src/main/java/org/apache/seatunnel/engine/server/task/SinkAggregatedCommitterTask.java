@@ -68,7 +68,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
 
     private static final long serialVersionUID = 5906594537520393503L;
 
-    private SeaTunnelTaskState currState;
+    private volatile SeaTunnelTaskState currState;
     private final SinkAction<?, ?, CommandInfoT, AggregatedCommitInfoT> sink;
     private final int maxWriterSize;
 
@@ -138,16 +138,22 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                 if (restoreComplete.isDone()) {
                     currState = READY_START;
                     reportTaskStatus(READY_START);
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case READY_START:
                 if (startCalled) {
                     currState = STARTING;
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case STARTING:
                 if (receivedSinkWriter) {
                     currState = RUNNING;
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case RUNNING:

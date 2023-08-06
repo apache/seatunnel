@@ -50,7 +50,7 @@ import java.util.stream.Stream;
 public class UniqueDatabase {
 
     private static final String[] CREATE_DATABASE_DDL =
-            new String[] {"CREATE DATABASE $DBNAME$;", "USE $DBNAME$;"};
+            new String[] {"CREATE DATABASE IF NOT EXISTS $DBNAME$;", "USE $DBNAME$;"};
     private static final Pattern COMMENT_PATTERN = Pattern.compile("^(.*)--.*$");
 
     private final MySqlContainer container;
@@ -80,6 +80,14 @@ public class UniqueDatabase {
         this.templateName = databaseName;
         this.username = username;
         this.password = password;
+    }
+
+    public UniqueDatabase(MySqlContainer container, String databaseName) {
+        this.container = container;
+        this.databaseName = databaseName;
+        this.templateName = databaseName;
+        this.username = container.getUsername();
+        this.password = container.getPassword();
     }
 
     public String getHost() {
