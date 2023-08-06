@@ -17,14 +17,15 @@
 
 package org.apache.seatunnel.engine.client.job;
 
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.logging.Logger;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelUploadConnectorJarCodec;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
+
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -53,7 +54,8 @@ public class ConnectorPackageClient {
         this.hazelcastClient = hazelcastClient;
     }
 
-    public Set<URL> uploadCommonPluginJars(long jobId, List<URL> commonPluginJars) throws MalformedURLException {
+    public Set<URL> uploadCommonPluginJars(long jobId, List<URL> commonPluginJars)
+            throws MalformedURLException {
         Set<URL> pluginJarsStoragePathSet = new HashSet<>();
         // Upload commonPluginJar
         for (URL commonPluginJar : commonPluginJars) {
@@ -63,7 +65,7 @@ public class ConnectorPackageClient {
             String pluginName = path.getName(directoryIndex).toString();
             PluginIdentifier pluginIdentifier = PluginIdentifier.of(null, null, pluginName);
             Optional<URL> optional = uploadCommonPluginJar(jobId, path, pluginIdentifier);
-            if(optional.isPresent()) {
+            if (optional.isPresent()) {
                 pluginJarsStoragePathSet.add(optional.get());
             }
         }
@@ -92,9 +94,7 @@ public class ConnectorPackageClient {
         try {
             return Optional.of(storageFile.toURI().toURL());
         } catch (MalformedURLException e) {
-            LOGGER.warning(String.format(
-                    "Cannot get plugin URL: {%s}",
-                    storageFile));
+            LOGGER.warning(String.format("Cannot get plugin URL: {%s}", storageFile));
             return Optional.empty();
         }
     }
@@ -125,9 +125,7 @@ public class ConnectorPackageClient {
         try {
             return Optional.of(storageFile.toURI().toURL());
         } catch (MalformedURLException e) {
-            LOGGER.warning(String.format(
-                    "Cannot get plugin URL: {%s}",
-                    storageFile));
+            LOGGER.warning(String.format("Cannot get plugin URL: {%s}", storageFile));
             return Optional.empty();
         }
     }
@@ -144,11 +142,11 @@ public class ConnectorPackageClient {
             }
             return outputStream.toByteArray();
         } catch (IOException e) {
-            LOGGER.warning(String.format(
-                    "Failed to read the connector jar package file : { %s } , the file to be read may not exist",
-                    filePath.toString()));
+            LOGGER.warning(
+                    String.format(
+                            "Failed to read the connector jar package file : { %s } , the file to be read may not exist",
+                            filePath.toString()));
             return new byte[0];
         }
-
     }
 }

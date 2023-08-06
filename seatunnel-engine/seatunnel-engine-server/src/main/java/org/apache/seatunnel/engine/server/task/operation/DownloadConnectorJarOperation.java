@@ -17,14 +17,16 @@
 
 package org.apache.seatunnel.engine.server.task.operation;
 
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
+import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+
+import org.apache.commons.lang3.tuple.ImmutablePair;
+
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
-import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import java.io.IOException;
 
@@ -34,8 +36,7 @@ public class DownloadConnectorJarOperation extends Operation implements Identifi
 
     private ImmutablePair<byte[], String> response;
 
-    public DownloadConnectorJarOperation() {
-    }
+    public DownloadConnectorJarOperation() {}
 
     public DownloadConnectorJarOperation(String connectorJarName) {
         this.connectorJarName = connectorJarName;
@@ -44,9 +45,9 @@ public class DownloadConnectorJarOperation extends Operation implements Identifi
     @Override
     public void run() throws Exception {
         SeaTunnelServer seaTunnelServer = getService();
-        ConnectorPackageService connectorPackageService = seaTunnelServer.getCoordinatorService().getConnectorPackageService();
+        ConnectorPackageService connectorPackageService =
+                seaTunnelServer.getCoordinatorService().getConnectorPackageService();
         response = connectorPackageService.readConnectorJarFromLocal(connectorJarName);
-
     }
 
     @Override

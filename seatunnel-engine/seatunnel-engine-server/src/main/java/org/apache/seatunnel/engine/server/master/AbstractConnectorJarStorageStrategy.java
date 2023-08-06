@@ -139,9 +139,10 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
             }
             return outputStream.toByteArray();
         } catch (IOException e) {
-            LOGGER.warning(String.format(
-                    "Failed to read the connector jar package file : { %s } , the file to be read may not exist",
-                    connectorJarFile));
+            LOGGER.warning(
+                    String.format(
+                            "Failed to read the connector jar package file : { %s } , the file to be read may not exist",
+                            connectorJarFile));
             return new byte[0];
         }
     }

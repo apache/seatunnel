@@ -17,18 +17,20 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import com.hazelcast.core.HazelcastInstanceNotActiveException;
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.logging.Logger;
-import com.hazelcast.spi.impl.NodeEngineImpl;
-import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.task.operation.DownloadConnectorJarOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
+
+import org.apache.commons.lang3.tuple.ImmutablePair;
+
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
+import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -61,13 +63,9 @@ public class ServerConnectorPackageClient {
 
     private final ReadWriteLock readWriteLock;
 
-    /**
-     * a time-to-live (TTL) and storage location for connector jar package.
-     */
+    /** a time-to-live (TTL) and storage location for connector jar package. */
     static class ExpiryTime {
-        /**
-         *  expiry time (no cleanup for non-positive values).
-         */
+        /** expiry time (no cleanup for non-positive values). */
         public long keepUntil = -1;
 
         public String storagePath = "";
@@ -78,17 +76,15 @@ public class ServerConnectorPackageClient {
         }
     }
 
-    /**
-     * Map to store the TTL of each connector jar package stored in the local storage.
-     **/
+    /** Map to store the TTL of each connector jar package stored in the local storage. */
     private final ConcurrentHashMap<String, ExpiryTime> connectorJarExpiryTimes =
             new ConcurrentHashMap<>();
 
-    public ServerConnectorPackageClient(NodeEngineImpl nodeEngine, SeaTunnelConfig seaTunnelConfig) {
+    public ServerConnectorPackageClient(
+            NodeEngineImpl nodeEngine, SeaTunnelConfig seaTunnelConfig) {
         this.nodeEngine = nodeEngine;
         this.connectorJarStorageConfig =
-                seaTunnelConfig.getEngineConfig()
-                .getConnectorJarStorageConfig();
+                seaTunnelConfig.getEngineConfig().getConnectorJarStorageConfig();
         this.connectorJarExpiryTime = connectorJarStorageConfig.getConnectorJarExpiryTime();
         // Initializing the clean up task
         this.cleanupTimer = new Timer(true);
@@ -102,20 +98,26 @@ public class ServerConnectorPackageClient {
     }
 
     public Set<URL> getConnectorJarPath(Set<URL> connectorJars) {
-        return connectorJars.stream().map(connectorJar ->{
-            String connectorJarStoragePath = getConnectorJarFileLocallyFirst(connectorJar.getFile());
-            File storageFile = new File(connectorJarStoragePath);
-            try {
-                return Optional.of(storageFile.toURI().toURL());
-            } catch (MalformedURLException e) {
-                LOGGER.warning(String.format(
-                        "Cannot get plugin URL: {%s}",
-                        storageFile));
-                return Optional.empty();
-            }
-        }).filter(Optional::isPresent).map(optional -> {
-            return (URL)optional.get();
-        }).collect(Collectors.toSet());
+        return connectorJars.stream()
+                .map(
+                        connectorJar -> {
+                            String connectorJarStoragePath =
+                                    getConnectorJarFileLocallyFirst(connectorJar.getFile());
+                            File storageFile = new File(connectorJarStoragePath);
+                            try {
+                                return Optional.of(storageFile.toURI().toURL());
+                            } catch (MalformedURLException e) {
+                                LOGGER.warning(
+                                        String.format("Cannot get plugin URL: {%s}", storageFile));
+                                return Optional.empty();
+                            }
+                        })
+                .filter(Optional::isPresent)
+                .map(
+                        optional -> {
+                            return (URL) optional.get();
+                        })
+                .collect(Collectors.toSet());
     }
 
     public String getConnectorJarFileLocallyFirst(String connectorJarName) {
@@ -128,18 +130,19 @@ public class ServerConnectorPackageClient {
             return storagePath;
         } else {
             String storagePath = downloadFromMasterNode(connectorJarName);
-            connectorJarExpiryTimes.put(connectorJarName,
-                    new ExpiryTime(System.currentTimeMillis() + connectorJarExpiryTime,
-                            storagePath));
+            connectorJarExpiryTimes.put(
+                    connectorJarName,
+                    new ExpiryTime(
+                            System.currentTimeMillis() + connectorJarExpiryTime, storagePath));
             return storagePath;
         }
     }
 
     public String downloadFromMasterNode(String connectorJarName) {
         ImmutablePair<byte[], String> immutablePair = null;
-        InvocationFuture<ImmutablePair<byte[], String>> invocationFuture = NodeEngineUtil.sendOperationToMasterNode(
-                nodeEngine,
-                new DownloadConnectorJarOperation(connectorJarName));
+        InvocationFuture<ImmutablePair<byte[], String>> invocationFuture =
+                NodeEngineUtil.sendOperationToMasterNode(
+                        nodeEngine, new DownloadConnectorJarOperation(connectorJarName));
         try {
             immutablePair = invocationFuture.get();
         }
@@ -172,8 +175,8 @@ public class ServerConnectorPackageClient {
             } else {
                 LOGGER.warning(
                         String.format(
-                                "File storage for an existing file %s. " +
-                                        "This may indicate a duplicate download. Ignoring newest download.",
+                                "File storage for an existing file %s. "
+                                        + "This may indicate a duplicate download. Ignoring newest download.",
                                 storageFile));
             }
             success = true;

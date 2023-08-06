@@ -64,5 +64,4 @@ public interface ConnectorJarStorageStrategy extends Serializable {
     byte[] readConnectorJarByteDataInternal(File connectorJarFile);
 
     byte[] readConnectorJarByteData(File connectorJarFile);
-
 }

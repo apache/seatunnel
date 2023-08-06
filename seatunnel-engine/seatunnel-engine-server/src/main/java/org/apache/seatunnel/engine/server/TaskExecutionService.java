@@ -156,7 +156,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
                 TimeUnit.SECONDS);
 
-        serverConnectorPackageClient = new ServerConnectorPackageClient(nodeEngine, seaTunnelConfig);
+        serverConnectorPackageClient =
+                new ServerConnectorPackageClient(nodeEngine, seaTunnelConfig);
     }
 
     public void start() {
@@ -260,7 +261,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Set<URL> jars = taskImmutableInfo.getJars();
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
             if (!CollectionUtils.isEmpty(jars)) {
-                // Prioritize obtaining the jar package file required for the current task execution from the local,
+                // Prioritize obtaining the jar package file required for the current task execution
+                // from the local,
                 // if it does not exist locally, it will be downloaded from the master node.
                 jars = serverConnectorPackageClient.getConnectorJarPath(jars);
                 classLoader = new SeaTunnelChildFirstClassLoader(Lists.newArrayList(jars));

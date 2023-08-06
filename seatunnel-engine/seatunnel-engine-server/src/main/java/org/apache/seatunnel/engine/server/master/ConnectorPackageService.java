@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.engine.server.master;
 
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+
+import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.logging.ILogger;
@@ -68,7 +69,8 @@ public class ConnectorPackageService {
     }
 
     public ImmutablePair<byte[], String> readConnectorJarFromLocal(String connectorJarName) {
-        String storagePath = connectorJarStorageStrategy.getStoragePathFromJarName(connectorJarName);
+        String storagePath =
+                connectorJarStorageStrategy.getStoragePathFromJarName(connectorJarName);
         byte[] bytes = connectorJarStorageStrategy.readConnectorJarByteData(new File(storagePath));
         return new ImmutablePair<>(bytes, storagePath);
     }

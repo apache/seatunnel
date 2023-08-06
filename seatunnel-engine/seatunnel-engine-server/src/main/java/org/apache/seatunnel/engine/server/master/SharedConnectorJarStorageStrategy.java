@@ -137,12 +137,12 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
     public String getStoragePathFromJarName(String connectorJarName) {
         RefCount refCount = connectorJarRefCounters.get(connectorJarName);
         if (refCount == null) {
-            LOGGER.warning(String.format(
-                    "Failed to obtain the storage path of the jar package" +
-                            " on the master node through the jar package name : { %s }," +
-                            " because the current jar package file does not exist on the master node.",
-                    connectorJarName
-            ));
+            LOGGER.warning(
+                    String.format(
+                            "Failed to obtain the storage path of the jar package"
+                                    + " on the master node through the jar package name : { %s },"
+                                    + " because the current jar package file does not exist on the master node.",
+                            connectorJarName));
             return "";
         }
         return refCount.getStoragePath();

@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.task;
 
 import com.hazelcast.logging.ILogger;
-import org.apache.seatunnel.engine.core.job.RefCount;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -35,11 +34,14 @@ public class ServerConnectorJarCleanupTask extends TimerTask {
 
     private final Consumer<String> cleanupCallback;
 
-    private final ConcurrentHashMap<String, ServerConnectorPackageClient.ExpiryTime> connectorJarExpiryTimes;
+    private final ConcurrentHashMap<String, ServerConnectorPackageClient.ExpiryTime>
+            connectorJarExpiryTimes;
 
-    public ServerConnectorJarCleanupTask(ILogger LOGGER,
-                                         Consumer<String> cleanupCallback,
-                                         ConcurrentHashMap<String, ServerConnectorPackageClient.ExpiryTime> connectorJarExpiryTimes) {
+    public ServerConnectorJarCleanupTask(
+            ILogger LOGGER,
+            Consumer<String> cleanupCallback,
+            ConcurrentHashMap<String, ServerConnectorPackageClient.ExpiryTime>
+                    connectorJarExpiryTimes) {
         this.LOGGER = LOGGER;
         this.cleanupCallback = cleanupCallback;
         this.connectorJarExpiryTimes = connectorJarExpiryTimes;
@@ -53,7 +55,8 @@ public class ServerConnectorJarCleanupTask extends TimerTask {
             final long currentTimeMillis = System.currentTimeMillis();
             while (iterator.hasNext()) {
                 Map.Entry<String, ServerConnectorPackageClient.ExpiryTime> entry = iterator.next();
-                if (entry.getValue().keepUntil> 0 && currentTimeMillis >= entry.getValue().keepUntil) {
+                if (entry.getValue().keepUntil > 0
+                        && currentTimeMillis >= entry.getValue().keepUntil) {
                     String connectorJarFileName = entry.getKey();
                     cleanupCallback.accept(connectorJarFileName);
                     connectorJarExpiryTimes.remove(connectorJarFileName);
