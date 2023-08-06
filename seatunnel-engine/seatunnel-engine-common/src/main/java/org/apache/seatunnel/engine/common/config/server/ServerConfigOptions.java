@@ -158,6 +158,12 @@ public class ServerConfigOptions {
                     .defaultValue(3600)
                     .withDescription("The user defined connector jar cleanup task interval.");
 
+    public static final Option<Integer> CONNECTOR_JAR_EXPIRY_TIME =
+            Options.key("connector-jar-expiry-time")
+                    .type(new TypeReference<Integer>() {})
+                    .defaultValue(600)
+                    .withDescription("The user defined connector jar expiry time.");
+
     public static final Option<ConnectorJarStorageConfig> CONNECTOR_JAR_STORAGE_CONFIG =
             Options.key("jar-storage")
                     .type(new TypeReference<ConnectorJarStorageConfig>() {})

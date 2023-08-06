@@ -234,6 +234,11 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue(
                                 ServerConfigOptions.CONNECTOR_JAR_CLEANUP_TASK_INTERVAL.key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.CONNECTOR_JAR_EXPIRY_TIME.key().equals(name)) {
+                connectorJarStorageConfig.setConnectorJarExpiryTime(
+                        getIntegerValue(
+                                ServerConfigOptions.CONNECTOR_JAR_EXPIRY_TIME.key(),
+                                getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

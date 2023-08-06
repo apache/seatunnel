@@ -42,6 +42,7 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.ServerConnectorPackageClient;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
 
@@ -134,6 +135,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     private final ScheduledExecutorService scheduledExecutorService;
 
+    private final ServerConnectorPackageClient serverConnectorPackageClient;
+
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
@@ -152,6 +155,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 0,
                 seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
                 TimeUnit.SECONDS);
+
+        serverConnectorPackageClient = new ServerConnectorPackageClient(nodeEngine, seaTunnelConfig);
     }
 
     public void start() {
@@ -255,6 +260,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Set<URL> jars = taskImmutableInfo.getJars();
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
             if (!CollectionUtils.isEmpty(jars)) {
+                // Prioritize obtaining the jar package file required for the current task execution from the local,
+                // if it does not exist locally, it will be downloaded from the master node.
+                jars = serverConnectorPackageClient.getConnectorJarPath(jars);
                 classLoader = new SeaTunnelChildFirstClassLoader(Lists.newArrayList(jars));
                 taskGroup =
                         CustomClassLoadedObject.deserializeWithCustomClassLoader(

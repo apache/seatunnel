@@ -225,7 +225,12 @@ public class CoordinatorService {
                                 .getHazelcastInstance()
                                 .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO));
 
-        connectorPackageService = new ConnectorPackageService(seaTunnelServer);
+        // Only when the current node is the master node will the connector jar service be provided,
+        // which is used to maintain the jar package files from all currently executing jobs
+        // and provide download services for the task execution nodes.
+        if (seaTunnelServer.isMasterNode()) {
+            connectorPackageService = new ConnectorPackageService(seaTunnelServer);
+        }
 
         List<CompletableFuture<Void>> collect =
                 runningJobInfoIMap.entrySet().stream()

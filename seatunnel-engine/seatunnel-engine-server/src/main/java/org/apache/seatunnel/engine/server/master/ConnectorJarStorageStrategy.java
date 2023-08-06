@@ -42,7 +42,7 @@ public interface ConnectorJarStorageStrategy extends Serializable {
      * @param connectorJar connector jar
      * @return the (designated) physical storage location of the connector jar
      */
-    File getStorageLocation(long jobId, ConnectorJar connectorJar) throws IOException;
+    File getStorageLocation(long jobId, ConnectorJar connectorJar);
 
     /**
      * storage the connector jar package file.
@@ -53,10 +53,16 @@ public interface ConnectorJarStorageStrategy extends Serializable {
      */
     String storageConnectorJarFile(long jobId, ConnectorJar connectorJar);
 
-    Path storageConnectorJarFileInternal(ConnectorJar connectorJar, File storageLocation)
-            throws IOException;
+    Path storageConnectorJarFileInternal(ConnectorJar connectorJar, File storageLocation);
 
     void deleteConnectorJar(long jobId, String connectorJarFileName) throws IOException;
 
     void deleteConnectorJarInternal(File storageLocation);
+
+    String getStoragePathFromJarName(String connectorJarName);
+
+    byte[] readConnectorJarByteDataInternal(File connectorJarFile);
+
+    byte[] readConnectorJarByteData(File connectorJarFile);
+
 }

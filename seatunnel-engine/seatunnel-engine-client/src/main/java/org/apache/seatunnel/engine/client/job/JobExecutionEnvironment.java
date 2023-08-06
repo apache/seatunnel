@@ -37,6 +37,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -47,6 +48,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -164,15 +166,20 @@ public class JobExecutionEnvironment {
             Set<URL> pluginJarStoragePathSet =
                     connectorPackageClient.uploadCommonPluginJars(
                             Long.parseLong(jobConfig.getJobContext().getJobId()), commonPluginJars);
+
             Set<URL> pluginJars = immutablePair.getRight();
             Iterator<URL> iterator = pluginJars.iterator();
             while (iterator.hasNext()) {
                 URL pluginJarUrl = iterator.next();
                 if (commonPluginJars.contains(pluginJarUrl)) continue;
-                URL storagePath =
+                String file = pluginJarUrl.getFile();
+                if (new File(file).isDirectory()) continue;
+                Optional<URL> storagePath =
                         connectorPackageClient.uploadConnectorPluginJar(
                                 Long.parseLong(jobConfig.getJobContext().getJobId()), pluginJarUrl);
-                pluginJarStoragePathSet.add(storagePath);
+                if (storagePath.isPresent()) {
+                    pluginJarStoragePathSet.add(storagePath.get());
+                }
             }
             pluginJarStoragePathSet.addAll(pluginJarStoragePathSet);
 

@@ -31,6 +31,9 @@ public class ConnectorJarStorageConfig {
     private Integer cleanupTaskInterval =
             ServerConfigOptions.CONNECTOR_JAR_CLEANUP_TASK_INTERVAL.defaultValue();
 
+    private Integer connectorJarExpiryTime =
+            ServerConfigOptions.CONNECTOR_JAR_EXPIRY_TIME.defaultValue();
+
     public ConnectorJarStorageConfig setStorageMode(ConnectorJarStorageMode storageMode) {
         checkNotNull(storageMode);
         this.storageMode = storageMode;

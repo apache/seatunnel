@@ -132,4 +132,29 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
                     }
                 });
     }
+
+    @Override
+    public String getStoragePathFromJarName(String connectorJarName) {
+        RefCount refCount = connectorJarRefCounters.get(connectorJarName);
+        if (refCount == null) {
+            LOGGER.warning(String.format(
+                    "Failed to obtain the storage path of the jar package" +
+                            " on the master node through the jar package name : { %s }," +
+                            " because the current jar package file does not exist on the master node.",
+                    connectorJarName
+            ));
+            return "";
+        }
+        return refCount.getStoragePath();
+    }
+
+    @Override
+    public byte[] readConnectorJarByteData(File connectorJarFile) {
+        readWriteLock.readLock().lock();
+        try {
+            return readConnectorJarByteDataInternal(connectorJarFile);
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
+    }
 }

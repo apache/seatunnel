@@ -26,7 +26,9 @@ import org.apache.commons.lang3.StringUtils;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -121,6 +123,26 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
     public void deleteConnectorJarInternal(File storageFile) {
         if (!storageFile.delete() && storageFile.exists()) {
             LOGGER.warning(String.format("Failed to delete connector jar file %s", storageFile));
+        }
+    }
+
+    @Override
+    public byte[] readConnectorJarByteDataInternal(File connectorJarFile) {
+        try {
+            // Read file data and convert it to a byte array.
+            FileInputStream inputStream = new FileInputStream(connectorJarFile);
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+            return outputStream.toByteArray();
+        } catch (IOException e) {
+            LOGGER.warning(String.format(
+                    "Failed to read the connector jar package file : { %s } , the file to be read may not exist",
+                    connectorJarFile));
+            return new byte[0];
         }
     }
 }

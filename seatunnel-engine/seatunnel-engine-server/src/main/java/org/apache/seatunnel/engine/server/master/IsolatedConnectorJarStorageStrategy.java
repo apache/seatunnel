@@ -69,4 +69,14 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
                     connectorJar.getFileName());
         }
     }
+
+    @Override
+    public String getStoragePathFromJarName(String connectorJarName) {
+        return null;
+    }
+
+    @Override
+    public byte[] readConnectorJarByteData(File connectorJarFile) {
+        return new byte[0];
+    }
 }
