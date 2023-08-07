@@ -63,7 +63,7 @@ semantics (using XA transaction guarantee).
 
 |                   Name                    |  Type   | Required | Default |                                                                                                                 Description                                                                                                                  |
 |-------------------------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost:5432/test                                                                                                                                                       |
+| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost:5432/test <br/>  if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option                                                   |
 | driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use PostgreSQL the value is `org.postgresql.Driver`.                                                                                                              |
 | user                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                 |
@@ -125,7 +125,7 @@ transform {
 
 sink {
     jdbc {
-       # if you would have json or jsonb type insert please add jdbc url stringtype=unspecified option
+       # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = "org.postgresql.Driver"
         user = root
@@ -144,7 +144,7 @@ sink {
 ```
 sink {
     Jdbc {
-        # if you would have json or jsonb type insert please add jdbc url stringtype=unspecified option
+        # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = org.postgresql.Driver
         user = root
@@ -164,7 +164,7 @@ sink {
 ```
 sink {
     jdbc {
-       # if you would have json or jsonb type insert please add jdbc url stringtype=unspecified option
+       # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = "org.postgresql.Driver"
     
@@ -187,7 +187,7 @@ sink {
 ```
 sink {
     jdbc {
-        # if you would have json or jsonb type insert please add jdbc url stringtype=unspecified option
+        # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = "org.postgresql.Driver"
         user = root
