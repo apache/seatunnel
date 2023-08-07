@@ -41,6 +41,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -128,8 +129,13 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         .collect(Collectors.toList());
         for (Integer writeColumnIndex : writeColumnIndexes) {
             String fieldName = seaTunnelRowType.getFieldName(writeColumnIndex);
-            String familyName =
-                    hbaseParameters.getFamilyNames().getOrDefault(fieldName, defaultFamilyName);
+            // This is the family of columns that we define to be written through the.conf file
+            Map<String, String> configurationFamilyNames = hbaseParameters.getFamilyNames();
+            String familyName = configurationFamilyNames.getOrDefault(fieldName, defaultFamilyName);
+            if (!configurationFamilyNames.containsKey(ALL_COLUMNS)
+                    && !configurationFamilyNames.containsKey(fieldName)) {
+                continue;
+            }
             byte[] bytes = convertColumnToBytes(row, writeColumnIndex);
             if (bytes != null) {
                 put.addColumn(Bytes.toBytes(familyName), Bytes.toBytes(fieldName), bytes);
