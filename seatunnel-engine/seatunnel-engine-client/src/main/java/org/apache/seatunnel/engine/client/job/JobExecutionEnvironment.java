@@ -131,7 +131,7 @@ public class JobExecutionEnvironment {
 
     private MultipleTableJobConfigParser getJobConfigParser() {
         return new MultipleTableJobConfigParser(
-                jobFilePath, idGenerator, jobConfig, commonPluginJars);
+                jobFilePath, idGenerator, jobConfig, commonPluginJars, isStartWithSavePoint);
     }
 
     private LogicalDagGenerator getLogicalDagGenerator() {
