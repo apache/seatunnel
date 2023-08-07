@@ -33,11 +33,11 @@
 
 ## Sink Options
 
-|      Name      |  Type  | Required | Default |                                               Description                                                |
+| Name           | Type   | Required | Default | Description                                                                                              |
 |----------------|--------|----------|---------|----------------------------------------------------------------------------------------------------------|
 | kudu_master    | String | Yes      | -       | The address of kudu master,such as '192.168.88.110:7051'.                                                |
 | kudu_table     | String | Yes      | -       | The name of kudu table.                                                                                  |
-| save_mode      | String | No       | -       | Storage mode, we need support `overwrite` and `append`. `append` is now supported.                       |
+| save_mode      | String | No       | -       | Storage mode, support `overwrite` and `append`.                                                          |
 | common-options |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details. |
 
 ## Task Example
