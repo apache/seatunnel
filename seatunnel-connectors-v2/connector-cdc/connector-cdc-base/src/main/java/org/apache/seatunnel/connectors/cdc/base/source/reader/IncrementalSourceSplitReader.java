@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.Fetcher;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.IncrementalSourceScanFetcher;
@@ -50,13 +51,18 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
     private String currentSplitId;
     private final DataSourceDialect<C> dataSourceDialect;
     private final C sourceConfig;
+    private final SchemaChangeResolver schemaChangeResolver;
 
     public IncrementalSourceSplitReader(
-            int subtaskId, DataSourceDialect<C> dataSourceDialect, C sourceConfig) {
+            int subtaskId,
+            DataSourceDialect<C> dataSourceDialect,
+            C sourceConfig,
+            SchemaChangeResolver schemaChangeResolver) {
         this.subtaskId = subtaskId;
         this.splits = new ArrayDeque<>();
         this.dataSourceDialect = dataSourceDialect;
         this.sourceConfig = sourceConfig;
+        this.schemaChangeResolver = schemaChangeResolver;
     }
 
     @Override
@@ -133,7 +139,9 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
                 }
                 final FetchTask.Context taskContext =
                         dataSourceDialect.createFetchTaskContext(nextSplit, sourceConfig);
-                currentFetcher = new IncrementalSourceStreamFetcher(taskContext, subtaskId);
+                currentFetcher =
+                        new IncrementalSourceStreamFetcher(
+                                taskContext, subtaskId, schemaChangeResolver);
                 log.info("Stream fetcher is created.");
             }
             currentFetcher.submitTask(dataSourceDialect.createFetchTask(nextSplit));

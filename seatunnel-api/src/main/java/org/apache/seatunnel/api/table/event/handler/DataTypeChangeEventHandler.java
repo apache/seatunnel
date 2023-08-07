@@ -15,29 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+package org.apache.seatunnel.api.table.event.handler;
 
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
-/**
- * A {@link Collector} is used to collect data from {@link SourceReader}.
- *
- * @param <T> data type.
- */
-public interface Collector<T> {
+public interface DataTypeChangeEventHandler extends SchemaChangeEventHandler<SeaTunnelRowType> {
 
-    void collect(T record);
+    SeaTunnelRowType get();
 
-    default void markSchemaChangeBeforeCheckpoint() {}
+    DataTypeChangeEventHandler reset(SeaTunnelRowType dataType);
 
-    default void collect(SchemaChangeEvent event) {}
+    default SeaTunnelRowType handle(SchemaChangeEvent event) {
+        if (get() == null) {
+            throw new IllegalStateException("DataTypeChanger not reset");
+        }
 
-    default void markSchemaChangeAfterCheckpoint() {}
+        try {
+            return apply(event);
+        } finally {
+            reset(null);
+            if (get() != null) {
+                throw new IllegalStateException("DataTypeChanger not reset");
+            }
+        }
+    }
 
-    /**
-     * Returns the checkpoint lock.
-     *
-     * @return The object to use as the lock
-     */
-    Object getCheckpointLock();
+    SeaTunnelRowType apply(SchemaChangeEvent event);
 }

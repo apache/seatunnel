@@ -33,6 +33,8 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeAfterCheckpointOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeBeforeCheckpointOperation;
 import org.apache.seatunnel.engine.server.dag.physical.config.IntermediateQueueConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SinkConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
@@ -59,6 +61,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.internal.metrics.MetricDescriptor;
 import com.hazelcast.internal.metrics.MetricsCollectionContext;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -347,6 +350,24 @@ public abstract class SeaTunnelTask extends AbstractTask {
         }
     }
 
+    public InvocationFuture<Object> triggerSchemaChangeBeforeCheckpoint() {
+        log.info(
+                "trigger schema-change-before checkpoint. jobID[{}], taskLocation[{}]",
+                jobID,
+                taskLocation);
+        return this.getExecutionContext()
+                .sendToMaster(new TriggerSchemaChangeBeforeCheckpointOperation(taskLocation));
+    }
+
+    public InvocationFuture<Object> triggerSchemaChangeAfterCheckpoint() {
+        log.info(
+                "trigger schema-change-after checkpoint. jobID[{}], taskLocation[{}]",
+                jobID,
+                taskLocation);
+        return this.getExecutionContext()
+                .sendToMaster(new TriggerSchemaChangeAfterCheckpointOperation(taskLocation));
+    }
+
     public void addState(Barrier barrier, ActionStateKey stateKey, List<byte[]> state) {
         List<ActionSubtaskState> states =
                 checkpointStates.computeIfAbsent(barrier.getId(), id -> new ArrayList<>());
@@ -362,6 +383,12 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         notifyAllAction(listener -> listener.notifyCheckpointAborted(checkpointId));
+        tryClose(checkpointId);
+    }
+
+    @Override
+    public void notifyCheckpointEnd(long checkpointId) throws Exception {
+        notifyAllAction(listener -> listener.notifyCheckpointEnd(checkpointId));
         tryClose(checkpointId);
     }
 

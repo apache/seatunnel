@@ -15,29 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+package org.apache.seatunnel.api.table.event;
 
-import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 
-/**
- * A {@link Collector} is used to collect data from {@link SourceReader}.
- *
- * @param <T> data type.
- */
-public interface Collector<T> {
+import lombok.Getter;
+import lombok.ToString;
 
-    void collect(T record);
+import java.util.ArrayList;
+import java.util.List;
 
-    default void markSchemaChangeBeforeCheckpoint() {}
+@Getter
+@ToString(callSuper = true)
+public class AlterTableColumnsEvent extends AlterTableEvent {
+    private final List<AlterTableColumnEvent> events;
 
-    default void collect(SchemaChangeEvent event) {}
+    public AlterTableColumnsEvent(TablePath tablePath) {
+        this(tablePath, new ArrayList<>());
+    }
 
-    default void markSchemaChangeAfterCheckpoint() {}
+    public AlterTableColumnsEvent(TablePath tablePath, List<AlterTableColumnEvent> events) {
+        super(tablePath);
+        this.events = events;
+    }
 
-    /**
-     * Returns the checkpoint lock.
-     *
-     * @return The object to use as the lock
-     */
-    Object getCheckpointLock();
+    public AlterTableColumnsEvent addEvent(AlterTableColumnEvent event) {
+        events.add(event);
+        return this;
+    }
 }

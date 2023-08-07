@@ -15,29 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+package org.apache.seatunnel.api.table.event.handler;
 
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 
-/**
- * A {@link Collector} is used to collect data from {@link SourceReader}.
- *
- * @param <T> data type.
- */
-public interface Collector<T> {
+import java.io.Serializable;
 
-    void collect(T record);
+public interface SchemaChangeEventHandler<T> extends Serializable {
 
-    default void markSchemaChangeBeforeCheckpoint() {}
-
-    default void collect(SchemaChangeEvent event) {}
-
-    default void markSchemaChangeAfterCheckpoint() {}
-
-    /**
-     * Returns the checkpoint lock.
-     *
-     * @return The object to use as the lock
-     */
-    Object getCheckpointLock();
+    T handle(SchemaChangeEvent event);
 }
