@@ -15,29 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+package org.apache.seatunnel.connectors.cdc.base.schema;
 
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
-/**
- * A {@link Collector} is used to collect data from {@link SourceReader}.
- *
- * @param <T> data type.
- */
-public interface Collector<T> {
+import org.apache.kafka.connect.source.SourceRecord;
 
-    void collect(T record);
+import java.io.Serializable;
 
-    default void markSchemaChangeBeforeCheckpoint() {}
+public interface SchemaChangeResolver extends Serializable {
 
-    default void collect(SchemaChangeEvent event) {}
+    boolean support(SourceRecord record);
 
-    default void markSchemaChangeAfterCheckpoint() {}
-
-    /**
-     * Returns the checkpoint lock.
-     *
-     * @return The object to use as the lock
-     */
-    Object getCheckpointLock();
+    SchemaChangeEvent resolve(SourceRecord record, SeaTunnelDataType dataType);
 }
