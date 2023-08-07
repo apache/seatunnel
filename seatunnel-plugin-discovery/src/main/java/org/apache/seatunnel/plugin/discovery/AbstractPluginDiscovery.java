@@ -289,7 +289,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         return plugins;
     }
 
-    private T loadPluginInstance(PluginIdentifier pluginIdentifier, ClassLoader classLoader) {
+    protected T loadPluginInstance(PluginIdentifier pluginIdentifier, ClassLoader classLoader) {
         ServiceLoader<T> serviceLoader = ServiceLoader.load(getPluginBaseClass(), classLoader);
         for (T t : serviceLoader) {
             if (t instanceof PluginIdentifierInterface) {

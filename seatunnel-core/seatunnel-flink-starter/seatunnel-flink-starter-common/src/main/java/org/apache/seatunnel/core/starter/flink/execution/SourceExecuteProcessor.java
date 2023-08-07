@@ -23,9 +23,10 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
-import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 import org.apache.seatunnel.translation.flink.source.BaseSeaTunnelSourceFunction;
 import org.apache.seatunnel.translation.flink.source.SeaTunnelCoordinatedSource;
@@ -41,6 +42,7 @@ import org.apache.flink.streaming.api.operators.StreamSource;
 import org.apache.flink.types.Row;
 
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -50,6 +52,8 @@ import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
+@Slf4j
+@SuppressWarnings("unchecked,rawtypes")
 public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SeaTunnelSource> {
     private static final String PLUGIN_TYPE = PluginType.SOURCE.getType();
 
@@ -121,6 +125,10 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
             List<URL> jarPaths, List<? extends Config> pluginConfigs) {
         SeaTunnelSourcePluginDiscovery sourcePluginDiscovery =
                 new SeaTunnelSourcePluginDiscovery(ADD_URL_TO_CLASSLOADER);
+
+        SeaTunnelFactoryDiscovery factoryDiscovery =
+                new SeaTunnelFactoryDiscovery(TableSourceFactory.class, ADD_URL_TO_CLASSLOADER);
+
         List<SeaTunnelSource> sources = new ArrayList<>();
         Set<URL> jars = new HashSet<>();
         for (Config sourceConfig : pluginConfigs) {
@@ -129,19 +137,14 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
                             ENGINE_TYPE, PLUGIN_TYPE, sourceConfig.getString(PLUGIN_NAME));
             jars.addAll(
                     sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-            SeaTunnelSource seaTunnelSource =
-                    sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
-            seaTunnelSource.prepare(sourceConfig);
-            seaTunnelSource.setJobContext(jobContext);
-            if (jobContext.getJobMode() == JobMode.BATCH
-                    && seaTunnelSource.getBoundedness()
-                            == org.apache.seatunnel.api.source.Boundedness.UNBOUNDED) {
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "'%s' source don't support off-line job.",
-                                seaTunnelSource.getPluginName()));
-            }
-            sources.add(seaTunnelSource);
+            SeaTunnelSource source =
+                    createSource(
+                            factoryDiscovery,
+                            sourcePluginDiscovery,
+                            pluginIdentifier,
+                            sourceConfig,
+                            jobContext);
+            sources.add(source);
         }
         jarPaths.addAll(jars);
         return sources;

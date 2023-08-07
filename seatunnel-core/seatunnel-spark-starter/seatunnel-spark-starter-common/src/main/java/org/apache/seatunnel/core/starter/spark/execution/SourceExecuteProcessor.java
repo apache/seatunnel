@@ -22,9 +22,11 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
@@ -40,6 +42,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+@SuppressWarnings("rawtypes")
 public class SourceExecuteProcessor
         extends SparkAbstractPluginExecuteProcessor<SeaTunnelSource<?, ?, ?>> {
     private static final String PLUGIN_TYPE = "source";
@@ -91,6 +94,10 @@ public class SourceExecuteProcessor
     protected List<SeaTunnelSource<?, ?, ?>> initializePlugins(
             List<? extends Config> pluginConfigs) {
         SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
+
+        SeaTunnelFactoryDiscovery factoryDiscovery =
+                new SeaTunnelFactoryDiscovery(TableSourceFactory.class);
+
         List<SeaTunnelSource<?, ?, ?>> sources = new ArrayList<>();
         Set<URL> jars = new HashSet<>();
         for (Config sourceConfig : pluginConfigs) {
@@ -99,11 +106,14 @@ public class SourceExecuteProcessor
                             ENGINE_TYPE, PLUGIN_TYPE, sourceConfig.getString(PLUGIN_NAME));
             jars.addAll(
                     sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-            SeaTunnelSource<?, ?, ?> seaTunnelSource =
-                    sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
-            seaTunnelSource.prepare(sourceConfig);
-            seaTunnelSource.setJobContext(jobContext);
-            sources.add(seaTunnelSource);
+            SeaTunnelSource source =
+                    createSource(
+                            factoryDiscovery,
+                            sourcePluginDiscovery,
+                            pluginIdentifier,
+                            sourceConfig,
+                            jobContext);
+            sources.add(source);
         }
         sparkRuntimeEnvironment.registerPlugin(new ArrayList<>(jars));
         return sources;
