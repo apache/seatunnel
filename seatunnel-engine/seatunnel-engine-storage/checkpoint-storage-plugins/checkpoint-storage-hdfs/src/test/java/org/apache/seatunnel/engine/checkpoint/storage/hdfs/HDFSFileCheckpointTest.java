@@ -23,7 +23,7 @@ package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
 import org.junit.jupiter.api.BeforeAll;
-
+import org.junit.jupiter.api.Disabled;
 import java.util.HashMap;
 import java.util.Map;
 
