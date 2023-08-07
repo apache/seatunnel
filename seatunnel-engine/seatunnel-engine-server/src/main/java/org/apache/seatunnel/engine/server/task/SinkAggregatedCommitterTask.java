@@ -193,6 +193,8 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
 
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
+        long startTime = System.currentTimeMillis();
+
         log.debug("trigger barrier for sink agg commit [{}]", barrier);
         Integer count =
                 checkpointBarrierCounter.compute(
@@ -233,6 +235,12 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                                                     ActionStateKey.of(sink), -1, states))))
                     .join();
         }
+
+        log.debug(
+                "trigger barrier [{}] finished, cost {}ms. taskLocation [{}]",
+                barrier.getId(),
+                System.currentTimeMillis() - startTime,
+                taskLocation);
     }
 
     @Override
