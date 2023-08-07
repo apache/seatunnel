@@ -20,6 +20,7 @@ github:
   labels:
     - data-integration
     - change-data-capture
+    - cdc
     - high-performance
     - offline
     - real-time
