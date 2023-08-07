@@ -74,6 +74,8 @@ Use this sql write upstream input datas to database. e.g `INSERT ...`
 
 The compatible mode of database, required when the database supports multiple compatible modes. For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.
 
+Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
+
 ### database [string]
 
 Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.
@@ -224,6 +226,26 @@ sink {
         primary_keys = ["key1", "key2", ...]
     }
 }
+```
+
+Postgresql 9.5 version below support CDC(Change data capture) event
+
+```
+sink {
+    jdbc {
+        url = "jdbc:postgresql://localhost:5432"
+        driver = "org.postgresql.Driver"
+        user = "root"
+        password = "123456"
+        compatible_mode="postgresLow"
+        database = "sink_database"
+        table = "sink_table"
+        support_upsert_by_query_primary_key_exist = true
+        generate_sink_sql = true
+        primary_keys = ["key1", "key2", ...]
+    }
+}
+
 ```
 
 ## Changelog
