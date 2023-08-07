@@ -34,7 +34,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @SuppressWarnings("checkstyle:StaticVariableName")
 public class ReadableConfigTest {
@@ -298,19 +297,5 @@ public class ReadableConfigTest {
         map.put("username", "ark");
         readonlyConfig = ReadonlyConfig.fromMap(map);
         Assertions.assertEquals("ark", readonlyConfig.get(usernameOption));
-    }
-
-    @Test
-    public void testOptional() {
-        Optional<String> notDefaultVal =
-                ReadonlyConfig.fromMap(new HashMap<>())
-                        .getOptional(Options.key("option.not-exist").stringType().noDefaultValue());
-        Assertions.assertFalse(notDefaultVal.isPresent());
-        Optional<String> defaultVal =
-                ReadonlyConfig.fromMap(new HashMap<>())
-                        .getOptional(
-                                Options.key("option.exist").stringType().defaultValue("default"));
-        Assertions.assertTrue(defaultVal.isPresent());
-        Assertions.assertEquals("default", defaultVal.get());
     }
 }
