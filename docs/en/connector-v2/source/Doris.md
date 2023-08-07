@@ -31,7 +31,8 @@ directly return the data
 
 ## Database Dependency
 
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
+> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/'
+> working directory<br/>
 
 ## Data Type Mapping
 
@@ -49,7 +50,7 @@ directly return the data
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
-| ARRAY<TYPE>                          | ARRAY<TYPE>                                                                                                                                         |
+| ARRAY                                | ARRAY                                                                                                                                               |
 
 ## Source Options
 
