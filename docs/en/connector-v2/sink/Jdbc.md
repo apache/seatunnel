@@ -41,7 +41,6 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | connection_check_timeout_sec              | Int     | No       | 30            |
 | max_retries                               | Int     | No       | 0             |
 | batch_size                                | Int     | No       | 1000          |
-| batch_interval_ms                         | Int     | No       | 1000          |
 | is_exactly_once                           | Boolean | No       | false         |
 | generate_sink_sql                         | Boolean | No       | false         |
 | xa_data_source_class_name                 | String  | No       | -             |
@@ -74,6 +73,8 @@ Use this sql write upstream input datas to database. e.g `INSERT ...`
 
 The compatible mode of database, required when the database supports multiple compatible modes. For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.
 
+Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
+
 ### database [string]
 
 Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.
@@ -105,12 +106,7 @@ The number of retries to submit failed (executeBatch)
 
 ### batch_size[int]
 
-For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `batch_interval_ms`
-, the data will be flushed into the database
-
-### batch_interval_ms[int]
-
-For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`
+For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`
 , the data will be flushed into the database
 
 ### is_exactly_once[boolean]
@@ -224,6 +220,26 @@ sink {
         primary_keys = ["key1", "key2", ...]
     }
 }
+```
+
+Postgresql 9.5 version below support CDC(Change data capture) event
+
+```
+sink {
+    jdbc {
+        url = "jdbc:postgresql://localhost:5432"
+        driver = "org.postgresql.Driver"
+        user = "root"
+        password = "123456"
+        compatible_mode="postgresLow"
+        database = "sink_database"
+        table = "sink_table"
+        support_upsert_by_query_primary_key_exist = true
+        generate_sink_sql = true
+        primary_keys = ["key1", "key2", ...]
+    }
+}
+
 ```
 
 ## Changelog

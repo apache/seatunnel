@@ -141,12 +141,6 @@
         <awaitility.version>4.2.0</awaitility.version>
         <e2e.dependency.skip>true</e2e.dependency.skip>
 
-        <!-- Imap storage dependency package  -->
-        <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
-        <json-smart.version>2.4.7</json-smart.version>
-        <hadoop-aws.version>3.1.4</hadoop-aws.version>
-        <netty-buffer.version>4.1.60.Final</netty-buffer.version>
-
         <!-- prometheus simpleclient -->
         <prometheus.simpleclient.version>0.16.0</prometheus.simpleclient.version>
     </properties>
@@ -453,39 +447,6 @@
                 <version>${project.version}</version>
                 <classifier>optional</classifier>
                 <scope>provided</scope>
-            </dependency>
-
-            <!-- Imap storage dependency package  -->
-            <dependency>
-                <groupId>org.apache.hadoop</groupId>
-                <artifactId>hadoop-aliyun</artifactId>
-                <version>${hadoop-aliyun.version}</version>
-                <scope>provided</scope>
-                <exclusions>
-                    <exclusion>
-                        <groupId>net.minidev</groupId>
-                        <artifactId>json-smart</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>net.minidev</groupId>
-                <artifactId>json-smart</artifactId>
-                <version>${json-smart.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.hadoop</groupId>
-                <artifactId>hadoop-aws</artifactId>
-                <version>${hadoop-aws.version}</version>
-                <scope>provided</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-buffer</artifactId>
-                <version>${netty-buffer.version}</version>
             </dependency>
 
             <!-- The prometheus simpleclient -->
@@ -828,6 +789,9 @@
                 <version>${spotless.version}</version>
                 <configuration>
                     <java>
+                        <excludes>
+                            <exclude>src/main/java/org/apache/seatunnel/antlr4/generated/*.*</exclude>
+                        </excludes>
                         <googleJavaFormat>
                             <version>1.7</version>
                             <style>AOSP</style>
