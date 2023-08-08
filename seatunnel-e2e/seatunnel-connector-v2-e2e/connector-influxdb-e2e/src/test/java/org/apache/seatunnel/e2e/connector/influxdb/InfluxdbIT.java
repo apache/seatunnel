@@ -212,7 +212,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
     public void testInfluxdbWithTz(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/influxdb-to-influxdb-with-tz.conf.conf");
+                container.executeJob("/influxdb-to-influxdb-with-tz.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         String sourceSql =
                 String.format("select * from %s order by time", INFLUXDB_SOURCE_MEASUREMENT);
