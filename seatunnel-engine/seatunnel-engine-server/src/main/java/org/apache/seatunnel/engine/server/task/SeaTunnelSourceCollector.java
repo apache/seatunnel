@@ -21,20 +21,29 @@ import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 
+@Slf4j
 public class SeaTunnelSourceCollector<T> implements Collector<T> {
 
     private final Object checkpointLock;
 
     private final List<OneInputFlowLifeCycle<Record<?>>> outputs;
+
+    private final AtomicBoolean schemaChangeBeforeCheckpointSignal = new AtomicBoolean(false);
+
+    private final AtomicBoolean schemaChangeAfterCheckpointSignal = new AtomicBoolean(false);
 
     private final Counter sourceReceivedCount;
 
@@ -62,6 +71,53 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public void collect(SchemaChangeEvent event) {
+        try {
+            sendRecordToNext(new Record<>(event));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void markSchemaChangeBeforeCheckpoint() {
+        if (schemaChangeAfterCheckpointSignal.get()) {
+            throw new IllegalStateException("schema-change-after checkpoint already marked.");
+        }
+        if (!schemaChangeBeforeCheckpointSignal.compareAndSet(false, true)) {
+            throw new IllegalStateException("schema-change-before checkpoint already marked.");
+        }
+        log.info("mark schema-change-before checkpoint signal.");
+    }
+
+    @Override
+    public void markSchemaChangeAfterCheckpoint() {
+        if (schemaChangeBeforeCheckpointSignal.get()) {
+            throw new IllegalStateException("schema-change-before checkpoint already marked.");
+        }
+        if (!schemaChangeAfterCheckpointSignal.compareAndSet(false, true)) {
+            throw new IllegalStateException("schema-change-after checkpoint already marked.");
+        }
+        log.info("mark schema-change-after checkpoint signal.");
+    }
+
+    public boolean captureSchemaChangeBeforeCheckpointSignal() {
+        if (schemaChangeBeforeCheckpointSignal.get()) {
+            log.info("capture schema-change-before checkpoint signal.");
+            return schemaChangeBeforeCheckpointSignal.getAndSet(false);
+        }
+        return false;
+    }
+
+    public boolean captureSchemaChangeAfterCheckpointSignal() {
+        if (schemaChangeAfterCheckpointSignal.get()) {
+            log.info("capture schema-change-after checkpoint signal.");
+            return schemaChangeAfterCheckpointSignal.getAndSet(false);
+        }
+        return false;
     }
 
     @Override
