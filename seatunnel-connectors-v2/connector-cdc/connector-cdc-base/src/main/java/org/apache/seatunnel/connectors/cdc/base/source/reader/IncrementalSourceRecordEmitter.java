@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader;
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
@@ -37,6 +38,8 @@ import java.util.Map;
 
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isHighWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isLowWatermarkEvent;
+import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isSchemaChangeAfterWatermarkEvent;
+import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isSchemaChangeBeforeWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getFetchTimestamp;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getMessageTimestamp;
@@ -110,9 +113,12 @@ public class IncrementalSourceRecordEmitter<T>
             Offset watermark = getWatermark(element);
             if (isLowWatermarkEvent(element) && splitState.isSnapshotSplitState()) {
                 splitState.asSnapshotSplitState().setLowWatermark(watermark);
-            }
-            if (isHighWatermarkEvent(element) && splitState.isSnapshotSplitState()) {
+            } else if (isHighWatermarkEvent(element) && splitState.isSnapshotSplitState()) {
                 splitState.asSnapshotSplitState().setHighWatermark(watermark);
+            } else if ((isSchemaChangeBeforeWatermarkEvent(element)
+                            || isSchemaChangeAfterWatermarkEvent(element))
+                    && splitState.isIncrementalSplitState()) {
+                emitElement(element, output);
             }
         } else if (isSchemaChangeEvent(element) && splitState.isIncrementalSplitState()) {
             emitElement(element, output);
@@ -158,8 +164,23 @@ public class IncrementalSourceRecordEmitter<T>
         }
 
         @Override
+        public void collect(SchemaChangeEvent event) {
+            output.collect(event);
+        }
+
+        @Override
+        public void markSchemaChangeBeforeCheckpoint() {
+            output.markSchemaChangeBeforeCheckpoint();
+        }
+
+        @Override
+        public void markSchemaChangeAfterCheckpoint() {
+            output.markSchemaChangeAfterCheckpoint();
+        }
+
+        @Override
         public Object getCheckpointLock() {
-            return null;
+            return output.getCheckpointLock();
         }
     }
 }
