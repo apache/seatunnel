@@ -49,8 +49,13 @@ import net.sf.jsqlparser.expression.operators.arithmetic.Division;
 import net.sf.jsqlparser.expression.operators.arithmetic.Modulo;
 import net.sf.jsqlparser.expression.operators.arithmetic.Multiplication;
 import net.sf.jsqlparser.expression.operators.arithmetic.Subtraction;
+import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
+import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
 import net.sf.jsqlparser.expression.operators.relational.ComparisonOperator;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
+import net.sf.jsqlparser.expression.operators.relational.InExpression;
+import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
+import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.schema.Column;
 
 import java.math.BigDecimal;
@@ -227,7 +232,7 @@ public class ZetaSQLFunction {
             Parenthesis parenthesis = (Parenthesis) expression;
             return computeForValue(parenthesis.getExpression(), inputFields);
         }
-        if (expression instanceof ComparisonOperator) {
+        if (isBooleanExpr(expression)) {
             return zetaSQLFilter.executeFilter(expression, inputFields);
         }
         if (expression instanceof CaseExpression) {
@@ -451,13 +456,25 @@ public class ZetaSQLFunction {
                 String.format("Unsupported TimeKey expression: %s", timeKeyExpr));
     }
 
+    boolean isBooleanExpr(Expression expression) {
+        boolean result =
+                expression instanceof IsNullExpression
+                        || expression instanceof InExpression
+                        || expression instanceof LikeExpression
+                        || expression instanceof ComparisonOperator
+                        || expression instanceof AndExpression
+                        || expression instanceof OrExpression
+                        || expression instanceof Parenthesis;
+        return result;
+    }
+
     public Object executeCaseExpr(CaseExpression caseExpression, Object[] inputFields) {
         Expression switchExpr = caseExpression.getSwitchExpression();
         Object switchValue = switchExpr == null ? null : computeForValue(switchExpr, inputFields);
         for (WhenClause whenClause : caseExpression.getWhenClauses()) {
             final Object when = computeForValue(whenClause.getWhenExpression(), inputFields);
             // match: case [column] when column1 compare other, add by javalover123
-            boolean isComparison = whenClause.getWhenExpression() instanceof ComparisonOperator;
+            boolean isComparison = isBooleanExpr(whenClause.getWhenExpression());
             if (isComparison && (boolean) when) {
                 return computeForValue(whenClause.getThenExpression(), inputFields);
             } else if (!isComparison && zetaSQLFilter.equalsToExpr(Pair.of(switchValue, when))) {
