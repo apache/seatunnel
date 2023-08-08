@@ -52,7 +52,7 @@ semantics (using XA transaction guarantee).
 
 ## Options
 
-| Name                                      | Type    | Required | Default | Description                                                                                                                                                                                                                                  |
+|                   Name                    |  Type   | Required | Default |                                                                                                                 Description                                                                                                                  |
 |-------------------------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost:5432/test                                                                                                                                                       |
 | driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use Oracle the value is `oracle.jdbc.OracleDriver`.                                                                                                               |

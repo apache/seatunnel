@@ -54,7 +54,7 @@ Read external data source data through JDBC.
 
 ## Source Options
 
-| Name                         | Type   | Required | Default         | Description                                                                                                                                                                                                                                                       |
+|             Name             |  Type  | Required |     Default     |                                                                                                                            Description                                                                                                                            |
 |------------------------------|--------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:oracle:thin:@datasource01:1523:xe                                                                                                                                                                           |
 | driver                       | String | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `oracle.jdbc.OracleDriver`.                                                                                                                                     |
