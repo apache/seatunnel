@@ -1,6 +1,6 @@
-# PostgreSql
+# Oracle
 
-> JDBC PostgreSql Sink Connector
+> JDBC Oracle Sink Connector
 
 ## Support Those Engines
 
@@ -23,48 +23,39 @@ semantics (using XA transaction guarantee).
 
 ## Supported DataSource Info
 
-| Datasource |                     Supported Versions                     |        Driver         |                  Url                  |                                  Maven                                   |
-|------------|------------------------------------------------------------|-----------------------|---------------------------------------|--------------------------------------------------------------------------|
-| PostgreSQL | Different dependency version has different driver class.   | org.postgresql.Driver | jdbc:postgresql://localhost:5432/test | [Download](https://mvnrepository.com/artifact/org.postgresql/postgresql) |
-| PostgreSQL | If you want to manipulate the GEOMETRY type in PostgreSQL. | org.postgresql.Driver | jdbc:postgresql://localhost:5432/test | [Download](https://mvnrepository.com/artifact/net.postgis/postgis-jdbc)  |
+| Datasource |                    Supported Versions                    |          Driver          |                  Url                   |                               Maven                                |
+|------------|----------------------------------------------------------|--------------------------|----------------------------------------|--------------------------------------------------------------------|
+| Oracle     | Different dependency version has different driver class. | oracle.jdbc.OracleDriver | jdbc:oracle:thin:@datasource01:1523:xe | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8 |
 
 ## Database Dependency
 
 > Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example PostgreSQL datasource: cp postgresql-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/<br/>
-> If you want to manipulate the GEOMETRY type in PostgreSQL, add postgresql-xxx.jar and postgis-jdbc-xxx.jar to $SEATNUNNEL_HOME/plugins/jdbc/lib/
+> For example Oracle datasource: cp ojdbc8-xxxxxx.jar $SEATNUNNEL_HOME/lib/<br/>
+> To support the i18n character set, copy the orai18n.jar to the $SEATNUNNEL_HOME/lib/ directory.
 
 ## Data Type Mapping
 
-|                         PostgreSQL Data type                         |                                                              SeaTunnel Data type                                                               |
-|----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| BOOL<br/>                                                            | BOOLEAN                                                                                                                                        |
-| _BOOL<br/>                                                           | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |
-| BYTEA<br/>                                                           | BYTES                                                                                                                                          |
-| _BYTEA<br/>                                                          | ARRAY&LT;TINYINT&GT;                                                                                                                           |
-| INT2<br/>SMALLSERIAL<br/>INT4<br/>SERIAL<br/>                        | INT                                                                                                                                            |
-| _INT2<br/>_INT4<br/>                                                 | ARRAY&LT;INT&GT;                                                                                                                               |
-| INT8<br/>BIGSERIAL<br/>                                              | BIGINT                                                                                                                                         |
-| _INT8<br/>                                                           | ARRAY&LT;BIGINT&GT;                                                                                                                            |
-| FLOAT4<br/>                                                          | FLOAT                                                                                                                                          |
-| _FLOAT4<br/>                                                         | ARRAY&LT;FLOAT&GT;                                                                                                                             |
-| FLOAT8<br/>                                                          | DOUBLE                                                                                                                                         |
-| _FLOAT8<br/>                                                         | ARRAY&LT;DOUBLE&GT;                                                                                                                            |
-| NUMERIC(Get the designated column's specified column size>0)         | DECIMAL(Get the designated column's specified column size,Gets the number of digits in the specified column to the right of the decimal point) |
-| NUMERIC(Get the designated column's specified column size<0)         | DECIMAL(38, 18)                                                                                                                                |
-| BPCHAR<br/>CHARACTER<br/>VARCHAR<br/>TEXT<br/>GEOMETRY<br/>GEOGRAPHY | STRING                                                                                                                                         |
-| _BPCHAR<br/>_CHARACTER<br/>_VARCHAR<br/>_TEXT                        | ARRAY&LT;STRING&GT;                                                                                                                            |
-| TIMESTAMP<br/>                                                       | TIMESTAMP                                                                                                                                      |
-| TIME<br/>                                                            | TIME                                                                                                                                           |
-| DATE<br/>                                                            | DATE                                                                                                                                           |
-| OTHER DATA TYPES                                                     | NOT SUPPORTED YET                                                                                                                              |
+|                                 PostgreSQL Data type                                 | SeaTunnel Data type |
+|--------------------------------------------------------------------------------------|---------------------|
+| INTEGER                                                                              | INT                 |
+| FLOAT                                                                                | DECIMAL(38, 18)     |
+| NUMBER(precision <= 9, scale == 0)                                                   | INT                 |
+| NUMBER(9 < precision <= 18, scale == 0)                                              | BIGINT              |
+| NUMBER(18 < precision, scale == 0)                                                   | DECIMAL(38, 0)      |
+| NUMBER(scale != 0)                                                                   | DECIMAL(38, 18)     |
+| BINARY_DOUBLE                                                                        | DOUBLE              |
+| BINARY_FLOAT<br/>REAL                                                                | FLOAT               |
+| CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/> | STRING              |
+| DATE                                                                                 | DATE                |
+| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                         | TIMESTAMP           |
+| BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                  | BYTES               |
 
 ## Options
 
 |                   Name                    |  Type   | Required | Default |                                                                                                                 Description                                                                                                                  |
 |-------------------------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost:5432/test                                                                                                                                                       |
-| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use PostgreSQL the value is `org.postgresql.Driver`.                                                                                                              |
+| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use Oracle the value is `oracle.jdbc.OracleDriver`.                                                                                                               |
 | user                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                 |
 | query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                       |
@@ -74,10 +65,11 @@ semantics (using XA transaction guarantee).
 | support_upsert_by_query_primary_key_exist | Boolean | No       | false   | Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupport upsert syntax. **Note**: that this method has low performance |
 | connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                          |
 | max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                        |
-| batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                         |
+| batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `batch_interval_ms`<br/>, the data will be flushed into the database                                                           |
+| batch_interval_ms                         | Int     | No       | 1000    | For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the database                                                                         |
 | is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                            |
 | generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to.                                                                                                                                                                    |
-| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver, for example, PostgreSQL is `org.postgresql.xa.PGXADataSource`, and<br/>please refer to appendix for other data sources                                                                 |
+| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver, for example, Oracle is `oracle.jdbc.xa.client.OracleXADataSource`, and<br/>please refer to appendix for other data sources                                                             |
 | max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                          |
 | auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                           |
@@ -124,11 +116,11 @@ transform {
 
 sink {
     jdbc {
-        url = "jdbc:postgresql://localhost:5432/test"
-        driver = "org.postgresql.Driver"
+        url = "jdbc:oracle:thin:@datasource01:1523:xe"
+        driver = "oracle.jdbc.OracleDriver"
         user = root
         password = 123456
-        query = "insert into test_table(name,age) values(?,?)"
+        query = "INSERT INTO TEST.TEST_TABLE(NAME,AGE) VALUES(?,?)"
      }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
   # please go to https://seatunnel.apache.org/docs/category/sink-v2
@@ -142,14 +134,14 @@ sink {
 ```
 sink {
     Jdbc {
-        url = "jdbc:postgresql://localhost:5432/test"
-        driver = org.postgresql.Driver
+        url = "jdbc:oracle:thin:@datasource01:1523:xe"
+        driver = "oracle.jdbc.OracleDriver"
         user = root
         password = 123456
         
         generate_sink_sql = true
-        database = test
-        table = "public.test_table"
+        database = XE
+        table = "TEST.TEST_TABLE"
     }
 }
 ```
@@ -161,17 +153,17 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:postgresql://localhost:5432/test"
-        driver = "org.postgresql.Driver"
+        url = "jdbc:oracle:thin:@datasource01:1523:xe"
+        driver = "oracle.jdbc.OracleDriver"
     
         max_retries = 0
         user = root
         password = 123456
-        query = "insert into test_table(name,age) values(?,?)"
+        query = "INSERT INTO TEST.TEST_TABLE(NAME,AGE) VALUES(?,?)"
     
         is_exactly_once = "true"
     
-        xa_data_source_class_name = "org.postgresql.xa.PGXADataSource"
+        xa_data_source_class_name = "oracle.jdbc.xa.client.OracleXADataSource"
     }
 }
 ```
@@ -183,16 +175,16 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:postgresql://localhost:5432/test"
-        driver = "org.postgresql.Driver"
+        url = "jdbc:oracle:thin:@datasource01:1523:xe"
+        driver = "oracle.jdbc.OracleDriver"
         user = root
         password = 123456
         
         generate_sink_sql = true
         # You need to configure both database and table
-        database = test
-        table = sink_table
-        primary_keys = ["id","name"]
+        database = XE
+        table = "TEST.TEST_TABLE"
+        primary_keys = ["ID"]
     }
 }
 ```
