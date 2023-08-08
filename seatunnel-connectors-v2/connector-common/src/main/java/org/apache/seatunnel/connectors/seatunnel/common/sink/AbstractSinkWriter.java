@@ -19,12 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.common.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 
+import java.io.IOException;
 import java.util.Optional;
 
 public abstract class AbstractSinkWriter<T, StateT> implements SinkWriter<T, Void, StateT> {
 
     @Override
-    public Optional<Void> prepareCommit() {
+    public Optional<Void> prepareCommit() throws IOException {
         return Optional.empty();
     }
 
