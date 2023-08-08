@@ -314,6 +314,17 @@ public class DebeziumToKafkaIT extends TestSuiteBase implements TestResource {
                                         108, "jacket", "water resistent black wind breaker", "0.1"))
                         .collect(Collectors.toSet());
         Assertions.assertIterableEquals(expected, actual);
+
+        try (Connection connection =
+                DriverManager.getConnection(
+                        POSTGRESQL_CONTAINER.getJdbcUrl(),
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword())) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("truncate table sink");
+                LOG.info("testDebeziumFormatKafkaCdcToPgsql truncate table sink");
+            }
+        }
     }
 
     public void initializeSourceTableData() throws Exception {
