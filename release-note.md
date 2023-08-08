@@ -7,6 +7,8 @@
 - [Core] [API] Fix parse nested row data type key changed upper (#4459)
 - [Starter][Flink]Support transform-v2 for flink #3396
 - [Flink] Support flink 1.14.x #3963
+- [Core][Translation][Spark] Fix SeaTunnelRowConvertor fail to convert when schema contains row type (#5170)
+
 ### Transformer
 - [Spark] Support transform-v2 for spark (#3409)
 - [ALL]Add FieldMapper Transform #3781
@@ -183,6 +185,7 @@
 - [Docs] Fix markdown syntax (#4426)
 - [Docs] Fix Kafka Doc Error Config Key "kafka." (#4427)
 - [Docs] Add Transform to Quick Start v2 (#4436)
+- [Docs] Fix Dockerfile and seatunnel-flink.yaml in Set Up with Kubernetes (#4788)
 - [Docs] Fix Mysql sink format doc (#4800)
 - [Docs] Add the generate sink sql parameter for the jdbc sink document (#4797)
 - [Docs] Add the generate sink sql parameter And example (#4769)
