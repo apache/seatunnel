@@ -78,6 +78,19 @@
             <artifactId>hadoop-aliyun</artifactId>
             <version>${hadoop-aliyun.version}</version>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>net.minidev</groupId>
+                    <artifactId>json-smart</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>net.minidev</groupId>
+            <artifactId>json-smart</artifactId>
+            <version>${json-smart.version}</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
