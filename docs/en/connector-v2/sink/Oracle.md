@@ -52,10 +52,10 @@ semantics (using XA transaction guarantee).
 
 ## Options
 
-|                   Name                    |  Type   | Required | Default |                                                                                                                 Description                                                                                                                  |
+| Name                                      | Type    | Required | Default | Description                                                                                                                                                                                                                                  |
 |-------------------------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost:5432/test                                                                                                                                                       |
-| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use PostgreSQL the value is `org.postgresql.Driver`.                                                                                                              |
+| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use Oracle the value is `oracle.jdbc.OracleDriver`.                                                                                                               |
 | user                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                 |
 | query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                       |
@@ -69,7 +69,7 @@ semantics (using XA transaction guarantee).
 | batch_interval_ms                         | Int     | No       | 1000    | For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the database                                                                         |
 | is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                            |
 | generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to.                                                                                                                                                                    |
-| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver, for example, Oracle is `oracle.jdbc.xa.OracleXADataSource`, and<br/>please refer to appendix for other data sources                                                                    |
+| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver, for example, Oracle is `oracle.jdbc.xa.client.OracleXADataSource`, and<br/>please refer to appendix for other data sources                                                             |
 | max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                          |
 | auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                           |
@@ -163,7 +163,7 @@ sink {
     
         is_exactly_once = "true"
     
-        xa_data_source_class_name = "oracle.jdbc.xa.OracleXADataSource"
+        xa_data_source_class_name = "oracle.jdbc.xa.client.OracleXADataSource"
     }
 }
 ```
