@@ -38,7 +38,6 @@ public class JdbcConnectionConfig implements Serializable {
     public boolean autoCommit = JdbcOptions.AUTO_COMMIT.defaultValue();
 
     public int batchSize = JdbcOptions.BATCH_SIZE.defaultValue();
-    public int batchIntervalMs = JdbcOptions.BATCH_INTERVAL_MS.defaultValue();
 
     public String xaDataSourceClassName;
 
@@ -55,7 +54,6 @@ public class JdbcConnectionConfig implements Serializable {
         builder.maxRetries(config.get(JdbcOptions.MAX_RETRIES));
         builder.connectionCheckTimeoutSeconds(config.get(JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC));
         builder.batchSize(config.get(JdbcOptions.BATCH_SIZE));
-        builder.batchIntervalMs(config.get(JdbcOptions.BATCH_INTERVAL_MS));
         if (config.get(JdbcOptions.IS_EXACTLY_ONCE)) {
             builder.xaDataSourceClassName(config.get(JdbcOptions.XA_DATA_SOURCE_CLASS_NAME));
             builder.maxCommitAttempts(config.get(JdbcOptions.MAX_COMMIT_ATTEMPTS));
@@ -104,10 +102,6 @@ public class JdbcConnectionConfig implements Serializable {
         return batchSize;
     }
 
-    public int getBatchIntervalMs() {
-        return batchIntervalMs;
-    }
-
     public String getXaDataSourceClassName() {
         return xaDataSourceClassName;
     }
@@ -136,7 +130,6 @@ public class JdbcConnectionConfig implements Serializable {
         private String query;
         private boolean autoCommit = JdbcOptions.AUTO_COMMIT.defaultValue();
         private int batchSize = JdbcOptions.BATCH_SIZE.defaultValue();
-        private int batchIntervalMs = JdbcOptions.BATCH_INTERVAL_MS.defaultValue();
         private String xaDataSourceClassName;
         private int maxCommitAttempts = JdbcOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
         private int transactionTimeoutSec = JdbcOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
@@ -193,11 +186,6 @@ public class JdbcConnectionConfig implements Serializable {
             return this;
         }
 
-        public Builder batchIntervalMs(int batchIntervalMs) {
-            this.batchIntervalMs = batchIntervalMs;
-            return this;
-        }
-
         public Builder xaDataSourceClassName(String xaDataSourceClassName) {
             this.xaDataSourceClassName = xaDataSourceClassName;
             return this;
@@ -216,7 +204,6 @@ public class JdbcConnectionConfig implements Serializable {
         public JdbcConnectionConfig build() {
             JdbcConnectionConfig jdbcConnectionConfig = new JdbcConnectionConfig();
             jdbcConnectionConfig.batchSize = this.batchSize;
-            jdbcConnectionConfig.batchIntervalMs = this.batchIntervalMs;
             jdbcConnectionConfig.driverName = this.driverName;
             jdbcConnectionConfig.compatibleMode = this.compatibleMode;
             jdbcConnectionConfig.maxRetries = this.maxRetries;

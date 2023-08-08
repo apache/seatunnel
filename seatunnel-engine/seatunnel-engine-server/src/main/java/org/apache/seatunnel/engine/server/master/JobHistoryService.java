@@ -42,7 +42,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class JobHistoryService {
@@ -101,10 +103,15 @@ public class JobHistoryService {
     // Gets the status of a running and completed job
     public String listAllJob() {
         List<JobStatusData> status = new ArrayList<>();
+        Set<Long> runningJonIds =
+                runningJobMasterMap.values().stream()
+                        .map(master -> master.getJobImmutableInformation().getJobId())
+                        .collect(Collectors.toSet());
         Stream.concat(
                         runningJobMasterMap.values().stream()
                                 .map(master -> toJobStateMapper(master, true)),
-                        finishedJobStateImap.values().stream())
+                        finishedJobStateImap.values().stream()
+                                .filter(jobState -> !runningJonIds.contains(jobState.getJobId())))
                 .forEach(
                         jobState -> {
                             JobStatusData jobStatusData =
@@ -161,6 +168,7 @@ public class JobHistoryService {
     public void storeFinishedJobState(JobMaster jobMaster) {
         JobState jobState = toJobStateMapper(jobMaster, false);
         jobState.setFinishTime(System.currentTimeMillis());
+        jobState.setErrorMessage(jobMaster.getErrorMessage());
         finishedJobStateImap.put(jobState.jobId, jobState, 14, TimeUnit.DAYS);
     }
 
@@ -223,7 +231,8 @@ public class JobHistoryService {
         JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
         String jobName = jobMaster.getJobImmutableInformation().getJobName();
         long submitTime = jobMaster.getJobImmutableInformation().getCreateTime();
-        return new JobState(jobId, jobName, jobStatus, submitTime, null, pipelineStateMapperMap);
+        return new JobState(
+                jobId, jobName, jobStatus, submitTime, null, pipelineStateMapperMap, null);
     }
 
     public void storeJobInfo(long jobId, JobDAGInfo jobInfo) {
@@ -233,17 +242,20 @@ public class JobHistoryService {
     @AllArgsConstructor
     @Data
     public static final class JobState implements Serializable {
+        private static final long serialVersionUID = -1176348098833918960L;
         private Long jobId;
         private String jobName;
         private JobStatus jobStatus;
         private long submitTime;
         private Long finishTime;
         private Map<PipelineLocation, PipelineStateData> pipelineStateMapperMap;
+        private String errorMessage;
     }
 
     @AllArgsConstructor
     @Data
     public static final class PipelineStateData implements Serializable {
+        private static final long serialVersionUID = -7875004875757861958L;
         private PipelineStatus pipelineStatus;
         private Map<TaskGroupLocation, ExecutionState> executionStateMap;
     }

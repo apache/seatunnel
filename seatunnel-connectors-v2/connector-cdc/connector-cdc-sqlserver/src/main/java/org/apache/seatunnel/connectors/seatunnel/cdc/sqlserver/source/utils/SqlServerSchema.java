@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import io.debezium.connector.sqlserver.SqlServerConnection;
+import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -29,18 +30,18 @@ import io.debezium.relational.history.TableChanges.TableChange;
 
 import java.sql.SQLException;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** A component used to get schema by table path. */
 public class SqlServerSchema {
 
+    private final SqlServerConnectorConfig connectorConfig;
     private final Map<TableId, TableChange> schemasByTableId;
 
-    public SqlServerSchema() {
+    public SqlServerSchema(SqlServerConnectorConfig connectorConfig) {
         this.schemasByTableId = new ConcurrentHashMap<>();
+        this.connectorConfig = connectorConfig;
     }
 
     public TableChange getTableSchema(JdbcConnection jdbc, TableId tableId) {
@@ -55,16 +56,17 @@ public class SqlServerSchema {
 
     private TableChange readTableSchema(JdbcConnection jdbc, TableId tableId) {
         SqlServerConnection sqlServerConnection = (SqlServerConnection) jdbc;
-        Set<TableId> tableIdSet = new HashSet<>();
-        tableIdSet.add(tableId);
 
         final Map<TableId, TableChange> tableChangeMap = new HashMap<>();
         Tables tables = new Tables();
-        tables.overwriteTable(tables.editOrCreateTable(tableId).create());
-
         try {
             sqlServerConnection.readSchema(
-                    tables, tableId.catalog(), tableId.schema(), null, null, false);
+                    tables,
+                    tableId.catalog(),
+                    tableId.schema(),
+                    connectorConfig.getTableFilters().dataCollectionFilter(),
+                    null,
+                    false);
             Table table = tables.forTable(tableId);
             TableChange tableChange = new TableChange(TableChanges.TableChangeType.CREATE, table);
             tableChangeMap.put(tableId, tableChange);
