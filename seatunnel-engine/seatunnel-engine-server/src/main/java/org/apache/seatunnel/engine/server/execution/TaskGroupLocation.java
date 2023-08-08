@@ -30,6 +30,7 @@ import java.io.Serializable;
 @Data
 @AllArgsConstructor
 public class TaskGroupLocation implements Serializable {
+    private static final long serialVersionUID = -8321526709920799751L;
     private final long jobId;
 
     private final int pipelineId;
