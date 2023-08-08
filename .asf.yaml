@@ -15,18 +15,21 @@
 #
 
 github:
-  description: SeaTunnel is a distributed, high-performance data integration platform for the synchronization and transformation of massive data (offline & real-time).
+  description: SeaTunnel is a next-generation super high-performance, distributed, massive data integration tool.
   homepage: https://seatunnel.apache.org/
   labels:
     - data-integration
+    - change-data-capture
+    - cdc
     - high-performance
     - offline
     - real-time
-    - data-pipeline
-    - sql-engine
+    - batch
+    - streaming
+    - data-ingestion
     - apache
-    - seatunnel
-    - etl-framework
+    - EtLT
+    - elt
   enabled_merge_buttons:
     squash: true
     merge: false
