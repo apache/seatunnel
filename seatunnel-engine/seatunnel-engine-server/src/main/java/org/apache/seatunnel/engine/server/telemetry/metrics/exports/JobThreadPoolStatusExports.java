@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 
-import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
 
@@ -40,11 +39,10 @@ public class JobThreadPoolStatusExports extends AbstractCollector {
     @Override
     public List<MetricFamilySamples> collect() {
         List<MetricFamilySamples> mfs = new ArrayList();
-        CoordinatorService coordinatorService = getCoordinatorService();
 
         List<String> labelValues = labelValues(localAddress());
 
-        ThreadPoolStatus threadPoolStatusMetrics = coordinatorService.getThreadPoolStatusMetrics();
+        ThreadPoolStatus threadPoolStatusMetrics = getServer().getThreadPoolStatusMetrics();
         List<String> labelNames = clusterLabelNames(ADDRESS);
 
         GaugeMetricFamily activeCount =
