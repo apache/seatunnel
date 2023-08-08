@@ -43,6 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -168,7 +169,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                         throw e;
                     }
                     List<StateT> states = writer.snapshotState(barrier.getId());
-                    if (states == null || states.isEmpty()) {
+                    if (!writerStateSerializer.isPresent()) {
                         runningTask.addState(
                                 barrier, ActionStateKey.of(sinkAction), Collections.emptyList());
                     } else {
@@ -188,11 +189,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                         new SinkPrepareCommitOperation<CommitInfoT>(
                                                 barrier,
                                                 committerTaskLocation,
-                                                commitInfoT == null
-                                                        ? null
-                                                        : commitInfoSerializer
+                                                commitInfoSerializer.isPresent()
+                                                        ? commitInfoSerializer
                                                                 .get()
-                                                                .serialize(commitInfoT)),
+                                                                .serialize(commitInfoT)
+                                                        : null),
                                         committerTaskAddress)
                                 .join();
                     }
@@ -248,13 +249,22 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
-        List<StateT> states =
-                actionStateList.stream()
-                        .map(ActionSubtaskState::getState)
-                        .flatMap(Collection::stream)
-                        .filter(Objects::nonNull)
-                        .map(bytes -> sneaky(() -> writerStateSerializer.get().deserialize(bytes)))
-                        .collect(Collectors.toList());
+        List<StateT> states = new ArrayList<>();
+        if (writerStateSerializer.isPresent()) {
+            states =
+                    actionStateList.stream()
+                            .map(ActionSubtaskState::getState)
+                            .flatMap(Collection::stream)
+                            .filter(Objects::nonNull)
+                            .map(
+                                    bytes ->
+                                            sneaky(
+                                                    () ->
+                                                            writerStateSerializer
+                                                                    .get()
+                                                                    .deserialize(bytes)))
+                            .collect(Collectors.toList());
+        }
         if (states.isEmpty()) {
             this.writer =
                     sinkAction
