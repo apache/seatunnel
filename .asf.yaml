@@ -28,7 +28,7 @@ github:
     - streaming
     - data-ingestion
     - apache
-    - EtLT
+    - etlt
     - elt
   enabled_merge_buttons:
     squash: true
