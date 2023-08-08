@@ -209,7 +209,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testInfluxdbSqlTest(TestContainer container)
+    public void testInfluxdbWithTz(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/influxdb-to-influxdb-sqltest.conf");
