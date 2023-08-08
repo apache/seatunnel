@@ -27,5 +27,6 @@ import java.io.Serializable;
 public class SnapshotSplitWatermark implements Serializable {
     private static final long serialVersionUID = 1L;
     private final String splitId;
+    private final Offset lowWatermark;
     private final Offset highWatermark;
 }

@@ -57,6 +57,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | schema                          | config  | no       | -                                                     |
 | common-options                  |         | no       | -                                                     |
 | sheet_name                      | string  | no       | -                                                     |
+| file_filter_pattern             | string  | no       | -                                                     |
 
 ### path [string]
 
@@ -124,7 +125,7 @@ For example, set like following:
 
 `skip_header_row_number = 2`
 
-then Seatunnel will skip the first 2 lines from source files
+then SeaTunnel will skip the first 2 lines from source files
 
 ### file_format_type [string]
 
@@ -263,7 +264,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ### sheet_name [string]
 
-Reader the sheet of the workbook,Only used when file_format is excel.
+Reader the sheet of the workbook,Only used when file_format_type is excel.
 
 ## Example
 
@@ -299,6 +300,10 @@ Reader the sheet of the workbook,Only used when file_format is excel.
 
 ```
 
+### file_filter_pattern [string]
+
+Filter pattern, which used for filtering files.
+
 ## Changelog
 
 ### 2.3.0-beta 2022-10-20
@@ -307,9 +312,9 @@ Reader the sheet of the workbook,Only used when file_format is excel.
 
 ### Next version
 
-- [Feature] Support S3A protocol ([3632](https://github.com/apache/incubator-seatunnel/pull/3632))
+- [Feature] Support S3A protocol ([3632](https://github.com/apache/seatunnel/pull/3632))
   - Allow user to add additional hadoop-s3 parameters
   - Allow the use of the s3a protocol
   - Decouple hadoop-aws dependencies
-- [Feature]Set S3 AK to optional ([3688](https://github.com/apache/incubator-seatunnel/pull/))
+- [Feature]Set S3 AK to optional ([3688](https://github.com/apache/seatunnel/pull/))
 

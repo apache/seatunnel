@@ -102,6 +102,12 @@ public class SourceOptions {
                     .withDescription(
                             "Data format. The default format is seatunnel row. Optional compatible with debezium-json format.");
 
+    public static final Option<Boolean> EXACTLY_ONCE =
+            Options.key("exactly_once")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("Enable exactly once semantic.");
+
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()
                 .optional(FORMAT)

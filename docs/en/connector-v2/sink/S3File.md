@@ -44,8 +44,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | file_name_expression             | string  | no       | "${transactionId}"                                    | Only used when custom_filename is true                                                                 |
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                                          | Only used when custom_filename is true                                                                 |
 | file_format_type                 | string  | no       | "csv"                                                 |                                                                                                        |
-| field_delimiter                  | string  | no       | '\001'                                                | Only used when file_format is text                                                                     |
-| row_delimiter                    | string  | no       | "\n"                                                  | Only used when file_format is text                                                                     |
+| field_delimiter                  | string  | no       | '\001'                                                | Only used when file_format_type is text                                                                |
+| row_delimiter                    | string  | no       | "\n"                                                  | Only used when file_format_type is text                                                                |
 | have_partition                   | boolean | no       | false                                                 | Whether you need processing partitions.                                                                |
 | partition_by                     | array   | no       | -                                                     | Only used then have_partition is true                                                                  |
 | partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"            | Only used then have_partition is true                                                                  |
@@ -55,8 +55,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | batch_size                       | int     | no       | 1000000                                               |                                                                                                        |
 | compress_codec                   | string  | no       | none                                                  |                                                                                                        |
 | common-options                   | object  | no       | -                                                     |                                                                                                        |
-| max_rows_in_memory               | int     | no       | -                                                     | Only used when file_format is excel.                                                                   |
-| sheet_name                       | string  | no       | Sheet${Random number}                                 | Only used when file_format is excel.                                                                   |
+| max_rows_in_memory               | int     | no       | -                                                     | Only used when file_format_type is excel.                                                              |
+| sheet_name                       | string  | no       | Sheet${Random number}                                 | Only used when file_format_type is excel.                                                              |
 
 ### path [string]
 
@@ -129,7 +129,7 @@ We supported as the following file types:
 
 `text` `json` `csv` `orc` `parquet` `excel`
 
-Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
+Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
 ### field_delimiter [string]
 
@@ -284,18 +284,18 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
 
 ### 2.3.0 2022-12-30
 
-- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
+- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/seatunnel/pull/3258))
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
-- [Feature] Support S3A protocol ([3632](https://github.com/apache/incubator-seatunnel/pull/3632))
+- [Feature] Support S3A protocol ([3632](https://github.com/apache/seatunnel/pull/3632))
   - Allow user to add additional hadoop-s3 parameters
   - Allow the use of the s3a protocol
   - Decouple hadoop-aws dependencies
-- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
-- [Feature]Set S3 AK to optional ([3688](https://github.com/apache/incubator-seatunnel/pull/))
+- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
+- [Feature]Set S3 AK to optional ([3688](https://github.com/apache/seatunnel/pull/))
 
 ### Next version
 
-- ​	[Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+- ​	[Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
 

@@ -40,8 +40,11 @@ describes how to setup the SqlServer CDC connector to run SQL queries against Sq
 | connect.timeout                                | Duration | No       | 30s           |
 | connect.max-retries                            | Integer  | No       | 3             |
 | connection.pool.size                           | Integer  | No       | 20            |
-| chunk-key.even-distribution.factor.upper-bound | Double   | No       | 1000          |
+| chunk-key.even-distribution.factor.upper-bound | Double   | No       | 100           |
 | chunk-key.even-distribution.factor.lower-bound | Double   | No       | 0.05          |
+| sample-sharding.threshold                      | int      | No       | 1000          |
+| inverse-sampling.rate                          | int      | No       | 1000          |
+| exactly_once                                   | Boolean  | No       | true          |
 | debezium.*                                     | config   | No       | -             |
 | format                                         | Enum     | No       | DEFAULT       |
 | common-options                                 |          | no       | -             |
@@ -123,6 +126,22 @@ of table.
 
 The maximum fetch size for per poll when read table snapshot.
 
+### chunk-key.even-distribution.factor.upper-bound [Double]
+
+The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0.
+
+### chunk-key.even-distribution.factor.lower-bound [Double]
+
+The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.
+
+### sample-sharding.threshold [Integer]
+
+This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.
+
+### inverse-sampling.rate [Integer]
+
+The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.
+
 ### server-time-zone [String]
 
 The session time zone in database server.
@@ -138,6 +157,10 @@ The max retry times that the connector should retry to build database server con
 ### connection.pool.size [Integer]
 
 The connection pool size.
+
+### exactly_once [Boolean]
+
+Enable exactly once semantic.
 
 ### debezium [Config]
 
@@ -188,6 +211,6 @@ source {
 ### next version
 
 - Add SqlServer CDC Source Connector
-- [Doc] Add SqlServer CDC Source Connector document ([3993](https://github.com/apache/incubator-seatunnel/pull/3993))
-- [Feature] Support multi-table read ([4377](https://github.com/apache/incubator-seatunnel/pull/4377))
+- [Doc] Add SqlServer CDC Source Connector document ([3993](https://github.com/apache/seatunnel/pull/3993))
+- [Feature] Support multi-table read ([4377](https://github.com/apache/seatunnel/pull/4377))
 

@@ -68,7 +68,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
 
     private static final long serialVersionUID = 5906594537520393503L;
 
-    private SeaTunnelTaskState currState;
+    private volatile SeaTunnelTaskState currState;
     private final SinkAction<?, ?, CommandInfoT, AggregatedCommitInfoT> sink;
     private final int maxWriterSize;
 
@@ -138,16 +138,22 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                 if (restoreComplete.isDone()) {
                     currState = READY_START;
                     reportTaskStatus(READY_START);
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case READY_START:
                 if (startCalled) {
                     currState = STARTING;
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case STARTING:
                 if (receivedSinkWriter) {
                     currState = RUNNING;
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case RUNNING:
@@ -179,6 +185,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
 
     @Override
     public void close() throws IOException {
+        super.close();
         aggregatedCommitter.close();
         progress.done();
         completableFuture.complete(null);
@@ -186,6 +193,8 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
 
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
+        long startTime = System.currentTimeMillis();
+
         log.debug("trigger barrier for sink agg commit [{}]", barrier);
         Integer count =
                 checkpointBarrierCounter.compute(
@@ -223,8 +232,15 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                                     (CheckpointBarrier) barrier,
                                     Collections.singletonList(
                                             new ActionSubtaskState(
-                                                    ActionStateKey.of(sink), -1, states))));
+                                                    ActionStateKey.of(sink), -1, states))))
+                    .join();
         }
+
+        log.debug(
+                "trigger barrier [{}] finished, cost {}ms. taskLocation [{}]",
+                barrier.getId(),
+                System.currentTimeMillis() - startTime,
+                taskLocation);
     }
 
     @Override
