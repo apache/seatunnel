@@ -20,8 +20,6 @@ package org.apache.seatunnel.engine.server.task.group.queue;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
-import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
@@ -62,17 +60,7 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
 
     private void handleRecord(Record<?> record, ConsumerWithException<Record<?>> consumer)
             throws Exception {
-        if (record.getData() instanceof Barrier) {
-            CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
-            getRunningTask().ack(barrier);
-            if (barrier.prepareClose()) {
-                getIntermediateQueueFlowLifeCycle().setPrepareClose(true);
-            }
-            consumer.accept(record);
-        } else {
-            if (getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
-                return;
-            }
+        if (handleBarrier(record)) {
             consumer.accept(record);
         }
     }

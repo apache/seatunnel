@@ -82,9 +82,8 @@ public class EngineConfig {
         this.taskExecutionThreadShareMode = taskExecutionThreadShareMode;
     }
 
-    public EngineConfig setQueueType(QueueType queueType) {
+    public void setQueueType(QueueType queueType) {
         checkNotNull(queueType);
         this.queueType = queueType;
-        return this;
     }
 }
