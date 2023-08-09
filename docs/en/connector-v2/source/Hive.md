@@ -44,6 +44,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | read_partitions      | list   | no       | -             |
 | read_columns         | list   | no       | -             |
 | common-options       |        | no       | -             |
+| compress_codec       | string | no       | none          |
 
 ### table_name [string]
 
@@ -83,6 +84,16 @@ The read column list of the data source, user can use it to implement field proj
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc/parquet:  
+  automatically recognizes the compression type, no additional settings required.
 
 ## Example
 
