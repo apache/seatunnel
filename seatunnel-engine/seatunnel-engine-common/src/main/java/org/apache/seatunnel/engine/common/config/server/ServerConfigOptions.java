@@ -85,6 +85,13 @@ public class ServerConfigOptions {
                     .defaultValue(30000)
                     .withDescription("The timeout (in milliseconds) for a checkpoint.");
 
+    public static final Option<Integer> SCHEMA_CHANGE_CHECKPOINT_TIMEOUT =
+            Options.key("schema-change-timeout")
+                    .intType()
+                    .defaultValue(30000)
+                    .withDescription(
+                            "The timeout (in milliseconds) for a schema change checkpoint.");
+
     public static final Option<Integer> CHECKPOINT_MAX_CONCURRENT =
             Options.key("max-concurrent")
                     .intType()
