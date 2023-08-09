@@ -84,6 +84,8 @@
 
 ## Improve
 
+- [Improve][Connector-V2][Jdbc-Source] Support for Decimal types as splict keys (#4634)
+
 ### Core
 
 - [Core] [Spark] Push transform operation from Spark Driver to Executors (#4503)
