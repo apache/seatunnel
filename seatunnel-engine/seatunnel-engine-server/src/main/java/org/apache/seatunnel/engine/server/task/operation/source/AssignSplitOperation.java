@@ -93,8 +93,9 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        splits = new ArrayList<>(in.readInt());
-        for (int i = 0; i < splits.size(); i++) {
+        int splitCount = in.readInt();
+        splits = new ArrayList<>(splitCount);
+        for (int i = 0; i < splitCount; i++) {
             splits.add(in.readByteArray());
         }
         taskID = in.readObject();

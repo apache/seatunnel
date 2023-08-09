@@ -63,8 +63,9 @@ public class RestoredSplitOperation extends TaskOperation {
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        splits = new ArrayList<>(in.readInt());
-        for (int i = 0; i < splits.size(); i++) {
+        int splitCount = in.readInt();
+        splits = new ArrayList<>(splitCount);
+        for (int i = 0; i < splitCount; i++) {
             splits.add(in.readByteArray());
         }
         subtaskIndex = in.readInt();
