@@ -24,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -44,7 +44,7 @@ public class FileSinkAggregatedCommitter
         aggregatedCommitInfos.forEach(
                 aggregatedCommitInfo -> {
                     try {
-                        for (Map.Entry<String, Map<String, String>> entry :
+                        for (Map.Entry<String, LinkedHashMap<String, String>> entry :
                                 aggregatedCommitInfo.getTransactionMap().entrySet()) {
                             for (Map.Entry<String, String> mvFileEntry :
                                     entry.getValue().entrySet()) {
@@ -77,13 +77,14 @@ public class FileSinkAggregatedCommitter
         if (commitInfos == null || commitInfos.size() == 0) {
             return null;
         }
-        Map<String, Map<String, String>> aggregateCommitInfo = new HashMap<>();
-        Map<String, List<String>> partitionDirAndValuesMap = new HashMap<>();
+        LinkedHashMap<String, LinkedHashMap<String, String>> aggregateCommitInfo =
+                new LinkedHashMap<>();
+        LinkedHashMap<String, List<String>> partitionDirAndValuesMap = new LinkedHashMap<>();
         commitInfos.forEach(
                 commitInfo -> {
-                    Map<String, String> needMoveFileMap =
+                    LinkedHashMap<String, String> needMoveFileMap =
                             aggregateCommitInfo.computeIfAbsent(
-                                    commitInfo.getTransactionDir(), k -> new HashMap<>());
+                                    commitInfo.getTransactionDir(), k -> new LinkedHashMap<>());
                     needMoveFileMap.putAll(commitInfo.getNeedMoveFiles());
                     if (commitInfo.getPartitionDirAndValuesMap() != null
                             && !commitInfo.getPartitionDirAndValuesMap().isEmpty()) {
@@ -109,7 +110,7 @@ public class FileSinkAggregatedCommitter
         aggregatedCommitInfos.forEach(
                 aggregatedCommitInfo -> {
                     try {
-                        for (Map.Entry<String, Map<String, String>> entry :
+                        for (Map.Entry<String, LinkedHashMap<String, String>> entry :
                                 aggregatedCommitInfo.getTransactionMap().entrySet()) {
                             // rollback the file
                             for (Map.Entry<String, String> mvFileEntry :

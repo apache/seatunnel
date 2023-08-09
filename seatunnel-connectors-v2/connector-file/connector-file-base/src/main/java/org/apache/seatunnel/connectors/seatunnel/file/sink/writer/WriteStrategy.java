@@ -27,8 +27,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.hadoop.conf.Configuration;
 
 import java.io.Serializable;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 public interface WriteStrategy extends Transaction, Serializable {
     /**
@@ -67,7 +67,7 @@ public interface WriteStrategy extends Transaction, Serializable {
      * @param seaTunnelRow seaTunnelRow
      * @return the map of partition directory
      */
-    Map<String, List<String>> generatorPartitionDir(SeaTunnelRow seaTunnelRow);
+    LinkedHashMap<String, List<String>> generatorPartitionDir(SeaTunnelRow seaTunnelRow);
 
     /**
      * use transaction id generate file name
