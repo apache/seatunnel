@@ -39,6 +39,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -130,6 +131,29 @@ public class JobExecutionIT {
                                                         objectCompletableFuture.get())));
     }
 
+    @Test
+    public void testGetErrorInfo() throws ExecutionException, InterruptedException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("batch_fakesource_to_console_error.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("fake_to_console_error");
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        JobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig);
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+        JobStatus jobStatus = clientJobProxy.getJobStatus();
+        while (jobStatus == JobStatus.RUNNING) {
+            Thread.sleep(1 * 1000L);
+            jobStatus = clientJobProxy.getJobStatus();
+        }
+        CompletableFuture<JobResult> future = clientJobProxy.doWaitForJobComplete();
+        JobResult result = future.get();
+        Assertions.assertEquals(result.getStatus(), JobStatus.FAILED);
+        Assertions.assertTrue(result.getError().startsWith("java.lang.NumberFormatException"));
+    }
+  
     @Test
     public void testExpiredJobWasDeleted() throws Exception {
         Common.setDeployMode(DeployMode.CLIENT);

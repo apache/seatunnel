@@ -171,6 +171,7 @@ public class JobHistoryService {
     public void storeFinishedJobState(JobMaster jobMaster) {
         JobState jobState = toJobStateMapper(jobMaster, false);
         jobState.setFinishTime(System.currentTimeMillis());
+        jobState.setErrorMessage(jobMaster.getErrorMessage());
         finishedJobStateImap.put(jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 
@@ -233,7 +234,8 @@ public class JobHistoryService {
         JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
         String jobName = jobMaster.getJobImmutableInformation().getJobName();
         long submitTime = jobMaster.getJobImmutableInformation().getCreateTime();
-        return new JobState(jobId, jobName, jobStatus, submitTime, null, pipelineStateMapperMap);
+        return new JobState(
+                jobId, jobName, jobStatus, submitTime, null, pipelineStateMapperMap, null);
     }
 
     public void storeJobInfo(long jobId, JobDAGInfo jobInfo) {
@@ -243,17 +245,20 @@ public class JobHistoryService {
     @AllArgsConstructor
     @Data
     public static final class JobState implements Serializable {
+        private static final long serialVersionUID = -1176348098833918960L;
         private Long jobId;
         private String jobName;
         private JobStatus jobStatus;
         private long submitTime;
         private Long finishTime;
         private Map<PipelineLocation, PipelineStateData> pipelineStateMapperMap;
+        private String errorMessage;
     }
 
     @AllArgsConstructor
     @Data
     public static final class PipelineStateData implements Serializable {
+        private static final long serialVersionUID = -7875004875757861958L;
         private PipelineStatus pipelineStatus;
         private Map<TaskGroupLocation, ExecutionState> executionStateMap;
     }

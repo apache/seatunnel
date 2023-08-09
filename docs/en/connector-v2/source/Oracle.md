@@ -1,6 +1,6 @@
-# DB2
+# Oracle
 
-> JDBC DB2 Source Connector
+> JDBC Oracle Source Connector
 
 ## Support Those Engines
 
@@ -25,39 +25,39 @@ Read external data source data through JDBC.
 
 ## Supported DataSource Info
 
-| Datasource |                    Supported versions                    |             Driver             |                Url                |                                 Maven                                 |
-|------------|----------------------------------------------------------|--------------------------------|-----------------------------------|-----------------------------------------------------------------------|
-| DB2        | Different dependency version has different driver class. | com.ibm.db2.jdbc.app.DB2Driver | jdbc:db2://127.0.0.1:50000/dbname | [Download](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc) |
+| Datasource |                    Supported versions                    |          Driver          |                  Url                   |                               Maven                                |
+|------------|----------------------------------------------------------|--------------------------|----------------------------------------|--------------------------------------------------------------------|
+| Oracle     | Different dependency version has different driver class. | oracle.jdbc.OracleDriver | jdbc:oracle:thin:@datasource01:1523:xe | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8 |
 
 ## Database Dependency
 
 > Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example DB2 datasource: cp db2-connector-java-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
+> For example Oracle datasource: cp ojdbc8-xxxxxx.jar $SEATNUNNEL_HOME/lib/<br/>
+> To support the i18n character set, copy the orai18n.jar to the $SEATNUNNEL_HOME/lib/ directory.
 
 ## Data Type Mapping
 
-|                                            DB2 Data type                                             | SeaTunnel Data type |
-|------------------------------------------------------------------------------------------------------|---------------------|---|
-| BOOLEAN                                                                                              | BOOLEAN             |
-| SMALLINT                                                                                             | SHORT               |
-| INT<br/>INTEGER<br/>                                                                                 | INTEGER             |
-| BIGINT                                                                                               | LONG                |
-| DECIMAL<br/>DEC<br/>NUMERIC<br/>NUM                                                                  | DECIMAL(38,18)      |
-| REAL                                                                                                 | FLOAT               |
-| FLOAT<br/>DOUBLE<br/>DOUBLE PRECISION<br/>DECFLOAT                                                   | DOUBLE              |
-| CHAR<br/>VARCHAR<br/>LONG VARCHAR<br/>CLOB<br/>GRAPHIC<br/>VARGRAPHIC<br/>LONG VARGRAPHIC<br/>DBCLOB | STRING              |
-| BLOB                                                                                                 | BYTES               |
-| DATE                                                                                                 | DATE                |
-| TIME                                                                                                 | TIME                |
-| TIMESTAMP                                                                                            | TIMESTAMP           |
-| ROWID<br/>XML                                                                                        | Not supported yet   |
+|                                 PostgreSQL Data type                                 | SeaTunnel Data type |
+|--------------------------------------------------------------------------------------|---------------------|
+| INTEGER                                                                              | INT                 |
+| FLOAT                                                                                | DECIMAL(38, 18)     |
+| NUMBER(precision <= 9, scale == 0)                                                   | INT                 |
+| NUMBER(9 < precision <= 18, scale == 0)                                              | BIGINT              |
+| NUMBER(18 < precision, scale == 0)                                                   | DECIMAL(38, 0)      |
+| NUMBER(scale != 0)                                                                   | DECIMAL(38, 18)     |
+| BINARY_DOUBLE                                                                        | DOUBLE              |
+| BINARY_FLOAT<br/>REAL                                                                | FLOAT               |
+| CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/> | STRING              |
+| DATE                                                                                 | DATE                |
+| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                         | TIMESTAMP           |
+| BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                  | BYTES               |
 
 ## Source Options
 
 |             Name             |    Type    | Required |     Default     |                                                                                                                            Description                                                                                                                            |
 |------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                                                |
-| driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use db2 the value is `com.ibm.db2.jdbc.app.DB2Driver`.                                                                                                                                 |
+| url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:oracle:thin:@datasource01:1523:xe                                                                                                                                                                           |
+| driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `oracle.jdbc.OracleDriver`.                                                                                                                                     |
 | user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
@@ -88,12 +88,11 @@ env {
 }
 source{
     Jdbc {
-        url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jdbc.app.DB2Driver"
-        connection_check_timeout_sec = 100
+        url = "jdbc:oracle:thin:@datasource01:1523:xe"
+        driver = "oracle.jdbc.OracleDriver"
         user = "root"
         password = "123456"
-        query = "select * from table_xxx"
+        query = "SELECT * FROM TEST_TABLE"
     }
 }
 
@@ -114,15 +113,15 @@ sink {
 ```
 source {
     Jdbc {
-        url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jdbc.app.DB2Driver"
+        url = "jdbc:oracle:thin:@datasource01:1523:xe"
+        driver = "oracle.jdbc.OracleDriver"
         connection_check_timeout_sec = 100
         user = "root"
         password = "123456"
         # Define query logic as required
-        query = "select * from type_bin"
+        query = "SELECT * FROM TEST_TABLE"
         # Parallel sharding reads fields
-        partition_column = "id"
+        partition_column = "ID"
         # Number of fragments
         partition_num = 10
     }
@@ -136,14 +135,14 @@ source {
 ```
 source {
     Jdbc {
-        url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jdbc.app.DB2Driver"
+        url = "jdbc:oracle:thin:@datasource01:1523:xe"
+        driver = "oracle.jdbc.OracleDriver"
         connection_check_timeout_sec = 100
         user = "root"
         password = "123456"
         # Define query logic as required
-        query = "select * from type_bin"
-        partition_column = "id"
+        query = "SELECT * FROM TEST_TABLE"
+        partition_column = "ID"
         # Read start boundary
         partition_lower_bound = 1
         # Read end boundary
