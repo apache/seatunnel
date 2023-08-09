@@ -134,6 +134,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
+        long startTime = System.currentTimeMillis();
+
         log.debug("split enumer trigger barrier [{}]", barrier);
         if (barrier.prepareClose()) {
             this.prepareCloseTriggered = true;
@@ -164,6 +166,12 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                                                     Collections.singletonList(serialize)))))
                     .join();
         }
+
+        log.debug(
+                "trigger barrier [{}] finished, cost {}ms. taskLocation [{}]",
+                barrier.getId(),
+                System.currentTimeMillis() - startTime,
+                taskLocation);
     }
 
     @Override
