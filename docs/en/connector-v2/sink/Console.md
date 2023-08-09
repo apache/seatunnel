@@ -2,6 +2,10 @@
 
 > Console sink connector
 
+## Support Connector Version
+
+- All versions
+
 ## Support Those Engines
 
 > Spark<br/>
