@@ -23,6 +23,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Optional;
 
 @Data
@@ -32,9 +33,10 @@ public class JdbcSourceConfig implements Serializable {
 
     private JdbcConnectionConfig jdbcConnectionConfig;
     public String query;
+    public String compatibleMode;
     private String partitionColumn;
-    private Long partitionUpperBound;
-    private Long partitionLowerBound;
+    private BigDecimal partitionUpperBound;
+    private BigDecimal partitionLowerBound;
     private int fetchSize;
     private Integer partitionNumber;
 
@@ -43,6 +45,7 @@ public class JdbcSourceConfig implements Serializable {
         builder.jdbcConnectionConfig(JdbcConnectionConfig.of(config));
         builder.query(config.get(JdbcOptions.QUERY));
         builder.fetchSize(config.get(JdbcOptions.FETCH_SIZE));
+        config.getOptional(JdbcOptions.COMPATIBLE_MODE).ifPresent(builder::compatibleMode);
         config.getOptional(JdbcOptions.PARTITION_COLUMN).ifPresent(builder::partitionColumn);
         config.getOptional(JdbcOptions.PARTITION_UPPER_BOUND)
                 .ifPresent(builder::partitionUpperBound);
@@ -60,11 +63,11 @@ public class JdbcSourceConfig implements Serializable {
         return Optional.ofNullable(partitionColumn);
     }
 
-    public Optional<Long> getPartitionUpperBound() {
+    public Optional<BigDecimal> getPartitionUpperBound() {
         return Optional.ofNullable(partitionUpperBound);
     }
 
-    public Optional<Long> getPartitionLowerBound() {
+    public Optional<BigDecimal> getPartitionLowerBound() {
         return Optional.ofNullable(partitionLowerBound);
     }
 

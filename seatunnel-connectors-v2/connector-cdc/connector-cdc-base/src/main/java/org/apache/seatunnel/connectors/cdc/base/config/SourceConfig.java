@@ -28,6 +28,8 @@ public interface SourceConfig extends Serializable {
 
     int getSplitSize();
 
+    boolean isExactlyOnce();
+
     /** Factory for the {@code SourceConfig}. */
     @FunctionalInterface
     interface Factory<C extends SourceConfig> extends Serializable {

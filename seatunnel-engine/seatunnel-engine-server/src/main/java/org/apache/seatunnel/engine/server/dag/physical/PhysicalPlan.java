@@ -140,10 +140,6 @@ public class PhysicalPlan {
                 pipelineState -> {
                     try {
                         if (PipelineStatus.CANCELED.equals(pipelineState.getPipelineStatus())) {
-                            if (subPlan.canRestorePipeline()) {
-                                subPlan.restorePipeline();
-                                return;
-                            }
                             canceledPipelineNum.incrementAndGet();
                             if (makeJobEndWhenPipelineEnded) {
                                 LOGGER.info(
@@ -154,14 +150,6 @@ public class PhysicalPlan {
                             }
                         } else if (PipelineStatus.FAILED.equals(
                                 pipelineState.getPipelineStatus())) {
-                            if (subPlan.canRestorePipeline()) {
-                                LOGGER.info(
-                                        String.format(
-                                                "Can restore pipeline %s",
-                                                subPlan.getPipelineFullName()));
-                                subPlan.restorePipeline();
-                                return;
-                            }
                             failedPipelineNum.incrementAndGet();
                             errorBySubPlan.compareAndSet(null, pipelineState.getThrowableMsg());
                             if (makeJobEndWhenPipelineEnded) {
@@ -174,7 +162,7 @@ public class PhysicalPlan {
                         }
 
                         if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
-                            JobStatus jobStatus = JobStatus.FAILING;
+                            JobStatus jobStatus;
                             if (failedPipelineNum.get() > 0) {
                                 jobStatus = JobStatus.FAILING;
                                 updateJobState(jobStatus);

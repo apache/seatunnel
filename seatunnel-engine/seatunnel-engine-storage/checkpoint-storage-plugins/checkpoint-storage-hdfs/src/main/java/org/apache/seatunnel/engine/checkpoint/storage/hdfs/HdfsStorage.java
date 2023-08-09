@@ -283,7 +283,9 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                     if (pipelineId.equals(getPipelineIdByFileName(fileName))
                             && checkpointId.equals(getCheckpointIdByFileName(fileName))) {
                         try {
-                            fs.delete(new Path(fileName), false);
+                            fs.delete(
+                                    new Path(path + DEFAULT_CHECKPOINT_FILE_PATH_SPLIT + fileName),
+                                    false);
                         } catch (Exception e) {
                             log.error(
                                     "Failed to delete checkpoint {} for job {}, pipeline {}",
@@ -311,7 +313,9 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                     if (pipelineId.equals(getPipelineIdByFileName(fileName))
                             && checkpointIdList.contains(checkpointIdByFileName)) {
                         try {
-                            fs.delete(new Path(fileName), false);
+                            fs.delete(
+                                    new Path(path + DEFAULT_CHECKPOINT_FILE_PATH_SPLIT + fileName),
+                                    false);
                         } catch (Exception e) {
                             log.error(
                                     "Failed to delete checkpoint {} for job {}, pipeline {}",

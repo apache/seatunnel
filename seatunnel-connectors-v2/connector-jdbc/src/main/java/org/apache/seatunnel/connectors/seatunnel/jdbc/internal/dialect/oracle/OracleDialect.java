@@ -45,6 +45,11 @@ public class OracleDialect implements JdbcDialect {
     }
 
     @Override
+    public String hashModForField(String fieldName, int mod) {
+        return "MOD(ORA_HASH(" + quoteIdentifier(fieldName) + ")," + mod + ")";
+    }
+
+    @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new OracleTypeMapper();
     }
