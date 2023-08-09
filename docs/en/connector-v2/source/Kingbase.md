@@ -2,6 +2,10 @@
 
 > JDBC Kingbase Source Connector
 
+## Support Connector Version
+
+- 8.6
+
 ## Support Those Engines
 
 > Spark<br/>
@@ -25,7 +29,7 @@ Read external data source data through JDBC.
 
 | Datasource | Supported versions |        Driver        |                   Url                    |                                             Maven                                              |
 |------------|--------------------|----------------------|------------------------------------------|------------------------------------------------------------------------------------------------|
-| Kingbase   | v8r6               | com.kingbase8.Driver | jdbc:kingbase8://localhost:54321/db_test | [Download](https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar) |
+| Kingbase   | 8.6                | com.kingbase8.Driver | jdbc:kingbase8://localhost:54321/db_test | [Download](https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar) |
 
 ## Database Dependency
 
@@ -131,7 +135,6 @@ source {
     url = "jdbc:kingbase8://localhost:54321/db_test"
     user = "root"
     password = ""
-    compatible_mode = "mysql"
     query = "select * from source"
     partition_column = "id"
     partition_num = 10
