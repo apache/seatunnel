@@ -139,11 +139,11 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
     public boolean isRecordBetween(
             SourceRecord record, @Nonnull Object[] splitStart, @Nonnull Object[] splitEnd) {
         BsonDocument documentKey = getDocumentKey(record);
-        BsonDocument splitKeys = (BsonDocument) ((Object[]) splitStart[0])[0];
+        BsonDocument splitKeys = (BsonDocument) splitStart[0];
         String firstKey = splitKeys.getFirstKey();
         BsonValue keyValue = documentKey.get(firstKey);
-        BsonValue lowerBound = ((BsonDocument) ((Object[]) splitEnd[0])[1]).get(firstKey);
-        BsonValue upperBound = ((BsonDocument) ((Object[]) splitEnd[0])[1]).get(firstKey);
+        BsonValue lowerBound = ((BsonDocument) splitStart[1]).get(firstKey);
+        BsonValue upperBound = ((BsonDocument) splitEnd[1]).get(firstKey);
 
         if (isFullRange(lowerBound, upperBound)) {
             return true;
