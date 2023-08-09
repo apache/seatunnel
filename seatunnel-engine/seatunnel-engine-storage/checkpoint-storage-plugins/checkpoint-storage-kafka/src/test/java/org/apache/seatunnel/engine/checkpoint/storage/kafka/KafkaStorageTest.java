@@ -35,6 +35,7 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
@@ -55,6 +56,7 @@ public class KafkaStorageTest {
     private static KafkaStorage STORAGE;
     private static final String JOB_ID = "kafkaJobTest";
 
+    @SneakyThrows
     @BeforeAll
     public static void setup() throws CheckpointStorageException {
 
@@ -91,6 +93,8 @@ public class KafkaStorageTest {
         pipelineState.setPipelineId(2);
         pipelineState.setCheckpointId(3);
         STORAGE.storeCheckPoint(pipelineState);
+        // Waiting for Kafka consumers to receive all records
+        Thread.sleep(60000);
     }
 
     @Test
