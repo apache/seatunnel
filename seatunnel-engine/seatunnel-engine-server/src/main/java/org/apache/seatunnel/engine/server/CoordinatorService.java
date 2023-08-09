@@ -425,6 +425,18 @@ public class CoordinatorService {
     /** call by client to submit job */
     public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
         CompletableFuture<Void> jobSubmitFuture = new CompletableFuture<>();
+
+        // Check if the current jobID is already running. If so, complete the submission
+        // successfully.
+        // This avoids potential issues like redundant job restores or other anomalies.
+        if (getJobMaster(jobId) != null) {
+            logger.warning(
+                    String.format(
+                            "The job %s is currently running; no need to submit again.", jobId));
+            jobSubmitFuture.complete(null);
+            return new PassiveCompletableFuture<>(jobSubmitFuture);
+        }
+
         JobMaster jobMaster =
                 new JobMaster(
                         jobImmutableInformation,
