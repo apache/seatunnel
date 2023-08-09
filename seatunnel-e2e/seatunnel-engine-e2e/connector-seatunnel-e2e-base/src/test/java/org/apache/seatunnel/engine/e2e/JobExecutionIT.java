@@ -153,7 +153,7 @@ public class JobExecutionIT {
         Assertions.assertEquals(result.getStatus(), JobStatus.FAILED);
         Assertions.assertTrue(result.getError().startsWith("java.lang.NumberFormatException"));
     }
-  
+
     @Test
     public void testExpiredJobWasDeleted() throws Exception {
         Common.setDeployMode(DeployMode.CLIENT);
