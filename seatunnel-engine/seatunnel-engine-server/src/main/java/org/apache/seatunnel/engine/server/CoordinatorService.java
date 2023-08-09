@@ -495,10 +495,11 @@ public class CoordinatorService {
     public PassiveCompletableFuture<JobResult> waitForJobComplete(long jobId) {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
-            JobStatus jobStatus = jobHistoryService.getJobDetailState(jobId).getJobStatus();
+            JobHistoryService.JobState jobState = jobHistoryService.getJobDetailState(jobId);
             CompletableFuture<JobResult> future = new CompletableFuture<>();
-            // TODO support history service record job execute error
-            future.complete(new JobResult(jobStatus, null));
+            if (jobState == null) future.complete(new JobResult(JobStatus.FAILED, null));
+            else
+                future.complete(new JobResult(jobState.getJobStatus(), jobState.getErrorMessage()));
             return new PassiveCompletableFuture<>(future);
         } else {
             return new PassiveCompletableFuture<>(runningJobMaster.getJobMasterCompleteFuture());
