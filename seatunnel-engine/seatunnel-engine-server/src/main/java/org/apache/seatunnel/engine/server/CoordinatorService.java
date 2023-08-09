@@ -76,7 +76,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.api.common.metrics.MetricTags.JOB_ID;
 import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMetricsMap;
 
 public class CoordinatorService {
@@ -568,17 +567,7 @@ public class CoordinatorService {
                                     (RawJobMetrics)
                                             NodeEngineUtil.sendOperationToMemberNode(
                                                             nodeEngine,
-                                                            new GetMetricsOperation(
-                                                                    dis ->
-                                                                            (dis.tagValue(JOB_ID)
-                                                                                            != null
-                                                                                    && runningJobIds
-                                                                                            .contains(
-                                                                                                    Long
-                                                                                                            .parseLong(
-                                                                                                                    dis
-                                                                                                                            .tagValue(
-                                                                                                                                    JOB_ID))))),
+                                                            new GetMetricsOperation(runningJobIds),
                                                             address)
                                                     .get();
                             metrics.add(rawJobMetrics);
