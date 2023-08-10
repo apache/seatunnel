@@ -199,7 +199,7 @@ public class JobExecutionIT {
 
         JobResult result = clientJobProxy.doWaitForJobComplete().get();
         Assertions.assertEquals(result.getStatus(), JobStatus.FINISHED);
-        Awaitility.await()
+        await()
                 .atMost(65, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
