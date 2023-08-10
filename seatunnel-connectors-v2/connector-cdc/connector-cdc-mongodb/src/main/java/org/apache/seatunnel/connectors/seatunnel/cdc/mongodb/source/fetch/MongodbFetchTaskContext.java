@@ -32,6 +32,7 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
 import org.bson.BsonDocument;
+import org.bson.BsonInt64;
 import org.bson.BsonString;
 import org.bson.BsonType;
 import org.bson.BsonValue;
@@ -52,7 +53,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCode.ILLEGAL_ARGUMENT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.COLL_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DB_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DOCUMENT_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.FULL_DOCUMENT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NS_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OPERATION_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OPERATION_TYPE_INSERT;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SNAPSHOT_FIELD;
@@ -185,7 +191,10 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
                     Schema valueSchema = changeRecord.valueSchema();
                     BsonDocument fullDocument =
                             extractBsonDocument(value, valueSchema, FULL_DOCUMENT);
-                    fullDocument.put(OPERATION_TYPE, new BsonString(OPERATION_TYPE_INSERT));
+                    if (fullDocument == null) {
+                        break;
+                    }
+                    BsonDocument valueDocument = normalizeSnapshotDocument(fullDocument, value);
                     SourceRecord record =
                             buildSourceRecord(
                                     changeRecord.sourcePartition(),
@@ -194,7 +203,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
                                     changeRecord.kafkaPartition(),
                                     changeRecord.keySchema(),
                                     changeRecord.key(),
-                                    fullDocument);
+                                    valueDocument);
                     outputBuffer.put(key, record);
                     break;
                 case DELETE:
@@ -221,6 +230,30 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
                             value.put(SOURCE_FIELD, source);
                         })
                 .collect(Collectors.toList());
+    }
+
+    private BsonDocument normalizeSnapshotDocument(
+            @Nonnull final BsonDocument fullDocument, Struct value) {
+        return new BsonDocument()
+                .append(ID_FIELD, new BsonString(value.getString(DOCUMENT_KEY)))
+                .append(OPERATION_TYPE, new BsonString(OPERATION_TYPE_INSERT))
+                .append(
+                        NS_FIELD,
+                        new BsonDocument(
+                                        DB_FIELD,
+                                        new BsonString(
+                                                value.getStruct(NS_FIELD).getString(DB_FIELD)))
+                                .append(
+                                        COLL_FIELD,
+                                        new BsonString(
+                                                value.getStruct(NS_FIELD).getString(COLL_FIELD))))
+                .append(DOCUMENT_KEY, new BsonString(value.getString(DOCUMENT_KEY)))
+                .append(FULL_DOCUMENT, fullDocument)
+                .append(TS_MS_FIELD, new BsonInt64(value.getInt64(TS_MS_FIELD)))
+                .append(
+                        SOURCE_FIELD,
+                        new BsonDocument(SNAPSHOT_FIELD, new BsonString(SNAPSHOT_TRUE))
+                                .append(TS_MS_FIELD, new BsonInt64(0L)));
     }
 
     @Override
