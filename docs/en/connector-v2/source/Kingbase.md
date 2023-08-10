@@ -42,8 +42,8 @@ Read external data source data through JDBC.
 |--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
 | BOOL                                       | BOOLEAN                                                                                                                                           |
 | INT2                                       | SHORT                                                                                                                                             |
-| SMALLSERIAL</br> SERIAL </br>INT4          | INT                                                                                                                                               |
-| INT8 </br>   BIGSERIAL                     | BIGINT                                                                                                                                            |
+| SMALLSERIAL <br/> SERIAL <br/> INT4        | INT                                                                                                                                               |
+| INT8 <br/>   BIGSERIAL                     | BIGINT                                                                                                                                            |
 | FLOAT4                                     | FLOAT                                                                                                                                             |
 | FLOAT8                                     | DOUBLE                                                                                                                                            |
 | NUMERIC                                    | DECIMAL((Get the designated column's specified column size),<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
@@ -51,7 +51,7 @@ Read external data source data through JDBC.
 | TIMESTAMP                                  | LOCALDATETIME                                                                                                                                     |
 | TIME                                       | LOCALTIME                                                                                                                                         |
 | DATE                                       | LOCALDATE                                                                                                                                         |
-| Other Data type                            | Not supported yet                                                                                                                                 |
+| Other data type                            | Not supported yet                                                                                                                                 |
 
 ## Source Options
 
