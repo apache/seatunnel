@@ -38,7 +38,7 @@ import static org.awaitility.Awaitility.await;
 public class CheckpointTimeOutTest extends AbstractSeaTunnelServerTest {
 
     public static String CONF_PATH = "stream_fake_to_console_checkpointTimeOut.conf";
-    public static long JOB_ID = 26349856L;
+    public static long JOB_ID = System.currentTimeMillis();
 
     @Test
     public void testJobLevelCheckpointTimeOut() {
