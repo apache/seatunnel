@@ -25,7 +25,6 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | labelPrefix                 | string  | no       | -               |
 | batch_max_rows              | long    | no       | 1024            |
 | batch_max_bytes             | int     | no       | 5 * 1024 * 1024 |
-| batch_interval_ms           | int     | no       | -               |
 | max_retries                 | int     | no       | -               |
 | retry_backoff_multiplier_ms | int     | no       | -               |
 | max_retry_backoff_ms        | int     | no       | -               |
@@ -63,15 +62,11 @@ The prefix of StarRocks stream load label
 
 ### batch_max_rows [long]
 
-For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `batch_interval_ms`, the data will be flushed into the StarRocks
+For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `checkpoint.interval`, the data will be flushed into the StarRocks
 
 ### batch_max_bytes [int]
 
-For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `batch_interval_ms`, the data will be flushed into the StarRocks
-
-### batch_interval_ms [int]
-
-For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `batch_interval_ms`, the data will be flushed into the StarRocks
+For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `checkpoint.interval`, the data will be flushed into the StarRocks
 
 ### max_retries [int]
 
