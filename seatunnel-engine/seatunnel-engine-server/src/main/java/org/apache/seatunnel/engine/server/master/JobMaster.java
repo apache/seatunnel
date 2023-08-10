@@ -266,8 +266,6 @@ public class JobMaster {
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
         jobCheckpointConfig.setMaxConcurrentCheckpoints(
                 defaultCheckpointConfig.getMaxConcurrentCheckpoints());
-        jobCheckpointConfig.setTolerableFailureCheckpoints(
-                defaultCheckpointConfig.getTolerableFailureCheckpoints());
 
         CheckpointStorageConfig jobCheckpointStorageConfig = new CheckpointStorageConfig();
         jobCheckpointStorageConfig.setStorage(defaultCheckpointConfig.getStorage().getStorage());

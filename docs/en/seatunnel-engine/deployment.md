@@ -79,10 +79,6 @@ The timeout of a checkpoint. If a checkpoint cannot be completed within the time
 
 How many checkpoints can be performed simultaneously at most.
 
-**tolerable-failure**
-
-Maximum number of retries after checkpoint failure.
-
 Example
 
 ```
@@ -96,7 +92,6 @@ seatunnel:
             interval: 300000
             timeout: 10000
             max-concurrent: 1
-            tolerable-failure: 2
 ```
 
 **checkpoint storage**

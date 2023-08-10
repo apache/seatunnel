@@ -161,11 +161,6 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue(
                                 ServerConfigOptions.CHECKPOINT_MAX_CONCURRENT.key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.CHECKPOINT_TOLERABLE_FAILURE.key().equals(name)) {
-                checkpointConfig.setTolerableFailureCheckpoints(
-                        getIntegerValue(
-                                ServerConfigOptions.CHECKPOINT_TOLERABLE_FAILURE.key(),
-                                getTextContent(node)));
             } else if (ServerConfigOptions.CHECKPOINT_STORAGE.key().equals(name)) {
                 checkpointConfig.setStorage(parseCheckpointStorageConfig(node));
             } else {

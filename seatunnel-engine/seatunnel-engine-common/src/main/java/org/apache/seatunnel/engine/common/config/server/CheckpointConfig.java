@@ -35,8 +35,6 @@ public class CheckpointConfig implements Serializable {
             ServerConfigOptions.SCHEMA_CHANGE_CHECKPOINT_TIMEOUT.defaultValue();
     private int maxConcurrentCheckpoints =
             ServerConfigOptions.CHECKPOINT_MAX_CONCURRENT.defaultValue();
-    private int tolerableFailureCheckpoints =
-            ServerConfigOptions.CHECKPOINT_TOLERABLE_FAILURE.defaultValue();
 
     private CheckpointStorageConfig storage = ServerConfigOptions.CHECKPOINT_STORAGE.defaultValue();
 
@@ -66,12 +64,5 @@ public class CheckpointConfig implements Serializable {
                 maxConcurrentCheckpoints >= 1,
                 "The minimum number of concurrent checkpoints is 1.");
         this.maxConcurrentCheckpoints = maxConcurrentCheckpoints;
-    }
-
-    public void setTolerableFailureCheckpoints(int tolerableFailureCheckpoints) {
-        checkArgument(
-                maxConcurrentCheckpoints >= 0,
-                "The number of tolerance failed checkpoints must be a natural number.");
-        this.tolerableFailureCheckpoints = tolerableFailureCheckpoints;
     }
 }

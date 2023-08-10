@@ -60,7 +60,6 @@ seatunnel:
       interval: 6000
       timeout: 7000
       max-concurrent: 1
-      tolerable-failure: 2
       storage:
         type: hdfs
         max-retained: 3
@@ -95,7 +94,6 @@ seatunnel:
             interval: 6000
             timeout: 7000
             max-concurrent: 1
-            tolerable-failure: 2
             storage:
                 type: hdfs
                 max-retained: 3
@@ -120,7 +118,6 @@ seatunnel:
       interval: 6000
       timeout: 7000
       max-concurrent: 1
-      tolerable-failure: 2
       storage:
         type: hdfs
         max-retained: 3
@@ -161,7 +158,6 @@ seatunnel:
       interval: 6000
       timeout: 7000
       max-concurrent: 1
-      tolerable-failure: 2
       storage:
         type: hdfs
         max-retained: 3

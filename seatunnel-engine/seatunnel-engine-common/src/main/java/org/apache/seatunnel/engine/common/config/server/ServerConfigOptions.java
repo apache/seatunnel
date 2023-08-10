@@ -98,12 +98,6 @@ public class ServerConfigOptions {
                     .defaultValue(1)
                     .withDescription("The maximum number of concurrent checkpoints.");
 
-    public static final Option<Integer> CHECKPOINT_TOLERABLE_FAILURE =
-            Options.key("tolerable-failure")
-                    .intType()
-                    .defaultValue(0)
-                    .withDescription("The tolerable failure number of a checkpoint.");
-
     public static final Option<String> CHECKPOINT_STORAGE_TYPE =
             Options.key("type")
                     .stringType()

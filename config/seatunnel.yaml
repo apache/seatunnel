@@ -27,7 +27,6 @@ seatunnel:
       interval: 10000
       timeout: 60000
       max-concurrent: 1
-      tolerable-failure: 2
       storage:
         type: hdfs
         max-retained: 3
