@@ -46,6 +46,8 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -87,6 +89,40 @@ public class SeaTunnelClientTest {
         SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
         String s = seaTunnelClient.printMessageToMaster(msg);
         Assertions.assertEquals(msg, s);
+    }
+
+    @Test
+    public void testLoadRemoteThirdJar() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/client_test_remotethirdjars.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("testExecuteJob");
+        Map<String, Object> envOptions = new HashMap<>();
+        envOptions.put(
+                "jars",
+                "http://localhost:8080/driver/mysql/mysql-connector-java-8.0.30/mysql-connector-java-8.0.30.jar");
+        jobConfig.setEnvOptions(envOptions);
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        try {
+            JobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig);
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(() -> clientJobProxy.waitForJobComplete());
+
+            await().atMost(180000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            objectCompletableFuture.isDone()
+                                                    && JobStatus.FINISHED.equals(
+                                                            objectCompletableFuture.get())));
+
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
+        }
     }
 
     @Test
