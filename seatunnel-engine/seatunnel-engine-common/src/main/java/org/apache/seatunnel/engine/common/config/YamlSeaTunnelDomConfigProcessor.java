@@ -131,6 +131,11 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
             } else if (ServerConfigOptions.CHECKPOINT.key().equals(name)) {
                 engineConfig.setCheckpointConfig(parseCheckpointConfig(node));
+            } else if (ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.key().equals(name)) {
+                engineConfig.setHistoryJobExpireMinutes(
+                        getIntegerValue(
+                                ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.key(),
+                                getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

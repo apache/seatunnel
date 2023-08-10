@@ -182,6 +182,32 @@ public class JobExecutionIT {
         Assertions.assertTrue(result.getError().startsWith("java.lang.NumberFormatException"));
     }
 
+    @Test
+    public void testExpiredJobWasDeleted() throws Exception {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("job_expire");
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        JobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig);
+
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+        JobResult result = clientJobProxy.doWaitForJobComplete().get();
+        Assertions.assertEquals(result.getStatus(), JobStatus.FINISHED);
+        Awaitility.await()
+                .atMost(65, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertThrowsExactly(
+                                        NullPointerException.class,
+                                        () -> clientJobProxy.getJobStatus()));
+    }
+
     @AfterAll
     static void afterClass() {
         if (hazelcastInstance != null) {
