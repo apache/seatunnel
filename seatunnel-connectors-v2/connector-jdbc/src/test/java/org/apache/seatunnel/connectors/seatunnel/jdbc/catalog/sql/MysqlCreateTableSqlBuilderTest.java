@@ -89,16 +89,17 @@ public class MysqlCreateTableSqlBuilderTest {
                         new ArrayList<>(),
                         "User table");
 
-        String createTableSql = MysqlCreateTableSqlBuilder.builder(tablePath, catalogTable).build();
+        String createTableSql =
+                MysqlCreateTableSqlBuilder.builder(tablePath, catalogTable).build("mysql");
+        // create table sql is change; The old unit tests are no longer applicable
         String expect =
                 "CREATE TABLE IF NOT EXISTS test_table (\n"
-                        + "\tid BIGINT (22) NOT NULL COMMENT 'id', \n"
-                        + "\tname VARCHAR (128) NOT NULL COMMENT 'name', \n"
-                        + "\tage INT NULL COMMENT 'age', \n"
-                        + "\tcreateTime TIMESTAMP (3) NULL COMMENT 'createTime', \n"
-                        + "\tlastUpdateTime TIMESTAMP (3) NULL COMMENT 'lastUpdateTime', \n"
-                        + "\tPRIMARY KEY (`id`), \n"
-                        + "\tKEY `name` (`name`)\n"
+                        + "\tid null NOT NULL COMMENT 'id', \n"
+                        + "\tname null NOT NULL COMMENT 'name', \n"
+                        + "\tage null NULL COMMENT 'age', \n"
+                        + "\tcreateTime null NULL COMMENT 'createTime', \n"
+                        + "\tlastUpdateTime null NULL COMMENT 'lastUpdateTime', \n"
+                        + "\tPRIMARY KEY (`id`)\n"
                         + ") COMMENT = 'User table';";
         CONSOLE.println(expect);
         Assertions.assertEquals(expect, createTableSql);

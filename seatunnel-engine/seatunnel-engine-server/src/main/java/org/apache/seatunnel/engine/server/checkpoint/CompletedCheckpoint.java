@@ -20,6 +20,9 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.io.Serializable;
 import java.util.Map;
 
@@ -40,6 +43,8 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
     private final Map<ActionStateKey, ActionState> taskStates;
 
     private final Map<Long, TaskStatistics> taskStatistics;
+
+    @Getter @Setter private boolean isRestored = false;
 
     public CompletedCheckpoint(
             long jobId,

@@ -76,7 +76,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.api.common.metrics.MetricTags.JOB_ID;
 import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMetricsMap;
 
 public class CoordinatorService {
@@ -426,6 +425,18 @@ public class CoordinatorService {
     /** call by client to submit job */
     public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
         CompletableFuture<Void> jobSubmitFuture = new CompletableFuture<>();
+
+        // Check if the current jobID is already running. If so, complete the submission
+        // successfully.
+        // This avoids potential issues like redundant job restores or other anomalies.
+        if (getJobMaster(jobId) != null) {
+            logger.warning(
+                    String.format(
+                            "The job %s is currently running; no need to submit again.", jobId));
+            jobSubmitFuture.complete(null);
+            return new PassiveCompletableFuture<>(jobSubmitFuture);
+        }
+
         JobMaster jobMaster =
                 new JobMaster(
                         jobImmutableInformation,
@@ -495,10 +506,11 @@ public class CoordinatorService {
     public PassiveCompletableFuture<JobResult> waitForJobComplete(long jobId) {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
-            JobStatus jobStatus = jobHistoryService.getJobDetailState(jobId).getJobStatus();
+            JobHistoryService.JobState jobState = jobHistoryService.getJobDetailState(jobId);
             CompletableFuture<JobResult> future = new CompletableFuture<>();
-            // TODO support history service record job execute error
-            future.complete(new JobResult(jobStatus, null));
+            if (jobState == null) future.complete(new JobResult(JobStatus.FAILED, null));
+            else
+                future.complete(new JobResult(jobState.getJobStatus(), jobState.getErrorMessage()));
             return new PassiveCompletableFuture<>(future);
         } else {
             return new PassiveCompletableFuture<>(runningJobMaster.getJobMasterCompleteFuture());
@@ -567,17 +579,7 @@ public class CoordinatorService {
                                     (RawJobMetrics)
                                             NodeEngineUtil.sendOperationToMemberNode(
                                                             nodeEngine,
-                                                            new GetMetricsOperation(
-                                                                    dis ->
-                                                                            (dis.tagValue(JOB_ID)
-                                                                                            != null
-                                                                                    && runningJobIds
-                                                                                            .contains(
-                                                                                                    Long
-                                                                                                            .parseLong(
-                                                                                                                    dis
-                                                                                                                            .tagValue(
-                                                                                                                                    JOB_ID))))),
+                                                            new GetMetricsOperation(runningJobIds),
                                                             address)
                                                     .get();
                             metrics.add(rawJobMetrics);
