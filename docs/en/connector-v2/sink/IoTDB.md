@@ -31,7 +31,6 @@ the same `key` and `timestamp`, the new data will overwrite the old one.
 | key_measurement_fields      | array   | no       | exclude `device` & `timestamp` |
 | storage_group               | string  | no       | -                              |
 | batch_size                  | int     | no       | 1024                           |
-| batch_interval_ms           | int     | no       | -                              |
 | max_retries                 | int     | no       | -                              |
 | retry_backoff_multiplier_ms | int     | no       | -                              |
 | max_retry_backoff_ms        | int     | no       | -                              |
@@ -74,11 +73,7 @@ example: deviceId = ${storage_group} + "." +  ${key_device}
 
 ### batch_size [int]
 
-For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the IoTDB
-
-### batch_interval_ms [int]
-
-For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the IoTDB
+For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `checkpoint.interval`, the data will be flushed into the IoTDB
 
 ### max_retries [int]
 
@@ -129,7 +124,6 @@ sink {
     username = "root"
     password = "root"
     batch_size = 1024
-    batch_interval_ms = 1000
   }
 }
 ```
