@@ -31,9 +31,9 @@ Output data to oss file system.
 In order to use the OssFile connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions |                                                    Dependency                                                    |
-|------------|--------------------|------------------------------------------------------------------------------------------------------------------|
-| OssFile | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-file-oss) |
+| Datasource | Supported Versions |                                       Dependency                                       |
+|------------|--------------------|----------------------------------------------------------------------------------------|
+| OssFile    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-file-oss) |
 
 :::tip
 
@@ -52,7 +52,7 @@ SeaTunnel will write the data into the file in String format according to the Se
 
 ## Options
 
-| Name                             | Type    | Required | Default value                              | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+|               Name               |  Type   | Required |               Default value                |                                                                                                                                                                                                                                              Description                                                                                                                                                                                                                                               |
 |----------------------------------|---------|----------|--------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                             | String  | Yes      | -                                          | The target dir path is required.                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | bucket                           | String  | Yes      | -                                          | The bucket address of oss file system, for example: `oss://tyrantlucifer-image-bed`                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -217,3 +217,4 @@ sink {
 ### Tips
 
 > 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.md).
+

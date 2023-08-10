@@ -36,7 +36,7 @@ Read data from aliyun oss file system.
 In order to use the OssFile connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions | Dependency                                                                             |
+| Datasource | Supported Versions |                                       Dependency                                       |
 |------------|--------------------|----------------------------------------------------------------------------------------|
 | OssFile    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-file-oss) |
 
@@ -74,7 +74,7 @@ The File does not have a specific type list, and we can indicate which SeaTunenl
 
 ## Source Options
 
-| Name                      | Type    | Required | default value       | Description                                                                                                                                                                                                                                                                                                                                                                                                  |
+|           Name            |  Type   | Required |    default value    |                                                                                                                                                                                                 Description                                                                                                                                                                                                  |
 |---------------------------|---------|----------|---------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                      | String  | Yes      | -                   | The source file path.                                                                                                                                                                                                                                                                                                                                                                                        |
 | file_format_type          | String  | Yes      | -                   | Please check #file_format_type below                                                                                                                                                                                                                                                                                                                                                                         |
@@ -255,3 +255,4 @@ sink {
 ### Tips
 
 > 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.md).
+
