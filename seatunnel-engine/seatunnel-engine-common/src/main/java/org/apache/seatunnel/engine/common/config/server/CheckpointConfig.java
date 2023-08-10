@@ -33,8 +33,6 @@ public class CheckpointConfig implements Serializable {
     private long checkpointTimeout = ServerConfigOptions.CHECKPOINT_TIMEOUT.defaultValue();
     private long schemaChangeCheckpointTimeout =
             ServerConfigOptions.SCHEMA_CHANGE_CHECKPOINT_TIMEOUT.defaultValue();
-    private int maxConcurrentCheckpoints =
-            ServerConfigOptions.CHECKPOINT_MAX_CONCURRENT.defaultValue();
 
     private CheckpointStorageConfig storage = ServerConfigOptions.CHECKPOINT_STORAGE.defaultValue();
 
@@ -57,12 +55,5 @@ public class CheckpointConfig implements Serializable {
                 checkpointTimeout >= MINIMAL_CHECKPOINT_TIME,
                 "The minimum checkpoint timeout is 10 ms.");
         this.schemaChangeCheckpointTimeout = checkpointTimeout;
-    }
-
-    public void setMaxConcurrentCheckpoints(int maxConcurrentCheckpoints) {
-        checkArgument(
-                maxConcurrentCheckpoints >= 1,
-                "The minimum number of concurrent checkpoints is 1.");
-        this.maxConcurrentCheckpoints = maxConcurrentCheckpoints;
     }
 }

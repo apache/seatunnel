@@ -59,7 +59,6 @@ seatunnel:
     checkpoint:
       interval: 6000
       timeout: 7000
-      max-concurrent: 1
       storage:
         type: hdfs
         max-retained: 3
@@ -93,7 +92,6 @@ seatunnel:
         checkpoint:
             interval: 6000
             timeout: 7000
-            max-concurrent: 1
             storage:
                 type: hdfs
                 max-retained: 3
@@ -117,7 +115,6 @@ seatunnel:
     checkpoint:
       interval: 6000
       timeout: 7000
-      max-concurrent: 1
       storage:
         type: hdfs
         max-retained: 3
@@ -157,7 +154,6 @@ seatunnel:
     checkpoint:
       interval: 6000
       timeout: 7000
-      max-concurrent: 1
       storage:
         type: hdfs
         max-retained: 3

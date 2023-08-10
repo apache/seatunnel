@@ -390,7 +390,6 @@ public class CheckpointCoordinator {
         if (checkpointType.notFinalCheckpoint() && checkpointType.notSchemaChangeCheckpoint()) {
             if (currentTimestamp - latestTriggerTimestamp.get()
                             < coordinatorConfig.getCheckpointInterval()
-                    || pendingCounter.get() >= coordinatorConfig.getMaxConcurrentCheckpoints()
                     || !isAllTaskReady) {
                 return;
             }
@@ -737,12 +736,6 @@ public class CheckpointCoordinator {
         notifyCompleted(completedCheckpoint);
         pendingCheckpoints.remove(checkpointId);
         pendingCounter.decrementAndGet();
-        if (pendingCheckpoints.size() + 1 == coordinatorConfig.getMaxConcurrentCheckpoints()) {
-            // latest checkpoint completed time > checkpoint interval
-            if (completedCheckpoint.getCheckpointType().notFinalCheckpoint()) {
-                scheduleTriggerPendingCheckpoint(0L);
-            }
-        }
         if (isCompleted()) {
             cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);
             if (latestCompletedCheckpoint.getCheckpointType().isSavepoint()) {
