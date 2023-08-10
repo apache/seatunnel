@@ -50,22 +50,29 @@
 | DATE                                       | LOCALDATE                                                                                                                                         |
 | Other Data type                            | Not supported yet                                                                                                                                 |
 
-## Source Options
+## Sink Options
 
-|             Name             |    Type    | Required |     Default     |                                                                                                                              Description                                                                                                                              |
-|------------------------------|------------|----------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:kingbase8://localhost:54321/test                                                                                                                                                                                |
-| driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source, should be `com.kingbase8.Driver`.                                                                                                                                                                      |
-| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                         |
-| password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                          |
-| query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                       |
-| connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                    |
-| partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type column and string type column.                                                                                                                                                                 |
-| partition_lower_bound        | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                      |
-| partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                      |
-| partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. Default value is job parallelism.                                                                                                                                                                       |
-| fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects, you can configure <br/> the row fetch size used in the query to improve performance by <br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
-| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                               |
+|                   Name                    |  Type   | Required | Default |                                                                                                                 Description                                                                                                                  |
+|-------------------------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                           |
+| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use DB2 the value is `com.ibm.db2.jdbc.app.DB2Driver`.                                                                                                            |
+| user                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                |
+| password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                 |
+| query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                       |
+| database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                     |
+| table                                     | String  | No       | -       | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                         |
+| primary_keys                              | Array   | No       | -       | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                          |
+| support_upsert_by_query_primary_key_exist | Boolean | No       | false   | Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupport upsert syntax. **Note**: that this method has low performance |
+| connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                          |
+| max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                        |
+| batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                         |
+| is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`. kingbase currently does not support                                                                        |
+| generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to                                                                                                                                                                     |
+| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver，kingbase currently does not support                                                                                                                                                     |
+| max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                        |
+| transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                          |
+| auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                           |
+| common-options                            |         | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                          |
 
 ### Tips
 
@@ -135,28 +142,6 @@ sink {
         generate_sink_sql = true
         database = test
         table = test_table
-    }
-}
-```
-
-### Exactly-once :
-
-> For accurate write scene we guarantee accurate once
-
-```
-sink {
-    jdbc {
-        url = "jdbc:kingbase8://127.0.0.1:54321/dbname"
-        driver = "com.kingbase8.Driver"
-    
-        max_retries = 0
-        user = "root"
-        password = "123456"
-        query = "insert into test_table(name,age) values(?,?)"
-    
-        is_exactly_once = "true"
-    
-        xa_data_source_class_name = "com.kingbase8.xa.KBXADataSource"
     }
 }
 ```
