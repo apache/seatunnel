@@ -30,7 +30,8 @@
 
 ## Database Dependency
 
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
+> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/'
+> working directory<br/>
 > For example: cp kingbase8-8.6.0.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
 
 ## Data Type Mapping
@@ -76,13 +77,22 @@
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed
+> in parallel according to the concurrency of tasks.
 
 ## Task Example
 
 ### Simple:
 
-> This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table. Before run this job, you need create database test and table test_table in your DB2. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
+> This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends
+> it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (
+> string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table.
+> Before
+> run this job, you need create database test and table test_table in your DB2. And if you have not yet installed and
+> deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md)
+> to
+> install and deploy SeaTunnel. And then follow the instructions
+> in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
 
 ```
 # Defining the runtime environment
@@ -100,8 +110,18 @@ source {
     row.num = 16
     schema = {
       fields {
-        name = "string"
-        age = "int"
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_date = date
+            c_time = time 
+            c_timestamp = timestamp
       }
     }
   }
@@ -120,7 +140,7 @@ sink {
         driver = "com.kingbase8.Driver"
         user = "root"
         password = "123456"
-        query = "insert into test_table(name,age) values(?,?)"
+        query = "insert into test_table(c_string,c_boolean,c_tinyint,c_smallint,c_int,c_bigint,c_float,c_double,c_decimal,c_date,c_time,c_timestamp) values(?,?,?,?,?,?,?,?,?,?,?,?)"
         }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
   # please go to https://seatunnel.apache.org/docs/category/sink-v2
@@ -129,7 +149,8 @@ sink {
 
 ### Generate Sink SQL
 
-> This example  not need to write complex sql statements, you can configure the database name table name to automatically generate add statements for you
+> This example not need to write complex sql statements, you can configure the database name table name to automatically
+> generate add statements for you
 
 ```
 sink {
