@@ -61,12 +61,6 @@ public class SinkConfig extends InfluxDBConfig {
                     .defaultValue(1024)
                     .withDescription("batch size of the influxdb client");
 
-    public static final Option<Integer> BATCH_INTERVAL_MS =
-            Options.key("batch_interval_ms")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("batch interval ms of the influxdb client");
-
     public static final Option<Integer> MAX_RETRIES =
             Options.key("max_retries")
                     .intType()
@@ -105,7 +99,6 @@ public class SinkConfig extends InfluxDBConfig {
     private String keyTime;
     private List<String> keyTags;
     private int batchSize = BATCH_SIZE.defaultValue();
-    private Integer batchIntervalMs;
     private int maxRetries;
     private int retryBackoffMultiplierMs;
     private int maxRetryBackoffMs;
@@ -119,9 +112,6 @@ public class SinkConfig extends InfluxDBConfig {
         }
         if (config.hasPath(KEY_TAGS.key())) {
             sinkConfig.setKeyTags(config.getStringList(KEY_TAGS.key()));
-        }
-        if (config.hasPath(BATCH_INTERVAL_MS.key())) {
-            sinkConfig.setBatchIntervalMs(config.getInt(BATCH_INTERVAL_MS.key()));
         }
         if (config.hasPath(MAX_RETRIES.key())) {
             sinkConfig.setMaxRetries(config.getInt(MAX_RETRIES.key()));
