@@ -43,7 +43,6 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
         this.index = index;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private long mixIDPrefixAndIndex(long idPrefix, int index) {
         return idPrefix * 10000 + index;
     }
@@ -64,7 +63,6 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
         return taskID;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public long getTaskVertexId() {
         return taskID / 10000;
     }

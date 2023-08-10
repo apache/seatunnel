@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.Map;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public class ServerConfigOptions {
 
     public static final Option<Integer> BACKUP_COUNT =

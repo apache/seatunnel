@@ -734,7 +734,6 @@ public class PhysicalPlanGenerator {
                         .contains(true);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private long mixIDPrefixAndIndex(long idPrefix, int index) {
         return idPrefix * 10000 + index;
     }

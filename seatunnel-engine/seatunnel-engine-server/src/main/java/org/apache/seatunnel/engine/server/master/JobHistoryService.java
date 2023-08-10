@@ -164,7 +164,6 @@ public class JobHistoryService {
         return objectNode.toString();
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public void storeFinishedJobState(JobMaster jobMaster) {
         JobState jobState = toJobStateMapper(jobMaster, false);
         jobState.setFinishTime(System.currentTimeMillis());
@@ -172,7 +171,6 @@ public class JobHistoryService {
         finishedJobStateImap.put(jobState.jobId, jobState, 14, TimeUnit.DAYS);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public void storeFinishedPipelineMetrics(long jobId, JobMetrics metrics) {
         finishedJobMetricsImap.computeIfAbsent(jobId, key -> JobMetrics.of(new HashMap<>()));
         JobMetrics newMetrics = finishedJobMetricsImap.get(jobId).merge(metrics);

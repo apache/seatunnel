@@ -87,7 +87,6 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
     private static final String MYSQL_VARBINARY = "VARBINARY";
     private static final String MYSQL_GEOMETRY = "GEOMETRY";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {

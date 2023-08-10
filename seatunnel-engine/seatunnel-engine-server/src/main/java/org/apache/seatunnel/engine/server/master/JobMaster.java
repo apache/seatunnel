@@ -304,7 +304,6 @@ public class JobMaster {
                         }));
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public void run() {
         try {
             if (!restore) {
@@ -673,7 +672,6 @@ public class JobMaster {
         return ownedSlotProfilesIMap.get(pipelineLocation);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public void setOwnedSlotProfiles(
             @NonNull PipelineLocation pipelineLocation,
             @NonNull Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles) {

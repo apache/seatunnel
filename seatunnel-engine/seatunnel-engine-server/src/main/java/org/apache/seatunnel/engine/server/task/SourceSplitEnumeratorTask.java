@@ -199,7 +199,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         getEnumerator().addSplitsBack(splits, subtaskId);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public void receivedReader(TaskLocation readerId, Address memberAddr)
             throws InterruptedException, ExecutionException {
         log.info("received reader register, readerID: " + readerId);
@@ -251,7 +250,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         return taskIndexToTaskLocationMapping.get(taskIndex);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private SourceSplitEnumerator<SplitT, Serializable> getEnumerator()
             throws InterruptedException, ExecutionException {
         // (restoreComplete == null) means that the Task has not yet executed Init, so we need to
@@ -271,7 +269,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private void stateProcess() throws Exception {
         switch (currState) {
             case INIT:

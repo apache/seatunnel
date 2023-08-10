@@ -152,7 +152,6 @@ public class CoordinatorService {
 
     private final EngineConfig engineConfig;
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
             @NonNull SeaTunnelServer seaTunnelServer,
@@ -390,7 +389,6 @@ public class CoordinatorService {
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private void clearCoordinatorService() {
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);

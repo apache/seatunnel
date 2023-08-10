@@ -127,7 +127,6 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
         return progress.toState();
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     protected void stateProcess() throws Exception {
         switch (currState) {
             case INIT:

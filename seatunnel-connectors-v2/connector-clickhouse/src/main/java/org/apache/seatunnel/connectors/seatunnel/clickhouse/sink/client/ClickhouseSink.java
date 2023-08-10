@@ -79,7 +79,6 @@ public class ClickhouseSink
         return "Clickhouse";
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =
