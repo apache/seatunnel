@@ -14,13 +14,13 @@
 
 ## Key Features
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [ ] [cdc](../../concept/connector-v2-features.md)
 
 ## Description
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
+> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.Kingbase currently does not support
 
 ## Supported DataSource Info
 
@@ -36,20 +36,20 @@
 
 ## Data Type Mapping
 
-|             Kingbase Data type             |                                                                SeaTunnel Data type                                                                |
-|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
-| BOOL                                       | BOOLEAN                                                                                                                                           |
-| INT2                                       | SHORT                                                                                                                                             |
-| SMALLSERIAL</br> SERIAL </br>INT4          | INT                                                                                                                                               |
-| INT8 </br>   BIGSERIAL                     | BIGINT                                                                                                                                            |
-| FLOAT4                                     | FLOAT                                                                                                                                             |
-| FLOAT8                                     | DOUBLE                                                                                                                                            |
-| NUMERIC                                    | DECIMAL((Get the designated column's specified column size),<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
-| BPCHAR<br/>CHARACTER<br/> VARCHAR<br/>TEXT | STRING                                                                                                                                            |
-| TIMESTAMP                                  | LOCALDATETIME                                                                                                                                     |
-| TIME                                       | LOCALTIME                                                                                                                                         |
-| DATE                                       | LOCALDATE                                                                                                                                         |
-| Other Data type                            | Not supported yet                                                                                                                                 |
+|            Kingbase Data type             |                                                                SeaTunnel Data type                                                                |
+|-------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| BOOL                                      | BOOLEAN                                                                                                                                           |
+| INT2                                      | SHORT                                                                                                                                             |
+| SMALLSERIAL</br> SERIAL </br>INT4         | INT                                                                                                                                               |
+| INT8 </br>   BIGSERIAL                    | BIGINT                                                                                                                                            |
+| FLOAT4                                    | FLOAT                                                                                                                                             |
+| FLOAT8                                    | DOUBLE                                                                                                                                            |
+| NUMERIC                                   | DECIMAL((Get the designated column's specified column size),<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
+| BPCHAR<br/>CHARACTER<br/>VARCHAR<br/>TEXT | STRING                                                                                                                                            |
+| TIMESTAMP                                 | LOCALDATETIME                                                                                                                                     |
+| TIME                                      | LOCALTIME                                                                                                                                         |
+| DATE                                      | LOCALDATE                                                                                                                                         |
+| Other Data type                           | Not supported yet                                                                                                                                 |
 
 ## Sink Options
 
@@ -67,9 +67,9 @@
 | connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                          |
 | max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                        |
 | batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                         |
-| is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`. kingbase currently does not support                                                                        |
+| is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`. Kingbase currently does not support                                                                        |
 | generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to                                                                                                                                                                     |
-| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver，kingbase currently does not support                                                                                                                                                     |
+| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver，Kingbase currently does not support                                                                                                                                                     |
 | max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                          |
 | auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                           |
@@ -85,10 +85,9 @@
 ### Simple:
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends
-> it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (
-> string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table.
+> it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having 12 fields. The final target table is test_table will also be 16 rows of data in the table.
 > Before
-> run this job, you need create database test and table test_table in your DB2. And if you have not yet installed and
+> run this job, you need create database test and table test_table in your Kingbase. And if you have not yet installed and
 > deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md)
 > to
 > install and deploy SeaTunnel. And then follow the instructions
