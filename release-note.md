@@ -84,6 +84,8 @@
 
 ## Improve
 
+- [Improve][Connector-V2][Jdbc-Source] Support for Decimal types as splict keys (#4634)
+
 ### Core
 
 - [Core] [Spark] Push transform operation from Spark Driver to Executors (#4503)
@@ -183,6 +185,7 @@
 - [Docs] Fix markdown syntax (#4426)
 - [Docs] Fix Kafka Doc Error Config Key "kafka." (#4427)
 - [Docs] Add Transform to Quick Start v2 (#4436)
+- [Docs] Fix Dockerfile and seatunnel-flink.yaml in Set Up with Kubernetes (#4788)
 - [Docs] Fix Mysql sink format doc (#4800)
 - [Docs] Add the generate sink sql parameter for the jdbc sink document (#4797)
 - [Docs] Add the generate sink sql parameter And example (#4769)

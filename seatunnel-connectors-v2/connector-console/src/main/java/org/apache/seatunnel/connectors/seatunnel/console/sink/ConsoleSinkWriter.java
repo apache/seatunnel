@@ -18,6 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventDispatcher;
+import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -37,9 +40,10 @@ import java.util.concurrent.atomic.AtomicLong;
 @Slf4j
 public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private final SeaTunnelRowType seaTunnelRowType;
-    public final AtomicLong rowCounter = new AtomicLong(0);
-    public SinkWriter.Context context;
+    private SeaTunnelRowType seaTunnelRowType;
+    private final AtomicLong rowCounter = new AtomicLong(0);
+    private final SinkWriter.Context context;
+    private final DataTypeChangeEventHandler dataTypeChangeEventHandler;
 
     boolean isPrintData = true;
     int delayMs = 0;
@@ -53,7 +57,15 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.context = context;
         this.isPrintData = isPrintData;
         this.delayMs = delayMs;
+        this.dataTypeChangeEventHandler = new DataTypeChangeEventDispatcher();
         log.info("output rowType: {}", fieldsInfo(seaTunnelRowType));
+    }
+
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) {
+        log.info("changed rowType before: {}", fieldsInfo(seaTunnelRowType));
+        seaTunnelRowType = dataTypeChangeEventHandler.reset(seaTunnelRowType).apply(event);
+        log.info("changed rowType after: {}", fieldsInfo(seaTunnelRowType));
     }
 
     @Override
