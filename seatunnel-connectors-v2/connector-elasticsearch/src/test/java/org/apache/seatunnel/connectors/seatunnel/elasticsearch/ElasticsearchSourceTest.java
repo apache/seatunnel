@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch;
 import com.google.common.collect.Lists;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchDataTypeConvertor;
@@ -53,7 +55,9 @@ public class ElasticsearchSourceTest {
             }
             rowTypeInfo = new SeaTunnelRowType(keys.toArray(new String[0]), fieldTypes);
         }
+
         Assertions.assertNotNull(rowTypeInfo);
+        Assertions.assertEquals(rowTypeInfo.getFieldType(0), BasicType.STRING_TYPE);
     }
 
 
