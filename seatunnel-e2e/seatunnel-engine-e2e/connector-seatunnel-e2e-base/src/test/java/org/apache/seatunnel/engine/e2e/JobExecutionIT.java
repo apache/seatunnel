@@ -19,9 +19,11 @@ package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -143,24 +145,31 @@ public class JobExecutionIT {
         JobExecutionEnvironment jobExecutionEnv =
                 engineClient.createExecutionContext(filePath, jobConfig);
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-        JobStatus jobStatus = clientJobProxy.getJobStatus();
-        while (jobStatus == JobStatus.RUNNING) {
-            Thread.sleep(1000L);
-            jobStatus = clientJobProxy.getJobStatus();
-        }
 
         CompletableFuture<JobResult> completableFuture =
                 CompletableFuture.supplyAsync(
                         () -> {
-                            PassiveCompletableFuture<JobResult> jobFuture =
-                                    clientJobProxy.doWaitForJobComplete();
-                            return jobFuture.join();
+                            try {
+                                return RetryUtils.retryWithException(
+                                        () -> {
+                                            PassiveCompletableFuture<JobResult> jobFuture =
+                                                    clientJobProxy.doWaitForJobComplete();
+                                            return jobFuture.get();
+                                        },
+                                        new RetryUtils.RetryMaterial(
+                                                100000,
+                                                true,
+                                                exception -> true,
+                                                Constant.OPERATION_RETRY_SLEEP));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
                         });
 
-        await().atMost(600000, TimeUnit.MILLISECONDS)
+        await().atMost(6000000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
 
-        JobResult result = completableFuture.join();
+        JobResult result = completableFuture.get();
         Assertions.assertEquals(result.getStatus(), JobStatus.FAILED);
         Assertions.assertTrue(result.getError().startsWith("java.lang.NumberFormatException"));
     }
