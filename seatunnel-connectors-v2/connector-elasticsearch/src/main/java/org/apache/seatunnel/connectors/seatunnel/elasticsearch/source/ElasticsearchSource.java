@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import com.google.auto.service.AutoService;
+import com.google.common.collect.Lists;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -33,10 +34,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchDataTypeConvertor;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig;
-
-import org.apache.commons.collections4.CollectionUtils;
-
-import com.google.auto.service.AutoService;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,9 +44,9 @@ import java.util.Map;
 @AutoService(SeaTunnelSource.class)
 public class ElasticsearchSource
         implements SeaTunnelSource<
-                        SeaTunnelRow, ElasticsearchSourceSplit, ElasticsearchSourceState>,
-                SupportParallelism,
-                SupportColumnProjection {
+        SeaTunnelRow, ElasticsearchSourceSplit, ElasticsearchSourceState>,
+        SupportParallelism,
+        SupportColumnProjection {
 
     private Config pluginConfig;
 
@@ -69,7 +67,11 @@ public class ElasticsearchSource
             rowTypeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
             source = Arrays.asList(rowTypeInfo.getFieldNames());
         } else {
-            source = pluginConfig.getStringList(SourceConfig.SOURCE.key());
+            if (pluginConfig.hasPath(SourceConfig.SOURCE.key())) {
+                source = pluginConfig.getStringList(SourceConfig.SOURCE.key());
+            } else {
+                source = Lists.newArrayList();
+            }
             EsRestClient esRestClient = EsRestClient.createInstance(this.pluginConfig);
             Map<String, String> esFieldType =
                     esRestClient.getFieldTypeMapping(
@@ -118,16 +120,16 @@ public class ElasticsearchSource
 
     @Override
     public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState>
-            createEnumerator(
-                    SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext) {
+    createEnumerator(
+            SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext) {
         return new ElasticsearchSourceSplitEnumerator(enumeratorContext, pluginConfig, source);
     }
 
     @Override
     public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState>
-            restoreEnumerator(
-                    SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext,
-                    ElasticsearchSourceState sourceState) {
+    restoreEnumerator(
+            SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext,
+            ElasticsearchSourceState sourceState) {
         return new ElasticsearchSourceSplitEnumerator(
                 enumeratorContext, sourceState, pluginConfig, source);
     }
