@@ -145,6 +145,11 @@ public class ServerConfigOptions {
                     .type(new TypeReference<Map<String, String>>() {})
                     .noDefaultValue()
                     .withDescription("The checkpoint storage instance configuration.");
+    public static final Option<Integer> HISTORY_JOB_EXPIRE_MINUTES =
+            Options.key("history-job-expire-minutes")
+                    .intType()
+                    .defaultValue(1440)
+                    .withDescription("The expire time of history jobs.time unit minute");
 
     public static final Option<Boolean> TELEMETRY_METRIC_ENABLED =
             Options.key("enabled")
