@@ -247,16 +247,7 @@ transform {
 }
 
 sink {
-    jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
-        driver = "com.mysql.cj.jdbc.Driver"
-        user = "root"
-        password = "123456"
-        # Automatically generate sql statements based on database table names
-        generate_sink_sql = true
-        database = test
-        table = test_table
-    }
+  Console {}
 }
 ```
 
@@ -319,16 +310,7 @@ transform {
 }
 
 sink {
-    jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
-        driver = "com.mysql.cj.jdbc.Driver"
-        user = "root"
-        password = "123456"
-        # Automatically generate sql statements based on database table names
-        generate_sink_sql = true
-        database = test
-        table = test_table
-    }
+  Console {}
 }
 ```
 
