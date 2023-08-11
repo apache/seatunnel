@@ -177,7 +177,7 @@ public class JobExecutionIT {
         await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
 
-        JobResult result = completableFuture.get();
+        JobResult result = clientJobProxy.getJobResultCache();
         Assertions.assertEquals(result.getStatus(), JobStatus.FAILED);
         Assertions.assertTrue(result.getError().startsWith("java.lang.NumberFormatException"));
     }
