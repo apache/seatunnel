@@ -35,13 +35,13 @@ Used to read data from My Hours.
 In order to use the My Hours connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions | Dependency                                                                                     |
-|------------|--------------------|------------------------------------------------------------------------------------------------|
-| My Hours   | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2)    | 
+| Datasource | Supported Versions |                                         Dependency                                          |
+|------------|--------------------|---------------------------------------------------------------------------------------------|
+| My Hours   | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2) |
 
 ## Source Options
 
-|            Name             |  Type   | Required | Default | Description                                                                                                                          |
+|            Name             |  Type   | Required | Default |                                                             Description                                                              |
 |-----------------------------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------|
 | url                         | String  | Yes      | -       | Http request url.                                                                                                                    |
 | email                       | String  | Yes      | -       | My hours login email address.                                                                                                        |
