@@ -73,7 +73,8 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
 
-        private Builder() {}
+        private Builder() {
+        }
 
         public Builder seaTunnelRowType(SeaTunnelRowType seaTunnelRowType) {
             this.seaTunnelRowType = seaTunnelRowType;
@@ -186,10 +187,10 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 LinkedHashMap<Object, Object> objectMap = new LinkedHashMap<>();
                 String[] kvs = field.split(separators[level + 1]);
                 for (String kv : kvs) {
-                    if (kvs.length < 2) {
-                        return null;
+                    String[] splits = kv.split(separators[level + 2]);
+                    if (splits.length < 2) {
+                        objectMap.put(convert(splits[0], keyType, level + 1), null);
                     } else {
-                        String[] splits = kv.split(separators[level + 2]);
                         objectMap.put(
                                 convert(splits[0], keyType, level + 1),
                                 convert(splits[1], valueType, level + 1));
