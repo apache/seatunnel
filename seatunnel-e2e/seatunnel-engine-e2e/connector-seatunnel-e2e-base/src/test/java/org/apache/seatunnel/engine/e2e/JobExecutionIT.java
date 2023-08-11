@@ -135,12 +135,6 @@ public class JobExecutionIT {
         JobExecutionEnvironment jobExecutionEnv =
                 engineClient.createExecutionContext(filePath, jobConfig);
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-        JobStatus jobStatus = clientJobProxy.getJobStatus();
-        while (jobStatus == JobStatus.RUNNING) {
-            Thread.sleep(1000L);
-            jobStatus = clientJobProxy.getJobStatus();
-        }
-
         CompletableFuture<JobStatus> completableFuture =
                 CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
         await().atMost(600000, TimeUnit.MILLISECONDS)
