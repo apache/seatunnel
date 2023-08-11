@@ -2,9 +2,11 @@
 
 > Socket source connector
 
-## Description
+## Support Those Engines
 
-Used to read data from Socket.
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key features
 
@@ -15,58 +17,42 @@ Used to read data from Socket.
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-## Options
+## Description
 
-|      name      |  type   | required | default value |
-|----------------|---------|----------|---------------|
-| host           | String  | Yes      |               |
-| port           | Integer | Yes      |               |
-| common-options |         | no       | -             |
+> Used to read data from Socket.
 
-### host [string]
+## Source Options
 
-socket server host
+|      Name      |  Type   | Required | Default |                                               Description                                               |
+|----------------|---------|----------|---------|---------------------------------------------------------------------------------------------------------|
+| host           | String  | Yes      |         | socket server host                                                                                      |
+| port           | Integer | Yes      |         | socket server port                                                                                      |
+| common-options |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details |
 
-### port [integer]
+## Task Example
 
-socket server port
+### Simple:
 
-### common options
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
-
-## Example
-
-simple:
-
-```hocon
-Socket {
-        host = "localhost"
-        port = 9999
-    }
-```
-
-test:
-
-* Configuring the SeaTunnel config file
+> This is a streaming accept Socket data source Writes to console output
 
 ```hocon
 env {
+  # You can set flink configuration here
   execution.parallelism = 1
-  job.mode = "STREAMING"
+}
+Socket {
+  host = "localhost"
+  port = 9999
 }
 
-source {
-    Socket {
-        host = "localhost"
-        port = 9999
-    }
+transform {
+  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+  # please go to https://seatunnel.apache.org/docs/transform-v2/sql
 }
 
 sink {
   Console {}
 }
-
 ```
 
 * Start a port listening
