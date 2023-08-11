@@ -18,10 +18,11 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
-import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
+import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.List;
@@ -41,15 +43,24 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
     private transient SeaTunnelSourceCollector<T> collector;
 
     private transient Object checkpointLock;
+    @Getter private transient Serializer<SplitT> splitSerializer;
+    private final PhysicalExecutionFlow<SourceAction, SourceConfig> sourceFlow;
 
-    public SourceSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
+    public SourceSeaTunnelTask(
+            long jobID,
+            TaskLocation taskID,
+            int indexID,
+            PhysicalExecutionFlow<SourceAction, SourceConfig> executionFlow) {
         super(jobID, taskID, indexID, executionFlow);
+        this.sourceFlow = executionFlow;
     }
 
     @Override
     public void init() throws Exception {
         super.init();
         this.checkpointLock = new Object();
+        this.splitSerializer = sourceFlow.getAction().getSource().getSplitSerializer();
+
         LOGGER.info("starting seatunnel source task, index " + indexID);
         if (!(startFlowLifeCycle instanceof SourceFlowLifeCycle)) {
             throw new TaskRuntimeException(
