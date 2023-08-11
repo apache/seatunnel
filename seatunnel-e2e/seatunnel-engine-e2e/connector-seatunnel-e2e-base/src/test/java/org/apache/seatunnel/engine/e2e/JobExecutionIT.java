@@ -32,9 +32,9 @@ import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
@@ -52,8 +52,8 @@ public class JobExecutionIT {
 
     private static HazelcastInstanceImpl hazelcastInstance;
 
-    @BeforeAll
-    public static void beforeClass() throws Exception {
+    @BeforeEach
+    public void beforeClass() throws Exception {
         hazelcastInstance =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName("JobExecutionIT"));
@@ -207,8 +207,8 @@ public class JobExecutionIT {
                                         () -> clientJobProxy.getJobStatus()));
     }
 
-    @AfterAll
-    static void afterClass() {
+    @AfterEach
+    void afterClass() {
         if (hazelcastInstance != null) {
             hazelcastInstance.shutdown();
         }
