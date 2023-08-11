@@ -48,9 +48,6 @@ public class KuduSourceConfig implements Serializable {
                     .defaultValue(false)
                     .withDescription("kudu use.kerberos");
 
-    public static final Option<String> CONF_FILES =
-            Options.key("conf.files").stringType().noDefaultValue().withDescription("conf files ");
-
     public static final Option<String> KERBEROS_PRINCIPAL =
             Options.key("kerberos_principal")
                     .stringType()
