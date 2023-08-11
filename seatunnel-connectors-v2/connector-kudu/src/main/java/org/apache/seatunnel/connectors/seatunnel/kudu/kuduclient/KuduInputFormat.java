@@ -49,23 +49,18 @@ import java.util.List;
 @Slf4j
 public class KuduInputFormat implements Serializable {
 
-    public KuduInputFormat(String kuduMaster, String tableName, String columnsList, String kerberosKeytabPath, String kerberosPrincipal, String krb5ConfPath) {
+    public KuduInputFormat(
+            String kuduMaster, String tableName, String columnsList, boolean useKerberos) {
         this.kuduMaster = kuduMaster;
         this.columnsList = Arrays.asList(columnsList.split(","));
         this.tableName = tableName;
-        this.kerberosKeytabPath = kerberosKeytabPath;
-        this.kerberosPrincipal = kerberosPrincipal;
-        this.krb5ConfPath = krb5ConfPath;
+        this.useKerberos = useKerberos;
     }
 
-    /**
-     * Declare the global variable KuduClient and use it to manipulate the Kudu table
-     */
+    /** Declare the global variable KuduClient and use it to manipulate the Kudu table */
     public KuduClient kuduClient;
 
-    /**
-     * Specify kuduMaster address
-     */
+    /** Specify kuduMaster address */
     public String kuduMaster;
 
     public List<String> columnsList;
@@ -73,16 +68,10 @@ public class KuduInputFormat implements Serializable {
     public String keyColumn;
     public static final int TIMEOUTMS = 18000;
 
-    /**
-     * Specifies the name of the table
-     */
+    /** Specifies the name of the table */
     public String tableName;
 
-    private final String kerberosPrincipal;
-
-    private final String kerberosKeytabPath;
-
-    private final String krb5ConfPath;
+    public boolean useKerberos;
 
     public List<ColumnSchema> getColumnsSchemas() {
         List<ColumnSchema> columns = null;
@@ -161,7 +150,7 @@ public class KuduInputFormat implements Serializable {
     }
 
     public void openInputFormat() {
-        this.kuduClient = KuduClientUtils.getKuduClient(kuduMaster, kerberosKeytabPath, kerberosPrincipal, krb5ConfPath, TIMEOUTMS);
+        this.kuduClient = KuduClientUtil.getKuduClient(kuduMaster, useKerberos, TIMEOUTMS);
         log.info("The Kudu client is successfully initialized", kuduMaster, kuduClient);
     }
 

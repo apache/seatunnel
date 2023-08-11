@@ -42,6 +42,8 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSourceState;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduException;
@@ -52,6 +54,7 @@ import org.apache.kudu.client.RowResultIterator;
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,7 +62,7 @@ import java.util.List;
 @AutoService(SeaTunnelSource.class)
 public class KuduSource
         implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit, KuduSourceState>,
-        SupportParallelism {
+                SupportParallelism {
     private SeaTunnelRowType rowTypeInfo;
     private KuduInputFormat kuduInputFormat;
     private PartitionParameter partitionParameter;
@@ -125,10 +128,26 @@ public class KuduSource
             kudumaster = config.getString(KuduSourceConfig.KUDU_MASTER.key());
             tableName = config.getString(KuduSourceConfig.TABLE_NAME.key());
             columnslist = config.getString(KuduSourceConfig.COLUMNS_LIST.key());
-            String kerberosKeytabPath = config.getString(KuduSourceConfig.KERBEROS_KEYTAB_PATH.key());
-            String kerberosPrincipal = config.getString(KuduSourceConfig.KERBEROS_PRINCIPAL.key());
-            String krb5ConfPath = config.getString(KuduSourceConfig.KRB5_CONF_PATH.key());
-            kuduInputFormat = new KuduInputFormat(kudumaster, tableName, columnslist, kerberosKeytabPath, kerberosPrincipal, krb5ConfPath);
+            boolean useKerberos = config.getBoolean(KuduSourceConfig.USE_KERBEROS.key());
+            if (useKerberos) {
+                CheckConfigUtil.checkAllExists(
+                        config,
+                        KuduSourceConfig.KERBEROS_PRINCIPAL.key(),
+                        KuduSourceConfig.KERBEROS_KEYTAB_PATH.key());
+                Configuration configuration = new Configuration();
+                UserGroupInformation.setConfiguration(configuration);
+                String kerberosPrincipal =
+                        config.getString(KuduSourceConfig.KERBEROS_PRINCIPAL.key());
+                String kerberosKeytabPath =
+                        config.getString(KuduSourceConfig.KERBEROS_KEYTAB_PATH.key());
+                try {
+                    UserGroupInformation.loginUserFromKeytab(kerberosPrincipal, kerberosKeytabPath);
+                } catch (IOException e) {
+                    throw new KuduConnectorException(
+                            KuduConnectorErrorCode.KUDU_KERBEROS_AUTH_FAILED, e);
+                }
+            }
+            kuduInputFormat = new KuduInputFormat(kudumaster, tableName, columnslist, useKerberos);
         } else {
             throw new KuduConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

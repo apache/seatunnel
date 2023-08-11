@@ -51,39 +51,35 @@ public class KuduSinkConfig {
                     .noDefaultValue()
                     .withDescription("kudu table name");
 
-    public static final Option<String> KRB5_CONF_PATH =
-            Options.key("krb5.conf.path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("krb5 conf path");
+    public static final Option<Boolean> USE_KERBEROS =
+            Options.key("use.kerberos")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("kudu use.kerberos");
+
+    public static final Option<String> CONF_FILES =
+            Options.key("conf.files").stringType().noDefaultValue().withDescription("conf files ");
 
     public static final Option<String> KERBEROS_PRINCIPAL =
             Options.key("kerberos_principal")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Kerberos principal");
+                    .withDescription("Kudu kerberos principal");
 
     public static final Option<String> KERBEROS_KEYTAB_PATH =
             Options.key("kerberos_keytab_path")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Kerberos keytab file path");
-
+                    .withDescription("Kudu kerberos keytab file path");
 
     private SaveMode saveMode;
 
     private String kuduMaster;
 
-    /**
-     * Specifies the name of the table
-     */
+    /** Specifies the name of the table */
     private String kuduTableName;
 
-    private String kerberosPrincipal;
-
-    private String kerberosKeytabPath;
-
-    private String krb5ConfPath;
+    private boolean useKerberos;
 
     public enum SaveMode {
         APPEND(),
@@ -108,19 +104,13 @@ public class KuduSinkConfig {
                             : SaveMode.fromStr(pluginConfig.getString(KUDU_SAVE_MODE.key()));
             this.kuduMaster = pluginConfig.getString(KUDU_MASTER.key());
             this.kuduTableName = pluginConfig.getString(KUDU_TABLE_NAME.key());
+            this.useKerberos = pluginConfig.getBoolean(USE_KERBEROS.key());
         } else {
             throw new KuduConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "PluginName: %s, PluginType: %s, Message: %s",
                             "Kudu", PluginType.SINK, "Missing Sink configuration parameters"));
-        }
-        if (pluginConfig.hasPath(KRB5_CONF_PATH.key())
-                && pluginConfig.hasPath(KERBEROS_PRINCIPAL.key())
-                && pluginConfig.hasPath(KERBEROS_KEYTAB_PATH.key())) {
-            this.krb5ConfPath = pluginConfig.getString(KRB5_CONF_PATH.key());
-            this.kerberosPrincipal = pluginConfig.getString(KERBEROS_PRINCIPAL.key());
-            this.kerberosKeytabPath = pluginConfig.getString(KERBEROS_KEYTAB_PATH.key());
         }
     }
 }
