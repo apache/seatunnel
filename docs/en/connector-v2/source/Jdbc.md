@@ -76,11 +76,11 @@ The time in seconds to wait for the database operation used to validate the conn
 
 The column name for parallelism's partition, only support numeric type.
 
-### partition_upper_bound [long]
+### partition_upper_bound [BigDecimal]
 
 The partition_column max value for scan, if not set SeaTunnel will query database get max value.
 
-### partition_lower_bound [long]
+### partition_lower_bound [BigDecimal]
 
 The partition_column min value for scan, if not set SeaTunnel will query database get min value.
 
