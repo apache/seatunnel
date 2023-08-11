@@ -19,15 +19,11 @@ package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
@@ -53,7 +49,7 @@ public class JobExecutionIT {
     private static HazelcastInstanceImpl hazelcastInstance;
 
     @BeforeEach
-    public void beforeClass() throws Exception {
+    public void beforeClass() {
         hazelcastInstance =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName("JobExecutionIT"));
@@ -86,10 +82,7 @@ public class JobExecutionIT {
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
         CompletableFuture<JobStatus> objectCompletableFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            return clientJobProxy.waitForJobComplete();
-                        });
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
         await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -116,12 +109,8 @@ public class JobExecutionIT {
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
         JobStatus jobStatus1 = clientJobProxy.getJobStatus();
         Assertions.assertFalse(jobStatus1.isEndState());
-        ClientJobProxy finalClientJobProxy = clientJobProxy;
         CompletableFuture<JobStatus> objectCompletableFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            return finalClientJobProxy.waitForJobComplete();
-                        });
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
         Thread.sleep(1000);
         clientJobProxy.cancelJob();
 
@@ -152,28 +141,8 @@ public class JobExecutionIT {
             jobStatus = clientJobProxy.getJobStatus();
         }
 
-        CompletableFuture<JobResult> completableFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return RetryUtils.retryWithException(
-                                        () -> {
-                                            PassiveCompletableFuture<JobResult> jobFuture =
-                                                    clientJobProxy.doWaitForJobComplete();
-                                            return jobFuture.get();
-                                        },
-                                        new RetryUtils.RetryMaterial(
-                                                100000,
-                                                true,
-                                                exception ->
-                                                        ExceptionUtil.isOperationNeedRetryException(
-                                                                exception),
-                                                Constant.OPERATION_RETRY_SLEEP));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-
+        CompletableFuture<JobStatus> completableFuture =
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
         await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
 
@@ -197,14 +166,12 @@ public class JobExecutionIT {
 
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-        JobResult result = clientJobProxy.doWaitForJobComplete().get();
-        Assertions.assertEquals(result.getStatus(), JobStatus.FINISHED);
+        Assertions.assertEquals(clientJobProxy.waitForJobComplete(), JobStatus.FINISHED);
         await().atMost(65, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertThrowsExactly(
-                                        NullPointerException.class,
-                                        () -> clientJobProxy.getJobStatus()));
+                                        NullPointerException.class, clientJobProxy::getJobStatus));
     }
 
     @AfterEach
