@@ -186,10 +186,14 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 LinkedHashMap<Object, Object> objectMap = new LinkedHashMap<>();
                 String[] kvs = field.split(separators[level + 1]);
                 for (String kv : kvs) {
-                    String[] splits = kv.split(separators[level + 2]);
-                    objectMap.put(
-                            convert(splits[0], keyType, level + 1),
-                            convert(splits[1], valueType, level + 1));
+                    if (kvs.length < 2) {
+                        return null;
+                    } else {
+                        String[] splits = kv.split(separators[level + 2]);
+                        objectMap.put(
+                                convert(splits[0], keyType, level + 1),
+                                convert(splits[1], valueType, level + 1));
+                    }
                 }
                 return objectMap;
             case STRING:
