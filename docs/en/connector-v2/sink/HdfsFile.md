@@ -169,6 +169,7 @@ HdfsFile {
 HdfsFile {
     fs.defaultFS = "hdfs://hadoopcluster"
     path = "/tmp/hive/warehouse/test2"
+    hdfs_site_path = "your_hdfs_site.xml"
     kerberos_principal = "your_principal@EXAMPLE.COM"
     kerberos_keytab_path = "/path/to/your/keytab/file.keytab"
 }
