@@ -166,7 +166,7 @@ public class JobExecutionIT {
 
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-        Assertions.assertEquals(result.getStatus(), JobStatus.FINISHED);
+        Assertions.assertEquals(clientJobProxy.getJobStatus(), JobStatus.FINISHED);
         await().atMost(65, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
