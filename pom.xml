@@ -768,6 +768,9 @@
                 <version>${spotless.version}</version>
                 <configuration>
                     <java>
+                        <excludes>
+                            <exclude>src/main/java/org/apache/seatunnel/antlr4/generated/*.*</exclude>
+                        </excludes>
                         <googleJavaFormat>
                             <version>1.7</version>
                             <style>AOSP</style>

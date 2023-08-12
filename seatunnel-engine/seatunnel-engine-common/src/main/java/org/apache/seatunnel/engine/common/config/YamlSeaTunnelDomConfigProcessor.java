@@ -131,6 +131,11 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
             } else if (ServerConfigOptions.CHECKPOINT.key().equals(name)) {
                 engineConfig.setCheckpointConfig(parseCheckpointConfig(node));
+            } else if (ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.key().equals(name)) {
+                engineConfig.setHistoryJobExpireMinutes(
+                        getIntegerValue(
+                                ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.key(),
+                                getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
@@ -150,6 +155,11 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 checkpointConfig.setCheckpointTimeout(
                         getIntegerValue(
                                 ServerConfigOptions.CHECKPOINT_TIMEOUT.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.SCHEMA_CHANGE_CHECKPOINT_TIMEOUT.key().equals(name)) {
+                checkpointConfig.setSchemaChangeCheckpointTimeout(
+                        getIntegerValue(
+                                ServerConfigOptions.SCHEMA_CHANGE_CHECKPOINT_TIMEOUT.key(),
                                 getTextContent(node)));
             } else if (ServerConfigOptions.CHECKPOINT_MAX_CONCURRENT.key().equals(name)) {
                 checkpointConfig.setMaxConcurrentCheckpoints(

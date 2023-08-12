@@ -48,7 +48,7 @@ public class CheckpointBarrier implements Barrier, Serializable {
 
     @Override
     public boolean prepareClose() {
-        return checkpointType != CheckpointType.CHECKPOINT_TYPE;
+        return checkpointType.isFinalCheckpoint();
     }
 
     public long getTimestamp() {
