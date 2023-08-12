@@ -19,15 +19,18 @@ package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -38,7 +41,10 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.await;
 
 @Slf4j
 public class JobExecutionIT {
@@ -84,8 +90,7 @@ public class JobExecutionIT {
                             return clientJobProxy.waitForJobComplete();
                         });
 
-        Awaitility.await()
-                .atMost(600000, TimeUnit.MILLISECONDS)
+        await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(
@@ -119,14 +124,79 @@ public class JobExecutionIT {
         Thread.sleep(1000);
         clientJobProxy.cancelJob();
 
-        Awaitility.await()
-                .atMost(20000, TimeUnit.MILLISECONDS)
+        await().atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(
                                         objectCompletableFuture.isDone()
                                                 && JobStatus.CANCELED.equals(
                                                         objectCompletableFuture.get())));
+    }
+
+    @Test
+    public void testGetErrorInfo() throws ExecutionException, InterruptedException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("batch_fakesource_to_console_error.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("fake_to_console_error");
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        JobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig);
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+        CompletableFuture<JobResult> completableFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return RetryUtils.retryWithException(
+                                        () -> {
+                                            PassiveCompletableFuture<JobResult> jobFuture =
+                                                    clientJobProxy.doWaitForJobComplete();
+                                            return jobFuture.get();
+                                        },
+                                        new RetryUtils.RetryMaterial(
+                                                100000,
+                                                true,
+                                                exception -> true,
+                                                Constant.OPERATION_RETRY_SLEEP));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        await().atMost(6000000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
+
+        JobResult result = completableFuture.get();
+        Assertions.assertEquals(result.getStatus(), JobStatus.FAILED);
+        Assertions.assertTrue(result.getError().startsWith("java.lang.NumberFormatException"));
+    }
+
+    @Test
+    public void testExpiredJobWasDeleted() throws Exception {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("job_expire");
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        JobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig);
+
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+        JobResult result = clientJobProxy.doWaitForJobComplete().get();
+        Assertions.assertEquals(result.getStatus(), JobStatus.FINISHED);
+        await().atMost(65, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertThrowsExactly(
+                                        NullPointerException.class,
+                                        () -> clientJobProxy.getJobStatus()));
     }
 
     @AfterAll

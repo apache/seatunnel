@@ -85,6 +85,13 @@ public class ServerConfigOptions {
                     .defaultValue(30000)
                     .withDescription("The timeout (in milliseconds) for a checkpoint.");
 
+    public static final Option<Integer> SCHEMA_CHANGE_CHECKPOINT_TIMEOUT =
+            Options.key("schema-change-timeout")
+                    .intType()
+                    .defaultValue(30000)
+                    .withDescription(
+                            "The timeout (in milliseconds) for a schema change checkpoint.");
+
     public static final Option<Integer> CHECKPOINT_MAX_CONCURRENT =
             Options.key("max-concurrent")
                     .intType()
@@ -138,4 +145,9 @@ public class ServerConfigOptions {
                     .type(new TypeReference<Map<String, String>>() {})
                     .noDefaultValue()
                     .withDescription("The checkpoint storage instance configuration.");
+    public static final Option<Integer> HISTORY_JOB_EXPIRE_MINUTES =
+            Options.key("history-job-expire-minutes")
+                    .intType()
+                    .defaultValue(1440)
+                    .withDescription("The expire time of history jobs.time unit minute");
 }

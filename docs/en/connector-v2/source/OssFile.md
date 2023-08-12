@@ -248,7 +248,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ### sheet_name [string]
 
-Reader the sheet of the workbook,Only used when file_format is excel.
+Reader the sheet of the workbook,Only used when file_format_type is excel.
 
 ### compress_codec [string]
 
