@@ -73,6 +73,7 @@
         <module>connector-hbase</module>
         <module>connector-rocketmq</module>
         <module>connector-paimon</module>
+        <module>connector-access</module>
     </modules>
 
     <dependencyManagement>
