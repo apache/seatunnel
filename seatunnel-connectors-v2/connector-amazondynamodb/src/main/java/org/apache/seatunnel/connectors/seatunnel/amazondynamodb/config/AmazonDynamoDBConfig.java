@@ -60,4 +60,18 @@ public class AmazonDynamoDBConfig implements Serializable {
                     .intType()
                     .defaultValue(1000)
                     .withDescription("The batch interval of Amazon DynamoDB");
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public static final Option<Integer> SCAN_ITEM_LIMIT =
+            Options.key("scan_item_limit")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription("number of item each scan request should return");
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public static final Option<Integer> PARALLEL_SCAN_THREADS =
+            Options.key("parallel_scan_threads")
+                    .intType()
+                    .defaultValue(2)
+                    .withDescription("number of logical segments for parallel scan");
 }
