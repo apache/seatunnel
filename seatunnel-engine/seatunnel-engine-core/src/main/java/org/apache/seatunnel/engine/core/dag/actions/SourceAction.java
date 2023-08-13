@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
+import com.sun.istack.internal.NotNull;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 
 import com.google.common.collect.Lists;
 import lombok.NonNull;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 
 import java.io.Serializable;
 import java.net.URL;
@@ -37,8 +39,9 @@ public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializ
             long id,
             @NonNull String name,
             @NonNull SeaTunnelSource<T, SplitT, StateT> source,
-            @NonNull Set<URL> jarUrls) {
-        super(id, name, Lists.newArrayList(), jarUrls);
+            @NonNull Set<URL> jarUrls,
+            @NotNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        super(id, name, Lists.newArrayList(), jarUrls, connectorJarIdentifiers);
         this.source = source;
     }
 

@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.task.operation.DownloadConnectorJarOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -68,16 +69,13 @@ public class ServerConnectorPackageClient {
         /** expiry time (no cleanup for non-positive values). */
         public long keepUntil = -1;
 
-        public String storagePath = "";
-
-        public ExpiryTime(long keepUntil, String storagePath) {
+        public ExpiryTime(long keepUntil) {
             this.keepUntil = keepUntil;
-            this.storagePath = storagePath;
         }
     }
 
     /** Map to store the TTL of each connector jar package stored in the local storage. */
-    private final ConcurrentHashMap<String, ExpiryTime> connectorJarExpiryTimes =
+    private final ConcurrentHashMap<ConnectorJarIdentifier, ExpiryTime> connectorJarExpiryTimes =
             new ConcurrentHashMap<>();
 
     public ServerConnectorPackageClient(
@@ -97,12 +95,12 @@ public class ServerConnectorPackageClient {
         this.readWriteLock = new ReentrantReadWriteLock();
     }
 
-    public Set<URL> getConnectorJarPath(Set<URL> connectorJars) {
-        return connectorJars.stream()
+    public Set<URL> getConnectorJarPath(Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        return connectorJarIdentifiers.stream()
                 .map(
-                        connectorJar -> {
+                        connectorJarIdentifier -> {
                             String connectorJarStoragePath =
-                                    getConnectorJarFileLocallyFirst(connectorJar.getFile());
+                                    getConnectorJarFileLocallyFirst(connectorJarIdentifier);
                             File storageFile = new File(connectorJarStoragePath);
                             try {
                                 return Optional.of(storageFile.toURI().toURL());
@@ -120,29 +118,27 @@ public class ServerConnectorPackageClient {
                 .collect(Collectors.toSet());
     }
 
-    public String getConnectorJarFileLocallyFirst(String connectorJarName) {
-        ExpiryTime expiryTime = connectorJarExpiryTimes.get(connectorJarName);
+    public String getConnectorJarFileLocallyFirst(ConnectorJarIdentifier connectorJarIdentifier) {
+        ExpiryTime expiryTime = connectorJarExpiryTimes.get(connectorJarIdentifier);
         if (expiryTime != null) {
-            String storagePath = expiryTime.storagePath;
             // update TTL for connector jar package in connectorJarExpiryTimes
             expiryTime.keepUntil = System.currentTimeMillis() + connectorJarExpiryTime;
-            connectorJarExpiryTimes.put(connectorJarName, expiryTime);
-            return storagePath;
+            connectorJarExpiryTimes.put(connectorJarIdentifier, expiryTime);
+            return connectorJarIdentifier.getStoragePath();
         } else {
-            String storagePath = downloadFromMasterNode(connectorJarName);
+            ConnectorJarIdentifier identifierFromMasterNode = downloadFromMasterNode(connectorJarIdentifier);
             connectorJarExpiryTimes.put(
-                    connectorJarName,
-                    new ExpiryTime(
-                            System.currentTimeMillis() + connectorJarExpiryTime, storagePath));
-            return storagePath;
+                    identifierFromMasterNode,
+                    new ExpiryTime(System.currentTimeMillis() + connectorJarExpiryTime));
+            return identifierFromMasterNode.getStoragePath();
         }
     }
 
-    public String downloadFromMasterNode(String connectorJarName) {
-        ImmutablePair<byte[], String> immutablePair = null;
-        InvocationFuture<ImmutablePair<byte[], String>> invocationFuture =
+    public ConnectorJarIdentifier downloadFromMasterNode(ConnectorJarIdentifier connectorJarIdentifier) {
+        ImmutablePair<byte[], ConnectorJarIdentifier> immutablePair = null;
+        InvocationFuture<ImmutablePair<byte[], ConnectorJarIdentifier>> invocationFuture =
                 NodeEngineUtil.sendOperationToMasterNode(
-                        nodeEngine, new DownloadConnectorJarOperation(connectorJarName));
+                        nodeEngine, new DownloadConnectorJarOperation(connectorJarIdentifier));
         try {
             immutablePair = invocationFuture.get();
         }
@@ -156,13 +152,11 @@ public class ServerConnectorPackageClient {
         } catch (Exception e) {
             throw new SeaTunnelEngineException(ExceptionUtils.getMessage(e));
         }
-        if (immutablePair == null) return "";
         byte[] connectorJarByteData = immutablePair.getLeft();
-        String storagePath = immutablePair.getRight();
         readWriteLock.writeLock().lock();
-        storageConnectorJarFile(connectorJarByteData, new File(storagePath));
+        storageConnectorJarFile(connectorJarByteData, new File(immutablePair.getRight().getStoragePath()));
         readWriteLock.writeLock().unlock();
-        return storagePath;
+        return immutablePair.getRight();
     }
 
     private void storageConnectorJarFile(byte[] connectorJarByteData, File storageFile) {
@@ -198,11 +192,11 @@ public class ServerConnectorPackageClient {
         }
     }
 
-    public void deleteConnectorJar(String connectorJarFileName) {
-        ExpiryTime expiryTime = connectorJarExpiryTimes.get(connectorJarFileName);
+    public void deleteConnectorJar(ConnectorJarIdentifier connectorJarIdentifier) {
+        ExpiryTime expiryTime = connectorJarExpiryTimes.get(connectorJarIdentifier);
         if (expiryTime != null) {
             try {
-                File storageLocation = new File(expiryTime.storagePath);
+                File storageLocation = new File(connectorJarIdentifier.getStoragePath());
                 readWriteLock.writeLock().lock();
                 deleteConnectorJarInternal(storageLocation);
             } finally {

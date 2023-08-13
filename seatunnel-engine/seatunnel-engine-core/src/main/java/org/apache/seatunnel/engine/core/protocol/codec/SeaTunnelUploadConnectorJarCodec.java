@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.core.protocol.codec;
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.client.impl.protocol.Generated;
 import com.hazelcast.client.impl.protocol.codec.builtin.DataCodec;
-import com.hazelcast.client.impl.protocol.codec.builtin.StringCodec;
+import com.hazelcast.internal.serialization.Data;
 
 import static com.hazelcast.client.impl.protocol.ClientMessage.PARTITION_ID_FIELD_OFFSET;
 import static com.hazelcast.client.impl.protocol.ClientMessage.RESPONSE_BACKUP_ACKS_FIELD_OFFSET;
@@ -39,12 +39,12 @@ import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCod
  */
 
 /** */
-@Generated("cff90396af3eef757c76686ef52a3a25")
+@Generated("b7fc02107a714918a542f42f1c602b7f")
 public final class SeaTunnelUploadConnectorJarCodec {
-    // hex: 0xDE0C00
-    public static final int REQUEST_MESSAGE_TYPE = 14552064;
-    // hex: 0xDE0C01
-    public static final int RESPONSE_MESSAGE_TYPE = 14552065;
+    //hex: 0xDE0D00
+    public static final int REQUEST_MESSAGE_TYPE = 14552320;
+    //hex: 0xDE0D01
+    public static final int RESPONSE_MESSAGE_TYPE = 14552321;
     private static final int REQUEST_JOB_ID_FIELD_OFFSET =
             PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
     private static final int REQUEST_INITIAL_FRAME_SIZE =
@@ -85,7 +85,7 @@ public final class SeaTunnelUploadConnectorJarCodec {
         return request;
     }
 
-    public static ClientMessage encodeResponse(String response) {
+    public static ClientMessage encodeResponse(Data response) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         ClientMessage.Frame initialFrame =
                 new ClientMessage.Frame(
@@ -93,14 +93,14 @@ public final class SeaTunnelUploadConnectorJarCodec {
         encodeInt(initialFrame.content, TYPE_FIELD_OFFSET, RESPONSE_MESSAGE_TYPE);
         clientMessage.add(initialFrame);
 
-        StringCodec.encode(clientMessage, response);
+        DataCodec.encode(clientMessage, response);
         return clientMessage;
     }
 
-    public static String decodeResponse(ClientMessage clientMessage) {
+    public static Data decodeResponse(ClientMessage clientMessage) {
         ClientMessage.ForwardFrameIterator iterator = clientMessage.frameIterator();
         // empty initial frame
         iterator.next();
-        return StringCodec.decode(iterator);
+        return DataCodec.decode(iterator);
     }
 }

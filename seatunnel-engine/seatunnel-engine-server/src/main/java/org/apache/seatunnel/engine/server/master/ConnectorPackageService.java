@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.master;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -31,6 +32,9 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.net.URL;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class ConnectorPackageService {
@@ -60,28 +64,22 @@ public class ConnectorPackageService {
                         nodeEngine);
     }
 
-    public String storageConnectorJarFile(long jobId, Data connectorJarData) {
+    public ConnectorJarIdentifier storageConnectorJarFile(long jobId, Data connectorJarData) {
         // deserialize connector jar package data
         ConnectorJar connectorJar = nodeEngine.getSerializationService().toObject(connectorJarData);
-        String storageFilePath =
+        ConnectorJarIdentifier connectorJarIdentifier =
                 connectorJarStorageStrategy.storageConnectorJarFile(jobId, connectorJar);
-        return storageFilePath;
+        return connectorJarIdentifier;
     }
 
-    public ImmutablePair<byte[], String> readConnectorJarFromLocal(String connectorJarName) {
-        String storagePath =
-                connectorJarStorageStrategy.getStoragePathFromJarName(connectorJarName);
-        byte[] bytes = connectorJarStorageStrategy.readConnectorJarByteData(new File(storagePath));
-        return new ImmutablePair<>(bytes, storagePath);
+    public ImmutablePair<byte[], ConnectorJarIdentifier> readConnectorJarFromLocal(ConnectorJarIdentifier connectorJarIdentifier) {
+        byte[] bytes =
+                connectorJarStorageStrategy.readConnectorJarByteData(
+                        new File(connectorJarIdentifier.getStoragePath()));
+        return new ImmutablePair<>(bytes, connectorJarIdentifier);
     }
 
-    //    public ConnectorJar getFileFromLocalOrHAStorage() {}
-
-    //    public URL getFileFromLocalStorage() {
-    ////        return
-    ////    }
-
-    //    public ConnectorJar getFileFromHAStorage() {
-    ////
-    ////
+    public void cleanUpWhenJobFinished(List<ConnectorJarIdentifier> connectorJarIdentifierList) {
+        connectorJarStorageStrategy.cleanUpWhenJobFinished(connectorJarIdentifierList);
+    }
 }

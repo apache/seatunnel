@@ -18,11 +18,13 @@
 package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Path;
+import java.util.List;
 
 public interface ConnectorJarStorageStrategy extends Serializable {
 
@@ -51,17 +53,17 @@ public interface ConnectorJarStorageStrategy extends Serializable {
      * @param connectorJar connector jar
      * @return the storage path of connector jar file
      */
-    String storageConnectorJarFile(long jobId, ConnectorJar connectorJar);
+    ConnectorJarIdentifier storageConnectorJarFile(long jobId, ConnectorJar connectorJar);
 
     Path storageConnectorJarFileInternal(ConnectorJar connectorJar, File storageLocation);
 
-    void deleteConnectorJar(long jobId, String connectorJarFileName) throws IOException;
+    void deleteConnectorJar(ConnectorJarIdentifier connectorJarIdentifier);
 
     void deleteConnectorJarInternal(File storageLocation);
-
-    String getStoragePathFromJarName(String connectorJarName);
 
     byte[] readConnectorJarByteDataInternal(File connectorJarFile);
 
     byte[] readConnectorJarByteData(File connectorJarFile);
+
+    void cleanUpWhenJobFinished(List<ConnectorJarIdentifier> connectorJarIdentifierList);
 }

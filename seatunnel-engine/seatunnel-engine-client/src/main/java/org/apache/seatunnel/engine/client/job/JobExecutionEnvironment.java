@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.Config;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDagGenerator;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
@@ -46,7 +47,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -64,6 +64,8 @@ public class JobExecutionEnvironment {
     private final List<Action> actions = new ArrayList<>();
 
     private final Set<URL> jarUrls = new HashSet<>();
+
+    private final Set<ConnectorJarIdentifier> connectorJarIdentifiers = new HashSet<>();
 
     private final List<URL> commonPluginJars = new ArrayList<>();
 
@@ -96,10 +98,10 @@ public class JobExecutionEnvironment {
         this.commonPluginJars.addAll(
                 new ArrayList<>(
                         Common.getThirdPartyJars(
-                                        jobConfig
-                                                .getEnvOptions()
-                                                .getOrDefault(EnvCommonOptions.JARS.key(), "")
-                                                .toString())
+                                jobConfig
+                                        .getEnvOptions()
+                                        .getOrDefault(EnvCommonOptions.JARS.key(), "")
+                                        .toString())
                                 .stream()
                                 .map(Path::toUri)
                                 .map(
@@ -153,45 +155,92 @@ public class JobExecutionEnvironment {
                         isStartWithSavePoint,
                         seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
                         jobConfig,
-                        new ArrayList<>(jarUrls));
+                        new ArrayList<>(jarUrls),
+                        new ArrayList<>(connectorJarIdentifiers));
 
         return jobClient.createJobProxy(jobImmutableInformation);
     }
 
     private LogicalDag getLogicalDag() {
-        ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
+        ImmutablePair<List<Action>, Set<URL>>
+                immutablePair = getJobConfigParser().parse();
         actions.addAll(immutablePair.getLeft());
 
-        try {
-            Set<URL> pluginJarStoragePathSet =
-                    connectorPackageClient.uploadCommonPluginJars(
-                            Long.parseLong(jobConfig.getJobContext().getJobId()), commonPluginJars);
-
-            Set<URL> pluginJars = immutablePair.getRight();
-            Iterator<URL> iterator = pluginJars.iterator();
-            while (iterator.hasNext()) {
-                URL pluginJarUrl = iterator.next();
-                if (commonPluginJars.contains(pluginJarUrl)) continue;
-                String file = pluginJarUrl.getFile();
-                if (new File(file).isDirectory()) continue;
-                Optional<URL> storagePath =
-                        connectorPackageClient.uploadConnectorPluginJar(
-                                Long.parseLong(jobConfig.getJobContext().getJobId()), pluginJarUrl);
-                if (storagePath.isPresent()) {
-                    pluginJarStoragePathSet.add(storagePath.get());
-                }
-            }
-            pluginJarStoragePathSet.addAll(pluginJarStoragePathSet);
-
-            jarUrls.addAll(pluginJarStoragePathSet);
-        } catch (MalformedURLException e) {
-            LOGGER.warning(String.format("File URL conversion failed!"));
-        }
-
+        Set<ConnectorJarIdentifier> commonJarIdentifiers =
+                connectorPackageClient.uploadCommonPluginJars(
+                        Long.parseLong(jobConfig.getJobContext().getJobId()), commonPluginJars);
+        Set<URL> commonPluginJarUrls = getJarUrlsFromIdentifiers(commonJarIdentifiers);
+        Set<ConnectorJarIdentifier> pluginJarIdentifiers = new HashSet<>();
+        transformActionPluginJarUrls(actions, pluginJarIdentifiers);
+        Set<URL> connectorPluginJarUrls = getJarUrlsFromIdentifiers(pluginJarIdentifiers);
+        connectorJarIdentifiers.addAll(commonJarIdentifiers);
+        connectorJarIdentifiers.addAll(pluginJarIdentifiers);
+        jarUrls.addAll(commonPluginJars);
+        jarUrls.addAll(connectorPluginJarUrls);
+        actions.forEach(action -> {
+            addCommonPluginJarsToAction(action, commonPluginJarUrls, commonJarIdentifiers);
+        });
         actions.forEach(
                 action -> {
                     Config config = action.getConfig();
                 });
         return getLogicalDagGenerator().generate();
+    }
+
+    void addCommonPluginJarsToAction(Action action, Set<URL> commonPluginJars, Set<ConnectorJarIdentifier> commonJarIdentifiers) {
+        action.getJarUrls().addAll(commonPluginJars);
+        action.getConnectorJarIdentifiers().addAll(commonJarIdentifiers);
+        if (!action.getUpstream().isEmpty()) {
+            action.getUpstream().forEach(upstreamAction -> {
+                addCommonPluginJarsToAction(upstreamAction, commonPluginJars, commonJarIdentifiers);
+            });
+        }
+    }
+
+    private void transformActionPluginJarUrls(List<Action> actions, Set<ConnectorJarIdentifier> result) {
+        actions.forEach(
+                action -> {
+                    Set<URL> jarUrls = action.getJarUrls();
+                    Set<ConnectorJarIdentifier> jarIdentifiers = uploadPluginJarUrls(jarUrls);
+                    result.addAll(jarIdentifiers);
+                    // Reset the client URL of the jar package in Set
+                    // add the URLs from remote master node
+                    jarUrls.clear();
+                    jarUrls.addAll(getJarUrlsFromIdentifiers(jarIdentifiers));
+                    action.getConnectorJarIdentifiers().addAll(jarIdentifiers);
+                    if (!action.getUpstream().isEmpty()) {
+                        transformActionPluginJarUrls(action.getUpstream(), result);
+                    }
+                });
+    }
+
+    private Set<ConnectorJarIdentifier> uploadPluginJarUrls(Set<URL> pluginJarUrls) {
+        Set<ConnectorJarIdentifier> pluginJarIdentifiers = new HashSet<>();
+        pluginJarUrls.forEach(
+                pluginJarUrl -> {
+                    ConnectorJarIdentifier connectorJarIdentifier = connectorPackageClient.uploadConnectorPluginJar(
+                            Long.parseLong(jobConfig.getJobContext().getJobId()),
+                            pluginJarUrl);
+                    pluginJarIdentifiers.add(connectorJarIdentifier);
+                });
+        return pluginJarIdentifiers;
+    }
+
+    private Set<URL> getJarUrlsFromIdentifiers(Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        Set<URL> jarUrls = new HashSet<>();
+        connectorJarIdentifiers.stream().map(connectorJarIdentifier -> {
+            File storageFile = new File(connectorJarIdentifier.getStoragePath());
+            try {
+                return Optional.of(storageFile.toURI().toURL());
+            } catch (MalformedURLException e) {
+                LOGGER.warning(String.format("Cannot get plugin URL: {%s}", storageFile));
+                return Optional.empty();
+            }
+        }).collect(Collectors.toList()).forEach(optional -> {
+            if (optional.isPresent()) {
+                jarUrls.add((URL) optional.get());
+            }
+        });
+        return jarUrls;
     }
 }

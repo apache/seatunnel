@@ -262,7 +262,7 @@ methods:
     response:
       params:
         - name: response
-          type: String
+          type: Data
           nullable: false
           since: 2.0
           doc: ''

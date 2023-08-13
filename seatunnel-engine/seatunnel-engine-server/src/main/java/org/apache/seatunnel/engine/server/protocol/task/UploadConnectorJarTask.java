@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.protocol.task;
 
+import com.hazelcast.internal.serialization.Data;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelUploadConnectorJarCodec;
 import org.apache.seatunnel.engine.server.operation.UploadConnectorJarOperation;
 
@@ -27,7 +28,7 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 public class UploadConnectorJarTask
         extends AbstractSeaTunnelMessageTask<
-                SeaTunnelUploadConnectorJarCodec.RequestParameters, String> {
+                SeaTunnelUploadConnectorJarCodec.RequestParameters, Data> {
 
     protected UploadConnectorJarTask(
             ClientMessage clientMessage, Node node, Connection connection) {

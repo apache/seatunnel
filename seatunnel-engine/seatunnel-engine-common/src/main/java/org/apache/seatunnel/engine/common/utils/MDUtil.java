@@ -15,34 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.actions;
+package org.apache.seatunnel.engine.common.utils;
 
-import lombok.NonNull;
-import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
-import java.io.Serializable;
-import java.net.URL;
-import java.util.List;
-import java.util.Set;
+public class MDUtil {
+    /** Algorithm to be used for message digest. */
+    private static final String HASHING_ALGORITHM = "SHA-1";
 
-public interface Action extends Serializable {
-    @NonNull String getName();
-
-    void setName(@NonNull String name);
-
-    @NonNull List<Action> getUpstream();
-
-    void addUpstream(@NonNull Action action);
-
-    int getParallelism();
-
-    void setParallelism(int parallelism);
-
-    long getId();
-
-    Set<URL> getJarUrls();
-
-    Set<ConnectorJarIdentifier> getConnectorJarIdentifiers();
-
-    Config getConfig();
+    /**
+     * Creates a new instance of the message digest.
+     *
+     * @return a new instance of the message digest
+     */
+    public static MessageDigest createMessageDigest() {
+        try {
+            return MessageDigest.getInstance(HASHING_ALGORITHM);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(
+                    "Cannot instantiate the message digest algorithm " + HASHING_ALGORITHM, e);
+        }
+    }
 }

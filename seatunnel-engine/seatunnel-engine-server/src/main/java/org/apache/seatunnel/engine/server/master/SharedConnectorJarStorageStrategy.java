@@ -19,7 +19,9 @@ package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
+import org.apache.seatunnel.engine.core.job.CommonPluginJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
 import org.apache.seatunnel.engine.core.job.RefCount;
 
@@ -28,6 +30,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Timer;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -40,7 +43,7 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
     /** Lock guarding concurrent file accesses. */
     private final ReadWriteLock readWriteLock;
 
-    private final IMap<String, RefCount> connectorJarRefCounters;
+    private final IMap<ConnectorJarIdentifier, RefCount> connectorJarRefCounters;
 
     /** Time interval (ms) to run the cleanup task; also used as the default TTL. */
     private final long cleanupInterval;
@@ -65,16 +68,15 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
     }
 
     @Override
-    public String storageConnectorJarFile(long jobId, ConnectorJar connectorJar) {
-        String connectorJarFileName = connectorJar.getFileName();
-        RefCount refCount = connectorJarRefCounters.get(connectorJarFileName);
+    public ConnectorJarIdentifier storageConnectorJarFile(long jobId, ConnectorJar connectorJar) {
+        ConnectorJarIdentifier connectorJarIdentifier = ConnectorJarIdentifier.of(connectorJar, getStorageLocationPath(jobId, connectorJar));
+        RefCount refCount = connectorJarRefCounters.get(connectorJarIdentifier);
         if (refCount == null) {
             refCount = new RefCount();
             File storageLocation = getStorageLocation(jobId, connectorJar);
             try {
                 readWriteLock.writeLock().lock();
-                Path path = storageConnectorJarFileInternal(connectorJar, storageLocation);
-                refCount.setStoragePath(path.toString());
+                storageConnectorJarFileInternal(connectorJar, storageLocation);
             } finally {
                 readWriteLock.writeLock().unlock();
             }
@@ -82,18 +84,19 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
         // increment reference counts for connector jar
         Long references = refCount.getReferences();
         refCount.setReferences(++references);
-        connectorJarRefCounters.put(connectorJarFileName, refCount);
-        return refCount.getStoragePath();
+        connectorJarRefCounters.put(connectorJarIdentifier, refCount);
+        return connectorJarIdentifier;
     }
 
     @Override
-    public void deleteConnectorJar(long jobId, String connectorJarFileName) {
-        RefCount refCount = connectorJarRefCounters.get(connectorJarFileName);
+    public void deleteConnectorJar(ConnectorJarIdentifier connectorJarIdentifier) {
+        RefCount refCount = connectorJarRefCounters.get(connectorJarIdentifier);
         if (refCount != null) {
             try {
-                File storageLocation = new File(refCount.getStoragePath());
+                File storageLocation = new File(connectorJarIdentifier.getStoragePath());
                 readWriteLock.writeLock().lock();
                 deleteConnectorJarInternal(storageLocation);
+                connectorJarRefCounters.remove(connectorJarIdentifier);
             } finally {
                 readWriteLock.writeLock().unlock();
             }
@@ -104,11 +107,12 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
     public String getStorageLocationPath(long jobId, ConnectorJar connectorJar) {
         checkNotNull(jobId);
         if (connectorJar.getType() == ConnectorJarType.COMMON_PLUGIN_JAR) {
+            CommonPluginJar commonPluginJar = (CommonPluginJar) connectorJar;
             return String.format(
                     "%s/%s/%s/%s/%s",
                     storageDir,
                     COMMON_PLUGIN_JAR_STORAGE_PATH,
-                    connectorJar.getPluginName(),
+                    commonPluginJar.getPluginName(),
                     "lib",
                     connectorJar.getFileName());
         } else {
@@ -118,12 +122,20 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
         }
     }
 
-    public void decreaseConnectorJarRefCount(String connectorJarFileName) {
+    @Override
+    public void cleanUpWhenJobFinished(List<ConnectorJarIdentifier> connectorJarIdentifierList) {
+        connectorJarIdentifierList.forEach(
+                connectorJarIdentifier -> {
+                    decreaseConnectorJarRefCount(connectorJarIdentifier);
+                });
+    }
+
+    public void decreaseConnectorJarRefCount(ConnectorJarIdentifier connectorJarIdentifier) {
         connectorJarRefCounters.compute(
-                connectorJarFileName,
-                new BiFunction<String, RefCount, RefCount>() {
+                connectorJarIdentifier,
+                new BiFunction<ConnectorJarIdentifier, RefCount, RefCount>() {
                     @Override
-                    public RefCount apply(String connectorJarFileName, RefCount refCount) {
+                    public RefCount apply(ConnectorJarIdentifier connectorJarIdentifier, RefCount refCount) {
                         if (refCount != null) {
                             Long references = refCount.getReferences();
                             refCount.setReferences(--references);
@@ -131,21 +143,6 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
                         return refCount;
                     }
                 });
-    }
-
-    @Override
-    public String getStoragePathFromJarName(String connectorJarName) {
-        RefCount refCount = connectorJarRefCounters.get(connectorJarName);
-        if (refCount == null) {
-            LOGGER.warning(
-                    String.format(
-                            "Failed to obtain the storage path of the jar package"
-                                    + " on the master node through the jar package name : { %s },"
-                                    + " because the current jar package file does not exist on the master node.",
-                            connectorJarName));
-            return "";
-        }
-        return refCount.getStoragePath();
     }
 
     @Override

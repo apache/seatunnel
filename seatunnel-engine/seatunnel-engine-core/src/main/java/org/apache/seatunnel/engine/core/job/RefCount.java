@@ -32,8 +32,6 @@ public class RefCount implements IdentifiedDataSerializable {
     /** Number of references to a connector jar. */
     private Long references = 0L;
 
-    private String storagePath;
-
     public RefCount() {}
 
     @Override
@@ -49,12 +47,10 @@ public class RefCount implements IdentifiedDataSerializable {
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeLong(references);
-        out.writeString(storagePath);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
         this.references = in.readLong();
-        this.storagePath = in.readString();
     }
 }

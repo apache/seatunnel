@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
+import com.sun.istack.internal.NotNull;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
 import lombok.NonNull;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 
 import java.net.URL;
 import java.util.List;
@@ -33,8 +35,9 @@ public class TransformAction extends AbstractAction {
             @NonNull String name,
             @NonNull List<Action> upstreams,
             @NonNull SeaTunnelTransform<?> transform,
-            @NonNull Set<URL> jarUrls) {
-        super(id, name, upstreams, jarUrls);
+            @NonNull Set<URL> jarUrls,
+            @NotNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        super(id, name, upstreams, jarUrls, connectorJarIdentifiers);
         this.transform = transform;
     }
 
@@ -42,8 +45,9 @@ public class TransformAction extends AbstractAction {
             long id,
             @NonNull String name,
             @NonNull SeaTunnelTransform<?> transform,
-            @NonNull Set<URL> jarUrls) {
-        super(id, name, jarUrls);
+            @NonNull Set<URL> jarUrls,
+            @NotNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        super(id, name, jarUrls, connectorJarIdentifiers);
         this.transform = transform;
     }
 

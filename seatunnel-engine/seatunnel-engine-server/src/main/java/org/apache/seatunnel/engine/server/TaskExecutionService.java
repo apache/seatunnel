@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -258,14 +259,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         taskImmutableInfo.getExecutionId()));
         TaskGroup taskGroup = null;
         try {
-            Set<URL> jars = taskImmutableInfo.getJars();
+            Set<ConnectorJarIdentifier> connectorJarIdentifiers = taskImmutableInfo.getConnectorJarIdentifiers();
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-            if (!CollectionUtils.isEmpty(jars)) {
+            if (!CollectionUtils.isEmpty(connectorJarIdentifiers)) {
                 // Prioritize obtaining the jar package file required for the current task execution
                 // from the local,
                 // if it does not exist locally, it will be downloaded from the master node.
-                jars = serverConnectorPackageClient.getConnectorJarPath(jars);
-                classLoader = new SeaTunnelChildFirstClassLoader(Lists.newArrayList(jars));
+                Set<URL> connectorJarPath = serverConnectorPackageClient.getConnectorJarPath(connectorJarIdentifiers);
+                classLoader = new SeaTunnelChildFirstClassLoader(Lists.newArrayList(connectorJarPath));
                 taskGroup =
                         CustomClassLoadedObject.deserializeWithCustomClassLoader(
                                 nodeEngine.getSerializationService(),

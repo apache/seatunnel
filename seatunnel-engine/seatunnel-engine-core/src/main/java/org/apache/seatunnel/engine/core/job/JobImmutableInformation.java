@@ -46,6 +46,8 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
 
     private List<URL> pluginJarsUrls;
 
+    private List<ConnectorJarIdentifier> connectorJarIdentifiers;
+
     public JobImmutableInformation() {}
 
     public JobImmutableInformation(
@@ -54,7 +56,8 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
             boolean isStartWithSavePoint,
             @NonNull Data logicalDag,
             @NonNull JobConfig jobConfig,
-            @NonNull List<URL> pluginJarsUrls) {
+            @NonNull List<URL> pluginJarsUrls,
+            @NonNull List<ConnectorJarIdentifier> connectorJarIdentifiers) {
         this.createTime = System.currentTimeMillis();
         this.jobId = jobId;
         this.jobName = jobName;
@@ -62,6 +65,7 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         this.logicalDag = logicalDag;
         this.jobConfig = jobConfig;
         this.pluginJarsUrls = pluginJarsUrls;
+        this.connectorJarIdentifiers = connectorJarIdentifiers;
     }
 
     public JobImmutableInformation(
@@ -69,8 +73,9 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
             String jobName,
             @NonNull Data logicalDag,
             @NonNull JobConfig jobConfig,
-            @NonNull List<URL> pluginJarsUrls) {
-        this(jobId, jobName, false, logicalDag, jobConfig, pluginJarsUrls);
+            @NonNull List<URL> pluginJarsUrls,
+            @NonNull List<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        this(jobId, jobName, false, logicalDag, jobConfig, pluginJarsUrls, connectorJarIdentifiers);
     }
 
     public long getJobId() {
@@ -101,6 +106,10 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         return pluginJarsUrls;
     }
 
+    public List<ConnectorJarIdentifier> getPluginJarIdentifiers() {
+        return connectorJarIdentifiers;
+    }
+
     @Override
     public int getFactoryId() {
         return JobDataSerializerHook.FACTORY_ID;
@@ -120,6 +129,7 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         IOUtil.writeData(out, logicalDag);
         out.writeObject(jobConfig);
         out.writeObject(pluginJarsUrls);
+        out.writeObject(connectorJarIdentifiers);
     }
 
     @Override
@@ -131,5 +141,6 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         logicalDag = IOUtil.readData(in);
         jobConfig = in.readObject();
         pluginJarsUrls = in.readObject();
+        connectorJarIdentifiers = in.readObject();
     }
 }

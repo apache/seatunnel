@@ -17,58 +17,41 @@
 
 package org.apache.seatunnel.engine.core.job;
 
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-
-import java.util.Random;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public abstract class ConnectorJar implements IdentifiedDataSerializable {
 
-    protected long connectorJarID;
+    protected byte[] connectorJarID;
 
     protected ConnectorJarType type;
 
     /** The byte buffer storing the actual data. */
     protected byte[] data;
 
-    protected String pluginName;
-
     protected String fileName;
-
-    private static final Random RND = new Random();
 
     public ConnectorJar() {}
 
-    protected ConnectorJar(ConnectorJarType type, String fileName) {
-        checkNotNull(type);
-        checkNotNull(fileName);
-        this.connectorJarID = RND.nextLong();
-        this.type = type;
-        this.fileName = fileName;
-    }
-
     protected ConnectorJar(ConnectorJarType type, byte[] data, String fileName) {
-        //        if (data == null || data.length == 0) {
-        //            throw new IllegalArgumentException("The Jar package file for the connector is
-        // empty!");
-        //        }
+        checkNotNull(data);
+        if (data == null || data.length == 0) {
+            throw new IllegalArgumentException("The Jar package file for the connector is empty!");
+        }
         checkNotNull(type);
         checkNotNull(fileName);
-        this.connectorJarID = RND.nextLong();
         this.type = type;
         this.data = data;
         this.fileName = fileName;
     }
 
     protected ConnectorJar(
-            long connectorJarID, ConnectorJarType type, byte[] data, String fileName) {
-        //        if (data == null || data.length == 0) {
-        //            throw new IllegalArgumentException("The Jar package file for the connector is
-        // empty!");
-        //        }
+            byte[] connectorJarID, ConnectorJarType type, byte[] data, String fileName) {
+        checkNotNull(data);
+        if (data.length == 0) {
+            throw new IllegalArgumentException("The Jar package file for the connector is empty!");
+        }
         checkNotNull(connectorJarID);
         checkNotNull(type);
         checkNotNull(fileName);
@@ -88,7 +71,7 @@ public abstract class ConnectorJar implements IdentifiedDataSerializable {
     }
 
     public static ConnectorJar createConnectorJar(
-            long connectorJarID, ConnectorJarType type, byte[] data, String fileName) {
+            byte[] connectorJarID, ConnectorJarType type, byte[] data, String fileName) {
         if (type == ConnectorJarType.COMMON_PLUGIN_JAR) {
             return new CommonPluginJar(connectorJarID, data, fileName);
         } else {
@@ -97,31 +80,28 @@ public abstract class ConnectorJar implements IdentifiedDataSerializable {
     }
 
     public static ConnectorJar createConnectorJar(
-            ConnectorJarType type,
-            byte[] data,
-            PluginIdentifier pluginIdentifier,
-            String fileName) {
+            ConnectorJarType type, byte[] data, String pluginName, String fileName) {
         if (type == ConnectorJarType.COMMON_PLUGIN_JAR) {
-            return new CommonPluginJar(data, pluginIdentifier, fileName);
+            return new CommonPluginJar(data, pluginName, fileName);
         } else {
-            return new ConnectorPluginJar(data, pluginIdentifier, fileName);
+            return new ConnectorPluginJar(data, fileName);
         }
     }
 
     public static ConnectorJar createConnectorJar(
-            long connectorJarID,
+            byte[] connectorJarID,
             ConnectorJarType type,
             byte[] data,
-            PluginIdentifier pluginIdentifier,
+            String pluginName,
             String fileName) {
         if (type == ConnectorJarType.COMMON_PLUGIN_JAR) {
-            return new CommonPluginJar(connectorJarID, data, pluginIdentifier, fileName);
+            return new CommonPluginJar(connectorJarID, data, pluginName, fileName);
         } else {
-            return new ConnectorPluginJar(connectorJarID, data, pluginIdentifier, fileName);
+            return new ConnectorPluginJar(connectorJarID, data, fileName);
         }
     }
 
-    public long getConnectorJarID() {
+    public byte[] getConnectorJarID() {
         return connectorJarID;
     }
 
@@ -131,10 +111,6 @@ public abstract class ConnectorJar implements IdentifiedDataSerializable {
 
     public byte[] getData() {
         return data;
-    }
-
-    public String getPluginName() {
-        return pluginName;
     }
 
     public String getFileName() {

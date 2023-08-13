@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import com.hazelcast.internal.nio.IOUtil;
@@ -25,6 +26,7 @@ import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import lombok.AllArgsConstructor;
+import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 
 import java.io.IOException;
 import java.net.URL;
@@ -39,6 +41,8 @@ public class TaskGroupImmutableInformation implements IdentifiedDataSerializable
     private Data group;
 
     private Set<URL> jars;
+
+    private Set<ConnectorJarIdentifier> connectorJarIdentifiers;
 
     public TaskGroupImmutableInformation() {}
 
@@ -56,6 +60,7 @@ public class TaskGroupImmutableInformation implements IdentifiedDataSerializable
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeLong(executionId);
         out.writeObject(jars);
+        out.writeObject(connectorJarIdentifiers);
         IOUtil.writeData(out, group);
     }
 
@@ -63,6 +68,7 @@ public class TaskGroupImmutableInformation implements IdentifiedDataSerializable
     public void readData(ObjectDataInput in) throws IOException {
         executionId = in.readLong();
         jars = in.readObject();
+        connectorJarIdentifiers = in.readObject();
         group = IOUtil.readData(in);
     }
 }

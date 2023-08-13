@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 
@@ -38,7 +39,7 @@ public class UploadConnectorJarOperation extends Operation implements Identified
 
     private Data connectorJar;
 
-    private String response;
+    private Data response;
 
     public UploadConnectorJarOperation() {}
 
@@ -75,12 +76,14 @@ public class UploadConnectorJarOperation extends Operation implements Identified
     public void run() throws Exception {
         SeaTunnelServer service = getService();
 
-        CompletableFuture<String> future =
+        CompletableFuture<Data> future =
                 CompletableFuture.supplyAsync(
                         () -> {
-                            return service.getCoordinatorService()
+                            ConnectorJarIdentifier connectorJarIdentifier = service.getCoordinatorService()
                                     .getConnectorPackageService()
                                     .storageConnectorJarFile(jobId, connectorJar);
+                            return this.getNodeEngine()
+                                    .toData(connectorJarIdentifier);
                         },
                         getNodeEngine()
                                 .getExecutionService()

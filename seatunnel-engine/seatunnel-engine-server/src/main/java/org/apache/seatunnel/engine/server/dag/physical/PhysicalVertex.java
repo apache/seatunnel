@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
@@ -49,6 +50,7 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
+import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 
 import java.net.URL;
 import java.util.List;
@@ -82,6 +84,8 @@ public class PhysicalVertex {
 
     private final Set<URL> pluginJarsUrls;
 
+    private final Set<ConnectorJarIdentifier> connectorJarIdentifiers;
+
     private final IMap<Object, Object> runningJobStateIMap;
 
     /**
@@ -113,6 +117,7 @@ public class PhysicalVertex {
             int pipelineId,
             int totalPipelineNum,
             Set<URL> pluginJarsUrls,
+            Set<ConnectorJarIdentifier> connectorJarIdentifiers,
             @NonNull JobImmutableInformation jobImmutableInformation,
             long initializationTimestamp,
             @NonNull NodeEngine nodeEngine,
@@ -123,6 +128,7 @@ public class PhysicalVertex {
         this.taskGroup = taskGroup;
         this.flakeIdGenerator = flakeIdGenerator;
         this.pluginJarsUrls = pluginJarsUrls;
+        this.connectorJarIdentifiers = connectorJarIdentifiers;
 
         Long[] stateTimestamps = new Long[ExecutionState.values().length];
         if (runningJobStateTimestampsIMap.get(taskGroup.getTaskGroupLocation()) == null) {
@@ -338,7 +344,8 @@ public class PhysicalVertex {
         return new TaskGroupImmutableInformation(
                 flakeIdGenerator.newId(),
                 nodeEngine.getSerializationService().toData(this.taskGroup),
-                this.pluginJarsUrls);
+                this.pluginJarsUrls,
+                this.connectorJarIdentifiers);
     }
 
     private boolean turnToEndState(@NonNull ExecutionState endState) {

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.RefCount;
 
 import com.hazelcast.logging.ILogger;
@@ -25,7 +26,7 @@ import com.hazelcast.map.IMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.TimerTask;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import static org.apache.curator.shaded.com.google.common.base.Preconditions.checkNotNull;
 
@@ -36,14 +37,14 @@ public class SharedConnectorJarCleanupTask extends TimerTask {
 
     private final ILogger LOGGER;
 
-    private final BiConsumer<Long, String> cleanupCallback;
+    private final Consumer<ConnectorJarIdentifier> cleanupCallback;
 
-    private final IMap<String, RefCount> connectorJarRefCounters;
+    private final IMap<ConnectorJarIdentifier, RefCount> connectorJarRefCounters;
 
     public SharedConnectorJarCleanupTask(
             ILogger LOGGER,
-            BiConsumer<Long, String> cleanupCallback,
-            IMap<String, RefCount> connectorJarRefCounters) {
+            Consumer<ConnectorJarIdentifier> cleanupCallback,
+            IMap<ConnectorJarIdentifier, RefCount> connectorJarRefCounters) {
         this.LOGGER = checkNotNull(LOGGER);
         this.cleanupCallback = checkNotNull(cleanupCallback);
         this.connectorJarRefCounters = checkNotNull(connectorJarRefCounters);
@@ -53,14 +54,13 @@ public class SharedConnectorJarCleanupTask extends TimerTask {
     @Override
     public void run() {
         synchronized (connectorJarRefCounters) {
-            Iterator<Map.Entry<String, RefCount>> iterator =
+            Iterator<Map.Entry<ConnectorJarIdentifier, RefCount>> iterator =
                     connectorJarRefCounters.entrySet().iterator();
             while (iterator.hasNext()) {
-                Map.Entry<String, RefCount> entry = iterator.next();
+                Map.Entry<ConnectorJarIdentifier, RefCount> entry = iterator.next();
                 if (entry.getValue().getReferences() <= 0) {
-                    String connectorJarFileName = entry.getKey();
-                    cleanupCallback.accept(null, connectorJarFileName);
-                    connectorJarRefCounters.remove(connectorJarFileName);
+                    ConnectorJarIdentifier connectorJarIdentifier = entry.getKey();
+                    cleanupCallback.accept(connectorJarIdentifier);
                 }
             }
         }

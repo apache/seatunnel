@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.core.job;
 
 import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -28,10 +27,6 @@ import java.io.InvalidObjectException;
 
 public class ConnectorPluginJar extends ConnectorJar {
 
-    private String enginType;
-
-    private String pluginType;
-
     public ConnectorPluginJar() {
         super();
     }
@@ -40,23 +35,8 @@ public class ConnectorPluginJar extends ConnectorJar {
         super(ConnectorJarType.CONNECTOR_PLUGIN_JAR, data, fileName);
     }
 
-    protected ConnectorPluginJar(long connectorJarID, byte[] data, String fileName) {
+    protected ConnectorPluginJar(byte[] connectorJarID, byte[] data, String fileName) {
         super(connectorJarID, ConnectorJarType.CONNECTOR_PLUGIN_JAR, data, fileName);
-    }
-
-    protected ConnectorPluginJar(
-            long connectorJarID, byte[] data, PluginIdentifier pluginIdentifier, String fileName) {
-        super(connectorJarID, ConnectorJarType.CONNECTOR_PLUGIN_JAR, data, fileName);
-        this.enginType = pluginIdentifier.getEngineType();
-        this.pluginType = pluginIdentifier.getPluginType();
-        this.pluginName = pluginIdentifier.getPluginName();
-    }
-
-    protected ConnectorPluginJar(byte[] data, PluginIdentifier pluginIdentifier, String fileName) {
-        super(ConnectorJarType.CONNECTOR_PLUGIN_JAR, data, fileName);
-        this.enginType = pluginIdentifier.getEngineType();
-        this.pluginType = pluginIdentifier.getPluginType();
-        this.pluginName = pluginIdentifier.getPluginName();
     }
 
     @Override
@@ -71,18 +51,15 @@ public class ConnectorPluginJar extends ConnectorJar {
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
-        out.writeLong(connectorJarID);
+        out.writeByteArray(connectorJarID);
         out.writeInt(ConnectorJarType.CONNECTOR_PLUGIN_JAR.ordinal());
         out.writeByteArray(data);
         out.writeString(fileName);
-        out.writeString(enginType);
-        out.writeString(pluginType);
-        out.writeString(pluginName);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
-        this.connectorJarID = in.readLong();
+        this.connectorJarID = in.readByteArray();
         int ordinal = in.readInt();
         ConnectorJarType[] values = ConnectorJarType.values();
         if (ordinal >= 0 && ordinal < values.length) {
@@ -93,16 +70,5 @@ public class ConnectorPluginJar extends ConnectorJar {
         }
         this.data = in.readByteArray();
         this.fileName = in.readString();
-        this.enginType = in.readString();
-        this.pluginType = in.readString();
-        this.pluginName = in.readString();
-    }
-
-    public String getEnginType() {
-        return enginType;
-    }
-
-    public String getPluginType() {
-        return pluginType;
     }
 }

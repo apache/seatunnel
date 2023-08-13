@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.operation;
 
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
@@ -32,14 +33,14 @@ import java.io.IOException;
 
 public class DownloadConnectorJarOperation extends Operation implements IdentifiedDataSerializable {
 
-    private String connectorJarName;
+    private ConnectorJarIdentifier connectorJarIdentifier;
 
-    private ImmutablePair<byte[], String> response;
+    private ImmutablePair<byte[], ConnectorJarIdentifier> response;
 
     public DownloadConnectorJarOperation() {}
 
-    public DownloadConnectorJarOperation(String connectorJarName) {
-        this.connectorJarName = connectorJarName;
+    public DownloadConnectorJarOperation(ConnectorJarIdentifier connectorJarIdentifier) {
+        this.connectorJarIdentifier = connectorJarIdentifier;
     }
 
     @Override
@@ -47,19 +48,19 @@ public class DownloadConnectorJarOperation extends Operation implements Identifi
         SeaTunnelServer seaTunnelServer = getService();
         ConnectorPackageService connectorPackageService =
                 seaTunnelServer.getCoordinatorService().getConnectorPackageService();
-        response = connectorPackageService.readConnectorJarFromLocal(connectorJarName);
+        response = connectorPackageService.readConnectorJarFromLocal(connectorJarIdentifier);
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeString(connectorJarName);
+        out.writeObject(connectorJarIdentifier);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        this.connectorJarName = in.readString();
+        this.connectorJarIdentifier = in.readObject();
     }
 
     @Override
