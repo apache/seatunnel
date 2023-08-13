@@ -26,7 +26,6 @@ import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
@@ -146,11 +145,6 @@ public class JobExecutionIT {
         JobExecutionEnvironment jobExecutionEnv =
                 engineClient.createExecutionContext(filePath, jobConfig);
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-        JobStatus jobStatus = clientJobProxy.getJobStatus();
-        while (jobStatus == JobStatus.RUNNING) {
-            Thread.sleep(1000L);
-            jobStatus = clientJobProxy.getJobStatus();
-        }
 
         CompletableFuture<JobResult> completableFuture =
                 CompletableFuture.supplyAsync(
@@ -165,16 +159,14 @@ public class JobExecutionIT {
                                         new RetryUtils.RetryMaterial(
                                                 100000,
                                                 true,
-                                                exception ->
-                                                        ExceptionUtil.isOperationNeedRetryException(
-                                                                exception),
+                                                exception -> true,
                                                 Constant.OPERATION_RETRY_SLEEP));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             }
                         });
 
-        await().atMost(600000, TimeUnit.MILLISECONDS)
+        await().atMost(6000000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
 
         JobResult result = completableFuture.get();

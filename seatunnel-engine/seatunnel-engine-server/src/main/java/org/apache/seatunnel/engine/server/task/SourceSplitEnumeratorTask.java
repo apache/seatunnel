@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -77,6 +78,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private SeaTunnelSplitEnumeratorContext<SplitT> enumeratorContext;
 
     private Serializer<Serializable> enumeratorStateSerializer;
+    @Getter private Serializer<SplitT> splitSerializer;
 
     private int maxReaderSize;
     private Set<Long> unfinishedReaders;
@@ -102,6 +104,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 new SeaTunnelSplitEnumeratorContext<>(
                         this.source.getParallelism(), this, getMetricsContext());
         enumeratorStateSerializer = this.source.getSource().getEnumeratorStateSerializer();
+        splitSerializer = this.source.getSource().getSplitSerializer();
         taskMemberMapping = new ConcurrentHashMap<>();
         taskIDToTaskLocationMapping = new ConcurrentHashMap<>();
         taskIndexToTaskLocationMapping = new ConcurrentHashMap<>();
