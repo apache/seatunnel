@@ -115,8 +115,10 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     @Override
     public void close() {
         if (kafkaProducer != null) {
+            kafkaProducer.commitTransaction();
             kafkaProducer.flush();
             kafkaProducer.close();
+            kafkaProducer = null;
         }
     }
 
