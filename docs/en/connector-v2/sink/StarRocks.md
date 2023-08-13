@@ -2,7 +2,7 @@
 
 > StarRocks sink connector
 
-## Support Those Engines
+## Support These Engines
 
 > Spark<br/>
 > Flink<br/>
