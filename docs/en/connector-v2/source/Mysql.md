@@ -2,7 +2,7 @@
 
 > JDBC Mysql Source Connector
 
-## Support Connector Version
+## Support Mysql Version
 
 - 5.5/ 5.6/5.7/8.0
 
