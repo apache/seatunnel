@@ -112,7 +112,7 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private Put convertRowToPut(SeaTunnelRow row) {
         byte[] rowkey = getRowkeyFromRow(row);
-        long timestamp = HConstants.LATEST_TIMESTAMP;
+        long timestamp = System.currentTimeMillis();
         if (versionColumnIndex != -1) {
             timestamp = (Long) row.getField(versionColumnIndex);
         }

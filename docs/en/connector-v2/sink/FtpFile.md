@@ -40,9 +40,9 @@ By default, we use 2PC commit to ensure `exactly-once`
 | custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                      |
 | file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                    |
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                    |
-| file_format                      | string  | no       | "csv"                                      |                                                           |
-| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format is text                        |
-| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format is text                        |
+| file_format_type                 | string  | no       | "csv"                                      |                                                           |
+| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format_type is text                   |
+| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format_type is text                   |
 | have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                   |
 | partition_by                     | array   | no       | -                                          | Only used then have_partition is true                     |
 | partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                     |
@@ -52,8 +52,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | batch_size                       | int     | no       | 1000000                                    |                                                           |
 | compress_codec                   | string  | no       | none                                       |                                                           |
 | common-options                   | object  | no       | -                                          |                                                           |
-| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format is excel.                      |
-| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format is excel.                      |
+| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                 |
+| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                 |
 
 ### host [string]
 
@@ -103,13 +103,13 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 | m      | Minute in hour     |
 | s      | Second in minute   |
 
-### file_format [string]
+### file_format_type [string]
 
 We supported as the following file types:
 
 `text` `json` `csv` `orc` `parquet` `excel`
 
-Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
+Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
 ### field_delimiter [string]
 
@@ -198,7 +198,7 @@ FtpFile {
     username = "username"
     password = "password"
     path = "/data/ftp"
-    file_format = "text"
+    file_format_type = "text"
     field_delimiter = "\t"
     row_delimiter = "\n"
     sink_columns = ["name","age"]
@@ -216,7 +216,7 @@ FtpFile {
     username = "username"
     password = "password"
     path = "/data/ftp"
-    file_format = "text"
+    file_format_type = "text"
     field_delimiter = "\t"
     row_delimiter = "\n"
     have_partition = true
@@ -239,16 +239,16 @@ FtpFile {
 
 ### 2.3.0-beta 2022-10-20
 
-- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
-- [BugFix] Fix filesystem get error ([3117](https://github.com/apache/incubator-seatunnel/pull/3117))
-- [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/incubator-seatunnel/pull/3083))
+- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/seatunnel/pull/2980))
+- [BugFix] Fix filesystem get error ([3117](https://github.com/apache/seatunnel/pull/3117))
+- [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/seatunnel/pull/3083))
 
 ### Next version
 
-- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
+- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/seatunnel/pull/3258))
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
-- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
-- [Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
+- [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
 

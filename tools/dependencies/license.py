@@ -352,9 +352,9 @@ res += """                                 Apache License
    limitations under the License.
 
 =======================================================================
-Apache SeaTunnel (Incubating) Subcomponents:
+Apache SeaTunnel Subcomponents:
 
-The Apache SeaTunnel(Incubating) project contains subcomponents with separate copyright
+The Apache SeaTunnel project contains subcomponents with separate copyright
 notices and license terms. Your use of the source code for the these
 subcomponents is subject to the terms and conditions of the following
 licenses.

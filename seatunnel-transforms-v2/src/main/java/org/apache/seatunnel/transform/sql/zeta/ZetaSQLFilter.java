@@ -42,6 +42,8 @@ import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ZetaSQLFilter {
     private final ZetaSQLFunction zetaSQLFunction;
@@ -153,8 +155,25 @@ public class ZetaSQLFilter {
      * @return filter result
      */
     private boolean likeExpr(LikeExpression likeExpression, Object[] inputFields) {
-        throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION, "Unsupported [LIKE] filter expression yet");
+        Expression leftExpr = likeExpression.getLeftExpression();
+        Object leftVal = zetaSQLFunction.computeForValue(leftExpr, inputFields);
+        if (leftVal == null) {
+            return false;
+        }
+        Expression rightExpr = likeExpression.getRightExpression();
+        Object rightVal = zetaSQLFunction.computeForValue(rightExpr, inputFields);
+        if (rightVal == null) {
+            return false;
+        }
+
+        String regex = rightVal.toString().replace("%", ".*").replace("_", ".");
+        if (regex.startsWith("'") && regex.endsWith("'")) {
+            regex = regex.substring(0, regex.length() - 1).substring(1);
+        }
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(leftVal.toString());
+
+        return matcher.matches();
     }
 
     private Pair<Object, Object> executeComparisonOperator(

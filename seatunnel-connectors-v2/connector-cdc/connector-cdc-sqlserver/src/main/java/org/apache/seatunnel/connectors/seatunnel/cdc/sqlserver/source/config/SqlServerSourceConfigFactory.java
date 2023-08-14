@@ -85,6 +85,8 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
                 splitSize,
                 distributionFactorUpper,
                 distributionFactorLower,
+                sampleShardingThreshold,
+                inverseSamplingRate,
                 props,
                 DRIVER_CLASS_NAME,
                 hostname,
@@ -96,6 +98,7 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
                 serverTimeZone,
                 connectTimeoutMillis,
                 connectMaxRetries,
-                connectionPoolSize);
+                connectionPoolSize,
+                exactlyOnce);
     }
 }
