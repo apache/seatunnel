@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
-import lombok.NonNull;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+
+import lombok.NonNull;
 
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -40,7 +40,11 @@ public abstract class AbstractAction implements Action {
 
     private final Set<ConnectorJarIdentifier> connectorJarIdentifiers;
 
-    protected AbstractAction(long id, @NonNull String name, @NonNull Set<URL> jarUrls, @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+    protected AbstractAction(
+            long id,
+            @NonNull String name,
+            @NonNull Set<URL> jarUrls,
+            @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
         this(id, name, new ArrayList<>(), jarUrls, connectorJarIdentifiers);
     }
 

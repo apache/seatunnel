@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.core.job;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
+
 import java.io.Serializable;
 
 @Getter
@@ -39,8 +40,7 @@ public class ConnectorJarIdentifier implements Serializable {
 
     private String pluginName = DEFAULT_PLUGIN_NAME;
 
-    public ConnectorJarIdentifier() {
-    }
+    public ConnectorJarIdentifier() {}
 
     public ConnectorJarIdentifier(ConnectorJarType type, String fileName, String storagePath) {
         this.connectorJarID = new byte[0];
@@ -49,7 +49,8 @@ public class ConnectorJarIdentifier implements Serializable {
         this.storagePath = storagePath;
     }
 
-    public ConnectorJarIdentifier(ConnectorJarType type, String fileName, String pluginName, String storagePath) {
+    public ConnectorJarIdentifier(
+            ConnectorJarType type, String fileName, String pluginName, String storagePath) {
         this.connectorJarID = new byte[0];
         this.type = type;
         this.fileName = fileName;
@@ -57,14 +58,20 @@ public class ConnectorJarIdentifier implements Serializable {
         this.storagePath = storagePath;
     }
 
-    public ConnectorJarIdentifier(byte[] connectorJarID, ConnectorJarType type, String fileName, String storagePath) {
+    public ConnectorJarIdentifier(
+            byte[] connectorJarID, ConnectorJarType type, String fileName, String storagePath) {
         this.connectorJarID = connectorJarID;
         this.type = type;
         this.fileName = fileName;
         this.storagePath = storagePath;
     }
 
-    public ConnectorJarIdentifier(byte[] connectorJarID, ConnectorJarType type, String fileName, String pluginName, String storagePath) {
+    public ConnectorJarIdentifier(
+            byte[] connectorJarID,
+            ConnectorJarType type,
+            String fileName,
+            String pluginName,
+            String storagePath) {
         this.connectorJarID = connectorJarID;
         this.type = type;
         this.fileName = fileName;
@@ -73,11 +80,12 @@ public class ConnectorJarIdentifier implements Serializable {
     }
 
     public static ConnectorJarIdentifier of(ConnectorJar connectorJar, String storagePath) {
-        ConnectorJarIdentifier connectorJarIdentifier = ConnectorJarIdentifier.of(
-                connectorJar.getConnectorJarID(),
-                connectorJar.getType(),
-                connectorJar.getFileName(),
-                storagePath);
+        ConnectorJarIdentifier connectorJarIdentifier =
+                ConnectorJarIdentifier.of(
+                        connectorJar.getConnectorJarID(),
+                        connectorJar.getType(),
+                        connectorJar.getFileName(),
+                        storagePath);
         if (connectorJar.getType() == ConnectorJarType.COMMON_PLUGIN_JAR) {
             CommonPluginJar commonPluginJar = (CommonPluginJar) connectorJar;
             connectorJarIdentifier.setPluginName(commonPluginJar.getPluginName());
@@ -85,20 +93,27 @@ public class ConnectorJarIdentifier implements Serializable {
         return connectorJarIdentifier;
     }
 
-    public static ConnectorJarIdentifier of(ConnectorJarType type, String fileName, String storagePath) {
+    public static ConnectorJarIdentifier of(
+            ConnectorJarType type, String fileName, String storagePath) {
         return new ConnectorJarIdentifier(type, fileName, storagePath);
     }
 
-    public static ConnectorJarIdentifier of(ConnectorJarType type, String fileName, String pluginName, String storagePath) {
+    public static ConnectorJarIdentifier of(
+            ConnectorJarType type, String fileName, String pluginName, String storagePath) {
         return new ConnectorJarIdentifier(type, fileName, pluginName, storagePath);
     }
 
-
-    public static ConnectorJarIdentifier of(byte[] connectorJarID, ConnectorJarType type, String fileName, String storagePath) {
+    public static ConnectorJarIdentifier of(
+            byte[] connectorJarID, ConnectorJarType type, String fileName, String storagePath) {
         return new ConnectorJarIdentifier(connectorJarID, type, fileName, storagePath);
     }
 
-    public static ConnectorJarIdentifier of(byte[] connectorJarID, ConnectorJarType type, String fileName, String pluginName, String storagePath) {
+    public static ConnectorJarIdentifier of(
+            byte[] connectorJarID,
+            ConnectorJarType type,
+            String fileName,
+            String pluginName,
+            String storagePath) {
         return new ConnectorJarIdentifier(connectorJarID, type, fileName, pluginName, storagePath);
     }
 }

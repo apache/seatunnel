@@ -52,7 +52,8 @@ public class ConnectorPackageClient {
         this.hazelcastClient = hazelcastClient;
     }
 
-    public Set<ConnectorJarIdentifier> uploadCommonPluginJars(long jobId, List<URL> commonPluginJars) {
+    public Set<ConnectorJarIdentifier> uploadCommonPluginJars(
+            long jobId, List<URL> commonPluginJars) {
         Set<ConnectorJarIdentifier> connectorJarIdentifiers = new HashSet<>();
         // Upload commonPluginJar
         for (URL commonPluginJar : commonPluginJars) {
@@ -60,7 +61,8 @@ public class ConnectorPackageClient {
             // Obtain the directory name of the relative location of the file path.
             int directoryIndex = path.getNameCount() - 3;
             String pluginName = path.getName(directoryIndex).toString();
-            ConnectorJarIdentifier connectorJarIdentifier = uploadCommonPluginJar(jobId, path, pluginName);
+            ConnectorJarIdentifier connectorJarIdentifier =
+                    uploadCommonPluginJar(jobId, path, pluginName);
             connectorJarIdentifiers.add(connectorJarIdentifier);
         }
         return connectorJarIdentifiers;
@@ -78,13 +80,17 @@ public class ConnectorPackageClient {
         ConnectorJar connectorJar =
                 ConnectorJar.createConnectorJar(
                         digest, ConnectorJarType.COMMON_PLUGIN_JAR, data, pluginName, fileName);
-        ConnectorJarIdentifier connectorJarIdentifier = hazelcastClient
-                .getSerializationService()
-                .toObject(hazelcastClient.requestOnMasterAndDecodeResponse(
-                        SeaTunnelUploadConnectorJarCodec.encodeRequest(
-                                jobId,
-                                hazelcastClient.getSerializationService().toData(connectorJar)),
-                        SeaTunnelUploadConnectorJarCodec::decodeResponse));
+        ConnectorJarIdentifier connectorJarIdentifier =
+                hazelcastClient
+                        .getSerializationService()
+                        .toObject(
+                                hazelcastClient.requestOnMasterAndDecodeResponse(
+                                        SeaTunnelUploadConnectorJarCodec.encodeRequest(
+                                                jobId,
+                                                hazelcastClient
+                                                        .getSerializationService()
+                                                        .toData(connectorJar)),
+                                        SeaTunnelUploadConnectorJarCodec::decodeResponse));
         return connectorJarIdentifier;
     }
 
@@ -101,13 +107,17 @@ public class ConnectorPackageClient {
         ConnectorJar connectorJar =
                 ConnectorJar.createConnectorJar(
                         digest, ConnectorJarType.CONNECTOR_PLUGIN_JAR, data, fileName);
-        ConnectorJarIdentifier connectorJarIdentifier = hazelcastClient
-                .getSerializationService()
-                .toObject(hazelcastClient.requestOnMasterAndDecodeResponse(
-                SeaTunnelUploadConnectorJarCodec.encodeRequest(
-                        jobId,
-                        hazelcastClient.getSerializationService().toData(connectorJar)),
-                SeaTunnelUploadConnectorJarCodec::decodeResponse));
+        ConnectorJarIdentifier connectorJarIdentifier =
+                hazelcastClient
+                        .getSerializationService()
+                        .toObject(
+                                hazelcastClient.requestOnMasterAndDecodeResponse(
+                                        SeaTunnelUploadConnectorJarCodec.encodeRequest(
+                                                jobId,
+                                                hazelcastClient
+                                                        .getSerializationService()
+                                                        .toData(connectorJar)),
+                                        SeaTunnelUploadConnectorJarCodec::decodeResponse));
         return connectorJarIdentifier;
     }
 

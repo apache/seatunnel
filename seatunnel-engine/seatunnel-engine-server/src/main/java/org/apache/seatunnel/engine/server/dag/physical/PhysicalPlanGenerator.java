@@ -576,7 +576,10 @@ public class PhysicalPlanGenerator {
 
                                 Set<ConnectorJarIdentifier> jarIdentifiers =
                                         taskList.stream()
-                                                .flatMap(task -> task.getConnectorPluginJars().stream())
+                                                .flatMap(
+                                                        task ->
+                                                                task.getConnectorPluginJars()
+                                                                        .stream())
                                                 .collect(Collectors.toSet());
 
                                 if (taskList.stream()

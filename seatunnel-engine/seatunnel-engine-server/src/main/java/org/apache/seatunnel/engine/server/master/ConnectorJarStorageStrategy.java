@@ -21,7 +21,6 @@ import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.List;
@@ -65,5 +64,6 @@ public interface ConnectorJarStorageStrategy extends Serializable {
 
     byte[] readConnectorJarByteData(File connectorJarFile);
 
-    void cleanUpWhenJobFinished(List<ConnectorJarIdentifier> connectorJarIdentifierList);
+    void cleanUpWhenJobFinished(
+            long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList);
 }

@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import com.hazelcast.logging.ILogger;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+
+import com.hazelcast.logging.ILogger;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -51,11 +52,12 @@ public class ServerConnectorJarCleanupTask extends TimerTask {
     @Override
     public void run() {
         synchronized (connectorJarExpiryTimes) {
-            Iterator<Map.Entry<ConnectorJarIdentifier, ServerConnectorPackageClient.ExpiryTime>> iterator =
-                    connectorJarExpiryTimes.entrySet().iterator();
+            Iterator<Map.Entry<ConnectorJarIdentifier, ServerConnectorPackageClient.ExpiryTime>>
+                    iterator = connectorJarExpiryTimes.entrySet().iterator();
             final long currentTimeMillis = System.currentTimeMillis();
             while (iterator.hasNext()) {
-                Map.Entry<ConnectorJarIdentifier, ServerConnectorPackageClient.ExpiryTime> entry = iterator.next();
+                Map.Entry<ConnectorJarIdentifier, ServerConnectorPackageClient.ExpiryTime> entry =
+                        iterator.next();
                 ConnectorJarIdentifier connectorJarIdentifier = entry.getKey();
                 if (entry.getValue().keepUntil > 0
                         && currentTimeMillis >= entry.getValue().keepUntil) {

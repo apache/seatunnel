@@ -120,7 +120,11 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
 
         Action fake =
                 new SourceAction<>(
-                        idGenerator.getNextId(), "fake", fakeSource, Collections.emptySet(), Collections.emptySet());
+                        idGenerator.getNextId(),
+                        "fake",
+                        fakeSource,
+                        Collections.emptySet(),
+                        Collections.emptySet());
         fake.setParallelism(parallelism);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, parallelism);
 
@@ -128,7 +132,11 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
         consoleSink.setJobContext(jobContext);
         Action console =
                 new SinkAction<>(
-                        idGenerator.getNextId(), "console", consoleSink, Collections.emptySet(), Collections.emptySet());
+                        idGenerator.getNextId(),
+                        "console",
+                        consoleSink,
+                        Collections.emptySet(),
+                        Collections.emptySet());
         console.setParallelism(parallelism);
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, parallelism);
 

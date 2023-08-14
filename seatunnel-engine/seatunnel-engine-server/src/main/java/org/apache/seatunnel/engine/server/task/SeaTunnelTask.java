@@ -30,7 +30,6 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
-import org.apache.seatunnel.engine.core.job.ConnectorPluginJar;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;

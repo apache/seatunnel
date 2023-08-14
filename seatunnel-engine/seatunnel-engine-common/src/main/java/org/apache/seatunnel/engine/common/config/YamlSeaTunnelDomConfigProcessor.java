@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.ConnectorJarHAStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
@@ -239,10 +240,51 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue(
                                 ServerConfigOptions.CONNECTOR_JAR_EXPIRY_TIME.key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_CONFIG.key().equals(name)) {
+                connectorJarStorageConfig.setConnectorJarHAStorageConfig(
+                        parseConnectorJarHAStorageConfig(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
         }
         return connectorJarStorageConfig;
+    }
+
+    private ConnectorJarHAStorageConfig parseConnectorJarHAStorageConfig(
+            Node connectorJarHAStorageConfigNode) {
+        ConnectorJarHAStorageConfig connectorJarHAStorageConfig = new ConnectorJarHAStorageConfig();
+        for (Node node : childElements(connectorJarHAStorageConfigNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_TYPE.key().equals(name)) {
+                String type = getTextContent(node);
+                if (StringUtils.isNotBlank(type)
+                        && !Arrays.asList("localfile", "hdfs").contains(type)) {
+                    throw new IllegalArgumentException(
+                            ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_TYPE
+                                    + " must in [localfile, hdfs]");
+                }
+                connectorJarHAStorageConfig.setType(type);
+            } else if (ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_PLUGIN_CONFIG
+                    .key()
+                    .equals(name)) {
+                Map<String, String> connectorJarHAStoragePluginConfig =
+                        parseConnectorJarHAStoragePluginConfig(node);
+                connectorJarHAStorageConfig.setStoragePluginConfig(
+                        connectorJarHAStoragePluginConfig);
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return connectorJarHAStorageConfig;
+    }
+
+    private Map<String, String> parseConnectorJarHAStoragePluginConfig(
+            Node connectorJarHAStoragePluginConfigNode) {
+        Map<String, String> connectorJarHAStoragePluginConfig = new HashMap<>();
+        for (Node node : childElements(connectorJarHAStoragePluginConfigNode)) {
+            String name = node.getNodeName();
+            connectorJarHAStoragePluginConfig.put(name, getTextContent(node));
+        }
+        return connectorJarHAStoragePluginConfig;
     }
 }

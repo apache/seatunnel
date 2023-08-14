@@ -126,7 +126,8 @@ public class ServerConnectorPackageClient {
             connectorJarExpiryTimes.put(connectorJarIdentifier, expiryTime);
             return connectorJarIdentifier.getStoragePath();
         } else {
-            ConnectorJarIdentifier identifierFromMasterNode = downloadFromMasterNode(connectorJarIdentifier);
+            ConnectorJarIdentifier identifierFromMasterNode =
+                    downloadFromMasterNode(connectorJarIdentifier);
             connectorJarExpiryTimes.put(
                     identifierFromMasterNode,
                     new ExpiryTime(System.currentTimeMillis() + connectorJarExpiryTime));
@@ -134,7 +135,8 @@ public class ServerConnectorPackageClient {
         }
     }
 
-    public ConnectorJarIdentifier downloadFromMasterNode(ConnectorJarIdentifier connectorJarIdentifier) {
+    public ConnectorJarIdentifier downloadFromMasterNode(
+            ConnectorJarIdentifier connectorJarIdentifier) {
         ImmutablePair<byte[], ConnectorJarIdentifier> immutablePair = null;
         InvocationFuture<ImmutablePair<byte[], ConnectorJarIdentifier>> invocationFuture =
                 NodeEngineUtil.sendOperationToMasterNode(
@@ -154,7 +156,8 @@ public class ServerConnectorPackageClient {
         }
         byte[] connectorJarByteData = immutablePair.getLeft();
         readWriteLock.writeLock().lock();
-        storageConnectorJarFile(connectorJarByteData, new File(immutablePair.getRight().getStoragePath()));
+        storageConnectorJarFile(
+                connectorJarByteData, new File(immutablePair.getRight().getStoragePath()));
         readWriteLock.writeLock().unlock();
         return immutablePair.getRight();
     }

@@ -32,9 +32,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
-import java.net.URL;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 public class ConnectorPackageService {
@@ -51,7 +49,8 @@ public class ConnectorPackageService {
 
     private final NodeEngineImpl nodeEngine;
 
-    public ConnectorPackageService(SeaTunnelServer seaTunnelServer) {
+    public ConnectorPackageService(
+            SeaTunnelServer seaTunnelServer, ConnectorPackageHAStorage connectorPackageHAStorage) {
         this.seaTunnelServer = seaTunnelServer;
         this.seaTunnelConfig = seaTunnelServer.getSeaTunnelConfig();
         this.connectorJarStorageConfig =
@@ -61,7 +60,8 @@ public class ConnectorPackageService {
                 StorageStrategyFactory.of(
                         connectorJarStorageConfig.getStorageMode(),
                         connectorJarStorageConfig,
-                        nodeEngine);
+                        seaTunnelServer,
+                        connectorPackageHAStorage);
     }
 
     public ConnectorJarIdentifier storageConnectorJarFile(long jobId, Data connectorJarData) {
@@ -72,14 +72,16 @@ public class ConnectorPackageService {
         return connectorJarIdentifier;
     }
 
-    public ImmutablePair<byte[], ConnectorJarIdentifier> readConnectorJarFromLocal(ConnectorJarIdentifier connectorJarIdentifier) {
+    public ImmutablePair<byte[], ConnectorJarIdentifier> readConnectorJarFromLocal(
+            ConnectorJarIdentifier connectorJarIdentifier) {
         byte[] bytes =
                 connectorJarStorageStrategy.readConnectorJarByteData(
                         new File(connectorJarIdentifier.getStoragePath()));
         return new ImmutablePair<>(bytes, connectorJarIdentifier);
     }
 
-    public void cleanUpWhenJobFinished(List<ConnectorJarIdentifier> connectorJarIdentifierList) {
-        connectorJarStorageStrategy.cleanUpWhenJobFinished(connectorJarIdentifierList);
+    public void cleanUpWhenJobFinished(
+            long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList) {
+        connectorJarStorageStrategy.cleanUpWhenJobFinished(jobId, connectorJarIdentifierList);
     }
 }

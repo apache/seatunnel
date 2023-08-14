@@ -26,7 +26,6 @@ import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import lombok.AllArgsConstructor;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 
 import java.io.IOException;
 import java.net.URL;

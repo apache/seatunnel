@@ -41,9 +41,9 @@ import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCod
 /** */
 @Generated("b7fc02107a714918a542f42f1c602b7f")
 public final class SeaTunnelUploadConnectorJarCodec {
-    //hex: 0xDE0D00
+    // hex: 0xDE0D00
     public static final int REQUEST_MESSAGE_TYPE = 14552320;
-    //hex: 0xDE0D01
+    // hex: 0xDE0D01
     public static final int RESPONSE_MESSAGE_TYPE = 14552321;
     private static final int REQUEST_JOB_ID_FIELD_OFFSET =
             PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;

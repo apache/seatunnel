@@ -20,11 +20,13 @@ package org.apache.seatunnel.engine.server.master;
 import org.apache.seatunnel.engine.common.config.SeaTunnelProperties;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import org.apache.commons.lang3.StringUtils;
 
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -33,7 +35,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
@@ -50,8 +51,19 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
 
     protected final ConnectorJarStorageConfig connectorJarStorageConfig;
 
+    protected final SeaTunnelServer seaTunnelServer;
+
+    protected final NodeEngineImpl nodeEngine;
+
+    protected final ConnectorPackageHAStorage connectorPackageHAStorage;
+
     public AbstractConnectorJarStorageStrategy(
-            ConnectorJarStorageConfig connectorJarStorageConfig) {
+            ConnectorJarStorageConfig connectorJarStorageConfig,
+            SeaTunnelServer seaTunnelServer,
+            ConnectorPackageHAStorage connectorPackageHAStorage) {
+        this.seaTunnelServer = seaTunnelServer;
+        this.nodeEngine = seaTunnelServer.getNodeEngine();
+        this.connectorPackageHAStorage = connectorPackageHAStorage;
         checkNotNull(connectorJarStorageConfig);
         this.connectorJarStorageConfig = connectorJarStorageConfig;
         this.storageDir = getConnectorJarStorageDir();

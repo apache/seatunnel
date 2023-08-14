@@ -24,12 +24,11 @@ import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
 import org.apache.seatunnel.engine.core.job.RefCount;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import com.hazelcast.map.IMap;
-import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.io.File;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Timer;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -52,8 +51,10 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
     private final Timer cleanupTimer;
 
     public SharedConnectorJarStorageStrategy(
-            ConnectorJarStorageConfig connectorJarStorageConfig, NodeEngineImpl nodeEngine) {
-        super(connectorJarStorageConfig);
+            ConnectorJarStorageConfig connectorJarStorageConfig,
+            SeaTunnelServer seaTunnelServer,
+            ConnectorPackageHAStorage connectorPackageHAStorage) {
+        super(connectorJarStorageConfig, seaTunnelServer, connectorPackageHAStorage);
         this.readWriteLock = new ReentrantReadWriteLock();
         this.connectorJarRefCounters =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS);
@@ -69,7 +70,9 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
 
     @Override
     public ConnectorJarIdentifier storageConnectorJarFile(long jobId, ConnectorJar connectorJar) {
-        ConnectorJarIdentifier connectorJarIdentifier = ConnectorJarIdentifier.of(connectorJar, getStorageLocationPath(jobId, connectorJar));
+        ConnectorJarIdentifier connectorJarIdentifier =
+                ConnectorJarIdentifier.of(
+                        connectorJar, getStorageLocationPath(jobId, connectorJar));
         RefCount refCount = connectorJarRefCounters.get(connectorJarIdentifier);
         if (refCount == null) {
             refCount = new RefCount();
@@ -85,6 +88,8 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
         Long references = refCount.getReferences();
         refCount.setReferences(++references);
         connectorJarRefCounters.put(connectorJarIdentifier, refCount);
+        connectorPackageHAStorage.uploadConnectorJar(
+                jobId, new File(connectorJarIdentifier.getStoragePath()), connectorJarIdentifier);
         return connectorJarIdentifier;
     }
 
@@ -96,6 +101,7 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
                 File storageLocation = new File(connectorJarIdentifier.getStoragePath());
                 readWriteLock.writeLock().lock();
                 deleteConnectorJarInternal(storageLocation);
+                connectorPackageHAStorage.deleteConnectorJar(0L, connectorJarIdentifier);
                 connectorJarRefCounters.remove(connectorJarIdentifier);
             } finally {
                 readWriteLock.writeLock().unlock();
@@ -123,7 +129,8 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
     }
 
     @Override
-    public void cleanUpWhenJobFinished(List<ConnectorJarIdentifier> connectorJarIdentifierList) {
+    public void cleanUpWhenJobFinished(
+            long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList) {
         connectorJarIdentifierList.forEach(
                 connectorJarIdentifier -> {
                     decreaseConnectorJarRefCount(connectorJarIdentifier);
@@ -135,7 +142,8 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
                 connectorJarIdentifier,
                 new BiFunction<ConnectorJarIdentifier, RefCount, RefCount>() {
                     @Override
-                    public RefCount apply(ConnectorJarIdentifier connectorJarIdentifier, RefCount refCount) {
+                    public RefCount apply(
+                            ConnectorJarIdentifier connectorJarIdentifier, RefCount refCount) {
                         if (refCount != null) {
                             Long references = refCount.getReferences();
                             refCount.setReferences(--references);

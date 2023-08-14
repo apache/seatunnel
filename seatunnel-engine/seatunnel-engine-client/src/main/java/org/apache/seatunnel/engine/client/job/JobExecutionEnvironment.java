@@ -98,10 +98,10 @@ public class JobExecutionEnvironment {
         this.commonPluginJars.addAll(
                 new ArrayList<>(
                         Common.getThirdPartyJars(
-                                jobConfig
-                                        .getEnvOptions()
-                                        .getOrDefault(EnvCommonOptions.JARS.key(), "")
-                                        .toString())
+                                        jobConfig
+                                                .getEnvOptions()
+                                                .getOrDefault(EnvCommonOptions.JARS.key(), "")
+                                                .toString())
                                 .stream()
                                 .map(Path::toUri)
                                 .map(
@@ -162,8 +162,7 @@ public class JobExecutionEnvironment {
     }
 
     private LogicalDag getLogicalDag() {
-        ImmutablePair<List<Action>, Set<URL>>
-                immutablePair = getJobConfigParser().parse();
+        ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
         actions.addAll(immutablePair.getLeft());
 
         Set<ConnectorJarIdentifier> commonJarIdentifiers =
@@ -177,9 +176,10 @@ public class JobExecutionEnvironment {
         connectorJarIdentifiers.addAll(pluginJarIdentifiers);
         jarUrls.addAll(commonPluginJars);
         jarUrls.addAll(connectorPluginJarUrls);
-        actions.forEach(action -> {
-            addCommonPluginJarsToAction(action, commonPluginJarUrls, commonJarIdentifiers);
-        });
+        actions.forEach(
+                action -> {
+                    addCommonPluginJarsToAction(action, commonPluginJarUrls, commonJarIdentifiers);
+                });
         actions.forEach(
                 action -> {
                     Config config = action.getConfig();
@@ -187,17 +187,24 @@ public class JobExecutionEnvironment {
         return getLogicalDagGenerator().generate();
     }
 
-    void addCommonPluginJarsToAction(Action action, Set<URL> commonPluginJars, Set<ConnectorJarIdentifier> commonJarIdentifiers) {
+    void addCommonPluginJarsToAction(
+            Action action,
+            Set<URL> commonPluginJars,
+            Set<ConnectorJarIdentifier> commonJarIdentifiers) {
         action.getJarUrls().addAll(commonPluginJars);
         action.getConnectorJarIdentifiers().addAll(commonJarIdentifiers);
         if (!action.getUpstream().isEmpty()) {
-            action.getUpstream().forEach(upstreamAction -> {
-                addCommonPluginJarsToAction(upstreamAction, commonPluginJars, commonJarIdentifiers);
-            });
+            action.getUpstream()
+                    .forEach(
+                            upstreamAction -> {
+                                addCommonPluginJarsToAction(
+                                        upstreamAction, commonPluginJars, commonJarIdentifiers);
+                            });
         }
     }
 
-    private void transformActionPluginJarUrls(List<Action> actions, Set<ConnectorJarIdentifier> result) {
+    private void transformActionPluginJarUrls(
+            List<Action> actions, Set<ConnectorJarIdentifier> result) {
         actions.forEach(
                 action -> {
                     Set<URL> jarUrls = action.getJarUrls();
@@ -218,29 +225,37 @@ public class JobExecutionEnvironment {
         Set<ConnectorJarIdentifier> pluginJarIdentifiers = new HashSet<>();
         pluginJarUrls.forEach(
                 pluginJarUrl -> {
-                    ConnectorJarIdentifier connectorJarIdentifier = connectorPackageClient.uploadConnectorPluginJar(
-                            Long.parseLong(jobConfig.getJobContext().getJobId()),
-                            pluginJarUrl);
+                    ConnectorJarIdentifier connectorJarIdentifier =
+                            connectorPackageClient.uploadConnectorPluginJar(
+                                    Long.parseLong(jobConfig.getJobContext().getJobId()),
+                                    pluginJarUrl);
                     pluginJarIdentifiers.add(connectorJarIdentifier);
                 });
         return pluginJarIdentifiers;
     }
 
-    private Set<URL> getJarUrlsFromIdentifiers(Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+    private Set<URL> getJarUrlsFromIdentifiers(
+            Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
         Set<URL> jarUrls = new HashSet<>();
-        connectorJarIdentifiers.stream().map(connectorJarIdentifier -> {
-            File storageFile = new File(connectorJarIdentifier.getStoragePath());
-            try {
-                return Optional.of(storageFile.toURI().toURL());
-            } catch (MalformedURLException e) {
-                LOGGER.warning(String.format("Cannot get plugin URL: {%s}", storageFile));
-                return Optional.empty();
-            }
-        }).collect(Collectors.toList()).forEach(optional -> {
-            if (optional.isPresent()) {
-                jarUrls.add((URL) optional.get());
-            }
-        });
+        connectorJarIdentifiers.stream()
+                .map(
+                        connectorJarIdentifier -> {
+                            File storageFile = new File(connectorJarIdentifier.getStoragePath());
+                            try {
+                                return Optional.of(storageFile.toURI().toURL());
+                            } catch (MalformedURLException e) {
+                                LOGGER.warning(
+                                        String.format("Cannot get plugin URL: {%s}", storageFile));
+                                return Optional.empty();
+                            }
+                        })
+                .collect(Collectors.toList())
+                .forEach(
+                        optional -> {
+                            if (optional.isPresent()) {
+                                jarUrls.add((URL) optional.get());
+                            }
+                        });
         return jarUrls;
     }
 }

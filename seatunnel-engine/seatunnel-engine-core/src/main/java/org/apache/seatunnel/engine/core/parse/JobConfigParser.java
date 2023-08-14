@@ -87,7 +87,11 @@ public class JobConfigParser {
                         0, config.getString(CollectionConstants.PLUGIN_NAME), getTableName(config));
         SourceAction action =
                 new SourceAction(
-                        idGenerator.getNextId(), actionName, tuple.getLeft(), tuple.getRight(), new HashSet<>());
+                        idGenerator.getNextId(),
+                        actionName,
+                        tuple.getLeft(),
+                        tuple.getRight(),
+                        new HashSet<>());
         action.setParallelism(parallelism);
         SeaTunnelRowType producedType = (SeaTunnelRowType) tuple.getLeft().getProducedType();
         CatalogTable catalogTable = CatalogTableUtil.getCatalogTable(tableId, producedType);

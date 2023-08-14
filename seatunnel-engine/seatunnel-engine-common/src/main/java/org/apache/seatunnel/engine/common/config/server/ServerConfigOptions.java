@@ -164,6 +164,24 @@ public class ServerConfigOptions {
                     .defaultValue(600)
                     .withDescription("The user defined connector jar expiry time.");
 
+    public static final Option<String> CONNECTOR_JAR_HA_STORAGE_TYPE =
+            Options.key("type")
+                    .stringType()
+                    .defaultValue("localfile")
+                    .withDescription("The connector jar HA storage type.");
+
+    public static final Option<Map<String, String>> CONNECTOR_JAR_HA_STORAGE_PLUGIN_CONFIG =
+            Options.key("plugin-config")
+                    .type(new TypeReference<Map<String, String>>() {})
+                    .noDefaultValue()
+                    .withDescription("The connector jar HA storage instance configuration.");
+
+    public static final Option<ConnectorJarHAStorageConfig> CONNECTOR_JAR_HA_STORAGE_CONFIG =
+            Options.key("jar-ha-storage")
+                    .type(new TypeReference<ConnectorJarHAStorageConfig>() {})
+                    .defaultValue(new ConnectorJarHAStorageConfig())
+                    .withDescription("The connector jar ha storage configuration.");
+
     public static final Option<ConnectorJarStorageConfig> CONNECTOR_JAR_STORAGE_CONFIG =
             Options.key("jar-storage")
                     .type(new TypeReference<ConnectorJarStorageConfig>() {})

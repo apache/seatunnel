@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.engine.server.protocol.task;
 
-import com.hazelcast.internal.serialization.Data;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelUploadConnectorJarCodec;
 import org.apache.seatunnel.engine.server.operation.UploadConnectorJarOperation;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.nio.Connection;
+import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 public class UploadConnectorJarTask

@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
-import com.sun.istack.internal.NotNull;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 
 import com.google.common.collect.Lists;
+import com.sun.istack.internal.NotNull;
 import lombok.NonNull;
-import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 
 import java.io.Serializable;
 import java.net.URL;

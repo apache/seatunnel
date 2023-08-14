@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
-import com.sun.istack.internal.NotNull;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-
-import lombok.NonNull;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+
+import com.sun.istack.internal.NotNull;
+import lombok.NonNull;
 
 import java.net.URL;
 import java.util.ArrayList;

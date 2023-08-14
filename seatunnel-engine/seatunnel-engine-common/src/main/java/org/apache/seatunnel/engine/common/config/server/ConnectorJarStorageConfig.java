@@ -34,6 +34,9 @@ public class ConnectorJarStorageConfig {
     private Integer connectorJarExpiryTime =
             ServerConfigOptions.CONNECTOR_JAR_EXPIRY_TIME.defaultValue();
 
+    private ConnectorJarHAStorageConfig connectorJarHAStorageConfig =
+            ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_CONFIG.defaultValue();
+
     public ConnectorJarStorageConfig setStorageMode(ConnectorJarStorageMode storageMode) {
         checkNotNull(storageMode);
         this.storageMode = storageMode;

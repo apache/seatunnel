@@ -15,35 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.actions;
+package org.apache.seatunnel.engine.common.config.server;
 
-import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+import lombok.Data;
 
-import lombok.NonNull;
+import java.util.HashMap;
+import java.util.Map;
 
-import java.io.Serializable;
-import java.net.URL;
-import java.util.List;
-import java.util.Set;
+@Data
+public class ConnectorJarHAStorageConfig {
 
-public interface Action extends Serializable {
-    @NonNull String getName();
+    private String type = ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_TYPE.defaultValue();
 
-    void setName(@NonNull String name);
-
-    @NonNull List<Action> getUpstream();
-
-    void addUpstream(@NonNull Action action);
-
-    int getParallelism();
-
-    void setParallelism(int parallelism);
-
-    long getId();
-
-    Set<URL> getJarUrls();
-
-    Set<ConnectorJarIdentifier> getConnectorJarIdentifiers();
-
-    Config getConfig();
+    /** Storage plugin instance configuration */
+    private Map<String, String> storagePluginConfig = new HashMap<>();
 }

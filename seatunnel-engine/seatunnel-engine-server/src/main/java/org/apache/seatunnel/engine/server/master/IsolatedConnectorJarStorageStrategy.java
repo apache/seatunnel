@@ -22,22 +22,20 @@ import org.apache.seatunnel.engine.core.job.CommonPluginJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
-
-import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import java.io.File;
-import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarStorageStrategy {
 
     public IsolatedConnectorJarStorageStrategy(
-            ConnectorJarStorageConfig connectorJarStorageConfig) {
-        super(connectorJarStorageConfig);
+            ConnectorJarStorageConfig connectorJarStorageConfig,
+            SeaTunnelServer seaTunnelServer,
+            ConnectorPackageHAStorage connectorPackageHAStorage) {
+        super(connectorJarStorageConfig, seaTunnelServer, connectorPackageHAStorage);
     }
 
     @Override
@@ -47,14 +45,20 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
             return ConnectorJarIdentifier.of(connectorJar, storageFile.toString());
         }
         String storagePath = storageConnectorJarFileInternal(connectorJar, storageFile).toString();
-        return ConnectorJarIdentifier.of(connectorJar, storagePath);
+        ConnectorJarIdentifier connectorJarIdentifier =
+                ConnectorJarIdentifier.of(connectorJar, storagePath);
+        connectorPackageHAStorage.uploadConnectorJar(
+                jobId, new File(storagePath), connectorJarIdentifier);
+        return connectorJarIdentifier;
     }
 
     @Override
-    public void cleanUpWhenJobFinished(List<ConnectorJarIdentifier> connectorJarIdentifierList) {
+    public void cleanUpWhenJobFinished(
+            long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList) {
         connectorJarIdentifierList.forEach(
                 connectorJarIdentifier -> {
                     deleteConnectorJar(connectorJarIdentifier);
+                    connectorPackageHAStorage.deleteConnectorJar(jobId, connectorJarIdentifier);
                 });
     }
 
