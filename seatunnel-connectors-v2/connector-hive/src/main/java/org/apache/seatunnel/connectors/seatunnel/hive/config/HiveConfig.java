@@ -26,8 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hive.metastore.api.Table;
 
-import java.util.List;
-
 public class HiveConfig {
     public static final Option<String> TABLE_NAME =
             Options.key("table_name")
@@ -45,20 +43,6 @@ public class HiveConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The path of hive-site.xml");
-
-    public static final Option<List<String>> READ_PARTITIONS =
-            Options.key("read_partitions")
-                    .listType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The target partitions that user want to read from hive table, if user does not set this parameter, it will read all the data from hive table");
-
-    public static final Option<List<String>> READ_COLUMNS =
-            Options.key("read_columns")
-                    .listType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The read column list of the data source, user can use it to implement field projection");
 
     public static final String TEXT_INPUT_FORMAT_CLASSNAME =
             "org.apache.hadoop.mapred.TextInputFormat";
