@@ -88,8 +88,20 @@ source {
     row.num = 16
     schema = {
       fields {
-        name = "string"
-        age = "int"
+        c_map = "map<string, smallint>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(30, 8)"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
       }
     }
   }
@@ -169,6 +181,7 @@ HdfsFile {
 HdfsFile {
     fs.defaultFS = "hdfs://hadoopcluster"
     path = "/tmp/hive/warehouse/test2"
+    hdfs_site_path = "/path/to/your/hdfs_site_path"
     kerberos_principal = "your_principal@EXAMPLE.COM"
     kerberos_keytab_path = "/path/to/your/keytab/file.keytab"
 }
