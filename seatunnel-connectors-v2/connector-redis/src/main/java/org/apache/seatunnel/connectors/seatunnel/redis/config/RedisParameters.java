@@ -106,53 +106,41 @@ public class RedisParameters implements Serializable {
     }
 
     public Jedis buildJedis() {
-        switch (mode) {
-            case SINGLE:
-                Jedis jedis = new Jedis(host, port);
-                if (StringUtils.isNotBlank(auth)) {
-                    jedis.auth(auth);
-                }
-                if (StringUtils.isNotBlank(user)) {
-                    jedis.aclSetUser(user);
-                }
-                return jedis;
-            case CLUSTER:
-                HashSet<HostAndPort> nodes = new HashSet<>();
-                HostAndPort node = new HostAndPort(host, port);
-                nodes.add(node);
-                if (!redisNodes.isEmpty()) {
-                    for (String redisNode : redisNodes) {
-                        String[] splits = redisNode.split(":");
-                        if (splits.length != 2) {
-                            throw new RedisConnectorException(
-                                    CommonErrorCode.ILLEGAL_ARGUMENT,
-                                    "Invalid redis node information,"
-                                            + "redis node information must like as the following: [host:port]");
-                        }
-                        HostAndPort hostAndPort =
-                                new HostAndPort(splits[0], Integer.parseInt(splits[1]));
-                        nodes.add(hostAndPort);
-                    }
-                }
-                ConnectionPoolConfig connectionPoolConfig = new ConnectionPoolConfig();
-                JedisCluster jedisCluster;
-                if (StringUtils.isNotBlank(auth)) {
-                    jedisCluster =
-                            new JedisCluster(
-                                    nodes,
-                                    JedisCluster.DEFAULT_TIMEOUT,
-                                    JedisCluster.DEFAULT_TIMEOUT,
-                                    JedisCluster.DEFAULT_MAX_ATTEMPTS,
-                                    auth,
-                                    connectionPoolConfig);
-                } else {
-                    jedisCluster = new JedisCluster(nodes);
-                }
-                return new JedisWrapper(jedisCluster);
-            default:
-                // do nothing
-                throw new RedisConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION, "Not support this redis mode");
+        Jedis jedis = new Jedis(host, port);
+        if (StringUtils.isNotBlank(auth)) {
+            jedis.auth(auth);
         }
+        if (StringUtils.isNotBlank(user)) {
+            jedis.aclSetUser(user);
+        }
+        return jedis;
+    }
+
+    public JedisCluster buildJedisCluster() {
+        HashSet<HostAndPort> nodes = new HashSet<>();
+        HostAndPort node = new HostAndPort(host, port);
+        nodes.add(node);
+        if (!redisNodes.isEmpty()) {
+            for (String redisNode : redisNodes) {
+                String[] splits = redisNode.split(":");
+                if (splits.length != 2) {
+                    throw new RedisConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                            "Invalid redis node information," +
+                                    "redis node information must like as the following: [host:port]");
+                }
+                HostAndPort hostAndPort = new HostAndPort(splits[0], Integer.parseInt(splits[1]));
+                nodes.add(hostAndPort);
+            }
+        }
+        ConnectionPoolConfig connectionPoolConfig = new ConnectionPoolConfig();
+        JedisCluster jedisCluster;
+        if (StringUtils.isNotBlank(auth)) {
+            jedisCluster = new JedisCluster(nodes, JedisCluster.DEFAULT_TIMEOUT,
+                    JedisCluster.DEFAULT_TIMEOUT, JedisCluster.DEFAULT_MAX_ATTEMPTS,
+                    auth, connectionPoolConfig);
+        } else {
+            jedisCluster = new JedisCluster(nodes);
+        }
+        return jedisCluster;
     }
 }

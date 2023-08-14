@@ -203,4 +203,24 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         Thread.sleep(60 * 1000);
         Assertions.assertEquals(0, jedis.llen("key_list"));
     }
+
+    @TestTemplate
+    public void testRedisSingle(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/redis-to-redis-single.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, jedis.llen("key_list"));
+        // Clear data to prevent data duplication in the next TestContainer
+        jedis.del("key_list");
+        Assertions.assertEquals(0, jedis.llen("key_list"));
+    }
+
+    @TestTemplate
+    public void testRedisCluster(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/redis-to-redis-cluster.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, jedis.llen("key_list"));
+        // Clear data to prevent data duplication in the next TestContainer
+        jedis.del("key_list");
+        Assertions.assertEquals(0, jedis.llen("key_list"));
+    }
 }
