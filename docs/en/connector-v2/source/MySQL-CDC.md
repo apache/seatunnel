@@ -65,6 +65,13 @@ Database name of the database to monitor.
 ### table-names [List]
 
 Table name of the database to monitor. The table name needs to include the database name, for example: database_name.table_name
+Currently, when multiple tables are synchronized, add catalog
+
+```
+catalog {
+  factory = MySQL
+}
+```
 
 ### base-url [String]
 
