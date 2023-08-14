@@ -36,7 +36,7 @@
     </properties>
 
     <build>
-        <finalName>apache-seatunnel-incubating-${project.version}</finalName>
+        <finalName>apache-seatunnel-${project.version}</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
@@ -99,7 +99,7 @@
                 <redshift.version>2.1.0.9</redshift.version>
                 <snowflake.version>3.13.29</snowflake.version>
 
-              <!-- Imap storage dependency package  -->
+                <!-- Imap storage dependency package  -->
                 <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
                 <json-smart.version>2.4.7</json-smart.version>
                 <hadoop-aws.version>3.1.4</hadoop-aws.version>
@@ -274,7 +274,13 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>connector-file-oss-jindo</artifactId>
+                    <artifactId>connector-file-jindo-oss</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-file-cos</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -461,6 +467,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-cdc-mysql</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-mongodb</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -694,7 +706,7 @@
                 </dependency>
             </dependencies>
             <build>
-                <finalName>apache-seatunnel-incubating-${project.version}</finalName>
+                <finalName>apache-seatunnel-${project.version}</finalName>
                 <plugins>
                     <plugin>
                         <artifactId>maven-assembly-plugin</artifactId>

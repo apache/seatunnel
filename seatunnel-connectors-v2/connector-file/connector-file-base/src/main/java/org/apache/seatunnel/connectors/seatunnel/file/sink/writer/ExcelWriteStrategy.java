@@ -28,15 +28,14 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import lombok.NonNull;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.LinkedHashMap;
 
 public class ExcelWriteStrategy extends AbstractWriteStrategy {
-    private final Map<String, ExcelGenerator> beingWrittenWriter;
+    private final LinkedHashMap<String, ExcelGenerator> beingWrittenWriter;
 
     public ExcelWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
-        this.beingWrittenWriter = new HashMap<>();
+        this.beingWrittenWriter = new LinkedHashMap<>();
     }
 
     @Override

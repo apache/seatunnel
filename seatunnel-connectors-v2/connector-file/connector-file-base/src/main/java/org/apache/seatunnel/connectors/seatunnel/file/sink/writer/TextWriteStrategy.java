@@ -36,10 +36,11 @@ import lombok.NonNull;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class TextWriteStrategy extends AbstractWriteStrategy {
-    private final Map<String, FSDataOutputStream> beingWrittenOutputStream;
+    private final LinkedHashMap<String, FSDataOutputStream> beingWrittenOutputStream;
     private final Map<String, Boolean> isFirstWrite;
     private final String fieldDelimiter;
     private final String rowDelimiter;
@@ -50,7 +51,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
 
     public TextWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
-        this.beingWrittenOutputStream = new HashMap<>();
+        this.beingWrittenOutputStream = new LinkedHashMap<>();
         this.isFirstWrite = new HashMap<>();
         this.fieldDelimiter = fileSinkConfig.getFieldDelimiter();
         this.rowDelimiter = fileSinkConfig.getRowDelimiter();
