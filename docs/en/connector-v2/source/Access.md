@@ -42,7 +42,7 @@ The URL of the JDBC connection. Refer to a case: jdbc:ucanaccess:/opt/download/y
 
 `Access` user password.
 
-### cql [String]
+### query [String]
 
 Query statement
 
