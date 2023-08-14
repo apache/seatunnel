@@ -45,6 +45,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatError
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
+import org.apache.seatunnel.format.compatible.kafka.connect.json.CompatibleKafkaConnectDeserializationSchema;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchema;
@@ -272,6 +273,11 @@ public class KafkaSource
                 case RAW:
                     deserializationSchema =
                             RawDeserializationSchema.builder().seaTunnelRowType(typeInfo).build();
+                    break;
+                case COMPATIBLE_KAFKA_CONNECT_JSON:
+                    deserializationSchema =
+                            new CompatibleKafkaConnectDeserializationSchema(
+                                    typeInfo, config, false, false);
                     break;
                 case DEBEZIUM_JSON:
                     boolean includeSchema = DEBEZIUM_RECORD_INCLUDE_SCHEMA.defaultValue();

@@ -76,12 +76,13 @@ public class JobHistoryService {
      * finishedJobStateImap key is jobId and value is jobState(json) JobStateData Indicates the
      * status of the job, pipeline, and task
      */
-    // TODO need to limit the amount of storage
     private final IMap<Long, JobState> finishedJobStateImap;
 
     private final IMap<Long, JobMetrics> finishedJobMetricsImap;
 
     private final ObjectMapper objectMapper;
+
+    private final int finishedJobExpireTime;
 
     public JobHistoryService(
             IMap<Object, Object> runningJobStateIMap,
@@ -89,7 +90,8 @@ public class JobHistoryService {
             Map<Long, JobMaster> runningJobMasterMap,
             IMap<Long, JobState> finishedJobStateImap,
             IMap<Long, JobMetrics> finishedJobMetricsImap,
-            IMap<Long, JobDAGInfo> finishedJobVertexInfoImap) {
+            IMap<Long, JobDAGInfo> finishedJobVertexInfoImap,
+            int finishedJobExpireTime) {
         this.runningJobStateIMap = runningJobStateIMap;
         this.logger = logger;
         this.runningJobMasterMap = runningJobMasterMap;
@@ -98,6 +100,7 @@ public class JobHistoryService {
         this.finishedJobDAGInfoImap = finishedJobVertexInfoImap;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        this.finishedJobExpireTime = finishedJobExpireTime;
     }
 
     // Gets the status of a running and completed job
@@ -169,14 +172,14 @@ public class JobHistoryService {
         JobState jobState = toJobStateMapper(jobMaster, false);
         jobState.setFinishTime(System.currentTimeMillis());
         jobState.setErrorMessage(jobMaster.getErrorMessage());
-        finishedJobStateImap.put(jobState.jobId, jobState, 14, TimeUnit.DAYS);
+        finishedJobStateImap.put(jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     public void storeFinishedPipelineMetrics(long jobId, JobMetrics metrics) {
         finishedJobMetricsImap.computeIfAbsent(jobId, key -> JobMetrics.of(new HashMap<>()));
         JobMetrics newMetrics = finishedJobMetricsImap.get(jobId).merge(metrics);
-        finishedJobMetricsImap.put(jobId, newMetrics, 14, TimeUnit.DAYS);
+        finishedJobMetricsImap.put(jobId, newMetrics, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 
     private JobState toJobStateMapper(JobMaster jobMaster, boolean simple) {
@@ -236,7 +239,7 @@ public class JobHistoryService {
     }
 
     public void storeJobInfo(long jobId, JobDAGInfo jobInfo) {
-        finishedJobDAGInfoImap.put(jobId, jobInfo);
+        finishedJobDAGInfoImap.put(jobId, jobInfo, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 
     @AllArgsConstructor
