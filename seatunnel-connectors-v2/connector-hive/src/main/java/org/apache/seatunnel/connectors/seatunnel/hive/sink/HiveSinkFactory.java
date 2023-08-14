@@ -24,6 +24,8 @@ import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ABORT_DROP_PARTITION_METADATA;
+
 @AutoService(Factory.class)
 public class HiveSinkFactory implements TableSinkFactory {
     @Override
@@ -36,6 +38,7 @@ public class HiveSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(HiveConfig.TABLE_NAME)
                 .required(HiveConfig.METASTORE_URI)
+                .optional(ABORT_DROP_PARTITION_METADATA)
                 .build();
     }
 }
