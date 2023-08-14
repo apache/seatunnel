@@ -41,9 +41,9 @@ public class HiveConfig {
     public static final Option<Boolean> ABORT_DROP_PARTITION_METADATA =
             Options.key("abort_drop_partition_metadata")
                     .booleanType()
-                    .defaultValue(true)
+                    .defaultValue(false)
                     .withDescription(
-                            "Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted.");
+                            "Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).");
 
     public static final Option<String> HIVE_SITE_PATH =
             Options.key("hive_site_path")
