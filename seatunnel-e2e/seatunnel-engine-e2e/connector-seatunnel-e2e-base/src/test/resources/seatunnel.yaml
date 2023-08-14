@@ -17,6 +17,7 @@
 
 seatunnel:
   engine:
+    history-job-expire-minutes: 1
     backup-count: 2
     queue-type: blockingqueue
     print-execution-info-interval: 10
@@ -25,8 +26,6 @@ seatunnel:
     checkpoint:
       interval: 300000
       timeout: 10000
-      max-concurrent: 1
-      tolerable-failure: 2
       storage:
         type: localfile
         max-retained: 3
