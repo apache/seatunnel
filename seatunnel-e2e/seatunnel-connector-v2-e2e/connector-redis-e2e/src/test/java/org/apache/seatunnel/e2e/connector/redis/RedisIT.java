@@ -192,4 +192,15 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         jedis.del("key_list");
         Assertions.assertEquals(0, jedis.llen("key_list"));
     }
+
+    @TestTemplate
+    public void testRedisWithExpire(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/redis-to-redis-expire.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, jedis.llen("key_list"));
+        // Clear data to prevent data duplication in the next TestContainer
+        Thread.sleep(60 * 1000);
+        Assertions.assertEquals(0, jedis.llen("key_list"));
+    }
 }
