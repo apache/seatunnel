@@ -40,6 +40,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | kerberos_principal   | string | no       | -             |
 | kerberos_keytab_path | string | no       | -             |
 | hdfs_site_path       | string | no       | -             |
+| hive_site_path       | string | no       | -             |
 | read_partitions      | list   | no       | -             |
 | read_columns         | list   | no       | -             |
 | common-options       |        | no       | -             |
@@ -55,6 +56,10 @@ Hive metastore uri
 ### hdfs_site_path [string]
 
 The path of `hdfs-site.xml`, used to load ha configuration of namenodes
+
+### hive_site_path [string]
+
+The path of `hive-site.xml`, used to authentication hive metastore
 
 ### read_partitions [list]
 

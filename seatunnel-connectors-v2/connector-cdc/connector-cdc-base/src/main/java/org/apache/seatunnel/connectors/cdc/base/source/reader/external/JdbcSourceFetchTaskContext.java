@@ -151,6 +151,11 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
         return sourceConfig;
     }
 
+    @Override
+    public boolean isExactlyOnce() {
+        return sourceConfig.isExactlyOnce();
+    }
+
     public JdbcDataSourceDialect getDataSourceDialect() {
         return dataSourceDialect;
     }

@@ -45,7 +45,6 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
     public static long JOB_ID = 823342L;
 
     @Test
-    @Disabled()
     public void testSavePoint() throws InterruptedException {
         savePointAndRestore(false);
     }

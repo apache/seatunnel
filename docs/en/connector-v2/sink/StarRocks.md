@@ -16,7 +16,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 
 |            name             |  type   | required |  default value  |
 |-----------------------------|---------|----------|-----------------|
-| node_urls                   | list    | yes      | -               |
+| nodeUrls                    | list    | yes      | -               |
 | base-url                    | string  | yes      | -               |
 | username                    | string  | yes      | -               |
 | password                    | string  | yes      | -               |
@@ -33,7 +33,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | save_mode_create_template   | string  | no       | see below       |
 | starrocks.config            | map     | no       | -               |
 
-### node_urls [list]
+### nodeUrls [list]
 
 `StarRocks` cluster address, the format is `["fe_ip:fe_http_port", ...]`
 

@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.cdc.debezium;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 
 import org.apache.kafka.connect.source.SourceRecord;
 
@@ -36,4 +37,10 @@ public interface DebeziumDeserializationSchema<T> extends Serializable {
     void deserialize(SourceRecord record, Collector<T> out) throws Exception;
 
     SeaTunnelDataType<T> getProducedType();
+
+    default void restoreCheckpointProducedType(SeaTunnelDataType<T> checkpointDataType) {}
+
+    default SchemaChangeResolver getSchemaChangeResolver() {
+        return null;
+    }
 }
