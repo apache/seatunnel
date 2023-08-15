@@ -289,12 +289,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         for (int i = 0; i < 10; i++) {
             SeaTunnelRow row = new SeaTunnelRow(new Object[] {"hello" + i});
             ProducerRecord<byte[], byte[]> producerRecord = serializer.serializeRow(row);
-            ;
             producer.send(producerRecord);
         }
         Container.ExecResult execResult = container.executeJob("/kafkasource_raw_to_console.conf");
-        System.out.println(execResult.getStdout());
-        System.out.println(execResult.getExitCode());
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
