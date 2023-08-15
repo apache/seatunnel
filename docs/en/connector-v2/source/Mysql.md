@@ -114,6 +114,10 @@ sink {
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
 
 ```
+env {
+  execution.parallelism = 10
+  job.mode = "BATCH"
+}
 source {
     Jdbc {
         url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
@@ -128,6 +132,9 @@ source {
         # Number of fragments
         partition_num = 10
     }
+}
+sink {
+  Console {}
 }
 ```
 
