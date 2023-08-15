@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.core.dag.actions;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 
-import com.sun.istack.internal.NotNull;
 import lombok.NonNull;
 
 import java.net.URL;
@@ -37,7 +36,7 @@ public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends 
             @NonNull String name,
             @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
             @NonNull Set<URL> jarUrls,
-            @NotNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+            @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
         this(id, name, new ArrayList<>(), sink, jarUrls, connectorJarIdentifiers);
     }
 
@@ -47,7 +46,7 @@ public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends 
             @NonNull List<Action> upstreams,
             @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
             @NonNull Set<URL> jarUrls,
-            @NotNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+            @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
         this(id, name, upstreams, sink, jarUrls, connectorJarIdentifiers, null);
     }
 
@@ -57,7 +56,7 @@ public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends 
             @NonNull List<Action> upstreams,
             @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
             @NonNull Set<URL> jarUrls,
-            @NotNull Set<ConnectorJarIdentifier> connectorJarIdentifiers,
+            @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers,
             SinkConfig config) {
         super(id, name, upstreams, jarUrls, connectorJarIdentifiers, config);
         this.sink = sink;

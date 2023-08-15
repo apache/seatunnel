@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 
 import com.google.common.collect.Lists;
-import com.sun.istack.internal.NotNull;
 import lombok.NonNull;
 
 import java.io.Serializable;
@@ -40,7 +39,7 @@ public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializ
             @NonNull String name,
             @NonNull SeaTunnelSource<T, SplitT, StateT> source,
             @NonNull Set<URL> jarUrls,
-            @NotNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+            @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
         super(id, name, Lists.newArrayList(), jarUrls, connectorJarIdentifiers);
         this.source = source;
     }
