@@ -123,36 +123,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     @Override
     public List<String> getFileNamesByPath(HadoopConf hadoopConf, String path) throws IOException {
-        Configuration configuration = getConfiguration(hadoopConf);
-        FileSystem hdfs = FileSystem.get(configuration);
-        ArrayList<String> fileNames = new ArrayList<>();
-        Path listFiles = new Path(path);
-        FileStatus[] stats = hdfs.listStatus(listFiles);
-        for (FileStatus fileStatus : stats) {
-            if (fileStatus.isDirectory()) {
-                fileNames.addAll(getFileNamesByPath(hadoopConf, fileStatus.getPath().toString()));
-                continue;
-            }
-            if (fileStatus.isFile() && filterFileByPattern(fileStatus)) {
-                // filter '_SUCCESS' file
-                if (!fileStatus.getPath().getName().equals("_SUCCESS")
-                        && !fileStatus.getPath().getName().startsWith(".")) {
-                    String filePath = fileStatus.getPath().toString();
-                    if (!readPartitions.isEmpty()) {
-                        for (String readPartition : readPartitions) {
-                            if (filePath.contains(readPartition)) {
-                                fileNames.add(filePath);
-                                this.fileNames.add(filePath);
-                                break;
-                            }
-                        }
-                    } else {
-                        fileNames.add(filePath);
-                        this.fileNames.add(filePath);
-                    }
-                }
-            }
-        }
+        List<String> fileNames = getFileNames(hadoopConf, path);
 
         if (fileNames.isEmpty()) {
             throw new FileConnectorException(
@@ -241,5 +212,39 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             return pattern.matcher(fileStatus.getPath().getName()).matches();
         }
         return true;
+    }
+
+    private List<String> getFileNames(HadoopConf hadoopConf, String path) throws IOException {
+        Configuration configuration = getConfiguration(hadoopConf);
+        FileSystem hdfs = FileSystem.get(configuration);
+        ArrayList<String> fileNames = new ArrayList<>();
+        Path listFiles = new Path(path);
+        FileStatus[] stats = hdfs.listStatus(listFiles);
+        for (FileStatus fileStatus : stats) {
+            if (fileStatus.isDirectory()) {
+                fileNames.addAll(getFileNames(hadoopConf, fileStatus.getPath().toString()));
+                continue;
+            }
+            if (fileStatus.isFile() && filterFileByPattern(fileStatus)) {
+                // filter '_SUCCESS' file
+                if (!fileStatus.getPath().getName().equals("_SUCCESS")
+                        && !fileStatus.getPath().getName().startsWith(".")) {
+                    String filePath = fileStatus.getPath().toString();
+                    if (!readPartitions.isEmpty()) {
+                        for (String readPartition : readPartitions) {
+                            if (filePath.contains(readPartition)) {
+                                fileNames.add(filePath);
+                                this.fileNames.add(filePath);
+                                break;
+                            }
+                        }
+                    } else {
+                        fileNames.add(filePath);
+                        this.fileNames.add(filePath);
+                    }
+                }
+            }
+        }
+        return fileNames;
     }
 }
