@@ -176,7 +176,7 @@ public class DorisSink
 
     @Override
     public void handleSaveMode(DataSaveMode userConfigSaveMode) {
-        if (catalogTable != null && userConfigSaveMode != null) {
+        if (catalogTable != null && DataSaveMode.KEEP_SCHEMA_AND_DATA.equals(userConfigSaveMode)) {
             try (DorisCatalog dorisCatalog =
                     new DorisCatalog(
                             "Doris",
