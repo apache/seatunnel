@@ -57,6 +57,8 @@ public interface FetchTask<Split> {
 
         Tables.TableFilter getTableFilter();
 
+        boolean isExactlyOnce();
+
         Offset getStreamOffset(SourceRecord record);
 
         boolean isDataChangeRecord(SourceRecord record);

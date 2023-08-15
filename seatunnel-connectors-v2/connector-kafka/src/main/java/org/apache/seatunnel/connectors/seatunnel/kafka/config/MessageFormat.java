@@ -22,5 +22,7 @@ public enum MessageFormat {
     TEXT,
     CANAL_JSON,
     COMPATIBLE_DEBEZIUM_JSON,
-    RAW
+    RAW,
+    DEBEZIUM_JSON,
+    COMPATIBLE_KAFKA_CONNECT_JSON
 }

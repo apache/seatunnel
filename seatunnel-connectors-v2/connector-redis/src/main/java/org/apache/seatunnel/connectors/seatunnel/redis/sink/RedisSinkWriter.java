@@ -59,7 +59,8 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         } else {
             key = keyField;
         }
-        redisDataType.set(jedis, key, data);
+        long expire = redisParameters.getExpire();
+        redisDataType.set(jedis, key, data, expire);
     }
 
     @Override

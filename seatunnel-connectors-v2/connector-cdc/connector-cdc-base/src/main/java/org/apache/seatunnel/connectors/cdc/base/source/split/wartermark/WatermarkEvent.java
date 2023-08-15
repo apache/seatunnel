@@ -72,6 +72,28 @@ public class WatermarkEvent {
                 signalRecordValue(splitId, watermarkKind));
     }
 
+    public static SourceRecord createSchemaChangeBeforeWatermark(SourceRecord record) {
+        return new SourceRecord(
+                record.sourcePartition(),
+                record.sourceOffset(),
+                record.topic(),
+                SIGNAL_EVENT_KEY_SCHEMA,
+                signalRecordKey("schema-change-before"),
+                SIGNAL_EVENT_VALUE_SCHEMA,
+                signalRecordValue("schema-change-before", WatermarkKind.SCHEMA_CHANGE_BEFORE));
+    }
+
+    public static SourceRecord createSchemaChangeAfterWatermark(SourceRecord record) {
+        return new SourceRecord(
+                record.sourcePartition(),
+                record.sourceOffset(),
+                record.topic(),
+                SIGNAL_EVENT_KEY_SCHEMA,
+                signalRecordKey("schema-change-after"),
+                SIGNAL_EVENT_VALUE_SCHEMA,
+                signalRecordValue("schema-change-after", WatermarkKind.SCHEMA_CHANGE_AFTER));
+    }
+
     public static boolean isWatermarkEvent(SourceRecord record) {
         Optional<WatermarkKind> watermarkKind = getWatermarkKind(record);
         return watermarkKind.isPresent();
@@ -90,6 +112,18 @@ public class WatermarkEvent {
     public static boolean isEndWatermarkEvent(SourceRecord record) {
         Optional<WatermarkKind> watermarkKind = getWatermarkKind(record);
         return watermarkKind.isPresent() && watermarkKind.get() == WatermarkKind.END;
+    }
+
+    public static boolean isSchemaChangeBeforeWatermarkEvent(SourceRecord record) {
+        Optional<WatermarkKind> watermarkKind = getWatermarkKind(record);
+        return watermarkKind.isPresent()
+                && watermarkKind.get() == WatermarkKind.SCHEMA_CHANGE_BEFORE;
+    }
+
+    public static boolean isSchemaChangeAfterWatermarkEvent(SourceRecord record) {
+        Optional<WatermarkKind> watermarkKind = getWatermarkKind(record);
+        return watermarkKind.isPresent()
+                && watermarkKind.get() == WatermarkKind.SCHEMA_CHANGE_AFTER;
     }
 
     private static Optional<WatermarkKind> getWatermarkKind(SourceRecord record) {

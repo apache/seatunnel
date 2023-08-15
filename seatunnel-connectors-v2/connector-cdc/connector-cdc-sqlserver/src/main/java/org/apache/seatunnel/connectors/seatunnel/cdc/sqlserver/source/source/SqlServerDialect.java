@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
@@ -47,7 +46,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.uti
 public class SqlServerDialect implements JdbcDataSourceDialect {
 
     private static final long serialVersionUID = 1L;
-    private final SourceConfig sourceConfig;
+    private final SqlServerSourceConfig sourceConfig;
 
     private transient SqlServerSchema sqlServerSchema;
 
@@ -95,7 +94,7 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
     @Override
     public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
         if (sqlServerSchema == null) {
-            sqlServerSchema = new SqlServerSchema();
+            sqlServerSchema = new SqlServerSchema(sourceConfig.getDbzConnectorConfig());
         }
         return sqlServerSchema.getTableSchema(jdbc, tableId);
     }
