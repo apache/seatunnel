@@ -25,7 +25,6 @@ import lombok.Data;
 import java.io.Serializable;
 import java.util.List;
 
-import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.BATCH_INTERVAL_MS;
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.BATCH_SIZE;
 
 @Data
@@ -45,7 +44,6 @@ public class TablestoreOptions implements Serializable {
     private List<String> primaryKeys;
 
     public int batchSize = Integer.parseInt(BATCH_SIZE.defaultValue());
-    public int batchIntervalMs = Integer.parseInt(BATCH_INTERVAL_MS.defaultValue());
 
     public TablestoreOptions(Config config) {
         this.endpoint = config.getString(TablestoreConfig.END_POINT.key());
@@ -57,9 +55,6 @@ public class TablestoreOptions implements Serializable {
 
         if (config.hasPath(BATCH_SIZE.key())) {
             this.batchSize = config.getInt(BATCH_SIZE.key());
-        }
-        if (config.hasPath(TablestoreConfig.BATCH_INTERVAL_MS.key())) {
-            this.batchIntervalMs = config.getInt(TablestoreConfig.BATCH_INTERVAL_MS.key());
         }
     }
 }
