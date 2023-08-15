@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.cdc.base.dialect;
 
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionFactory;
@@ -25,11 +27,23 @@ import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.tuple.Pair;
+
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
 
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfig> {
 
@@ -68,4 +82,90 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
     @Override
     JdbcSourceFetchTaskContext createFetchTaskContext(
             SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig);
+
+    default Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId)
+            throws SQLException {
+
+        DatabaseMetaData metaData = jdbcConnection.connection().getMetaData();
+
+        // According to the Javadoc of java.sql.DatabaseMetaData#getPrimaryKeys,
+        // the returned primary key columns are ordered by COLUMN_NAME, not by KEY_SEQ.
+        // We need to sort them based on the KEY_SEQ value.
+        ResultSet rs =
+                metaData.getPrimaryKeys(tableId.catalog(), tableId.schema(), tableId.table());
+
+        // seq -> column name
+        List<Pair<Integer, String>> primaryKeyColumns = new ArrayList<>();
+        String pkName = null;
+        while (rs.next()) {
+            // all the PK_NAME should be the same
+            pkName = rs.getString("PK_NAME");
+            String columnName = rs.getString("COLUMN_NAME");
+            int keySeq = rs.getInt("KEY_SEQ");
+            // KEY_SEQ is 1-based index
+            primaryKeyColumns.add(Pair.of(keySeq, columnName));
+        }
+        // initialize size
+        List<String> pkFields =
+                primaryKeyColumns.stream()
+                        .sorted(Comparator.comparingInt(Pair::getKey))
+                        .map(Pair::getValue)
+                        .collect(Collectors.toList());
+        if (CollectionUtils.isEmpty(pkFields)) {
+            return Optional.empty();
+        }
+        return Optional.of(PrimaryKey.of(pkName, pkFields));
+    }
+
+    default List<ConstraintKey> getUniqueKeys(JdbcConnection jdbcConnection, TableId tableId)
+            throws SQLException {
+        return getConstraintKeys(jdbcConnection, tableId).stream()
+                .filter(
+                        constraintKey ->
+                                constraintKey.getConstraintType()
+                                        == ConstraintKey.ConstraintType.UNIQUE_KEY)
+                .collect(Collectors.toList());
+    }
+
+    default List<ConstraintKey> getConstraintKeys(JdbcConnection jdbcConnection, TableId tableId)
+            throws SQLException {
+        DatabaseMetaData metaData = jdbcConnection.connection().getMetaData();
+
+        ResultSet resultSet =
+                metaData.getIndexInfo(
+                        tableId.catalog(), tableId.schema(), tableId.table(), false, false);
+        // index name -> index
+        Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
+        while (resultSet.next()) {
+            String columnName = resultSet.getString("COLUMN_NAME");
+            if (columnName == null) {
+                continue;
+            }
+
+            String indexName = resultSet.getString("INDEX_NAME");
+            boolean noUnique = resultSet.getBoolean("NON_UNIQUE");
+
+            ConstraintKey constraintKey =
+                    constraintKeyMap.computeIfAbsent(
+                            indexName,
+                            s -> {
+                                ConstraintKey.ConstraintType constraintType =
+                                        ConstraintKey.ConstraintType.KEY;
+                                if (!noUnique) {
+                                    constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
+                                }
+                                return ConstraintKey.of(
+                                        constraintType, indexName, new ArrayList<>());
+                            });
+
+            ConstraintKey.ColumnSortType sortType =
+                    "A".equals(resultSet.getString("ASC_OR_DESC"))
+                            ? ConstraintKey.ColumnSortType.ASC
+                            : ConstraintKey.ColumnSortType.DESC;
+            ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
+                    new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
+            constraintKey.getColumnNames().add(constraintKeyColumn);
+        }
+        return new ArrayList<>(constraintKeyMap.values());
+    }
 }

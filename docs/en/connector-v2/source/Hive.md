@@ -33,16 +33,18 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-|         name         |  type  | required | default value |
-|----------------------|--------|----------|---------------|
-| table_name           | string | yes      | -             |
-| metastore_uri        | string | yes      | -             |
-| kerberos_principal   | string | no       | -             |
-| kerberos_keytab_path | string | no       | -             |
-| hdfs_site_path       | string | no       | -             |
-| read_partitions      | list   | no       | -             |
-| read_columns         | list   | no       | -             |
-| common-options       |        | no       | -             |
+|             name              |  type   | required | default value |
+|-------------------------------|---------|----------|---------------|
+| table_name                    | string  | yes      | -             |
+| metastore_uri                 | string  | yes      | -             |
+| kerberos_principal            | string  | no       | -             |
+| kerberos_keytab_path          | string  | no       | -             |
+| hdfs_site_path                | string  | no       | -             |
+| hive_site_path                | string  | no       | -             |
+| read_partitions               | list    | no       | -             |
+| read_columns                  | list    | no       | -             |
+| abort_drop_partition_metadata | boolean | no       | true          |
+| common-options                |         | no       | -             |
 
 ### table_name [string]
 
@@ -55,6 +57,10 @@ Hive metastore uri
 ### hdfs_site_path [string]
 
 The path of `hdfs-site.xml`, used to load ha configuration of namenodes
+
+### hive_site_path [string]
+
+The path of `hive-site.xml`, used to authentication hive metastore
 
 ### read_partitions [list]
 
@@ -74,6 +80,10 @@ The keytab file path of kerberos authentication
 ### read_columns [list]
 
 The read column list of the data source, user can use it to implement field projection.
+
+### abort_drop_partition_metadata [list]
+
+Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).
 
 ### common options
 
