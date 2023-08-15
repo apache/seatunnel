@@ -47,6 +47,7 @@ public class RedisParameters implements Serializable {
     private RedisConfig.RedisMode mode;
     private RedisConfig.HashKeyParseMode hashKeyParseMode;
     private List<String> redisNodes = Collections.emptyList();
+    private long expire = RedisConfig.EXPIRE.defaultValue();
 
     public void buildWithConfig(Config config) {
         // set host
@@ -88,6 +89,9 @@ public class RedisParameters implements Serializable {
         // set keysPattern
         if (config.hasPath(RedisConfig.KEY_PATTERN.key())) {
             this.keysPattern = config.getString(RedisConfig.KEY_PATTERN.key());
+        }
+        if (config.hasPath(RedisConfig.EXPIRE.key())) {
+            this.expire = config.getLong(RedisConfig.EXPIRE.key());
         }
         // set redis data type
         try {
