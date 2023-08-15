@@ -27,7 +27,7 @@ import com.google.auto.service.AutoService;
 public class SqlServerDialectFactory implements JdbcDialectFactory {
     @Override
     public boolean acceptsURL(String url) {
-        return url.startsWith("jdbc:sqlserver:");
+        return (url.startsWith("jdbc:jtds:sqlserver:") || url.startsWith("jdbc:sqlserver:"));
     }
 
     @Override
