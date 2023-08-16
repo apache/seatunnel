@@ -151,7 +151,7 @@ In the case of is_exactly_once = "true", Xa transactions are used. This requires
 
 there are some reference value for params above.
 
-| datasource |                    driver                    |                                url                                 |             xa_data_source_class_name              |                                                    maven                                                    |
+| datasource |                    driver                    |                                url                                 |             xa_data_source_class_name              | maven                                                                                                       |
 |------------|----------------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | MySQL      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | PostgreSQL | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                |
@@ -170,6 +170,7 @@ there are some reference value for params above.
 | Snowflake  | net.snowflake.client.jdbc.SnowflakeDriver    | jdbc:snowflake://<account_name>.snowflakecomputing.com             | /                                                  | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                             |
 | Vertica    | com.vertica.jdbc.Driver                      | jdbc:vertica://localhost:5433                                      | /                                                  | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar             |
 | OceanBase  | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                    | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar              |
+| sqlserver  | net.sourceforge.jtds.jdbc.Driver             | jdbc:jtds:sqlserver://localhost:1433                               | /                                                  | https://mvnrepository.com/artifact/net.sourceforge.jtds/jtds/1.3.1/jtds-1.3.1.jar                           |
 
 ## Example
 

@@ -106,7 +106,7 @@ in parallel according to the concurrency of tasks.
 
 there are some reference value for params above.
 
-| datasource |                       driver                        |                                  url                                   |                                                    maven                                                    |
+| datasource |                       driver                        | url                                                                    | maven                                                                                                       |
 |------------|-----------------------------------------------------|------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | mysql      | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | postgresql | org.postgresql.Driver                               | jdbc:postgresql://localhost:5432/postgres                              | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                |
@@ -126,6 +126,7 @@ there are some reference value for params above.
 | Redshift   | com.amazon.redshift.jdbc42.Driver                   | jdbc:redshift://localhost:5439/testdb?defaultRowFetchSize=1000         | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                      |
 | Vertica    | com.vertica.jdbc.Driver                             | jdbc:vertica://localhost:5433                                          | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar             |
 | OceanBase  | com.oceanbase.jdbc.Driver                           | jdbc:oceanbase://localhost:2881                                        | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar              |
+| sqlserver  | net.sourceforge.jtds.jdbc.Driver                    | jdbc:jtds:sqlserver://localhost:1433                                   | https://mvnrepository.com/artifact/net.sourceforge.jtds/jtds/1.3.1/jtds-1.3.1.jar                           |
 
 ## Example
 
