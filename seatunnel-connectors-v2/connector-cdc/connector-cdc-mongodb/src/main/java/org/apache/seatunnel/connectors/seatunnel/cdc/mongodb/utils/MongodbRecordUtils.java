@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -66,7 +67,18 @@ public class MongodbRecordUtils {
 
     public static BsonDocument getDocumentKey(@Nonnull SourceRecord sourceRecord) {
         Struct value = (Struct) sourceRecord.value();
-        return BsonDocument.parse(value.getString(DOCUMENT_KEY));
+        return extractBsonDocument(value, sourceRecord.valueSchema(), DOCUMENT_KEY);
+    }
+
+    public static BsonDocument extractBsonDocument(
+            Struct value, @Nonnull Schema valueSchema, String fieldName) {
+        if (valueSchema.field(fieldName) != null) {
+            String docString = value.getString(fieldName);
+            if (docString != null) {
+                return BsonDocument.parse(docString);
+            }
+        }
+        return null;
     }
 
     public static String getOffsetValue(@Nonnull SourceRecord sourceRecord, String key) {
@@ -135,6 +147,30 @@ public class MongodbRecordUtils {
                 topicName,
                 keySchemaAndValue.schema(),
                 keySchemaAndValue.value(),
+                valueSchemaAndValue.schema(),
+                valueSchemaAndValue.value());
+    }
+
+    public static @Nonnull SourceRecord buildSourceRecord(
+            Map<String, ?> sourcePartition,
+            Map<String, ?> sourceOffset,
+            String topicName,
+            Integer partition,
+            Schema keySchema,
+            Object key,
+            BsonDocument valueDocument) {
+        BsonValueToSchemaAndValue schemaAndValue =
+                new BsonValueToSchemaAndValue(new DefaultJson().getJsonWriterSettings());
+        SchemaAndValue valueSchemaAndValue =
+                schemaAndValue.toSchemaAndValue(fromJson(OUTPUT_SCHEMA), valueDocument);
+
+        return new SourceRecord(
+                sourcePartition,
+                sourceOffset,
+                topicName,
+                partition,
+                keySchema,
+                key,
                 valueSchemaAndValue.schema(),
                 valueSchemaAndValue.value());
     }

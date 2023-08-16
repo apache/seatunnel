@@ -25,7 +25,7 @@ import javax.transaction.xa.Xid;
 import java.security.SecureRandom;
 import java.util.Arrays;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Generates {@link Xid} from:
