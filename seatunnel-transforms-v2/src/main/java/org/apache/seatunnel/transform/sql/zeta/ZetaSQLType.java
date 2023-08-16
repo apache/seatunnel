@@ -163,6 +163,10 @@ public class ZetaSQLType {
                 String.format("Unsupported SQL Expression: %s ", expression.toString()));
     }
 
+    public boolean isNumberType(SqlType type) {
+        return type.compareTo(SqlType.TINYINT) >= 0 && type.compareTo(SqlType.DECIMAL) <= 0;
+    }
+
     public SeaTunnelDataType<?> getMaxType(
             SeaTunnelDataType<?> leftType, SeaTunnelDataType<?> rightType) {
         if (leftType == null || BasicType.VOID_TYPE.equals(leftType)) {
@@ -174,14 +178,15 @@ public class ZetaSQLType {
         if (leftType.equals(rightType)) {
             return leftType;
         }
-        if (leftType.getSqlType() == SqlType.INT && rightType.getSqlType() == SqlType.INT) {
-            return BasicType.INT_TYPE;
+
+        final boolean isAllNumber =
+                isNumberType(leftType.getSqlType()) && isNumberType(rightType.getSqlType());
+        if (!isAllNumber) {
+            throw new TransformException(
+                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    leftType + " type not compatible " + rightType);
         }
-        if ((leftType.getSqlType() == SqlType.INT || leftType.getSqlType() == SqlType.BIGINT)
-                && (rightType.getSqlType() == SqlType.INT
-                        || rightType.getSqlType() == SqlType.BIGINT)) {
-            return BasicType.LONG_TYPE;
-        }
+
         if (leftType.getSqlType() == SqlType.DECIMAL || rightType.getSqlType() == SqlType.DECIMAL) {
             int precision = 0;
             int scale = 0;
@@ -197,13 +202,7 @@ public class ZetaSQLType {
             }
             return new DecimalType(precision, scale);
         }
-        if ((leftType.getSqlType() == SqlType.FLOAT || leftType.getSqlType() == SqlType.DOUBLE)
-                || (rightType.getSqlType() == SqlType.FLOAT
-                        || rightType.getSqlType() == SqlType.DOUBLE)) {
-            return BasicType.DOUBLE_TYPE;
-        }
-        throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION, leftType + " type not equals " + rightType);
+        return leftType.getSqlType().compareTo(rightType.getSqlType()) <= 0 ? rightType : leftType;
     }
 
     public SeaTunnelDataType<?> getMaxType(Collection<SeaTunnelDataType<?>> types) {
