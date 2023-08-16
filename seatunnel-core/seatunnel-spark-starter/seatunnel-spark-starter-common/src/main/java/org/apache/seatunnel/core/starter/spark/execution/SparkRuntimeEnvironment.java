@@ -104,7 +104,7 @@ public class SparkRuntimeEnvironment implements RuntimeEnvironment {
             this.jobName = config.getString("job.name");
         }
         sparkConf = createSparkConf();
-        checkpointConfig = new CheckpointConfig(config, sparkConf);
+        checkpointConfig = new CheckpointConfig(config, sparkConf, jobName);
         SparkSession.Builder builder = SparkSession.builder().config(sparkConf);
         if (enableHive) {
             builder.enableHiveSupport();

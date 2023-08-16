@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.spark.sql.SparkSession;
@@ -126,6 +127,9 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
 
     @Override
     public Offset deserializeOffset(String json) {
+        if (StringUtils.isBlank(json)) {
+            return SeaTunnelOffset.of(-1);
+        }
         return JsonUtils.parseObject(json, SeaTunnelOffset.class);
     }
 
