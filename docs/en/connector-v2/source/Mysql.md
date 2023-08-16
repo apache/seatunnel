@@ -90,7 +90,7 @@ env {
 }
 source{
     Jdbc {
-        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
         user = "root"
@@ -120,7 +120,7 @@ env {
 }
 source {
     Jdbc {
-        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
         user = "root"
@@ -145,7 +145,7 @@ sink {
 ```
 source {
     Jdbc {
-        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
         user = "root"
