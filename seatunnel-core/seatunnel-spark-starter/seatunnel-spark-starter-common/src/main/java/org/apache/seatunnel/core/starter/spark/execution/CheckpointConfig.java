@@ -70,7 +70,7 @@ public class CheckpointConfig {
         return triggerProcessingInterval;
     }
 
-    public CheckpointConfig(Config env, SparkConf sparkConf,String jobName) {
+    public CheckpointConfig(Config env, SparkConf sparkConf, String jobName) {
         // checkpoint location
         if (env.hasPath(CHECKPOINT_LOCATION)) {
             this.checkpointLocation = env.getString(CHECKPOINT_LOCATION);
@@ -78,7 +78,7 @@ public class CheckpointConfig {
             this.checkpointLocation =
                     sparkConf.get(CHECKPOINT_LOCATION, DEFAULT_CHECKPOINT_LOCATION);
         }
-        this.checkpointLocation = this.checkpointLocation + "/"+jobName;
+        this.checkpointLocation = this.checkpointLocation + "/" + jobName;
         // checkpoint interval default value
         if (env.hasPath(KEY_CHECK_POINTING_INTERVAL)) {
             this.triggerProcessingInterval = env.getLong(KEY_CHECK_POINTING_INTERVAL);

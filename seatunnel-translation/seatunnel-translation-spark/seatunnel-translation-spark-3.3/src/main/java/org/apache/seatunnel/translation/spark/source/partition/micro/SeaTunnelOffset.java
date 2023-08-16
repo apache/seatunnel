@@ -32,11 +32,8 @@ public class SeaTunnelOffset extends Offset implements Serializable {
 
     private long checkpointId;
 
-    /**
-     * jackson need to construct it when recovery offset
-     */
-    public SeaTunnelOffset() {
-    }
+    /** jackson need to construct it when recovery offset */
+    public SeaTunnelOffset() {}
 
     public SeaTunnelOffset(long checkpointId) {
         this.checkpointId = checkpointId;
