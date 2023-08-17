@@ -552,7 +552,10 @@ public class PhysicalPlanGenerator {
                                                                                 .getJobId(),
                                                                         taskLocation,
                                                                         finalParallelismIndex,
-                                                                        f);
+                                                                        (PhysicalExecutionFlow<
+                                                                                        SourceAction,
+                                                                                        SourceConfig>)
+                                                                                f);
                                                             } else {
                                                                 return new TransformSeaTunnelTask(
                                                                         jobImmutableInformation

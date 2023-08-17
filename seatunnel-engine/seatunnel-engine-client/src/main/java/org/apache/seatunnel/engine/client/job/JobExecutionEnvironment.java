@@ -18,54 +18,18 @@
 package org.apache.seatunnel.engine.client.job;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.env.EnvCommonOptions;
-import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
-import org.apache.seatunnel.engine.common.utils.IdGenerator;
-import org.apache.seatunnel.engine.core.dag.actions.Action;
-import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
-import org.apache.seatunnel.engine.core.dag.logical.LogicalDagGenerator;
+import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
-import org.apache.commons.lang3.tuple.ImmutablePair;
-
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.logging.Logger;
-
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
-public class JobExecutionEnvironment {
-
-    private static final ILogger LOGGER = Logger.getLogger(JobExecutionEnvironment.class);
-
-    private final boolean isStartWithSavePoint;
-
-    private final JobConfig jobConfig;
-
-    private final List<Action> actions = new ArrayList<>();
-
-    private final Set<URL> jarUrls = new HashSet<>();
-
-    private final List<URL> commonPluginJars = new ArrayList<>();
+public class JobExecutionEnvironment extends AbstractJobEnvironment {
 
     private final String jobFilePath;
-
-    private final IdGenerator idGenerator;
 
     private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
 
@@ -78,35 +42,12 @@ public class JobExecutionEnvironment {
             SeaTunnelHazelcastClient seaTunnelHazelcastClient,
             boolean isStartWithSavePoint,
             Long jobId) {
-        this.jobConfig = jobConfig;
+        super(jobConfig, isStartWithSavePoint);
         this.jobFilePath = jobFilePath;
-        this.idGenerator = new IdGenerator();
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
         this.jobClient = new JobClient(seaTunnelHazelcastClient);
-        this.isStartWithSavePoint = isStartWithSavePoint;
         this.jobConfig.setJobContext(
                 new JobContext(isStartWithSavePoint ? jobId : jobClient.getNewJobId()));
-        this.commonPluginJars.addAll(searchPluginJars());
-        this.commonPluginJars.addAll(
-                new ArrayList<>(
-                        Common.getThirdPartyJars(
-                                        jobConfig
-                                                .getEnvOptions()
-                                                .getOrDefault(EnvCommonOptions.JARS.key(), "")
-                                                .toString())
-                                .stream()
-                                .map(Path::toUri)
-                                .map(
-                                        uri -> {
-                                            try {
-                                                return uri.toURL();
-                                            } catch (MalformedURLException e) {
-                                                throw new SeaTunnelEngineException(
-                                                        "the uri of jar illegal:" + uri, e);
-                                            }
-                                        })
-                                .collect(Collectors.toList())));
-        LOGGER.info("add common jar in plugins :" + commonPluginJars);
     }
 
     public JobExecutionEnvironment(
@@ -117,25 +58,10 @@ public class JobExecutionEnvironment {
     }
 
     /** Search all jars in SEATUNNEL_HOME/plugins */
-    private Set<URL> searchPluginJars() {
-        try {
-            if (Files.exists(Common.pluginRootDir())) {
-                return new HashSet<>(FileUtils.searchJarFiles(Common.pluginRootDir()));
-            }
-        } catch (IOException | SeaTunnelEngineException e) {
-            LOGGER.warning(
-                    String.format("Can't search plugin jars in %s.", Common.pluginRootDir()), e);
-        }
-        return Collections.emptySet();
-    }
-
-    private MultipleTableJobConfigParser getJobConfigParser() {
+    @Override
+    protected MultipleTableJobConfigParser getJobConfigParser() {
         return new MultipleTableJobConfigParser(
-                jobFilePath, idGenerator, jobConfig, commonPluginJars);
-    }
-
-    private LogicalDagGenerator getLogicalDagGenerator() {
-        return new LogicalDagGenerator(actions, jobConfig, idGenerator);
+                jobFilePath, idGenerator, jobConfig, commonPluginJars, isStartWithSavePoint);
     }
 
     public ClientJobProxy execute() throws ExecutionException, InterruptedException {
@@ -149,12 +75,5 @@ public class JobExecutionEnvironment {
                         new ArrayList<>(jarUrls));
 
         return jobClient.createJobProxy(jobImmutableInformation);
-    }
-
-    private LogicalDag getLogicalDag() {
-        ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
-        actions.addAll(immutablePair.getLeft());
-        jarUrls.addAll(immutablePair.getRight());
-        return getLogicalDagGenerator().generate();
     }
 }

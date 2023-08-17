@@ -147,6 +147,12 @@ public class JobMaster {
 
     private CheckpointConfig jobCheckpointConfig;
 
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    private String errorMessage;
+
     public JobMaster(
             @NonNull Data jobImmutableInformationData,
             @NonNull NodeEngine nodeEngine,
@@ -258,10 +264,6 @@ public class JobMaster {
         CheckpointConfig jobCheckpointConfig = new CheckpointConfig();
         jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
-        jobCheckpointConfig.setMaxConcurrentCheckpoints(
-                defaultCheckpointConfig.getMaxConcurrentCheckpoints());
-        jobCheckpointConfig.setTolerableFailureCheckpoints(
-                defaultCheckpointConfig.getTolerableFailureCheckpoints());
 
         CheckpointStorageConfig jobCheckpointStorageConfig = new CheckpointStorageConfig();
         jobCheckpointStorageConfig.setStorage(defaultCheckpointConfig.getStorage().getStorage());
@@ -273,7 +275,8 @@ public class JobMaster {
 
         if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
             jobCheckpointConfig.setCheckpointInterval(
-                    (Long) jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
+                    Long.parseLong(
+                            jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()).toString()));
         }
         return jobCheckpointConfig;
     }
@@ -289,6 +292,7 @@ public class JobMaster {
                             if (JobStatus.FAILING.equals(v.getStatus())) {
                                 physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
                             }
+                            JobMaster.this.errorMessage = v.getError();
                             JobResult jobResult =
                                     new JobResult(physicalPlan.getJobStatus(), v.getError());
                             cleanJob();
@@ -325,7 +329,10 @@ public class JobMaster {
         }
     }
 
-    public void handleCheckpointError(long pipelineId) {
+    public void handleCheckpointError(long pipelineId, boolean neverRestore) {
+        if (neverRestore) {
+            this.neverNeedRestore();
+        }
         this.physicalPlan
                 .getPipelineList()
                 .forEach(
