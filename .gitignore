@@ -47,5 +47,3 @@ Test.scala
 test.conf
 spark-warehouse
 *.flattened-pom.xml
-
-seatunnel-examples
