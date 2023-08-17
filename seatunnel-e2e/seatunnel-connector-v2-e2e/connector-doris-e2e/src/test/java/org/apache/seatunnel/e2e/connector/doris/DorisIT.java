@@ -98,6 +98,7 @@ public class DorisIT extends TestSuiteBase implements TestResource {
                     + "  F_TINYINT,\n"
                     + "  F_SMALLINT,\n"
                     + "  F_DECIMAL,\n"
+                    + "  F_LARGEINT,\n"
                     + "  F_BOOLEAN,\n"
                     + "  F_DOUBLE,\n"
                     + "  F_FLOAT,\n"
@@ -108,11 +109,11 @@ public class DorisIT extends TestSuiteBase implements TestResource {
                     + "  F_DATETIME,\n"
                     + "  F_DATE\n"
                     + ")values(\n"
-                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
+                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
                     + ")";
 
     private final String COLUMN_STRING =
-            "F_ID, F_INT, F_BIGINT, F_TINYINT, F_SMALLINT, F_DECIMAL, F_BOOLEAN, F_DOUBLE, F_FLOAT, "
+            "F_ID, F_INT, F_BIGINT, F_TINYINT, F_SMALLINT, F_DECIMAL, F_LARGEINT, F_BOOLEAN, F_DOUBLE, F_FLOAT, "
                     + "F_CHAR, F_VARCHAR_11, F_STRING, F_DATETIME_P, F_DATETIME, F_DATE";
 
     @BeforeAll
@@ -274,6 +275,7 @@ public class DorisIT extends TestSuiteBase implements TestResource {
                         + "F_TINYINT tinyint null,\n"
                         + "F_SMALLINT smallint null,\n"
                         + "F_DECIMAL decimal(18,6) null,\n"
+                        + "F_LARGEINT largeint null,\n"
                         + "F_BOOLEAN boolean null,\n"
                         + "F_DOUBLE double null,\n"
                         + "F_FLOAT float null,\n"
@@ -326,6 +328,7 @@ public class DorisIT extends TestSuiteBase implements TestResource {
                                 GenerateTestData.genTinyint(),
                                 GenerateTestData.genSmallint(),
                                 GenerateTestData.genBigDecimal(18, 6),
+                                GenerateTestData.genBigInteger(126),
                                 GenerateTestData.genBoolean(),
                                 GenerateTestData.genDouble(),
                                 GenerateTestData.genFloat(0, 1000),

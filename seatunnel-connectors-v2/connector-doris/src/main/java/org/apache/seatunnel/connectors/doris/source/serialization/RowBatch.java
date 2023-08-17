@@ -48,7 +48,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -89,7 +88,13 @@ public class RowBatch {
             this.root = arrowStreamReader.getVectorSchemaRoot();
             while (arrowStreamReader.loadNextBatch()) {
                 fieldVectors = root.getFieldVectors();
-
+                // 适配 unique 模型隐藏列
+                for (int i = 0; i < fieldVectors.size(); i++) {
+                    String fieldName = fieldVectors.get(i).getField().getName();
+                    if (fieldName.equals("__DORIS_DELETE_SIGN__")) {
+                        fieldVectors.remove(fieldVectors.get(i));
+                    }
+                }
                 if (fieldVectors.size() != fieldTypes.length) {
                     log.error(
                             "Schema size '{}' is not equal to arrow field size '{}'.",
@@ -285,10 +290,15 @@ public class RowBatch {
                                     return null;
                                 }
                                 byte[] bytes = fixedSizeBinaryVector.get(rowIndex);
-                                new String(bytes, StandardCharsets.UTF_8);
-                                BigInteger value = new BigInteger(bytes);
-                                System.out.println(value);
-                                return value.toString();
+                                int left = 0, right = bytes.length - 1;
+                                while (left < right) {
+                                    byte temp = bytes[left];
+                                    bytes[left] = bytes[right];
+                                    bytes[right] = temp;
+                                    left++;
+                                    right--;
+                                }
+                                return new BigInteger(bytes).toString();
                             });
                     break;
                 }

@@ -59,7 +59,7 @@ public class GenerateTestData {
     }
 
     public static BigInteger genBigInteger(int bits) {
-        if (bits > 128) bits = 128;
+        if (bits > 128) bits = 127;
         return new BigInteger(bits, ThreadLocalRandom.current());
     }
 

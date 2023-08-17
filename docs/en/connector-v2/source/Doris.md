@@ -42,7 +42,7 @@ directly return the data
 | TINYINT                              | TINYINT                                                                                                                                             |
 | SMALLINT                             | SMALLINT                                                                                                                                            |
 | BIGINT                               | BIGINT                                                                                                                                              |
-| LARGEINT                             | `NOT SUPPORT`                                                                                                                                       |
+| LARGEINT                             | STRING                                                                                                                                              |
 | BOOLEAN                              | BOOLEAN                                                                                                                                             |
 | DECIMAL                              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
 | FLOAT                                | FLOAT                                                                                                                                               |
