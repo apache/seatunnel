@@ -345,7 +345,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
                 PreparedStatement ps =
                         conn.prepareStatement(
-                                String.format("DROP DATABASE IF EXISTS `%s`;", databaseName))) {
+                                String.format("DROP DATABASE IF EXISTS [%s];", databaseName))) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(

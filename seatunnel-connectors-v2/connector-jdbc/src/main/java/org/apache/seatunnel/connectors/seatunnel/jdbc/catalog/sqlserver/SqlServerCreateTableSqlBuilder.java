@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -117,7 +118,7 @@ public class SqlServerCreateTableSqlBuilder {
 
     public String build(TablePath tablePath, CatalogTable catalogTable) {
         List<String> sqls = new ArrayList<>();
-        String sqlTableName = tablePath.getFullName();
+        String sqlTableName = tablePath.getFullNameWithQuoted("[", "]");
         Map<String, String> columnComments = new HashMap<>();
         sqls.add(
                 String.format(
@@ -137,6 +138,9 @@ public class SqlServerCreateTableSqlBuilder {
             sqls.add("COLLATE = " + collate);
         }
         String sqlTableSql = String.join(" ", sqls) + ";";
+        sqlTableSql =
+                CatalogUtils.quoteIdentifier(
+                        sqlTableSql, catalogTable.getOptions().get("fieldIde"));
         StringBuilder tableAndColumnComment = new StringBuilder();
         if (comment != null) {
             sqls.add("COMMENT = '" + comment + "'");
@@ -185,7 +189,7 @@ public class SqlServerCreateTableSqlBuilder {
     private String buildColumnIdentifySql(
             Column column, String catalogName, Map<String, String> columnComments) {
         final List<String> columnSqls = new ArrayList<>();
-        columnSqls.add(column.getName());
+        columnSqls.add("[" + column.getName() + "]");
         String tyNameDef = "";
         if (StringUtils.equals(catalogName, "sqlserver")) {
             columnSqls.add(column.getSourceType());
@@ -267,7 +271,10 @@ public class SqlServerCreateTableSqlBuilder {
 
     private String buildPrimaryKeySql() {
         //                        .map(columnName -> "`" + columnName + "`")
-        String key = String.join(", ", primaryKey.getColumnNames());
+        String key =
+                primaryKey.getColumnNames().stream()
+                        .map(columnName -> "[" + columnName + "]")
+                        .collect(Collectors.joining(", "));
         // add sort type
         return String.format("PRIMARY KEY (%s)", key);
     }

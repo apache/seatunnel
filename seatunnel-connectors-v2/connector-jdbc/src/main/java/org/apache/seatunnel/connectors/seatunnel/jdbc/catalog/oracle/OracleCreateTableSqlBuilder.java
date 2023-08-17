@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -45,20 +46,26 @@ public class OracleCreateTableSqlBuilder {
     }
 
     public String build(TablePath tablePath) {
+        return build(tablePath, "");
+    }
+
+    public String build(TablePath tablePath, String fieldIde) {
         StringBuilder createTableSql = new StringBuilder();
         createTableSql
                 .append("CREATE TABLE ")
-                .append(tablePath.getSchemaAndTableName())
+                .append(tablePath.getSchemaAndTableName("\""))
                 .append(" (\n");
 
         List<String> columnSqls =
-                columns.stream().map(this::buildColumnSql).collect(Collectors.toList());
+                columns.stream()
+                        .map(column -> CatalogUtils.getFieldIde(buildColumnSql(column), fieldIde))
+                        .collect(Collectors.toList());
 
         // Add primary key directly in the create table statement
         if (primaryKey != null
                 && primaryKey.getColumnNames() != null
                 && primaryKey.getColumnNames().size() > 0) {
-            columnSqls.add(buildPrimaryKeySql(primaryKey));
+            columnSqls.add(buildPrimaryKeySql(primaryKey, fieldIde));
         }
 
         createTableSql.append(String.join(",\n", columnSqls));
@@ -70,7 +77,9 @@ public class OracleCreateTableSqlBuilder {
                         .map(
                                 column ->
                                         buildColumnCommentSql(
-                                                column, tablePath.getSchemaAndTableName()))
+                                                column,
+                                                tablePath.getSchemaAndTableName("\""),
+                                                fieldIde))
                         .collect(Collectors.toList());
 
         if (!commentSqls.isEmpty()) {
@@ -83,7 +92,7 @@ public class OracleCreateTableSqlBuilder {
 
     private String buildColumnSql(Column column) {
         StringBuilder columnSql = new StringBuilder();
-        columnSql.append(column.getName()).append(" ");
+        columnSql.append("\"").append(column.getName()).append("\" ");
 
         String columnType =
                 sourceCatalogName.equals("oracle")
@@ -138,9 +147,13 @@ public class OracleCreateTableSqlBuilder {
         }
     }
 
-    private String buildPrimaryKeySql(PrimaryKey primaryKey) {
+    private String buildPrimaryKeySql(PrimaryKey primaryKey, String fieldIde) {
         String randomSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
-        String columnNamesString = String.join(", ", primaryKey.getColumnNames());
+        //        String columnNamesString = String.join(", ", primaryKey.getColumnNames());
+        String columnNamesString =
+                primaryKey.getColumnNames().stream()
+                        .map(columnName -> "\"" + columnName + "\"")
+                        .collect(Collectors.joining(", "));
 
         // In Oracle database, the maximum length for an identifier is 30 characters.
         String primaryKeyStr = primaryKey.getPrimaryKey();
@@ -148,21 +161,26 @@ public class OracleCreateTableSqlBuilder {
             primaryKeyStr = primaryKeyStr.substring(0, 25);
         }
 
-        return "CONSTRAINT "
-                + primaryKeyStr
-                + "_"
-                + randomSuffix
-                + " PRIMARY KEY ("
-                + columnNamesString
-                + ")";
+        return CatalogUtils.getFieldIde(
+                "CONSTRAINT "
+                        + primaryKeyStr
+                        + "_"
+                        + randomSuffix
+                        + " PRIMARY KEY ("
+                        + columnNamesString
+                        + ")",
+                fieldIde);
     }
 
-    private String buildColumnCommentSql(Column column, String tableName) {
+    private String buildColumnCommentSql(Column column, String tableName, String fieldIde) {
         StringBuilder columnCommentSql = new StringBuilder();
-        columnCommentSql.append("COMMENT ON COLUMN ").append(tableName).append(".");
         columnCommentSql
-                .append(column.getName())
-                .append(" IS '")
+                .append(CatalogUtils.quoteIdentifier("COMMENT ON COLUMN ", fieldIde))
+                .append(tableName)
+                .append(".");
+        columnCommentSql
+                .append(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "\""))
+                .append(CatalogUtils.quoteIdentifier(" IS '", fieldIde))
                 .append(column.getComment())
                 .append("'");
         return columnCommentSql.toString();

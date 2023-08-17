@@ -57,6 +57,10 @@ public final class TablePath implements Serializable {
         return String.format("%s.%s", schemaName, tableName);
     }
 
+    public String getSchemaAndTableName(String quote) {
+        return String.format("%s%s%s.%s%s%s", quote, schemaName, quote, quote, tableName, quote);
+    }
+
     public String getFullName() {
         if (schemaName == null) {
             return String.format("%s.%s", databaseName, tableName);
@@ -76,6 +80,25 @@ public final class TablePath implements Serializable {
         return String.format(
                 "%s%s%s.%s%s%s.%s%s%s",
                 quote, databaseName, quote, quote, schemaName, quote, quote, tableName, quote);
+    }
+
+    public String getFullNameWithQuoted(String quoteLeft, String quoteRight) {
+        if (schemaName == null) {
+            return String.format(
+                    "%s%s%s.%s%s%s",
+                    quoteLeft, databaseName, quoteRight, quoteLeft, tableName, quoteRight);
+        }
+        return String.format(
+                "%s%s%s.%s%s%s.%s%s%s",
+                quoteLeft,
+                databaseName,
+                quoteRight,
+                quoteLeft,
+                schemaName,
+                quoteRight,
+                quoteLeft,
+                tableName,
+                quoteRight);
     }
 
     @Override

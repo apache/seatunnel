@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -115,12 +116,13 @@ public class MysqlCreateTableSqlBuilder {
         return this;
     }
 
-    public String build(String catalogName) {
+    public String build(String catalogName, String fieldIde) {
         List<String> sqls = new ArrayList<>();
         sqls.add(
                 String.format(
                         "CREATE TABLE IF NOT EXISTS %s (\n%s\n)",
-                        tableName, buildColumnsIdentifySql(catalogName)));
+                        CatalogUtils.quoteIdentifier(tableName, fieldIde, "`"),
+                        buildColumnsIdentifySql(catalogName, fieldIde)));
         if (engine != null) {
             sqls.add("ENGINE = " + engine);
         }
@@ -136,13 +138,13 @@ public class MysqlCreateTableSqlBuilder {
         return String.join(" ", sqls) + ";";
     }
 
-    private String buildColumnsIdentifySql(String catalogName) {
+    private String buildColumnsIdentifySql(String catalogName, String fieldIde) {
         List<String> columnSqls = new ArrayList<>();
         for (Column column : columns) {
-            columnSqls.add("\t" + buildColumnIdentifySql(column, catalogName));
+            columnSqls.add("\t" + buildColumnIdentifySql(column, catalogName, fieldIde));
         }
         if (primaryKey != null) {
-            columnSqls.add("\t" + buildPrimaryKeySql());
+            columnSqls.add("\t" + buildPrimaryKeySql(fieldIde));
         }
         if (CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
@@ -155,9 +157,9 @@ public class MysqlCreateTableSqlBuilder {
         return String.join(", \n", columnSqls);
     }
 
-    private String buildColumnIdentifySql(Column column, String catalogName) {
+    private String buildColumnIdentifySql(Column column, String catalogName, String fieldIde) {
         final List<String> columnSqls = new ArrayList<>();
-        columnSqls.add(column.getName());
+        columnSqls.add(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "`"));
         if (StringUtils.equals(catalogName, "mysql")) {
             columnSqls.add(column.getSourceType());
         } else {
@@ -237,13 +239,13 @@ public class MysqlCreateTableSqlBuilder {
         return String.join(" ", columnSqls);
     }
 
-    private String buildPrimaryKeySql() {
+    private String buildPrimaryKeySql(String fieldIde) {
         String key =
                 primaryKey.getColumnNames().stream()
                         .map(columnName -> "`" + columnName + "`")
                         .collect(Collectors.joining(", "));
         // add sort type
-        return String.format("PRIMARY KEY (%s)", key);
+        return String.format("PRIMARY KEY (%s)", CatalogUtils.quoteIdentifier(key, fieldIde));
     }
 
     private String buildConstraintKeySql(ConstraintKey constraintKey) {
