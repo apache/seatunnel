@@ -208,7 +208,8 @@ public class ClickhouseSinkWriter
             }
             return false;
         } catch (SQLException e) {
-            throw new ClickhouseConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, e);
+            log.warn("Failed to get clickhouse server config: {}", configKey, e);
+            return false;
         }
     }
 }
