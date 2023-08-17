@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecutingOperation;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
+import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
@@ -89,6 +90,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int CHECK_TASKGROUP_IS_EXECUTING = 21;
 
+    public static final int GET_METRICS_OPERATION = 22;
+
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
                     SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -151,6 +154,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new SourceReaderEventOperation();
                 case CHECK_TASKGROUP_IS_EXECUTING:
                     return new CheckTaskGroupIsExecutingOperation();
+                case GET_METRICS_OPERATION:
+                    return new GetMetricsOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

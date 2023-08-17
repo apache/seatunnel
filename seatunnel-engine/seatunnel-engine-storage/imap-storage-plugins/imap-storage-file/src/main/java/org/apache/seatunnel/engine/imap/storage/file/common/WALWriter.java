@@ -21,57 +21,37 @@
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
+import org.apache.seatunnel.engine.imap.storage.file.wal.DiscoveryWalFileFactory;
+import org.apache.seatunnel.engine.imap.storage.file.wal.writer.IFileWriter;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.DFSOutputStream;
-import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
 
 import java.io.IOException;
-import java.util.EnumSet;
 
 public class WALWriter implements AutoCloseable {
 
-    FSDataOutputStream out;
+    IFileWriter writer;
 
-    Serializer serializer;
-
-    public WALWriter(FileSystem fs, Path parentPath, Serializer serializer) throws IOException {
-        Path path = new Path(parentPath, "wal.txt");
-        this.out = fs.create(path);
-        this.serializer = serializer;
+    public WALWriter(
+            FileSystem fs,
+            FileConfiguration fileConfiguration,
+            Path parentPath,
+            Serializer serializer)
+            throws IOException {
+        this.writer = DiscoveryWalFileFactory.getWriter(fileConfiguration.getName());
+        this.writer.setBlockSize(fileConfiguration.getConfiguration().getBlockSize());
+        this.writer.initialize(fs, parentPath, serializer);
     }
 
     public void write(IMapFileData data) throws IOException {
-        byte[] bytes = serializer.serialize(data);
-        this.write(bytes);
-    }
-
-    public void flush() throws IOException {
-        // hsync to flag
-        if (out instanceof HdfsDataOutputStream) {
-            ((HdfsDataOutputStream) out)
-                    .hsync(EnumSet.of(HdfsDataOutputStream.SyncFlag.UPDATE_LENGTH));
-        }
-        if (out.getWrappedStream() instanceof DFSOutputStream) {
-            ((DFSOutputStream) out.getWrappedStream())
-                    .hsync(EnumSet.of(HdfsDataOutputStream.SyncFlag.UPDATE_LENGTH));
-        } else {
-            out.hsync();
-        }
-        this.out.hflush();
-    }
-
-    private void write(byte[] bytes) throws IOException {
-        byte[] data = WALDataUtils.wrapperBytes(bytes);
-        this.out.write(data);
-        this.flush();
+        this.writer.write(data);
     }
 
     @Override
     public void close() throws Exception {
-        out.close();
+        this.writer.close();
     }
 }

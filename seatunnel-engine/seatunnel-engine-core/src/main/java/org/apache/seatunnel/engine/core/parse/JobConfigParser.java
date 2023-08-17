@@ -63,12 +63,16 @@ import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParse
 public class JobConfigParser {
     private static final ILogger LOGGER = Logger.getLogger(JobConfigParser.class);
     private IdGenerator idGenerator;
-
+    private boolean isStartWithSavePoint;
     private List<URL> commonPluginJars;
 
-    public JobConfigParser(@NonNull IdGenerator idGenerator, @NonNull List<URL> commonPluginJars) {
+    public JobConfigParser(
+            @NonNull IdGenerator idGenerator,
+            @NonNull List<URL> commonPluginJars,
+            boolean isStartWithSavePoint) {
         this.idGenerator = idGenerator;
         this.commonPluginJars = commonPluginJars;
+        this.isStartWithSavePoint = isStartWithSavePoint;
     }
 
     public Tuple2<CatalogTable, Action> parseSource(
@@ -190,7 +194,9 @@ public class JobConfigParser {
         sink.prepare(config);
         sink.setJobContext(jobConfig.getJobContext());
         sink.setTypeInfo(rowType);
-        handleSaveMode(sink);
+        if (!isStartWithSavePoint) {
+            handleSaveMode(sink);
+        }
         final String actionName =
                 createSinkActionName(0, tuple.getLeft().getPluginName(), getTableName(config));
         final SinkAction action =

@@ -19,20 +19,23 @@ package org.apache.seatunnel.e2e.connector.cdc.sqlserver;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.awaitility.Awaitility;
 import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
@@ -63,14 +66,12 @@ import static org.awaitility.Awaitility.await;
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "")
+        disabledReason = "Currently SPARK and FLINK do not support cdc")
 public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String HOST = "sqlserver-host";
 
     private static final int PORT = 1433;
-
-    protected static final Logger LOG = LoggerFactory.getLogger(SqlServerCDCIT.class);
 
     private static final String STATEMENTS_PLACEHOLDER = "#";
 
@@ -90,7 +91,25 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                     .withEnv("MSSQL_PID", "Standard")
                     .withNetwork(NETWORK)
                     .withNetworkAliases(HOST)
-                    .withLogConsumer(new Slf4jLogConsumer(LOG));
+                    .withLogConsumer(
+                            new Slf4jLogConsumer(
+                                    DockerLoggerFactory.getLogger("sqlserver-docker-image")));
+
+    private String driverUrl() {
+        return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
+    }
+
+    @TestContainerExtension
+    protected final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/SqlServer-CDC/lib && cd /tmp/seatunnel/plugins/SqlServer-CDC/lib && wget "
+                                        + driverUrl());
+                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+            };
 
     @Override
     @BeforeAll
@@ -105,15 +124,14 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     @Override
     @AfterAll
     public void tearDown() throws Exception {
-        LOG.info("Stopping containers...");
+        log.info("Stopping containers...");
         if (MSSQL_SERVER_CONTAINER != null) {
             MSSQL_SERVER_CONTAINER.stop();
         }
-        LOG.info("Containers are stopped.");
+        log.info("Containers are stopped.");
     }
 
-    // Temporary disabled because the test can not be executed successfully
-    // https://github.com/apache/incubator-seatunnel/issues/3827
+    @TestTemplate
     public void test(TestContainer container) throws IOException, InterruptedException {
         initializeSqlServerTable("column_type_test");
 
@@ -140,11 +158,6 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         updateSourceTable();
 
         // stream stage
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertEquals(4, querySql(SINK_SQL).size());
-                        });
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
@@ -284,7 +297,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     connection.createStatement().execute(sql);
                                     return true;
                                 } catch (SQLException e) {
-                                    LOG.warn(
+                                    log.warn(
                                             String.format(
                                                     "DROP DATABASE %s failed (will be retried): {}",
                                                     databaseName),
@@ -297,7 +310,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                                                 "ALTER DATABASE [%s] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;",
                                                                 databaseName));
                                     } catch (SQLException e2) {
-                                        LOG.error("Failed to rollbackimmediately", e2);
+                                        log.error("Failed to rollbackimmediately", e2);
                                     }
                                     return false;
                                 }

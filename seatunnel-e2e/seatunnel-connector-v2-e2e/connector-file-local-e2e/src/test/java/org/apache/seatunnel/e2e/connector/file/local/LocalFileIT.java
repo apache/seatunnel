@@ -20,91 +20,90 @@ package org.apache.seatunnel.e2e.connector.file.local;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.container.TestHelper;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
-import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
-import java.nio.file.Path;
 
+@DisabledOnContainer(
+        value = {TestContainerId.SPARK_2_4},
+        type = {},
+        disabledReason = "The apache-compress version is not compatible with apache-poi")
 public class LocalFileIT extends TestSuiteBase {
 
     /** Copy data files to container */
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                Path jsonPath = ContainerUtil.getResourcesFile("/json/e2e.json").toPath();
-                Path orcPath = ContainerUtil.getResourcesFile("/orc/e2e.orc").toPath();
-                Path parquetPath = ContainerUtil.getResourcesFile("/parquet/e2e.parquet").toPath();
-                Path textPath = ContainerUtil.getResourcesFile("/text/e2e.txt").toPath();
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(jsonPath),
-                        "/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json");
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(orcPath),
-                        "/seatunnel/read/orc/name=tyrantlucifer/hobby=coding/e2e.orc");
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(parquetPath),
-                        "/seatunnel/read/parquet/name=tyrantlucifer/hobby=coding/e2e.parquet");
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(textPath),
-                        "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt");
+                ContainerUtil.copyFileIntoContainers(
+                        "/json/e2e.json",
+                        "/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
+                        container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/text/e2e.txt",
+                        "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
+                        container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/excel/e2e.xlsx",
+                        "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
+                        container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/orc/e2e.orc",
+                        "/seatunnel/read/orc/name=tyrantlucifer/hobby=coding/e2e.orc",
+                        container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/parquet/e2e.parquet",
+                        "/seatunnel/read/parquet/name=tyrantlucifer/hobby=coding/e2e.parquet",
+                        container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/excel/e2e.xlsx",
+                        "/seatunnel/read/excel_filter/name=tyrantlucifer/hobby=coding/e2e_filter.xlsx",
+                        container);
             };
 
     @TestTemplate
     public void testLocalFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+
+        helper.execute("/excel/fake_to_local_excel.conf");
+        helper.execute("/excel/local_excel_to_assert.conf");
+        helper.execute("/excel/local_excel_projection_to_assert.conf");
         // test write local text file
-        Container.ExecResult textWriteResult =
-                container.executeJob("/text/fake_to_local_file_text.conf");
-        Assertions.assertEquals(0, textWriteResult.getExitCode());
+        helper.execute("/text/fake_to_local_file_text.conf");
         // test read skip header
-        Container.ExecResult textWriteAndSkipResult =
-                container.executeJob("/text/local_file_text_skip_headers.conf");
-        Assertions.assertEquals(0, textWriteAndSkipResult.getExitCode());
+        helper.execute("/text/local_file_text_skip_headers.conf");
         // test read local text file
-        Container.ExecResult textReadResult =
-                container.executeJob("/text/local_file_text_to_assert.conf");
-        Assertions.assertEquals(0, textReadResult.getExitCode());
+        helper.execute("/text/local_file_text_to_assert.conf");
         // test read local text file with projection
-        Container.ExecResult textProjectionResult =
-                container.executeJob("/text/local_file_text_projection_to_assert.conf");
-        Assertions.assertEquals(0, textProjectionResult.getExitCode());
+        helper.execute("/text/local_file_text_projection_to_assert.conf");
         // test write local json file
-        Container.ExecResult jsonWriteResult =
-                container.executeJob("/json/fake_to_local_file_json.conf");
-        Assertions.assertEquals(0, jsonWriteResult.getExitCode());
+        helper.execute("/json/fake_to_local_file_json.conf");
         // test read local json file
-        Container.ExecResult jsonReadResult =
-                container.executeJob("/json/local_file_json_to_assert.conf");
-        Assertions.assertEquals(0, jsonReadResult.getExitCode());
+        helper.execute("/json/local_file_json_to_assert.conf");
         // test write local orc file
-        Container.ExecResult orcWriteResult =
-                container.executeJob("/orc/fake_to_local_file_orc.conf");
-        Assertions.assertEquals(0, orcWriteResult.getExitCode());
+        helper.execute("/orc/fake_to_local_file_orc.conf");
         // test read local orc file
-        Container.ExecResult orcReadResult =
-                container.executeJob("/orc/local_file_orc_to_assert.conf");
-        Assertions.assertEquals(0, orcReadResult.getExitCode());
+        helper.execute("/orc/local_file_orc_to_assert.conf");
         // test read local orc file with projection
-        Container.ExecResult orcProjectionResult =
-                container.executeJob("/orc/local_file_orc_projection_to_assert.conf");
-        Assertions.assertEquals(0, orcProjectionResult.getExitCode());
+        helper.execute("/orc/local_file_orc_projection_to_assert.conf");
         // test write local parquet file
-        Container.ExecResult parquetWriteResult =
-                container.executeJob("/parquet/fake_to_local_file_parquet.conf");
-        Assertions.assertEquals(0, parquetWriteResult.getExitCode());
+        helper.execute("/parquet/fake_to_local_file_parquet.conf");
         // test read local parquet file
-        Container.ExecResult parquetReadResult =
-                container.executeJob("/parquet/local_file_parquet_to_assert.conf");
-        Assertions.assertEquals(0, parquetReadResult.getExitCode());
+        helper.execute("/parquet/local_file_parquet_to_assert.conf");
         // test read local parquet file with projection
-        Container.ExecResult parquetProjectionResult =
-                container.executeJob("/parquet/local_file_parquet_projection_to_assert.conf");
-        Assertions.assertEquals(0, parquetProjectionResult.getExitCode());
+        helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
+        // test read filtered local file
+        helper.execute("/excel/local_filter_excel_to_assert.conf");
     }
 }

@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -28,14 +29,11 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcInputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
@@ -48,16 +46,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.auto.service.AutoService;
+import lombok.NoArgsConstructor;
 
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 
 @AutoService(SeaTunnelSource.class)
+@NoArgsConstructor
 public class JdbcSource
         implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState>,
                 SupportParallelism,
@@ -74,6 +70,23 @@ public class JdbcSource
 
     private String query;
 
+    public JdbcSource(
+            JdbcSourceConfig jdbcSourceConfig,
+            SeaTunnelRowType typeInfo,
+            JdbcDialect jdbcDialect,
+            JdbcInputFormat inputFormat,
+            PartitionParameter partitionParameter,
+            JdbcConnectionProvider jdbcConnectionProvider,
+            String query) {
+        this.jdbcSourceConfig = jdbcSourceConfig;
+        this.typeInfo = typeInfo;
+        this.jdbcDialect = jdbcDialect;
+        this.inputFormat = inputFormat;
+        this.partitionParameter = partitionParameter;
+        this.jdbcConnectionProvider = jdbcConnectionProvider;
+        this.query = query;
+    }
+
     @Override
     public String getPluginName() {
         return "Jdbc";
@@ -82,21 +95,30 @@ public class JdbcSource
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
+        ConfigValidator.of(config).validate(new JdbcSourceFactory().optionRule());
         this.jdbcSourceConfig = JdbcSourceConfig.of(config);
-        jdbcConnectionProvider =
+        this.jdbcConnectionProvider =
                 new SimpleJdbcConnectionProvider(jdbcSourceConfig.getJdbcConnectionConfig());
-        query = jdbcSourceConfig.getQuery();
-        jdbcDialect = JdbcDialectLoader.load(jdbcSourceConfig.getJdbcConnectionConfig().getUrl());
+        this.query = jdbcSourceConfig.getQuery();
+        this.jdbcDialect =
+                JdbcDialectLoader.load(
+                        jdbcSourceConfig.getJdbcConnectionConfig().getUrl(),
+                        jdbcSourceConfig.getJdbcConnectionConfig().getCompatibleMode());
         try (Connection connection = jdbcConnectionProvider.getOrEstablishConnection()) {
-            typeInfo = initTableField(connection);
-            partitionParameter =
-                    initPartitionParameterAndExtendSql(
-                            jdbcConnectionProvider.getOrEstablishConnection());
+            this.typeInfo = initTableField(connection);
+            this.partitionParameter =
+                    createPartitionParameter(jdbcConnectionProvider.getOrEstablishConnection());
         } catch (Exception e) {
             throw new PrepareFailException("jdbc", PluginType.SOURCE, e.toString());
         }
 
-        inputFormat =
+        if (partitionParameter != null) {
+            this.query =
+                    JdbcSourceFactory.obtainPartitionSql(
+                            jdbcDialect, partitionParameter, jdbcSourceConfig.getQuery());
+        }
+
+        this.inputFormat =
                 new JdbcInputFormat(
                         jdbcConnectionProvider,
                         jdbcDialect,
@@ -163,79 +185,18 @@ public class JdbcSource
                 seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[0]));
     }
 
-    private PartitionParameter initPartitionParameter(String columnName, Connection connection)
-            throws SQLException {
-        long max = Long.MAX_VALUE;
-        long min = Long.MIN_VALUE;
-        if (jdbcSourceConfig.getPartitionLowerBound().isPresent()
-                && jdbcSourceConfig.getPartitionUpperBound().isPresent()) {
-            max = jdbcSourceConfig.getPartitionUpperBound().get();
-            min = jdbcSourceConfig.getPartitionLowerBound().get();
-            return new PartitionParameter(
-                    columnName, min, max, jdbcSourceConfig.getPartitionNumber().orElse(null));
-        }
-        try (ResultSet rs =
-                connection
-                        .createStatement()
-                        .executeQuery(
-                                String.format(
-                                        "SELECT MAX(%s),MIN(%s) " + "FROM (%s) tt",
-                                        columnName, columnName, query))) {
-            if (rs.next()) {
-                max =
-                        jdbcSourceConfig.getPartitionUpperBound().isPresent()
-                                ? jdbcSourceConfig.getPartitionUpperBound().get()
-                                : Long.parseLong(rs.getString(1));
-                min =
-                        jdbcSourceConfig.getPartitionLowerBound().isPresent()
-                                ? jdbcSourceConfig.getPartitionLowerBound().get()
-                                : Long.parseLong(rs.getString(2));
-            }
-        }
-        return new PartitionParameter(
-                columnName, min, max, jdbcSourceConfig.getPartitionNumber().orElse(null));
-    }
-
-    private PartitionParameter initPartitionParameterAndExtendSql(Connection connection)
-            throws SQLException {
+    private PartitionParameter createPartitionParameter(Connection connection) {
         if (jdbcSourceConfig.getPartitionColumn().isPresent()) {
             String partitionColumn = jdbcSourceConfig.getPartitionColumn().get();
-            Map<String, SeaTunnelDataType<?>> fieldTypes = new HashMap<>();
-            for (int i = 0; i < typeInfo.getFieldNames().length; i++) {
-                fieldTypes.put(typeInfo.getFieldName(i), typeInfo.getFieldType(i));
-            }
-            if (!fieldTypes.containsKey(partitionColumn)) {
-                throw new JdbcConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        String.format("field %s not contain in query %s", partitionColumn, query));
-            }
-            SeaTunnelDataType<?> partitionColumnType = fieldTypes.get(partitionColumn);
-            if (!isNumericType(partitionColumnType)) {
-                throw new JdbcConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        String.format("%s is not numeric type", partitionColumn));
-            }
-            PartitionParameter partitionParameter =
-                    initPartitionParameter(partitionColumn, connection);
-            query =
-                    String.format(
-                            "SELECT * FROM (%s) tt where "
-                                    + partitionColumn
-                                    + " >= ? AND "
-                                    + partitionColumn
-                                    + " <= ?",
-                            query);
-
-            return partitionParameter;
+            SeaTunnelDataType<?> dataType =
+                    JdbcSourceFactory.validationPartitionColumn(partitionColumn, typeInfo);
+            return JdbcSourceFactory.createPartitionParameter(
+                    jdbcSourceConfig, partitionColumn, dataType, connection);
         } else {
             LOG.info(
                     "The partition_column parameter is not configured, and the source parallelism is set to 1");
         }
 
         return null;
-    }
-
-    private boolean isNumericType(SeaTunnelDataType<?> type) {
-        return type.equals(BasicType.INT_TYPE) || type.equals(BasicType.LONG_TYPE);
     }
 }

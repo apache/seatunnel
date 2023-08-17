@@ -36,7 +36,7 @@
     </properties>
 
     <build>
-        <finalName>apache-seatunnel-incubating-${project.version}</finalName>
+        <finalName>apache-seatunnel-${project.version}</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
@@ -86,6 +86,7 @@
             <properties>
                 <mysql.version>8.0.27</mysql.version>
                 <postgresql.version>42.4.3</postgresql.version>
+                <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
                 <dm-jdbc.version>8.1.2.141</dm-jdbc.version>
                 <sqlserver.version>9.2.1.jre8</sqlserver.version>
                 <phoenix.version>5.2.5-HBase-2.x</phoenix.version>
@@ -96,6 +97,14 @@
                 <tablestore.version>5.13.9</tablestore.version>
                 <teradata.version>17.20.00.12</teradata.version>
                 <redshift.version>2.1.0.9</redshift.version>
+                <snowflake.version>3.13.29</snowflake.version>
+
+                <!-- Imap storage dependency package  -->
+                <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
+                <json-smart.version>2.4.7</json-smart.version>
+                <hadoop-aws.version>3.1.4</hadoop-aws.version>
+                <aws-java-sdk.version>1.11.271</aws-java-sdk.version>
+                <netty-buffer.version>4.1.89.Final</netty-buffer.version>
             </properties>
             <dependencies>
                 <!-- starters -->
@@ -265,7 +274,13 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>connector-file-oss-jindo</artifactId>
+                    <artifactId>connector-file-jindo-oss</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-file-cos</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -332,6 +347,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-google-sheets</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-google-firestore</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -451,6 +472,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-mongodb</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-cdc-sqlserver</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -480,6 +507,20 @@
                     <scope>provided</scope>
                 </dependency>
 
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-rocketmq</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-paimon</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
                 <!-- jdbc driver -->
                 <dependency>
                     <groupId>com.aliyun.phoenix</groupId>
@@ -497,6 +538,12 @@
                     <groupId>org.postgresql</groupId>
                     <artifactId>postgresql</artifactId>
                     <version>${postgresql.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>net.postgis</groupId>
+                    <artifactId>postgis-jdbc</artifactId>
+                    <version>${postgis.jdbc.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
@@ -549,21 +596,37 @@
                     <version>${redshift.version}</version>
                     <scope>provided</scope>
                 </dependency>
+
+                <dependency>
+                    <groupId>net.snowflake</groupId>
+                    <artifactId>snowflake-jdbc</artifactId>
+                    <version>${snowflake.version}</version>
+                    <scope>provided</scope>
+                </dependency>
                 <!-- jdbc driver end -->
+
+                <dependency>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-buffer</artifactId>
+                    <version>${netty-buffer.version}</version>
+                    <scope>provided</scope>
+                </dependency>
 
                 <!-- hadoop jar -->
                 <dependency>
                     <groupId>org.apache.hadoop</groupId>
-                    <artifactId>hadoop-aws</artifactId>
-                    <version>3.1.4</version>
+                    <artifactId>hadoop-aliyun</artifactId>
+                    <version>${hadoop-aliyun.version}</version>
                     <scope>provided</scope>
                 </dependency>
+
                 <dependency>
-                    <groupId>com.amazonaws</groupId>
-                    <artifactId>aws-java-sdk-bundle</artifactId>
-                    <version>1.11.271</version>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-aws</artifactId>
+                    <version>${hadoop-aws.version}</version>
                     <scope>provided</scope>
                 </dependency>
+
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
@@ -643,7 +706,7 @@
                 </dependency>
             </dependencies>
             <build>
-                <finalName>apache-seatunnel-incubating-${project.version}</finalName>
+                <finalName>apache-seatunnel-${project.version}</finalName>
                 <plugins>
                     <plugin>
                         <artifactId>maven-assembly-plugin</artifactId>

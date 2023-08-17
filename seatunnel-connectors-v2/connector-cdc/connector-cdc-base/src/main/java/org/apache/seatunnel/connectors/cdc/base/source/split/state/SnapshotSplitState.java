@@ -28,6 +28,7 @@ import lombok.Setter;
 @Setter
 public class SnapshotSplitState extends SourceSplitStateBase {
 
+    private Offset lowWatermark;
     private Offset highWatermark;
 
     public SnapshotSplitState(SnapshotSplit split) {
@@ -43,6 +44,7 @@ public class SnapshotSplitState extends SourceSplitStateBase {
                 snapshotSplit.getSplitKeyType(),
                 snapshotSplit.getSplitStart(),
                 snapshotSplit.getSplitEnd(),
+                getLowWatermark(),
                 getHighWatermark());
     }
 }

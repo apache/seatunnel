@@ -26,6 +26,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] excel
 
 ## Options
 
@@ -40,8 +41,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                    |
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                    |
 | file_format_type                 | string  | no       | "csv"                                      |                                                           |
-| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format is text                        |
-| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format is text                        |
+| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format_type is text                   |
+| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format_type is text                   |
 | have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                   |
 | partition_by                     | array   | no       | -                                          | Only used then have_partition is true                     |
 | partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                     |
@@ -51,6 +52,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | batch_size                       | int     | no       | 1000000                                    |                                                           |
 | compress_codec                   | string  | no       | none                                       |                                                           |
 | common-options                   | object  | no       | -                                          |                                                           |
+| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                 |
+| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                 |
 
 ### host [string]
 
@@ -104,9 +107,9 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet`
+`text` `json` `csv` `orc` `parquet` `excel`
 
-Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
+Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
 ### field_delimiter [string]
 
@@ -169,9 +172,19 @@ The compress codec of files and the details that supported as the following show
 - orc: `lzo` `snappy` `lz4` `zlib` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
+Tips: excel type does not support any compression format
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+
+### max_rows_in_memory
+
+When File Format is Excel,The maximum number of data items that can be cached in the memory.
+
+### sheet_name
+
+Writer the sheet of the workbook
 
 ## Example
 
@@ -206,13 +219,13 @@ SftpFile {
 ### 2.3.0 2022-12-30
 
 - Add SftpFile Sink Connector
-- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
+- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/seatunnel/pull/3258))
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
-- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
+- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
 
 ### Next version
 
-- [Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+- [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
 

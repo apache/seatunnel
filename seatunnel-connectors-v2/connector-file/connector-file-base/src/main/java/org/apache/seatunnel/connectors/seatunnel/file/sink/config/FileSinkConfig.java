@@ -40,7 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 @Data
 public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfig {
@@ -65,6 +65,10 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
     private List<Integer> sinkColumnsIndexInRow;
 
     private List<Integer> partitionFieldsIndexInRow;
+
+    private int maxRowsInMemory;
+
+    private String sheetName;
 
     public FileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
@@ -166,6 +170,14 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
                     this.partitionFieldList.stream()
                             .map(columnsMap::get)
                             .collect(Collectors.toList());
+        }
+
+        if (config.hasPath(BaseSinkConfig.MAX_ROWS_IN_MEMORY.key())) {
+            this.maxRowsInMemory = config.getInt(BaseSinkConfig.MAX_ROWS_IN_MEMORY.key());
+        }
+
+        if (config.hasPath(BaseSinkConfig.SHEET_NAME.key())) {
+            this.sheetName = config.getString(BaseSinkConfig.SHEET_NAME.key());
         }
     }
 }

@@ -26,6 +26,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
   - [x] text
   - [x] csv
   - [x] json
+  - [x] excel
 
 ## Options
 
@@ -46,6 +47,8 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | skip_header_row_number    | long    | no       | 0                   |
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
+| sheet_name                | string  | no       | -                   |
+| file_filter_pattern       | string  | no       | -                   |
 
 ### host [string]
 
@@ -119,7 +122,7 @@ For example, set like following:
 
 `skip_header_row_number = 2`
 
-then Seatunnel will skip the first 2 lines from source files
+then SeaTunnel will skip the first 2 lines from source files
 
 ### schema [config]
 
@@ -136,6 +139,7 @@ The file type supported column projection as the following shown:
 - csv
 - orc
 - parquet
+- excel
 
 **Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
 
@@ -143,7 +147,7 @@ The file type supported column projection as the following shown:
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json`
+`text` `csv` `parquet` `orc` `json` `excel`
 
 If you assign file type to `json` , you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -220,6 +224,10 @@ connector will generate data as the following:
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
+### sheet_name [string]
+
+Reader the sheet of the workbook,Only used when file_format_type is excel.
+
 ## Example
 
 ```hocon
@@ -248,7 +256,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ### 2.3.0-beta 2022-10-20
 
-- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
-- [Improve] Support extract partition from SeaTunnelRow fields ([3085](https://github.com/apache/incubator-seatunnel/pull/3085))
-- [Improve] Support parse field from file path ([2985](https://github.com/apache/incubator-seatunnel/pull/2985))
+- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/seatunnel/pull/2980))
+- [Improve] Support extract partition from SeaTunnelRow fields ([3085](https://github.com/apache/seatunnel/pull/3085))
+- [Improve] Support parse field from file path ([2985](https://github.com/apache/seatunnel/pull/2985))
 

@@ -17,203 +17,188 @@
 
 package org.apache.seatunnel.e2e.connector.v2.mongodb;
 
-import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultSerializer;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Serializer;
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import org.awaitility.Awaitility;
 import org.bson.Document;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
-import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
-import com.mongodb.client.MongoCollection;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.time.Duration;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
-
-import static java.net.HttpURLConnection.HTTP_OK;
-import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
+import java.util.stream.Collectors;
 
 @Slf4j
-public class MongodbIT extends TestSuiteBase implements TestResource {
-
-    private static final String MONGODB_IMAGE = "mongo:latest";
-    private static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
-    private static final int MONGODB_PORT = 27017;
-    private static final String MONGODB_DATABASE = "test_db";
-    private static final String MONGODB_SOURCE_TABLE = "source_table";
-
-    private static final List<Document> TEST_DATASET = generateTestDataSet(0, 10);
-
-    private GenericContainer<?> mongodbContainer;
-    private MongoClient client;
+public class MongodbIT extends AbstractMongodbIT {
 
     @TestTemplate
-    public void testMongodbSourceToAssertSink(TestContainer container)
+    public void testMongodbSourceAndSink(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/mongodb_source_to_assert.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        Container.ExecResult insertResult = container.executeJob("/fake_source_to_mongodb.conf");
+        Assertions.assertEquals(0, insertResult.getExitCode(), insertResult.getStderr());
+
+        Container.ExecResult assertResult = container.executeJob("/mongodb_source_to_assert.conf");
+        Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
+        clearDate(MONGODB_SINK_TABLE);
     }
 
     @TestTemplate
-    public void testMongodb(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/mongodb_source_and_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-    }
-
-    @TestTemplate
-    public void testMongodbMatchQuery(TestContainer container)
+    public void testMongodbSourceMatch(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob("/mongodb_source_matchQuery_and_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        Container.ExecResult queryResult =
+                container.executeJob("/matchIT/mongodb_matchQuery_source_to_assert.conf");
+        Assertions.assertEquals(0, queryResult.getExitCode(), queryResult.getStderr());
+
+        Assertions.assertIterableEquals(
+                TEST_MATCH_DATASET.stream()
+                        .filter(x -> x.get("c_int").equals(2))
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()),
+                readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_MATCH_RESULT_TABLE);
+
+        Container.ExecResult projectionResult =
+                container.executeJob("/matchIT/mongodb_matchProjection_source_to_assert.conf");
+        Assertions.assertEquals(0, projectionResult.getExitCode(), projectionResult.getStderr());
+
+        Assertions.assertIterableEquals(
+                TEST_MATCH_DATASET.stream()
+                        .map(Document::new)
+                        .peek(document -> document.remove("c_bigint"))
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()),
+                readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_MATCH_RESULT_TABLE);
     }
 
-    public void initConnection() {
-        String host = mongodbContainer.getContainerIpAddress();
-        int port = mongodbContainer.getFirstMappedPort();
-        String url = String.format("mongodb://%s:%d/%s", host, port, MONGODB_DATABASE);
-        client = MongoClients.create(url);
+    @TestTemplate
+    public void testFakeSourceToUpdateMongodb(TestContainer container)
+            throws IOException, InterruptedException {
+
+        Container.ExecResult insertResult =
+                container.executeJob("/updateIT/fake_source_to_updateMode_insert_mongodb.conf");
+        Assertions.assertEquals(0, insertResult.getExitCode(), insertResult.getStderr());
+
+        Container.ExecResult updateResult =
+                container.executeJob("/updateIT/fake_source_to_update_mongodb.conf");
+        Assertions.assertEquals(0, updateResult.getExitCode(), updateResult.getStderr());
+
+        Container.ExecResult assertResult =
+                container.executeJob("/updateIT/update_mongodb_to_assert.conf");
+        Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
+
+        clearDate(MONGODB_UPDATE_TABLE);
     }
 
-    private void initSourceData(String database, String table, List<Document> documents) {
-        MongoCollection<Document> sourceTable = client.getDatabase(database).getCollection(table);
+    @TestTemplate
+    public void testFlatSyncString(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult insertResult =
+                container.executeJob("/flatIT/fake_source_to_flat_mongodb.conf");
+        Assertions.assertEquals(0, insertResult.getExitCode(), insertResult.getStderr());
 
-        sourceTable.deleteMany(new Document());
-        sourceTable.insertMany(documents);
+        Container.ExecResult assertResult =
+                container.executeJob("/flatIT/mongodb_flat_source_to_assert.conf");
+        Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
+
+        clearDate(MONGODB_FLAT_TABLE);
     }
 
-    private static List<Document> generateTestDataSet(int start, int end) {
-        SeaTunnelRowType seatunnelRowType =
-                new SeaTunnelRowType(
-                        new String[] {
-                            "id",
-                            "c_map",
-                            "c_array",
-                            "c_string",
-                            "c_boolean",
-                            "c_tinyint",
-                            "c_smallint",
-                            "c_int",
-                            "c_bigint",
-                            "c_float",
-                            "c_double",
-                            "c_decimal",
-                            "c_bytes",
-                            "c_date"
-                        },
-                        new SeaTunnelDataType[] {
-                            BasicType.LONG_TYPE,
-                            new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
-                            ArrayType.BYTE_ARRAY_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.BOOLEAN_TYPE,
-                            BasicType.BYTE_TYPE,
-                            BasicType.SHORT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.LONG_TYPE,
-                            BasicType.FLOAT_TYPE,
-                            BasicType.DOUBLE_TYPE,
-                            new DecimalType(2, 1),
-                            PrimitiveByteArrayType.INSTANCE,
-                            LocalTimeType.LOCAL_DATE_TYPE
-                        });
-        Serializer serializer = new DefaultSerializer(seatunnelRowType);
+    @TestTemplate
+    public void testMongodbSourceSplit(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult queryResult =
+                container.executeJob("/splitIT/mongodb_split_key_source_to_assert.conf");
+        Assertions.assertEquals(0, queryResult.getExitCode(), queryResult.getStderr());
 
-        List<Document> documents = new ArrayList<>();
-        for (int i = start; i < end; i++) {
-            SeaTunnelRow row =
-                    new SeaTunnelRow(
-                            new Object[] {
-                                Long.valueOf(i),
-                                Collections.singletonMap("key", Short.parseShort("1")),
-                                new Byte[] {Byte.parseByte("1")},
-                                "string",
-                                Boolean.FALSE,
-                                Byte.parseByte("1"),
-                                Short.parseShort("1"),
-                                Integer.parseInt("1"),
-                                Long.parseLong("1"),
-                                Float.parseFloat("1.1"),
-                                Double.parseDouble("1.1"),
-                                BigDecimal.valueOf(11, 1),
-                                "test".getBytes(),
-                                LocalDate.now()
-                            });
-            documents.add(serializer.serialize(row));
-        }
-        return documents;
+        Assertions.assertIterableEquals(
+                TEST_SPLIT_DATASET.stream()
+                        .map(Document::new)
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()),
+                readMongodbData(MONGODB_SPLIT_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_SPLIT_RESULT_TABLE);
+
+        Container.ExecResult projectionResult =
+                container.executeJob("/splitIT/mongodb_split_size_source_to_assert.conf");
+        Assertions.assertEquals(0, projectionResult.getExitCode(), projectionResult.getStderr());
+
+        Assertions.assertIterableEquals(
+                TEST_SPLIT_DATASET.stream()
+                        .map(Document::new)
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()),
+                readMongodbData(MONGODB_SPLIT_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_SPLIT_RESULT_TABLE);
     }
 
-    @BeforeAll
-    @Override
-    public void startUp() {
-        DockerImageName imageName = DockerImageName.parse(MONGODB_IMAGE);
-        mongodbContainer =
-                new GenericContainer<>(imageName)
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(MONGODB_CONTAINER_HOST)
-                        .withExposedPorts(MONGODB_PORT)
-                        .waitingFor(
-                                new HttpWaitStrategy()
-                                        .forPort(MONGODB_PORT)
-                                        .forStatusCodeMatching(
-                                                response ->
-                                                        response == HTTP_OK
-                                                                || response == HTTP_UNAUTHORIZED)
-                                        .withStartupTimeout(Duration.ofMinutes(2)))
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MONGODB_IMAGE)));
-        Startables.deepStart(Stream.of(mongodbContainer)).join();
-        log.info("Mongodb container started");
+    @TestTemplate
+    public void testCompatibleParameters(TestContainer container)
+            throws IOException, InterruptedException {
+        // `upsert-key` compatible test
+        Container.ExecResult insertResult =
+                container.executeJob("/updateIT/fake_source_to_updateMode_insert_mongodb.conf");
+        Assertions.assertEquals(0, insertResult.getExitCode(), insertResult.getStderr());
 
-        Awaitility.given()
-                .ignoreExceptions()
-                .atLeast(100, TimeUnit.MILLISECONDS)
-                .pollInterval(500, TimeUnit.MILLISECONDS)
-                .atMost(180, TimeUnit.SECONDS)
-                .untilAsserted(this::initConnection);
-        this.initSourceData(MONGODB_DATABASE, MONGODB_SOURCE_TABLE, TEST_DATASET);
+        Container.ExecResult updateResult =
+                container.executeJob("/compatibleParametersIT/fake_source_to_update_mongodb.conf");
+        Assertions.assertEquals(0, updateResult.getExitCode(), updateResult.getStderr());
+
+        Container.ExecResult assertResult =
+                container.executeJob("/updateIT/update_mongodb_to_assert.conf");
+        Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
+
+        clearDate(MONGODB_UPDATE_TABLE);
+
+        // `matchQuery` compatible test
+        Container.ExecResult queryResult =
+                container.executeJob("/matchIT/mongodb_matchQuery_source_to_assert.conf");
+        Assertions.assertEquals(0, queryResult.getExitCode(), queryResult.getStderr());
+
+        Assertions.assertIterableEquals(
+                TEST_MATCH_DATASET.stream()
+                        .filter(x -> x.get("c_int").equals(2))
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()),
+                readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_MATCH_RESULT_TABLE);
     }
 
-    @AfterAll
-    @Override
-    public void tearDown() {
-        if (client != null) {
-            client.close();
-        }
-        if (mongodbContainer != null) {
-            mongodbContainer.close();
-        }
+    @TestTemplate
+    public void testTransactionSinkAndUpsert(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult insertResult =
+                container.executeJob("/transactionIT/fake_source_to_transaction_sink_mongodb.conf");
+        Assertions.assertEquals(0, insertResult.getExitCode(), insertResult.getStderr());
+
+        Container.ExecResult assertSinkResult =
+                container.executeJob(
+                        "/transactionIT/mongodb_source_transaction_sink_to_assert.conf");
+        Assertions.assertEquals(0, assertSinkResult.getExitCode(), assertSinkResult.getStderr());
+
+        Container.ExecResult upsertResult =
+                container.executeJob(
+                        "/transactionIT/fake_source_to_transaction_upsert_mongodb.conf");
+        Assertions.assertEquals(0, upsertResult.getExitCode(), upsertResult.getStderr());
+
+        Container.ExecResult assertUpsertResult =
+                container.executeJob(
+                        "/transactionIT/mongodb_source_transaction_upsert_to_assert.conf");
+        Assertions.assertEquals(
+                0, assertUpsertResult.getExitCode(), assertUpsertResult.getStderr());
+
+        clearDate(MONGODB_TRANSACTION_SINK_TABLE);
+        clearDate(MONGODB_TRANSACTION_UPSERT_TABLE);
     }
 }

@@ -22,7 +22,8 @@ protostuff-collectionschema-1.8.0.jar
 protostuff-core-1.8.0.jar
 protostuff-runtime-1.8.0.jar
 scala-library-2.11.12.jar
-seatunnel-jackson-2.3.1-SNAPSHOT-optional.jar
+seatunnel-jackson-2.3.3-SNAPSHOT-optional.jar
+seatunnel-guava-2.3.3-SNAPSHOT-optional.jar
 slf4j-api-1.7.25.jar
 jsqlparser-4.5.jar
 animal-sniffer-annotations-1.17.jar

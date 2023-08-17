@@ -88,12 +88,23 @@ public class DataSourceUtils implements Serializable {
             final Method[] methods, final String property) {
         String setterMethodName =
                 SETTER_PREFIX + CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, property);
-        return Arrays.stream(methods)
-                .filter(
-                        each ->
-                                each.getName().equals(setterMethodName)
-                                        && 1 == each.getParameterTypes().length)
-                .findFirst();
+        Optional<Method> methodOptional =
+                Arrays.stream(methods)
+                        .filter(
+                                each ->
+                                        each.getName().equals(setterMethodName)
+                                                && 1 == each.getParameterTypes().length)
+                        .findFirst();
+        if (!methodOptional.isPresent()) {
+            methodOptional =
+                    Arrays.stream(methods)
+                            .filter(
+                                    each ->
+                                            each.getName().equalsIgnoreCase(setterMethodName)
+                                                    && 1 == each.getParameterTypes().length)
+                            .findFirst();
+        }
+        return methodOptional;
     }
 
     private static Object loadDataSource(final String xaDataSourceClassName) {

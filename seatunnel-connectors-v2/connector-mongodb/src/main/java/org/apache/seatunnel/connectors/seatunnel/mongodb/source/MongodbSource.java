@@ -20,57 +20,137 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbCollectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentRowDataDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.config.MongodbReadOptions;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.enumerator.MongodbSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.reader.MongodbReader;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.SamplingSplitStrategy;
+
+import org.bson.BsonDocument;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.URI;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
 @AutoService(SeaTunnelSource.class)
-public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
+public class MongodbSource
+        implements SeaTunnelSource<SeaTunnelRow, MongoSplit, ArrayList<MongoSplit>>,
+                SupportColumnProjection {
+
+    private static final long serialVersionUID = 1L;
+
+    private MongodbClientProvider clientProvider;
+
+    private DocumentDeserializer<SeaTunnelRow> deserializer;
+
+    private MongoSplitStrategy splitStrategy;
 
     private SeaTunnelRowType rowType;
 
-    private MongodbConfig params;
+    private MongodbReadOptions mongodbReadOptions;
 
     @Override
     public String getPluginName() {
-        return "MongoDB";
+        return CONNECTOR_IDENTITY;
     }
 
     @Override
-    public void prepare(Config config) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(config, URI.key(), DATABASE.key(), COLLECTION.key());
-        if (!result.isSuccess()) {
-            throw new MongodbConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
+    public void prepare(Config pluginConfig) throws PrepareFailException {
+        if (pluginConfig.hasPath(MongodbConfig.URI.key())
+                && pluginConfig.hasPath(MongodbConfig.DATABASE.key())
+                && pluginConfig.hasPath(MongodbConfig.COLLECTION.key())) {
+            String connection = pluginConfig.getString(MongodbConfig.URI.key());
+            String database = pluginConfig.getString(MongodbConfig.DATABASE.key());
+            String collection = pluginConfig.getString(MongodbConfig.COLLECTION.key());
+            clientProvider =
+                    MongodbCollectionProvider.builder()
+                            .connectionString(connection)
+                            .database(database)
+                            .collection(collection)
+                            .build();
         }
-        this.params = MongodbConfig.buildWithConfig(config);
-        if (config.hasPath(CatalogTableUtil.SCHEMA.key())) {
-            this.rowType = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
+            this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
         } else {
             this.rowType = CatalogTableUtil.buildSimpleTextSchema();
         }
+
+        if (pluginConfig.hasPath(MongodbConfig.FLAT_SYNC_STRING.key())) {
+            deserializer =
+                    new DocumentRowDataDeserializer(
+                            rowType.getFieldNames(),
+                            rowType,
+                            pluginConfig.getBoolean(MongodbConfig.FLAT_SYNC_STRING.key()));
+        } else {
+            deserializer =
+                    new DocumentRowDataDeserializer(
+                            rowType.getFieldNames(),
+                            rowType,
+                            MongodbConfig.FLAT_SYNC_STRING.defaultValue());
+        }
+
+        SamplingSplitStrategy.Builder splitStrategyBuilder = SamplingSplitStrategy.builder();
+        if (pluginConfig.hasPath(MongodbConfig.MATCH_QUERY.key())) {
+            splitStrategyBuilder.setMatchQuery(
+                    BsonDocument.parse(pluginConfig.getString(MongodbConfig.MATCH_QUERY.key())));
+        }
+
+        List<String> fallbackKeys = MongodbConfig.MATCH_QUERY.getFallbackKeys();
+        fallbackKeys.forEach(
+                key -> {
+                    if (pluginConfig.hasPath(key)) {
+                        splitStrategyBuilder.setMatchQuery(
+                                BsonDocument.parse(
+                                        pluginConfig.getString(MongodbConfig.MATCH_QUERY.key())));
+                    }
+                });
+
+        if (pluginConfig.hasPath(MongodbConfig.SPLIT_KEY.key())) {
+            splitStrategyBuilder.setSplitKey(pluginConfig.getString(MongodbConfig.SPLIT_KEY.key()));
+        }
+        if (pluginConfig.hasPath(MongodbConfig.SPLIT_SIZE.key())) {
+            splitStrategyBuilder.setSizePerSplit(
+                    pluginConfig.getLong(MongodbConfig.SPLIT_SIZE.key()));
+        }
+        if (pluginConfig.hasPath(MongodbConfig.PROJECTION.key())) {
+            splitStrategyBuilder.setProjection(
+                    BsonDocument.parse(pluginConfig.getString(MongodbConfig.PROJECTION.key())));
+        }
+        splitStrategy = splitStrategyBuilder.setClientProvider(clientProvider).build();
+
+        MongodbReadOptions.MongoReadOptionsBuilder mongoReadOptionsBuilder =
+                MongodbReadOptions.builder();
+        if (pluginConfig.hasPath(MongodbConfig.MAX_TIME_MIN.key())) {
+            mongoReadOptionsBuilder.setMaxTimeMS(
+                    pluginConfig.getLong(MongodbConfig.MAX_TIME_MIN.key()));
+        }
+        if (pluginConfig.hasPath(MongodbConfig.FETCH_SIZE.key())) {
+            mongoReadOptionsBuilder.setFetchSize(
+                    pluginConfig.getInt(MongodbConfig.FETCH_SIZE.key()));
+        }
+        if (pluginConfig.hasPath(MongodbConfig.CURSOR_NO_TIMEOUT.key())) {
+            mongoReadOptionsBuilder.setNoCursorTimeout(
+                    pluginConfig.getBoolean(MongodbConfig.CURSOR_NO_TIMEOUT.key()));
+        }
+        mongodbReadOptions = mongoReadOptionsBuilder.build();
     }
 
     @Override
@@ -80,13 +160,25 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.rowType;
+        return rowType;
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext context)
-            throws Exception {
-        boolean useSimpleTextSchema = CatalogTableUtil.buildSimpleTextSchema().equals(rowType);
-        return new MongodbSourceReader(context, this.params, rowType, useSimpleTextSchema);
+    public SourceReader<SeaTunnelRow, MongoSplit> createReader(SourceReader.Context readerContext) {
+        return new MongodbReader(readerContext, clientProvider, deserializer, mongodbReadOptions);
+    }
+
+    @Override
+    public SourceSplitEnumerator<MongoSplit, ArrayList<MongoSplit>> createEnumerator(
+            SourceSplitEnumerator.Context<MongoSplit> enumeratorContext) {
+        return new MongodbSplitEnumerator(enumeratorContext, clientProvider, splitStrategy);
+    }
+
+    @Override
+    public SourceSplitEnumerator<MongoSplit, ArrayList<MongoSplit>> restoreEnumerator(
+            SourceSplitEnumerator.Context<MongoSplit> enumeratorContext,
+            ArrayList<MongoSplit> checkpointState) {
+        return new MongodbSplitEnumerator(
+                enumeratorContext, clientProvider, splitStrategy, checkpointState);
     }
 }
