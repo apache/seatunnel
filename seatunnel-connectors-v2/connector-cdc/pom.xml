@@ -22,7 +22,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-connectors-v2</artifactId>
-        <version>2.3.3</version>
+        <version>2.3.4-SNAPSHOT</version>
     </parent>
     <artifactId>connector-cdc</artifactId>
     <packaging>pom</packaging>
@@ -75,8 +75,4 @@
             </plugins>
         </pluginManagement>
     </build>
-
-  <scm>
-    <tag>2.3.3</tag>
-  </scm>
 </project>

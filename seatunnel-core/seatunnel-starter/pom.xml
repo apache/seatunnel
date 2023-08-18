@@ -20,7 +20,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-core</artifactId>
-        <version>2.3.3</version>
+        <version>2.3.4-SNAPSHOT</version>
     </parent>
 
     <artifactId>seatunnel-starter</artifactId>
@@ -97,9 +97,4 @@
             </plugin>
         </plugins>
     </build>
-
-
-  <scm>
-    <tag>2.3.3</tag>
-  </scm>
 </project>

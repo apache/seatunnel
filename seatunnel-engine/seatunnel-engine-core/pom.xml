@@ -20,7 +20,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-engine</artifactId>
-        <version>2.3.3</version>
+        <version>2.3.4-SNAPSHOT</version>
     </parent>
 
     <artifactId>seatunnel-engine-core</artifactId>
@@ -58,8 +58,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-  <scm>
-    <tag>2.3.3</tag>
-  </scm>
 </project>
