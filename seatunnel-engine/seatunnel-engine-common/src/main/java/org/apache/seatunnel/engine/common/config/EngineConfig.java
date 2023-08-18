@@ -30,7 +30,6 @@ import static com.hazelcast.internal.util.Preconditions.checkNotNull;
 import static com.hazelcast.internal.util.Preconditions.checkPositive;
 
 @Data
-@SuppressWarnings("checkstyle:MagicNumber")
 public class EngineConfig {
 
     private int backupCount = ServerConfigOptions.BACKUP_COUNT.defaultValue();

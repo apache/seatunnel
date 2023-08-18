@@ -37,7 +37,6 @@ import java.util.Set;
 
 public class MultipleTableJobConfigParserTest {
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Test
     public void testSimpleJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
@@ -58,7 +57,6 @@ public class MultipleTableJobConfigParserTest {
         Assertions.assertEquals(3, actions.get(0).getParallelism());
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Test
     public void testComplexJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);

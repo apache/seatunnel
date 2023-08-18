@@ -295,7 +295,6 @@ public class PhysicalVertex {
                 });
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     // This method must not throw an exception
     public TaskDeployState deploy(@NonNull SlotProfile slotProfile) {
         try {
@@ -479,7 +478,6 @@ public class PhysicalVertex {
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private void noticeTaskExecutionServiceCancel() {
         // Check whether the node exists, and whether the Task on the node exists. If there is no
         // direct update state
