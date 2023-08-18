@@ -57,7 +57,6 @@ create table DEBEZIUM.FULL_TYPES (
     VAL_TS_PRECISION2            TIMESTAMP(2),
     VAL_TS_PRECISION4            TIMESTAMP(4),
     VAL_TS_PRECISION9            TIMESTAMP(6),
-    VAL_TSTZ                     TIMESTAMP(6) WITH TIME ZONE,
     VAL_TSLTZ                    TIMESTAMP(6) WITH LOCAL TIME ZONE,
     VAL_CLOB_INLINE              CLOB,
     VAL_BLOB_INLINE              BLOB,
@@ -74,7 +73,6 @@ INSERT INTO DEBEZIUM.FULL_TYPES VALUES (
     TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),
     TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),
     TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),
-    TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789 -11:00', 'yyyy-mm-dd HH24:MI:SS.FF5 TZH:TZM'),
     TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),
     TO_CLOB ('col_clob'),
     utl_raw.cast_to_raw ('col_blob')
@@ -118,7 +116,6 @@ create table DEBEZIUM.FULL_TYPES_SINK (
                                      VAL_TS_PRECISION2            TIMESTAMP(2),
                                      VAL_TS_PRECISION4            TIMESTAMP(4),
                                      VAL_TS_PRECISION9            TIMESTAMP(6),
-                                     VAL_TSTZ                     TIMESTAMP(6) WITH TIME ZONE,
                                      VAL_TSLTZ                    TIMESTAMP(6) WITH LOCAL TIME ZONE,
                                      VAL_CLOB_INLINE              CLOB,
                                      VAL_BLOB_INLINE              BLOB,

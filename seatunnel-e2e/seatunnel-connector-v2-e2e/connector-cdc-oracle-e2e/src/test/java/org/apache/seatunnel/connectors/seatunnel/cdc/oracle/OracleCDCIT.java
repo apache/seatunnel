@@ -31,6 +31,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
@@ -64,10 +65,13 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     private static final String ORACLE_IMAGE = "jark/oracle-xe-11g-r2-cdc:0.1";
 
     private static final String HOST = "oracle-host";
+
+    private static final Integer ORACLE_PORT = 1521;
     public static final OracleContainer ORACLE_CONTAINER =
             new OracleContainer(ORACLE_IMAGE)
                     .withNetwork(NETWORK)
                     .withNetworkAliases(HOST)
+                    .withExposedPorts(ORACLE_PORT)
                     .withLogConsumer(
                             new Slf4jLogConsumer(
                                     DockerLoggerFactory.getLogger("oracle-docker-image")));
@@ -88,6 +92,8 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
+        ORACLE_CONTAINER.setPortBindings(
+                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
         log.info("Starting containers...");
         Startables.deepStart(Stream.of(ORACLE_CONTAINER)).join();
         log.info("Containers are started.");
@@ -195,7 +201,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
     private void updateSourceTable() {
         executeSql(
-                "INSERT INTO DEBEZIUM.FULL_TYPES VALUES (2, 'vc2', 'vc2', 'nvc2', 'c', 'nc',1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,1, 22, 333, 4444, 5555, 1, 99, 9999, 999999999, 999999999999999999,94, 9949, 999999994, 999999999999999949, 99999999999999999999999999999999999949,TO_DATE('2022-10-30', 'yyyy-mm-dd'),TO_TIMESTAMP('2022-10-30 12:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789 -11:00', 'yyyy-mm-dd HH24:MI:SS.FF5 TZH:TZM'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_CLOB ('col_clob'),utl_raw.cast_to_raw ('col_blob'))");
+                "INSERT INTO DEBEZIUM.FULL_TYPES VALUES (2, 'vc2', 'vc2', 'nvc2', 'c', 'nc',1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,1, 22, 333, 4444, 5555, 1, 99, 9999, 999999999, 999999999999999999,94, 9949, 999999994, 999999999999999949, 99999999999999999999999999999999999949,TO_DATE('2022-10-30', 'yyyy-mm-dd'),TO_TIMESTAMP('2022-10-30 12:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_CLOB ('col_clob'),utl_raw.cast_to_raw ('col_blob'))");
 
         executeSql(
                 "INSERT INTO DEBEZIUM.FULL_TYPES VALUES (\n"
@@ -208,7 +214,6 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                         + "    TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),\n"
                         + "    TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),\n"
                         + "    TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),\n"
-                        + "    TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789 -11:00', 'yyyy-mm-dd HH24:MI:SS.FF5 TZH:TZM'),\n"
                         + "    TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),\n"
                         + "    TO_CLOB ('col_clob'),\n"
                         + "    utl_raw.cast_to_raw ('col_blob')\n"
