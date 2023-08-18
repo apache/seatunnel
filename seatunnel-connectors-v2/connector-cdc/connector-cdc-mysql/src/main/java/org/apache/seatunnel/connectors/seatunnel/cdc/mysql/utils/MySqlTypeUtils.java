@@ -80,7 +80,6 @@ public class MySqlTypeUtils {
     private static final String MYSQL_VARBINARY = "VARBINARY";
     private static final String MYSQL_GEOMETRY = "GEOMETRY";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static SeaTunnelDataType<?> convertFromColumn(Column column) {
         String typeName = column.typeName();
         switch (typeName) {

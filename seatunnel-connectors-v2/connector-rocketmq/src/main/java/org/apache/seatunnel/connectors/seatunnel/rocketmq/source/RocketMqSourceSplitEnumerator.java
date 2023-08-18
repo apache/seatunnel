@@ -77,7 +77,6 @@ public class RocketMqSourceSplitEnumerator
         this.discoveryIntervalMillis = discoveryIntervalMillis;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private static int getSplitOwner(MessageQueue messageQueue, int numReaders) {
         int startIndex = ((messageQueue.getQueueId() * 31) & 0x7FFFFFFF) % numReaders;
         return (startIndex + messageQueue.getQueueId()) % numReaders;

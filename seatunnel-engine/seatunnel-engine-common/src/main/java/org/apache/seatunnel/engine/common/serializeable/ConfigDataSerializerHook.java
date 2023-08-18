@@ -46,7 +46,7 @@ public class ConfigDataSerializerHook implements DataSerializerHook {
     }
 
     private static class Factory implements DataSerializableFactory {
-        @SuppressWarnings("checkstyle:returncount")
+
         @Override
         public IdentifiedDataSerializable create(int typeId) {
             switch (typeId) {

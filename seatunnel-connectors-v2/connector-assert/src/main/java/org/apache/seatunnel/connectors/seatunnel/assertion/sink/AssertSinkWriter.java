@@ -47,7 +47,6 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     @Override
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     public void write(SeaTunnelRow element) {
         LONG_ACCUMULATOR.accumulate(1);
         if (Objects.nonNull(assertFieldRules)) {

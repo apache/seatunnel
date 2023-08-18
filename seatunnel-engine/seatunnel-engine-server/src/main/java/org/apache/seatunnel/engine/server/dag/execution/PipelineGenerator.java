@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 public class PipelineGenerator {
     /** The action & vertex ID needs to be regenerated because of split pipeline. */
