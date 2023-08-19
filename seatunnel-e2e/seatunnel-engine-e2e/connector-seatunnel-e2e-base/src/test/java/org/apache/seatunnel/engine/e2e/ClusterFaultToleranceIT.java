@@ -54,7 +54,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Cluster fault tolerance test. Test the job recovery capability and data consistency assurance
@@ -204,7 +204,6 @@ public class ClusterFaultToleranceIT {
         return new ImmutablePair<>(targetDir, targetConfigFilePath);
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testStreamJobRunOkIn2Node() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRunOkIn2Node";
@@ -297,7 +296,6 @@ public class ClusterFaultToleranceIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testBatchJobRestoreIn2NodeWorkerDown()
             throws ExecutionException, InterruptedException {
@@ -397,7 +395,6 @@ public class ClusterFaultToleranceIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testStreamJobRestoreIn2NodeWorkerDown()
             throws ExecutionException, InterruptedException {
@@ -516,7 +513,6 @@ public class ClusterFaultToleranceIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testBatchJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
@@ -619,7 +615,6 @@ public class ClusterFaultToleranceIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testStreamJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
@@ -747,7 +742,6 @@ public class ClusterFaultToleranceIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testStreamJobRestoreInAllNodeDown()
             throws ExecutionException, InterruptedException {
@@ -947,7 +941,6 @@ public class ClusterFaultToleranceIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     @Disabled
     public void testStreamJobRestoreFromOssInAllNodeDown()
