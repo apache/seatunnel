@@ -80,7 +80,6 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
 
     protected abstract BaseSourceFunction<SeaTunnelRow> createInternalSource();
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void run(SourceFunction.SourceContext<Row> sourceContext) throws Exception {
         internalSource.run(

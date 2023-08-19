@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -77,6 +78,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private SeaTunnelSplitEnumeratorContext<SplitT> enumeratorContext;
 
     private Serializer<Serializable> enumeratorStateSerializer;
+    @Getter private Serializer<SplitT> splitSerializer;
 
     private int maxReaderSize;
     private Set<Long> unfinishedReaders;
@@ -102,6 +104,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 new SeaTunnelSplitEnumeratorContext<>(
                         this.source.getParallelism(), this, getMetricsContext());
         enumeratorStateSerializer = this.source.getSource().getEnumeratorStateSerializer();
+        splitSerializer = this.source.getSource().getSplitSerializer();
         taskMemberMapping = new ConcurrentHashMap<>();
         taskIDToTaskLocationMapping = new ConcurrentHashMap<>();
         taskIndexToTaskLocationMapping = new ConcurrentHashMap<>();
@@ -199,7 +202,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         getEnumerator().addSplitsBack(splits, subtaskId);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public void receivedReader(TaskLocation readerId, Address memberAddr)
             throws InterruptedException, ExecutionException {
         log.info("received reader register, readerID: " + readerId);
@@ -251,7 +253,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         return taskIndexToTaskLocationMapping.get(taskIndex);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private SourceSplitEnumerator<SplitT, Serializable> getEnumerator()
             throws InterruptedException, ExecutionException {
         // (restoreComplete == null) means that the Task has not yet executed Init, so we need to
@@ -271,7 +272,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private void stateProcess() throws Exception {
         switch (currState) {
             case INIT:

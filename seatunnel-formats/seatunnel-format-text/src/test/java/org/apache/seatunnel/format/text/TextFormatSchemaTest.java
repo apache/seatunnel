@@ -66,7 +66,6 @@ public class TextFormatSchemaTest {
 
     public SeaTunnelRowType seaTunnelRowType;
 
-    @SuppressWarnings("checkstyle:Indentation")
     @BeforeEach
     public void initSeaTunnelRowType() {
         seaTunnelRowType =

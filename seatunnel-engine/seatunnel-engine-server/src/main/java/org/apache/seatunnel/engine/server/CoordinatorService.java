@@ -76,7 +76,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.api.common.metrics.MetricTags.JOB_ID;
 import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMetricsMap;
 
 public class CoordinatorService {
@@ -153,7 +152,6 @@ public class CoordinatorService {
 
     private final EngineConfig engineConfig;
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
             @NonNull SeaTunnelServer seaTunnelServer,
@@ -220,7 +218,8 @@ public class CoordinatorService {
                                 .getMap(Constant.IMAP_FINISHED_JOB_METRICS),
                         nodeEngine
                                 .getHazelcastInstance()
-                                .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO));
+                                .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
+                        engineConfig.getHistoryJobExpireMinutes());
 
         List<CompletableFuture<Void>> collect =
                 runningJobInfoIMap.entrySet().stream()
@@ -391,7 +390,6 @@ public class CoordinatorService {
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private void clearCoordinatorService() {
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
@@ -426,6 +424,18 @@ public class CoordinatorService {
     /** call by client to submit job */
     public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
         CompletableFuture<Void> jobSubmitFuture = new CompletableFuture<>();
+
+        // Check if the current jobID is already running. If so, complete the submission
+        // successfully.
+        // This avoids potential issues like redundant job restores or other anomalies.
+        if (getJobMaster(jobId) != null) {
+            logger.warning(
+                    String.format(
+                            "The job %s is currently running; no need to submit again.", jobId));
+            jobSubmitFuture.complete(null);
+            return new PassiveCompletableFuture<>(jobSubmitFuture);
+        }
+
         JobMaster jobMaster =
                 new JobMaster(
                         jobImmutableInformation,
@@ -568,17 +578,7 @@ public class CoordinatorService {
                                     (RawJobMetrics)
                                             NodeEngineUtil.sendOperationToMemberNode(
                                                             nodeEngine,
-                                                            new GetMetricsOperation(
-                                                                    dis ->
-                                                                            (dis.tagValue(JOB_ID)
-                                                                                            != null
-                                                                                    && runningJobIds
-                                                                                            .contains(
-                                                                                                    Long
-                                                                                                            .parseLong(
-                                                                                                                    dis
-                                                                                                                            .tagValue(
-                                                                                                                                    JOB_ID))))),
+                                                            new GetMetricsOperation(runningJobIds),
                                                             address)
                                                     .get();
                             metrics.add(rawJobMetrics);
