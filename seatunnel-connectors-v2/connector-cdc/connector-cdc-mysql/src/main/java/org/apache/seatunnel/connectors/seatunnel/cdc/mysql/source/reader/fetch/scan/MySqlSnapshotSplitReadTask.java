@@ -34,6 +34,7 @@ import io.debezium.connector.mysql.MySqlDatabaseSchema;
 import io.debezium.connector.mysql.MySqlOffsetContext;
 import io.debezium.connector.mysql.MysqlTextProtocolFieldReader;
 import io.debezium.pipeline.EventDispatcher;
+import io.debezium.pipeline.metrics.StreamingChangeEventSourceMetrics;
 import io.debezium.pipeline.source.AbstractSnapshotChangeEventSource;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.pipeline.source.spi.SnapshotProgressListener;
@@ -169,7 +170,8 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
             TableId tableId)
             throws Exception {
         EventDispatcher.SnapshotReceiver snapshotReceiver =
-                dispatcher.getSnapshotChangeEventReceiver();
+                dispatcher.getIncrementalSnapshotChangeEventReceiver(
+                        StreamingChangeEventSourceMetrics.NO_OP);
         LOG.debug("Snapshotting table {}", tableId);
         createDataEventsForTable(
                 snapshotContext, snapshotReceiver, databaseSchema.tableFor(tableId));
