@@ -67,6 +67,11 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     private static final String HOST = "oracle-host";
 
     private static final Integer ORACLE_PORT = 1521;
+
+    static {
+        System.setProperty("oracle.jdbc.timezoneAsRegion", "false");
+    }
+
     public static final OracleContainer ORACLE_CONTAINER =
             new OracleContainer(ORACLE_IMAGE)
                     .withNetwork(NETWORK)
