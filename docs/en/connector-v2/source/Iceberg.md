@@ -32,6 +32,14 @@
 
 Source connector for Apache Iceberg. It can support batch and stream mode.
 
+## Supported DataSource Info
+
+| Datasource |      Dependent      |                                   Maven                                   |
+|------------|---------------------|---------------------------------------------------------------------------|
+| Iceberg    | flink-shaded-hadoop | [Download](https://mvnrepository.com/search?q=flink-shaded-hadoop-)       |
+| Iceberg    | hive-exec           | [Download](https://mvnrepository.com/artifact/org.apache.hive/hive-exec)  |
+| Iceberg    | libfb303            | [Download](https://mvnrepository.com/artifact/org.apache.thrift/libfb303) |
+
 ## Database Dependency
 
 > In order to be compatible with different versions of Hadoop and Hive, the scope of hive-exec and flink-shaded-hadoop-2 in the project pom file are provided, so if you use the Flink engine, first you may need to add the following Jar packages to <FLINK_HOME>/lib directory, if you are using the Spark engine and integrated with Hadoop, then you do not need to add the following Jar packages.
