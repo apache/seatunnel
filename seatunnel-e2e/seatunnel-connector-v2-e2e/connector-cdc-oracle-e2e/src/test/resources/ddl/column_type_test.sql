@@ -18,7 +18,7 @@
 -- DATABASE:  column_type_test
 -- ----------------------------------------------------------------------------------------------------------------
 -- Set session timezone to fixed Asia/Shanghai for checking TIMESTAMP_LTZ type
-ALTER SESSION SET TIME_ZONE='Asia/Shanghai';
+-- ALTER SESSION SET TIME_ZONE='Asia/Shanghai';
 
 create table DEBEZIUM.FULL_TYPES (
     ID                           NUMBER(9) not null,
