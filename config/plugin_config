@@ -74,4 +74,5 @@ connector-starrocks
 connector-tablestore
 connector-selectdb-cloud
 connector-hbase
+connector-amazonsqs
 --end--
