@@ -62,6 +62,14 @@
             <groupId>com.oracle.database.xml</groupId>
             <artifactId>xdb</artifactId>
             <version>19.3.0.0</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.oracle.ojdbc</groupId>
+            <artifactId>ojdbc8</artifactId>
+            <version>19.3.0.0</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
