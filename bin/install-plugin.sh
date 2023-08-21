@@ -23,7 +23,7 @@
 # get seatunnel home
 SEATUNNEL_HOME=$(cd $(dirname $0);cd ../;pwd)
 
-# Choose a custom version. eg: 2.3.1:  sh install-plugin.sh 2.3.1
+# Choose a version. eg: 2.3.2: Run `sh install-plugin.sh 2.3.2`
 if [ -n "$1" ]; then
     version="$1"
 else
