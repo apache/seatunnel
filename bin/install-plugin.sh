@@ -23,11 +23,13 @@
 # get seatunnel home
 SEATUNNEL_HOME=$(cd $(dirname $0);cd ../;pwd)
 
-# connector default version is 2.3.1, you can also choose a custom version. eg: 2.1.2:  sh install-plugin.sh 2.1.2
-version=2.3.1
-
+# Choose a custom version. eg: 2.3.1:  sh install-plugin.sh 2.3.1
 if [ -n "$1" ]; then
     version="$1"
+else
+    echo "Error: Version is not specified!"
+    echo "Usage: $0 2.3.2"
+    exit 1
 fi
 
 echo "Install hadoop shade jar, usage version is ${version}"
