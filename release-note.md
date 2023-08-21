@@ -115,6 +115,7 @@
 ### CI
 
 - [CI] Fix error repository name in ci config files (#4795)
+- [CI][E2E][Zeta] Increase Zeta checkpoint timeout to avoid connector-file-sftp-e2e failed frequently (#5339)
 
 ### Zeta(ST-Engine)
 

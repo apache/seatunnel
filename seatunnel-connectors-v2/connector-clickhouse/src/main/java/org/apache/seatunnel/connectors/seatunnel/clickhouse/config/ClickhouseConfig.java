@@ -25,7 +25,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public class ClickhouseConfig {
 
     /** Bulk size of clickhouse jdbc */

@@ -69,7 +69,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     public static final String DYNAMIC_TEST_PARALLELISM = "dynamic_test_parallelism";
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineBatchJobRunOkIn2Node()
             throws ExecutionException, InterruptedException {
@@ -200,7 +199,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
         return new ImmutablePair<>(targetDir, targetConfigFilePath);
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineStreamJobRunOkIn2Node()
             throws ExecutionException, InterruptedException {
@@ -299,7 +297,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineBatchJobRestoreIn2NodeWorkerDown()
             throws ExecutionException, InterruptedException {
@@ -415,7 +412,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineStreamJobRestoreIn2NodeWorkerDown()
             throws ExecutionException, InterruptedException {
@@ -544,7 +540,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineBatchJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
@@ -653,7 +648,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineStreamJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
