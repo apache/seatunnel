@@ -36,11 +36,9 @@ import software.amazon.awssdk.services.sqs.model.Message;
 import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
 import software.amazon.awssdk.services.sqs.model.ReceiveMessageResponse;
 
-
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
@@ -83,11 +81,12 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     @Override
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        ReceiveMessageRequest receiveMessageRequest = ReceiveMessageRequest.builder()
-                .queueUrl(amazonSqsSourceOptions.getUrl())
-                .maxNumberOfMessages(10) // Adjust the batch size as needed
-                .waitTimeSeconds(10) // Adjust the wait time as needed
-                .build();
+        ReceiveMessageRequest receiveMessageRequest =
+                ReceiveMessageRequest.builder()
+                        .queueUrl(amazonSqsSourceOptions.getUrl())
+                        .maxNumberOfMessages(10) // Adjust the batch size as needed
+                        .waitTimeSeconds(10) // Adjust the wait time as needed
+                        .build();
 
         ReceiveMessageResponse response = sqsClient.receiveMessage(receiveMessageRequest);
         List<Message> messages = response.messages();
@@ -98,10 +97,11 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             output.collect(seaTunnelRow);
 
             // Delete the processed message
-            DeleteMessageRequest deleteMessageRequest = DeleteMessageRequest.builder()
-                    .queueUrl(amazonSqsSourceOptions.getUrl())
-                    .receiptHandle(message.receiptHandle())
-                    .build();
+            DeleteMessageRequest deleteMessageRequest =
+                    DeleteMessageRequest.builder()
+                            .queueUrl(amazonSqsSourceOptions.getUrl())
+                            .receiptHandle(message.receiptHandle())
+                            .build();
             sqsClient.deleteMessage(deleteMessageRequest);
         }
     }
