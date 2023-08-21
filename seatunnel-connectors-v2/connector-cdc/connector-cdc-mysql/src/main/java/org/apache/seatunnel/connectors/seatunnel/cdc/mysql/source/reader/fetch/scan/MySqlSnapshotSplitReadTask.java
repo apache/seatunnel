@@ -78,6 +78,8 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
     private final MysqlTextProtocolFieldReader mysqlTextProtocolFieldReader =
             new MysqlTextProtocolFieldReader();
 
+    private final boolean exactlyOnce;
+
     public MySqlSnapshotSplitReadTask(
             MySqlConnectorConfig connectorConfig,
             MySqlOffsetContext previousOffset,
@@ -85,7 +87,8 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
             MySqlDatabaseSchema databaseSchema,
             MySqlConnection jdbcConnection,
             JdbcSourceEventDispatcher dispatcher,
-            SnapshotSplit snapshotSplit) {
+            SnapshotSplit snapshotSplit,
+            boolean exactlyOnce) {
         super(connectorConfig, snapshotProgressListener);
         this.offsetContext = previousOffset;
         this.connectorConfig = connectorConfig;
@@ -95,6 +98,7 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
         this.clock = Clock.SYSTEM;
         this.snapshotSplit = snapshotSplit;
         this.snapshotProgressListener = snapshotProgressListener;
+        this.exactlyOnce = exactlyOnce;
     }
 
     @Override
@@ -170,8 +174,10 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
             TableId tableId)
             throws Exception {
         EventDispatcher.SnapshotReceiver snapshotReceiver =
-                dispatcher.getIncrementalSnapshotChangeEventReceiver(
-                        StreamingChangeEventSourceMetrics.NO_OP);
+                exactlyOnce
+                        ? dispatcher.getSnapshotChangeEventReceiver()
+                        : dispatcher.getIncrementalSnapshotChangeEventReceiver(
+                                StreamingChangeEventSourceMetrics.NO_OP);
         LOG.debug("Snapshotting table {}", tableId);
         createDataEventsForTable(
                 snapshotContext, snapshotReceiver, databaseSchema.tableFor(tableId));

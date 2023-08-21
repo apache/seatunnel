@@ -31,6 +31,7 @@ import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.connector.sqlserver.SqlServerDatabaseSchema;
 import io.debezium.connector.sqlserver.SqlServerOffsetContext;
 import io.debezium.pipeline.EventDispatcher;
+import io.debezium.pipeline.metrics.StreamingChangeEventSourceMetrics;
 import io.debezium.pipeline.source.AbstractSnapshotChangeEventSource;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.pipeline.source.spi.SnapshotProgressListener;
@@ -70,6 +71,8 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
     private final SqlServerOffsetContext offsetContext;
     private final SnapshotProgressListener snapshotProgressListener;
 
+    private final boolean exactlyOnce;
+
     public SqlServerSnapshotSplitReadTask(
             SqlServerConnectorConfig connectorConfig,
             SqlServerOffsetContext previousOffset,
@@ -77,7 +80,8 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
             SqlServerDatabaseSchema databaseSchema,
             SqlServerConnection jdbcConnection,
             JdbcSourceEventDispatcher dispatcher,
-            SnapshotSplit snapshotSplit) {
+            SnapshotSplit snapshotSplit,
+            boolean exactlyOnce) {
         super(connectorConfig, snapshotProgressListener);
         this.offsetContext = previousOffset;
         this.connectorConfig = connectorConfig;
@@ -87,6 +91,7 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
         this.clock = Clock.SYSTEM;
         this.snapshotSplit = snapshotSplit;
         this.snapshotProgressListener = snapshotProgressListener;
+        this.exactlyOnce = exactlyOnce;
     }
 
     @Override
@@ -159,7 +164,10 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
     private void createDataEvents(SqlSeverSnapshotContext snapshotContext, TableId tableId)
             throws Exception {
         EventDispatcher.SnapshotReceiver snapshotReceiver =
-                dispatcher.getSnapshotChangeEventReceiver();
+                exactlyOnce
+                        ? dispatcher.getSnapshotChangeEventReceiver()
+                        : dispatcher.getIncrementalSnapshotChangeEventReceiver(
+                                StreamingChangeEventSourceMetrics.NO_OP);
         log.debug("Snapshotting table {}", tableId);
         createDataEventsForTable(
                 snapshotContext, snapshotReceiver, databaseSchema.tableFor(tableId));

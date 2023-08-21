@@ -64,7 +64,8 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                         sourceFetchContext.getDatabaseSchema(),
                         sourceFetchContext.getDataConnection(),
                         sourceFetchContext.getDispatcher(),
-                        split);
+                        split,
+                        context.isExactlyOnce());
         SnapshotSplitChangeEventSourceContext changeEventSourceContext =
                 new SnapshotSplitChangeEventSourceContext();
 

@@ -63,7 +63,8 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                         sourceFetchContext.getDatabaseSchema(),
                         sourceFetchContext.getConnection(),
                         sourceFetchContext.getDispatcher(),
-                        split);
+                        split,
+                        sourceFetchContext.isExactlyOnce());
         SnapshotSplitChangeEventSourceContext changeEventSourceContext =
                 new SnapshotSplitChangeEventSourceContext();
         SnapshotResult snapshotResult =
