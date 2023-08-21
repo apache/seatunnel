@@ -58,7 +58,6 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 | key_measurement_fields      | Array   | No       | exclude `device` & `timestamp` | Specify field-name of the `IoTDB` measurement list in SeaTunnelRow. If not specified, include all fields but exclude `device` & `timestamp`                       |
 | storage_group               | Array   | No       | -                              | Specify device storage group(path prefix) <br/> example: deviceId = ${storage_group} + "." +  ${key_device}                                                       |
 | batch_size                  | Integer | No       | 1024                           | For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the IoTDB |
-| batch_interval_ms           | Integer | No       | -                              | For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the IoTDB |
 | max_retries                 | Integer | No       | -                              | The number of retries to flush failed                                                                                                                             |
 | retry_backoff_multiplier_ms | Integer | No       | -                              | Using as a multiplier for generating the next delay for backoff                                                                                                   |
 | max_retry_backoff_ms        | Integer | No       | -                              | The amount of time to wait before attempting to retry a request to `IoTDB`                                                                                        |
@@ -82,7 +81,6 @@ sink {
     username = "root"
     password = "root"
     batch_size = 1024
-    batch_interval_ms = 1000
   }
 }
 ```

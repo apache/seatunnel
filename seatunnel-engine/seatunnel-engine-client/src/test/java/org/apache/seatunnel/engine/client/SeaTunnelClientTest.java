@@ -56,7 +56,6 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVE
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 import static org.awaitility.Awaitility.await;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 @DisabledOnOs(OS.WINDOWS)
 public class SeaTunnelClientTest {
 

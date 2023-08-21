@@ -26,7 +26,6 @@ import com.google.auto.service.AutoService;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.NODE_URLS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.BATCH_INTERVAL_MS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.CONNECTION_TIMEOUT_IN_MS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.DEFAULT_THRIFT_BUFFER_SIZE;
@@ -57,7 +56,6 @@ public class IoTDBSinkFactory implements TableSinkFactory {
                         KEY_MEASUREMENT_FIELDS,
                         STORAGE_GROUP,
                         BATCH_SIZE,
-                        BATCH_INTERVAL_MS,
                         MAX_RETRIES,
                         RETRY_BACKOFF_MULTIPLIER_MS,
                         MAX_RETRY_BACKOFF_MS,

@@ -20,7 +20,6 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
-// CHECKSTYLE:OFF
 public class WALDataUtils {
 
     public static final int WAL_DATA_METADATA_LENGTH = 12;

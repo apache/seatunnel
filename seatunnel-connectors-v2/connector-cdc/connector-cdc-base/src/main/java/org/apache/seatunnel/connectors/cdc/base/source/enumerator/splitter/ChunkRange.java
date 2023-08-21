@@ -22,7 +22,7 @@ import lombok.Getter;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /**
  * An internal structure describes a chunk range with a chunk start (inclusive) and chunk end
