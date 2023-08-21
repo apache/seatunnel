@@ -20,11 +20,15 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.utils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.source.offset.RedoLogOffset;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.debezium.config.Configuration;
 import io.debezium.connector.oracle.OracleConnection;
 import io.debezium.connector.oracle.Scn;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
+import oracle.jdbc.driver.OracleDriver;
 
 import java.sql.SQLException;
 
@@ -33,11 +37,16 @@ import static io.debezium.config.CommonConnectorConfig.DATABASE_CONFIG_PREFIX;
 /** Utils for Oracle connection. */
 public class OracleConnectionUtils {
 
+    private static final Logger LOG = LoggerFactory.getLogger(OracleConnectionUtils.class);
+
     /** show current scn sql in oracle. */
     private static final String SHOW_CURRENT_SCN = "SELECT CURRENT_SCN FROM V$DATABASE";
 
     /** Creates a new {@link OracleConnection}, but not open the connection. */
     public static OracleConnection createOracleConnection(Configuration dbzConfiguration) {
+        LOG.info(
+                "oracle driver local {}",
+                OracleDriver.class.getProtectionDomain().getCodeSource().getLocation());
         Configuration configuration = dbzConfiguration.subset(DATABASE_CONFIG_PREFIX, true);
         return new OracleConnection(
                 configuration.isEmpty() ? dbzConfiguration : JdbcConfiguration.adapt(configuration),
