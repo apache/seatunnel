@@ -83,16 +83,27 @@ public class StarRocksCreateTableTest {
         columns.add(PhysicalColumn.of("L_PARTKEY", BasicType.INT_TYPE, null, false, null, ""));
         columns.add(PhysicalColumn.of("L_SUPPKEY", BasicType.INT_TYPE, null, false, null, ""));
         columns.add(PhysicalColumn.of("L_LINENUMBER", BasicType.INT_TYPE, null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_QUANTITY", new DecimalType(15,2), null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_EXTENDEDPRICE", new DecimalType(15,2), null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_DISCOUNT", new DecimalType(15,2), null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_TAX", new DecimalType(15,2), null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_RETURNFLAG", BasicType.STRING_TYPE, null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_LINESTATUS", BasicType.STRING_TYPE, null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_SHIPDATE", LocalTimeType.LOCAL_DATE_TYPE, null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_COMMITDATE", LocalTimeType.LOCAL_DATE_TYPE, null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_RECEIPTDATE", LocalTimeType.LOCAL_DATE_TYPE, null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_SHIPINSTRUCT", BasicType.STRING_TYPE, null, false, null, ""));
+        columns.add(PhysicalColumn.of("L_QUANTITY", new DecimalType(15, 2), null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_EXTENDEDPRICE", new DecimalType(15, 2), null, false, null, ""));
+        columns.add(PhysicalColumn.of("L_DISCOUNT", new DecimalType(15, 2), null, false, null, ""));
+        columns.add(PhysicalColumn.of("L_TAX", new DecimalType(15, 2), null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of("L_RETURNFLAG", BasicType.STRING_TYPE, null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of("L_LINESTATUS", BasicType.STRING_TYPE, null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_SHIPDATE", LocalTimeType.LOCAL_DATE_TYPE, null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_COMMITDATE", LocalTimeType.LOCAL_DATE_TYPE, null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_RECEIPTDATE", LocalTimeType.LOCAL_DATE_TYPE, null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of("L_SHIPINSTRUCT", BasicType.STRING_TYPE, null, false, null, ""));
         columns.add(PhysicalColumn.of("L_SHIPMODE", BasicType.STRING_TYPE, null, false, null, ""));
         columns.add(PhysicalColumn.of("L_COMMENT", BasicType.STRING_TYPE, null, false, null, ""));
 
@@ -110,30 +121,33 @@ public class StarRocksCreateTableTest {
                         "tpch",
                         "lineitem",
                         TableSchema.builder()
-                                   .primaryKey(PrimaryKey.of("", Arrays.asList("L_ORDERKEY", "L_LINENUMBER")))
-                                   .columns(columns)
-                                   .build());
-        String expected = "CREATE TABLE IF NOT EXISTS `tpch`.`lineitem` (\n" +
-                "`L_ORDERKEY` INT NOT NULL ,`L_LINENUMBER` INT NOT NULL ,\n" +
-                "`L_PARTKEY` INT NOT NULL ,\n" +
-                "`L_SUPPKEY` INT NOT NULL ,\n" +
-                "`L_QUANTITY` Decimal(15, 2) NOT NULL ,\n" +
-                "`L_EXTENDEDPRICE` Decimal(15, 2) NOT NULL ,\n" +
-                "`L_DISCOUNT` Decimal(15, 2) NOT NULL ,\n" +
-                "`L_TAX` Decimal(15, 2) NOT NULL ,\n" +
-                "`L_RETURNFLAG` STRING NOT NULL ,\n" +
-                "`L_LINESTATUS` STRING NOT NULL ,\n" +
-                "`L_SHIPDATE` DATE NOT NULL ,\n" +
-                "`L_COMMITDATE` DATE NOT NULL ,\n" +
-                "`L_RECEIPTDATE` DATE NOT NULL ,\n" +
-                "`L_SHIPINSTRUCT` STRING NOT NULL ,\n" +
-                "`L_SHIPMODE` STRING NOT NULL ,\n" +
-                "`L_COMMENT` STRING NOT NULL \n" +
-                ") ENGINE=OLAP\n" +
-                " PRIMARY KEY (`L_ORDERKEY`,`L_LINENUMBER`)\n" +
-                "DISTRIBUTED BY HASH (`L_ORDERKEY`,`L_LINENUMBER`)PROPERTIES (\n" +
-                "    \"replication_num\" = \"1\" \n" +
-                ")";
+                                .primaryKey(
+                                        PrimaryKey.of(
+                                                "", Arrays.asList("L_ORDERKEY", "L_LINENUMBER")))
+                                .columns(columns)
+                                .build());
+        String expected =
+                "CREATE TABLE IF NOT EXISTS `tpch`.`lineitem` (\n"
+                        + "`L_ORDERKEY` INT NOT NULL ,`L_LINENUMBER` INT NOT NULL ,\n"
+                        + "`L_PARTKEY` INT NOT NULL ,\n"
+                        + "`L_SUPPKEY` INT NOT NULL ,\n"
+                        + "`L_QUANTITY` Decimal(15, 2) NOT NULL ,\n"
+                        + "`L_EXTENDEDPRICE` Decimal(15, 2) NOT NULL ,\n"
+                        + "`L_DISCOUNT` Decimal(15, 2) NOT NULL ,\n"
+                        + "`L_TAX` Decimal(15, 2) NOT NULL ,\n"
+                        + "`L_RETURNFLAG` STRING NOT NULL ,\n"
+                        + "`L_LINESTATUS` STRING NOT NULL ,\n"
+                        + "`L_SHIPDATE` DATE NOT NULL ,\n"
+                        + "`L_COMMITDATE` DATE NOT NULL ,\n"
+                        + "`L_RECEIPTDATE` DATE NOT NULL ,\n"
+                        + "`L_SHIPINSTRUCT` STRING NOT NULL ,\n"
+                        + "`L_SHIPMODE` STRING NOT NULL ,\n"
+                        + "`L_COMMENT` STRING NOT NULL \n"
+                        + ") ENGINE=OLAP\n"
+                        + " PRIMARY KEY (`L_ORDERKEY`,`L_LINENUMBER`)\n"
+                        + "DISTRIBUTED BY HASH (`L_ORDERKEY`,`L_LINENUMBER`)PROPERTIES (\n"
+                        + "    \"replication_num\" = \"1\" \n"
+                        + ")";
         Assertions.assertEquals(result, expected);
     }
 }

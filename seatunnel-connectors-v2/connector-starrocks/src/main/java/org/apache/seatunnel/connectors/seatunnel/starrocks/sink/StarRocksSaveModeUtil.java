@@ -27,7 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.util.CreateTableParse
 
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -87,8 +86,10 @@ public class StarRocksSaveModeUtil {
                         .collect(Collectors.toMap(Column::getName, Function.identity()));
         List<CreateTableParser.ColumnInfo> columnInfosInSeq =
                 columnInTemplate.values().stream()
-                                .sorted(Comparator.comparingInt(CreateTableParser.ColumnInfo::getStartIndex))
-                                .collect(Collectors.toList());
+                        .sorted(
+                                Comparator.comparingInt(
+                                        CreateTableParser.ColumnInfo::getStartIndex))
+                        .collect(Collectors.toList());
         for (CreateTableParser.ColumnInfo columnInfo : columnInfosInSeq) {
             String col = columnInfo.getName();
             if (StringUtils.isEmpty(columnInfo.getInfo())) {
