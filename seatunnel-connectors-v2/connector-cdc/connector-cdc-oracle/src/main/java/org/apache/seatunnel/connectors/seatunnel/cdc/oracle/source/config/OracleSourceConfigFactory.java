@@ -33,7 +33,7 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
 
     private static final String DATABASE_SERVER_NAME = "oracle_logminer";
 
-    private static final String DRIVER_CLASS_NAME = "oracle.jdbc.OracleDriver";
+    private static final String DRIVER_CLASS_NAME = "oracle.jdbc.driver.OracleDriver";
 
     private List<String> schemaList;
     private String chunkKeyColumn;
