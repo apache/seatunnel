@@ -20,9 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.amazonsqs.source;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.DefaultSeaTunnelRowDeserializer;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.SeaTunnelRowDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.serialize.DefaultSeaTunnelRowDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.serialize.SeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
@@ -30,66 +30,79 @@ import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.;
-import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
-import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.DeleteMessageRequest;
+import software.amazon.awssdk.services.sqs.model.Message;
+import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
+import software.amazon.awssdk.services.sqs.model.ReceiveMessageResponse;
+
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
-    protected DynamoDbClient dynamoDbClient;
+    protected SqsClient sqsClient;
     protected SingleSplitReaderContext context;
-    protected AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
+    protected AmazonSqsSourceOptions amazonSqsSourceOptions;
     protected SeaTunnelRowDeserializer seaTunnelRowDeserializer;
 
     public AmazonSqsSourceReader(
             SingleSplitReaderContext context,
-            AmazonDynamoDBSourceOptions amazondynamodbSourceOptions,
+            AmazonSqsSourceOptions amazonSqsSourceOptions,
             SeaTunnelRowType typeInfo) {
         this.context = context;
-        this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;
+        this.amazonSqsSourceOptions = amazonSqsSourceOptions;
         this.seaTunnelRowDeserializer = new DefaultSeaTunnelRowDeserializer(typeInfo);
     }
 
     @Override
     public void open() throws Exception {
-        dynamoDbClient =
-                DynamoDbClient.builder()
-                        .endpointOverride(URI.create(amazondynamodbSourceOptions.getUrl()))
-                        // The region is meaningless for local DynamoDb but required for client
+        sqsClient =
+                SqsClient.builder()
+                        .endpointOverride(URI.create(amazonSqsSourceOptions.getUrl()))
+                        // The region is meaningless for local Sqs but required for client
                         // builder validation
-                        .region(Region.of(amazondynamodbSourceOptions.getRegion()))
+                        .region(Region.of(amazonSqsSourceOptions.getRegion()))
                         .credentialsProvider(
                                 StaticCredentialsProvider.create(
                                         AwsBasicCredentials.create(
-                                                amazondynamodbSourceOptions.getAccessKeyId(),
-                                                amazondynamodbSourceOptions.getSecretAccessKey())))
+                                                amazonSqsSourceOptions.getAccessKeyId(),
+                                                amazonSqsSourceOptions.getSecretAccessKey())))
                         .build();
     }
 
     @Override
     public void close() throws IOException {
-        dynamoDbClient.close();
+        sqsClient.close();
     }
 
     @Override
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        ScanResponse scan =
-                dynamoDbClient.scan(
-                        ScanRequest.builder()
-                                .tableName(amazondynamodbSourceOptions.getTable())
-                                .build());
-        if (scan.hasItems()) {
-            scan.items()
-                    .forEach(
-                            item -> {
-                                output.collect(seaTunnelRowDeserializer.deserialize(item));
-                            });
+        ReceiveMessageRequest receiveMessageRequest = ReceiveMessageRequest.builder()
+                .queueUrl(amazonSqsSourceOptions.getUrl())
+                .maxNumberOfMessages(10) // Adjust the batch size as needed
+                .waitTimeSeconds(10) // Adjust the wait time as needed
+                .build();
+
+        ReceiveMessageResponse response = sqsClient.receiveMessage(receiveMessageRequest);
+        List<Message> messages = response.messages();
+
+        for (Message message : messages) {
+            String messageBody = message.body();
+            SeaTunnelRow seaTunnelRow = seaTunnelRowDeserializer.deserialize(messageBody);
+            output.collect(seaTunnelRow);
+
+            // Delete the processed message
+            DeleteMessageRequest deleteMessageRequest = DeleteMessageRequest.builder()
+                    .queueUrl(amazonSqsSourceOptions.getUrl())
+                    .receiptHandle(message.receiptHandle())
+                    .build();
+            sqsClient.deleteMessage(deleteMessageRequest);
         }
-        context.signalNoMoreElement();
     }
 }

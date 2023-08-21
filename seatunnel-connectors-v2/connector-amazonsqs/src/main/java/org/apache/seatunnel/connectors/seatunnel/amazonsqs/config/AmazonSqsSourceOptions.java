@@ -19,8 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.amazonsqs.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -40,12 +38,14 @@ public class AmazonSqsSourceOptions implements Serializable {
 
     private String queue;
 
+    private String messageGroupId;
+
     public AmazonSqsSourceOptions(Config config) {
-        this.url = config.getString( AmazonSqsConfig.URL.key());
-        this.region = config.getString( AmazonSqsConfig.REGION.key());
-        this.accessKeyId = config.getString( AmazonSqsConfig.ACCESS_KEY_ID.key());
-        this.secretAccessKey = config.getString( AmazonSqsConfig.SECRET_ACCESS_KEY.key());
-        this.queue = config.getString( AmazonSqsConfig.QUEUE.key());
-        this.message_group_id = config.getString( AmazonSqsConfig.MESSAGE_GROUP_ID.key());
+        this.url = config.getString(AmazonSqsConfig.URL.key());
+        this.region = config.getString(AmazonSqsConfig.REGION.key());
+        this.accessKeyId = config.getString(AmazonSqsConfig.ACCESS_KEY_ID.key());
+        this.secretAccessKey = config.getString(AmazonSqsConfig.SECRET_ACCESS_KEY.key());
+        this.queue = config.getString(AmazonSqsConfig.QUEUE.key());
+        this.messageGroupId = config.getString(AmazonSqsConfig.MESSAGE_GROUP_ID.key());
     }
 }

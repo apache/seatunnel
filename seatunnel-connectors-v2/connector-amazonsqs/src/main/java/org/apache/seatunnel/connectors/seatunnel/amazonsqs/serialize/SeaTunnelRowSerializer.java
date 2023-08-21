@@ -15,22 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.amazonsqs.exception;
+package org.apache.seatunnel.connectors.seatunnel.amazonsqs.serialize;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-public class AmazonSqsConnectorException extends SeaTunnelRuntimeException {
-    public AmazonSqsConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
-        super(seaTunnelErrorCode, errorMessage);
-    }
+import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 
-    public AmazonSqsConnectorException(
-            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
-        super(seaTunnelErrorCode, errorMessage, cause);
-    }
+public interface SeaTunnelRowSerializer {
 
-    public AmazonSqsConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
-        super(seaTunnelErrorCode, cause);
-    }
+    SendMessageRequest serialize(SeaTunnelRow seaTunnelRow);
 }

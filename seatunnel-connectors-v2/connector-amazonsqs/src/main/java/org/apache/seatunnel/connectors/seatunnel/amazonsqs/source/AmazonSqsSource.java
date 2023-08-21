@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazonsqs.source;
 
-import com.google.auto.service.AutoService;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -32,26 +32,26 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.exception. AmazonSqsConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.exception.AmazonSqsConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.URL;
+import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
+
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.ACCESS_KEY_ID;
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.SECRET_ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.MESSAGE_GROUP_ID;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.QUEUE;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.REGION;
-
+import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.SECRET_ACCESS_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.URL;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
         implements SupportColumnProjection {
 
-    private  AmazonSqsSourceOptions  AmazonSqsSourceOptions;
+    private AmazonSqsSourceOptions AmazonSqsSourceOptions;
 
     private SeaTunnelRowType typeInfo;
 
@@ -69,16 +69,15 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
                         QUEUE.key(),
                         REGION.key(),
                         ACCESS_KEY_ID.key(),
-                        SECRET_ACCESS_KEY.key()
-                        );
+                        SECRET_ACCESS_KEY.key());
         if (!result.isSuccess()) {
-            throw new  AmazonSqsConnectorException(
+            throw new AmazonSqsConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-         AmazonSqsSourceOptions = new  AmazonSqsSourceOptions(pluginConfig);
+        AmazonSqsSourceOptions = new AmazonSqsSourceOptions(pluginConfig);
         typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
     }
 
@@ -95,6 +94,6 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
             SingleSplitReaderContext readerContext) throws Exception {
-        return new AmazonDynamoDBSourceReader(readerContext,  AmazonSqsSourceOptions, typeInfo);
+        return new AmazonSqsSourceReader(readerContext, AmazonSqsSourceOptions, typeInfo);
     }
 }
