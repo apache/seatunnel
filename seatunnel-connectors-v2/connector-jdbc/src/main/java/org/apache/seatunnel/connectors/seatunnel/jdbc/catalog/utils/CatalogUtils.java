@@ -19,9 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
+import org.apache.commons.lang3.StringUtils;
+
 public class CatalogUtils {
     public static String getFieldIde(String identifier, String fieldIde) {
-        if (fieldIde == null) {
+        if (StringUtils.isEmpty(fieldIde)) {
             return identifier;
         }
         switch (FieldIdeEnum.valueOf(fieldIde.toUpperCase())) {
