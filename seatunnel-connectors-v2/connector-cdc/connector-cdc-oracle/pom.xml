@@ -44,6 +44,14 @@
                 <scope>compile</scope>
             </dependency>
 
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>connector-jdbc</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -58,6 +66,7 @@
             <groupId>io.debezium</groupId>
             <artifactId>debezium-connector-oracle</artifactId>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-jdbc</artifactId>
@@ -65,9 +74,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.oracle.ojdbc</groupId>
+            <groupId>com.oracle.database.jdbc</groupId>
             <artifactId>ojdbc8</artifactId>
-            <version>19.3.0.0</version>
         </dependency>
 
         <dependency>

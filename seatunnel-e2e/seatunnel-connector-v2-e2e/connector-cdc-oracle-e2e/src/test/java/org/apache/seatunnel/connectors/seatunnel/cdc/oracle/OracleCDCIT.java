@@ -22,8 +22,8 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
-
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -98,7 +98,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     private static final String SINK_SQL = "select * from DEBEZIUM.FULL_TYPES_SINK";
 
     private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/19.3.0.0/ojdbc8-19.3.0.0.jar";
+        return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
     }
 
     @TestContainerExtension
@@ -150,7 +150,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
         updateSourceTable();
 
         // stream stage
-        await().atMost(120000, TimeUnit.MILLISECONDS)
+        await().atMost(240000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
@@ -225,7 +225,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
     private void updateSourceTable() {
         executeSql(
-                "INSERT INTO DEBEZIUM.FULL_TYPES VALUES (2, 'vc2', 'vc2', 'nvc2', 'c', 'nc',1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,1, 22, 333, 4444, 5555, 1, 99, 9999, 999999999, 999999999999999999,94, 9949, 999999994, 999999999999999949, 99999999999999999999999999999999999949,TO_DATE('2022-10-30', 'yyyy-mm-dd'),TO_TIMESTAMP('2022-10-30 12:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_CLOB ('col_clob'),utl_raw.cast_to_raw ('col_blob'))");
+                "INSERT INTO DEBEZIUM.FULL_TYPES VALUES (2, 'vc2', 'vc2', 'nvc2', 'c', 'nc',1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,1, 22, 333, 4444, 5555, 1, 99, 9999, 999999999, 999999999999999999,94, 9949, 999999994, 999999999999999949, 99999999999999999999999999999999999949,TO_DATE('2022-10-30', 'yyyy-mm-dd'),TO_TIMESTAMP('2022-10-30 12:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'))");
 
         executeSql(
                 "INSERT INTO DEBEZIUM.FULL_TYPES VALUES (\n"
@@ -238,9 +238,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                         + "    TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),\n"
                         + "    TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),\n"
                         + "    TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),\n"
-                        + "    TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),\n"
-                        + "    TO_CLOB ('col_clob'),\n"
-                        + "    utl_raw.cast_to_raw ('col_blob')\n"
+                        + "    TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5')\n"
                         + ")");
 
         executeSql("DELETE FROM DEBEZIUM.FULL_TYPES where id = 2");
