@@ -28,7 +28,7 @@ if [ -n "$1" ]; then
     version="$1"
 else
     echo "Error: Version is not specified!"
-    echo "Usage: $0 2.3.2"
+    echo "Usage: $0 <version>"
     exit 1
 fi
 
