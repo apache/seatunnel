@@ -23,7 +23,7 @@ import org.apache.commons.lang3.StringUtils;
 
 public class CatalogUtils {
     public static String getFieldIde(String identifier, String fieldIde) {
-        if (StringUtils.isEmpty(fieldIde)) {
+        if (StringUtils.isBlank(fieldIde)) {
             return identifier;
         }
         switch (FieldIdeEnum.valueOf(fieldIde.toUpperCase())) {
