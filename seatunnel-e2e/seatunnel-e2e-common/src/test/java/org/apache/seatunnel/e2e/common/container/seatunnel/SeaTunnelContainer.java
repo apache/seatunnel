@@ -56,7 +56,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         server =
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
-                        .withEnv("TZ","UTC")
+                        .withEnv("TZ", "UTC")
                         .withCommand(
                                 ContainerUtil.adaptPathForWin(
                                         Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
