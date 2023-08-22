@@ -28,6 +28,11 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 @Slf4j
 public class AccessSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {

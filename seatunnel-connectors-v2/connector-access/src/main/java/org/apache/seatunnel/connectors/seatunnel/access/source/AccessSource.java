@@ -42,8 +42,15 @@ import com.google.auto.service.AutoService;
 
 import java.sql.ResultSetMetaData;
 
-static @AutoService(SeaTunnelSource.class) public class AccessSource
-        extends AbstractSingleSplitSource<SeaTunnelRow> implements SupportColumnProjection {
+import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.DRIVER;
+import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.QUERY;
+import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.URL;
+import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.USERNAME;
+
+@AutoService(SeaTunnelSource.class)
+public class AccessSource extends AbstractSingleSplitSource<SeaTunnelRow>
+        implements SupportColumnProjection {
     private SeaTunnelRowType rowTypeInfo;
     private final AccessParameters accessParameters = new AccessParameters();
 

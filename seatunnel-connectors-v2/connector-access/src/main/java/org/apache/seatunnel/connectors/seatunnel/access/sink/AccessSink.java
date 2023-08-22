@@ -40,8 +40,15 @@ import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
-static @AutoService(SeaTunnelSink.class) public class AccessSink
-        extends AbstractSimpleSink<SeaTunnelRow, Void> {
+import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.DRIVER;
+import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.QUERY;
+import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.URL;
+import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.USERNAME;
+
+@AutoService(SeaTunnelSink.class)
+public class AccessSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private SeaTunnelRowType seaTunnelRowType;
     private final AccessParameters accessParameters = new AccessParameters();
 

@@ -86,5 +86,11 @@
             <version>${flink.version}</version>
             <scope>compile</scope>
         </dependency>
+        <dependency>
+            <groupId>com.datastax.cassandra</groupId>
+            <artifactId>cassandra-driver-core</artifactId>
+            <version>3.10.0</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 </project>

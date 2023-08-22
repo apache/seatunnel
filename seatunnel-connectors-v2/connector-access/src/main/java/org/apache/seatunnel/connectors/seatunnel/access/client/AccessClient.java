@@ -18,6 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.access.client;
 
 import java.io.Serializable;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Statement;
 
 public class AccessClient implements Serializable {
     private String driver;

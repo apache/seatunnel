@@ -32,12 +32,21 @@ import org.apache.seatunnel.connectors.seatunnel.access.exception.AccessConnecto
 
 import org.apache.commons.lang.StringUtils;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.QUERY;
 import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.TABLE;
