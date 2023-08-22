@@ -69,7 +69,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         this.clientCommandArgs = clientCommandArgs;
     }
 
-    @SuppressWarnings({"checkstyle:RegexpSingleline", "checkstyle:MagicNumber"})
     @Override
     public void execute() throws CommandExecuteException {
         JobMetricsRunner.JobMetricsSummary jobMetricsSummary = null;
@@ -240,7 +239,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 new SeaTunnelNodeContext(seaTunnelConfig));
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private String creatRandomClusterName(String namePrefix) {
         Random random = new Random();
         return namePrefix + "-" + random.nextInt(1000000);

@@ -105,9 +105,12 @@ do
 done < ${APP_DIR}/config/jvm_options
 
 if [[ $DAEMON == true && $HELP == false ]]; then
- touch $OUT
- nohup java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args} > "$OUT" 200<&- 2>&1 < /dev/null &
- else
- java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
+  if [[ ! -d ${APP_DIR}/logs ]]; then
+    mkdir -p ${APP_DIR}/logs
+  fi
+  touch $OUT
+  nohup java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args} > "$OUT" 200<&- 2>&1 < /dev/null &
+  else
+  java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
 fi
 
