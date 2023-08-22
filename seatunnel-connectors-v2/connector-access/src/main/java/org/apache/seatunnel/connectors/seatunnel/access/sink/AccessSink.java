@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.access.sink;
 
-import com.google.auto.service.AutoService;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -34,14 +35,13 @@ import org.apache.seatunnel.connectors.seatunnel.access.exception.AccessConnecto
 import org.apache.seatunnel.connectors.seatunnel.access.util.TypeConvertUtil;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
-import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.*;
-
-@AutoService(SeaTunnelSink.class)
-public class AccessSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+static @AutoService(SeaTunnelSink.class) public class AccessSink
+        extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private SeaTunnelRowType seaTunnelRowType;
     private final AccessParameters accessParameters = new AccessParameters();
 

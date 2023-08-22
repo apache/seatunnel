@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.access.sink;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.access.client.AccessClient;
@@ -26,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.access.exception.AccessConnecto
 import org.apache.seatunnel.connectors.seatunnel.access.exception.AccessConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.access.util.TypeConvertUtil;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.sql.Connection;

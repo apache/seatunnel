@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.access.util;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -28,16 +29,15 @@ import org.apache.seatunnel.connectors.seatunnel.access.client.AccessClient;
 import org.apache.seatunnel.connectors.seatunnel.access.config.AccessParameters;
 import org.apache.seatunnel.connectors.seatunnel.access.exception.AccessConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.access.exception.AccessConnectorException;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import java.sql.*;
+import org.apache.commons.lang.StringUtils;
+
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
-import java.util.*;
 
 import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.QUERY;
 import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.TABLE;

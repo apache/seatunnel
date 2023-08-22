@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.access.source;
 
-import com.google.auto.service.AutoService;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -36,15 +37,13 @@ import org.apache.seatunnel.connectors.seatunnel.access.util.TypeConvertUtil;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.auto.service.AutoService;
 
 import java.sql.ResultSetMetaData;
 
-import static org.apache.seatunnel.connectors.seatunnel.access.config.AccessConfig.*;
-
-@AutoService(SeaTunnelSource.class)
-public class AccessSource extends AbstractSingleSplitSource<SeaTunnelRow>
-        implements SupportColumnProjection {
+static @AutoService(SeaTunnelSource.class) public class AccessSource
+        extends AbstractSingleSplitSource<SeaTunnelRow> implements SupportColumnProjection {
     private SeaTunnelRowType rowTypeInfo;
     private final AccessParameters accessParameters = new AccessParameters();
 

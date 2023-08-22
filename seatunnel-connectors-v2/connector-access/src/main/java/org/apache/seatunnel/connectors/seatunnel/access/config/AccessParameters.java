@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.access.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.io.Serializable;
 import java.util.List;
