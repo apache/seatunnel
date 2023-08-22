@@ -36,22 +36,16 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.utils.OracleC
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.utils.OracleSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.utils.TableDiscoveryUtils;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.debezium.connector.oracle.OracleConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
-import oracle.jdbc.driver.OracleDriver;
 
 import java.sql.SQLException;
 import java.util.List;
 
 /** The {@link JdbcDataSourceDialect} implementation for Oracle datasource. */
 public class OracleDialect implements JdbcDataSourceDialect {
-
-    private static final Logger LOG = LoggerFactory.getLogger(OracleDialect.class);
 
     private static final long serialVersionUID = 1L;
     private final SourceConfig sourceConfig;
@@ -91,9 +85,6 @@ public class OracleDialect implements JdbcDataSourceDialect {
     @Override
     public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
         OracleSourceConfig oracleSourceConfig = (OracleSourceConfig) sourceConfig;
-        LOG.info(
-                "oracle driver local {}",
-                OracleDriver.class.getProtectionDomain().getCodeSource().getLocation());
         try (JdbcConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
             return TableDiscoveryUtils.listTables(
                     jdbcConnection, oracleSourceConfig.getTableFilters());
