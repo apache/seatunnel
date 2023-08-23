@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.core.parse;
 
+import org.apache.seatunnel.api.sink.AbstractSaveModeHandler;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.CommonOptions;
@@ -637,8 +638,8 @@ public class MultipleTableJobConfigParser {
     public static void handleSaveMode(SeaTunnelSink<?, ?, ?, ?> sink) {
         if (SupportDataSaveMode.class.isAssignableFrom(sink.getClass())) {
             SupportDataSaveMode saveModeSink = (SupportDataSaveMode) sink;
-            DataSaveMode dataSaveMode = saveModeSink.getUserConfigSaveMode();
-            saveModeSink.handleSaveMode(dataSaveMode);
+            AbstractSaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler();
+            saveModeHandler.handleSaveMode();
         }
     }
 }

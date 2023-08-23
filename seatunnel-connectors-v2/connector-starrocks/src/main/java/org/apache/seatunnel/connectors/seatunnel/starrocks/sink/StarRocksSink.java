@@ -44,8 +44,7 @@ import lombok.NoArgsConstructor;
 
 @NoArgsConstructor
 @AutoService(SeaTunnelSink.class)
-public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
-        implements SupportDataSaveMode {
+public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private SeaTunnelRowType seaTunnelRowType;
     private SinkConfig sinkConfig;
@@ -112,7 +111,7 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         return new StarRocksSinkWriter(sinkConfig, seaTunnelRowType);
     }
 
-    @Override
+    /*@Override
     public DataSaveMode getUserConfigSaveMode() {
         return dataSaveMode;
     }
@@ -122,5 +121,5 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         if (catalogTable != null) {
             autoCreateTable(sinkConfig.getSaveModeCreateTemplate());
         }
-    }
+    }*/
 }

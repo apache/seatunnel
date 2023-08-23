@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.api.sink.AbstractSaveModeHandler;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.CommonOptions;
@@ -66,7 +70,7 @@ import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory
 @AutoService(SeaTunnelSink.class)
 public class JdbcSink
         implements SeaTunnelSink<SeaTunnelRow, JdbcSinkState, XidInfo, JdbcAggregatedCommitInfo>,
-                SupportDataSaveMode {
+                SupportDataSaveMode{
 
     private SeaTunnelRowType seaTunnelRowType;
 
@@ -80,17 +84,21 @@ public class JdbcSink
 
     private DataSaveMode dataSaveMode;
 
+    private SchemaSaveMode schemaSaveMode;
+
     private CatalogTable catalogTable;
 
     public JdbcSink(
             ReadonlyConfig config,
             JdbcSinkConfig jdbcSinkConfig,
             JdbcDialect dialect,
+            SchemaSaveMode schemaSaveMode,
             DataSaveMode dataSaveMode,
             CatalogTable catalogTable) {
         this.config = config;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.dialect = dialect;
+        this.schemaSaveMode = schemaSaveMode;
         this.dataSaveMode = dataSaveMode;
         this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
@@ -187,54 +195,46 @@ public class JdbcSink
         return Optional.empty();
     }
 
-    @Override
-    public DataSaveMode getUserConfigSaveMode() {
-        return dataSaveMode;
-    }
 
     @Override
-    public void handleSaveMode(DataSaveMode saveMode) {
-        if (catalogTable != null) {
-            Map<String, String> catalogOptions = config.get(CatalogOptions.CATALOG_OPTIONS);
-            if (catalogOptions != null) {
-                String factoryId = catalogOptions.get(CommonOptions.FACTORY_ID.key());
-                if (StringUtils.isBlank(jdbcSinkConfig.getDatabase())) {
-                    return;
-                }
-                CatalogFactory catalogFactory =
-                        discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CatalogFactory.class,
-                                factoryId);
-                if (catalogFactory != null) {
-                    try (Catalog catalog =
-                            catalogFactory.createCatalog(
-                                    catalogFactory.factoryIdentifier(),
-                                    ReadonlyConfig.fromMap(new HashMap<>(catalogOptions)))) {
-                        catalog.open();
-                        FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcOptions.FIELD_IDE);
-                        String fieldIde =
-                                fieldIdeEnumEnum == null
-                                        ? FieldIdeEnum.ORIGINAL.getValue()
-                                        : fieldIdeEnumEnum.getValue();
-                        TablePath tablePath =
-                                TablePath.of(
-                                        jdbcSinkConfig.getDatabase()
-                                                + "."
-                                                + CatalogUtils.quoteTableIdentifier(
-                                                        jdbcSinkConfig.getTable(), fieldIde));
-                        if (!catalog.databaseExists(jdbcSinkConfig.getDatabase())) {
-                            catalog.createDatabase(tablePath, true);
-                        }
-                        catalogTable.getOptions().put("fieldIde", fieldIde);
-                        if (!catalog.tableExists(tablePath)) {
-                            catalog.createTable(tablePath, catalogTable, true);
-                        }
-                    } catch (Exception e) {
-                        throw new JdbcConnectorException(HANDLE_SAVE_MODE_FAILED, e);
-                    }
-                }
-            }
+    public AbstractSaveModeHandler getSaveModeHandler() {
+        if (catalogTable == null) {
+            return null;
+        }
+        Map<String, String> catalogOptions = config.get(CatalogOptions.CATALOG_OPTIONS);
+        if (catalogOptions == null) {
+            return null;
+        }
+        String factoryId = catalogOptions.get(CommonOptions.FACTORY_ID.key());
+        if (StringUtils.isBlank(jdbcSinkConfig.getDatabase())) {
+            return null;
+        }
+        CatalogFactory catalogFactory =
+                discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CatalogFactory.class,
+                        factoryId);
+        if (catalogFactory == null) {
+            return null;
+        }
+        FieldIdeEnum fieldIdeEnum = config.get(JdbcOptions.FIELD_IDE);
+        String fieldIde =
+                fieldIdeEnum == null ? FieldIdeEnum.ORIGINAL.getValue() : fieldIdeEnum.getValue();
+        TablePath tablePath =
+                TablePath.of(
+                        jdbcSinkConfig.getDatabase()
+                                + "."
+                                + CatalogUtils.quoteTableIdentifier(
+                                jdbcSinkConfig.getTable(), fieldIde));
+        try (Catalog catalog =
+                     catalogFactory.createCatalog(
+                             catalogFactory.factoryIdentifier(),
+                             ReadonlyConfig.fromMap(new HashMap<>(catalogOptions)))) {
+            catalog.open();
+            return new JdbcSaveModeHandler(schemaSaveMode,dataSaveMode,config,catalogTable,catalog,tablePath);
+
+        } catch (Exception e) {
+            throw new JdbcConnectorException(HANDLE_SAVE_MODE_FAILED, e);
         }
     }
 }
