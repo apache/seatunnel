@@ -2,6 +2,10 @@
 
 > RocketMQ source connector
 
+## Support Apache RocketMQ Version
+
+- 4.9.0 (Or a newer version, for reference)
+
 ## Description
 
 Source connector for Apache RocketMQ.
@@ -17,85 +21,26 @@ Source connector for Apache RocketMQ.
 
 ## Options
 
-|                name                 |  type   | required |       default value        |
-|-------------------------------------|---------|----------|----------------------------|
-| topics                              | String  | yes      | -                          |
-| name.srv.addr                       | String  | yes      | -                          |
-| acl.enabled                         | Boolean | no       | false                      |
-| access.key                          | String  | no       |                            |
-| secret.key                          | String  | no       |                            |
-| batch.size                          | int     | no       | 100                        |
-| consumer.group                      | String  | no       | SeaTunnel-Consumer-Group   |
-| commit.on.checkpoint                | Boolean | no       | true                       |
-| schema                              |         | no       | -                          |
-| format                              | String  | no       | json                       |
-| field.delimiter                     | String  | no       | ,                          |
-| start.mode                          | String  | no       | CONSUME_FROM_GROUP_OFFSETS |
-| start.mode.offsets                  |         | no       |                            |
-| start.mode.timestamp                | Long    | no       |                            |
-| partition.discovery.interval.millis | long    | no       | -1                         |
-| common-options                      | config  | no       | -                          |
+|                Name                 |  Type   | Required |          Default           |                                                                                                    Description                                                                                                     |
+|-------------------------------------|---------|----------|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| topics                              | String  | yes      | -                          | `RocketMQ topic` name. If there are multiple `topics`, use `,` to split, for example: `"tpc1,tpc2"`.                                                                                                               |
+| name.srv.addr                       | String  | yes      | -                          | `RocketMQ` name server cluster address.                                                                                                                                                                            |
+| acl.enabled                         | Boolean | no       | false                      | If true, access control is enabled, and access key and secret key need to be configured.                                                                                                                           |
+| access.key                          | String  | no       |                            |                                                                                                                                                                                                                    |
+| secret.key                          | String  | no       |                            | When ACL_ENABLED is true, secret key cannot be empty.                                                                                                                                                              |
+| batch.size                          | int     | no       | 100                        | `RocketMQ` consumer pull batch size                                                                                                                                                                                |
+| consumer.group                      | String  | no       | SeaTunnel-Consumer-Group   | `RocketMQ consumer group id`, used to distinguish different consumer groups.                                                                                                                                       |
+| commit.on.checkpoint                | Boolean | no       | true                       | If true the consumer's offset will be periodically committed in the background.                                                                                                                                    |
+| schema                              |         | no       | -                          | The structure of the data, including field names and field types.                                                                                                                                                  |
+| format                              | String  | no       | json                       | Data format. The default format is json. Optional text format. The default field separator is ",".If you customize the delimiter, add the "field.delimiter" option.                                                |
+| field.delimiter                     | String  | no       | ,                          | Customize the field delimiter for data format                                                                                                                                                                      |
+| start.mode                          | String  | no       | CONSUME_FROM_GROUP_OFFSETS | The initial consumption pattern of consumers,there are several types: [CONSUME_FROM_LAST_OFFSET],[CONSUME_FROM_FIRST_OFFSET],[CONSUME_FROM_GROUP_OFFSETS],[CONSUME_FROM_TIMESTAMP],[CONSUME_FROM_SPECIFIC_OFFSETS] |
+| start.mode.offsets                  |         | no       |                            |                                                                                                                                                                                                                    |
+| start.mode.timestamp                | Long    | no       |                            | The time required for consumption mode to be "CONSUME_FROM_TIMESTAMP".                                                                                                                                             |
+| partition.discovery.interval.millis | long    | no       | -1                         | The interval for dynamically discovering topics and partitions.                                                                                                                                                    |
+| common-options                      | config  | no       | -                          | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                                                                                           |
 
-### topics [string]
-
-`RocketMQ topic` name. If there are multiple `topics`, use `,` to split, for example: `"tpc1,tpc2"`.
-
-### name.srv.addr [string]
-
-`RocketMQ` name server cluster address.
-
-### consumer.group [string]
-
-`RocketMQ consumer group id`, used to distinguish different consumer groups.
-
-### acl.enabled [boolean]
-
-If true, access control is enabled, and access key and secret key need to be configured.
-
-### access.key [string]
-
-When ACL_ENABLED is true, access key cannot be empty.
-
-### secret.key [string]
-
-When ACL_ENABLED is true, secret key cannot be empty.
-
-### batch.size [int]
-
-`RocketMQ` consumer pull batch size
-
-### commit.on.checkpoint [boolean]
-
-If true the consumer's offset will be periodically committed in the background.
-
-## partition.discovery.interval.millis [long]
-
-The interval for dynamically discovering topics and partitions.
-
-### schema
-
-The structure of the data, including field names and field types.
-
-## format
-
-Data format. The default format is json. Optional text format. The default field separator is ", ".
-If you customize the delimiter, add the "field.delimiter" option.
-
-## field.delimiter
-
-Customize the field delimiter for data format.
-
-## start.mode
-
-The initial consumption pattern of consumers,there are several types:
-[CONSUME_FROM_LAST_OFFSET],[CONSUME_FROM_FIRST_OFFSET],[CONSUME_FROM_GROUP_OFFSETS],[CONSUME_FROM_TIMESTAMP]
-,[CONSUME_FROM_SPECIFIC_OFFSETS]
-
-## start.mode.timestamp
-
-The time required for consumption mode to be "CONSUME_FROM_TIMESTAMP".
-
-## start.mode.offsets
+### start.mode.offsets
 
 The offset required for consumption mode to be "CONSUME_FROM_SPECIFIC_OFFSETS".
 
@@ -103,40 +48,57 @@ for example:
 
 ```hocon
 start.mode.offsets = {
-         topic1-0 = 70
-         topic1-1 = 10
-         topic1-2 = 10
-      }
-```
-
-### common-options [config]
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
-
-## Example
-
-### Simple
-
-```hocon
-source {
-  Rocketmq {
-    name.srv.addr = "localhost:9876"
-    topics = "test-topic-002"
-    consumer.group = "consumer-group"
-    parallelism = 2
-    batch.size = 20
-    schema = {
-       fields {
-            age = int
-            name = string
-       }
-     }
-    start.mode = "CONSUME_FROM_SPECIFIC_OFFSETS"
-    start.mode.offsets = {
-                test-topic-002-0 = 20
-             }
-            
-  }
+  topic1-0 = 70
+  topic1-1 = 10
+  topic1-2 = 10
 }
 ```
 
+## Task Example
+
+### Simple:
+
+> random generation data is sent to Rocketmq
+
+```hocon
+env {
+  execution.parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "rocketmq-e2e:9876"
+    topics = "test_topic_json"
+    result_table_name = "rocketmq_table"
+    schema = {
+      fields {
+        id = bigint
+        c_map = "map<string, smallint>"
+        c_array = "array<tinyint>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(2, 1)"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
+    }
+  }
+
+}
+
+transform {
+}
+
+sink {
+  Console {
+  }
+}
+```

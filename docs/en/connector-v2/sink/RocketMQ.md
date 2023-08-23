@@ -1,8 +1,12 @@
 # RocketMQ
 
 > RocketMQ sink connector
->
-  ## Description
+
+## Support Apache RocketMQ Version
+
+- 4.9.0 (Or a newer version, for reference)
+
+## Description
 
 Write Rows to a Apache RocketMQ topic.
 
@@ -14,31 +18,20 @@ By default, we will use 2pc to guarantee the message is sent to RocketMQ exactly
 
 ## Options
 
-|         name         |  type   | required |      default value       |
-|----------------------|---------|----------|--------------------------|
-| topic                | string  | yes      | -                        |
-| name.srv.addr        | string  | yes      | -                        |
-| acl.enabled          | Boolean | no       | false                    |
-| access.key           | String  | no       |                          |
-| secret.key           | String  | no       |                          |
-| producer.group       | String  | no       | SeaTunnel-producer-Group |
-| semantic             | string  | no       | NON                      |
-| partition.key.fields | array   | no       | -                        |
-| format               | String  | no       | json                     |
-| field.delimiter      | String  | no       | ,                        |
-| common-options       | config  | no       | -                        |
-
-### topic [string]
-
-`RocketMQ topic` name.
-
-### name.srv.addr [string]
-
-`RocketMQ` name server cluster address.
-
-### semantic [string]
-
-Semantics that can be chosen EXACTLY_ONCE/AT_LEAST_ONCE/NON, default NON.
+|         Name         |  Type   | Required |         Default          |                                                                             Description                                                                             |
+|----------------------|---------|----------|--------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| topic                | string  | yes      | -                        | `RocketMQ topic` name.                                                                                                                                              |
+| name.srv.addr        | string  | yes      | -                        | `RocketMQ` name server cluster address.                                                                                                                             |
+| acl.enabled          | Boolean | no       | false                    | false                                                                                                                                                               |
+| access.key           | String  | no       |                          | When ACL_ENABLED is true, access key cannot be empty                                                                                                                |
+| secret.key           | String  | no       |                          | When ACL_ENABLED is true, secret key cannot be empty                                                                                                                |
+| producer.group       | String  | no       | SeaTunnel-producer-Group | SeaTunnel-producer-Group                                                                                                                                            |
+| semantic             | string  | no       | NON                      | Semantics that can be chosen EXACTLY_ONCE/AT_LEAST_ONCE/NON, default NON.                                                                                           |
+| partition.key.fields | array   | no       | -                        | -                                                                                                                                                                   |
+| format               | String  | no       | json                     | Data format. The default format is json. Optional text format. The default field separator is ",".If you customize the delimiter, add the "field_delimiter" option. |
+| field.delimiter      | String  | no       | ,                        | Customize the field delimiter for data format.                                                                                                                      |
+| producer.send.sync      | Boolean  | no       | false                        | If true, the message will be sync sent.                                                                                                                      |
+| common-options       | config  | no       | -                        | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.                                                                |
 
 ### partition.key.fields [array]
 
@@ -55,28 +48,59 @@ Upstream data is the following:
 
 If name is set as the key, then the hash value of the name column will determine which partition the message is sent to.
 
-### format
+## Task Example
 
-Data format. The default format is json. Optional text format. The default field separator is ",".
-If you customize the delimiter, add the "field_delimiter" option.
+### Simple:
 
-### field_delimiter
-
-Customize the field delimiter for data format.
-
-### common options [config]
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
-
-## Examples
+> Randomly generated data is synchronously sent to RocketMQ with c_int as the partition key
 
 ```hocon
+env {
+  execution.parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    map.size = 10
+    array.size = 10
+    bytes.length = 10
+    string.length = 10
+    schema = {
+      fields {
+        c_map = "map<string, smallint>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(30, 8)"
+        c_null = "null"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+transform {
+
+  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+  # please go to https://seatunnel.apache.org/docs/category/transform
+}
+
 sink {
   Rocketmq {
-    name.srv.addr = "localhost:9876"
-    topic = "test-topic-003"
-    partition.key.fields = ["name"]
+    name.srv.addr = "rocketmq-e2e:9876"
+    topic = "test_topic"
+    partition.key.fields = ["c_int"]
+    producer.send.sync = true
   }
 }
 ```
-
