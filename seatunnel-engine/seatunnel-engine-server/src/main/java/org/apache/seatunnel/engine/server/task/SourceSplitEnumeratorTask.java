@@ -197,6 +197,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     }
 
     public Serializer<SplitT> getSplitSerializer() throws ExecutionException, InterruptedException {
+        // Because the splitSerializer is initialized in the init method, it's necessary to wait for
+        // the Enumerator to finish initializing.
         getEnumerator();
         return splitSerializer;
     }
