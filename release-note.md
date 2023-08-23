@@ -81,6 +81,7 @@
 - [E2E] [Kafka] Fix kafka e2e testcase (#4520)
 - [Container Version] Fix risk of unreproducible test cases #4591
 - [E2e] [Mysql-cdc] Removing the excess MySqlIncrementalSourceIT e2e reduces the CI time (#4738)
+- [E2E] [Common] Update test container version of seatunnel engine (#5323)
 
 ## Improve
 
