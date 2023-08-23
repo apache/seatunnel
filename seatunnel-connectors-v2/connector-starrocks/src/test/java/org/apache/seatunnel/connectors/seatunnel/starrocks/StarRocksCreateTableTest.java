@@ -110,10 +110,12 @@ public class StarRocksCreateTableTest {
         String result =
                 StarRocksSaveModeUtil.fillingCreateSql(
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
+                                + "`L_COMMITDATE`,\n"
                                 + "${rowtype_primary_key},\n"
+                                + "L_SUPPKEY BIGINT NOT NULL,\n"
                                 + "${rowtype_fields}\n"
                                 + ") ENGINE=OLAP\n"
-                                + " PRIMARY KEY (${rowtype_primary_key})\n"
+                                + " PRIMARY KEY (L_COMMITDATE, ${rowtype_primary_key}, L_SUPPKEY)\n"
                                 + "DISTRIBUTED BY HASH (${rowtype_primary_key})"
                                 + "PROPERTIES (\n"
                                 + "    \"replication_num\" = \"1\" \n"
@@ -128,9 +130,10 @@ public class StarRocksCreateTableTest {
                                 .build());
         String expected =
                 "CREATE TABLE IF NOT EXISTS `tpch`.`lineitem` (\n"
+                        + "`L_COMMITDATE` DATE NOT NULL ,\n"
                         + "`L_ORDERKEY` INT NOT NULL ,`L_LINENUMBER` INT NOT NULL ,\n"
+                        + "L_SUPPKEY BIGINT NOT NULL,\n"
                         + "`L_PARTKEY` INT NOT NULL ,\n"
-                        + "`L_SUPPKEY` INT NOT NULL ,\n"
                         + "`L_QUANTITY` Decimal(15, 2) NOT NULL ,\n"
                         + "`L_EXTENDEDPRICE` Decimal(15, 2) NOT NULL ,\n"
                         + "`L_DISCOUNT` Decimal(15, 2) NOT NULL ,\n"
@@ -138,13 +141,12 @@ public class StarRocksCreateTableTest {
                         + "`L_RETURNFLAG` STRING NOT NULL ,\n"
                         + "`L_LINESTATUS` STRING NOT NULL ,\n"
                         + "`L_SHIPDATE` DATE NOT NULL ,\n"
-                        + "`L_COMMITDATE` DATE NOT NULL ,\n"
                         + "`L_RECEIPTDATE` DATE NOT NULL ,\n"
                         + "`L_SHIPINSTRUCT` STRING NOT NULL ,\n"
                         + "`L_SHIPMODE` STRING NOT NULL ,\n"
                         + "`L_COMMENT` STRING NOT NULL \n"
                         + ") ENGINE=OLAP\n"
-                        + " PRIMARY KEY (`L_ORDERKEY`,`L_LINENUMBER`)\n"
+                        + " PRIMARY KEY (L_COMMITDATE, `L_ORDERKEY`,`L_LINENUMBER`, L_SUPPKEY)\n"
                         + "DISTRIBUTED BY HASH (`L_ORDERKEY`,`L_LINENUMBER`)PROPERTIES (\n"
                         + "    \"replication_num\" = \"1\" \n"
                         + ")";
