@@ -126,7 +126,7 @@ Please follow this [document](docs/en/contribution/setup.md).
 
 * Mail list: **dev@seatunnel.apache.org**. Mail to `dev-subscribe@seatunnel.apache.org`, follow the reply to subscribe
   the mail list.
-* Slack: https://the-asf.slack.com/archives/C053HND1D6X
+* Slack: https://s.apache.org/seatunnel-slack
 * Twitter: https://twitter.com/ASFSeaTunnel
 * [Bilibili](https://space.bilibili.com/1542095008) (for Chinese users)
 
