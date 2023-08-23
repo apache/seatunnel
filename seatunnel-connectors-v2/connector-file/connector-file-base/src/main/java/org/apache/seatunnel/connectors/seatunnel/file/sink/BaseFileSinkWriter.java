@@ -44,7 +44,6 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
     protected final WriteStrategy writeStrategy;
     private final FileSystemUtils fileSystemUtils;
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public BaseFileSinkWriter(
             WriteStrategy writeStrategy,
             HadoopConf hadoopConf,

@@ -31,7 +31,6 @@ import java.util.List;
 @Setter
 @Getter
 @ToString
-@SuppressWarnings("checkstyle:MagicNumber")
 public class SinkConfig extends InfluxDBConfig {
     public SinkConfig(Config config) {
         super(config);
