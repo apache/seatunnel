@@ -94,8 +94,8 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
     public static final Pattern COMMENT_PATTERN = Pattern.compile("^(.*)--.*$");
 
-    private static final String SOURCE_SQL = "select * from DEBEZIUM.FULL_TYPES";
-    private static final String SINK_SQL = "select * from DEBEZIUM.FULL_TYPES_SINK";
+    private static final String SOURCE_SQL = "select * from DEBEZIUM.FULL_TYPES ORDER BY ID";
+    private static final String SINK_SQL = "select * from DEBEZIUM.FULL_TYPES_SINK ORDER BY ID";
 
     private String driverUrl() {
         return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
