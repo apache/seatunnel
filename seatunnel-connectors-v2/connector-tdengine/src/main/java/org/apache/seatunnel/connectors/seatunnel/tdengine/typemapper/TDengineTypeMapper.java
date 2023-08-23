@@ -80,7 +80,6 @@ public class TDengineTypeMapper {
     private static final String TDENGINE_VARBINARY = "VARBINARY";
     private static final String TDENGINE_GEOMETRY = "GEOMETRY";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static SeaTunnelDataType<?> mapping(String tdengineType) {
         switch (tdengineType) {
             case TDENGINE_BIT:

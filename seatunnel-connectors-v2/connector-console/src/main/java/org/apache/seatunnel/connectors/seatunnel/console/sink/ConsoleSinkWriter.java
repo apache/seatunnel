@@ -59,7 +59,6 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     @Override
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     public void write(SeaTunnelRow element) {
         String[] arr = new String[seaTunnelRowType.getTotalFields()];
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();

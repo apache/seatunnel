@@ -136,7 +136,6 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 .whenComplete((s, e) -> closeCalled = true);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     protected void stateProcess() throws Exception {
         switch (currState) {
             case INIT:
