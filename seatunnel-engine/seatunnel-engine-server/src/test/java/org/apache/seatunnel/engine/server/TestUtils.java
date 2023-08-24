@@ -52,7 +52,6 @@ public class TestUtils {
         return System.getProperty("user.dir") + "/src/test/resources/" + confFile;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static LogicalDag getTestLogicalDag(JobContext jobContext) throws MalformedURLException {
         IdGenerator idGenerator = new IdGenerator();
         FakeSource fakeSource = new FakeSource();

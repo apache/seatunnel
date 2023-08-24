@@ -228,7 +228,6 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      *
      * @return the all plugin identifier of the engine
      */
-    @SuppressWarnings("checkstyle:WhitespaceAfter")
     public Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> getAllPlugin()
             throws IOException {
         List<Factory> factories;
@@ -238,7 +237,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             factories =
                     FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])));
         } else {
-            log.info("plugin dir: {} not exists, load plugin from classpath", this.pluginDir);
+            log.warn("plugin dir: {} not exists, load plugin from classpath", this.pluginDir);
             factories =
                     FactoryUtil.discoverFactories(Thread.currentThread().getContextClassLoader());
         }

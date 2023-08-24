@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.e2e.transform;
 
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -27,10 +25,6 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK},
-        disabledReason = "Some problems of Spark Timestamp type convert unresolved")
 public class TestSQLIT extends TestSuiteBase {
 
     @TestTemplate
@@ -55,5 +49,8 @@ public class TestSQLIT extends TestSuiteBase {
         Container.ExecResult sqlCriteriaFilter =
                 container.executeJob("/sql_transform/criteria_filter.conf");
         Assertions.assertEquals(0, sqlCriteriaFilter.getExitCode());
+        Container.ExecResult sqlAllColumns =
+                container.executeJob("/sql_transform/sql_all_columns.conf");
+        Assertions.assertEquals(0, sqlAllColumns.getExitCode());
     }
 }

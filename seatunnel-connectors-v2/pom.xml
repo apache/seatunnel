@@ -73,6 +73,7 @@
         <module>connector-hbase</module>
         <module>connector-rocketmq</module>
         <module>connector-amazonsqs</module>
+        <module>connector-paimon</module>
     </modules>
 
     <dependencyManagement>

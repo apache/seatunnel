@@ -54,6 +54,9 @@ public class HiveMetaStoreProxy {
             Configuration configuration = new Configuration();
             FileSystemUtils.doKerberosAuthentication(configuration, principal, keytabPath);
         }
+        if (config.hasPath(HiveConfig.HIVE_SITE_PATH.key())) {
+            hiveConf.addResource(config.getString(HiveConfig.HIVE_SITE_PATH.key()));
+        }
         try {
             hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf);
         } catch (MetaException e) {

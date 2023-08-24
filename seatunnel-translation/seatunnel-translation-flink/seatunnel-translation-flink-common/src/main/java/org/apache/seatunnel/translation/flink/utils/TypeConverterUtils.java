@@ -43,7 +43,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public class TypeConverterUtils {
 
     private static final Map<Class<?>, BridgedType> BRIDGED_TYPES = new HashMap<>(32);

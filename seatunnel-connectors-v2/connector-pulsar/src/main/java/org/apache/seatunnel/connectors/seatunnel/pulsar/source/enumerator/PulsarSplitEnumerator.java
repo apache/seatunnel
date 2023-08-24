@@ -189,11 +189,12 @@ public class PulsarSplitEnumerator
     }
 
     private Set<TopicPartition> getNewPartitions(Set<TopicPartition> fetchedPartitions) {
-        Consumer<TopicPartition> dedupOrMarkAsRemoved = fetchedPartitions::remove;
-        assignedPartitions.forEach(dedupOrMarkAsRemoved);
+        Consumer<TopicPartition> duplicateOrMarkAsRemoved = fetchedPartitions::remove;
+        assignedPartitions.forEach(duplicateOrMarkAsRemoved);
         pendingPartitionSplits.forEach(
                 (reader, splits) ->
-                        splits.forEach(split -> dedupOrMarkAsRemoved.accept(split.getPartition())));
+                        splits.forEach(
+                                split -> duplicateOrMarkAsRemoved.accept(split.getPartition())));
 
         if (!fetchedPartitions.isEmpty()) {
             LOG.info("Discovered new partitions: {}", fetchedPartitions);
@@ -216,7 +217,6 @@ public class PulsarSplitEnumerator
                 subscriptionName);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     static int getSplitOwner(TopicPartition tp, int numReaders) {
         int startIndex = ((tp.getTopic().hashCode() * 31) & 0x7FFFFFFF) % numReaders;
 

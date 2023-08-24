@@ -170,6 +170,15 @@
                 <include>org.apache.hadoop:hadoop-aws:jar</include>
                 <include>com.amazonaws:aws-java-sdk-bundle:jar</include>
                 <include>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:jar:*:optional</include>
+                <!--Add hadoop aliyun jar -->
+                <include>org.apache.hadoop:hadoop-aliyun:jar</include>
+                <include>com.aliyun.oss:aliyun-sdk-oss:jar</include>
+                <include>org.jdom:jdom:jar</include>
+
+                <!--Add netty buffer jar -->
+                <include>io.netty:netty-buffer:jar</include>
+                <include>io.netty:netty-common:jar</include>
+
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>
@@ -193,9 +202,10 @@
                 <include>com.aliyun.openservices:tablestore-jdbc:jar</include>
                 <include>com.teradata.jdbc:terajdbc4:jar</include>
                 <include>com.amazon.redshift:redshift-jdbc42:jar</include>
+                <include>net.snowflake.snowflake-jdbc:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
-            <outputDirectory>/plugins/jdbc/lib</outputDirectory>
+            <outputDirectory>/lib</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
     </dependencySets>

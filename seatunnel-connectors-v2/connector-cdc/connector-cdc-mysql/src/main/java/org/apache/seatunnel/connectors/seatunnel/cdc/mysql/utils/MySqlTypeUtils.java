@@ -80,13 +80,13 @@ public class MySqlTypeUtils {
     private static final String MYSQL_VARBINARY = "VARBINARY";
     private static final String MYSQL_GEOMETRY = "GEOMETRY";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static SeaTunnelDataType<?> convertFromColumn(Column column) {
         String typeName = column.typeName();
         switch (typeName) {
             case MYSQL_BIT:
                 return BasicType.BOOLEAN_TYPE;
             case MYSQL_TINYINT:
+                return column.length() == 1 ? BasicType.BOOLEAN_TYPE : BasicType.INT_TYPE;
             case MYSQL_TINYINT_UNSIGNED:
             case MYSQL_SMALLINT:
             case MYSQL_SMALLINT_UNSIGNED:

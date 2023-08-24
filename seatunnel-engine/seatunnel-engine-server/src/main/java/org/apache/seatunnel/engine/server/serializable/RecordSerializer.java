@@ -67,7 +67,7 @@ public class RecordSerializer implements StreamSerializer<Record> {
         if (dataType == RecordDataType.CHECKPOINT_BARRIER.ordinal()) {
             data =
                     new CheckpointBarrier(
-                            in.readLong(), in.readLong(), CheckpointType.valueOf(in.readString()));
+                            in.readLong(), in.readLong(), CheckpointType.fromName(in.readString()));
         } else if (dataType == RecordDataType.SEATUNNEL_ROW.ordinal()) {
             String tableId = in.readString();
             byte rowKind = in.readByte();
