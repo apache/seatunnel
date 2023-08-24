@@ -20,7 +20,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 
 ## Sink Options
 
-| Name                        | Type    | Required | Default         | Description                                                                                                                                                                                                       |
+|            Name             |  Type   | Required |     Default     |                                                                                                    Description                                                                                                    |
 |-----------------------------|---------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | nodeUrls                    | list    | yes      | -               | `StarRocks` cluster address, the format is `["fe_ip:fe_http_port", ...]`                                                                                                                                          |
 | base-url                    | string  | yes      | -               | The JDBC URL like `jdbc:mysql://localhost:9030/` or `jdbc:mysql://localhost:9030` or `jdbc:mysql://localhost:9030/db`                                                                                             |
