@@ -20,10 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.milvus.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusOptions;
 
 import com.google.auto.service.AutoService;
 
-static @AutoService(Factory.class) public class MilvusSinkFactory implements TableSinkFactory {
+@AutoService(Factory.class)
+public class MilvusSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
         return "Milvus";
@@ -32,8 +34,17 @@ static @AutoService(Factory.class) public class MilvusSinkFactory implements Tab
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(MILVUS_HOST, MILVUS_PORT, COLLECTION_NAME, USERNAME, PASSWORD)
-                .optional(PARTITION_FIELD, OPENAI_ENGINE, OPENAI_API_KEY, EMBEDDINGS_FIELDS)
+                .required(
+                        MilvusOptions.MILVUS_HOST,
+                        MilvusOptions.MILVUS_PORT,
+                        MilvusOptions.COLLECTION_NAME,
+                        MilvusOptions.USERNAME,
+                        MilvusOptions.PASSWORD)
+                .optional(
+                        MilvusOptions.PARTITION_FIELD,
+                        MilvusOptions.OPENAI_ENGINE,
+                        MilvusOptions.OPENAI_API_KEY,
+                        MilvusOptions.EMBEDDINGS_FIELDS)
                 .build();
     }
 }
