@@ -43,9 +43,17 @@ public class AmazonSqsSourceOptions implements Serializable {
     public AmazonSqsSourceOptions(Config config) {
         this.url = config.getString(AmazonSqsConfig.URL.key());
         this.region = config.getString(AmazonSqsConfig.REGION.key());
-        this.accessKeyId = config.getString(AmazonSqsConfig.ACCESS_KEY_ID.key());
-        this.secretAccessKey = config.getString(AmazonSqsConfig.SECRET_ACCESS_KEY.key());
-        this.queue = config.getString(AmazonSqsConfig.QUEUE.key());
-        this.messageGroupId = config.getString(AmazonSqsConfig.MESSAGE_GROUP_ID.key());
+        if (config.hasPath(AmazonSqsConfig.ACCESS_KEY_ID.key())) {
+            this.accessKeyId = config.getString(AmazonSqsConfig.ACCESS_KEY_ID.key());
+        }
+        if (config.hasPath(AmazonSqsConfig.SECRET_ACCESS_KEY.key())) {
+            this.secretAccessKey = config.getString(AmazonSqsConfig.SECRET_ACCESS_KEY.key());
+        }
+        if (config.hasPath(AmazonSqsConfig.QUEUE.key())) {
+            this.queue = config.getString(AmazonSqsConfig.QUEUE.key());
+        }
+        if (config.hasPath(AmazonSqsConfig.MESSAGE_GROUP_ID.key())) {
+            this.messageGroupId = config.getString(AmazonSqsConfig.MESSAGE_GROUP_ID.key());
+        }
     }
 }

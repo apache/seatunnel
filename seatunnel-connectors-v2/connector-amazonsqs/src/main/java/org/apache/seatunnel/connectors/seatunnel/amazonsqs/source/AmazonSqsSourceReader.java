@@ -27,8 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import lombok.extern.slf4j.Slf4j;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.DeleteMessageRequest;
@@ -65,11 +64,7 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
                         // The region is meaningless for local Sqs but required for client
                         // builder validation
                         .region(Region.of(amazonSqsSourceOptions.getRegion()))
-                        .credentialsProvider(
-                                StaticCredentialsProvider.create(
-                                        AwsBasicCredentials.create(
-                                                amazonSqsSourceOptions.getAccessKeyId(),
-                                                amazonSqsSourceOptions.getSecretAccessKey())))
+                        .credentialsProvider(DefaultCredentialsProvider.create())
                         .build();
     }
 

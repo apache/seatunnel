@@ -40,10 +40,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.ACCESS_KEY_ID;
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.QUEUE;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.REGION;
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.SECRET_ACCESS_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.URL;
 
 @Slf4j
@@ -57,19 +54,12 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
 
     @Override
     public String getPluginName() {
-        return "AmazonDynamodb";
+        return "amazonsqs";
     }
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        URL.key(),
-                        QUEUE.key(),
-                        REGION.key(),
-                        ACCESS_KEY_ID.key(),
-                        SECRET_ACCESS_KEY.key());
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, URL.key(), REGION.key());
         if (!result.isSuccess()) {
             throw new AmazonSqsConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
