@@ -21,7 +21,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -110,8 +109,7 @@ public class SinkExecuteProcessor
                     (SeaTunnelRowType) TypeConverterUtils.convert(dataset.schema()));
             if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
                 SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
-                DataSaveMode dataSaveMode = saveModeSink.getUserConfigSaveMode();
-                saveModeSink.handleSaveMode(dataSaveMode);
+                saveModeSink.getSaveModeHandler().handleSaveMode();
             }
             SparkSinkInjector.inject(dataset.write(), seaTunnelSink)
                     .option("checkpointLocation", "/tmp")

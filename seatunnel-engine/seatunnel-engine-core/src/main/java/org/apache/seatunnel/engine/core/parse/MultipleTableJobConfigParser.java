@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.core.parse;
 
-import org.apache.seatunnel.api.sink.AbstractSaveModeHandler;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.CommonOptions;
@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.env.ParsingMode;
-import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.AbstractSaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -88,6 +88,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
 import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getFactoryId;
 import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getFactoryUrls;
 import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getInputIds;
@@ -638,8 +639,11 @@ public class MultipleTableJobConfigParser {
     public static void handleSaveMode(SeaTunnelSink<?, ?, ?, ?> sink) {
         if (SupportDataSaveMode.class.isAssignableFrom(sink.getClass())) {
             SupportDataSaveMode saveModeSink = (SupportDataSaveMode) sink;
-            AbstractSaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler();
-            saveModeHandler.handleSaveMode();
+            try(AbstractSaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler();){
+                saveModeHandler.handleSaveMode();
+            }catch (Exception e){
+                throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED,e);
+            }
         }
     }
 }

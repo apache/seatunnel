@@ -5,22 +5,22 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.SINK_TABLE_NOT_EXIST;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.SOURCE_ALREADY_HAS_DATA;
 
-public abstract class AbstractSaveModeHandler {
+public abstract class AbstractSaveModeHandler implements AutoCloseable {
 
     public SchemaSaveMode schemaSaveMode;
     public DataSaveMode dataSaveMode;
 
-    public AbstractSaveModeHandler(SchemaSaveMode schemaSaveMode,DataSaveMode dataSaveMode){
+    public AbstractSaveModeHandler(SchemaSaveMode schemaSaveMode, DataSaveMode dataSaveMode) {
         this.schemaSaveMode = schemaSaveMode;
         this.dataSaveMode = dataSaveMode;
     }
 
-    public void handleSaveMode(){
+    public void handleSaveMode() {
         handleSchemaSaveMode();
         handleDataSaveMode();
     }
 
-    public void handleSchemaSaveMode(){
+    public void handleSchemaSaveMode() {
         switch (schemaSaveMode) {
             case RECREATE_SCHEMA:
                 recreateSchema();
@@ -36,7 +36,7 @@ public abstract class AbstractSaveModeHandler {
         }
     }
 
-    public void handleDataSaveMode(){
+    public void handleDataSaveMode() {
         switch (dataSaveMode) {
             case KEEP_SCHEMA_DROP_DATA:
                 keepSchemaDropData();
@@ -55,40 +55,39 @@ public abstract class AbstractSaveModeHandler {
         }
     }
 
-    public void recreateSchema(){
-        if (tableExists()){
+    public void recreateSchema() {
+        if (tableExists()) {
             dropTable();
         }
         createTable();
     }
 
-    public void createSchemaWhenNotExist(){
-        if (!tableExists()){
+    public void createSchemaWhenNotExist() {
+        if (!tableExists()) {
             createTable();
         }
     }
 
-    public void errorWhenSchemaNotExist(){
-        if (!tableExists()){
-            throw new SeaTunnelRuntimeException(
-                    SINK_TABLE_NOT_EXIST, "The sink table not exist");
+    public void errorWhenSchemaNotExist() {
+        if (!tableExists()) {
+            throw new SeaTunnelRuntimeException(SINK_TABLE_NOT_EXIST, "The sink table not exist");
         }
     }
 
-    public void keepSchemaDropData(){
-        if (tableExists()){
+    public void keepSchemaDropData() {
+        if (tableExists()) {
             truncateTable();
         }
     }
 
-    public void keepSchemaAndData(){}
+    public void keepSchemaAndData() {}
 
-    public void customProcessing(){
+    public void customProcessing() {
         executeCustomSql();
     }
 
-    public void errorWhenDataExists(){
-        if (dataExists()){
+    public void errorWhenDataExists() {
+        if (dataExists()) {
             throw new SeaTunnelRuntimeException(
                     SOURCE_ALREADY_HAS_DATA, "The target data source already has data");
         }

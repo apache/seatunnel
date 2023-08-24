@@ -21,7 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.AbstractSaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -105,8 +105,8 @@ public class SinkExecuteProcessor
                     (SeaTunnelRowType) TypeConverterUtils.convert(stream.getType()));
             if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
                 SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
-                DataSaveMode dataSaveMode = saveModeSink.getUserConfigSaveMode();
-                saveModeSink.handleSaveMode(dataSaveMode);
+                AbstractSaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler();
+                saveModeHandler.handleSaveMode();
             }
             DataStreamSink<Row> dataStreamSink =
                     stream.sinkTo(new FlinkSink<>(seaTunnelSink))
