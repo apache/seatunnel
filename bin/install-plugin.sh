@@ -23,8 +23,8 @@
 # get seatunnel home
 SEATUNNEL_HOME=$(cd $(dirname $0);cd ../;pwd)
 
-# connector default version is 2.3.1, you can also choose a custom version. eg: 2.1.2:  sh install-plugin.sh 2.1.2
-version=2.3.1
+# connector default version is 2.3.3, you can also choose a custom version. eg: 2.1.2:  sh install-plugin.sh 2.1.2
+version=2.3.3
 
 if [ -n "$1" ]; then
     version="$1"
