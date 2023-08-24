@@ -17,20 +17,12 @@
 
 package org.apache.seatunnel.e2e.connector.redis;
 
-import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.table.type.*;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
-
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -39,12 +31,11 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
-
-import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
@@ -59,10 +50,9 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 @Slf4j
-public class RedisIT extends TestSuiteBase implements TestResource {
+public class RedisClusterIT extends TestSuiteBase implements TestResource {
     private static final String IMAGE = "redis:latest";
     private static final String HOST = "redis-e2e";
-    private static final int PORT = 6379;
     private static final String PASSWORD = "SeaTunnel";
 
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
@@ -79,7 +69,9 @@ public class RedisIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DockerImageName.parse(IMAGE))
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
-                        .withExposedPorts(PORT)
+                        .withExposedPorts(60453, 60454, 60455, 60456)
+                        .waitingFor(Wait.forListeningPort())
+                        .withStartupTimeout(Duration.ofSeconds(30))
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                         .withCommand(String.format("redis-server --requirepass %s", PASSWORD))
                         .waitingFor(
@@ -184,29 +176,8 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testRedis(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/redis-to-redis.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(100, jedis.llen("key_list"));
-        // Clear data to prevent data duplication in the next TestContainer
-        jedis.del("key_list");
-        Assertions.assertEquals(0, jedis.llen("key_list"));
-    }
-
-    @TestTemplate
-    public void testRedisWithExpire(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/redis-to-redis-expire.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(100, jedis.llen("key_list"));
-        // Clear data to prevent data duplication in the next TestContainer
-        Thread.sleep(60 * 1000);
-        Assertions.assertEquals(0, jedis.llen("key_list"));
-    }
-
-    @TestTemplate
-    public void testRedisSingle(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/redis-to-redis-single.conf");
+    public void testRedisCluster(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/redis-to-redis-cluster.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(100, jedis.llen("key_list"));
         // Clear data to prevent data duplication in the next TestContainer
