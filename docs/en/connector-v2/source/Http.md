@@ -42,24 +42,24 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ## Source Options
 
-|            Name             |  Type   | Required | Default |                                                             Description                                                              |
-|-----------------------------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------|
-| url                         | String  | Yes      | -       | Http request url.                                                                                                                    |
-| schema                      | Config  | No       | -       | Http and seatunnel data structure mapping                                                                                            |
-| schema.fields               | Config  | No       | -       | The schema fields of upstream data                                                                                                   |
-| json_field                  | Config  | No       | -       | This parameter helps you configure the schema,so this parameter must be used with schema.                                            |
-| content_json                | String  | No       | -       | This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`. |
-| format                      | String  | No       | json    | The format of upstream data, now only support `json` `text`, default `json`.                                                         |
-| method                      | String  | No       | get     | Http request method, only supports GET, POST method.                                                                                 |
-| headers                     | Map     | No       | -       | Http headers.                                                                                                                        |
-| params                      | Map     | No       | -       | Http params.                                                                                                                         |
-| body                        | String  | No       | -       | Http body.                                                                                                                           |
-| poll_interval_ms            | Int     | No       | -       | Request http api interval(millis) in stream mode.                                                                                    |
-| retry                       | Int     | No       | -       | The max retry times if request http return to `IOException`.                                                                         |
-| retry_backoff_multiplier_ms | Int     | No       | 100     | The retry-backoff times(millis) multiplier if request http failed.                                                                   |
-| retry_backoff_max_ms        | Int     | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                                                       |
-| enable_multi_lines          | Boolean | No       | false   |                                                                                                                                      |
-| common-options              |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                              |
+|            Name             |  Type   | Required | Default |                                                                                Description                                                                                |
+|-----------------------------|---------|----------|---------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                         | String  | Yes      | -       | Http request url.                                                                                                                                                         |
+| schema                      | Config  | No       | -       | Http and seatunnel data structure mapping                                                                                                                                 |
+| schema.fields               | Config  | No       | -       | The schema fields of upstream data                                                                                                                                        |
+| json_field                  | Config  | No       | -       | This parameter helps you configure the schema,so this parameter must be used with schema.                                                                                 |
+| content_json                | String  | No       | -       | This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`.                                      |
+| format                      | String  | No       | json    | The format of upstream data, now only support `json` `text`, default `json`.                                                                                              |
+| method                      | String  | No       | get     | Http request method, only supports GET, POST method.                                                                                                                      |
+| headers                     | Map     | No       | -       | Http headers.                                                                                                                                                             |
+| params                      | Map     | No       | -       | Http params,the program will automatically add http header application/x-www-form-urlencoded,invoke by request.setEntity(new UrlEncodedFormEntity(parameters, ENCODING)). |
+| body                        | String  | No       | -       | Http body,the program will automatically add http header application/json,body is jsonbody.                                                                               |
+| poll_interval_ms            | Int     | No       | -       | Request http api interval(millis) in stream mode.                                                                                                                         |
+| retry                       | Int     | No       | -       | The max retry times if request http return to `IOException`.                                                                                                              |
+| retry_backoff_multiplier_ms | Int     | No       | 100     | The retry-backoff times(millis) multiplier if request http failed.                                                                                                        |
+| retry_backoff_max_ms        | Int     | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                                                                                            |
+| enable_multi_lines          | Boolean | No       | false   |                                                                                                                                                                           |
+| common-options              |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                   |
 
 ## How to Create a Http Data Synchronization Jobs
 
