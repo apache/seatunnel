@@ -34,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
 
-/** @Author: Liuli @Date: 2023/8/9 16:26 */
 public class CheckpointTimeOutTest extends AbstractSeaTunnelServerTest {
 
     public static String CONF_PATH = "stream_fake_to_console_checkpointTimeOut.conf";
