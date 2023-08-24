@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -31,20 +32,18 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig;
 import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusOptions;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 
 import com.google.auto.service.AutoService;
-
-import java.io.IOException;
 
 @AutoService(SeaTunnelSink.class)
 public class MilvusSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private SeaTunnelRowType seaTunnelRowType;
 
-    private MilvusOptions milvusOptions;
+    private MilvusSinkConfig milvusSinkConfig;
 
     @Override
     public String getPluginName() {
@@ -53,13 +52,13 @@ public class MilvusSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        milvusOptions = new MilvusOptions(pluginConfig);
+        milvusSinkConfig = MilvusSinkConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        MilvusConfig.MILVUS_HOST.key(),
-                        MilvusConfig.MILVUS_PORT.key(),
-                        MilvusConfig.COLLECTION_NAME.key());
+                        MilvusOptions.MILVUS_HOST.key(),
+                        MilvusOptions.MILVUS_PORT.key(),
+                        MilvusOptions.COLLECTION_NAME.key());
         if (!result.isSuccess()) {
             throw new MilvusConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -80,8 +79,7 @@ public class MilvusSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
-        return new MilvusSinkWriter(milvusOptions);
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
+        return new MilvusSinkWriter(milvusSinkConfig);
     }
 }

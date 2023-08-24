@@ -46,6 +46,32 @@ Write data to Apache milvus.
 ## Examples
 
 ```hocon
+env {
+  # You can set engine configuration here
+  execution.parallelism = 1
+  job.mode = "BATCH"
+  checkpoint.interval = 5000
+  #execution.checkpoint.data-uri = "hdfs://localhost:9000/checkpoint"
+}
+
+source {
+  # This is a example source plugin **only for test and demonstrate the feature source plugin**
+  LocalFile {
+    schema {
+      fields {
+        bookID = string
+        title_1 = string
+        title_2 = string
+      }
+    }
+    path = "/tmp/milvus_test/book"
+    file_format_type = "csv"
+  }
+}
+
+transform {
+}
+
 sink {
   Milvus {
     milvus_host = localhost
@@ -57,6 +83,7 @@ sink {
     openai_api_key = sk-xxxx
     embeddings_fields = title_2
   }
+}
 ```
 
 ## Changelog

@@ -23,18 +23,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.COLLECTION_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.EMBEDDINGS_FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.MILVUS_HOST;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.MILVUS_PORT;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.OPENAI_API_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.OPENAI_ENGINE;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.PARTITION_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusConfig.USERNAME;
-
-@AutoService(Factory.class)
-public class MilvusSinkFactory implements TableSinkFactory {
+static @AutoService(Factory.class) public class MilvusSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
         return "Milvus";

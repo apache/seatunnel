@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.milvus.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusOptions;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 
 import com.theokanning.openai.embedding.EmbeddingRequest;
@@ -52,32 +52,33 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final MilvusServiceClient milvusClient;
 
-    private final MilvusOptions milvusOptions;
+    private final MilvusSinkConfig milvusSinkConfig;
 
     private OpenAiService service;
 
     private final List<FieldType> metaFields;
 
-    public MilvusSinkWriter(MilvusOptions milvusOptions) {
-        this.milvusOptions = milvusOptions;
+    public MilvusSinkWriter(MilvusSinkConfig milvusSinkConfig) {
+        this.milvusSinkConfig = milvusSinkConfig;
         ConnectParam connectParam =
                 ConnectParam.newBuilder()
-                        .withHost(milvusOptions.getMilvusHost())
-                        .withPort(milvusOptions.getMilvusPort())
-                        .withAuthorization(milvusOptions.getUserName(), milvusOptions.getPassword())
+                        .withHost(milvusSinkConfig.getMilvusHost())
+                        .withPort(milvusSinkConfig.getMilvusPort())
+                        .withAuthorization(
+                                milvusSinkConfig.getUserName(), milvusSinkConfig.getPassword())
                         .build();
         milvusClient = new MilvusServiceClient(connectParam);
 
         handleResponseStatus(
                 milvusClient.hasCollection(
                         HasCollectionParam.newBuilder()
-                                .withCollectionName(milvusOptions.getCollectionName())
+                                .withCollectionName(milvusSinkConfig.getCollectionName())
                                 .build()));
 
         R<DescribeCollectionResponse> describeCollectionResponseR =
                 milvusClient.describeCollection(
                         DescribeCollectionParam.newBuilder()
-                                .withCollectionName(milvusOptions.getCollectionName())
+                                .withCollectionName(milvusSinkConfig.getCollectionName())
                                 .build());
 
         handleResponseStatus(describeCollectionResponseR);
@@ -87,8 +88,8 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
         this.metaFields = wrapper.getFields();
 
-        if (milvusOptions.getEmbeddingsFields() != null) {
-            service = new OpenAiService(milvusOptions.getOpenaiApiKey());
+        if (milvusSinkConfig.getEmbeddingsFields() != null) {
+            service = new OpenAiService(milvusSinkConfig.getOpenaiApiKey());
         }
     }
 
@@ -99,7 +100,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
         InsertParam.Builder builder = InsertParam.newBuilder();
 
-        builder = builder.withCollectionName(milvusOptions.getCollectionName());
+        builder = builder.withCollectionName(milvusSinkConfig.getCollectionName());
 
         for (int i = 0; i < this.metaFields.size(); i++) {
 
@@ -116,13 +117,13 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 }
             }
 
-            if (milvusOptions.getPartitionField() != null
-                    && milvusOptions.getPartitionField().equals(fieldType.getName())) {
+            if (milvusSinkConfig.getPartitionField() != null
+                    && milvusSinkConfig.getPartitionField().equals(fieldType.getName())) {
                 builder.withPartitionName(String.valueOf(element.getField(i)));
             }
-            if (milvusOptions.getEmbeddingsFields() != null) {
+            if (milvusSinkConfig.getEmbeddingsFields() != null) {
                 List<String> embeddingsFields =
-                        Arrays.asList(milvusOptions.getEmbeddingsFields().split(","));
+                        Arrays.asList(milvusSinkConfig.getEmbeddingsFields().split(","));
                 if (embeddingsFields.contains(fieldType.getName())) {
                     if (fieldType.getDataType() != DataType.BinaryVector
                             && fieldType.getDataType() != DataType.FloatVector) {
@@ -132,7 +133,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                     EmbeddingResult embeddings =
                             service.createEmbeddings(
                                     EmbeddingRequest.builder()
-                                            .model(milvusOptions.getOpenaiEngine())
+                                            .model(milvusSinkConfig.getOpenaiEngine())
                                             .input(
                                                     Collections.singletonList(
                                                             String.valueOf(element.getField(i))))
@@ -165,7 +166,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public List<Void> snapshotState(long checkpointId) throws IOException {
         milvusClient.flush(
                 FlushParam.newBuilder()
-                        .addCollectionName(milvusOptions.getCollectionName())
+                        .addCollectionName(milvusSinkConfig.getCollectionName())
                         .build());
         return Collections.emptyList();
     }

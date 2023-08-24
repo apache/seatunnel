@@ -17,51 +17,66 @@
 
 package org.apache.seatunnel.connectors.seatunnel.milvus.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
 import java.io.Serializable;
 
-@Data
-@AllArgsConstructor
 public class MilvusOptions implements Serializable {
 
-    private String milvusHost;
-    private Integer milvusPort;
-    private String collectionName;
-    private String partitionField;
-    private String userName;
-    private String password;
-    private String openaiEngine;
-    private String openaiApiKey;
-    private String embeddingsFields;
+    public static final Option<String> MILVUS_HOST =
+            Options.key("milvus_host")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The milvus host");
 
-    public MilvusOptions(Config config) {
-        this.milvusHost = config.getString(MilvusConfig.MILVUS_HOST.key());
-        if (config.hasPath(MilvusConfig.MILVUS_PORT.key())) {
-            this.milvusPort = config.getInt(MilvusConfig.MILVUS_PORT.key());
-        } else {
-            this.milvusPort = MilvusConfig.MILVUS_PORT.defaultValue();
-        }
-        this.collectionName = config.getString(MilvusConfig.COLLECTION_NAME.key());
-        this.userName = config.getString(MilvusConfig.USERNAME.key());
-        this.password = config.getString(MilvusConfig.PASSWORD.key());
+    public static final Option<Integer> MILVUS_PORT =
+            Options.key("milvus_port")
+                    .intType()
+                    .defaultValue(19530)
+                    .withDescription("This port is for gRPC. Default is 19530");
 
-        if (config.hasPath(MilvusConfig.PARTITION_FIELD.key())) {
-            this.partitionField = config.getString(MilvusConfig.PARTITION_FIELD.key());
-        }
-        if (config.hasPath(MilvusConfig.OPENAI_ENGINE.key())) {
-            this.openaiEngine = config.getString(MilvusConfig.OPENAI_ENGINE.key());
-        } else {
-            this.openaiEngine = MilvusConfig.OPENAI_ENGINE.defaultValue();
-        }
-        if (config.hasPath(MilvusConfig.OPENAI_API_KEY.key())) {
-            this.openaiApiKey = config.getString(MilvusConfig.OPENAI_API_KEY.key());
-        }
-        if (config.hasPath(MilvusConfig.EMBEDDINGS_FIELDS.key())) {
-            this.embeddingsFields = config.getString(MilvusConfig.EMBEDDINGS_FIELDS.key());
-        }
-    }
+    public static final Option<String> USERNAME =
+            Options.key("username")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The username of milvus server.");
+
+    public static final Option<String> PASSWORD =
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The password of milvus server.");
+
+    public static final Option<String> COLLECTION_NAME =
+            Options.key("collection_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "A collection of milvus, which is similar to a table in a relational database.");
+
+    public static final Option<String> PARTITION_FIELD =
+            Options.key("partition_field")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Partition fields, which must be included in the collection's schema.");
+
+    public static final Option<String> OPENAI_ENGINE =
+            Options.key("openai_engine")
+                    .stringType()
+                    .defaultValue("text-embedding-ada-002")
+                    .withDescription("Text embedding model. Default is 'text-embedding-ada-002'");
+
+    public static final Option<String> OPENAI_API_KEY =
+            Options.key("openai_api_key")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Use your own Open AI API Key here.");
+
+    public static final Option<String> EMBEDDINGS_FIELDS =
+            Options.key("embeddings_fields")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Fields to be embedded,They use`,`for splitting");
 }
