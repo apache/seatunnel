@@ -61,8 +61,8 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 break;
             default:
                 // do nothing
-                throw new RedisConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                        "Not support this redis mode");
+                throw new RedisConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION, "Not support this redis mode");
         }
     }
 
@@ -79,7 +79,7 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             key = keyField;
         }
         long expire = redisParameters.getExpire();
-        redisDataType.set(jedis,jedisCluster, key, data,expire,redisMode);
+        redisDataType.set(jedis, jedisCluster, key, data, expire, redisMode);
     }
 
     @Override

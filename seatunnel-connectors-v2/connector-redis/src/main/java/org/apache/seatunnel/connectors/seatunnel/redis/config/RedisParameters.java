@@ -124,9 +124,10 @@ public class RedisParameters implements Serializable {
             for (String redisNode : redisNodes) {
                 String[] splits = redisNode.split(":");
                 if (splits.length != 2) {
-                    throw new RedisConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
-                            "Invalid redis node information," +
-                                    "redis node information must like as the following: [host:port]");
+                    throw new RedisConnectorException(
+                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            "Invalid redis node information,"
+                                    + "redis node information must like as the following: [host:port]");
                 }
                 HostAndPort hostAndPort = new HostAndPort(splits[0], Integer.parseInt(splits[1]));
                 nodes.add(hostAndPort);
@@ -135,9 +136,14 @@ public class RedisParameters implements Serializable {
         ConnectionPoolConfig connectionPoolConfig = new ConnectionPoolConfig();
         JedisCluster jedisCluster;
         if (StringUtils.isNotBlank(auth)) {
-            jedisCluster = new JedisCluster(nodes, JedisCluster.DEFAULT_TIMEOUT,
-                    JedisCluster.DEFAULT_TIMEOUT, JedisCluster.DEFAULT_MAX_ATTEMPTS,
-                    auth, connectionPoolConfig);
+            jedisCluster =
+                    new JedisCluster(
+                            nodes,
+                            JedisCluster.DEFAULT_TIMEOUT,
+                            JedisCluster.DEFAULT_TIMEOUT,
+                            JedisCluster.DEFAULT_MAX_ATTEMPTS,
+                            auth,
+                            connectionPoolConfig);
         } else {
             jedisCluster = new JedisCluster(nodes);
         }

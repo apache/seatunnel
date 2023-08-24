@@ -31,7 +31,13 @@ import java.util.Set;
 public enum RedisDataType {
     KEY {
         @Override
-        public void set(Jedis jedis, JedisCluster jedisCluster, String key, String value, long expire, RedisConfig.RedisMode redisMode) {
+        public void set(
+                Jedis jedis,
+                JedisCluster jedisCluster,
+                String key,
+                String value,
+                long expire,
+                RedisConfig.RedisMode redisMode) {
             if (RedisConfig.RedisMode.SINGLE == redisMode) {
                 jedis.set(key, value);
             } else {
@@ -47,11 +53,17 @@ public enum RedisDataType {
     },
     HASH {
         @Override
-        public void set(Jedis jedis, JedisCluster jedisCluster, String key, String value, long expire, RedisConfig.RedisMode redisMode) {
+        public void set(
+                Jedis jedis,
+                JedisCluster jedisCluster,
+                String key,
+                String value,
+                long expire,
+                RedisConfig.RedisMode redisMode) {
             Map<String, String> fieldsMap = JsonUtils.toMap(value);
             if (RedisConfig.RedisMode.SINGLE == redisMode) {
                 jedis.hset(key, fieldsMap);
-            }else {
+            } else {
                 jedisCluster.hset(key, fieldsMap);
             }
             expire(jedis, jedisCluster, key, expire, redisMode);
@@ -65,10 +77,16 @@ public enum RedisDataType {
     },
     LIST {
         @Override
-        public void set(Jedis jedis, JedisCluster jedisCluster, String key, String value, long expire, RedisConfig.RedisMode redisMode) {
+        public void set(
+                Jedis jedis,
+                JedisCluster jedisCluster,
+                String key,
+                String value,
+                long expire,
+                RedisConfig.RedisMode redisMode) {
             if (RedisConfig.RedisMode.SINGLE == redisMode) {
                 jedis.lpush(key, value);
-            }else{
+            } else {
                 jedisCluster.lpush(key, value);
             }
             expire(jedis, jedisCluster, key, expire, redisMode);
@@ -81,10 +99,16 @@ public enum RedisDataType {
     },
     SET {
         @Override
-        public void set(Jedis jedis, JedisCluster jedisCluster, String key, String value, long expire, RedisConfig.RedisMode redisMode) {
+        public void set(
+                Jedis jedis,
+                JedisCluster jedisCluster,
+                String key,
+                String value,
+                long expire,
+                RedisConfig.RedisMode redisMode) {
             if (RedisConfig.RedisMode.SINGLE == redisMode) {
                 jedis.sadd(key, value);
-            }else{
+            } else {
                 jedisCluster.sadd(key, value);
             }
             expire(jedis, jedisCluster, key, expire, redisMode);
@@ -98,10 +122,16 @@ public enum RedisDataType {
     },
     ZSET {
         @Override
-        public void set(Jedis jedis, JedisCluster jedisCluster, String key, String value, long expire, RedisConfig.RedisMode redisMode) {
+        public void set(
+                Jedis jedis,
+                JedisCluster jedisCluster,
+                String key,
+                String value,
+                long expire,
+                RedisConfig.RedisMode redisMode) {
             if (RedisConfig.RedisMode.SINGLE == redisMode) {
                 jedis.zadd(key, 1, value);
-            }else{
+            } else {
                 jedisCluster.zadd(key, 1, value);
             }
             expire(jedis, jedisCluster, key, expire, redisMode);
@@ -117,18 +147,28 @@ public enum RedisDataType {
         return Collections.emptyList();
     }
 
-    private static void expire(Jedis jedis,JedisCluster jedisCluster, String key, long expire, RedisConfig.RedisMode redisMode) {
+    private static void expire(
+            Jedis jedis,
+            JedisCluster jedisCluster,
+            String key,
+            long expire,
+            RedisConfig.RedisMode redisMode) {
         if (expire > 0) {
             if (RedisConfig.RedisMode.SINGLE == redisMode) {
                 jedis.expire(key, expire);
             } else {
                 jedisCluster.expire(key, expire);
             }
-
         }
     }
 
-    public void set(Jedis jedis, JedisCluster jedisCluster, String key, String value, long expire, RedisConfig.RedisMode redisMode) {
+    public void set(
+            Jedis jedis,
+            JedisCluster jedisCluster,
+            String key,
+            String value,
+            long expire,
+            RedisConfig.RedisMode redisMode) {
         // do nothing
     }
 }
