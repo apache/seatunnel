@@ -732,7 +732,6 @@ public class ClusterFaultToleranceIT {
     @Disabled
     public void testFor() throws ExecutionException, InterruptedException {
         for (int i = 0; i < 200; i++) {
-            System.out.println("testFor: " + i);
             testStreamJobRestoreInAllNodeDown();
         }
     }
