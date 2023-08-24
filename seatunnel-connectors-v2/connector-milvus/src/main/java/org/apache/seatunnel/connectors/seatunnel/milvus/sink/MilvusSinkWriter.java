@@ -135,9 +135,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                             service.createEmbeddings(
                                     EmbeddingRequest.builder()
                                             .model(milvusSinkConfig.getOpenaiEngine())
-                                            .input(
-                                                    Collections.singletonList(
-                                                            String.valueOf(field)))
+                                            .input(Collections.singletonList(String.valueOf(field)))
                                             .build());
                     List<Double> embedding = embeddings.getData().get(0).getEmbedding();
                     List<Float> collect =
@@ -153,8 +151,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             judgmentParameterType(fieldType, field);
 
             InsertParam.Field insertField =
-                    new InsertParam.Field(
-                            fieldType.getName(), Collections.singletonList(field));
+                    new InsertParam.Field(fieldType.getName(), Collections.singletonList(field));
             fields.add(insertField);
         }
 
