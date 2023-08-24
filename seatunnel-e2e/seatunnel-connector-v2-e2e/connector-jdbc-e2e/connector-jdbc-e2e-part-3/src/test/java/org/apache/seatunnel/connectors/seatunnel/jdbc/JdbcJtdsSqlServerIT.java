@@ -17,16 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import com.google.common.collect.Lists;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+
+import org.apache.commons.lang3.tuple.Pair;
+
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import com.google.common.collect.Lists;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -35,7 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class JdbcJtdsSqlServerIT extends AbstractJdbcIT{
+public class JdbcJtdsSqlServerIT extends AbstractJdbcIT {
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
     private static final String SQLSERVER_SOURCE = "source";
@@ -98,7 +101,7 @@ public class JdbcJtdsSqlServerIT extends AbstractJdbcIT{
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
-                        "age", "name",
+                    "age", "name",
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -106,7 +109,7 @@ public class JdbcJtdsSqlServerIT extends AbstractJdbcIT{
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
-                                    i, "f_" + i,
+                                i, "f_" + i,
                             });
             rows.add(row);
         }

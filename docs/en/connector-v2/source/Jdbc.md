@@ -106,7 +106,7 @@ in parallel according to the concurrency of tasks.
 
 there are some reference value for params above.
 
-| datasource |                       driver                        | url                                                                    | maven                                                                                                       |
+| datasource |                       driver                        |                                  url                                   |                                                    maven                                                    |
 |------------|-----------------------------------------------------|------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | mysql      | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | postgresql | org.postgresql.Driver                               | jdbc:postgresql://localhost:5432/postgres                              | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                |
