@@ -117,7 +117,6 @@ public class CheckpointCoordinator {
 
     private final CheckpointConfig coordinatorConfig;
 
-    private int tolerableFailureCheckpoints;
     private transient ScheduledExecutorService scheduler;
 
     private final AtomicLong latestTriggerTimestamp = new AtomicLong(0);
@@ -165,7 +164,6 @@ public class CheckpointCoordinator {
         this.runningJobStateIMap = runningJobStateIMap;
         this.plan = plan;
         this.coordinatorConfig = checkpointConfig;
-        this.tolerableFailureCheckpoints = coordinatorConfig.getTolerableFailureCheckpoints();
         this.pendingCheckpoints = new ConcurrentHashMap<>();
         this.completedCheckpoints =
                 new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
@@ -392,7 +390,6 @@ public class CheckpointCoordinator {
         if (checkpointType.notFinalCheckpoint() && checkpointType.notSchemaChangeCheckpoint()) {
             if (currentTimestamp - latestTriggerTimestamp.get()
                             < coordinatorConfig.getCheckpointInterval()
-                    || pendingCounter.get() >= coordinatorConfig.getMaxConcurrentCheckpoints()
                     || !isAllTaskReady) {
                 return;
             }
@@ -531,16 +528,9 @@ public class CheckpointCoordinator {
                                 if (pendingCheckpoints.get(pendingCheckpoint.getCheckpointId())
                                                 != null
                                         && !pendingCheckpoint.isFullyAcknowledged()) {
-                                    if (tolerableFailureCheckpoints-- <= 0
-                                            || pendingCheckpoint
-                                                    .getCheckpointType()
-                                                    .isSchemaChangeCheckpoint()) {
-                                        LOG.info(
-                                                "timeout checkpoint: "
-                                                        + pendingCheckpoint.getInfo());
-                                        handleCoordinatorError(
-                                                CheckpointCloseReason.CHECKPOINT_EXPIRED, null);
-                                    }
+                                    LOG.info("timeout checkpoint: " + pendingCheckpoint.getInfo());
+                                    handleCoordinatorError(
+                                            CheckpointCloseReason.CHECKPOINT_EXPIRED, null);
                                 }
                             },
                             checkpointTimeout,
@@ -746,12 +736,6 @@ public class CheckpointCoordinator {
         notifyCompleted(completedCheckpoint);
         pendingCheckpoints.remove(checkpointId);
         pendingCounter.decrementAndGet();
-        if (pendingCheckpoints.size() + 1 == coordinatorConfig.getMaxConcurrentCheckpoints()) {
-            // latest checkpoint completed time > checkpoint interval
-            if (completedCheckpoint.getCheckpointType().notFinalCheckpoint()) {
-                scheduleTriggerPendingCheckpoint(0L);
-            }
-        }
         if (isCompleted()) {
             cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);
             if (latestCompletedCheckpoint.getCheckpointType().isSavepoint()) {

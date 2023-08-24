@@ -33,7 +33,6 @@ public class QueryPlan implements Serializable {
     private int status;
 
     @JsonProperty("opaqued_query_plan")
-    @SuppressWarnings("checkstyle:MemberName")
     private String queryPlan;
 
     private Map<String, Tablet> partitions;
