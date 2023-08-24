@@ -106,12 +106,13 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
             FieldType fieldType = this.metaFields.get(i);
 
+            Object field = element.getField(i);
             if (fieldType.isPrimaryKey()) {
-                if (!(element.getField(i) instanceof Long)
-                        && !(element.getField(i) instanceof Integer)
-                        && !(element.getField(i) instanceof Byte)
-                        && !(element.getField(i) instanceof Short)
-                        && !(element.getField(i) instanceof String)) {
+                if (!(field instanceof Long)
+                        && !(field instanceof Integer)
+                        && !(field instanceof Byte)
+                        && !(field instanceof Short)
+                        && !(field instanceof String)) {
                     throw new MilvusConnectorException(
                             ILLEGAL_ARGUMENT, "Primary key field only supports number and string.");
                 }
@@ -119,7 +120,7 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
             if (milvusSinkConfig.getPartitionField() != null
                     && milvusSinkConfig.getPartitionField().equals(fieldType.getName())) {
-                builder.withPartitionName(String.valueOf(element.getField(i)));
+                builder.withPartitionName(String.valueOf(field));
             }
             if (milvusSinkConfig.getEmbeddingsFields() != null) {
                 List<String> embeddingsFields =
@@ -136,25 +137,25 @@ public class MilvusSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                                             .model(milvusSinkConfig.getOpenaiEngine())
                                             .input(
                                                     Collections.singletonList(
-                                                            String.valueOf(element.getField(i))))
+                                                            String.valueOf(field)))
                                             .build());
                     List<Double> embedding = embeddings.getData().get(0).getEmbedding();
                     List<Float> collect =
                             embedding.stream().map(Double::floatValue).collect(Collectors.toList());
-                    InsertParam.Field field =
+                    InsertParam.Field insertField =
                             new InsertParam.Field(
                                     fieldType.getName(), Collections.singletonList(collect));
-                    fields.add(field);
+                    fields.add(insertField);
                     continue;
                 }
             }
 
-            judgmentParameterType(fieldType, element.getField(i));
+            judgmentParameterType(fieldType, field);
 
-            InsertParam.Field field =
+            InsertParam.Field insertField =
                     new InsertParam.Field(
-                            fieldType.getName(), Collections.singletonList(element.getField(i)));
-            fields.add(field);
+                            fieldType.getName(), Collections.singletonList(field));
+            fields.add(insertField);
         }
 
         InsertParam build = builder.withFields(fields).build();
