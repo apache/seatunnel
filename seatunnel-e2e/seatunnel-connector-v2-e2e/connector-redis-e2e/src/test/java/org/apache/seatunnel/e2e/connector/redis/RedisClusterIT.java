@@ -17,12 +17,20 @@
 
 package org.apache.seatunnel.e2e.connector.redis;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.api.table.type.*;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,7 +44,10 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
-import redis.clients.jedis.Jedis;
+
+import lombok.extern.slf4j.Slf4j;
+import redis.clients.jedis.HostAndPort;
+import redis.clients.jedis.JedisCluster;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -45,8 +56,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -60,16 +73,17 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
 
     private GenericContainer<?> redisContainer;
 
-    private Jedis jedis;
+    private JedisCluster jedisCluster;
 
     @BeforeAll
     @Override
     public void startUp() {
+        log.info("startUp...");
         this.redisContainer =
                 new GenericContainer<>(DockerImageName.parse(IMAGE))
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
-                        .withExposedPorts(60453, 60454, 60455, 60456)
+                        .withExposedPorts(6379, 6380, 6381)
                         .waitingFor(Wait.forListeningPort())
                         .withStartupTimeout(Duration.ofSeconds(30))
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
@@ -88,7 +102,8 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
                 new JsonSerializationSchema(TEST_DATASET.getKey());
         List<SeaTunnelRow> rows = TEST_DATASET.getValue();
         for (int i = 0; i < rows.size(); i++) {
-            jedis.set("key_test" + i, new String(jsonSerializationSchema.serialize(rows.get(i))));
+            jedisCluster.set(
+                    "key_test" + i, new String(jsonSerializationSchema.serialize(rows.get(i))));
         }
     }
 
@@ -157,17 +172,28 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
     }
 
     private void initJedis() {
-        Jedis jedis = new Jedis(redisContainer.getHost(), redisContainer.getFirstMappedPort());
-        jedis.auth(PASSWORD);
-        jedis.ping();
-        this.jedis = jedis;
+
+        Set<HostAndPort> jedisClusterNodes = new HashSet<>();
+
+        String redisHost = redisContainer.getHost();
+        Integer redisPort1 = redisContainer.getMappedPort(6379);
+        Integer redisPort2 = redisContainer.getMappedPort(6380);
+        Integer redisPort3 = redisContainer.getMappedPort(6381);
+        HostAndPort hostAndPort1 = new HostAndPort(redisHost, redisPort1);
+        jedisClusterNodes.add(hostAndPort1);
+        HostAndPort hostAndPort2 = new HostAndPort(redisHost, redisPort2);
+        jedisClusterNodes.add(hostAndPort2);
+        HostAndPort hostAndPort3 = new HostAndPort(redisHost, redisPort3);
+        jedisClusterNodes.add(hostAndPort3);
+        JedisCluster jedisCluster = new JedisCluster(jedisClusterNodes);
+        this.jedisCluster = jedisCluster;
     }
 
     @AfterAll
     @Override
     public void tearDown() {
-        if (Objects.nonNull(jedis)) {
-            jedis.close();
+        if (Objects.nonNull(jedisCluster)) {
+            jedisCluster.close();
         }
 
         if (Objects.nonNull(redisContainer)) {
@@ -179,9 +205,9 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
     public void testRedisCluster(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/redis-to-redis-cluster.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(100, jedis.llen("key_list"));
+        Assertions.assertEquals(100, jedisCluster.llen("key_list"));
         // Clear data to prevent data duplication in the next TestContainer
-        jedis.del("key_list");
-        Assertions.assertEquals(0, jedis.llen("key_list"));
+        jedisCluster.del("key_list");
+        Assertions.assertEquals(0, jedisCluster.llen("key_list"));
     }
 }
