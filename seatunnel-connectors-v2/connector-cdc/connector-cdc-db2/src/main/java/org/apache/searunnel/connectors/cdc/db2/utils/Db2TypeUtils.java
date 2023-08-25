@@ -17,13 +17,20 @@
 
 package org.apache.searunnel.connectors.cdc.db2.utils;
 
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 
 import java.sql.Types;
 import java.util.List;
 
-/** Utilities for converting from SqlServer types to SeaTunnel types. */
+/** Utilities for converting from Db2 types to SeaTunnel types. */
 public class Db2TypeUtils {
     public static SeaTunnelDataType<?> convertFromColumn(Column column) {
         switch (column.jdbcType()) {

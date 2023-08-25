@@ -31,8 +31,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /** Factory for creating {@link Db2SourceConfig}. */
 public class Db2SourceConfigFactory extends JdbcSourceConfigFactory {
 
-    private static final String DATABASE_SERVER_NAME = "sqlserver_transaction_log_source";
-    private static final String DRIVER_CLASS_NAME = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+    private static final String DATABASE_SERVER_NAME = "db2_transaction_log_source";
+    private static final String DRIVER_CLASS_NAME = "com.ibm.db2.jdbc.Db2Driver";
 
     @Override
     public Db2SourceConfig create(int subtask) {
@@ -65,7 +65,7 @@ public class Db2SourceConfigFactory extends JdbcSourceConfigFactory {
             props.setProperty("database.include.list", String.join(",", databaseList));
         }
         if (tableList != null) {
-            // SqlServer identifier is of the form schemaName.tableName
+            // Db2 identifier is of the form schemaName.tableName
             String tableIncludeList =
                     tableList.stream()
                             .map(table -> table.substring(table.indexOf(".") + 1))

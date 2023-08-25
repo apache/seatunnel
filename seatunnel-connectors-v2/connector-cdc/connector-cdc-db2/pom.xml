@@ -9,21 +9,55 @@
     </parent>
 
     <artifactId>connector-cdc-db2</artifactId>
-    <name>SeaTunnel : Connectors V2 : CDC : Mongodb</name>
+    <name>SeaTunnel : Connectors V2 : CDC : DB2</name>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>connector-cdc-base</artifactId>
+                <version>${project.version}</version>
+                <scope>compile</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.debezium</groupId>
+                <artifactId>debezium-connector-db2</artifactId>
+                <version>${debezium.version}</version>
+                <scope>compile</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>connector-jdbc</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-cdc-base</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>io.debezium</groupId>
             <artifactId>debezium-connector-db2</artifactId>
-            <version>2.3.2.Final</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-cdc-base</artifactId>
-            <version>2.3.3-SNAPSHOT</version>
-            <scope>compile</scope>
+            <artifactId>connector-jdbc</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.ibm.db2.jcc</groupId>
+            <artifactId>db2jcc</artifactId>
+        </dependency>
     </dependencies>
-
 </project>
