@@ -543,9 +543,11 @@ public class ClusterFaultToleranceTwoPipelineIT {
     @Test
     public void testTwoPipelineBatchJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
-        String testCaseName = "testTwoPipelineBatchJobRestoreIn2NodeMasterDown";
+        String testCaseName =
+                "testTwoPipelineBatchJobRestoreIn2NodeMasterDown" + System.currentTimeMillis();
         String testClusterName =
-                "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRestoreIn2NodeMasterDown";
+                "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRestoreIn2NodeMasterDown"
+                        + System.currentTimeMillis();
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -651,9 +653,11 @@ public class ClusterFaultToleranceTwoPipelineIT {
     @Test
     public void testTwoPipelineStreamJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
-        String testCaseName = "testTwoPipelineStreamJobRestoreIn2NodeMasterDown";
+        String testCaseName =
+                "testTwoPipelineStreamJobRestoreIn2NodeMasterDown" + System.currentTimeMillis();
         String testClusterName =
-                "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRestoreIn2NodeMasterDown";
+                "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRestoreIn2NodeMasterDown"
+                        + System.currentTimeMillis();
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
