@@ -6,9 +6,11 @@
 
 - 4.9.0 (Or a newer version, for reference)
 
-## Description
+## Support These Engines
 
-Source connector for Apache RocketMQ.
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key features
 
@@ -19,7 +21,11 @@ Source connector for Apache RocketMQ.
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-## Options
+## Description
+
+Source connector for Apache RocketMQ.
+
+## Source Options
 
 |                Name                 |  Type   | Required |          Default           |                                                                                                    Description                                                                                                     |
 |-------------------------------------|---------|----------|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -58,7 +64,7 @@ start.mode.offsets = {
 
 ### Simple:
 
-> random generation data is sent to Rocketmq
+> Consumer reads Rocketmq data and prints it to the console type
 
 ```hocon
 env {
