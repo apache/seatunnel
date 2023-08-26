@@ -298,7 +298,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return deployLocalTask(taskGroup, Thread.currentThread().getContextClassLoader());
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
             @NonNull TaskGroup taskGroup, @NonNull ClassLoader classLoader) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
@@ -378,7 +377,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private void notifyTaskStatusToMaster(
             TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState) {
         long sleepTime = 1000;
@@ -662,7 +660,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         private Future<?> thisTaskFuture;
         private BlockingQueue<Future<?>> futureBlockingQueue;
 
-        @SuppressWarnings("checkstyle:MagicNumber")
         public CooperativeTaskWorker(
                 LinkedBlockingDeque<TaskTracker> taskqueue,
                 RunBusWorkSupplier runBusWorkSupplier,

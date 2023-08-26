@@ -15,6 +15,7 @@
 ### Connectors
 - [Elasticsearch] Support https protocol & compatible with opensearch
 - [Hbase] Add hbase sink connector #4049
+- [Clickhouse] Fix clickhouse old version compatibility #5326
 ### Formats
 - [Canal]Support read canal format message #3950
 - [Debezium]Support debezium canal format message #3981
@@ -81,6 +82,7 @@
 - [E2E] [Kafka] Fix kafka e2e testcase (#4520)
 - [Container Version] Fix risk of unreproducible test cases #4591
 - [E2e] [Mysql-cdc] Removing the excess MySqlIncrementalSourceIT e2e reduces the CI time (#4738)
+- [E2E] [Common] Update test container version of seatunnel engine (#5323)
 
 ## Improve
 
@@ -115,6 +117,7 @@
 ### CI
 
 - [CI] Fix error repository name in ci config files (#4795)
+- [CI][E2E][Zeta] Increase Zeta checkpoint timeout to avoid connector-file-sftp-e2e failed frequently (#5339)
 
 ### Zeta(ST-Engine)
 
