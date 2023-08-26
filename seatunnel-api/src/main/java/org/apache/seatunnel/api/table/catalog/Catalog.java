@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.factory.Factory;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
@@ -124,14 +125,17 @@ public interface Catalog extends AutoCloseable {
     default List<CatalogTable> getTables(ReadonlyConfig config) throws CatalogException {
         // Get the list of specified tables
         List<String> tableNames = config.get(CatalogOptions.TABLE_NAMES);
-        List<CatalogTable> catalogTables = new ArrayList<>();
-        if (tableNames != null && tableNames.size() >= 1) {
-            for (String tableName : tableNames) {
-                TablePath tablePath = TablePath.of(tableName);
-                if (this.tableExists(tablePath)) {
-                    catalogTables.add(this.getTable(tablePath));
-                }
-            }
+        List<CatalogTable> catalogTables = Collections.synchronizedList(new ArrayList<>());
+        if (CollectionUtils.isNotEmpty(tableNames)) {
+            tableNames
+                    .parallelStream()
+                    .forEach(
+                            tableName -> {
+                                TablePath tablePath = TablePath.of(tableName);
+                                if (this.tableExists(tablePath)) {
+                                    catalogTables.add(this.getTable(tablePath));
+                                }
+                            });
             return catalogTables;
         }
 
@@ -146,11 +150,17 @@ public interface Catalog extends AutoCloseable {
         allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
         for (String databaseName : allDatabase) {
             tableNames = this.listTables(databaseName);
-            for (String tableName : tableNames) {
-                if (tablePattern.matcher(databaseName + "." + tableName).matches()) {
-                    catalogTables.add(this.getTable(TablePath.of(databaseName, tableName)));
-                }
-            }
+            tableNames
+                    .parallelStream()
+                    .forEach(
+                            tableName -> {
+                                if (tablePattern
+                                        .matcher(databaseName + "." + tableName)
+                                        .matches()) {
+                                    catalogTables.add(
+                                            this.getTable(TablePath.of(databaseName, tableName)));
+                                }
+                            });
         }
         return catalogTables;
     }
@@ -188,6 +198,25 @@ public interface Catalog extends AutoCloseable {
 
     void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException;
+
+    /**
+     * Truncate an existing table data in this catalog.
+     *
+     * @param tablePath Path of the table
+     * @param ignoreIfNotExists Flag to specify behavior when a table with the given name doesn't
+     *     exist
+     * @throws TableNotExistException thrown if the table doesn't exist in the catalog and
+     *     ignoreIfNotExists is false
+     * @throws CatalogException in case of any runtime exception
+     */
+    default void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {}
+
+    default boolean isExistsData(TablePath tablePath) {
+        return false;
+    }
+
+    default void executeSql(String sql) {}
 
     // todo: Support for update table metadata
 

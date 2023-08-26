@@ -30,6 +30,8 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -197,7 +199,7 @@ public class JdbcSink
 
 
     @Override
-    public AbstractSaveModeHandler getSaveModeHandler() {
+    public DefaultSaveModeHandler getSaveModeHandler() {
         if (catalogTable == null) {
             return null;
         }
@@ -222,19 +224,21 @@ public class JdbcSink
                 fieldIdeEnum == null ? FieldIdeEnum.ORIGINAL.getValue() : fieldIdeEnum.getValue();
         TablePath tablePath =
                 TablePath.of(
-                        jdbcSinkConfig.getDatabase()
-                                + "."
-                                + CatalogUtils.quoteTableIdentifier(
-                                jdbcSinkConfig.getTable(), fieldIde));
-        try (Catalog catalog =
-                     catalogFactory.createCatalog(
-                             catalogFactory.factoryIdentifier(),
-                             ReadonlyConfig.fromMap(new HashMap<>(catalogOptions)))) {
-            catalog.open();
-            return new JdbcSaveModeHandler(schemaSaveMode,dataSaveMode,config,catalogTable,catalog,tablePath);
-
-        } catch (Exception e) {
-            throw new JdbcConnectorException(HANDLE_SAVE_MODE_FAILED, e);
-        }
+                        catalogTable.getTableId().getDatabaseName(),
+                        catalogTable.getTableId().getSchemaName(),
+                        CatalogUtils.quoteTableIdentifier(
+                                catalogTable.getTableId().getTableName(), fieldIde));
+        Catalog catalog =
+                catalogFactory.createCatalog(
+                        catalogFactory.factoryIdentifier(),
+                        ReadonlyConfig.fromMap(new HashMap<>(catalogOptions)));
+        catalog.open();
+        return new DefaultSaveModeHandler(
+                schemaSaveMode,
+                dataSaveMode,
+                catalog,
+                tablePath,
+                catalogTable,
+                config.get(JdbcOptions.CUSTOM_SQL));
     }
 }

@@ -1,25 +1,41 @@
 package org.apache.seatunnel.api.sink;
 
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+
+import lombok.AllArgsConstructor;
 
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.SINK_TABLE_NOT_EXIST;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.SOURCE_ALREADY_HAS_DATA;
 
-public abstract class AbstractSaveModeHandler implements AutoCloseable {
+@AllArgsConstructor
+public class DefaultSaveModeHandler implements SaveModeHandler {
 
     public SchemaSaveMode schemaSaveMode;
     public DataSaveMode dataSaveMode;
+    public Catalog catalog;
+    public TablePath tablePath;
+    public CatalogTable catalogTable;
+    public String customSql;
 
-    public AbstractSaveModeHandler(SchemaSaveMode schemaSaveMode, DataSaveMode dataSaveMode) {
-        this.schemaSaveMode = schemaSaveMode;
-        this.dataSaveMode = dataSaveMode;
+    public DefaultSaveModeHandler(
+            SchemaSaveMode schemaSaveMode,
+            DataSaveMode dataSaveMode,
+            Catalog catalog,
+            CatalogTable catalogTable,
+            String customSql) {
+        this(
+                schemaSaveMode,
+                dataSaveMode,
+                catalog,
+                catalogTable.getTableId().toTablePath(),
+                catalogTable,
+                customSql);
     }
 
-    public void handleSaveMode() {
-        handleSchemaSaveMode();
-        handleDataSaveMode();
-    }
-
+    @Override
     public void handleSchemaSaveMode() {
         switch (schemaSaveMode) {
             case RECREATE_SCHEMA:
@@ -36,6 +52,7 @@ public abstract class AbstractSaveModeHandler implements AutoCloseable {
         }
     }
 
+    @Override
     public void handleDataSaveMode() {
         switch (dataSaveMode) {
             case KEEP_SCHEMA_DROP_DATA:
@@ -55,53 +72,70 @@ public abstract class AbstractSaveModeHandler implements AutoCloseable {
         }
     }
 
-    public void recreateSchema() {
+    protected void recreateSchema() {
         if (tableExists()) {
             dropTable();
         }
         createTable();
     }
 
-    public void createSchemaWhenNotExist() {
+    protected void createSchemaWhenNotExist() {
         if (!tableExists()) {
             createTable();
         }
     }
 
-    public void errorWhenSchemaNotExist() {
+    protected void errorWhenSchemaNotExist() {
         if (!tableExists()) {
             throw new SeaTunnelRuntimeException(SINK_TABLE_NOT_EXIST, "The sink table not exist");
         }
     }
 
-    public void keepSchemaDropData() {
+    protected void keepSchemaDropData() {
         if (tableExists()) {
             truncateTable();
         }
     }
 
-    public void keepSchemaAndData() {}
+    protected void keepSchemaAndData() {}
 
-    public void customProcessing() {
+    protected void customProcessing() {
         executeCustomSql();
     }
 
-    public void errorWhenDataExists() {
+    protected void errorWhenDataExists() {
         if (dataExists()) {
             throw new SeaTunnelRuntimeException(
                     SOURCE_ALREADY_HAS_DATA, "The target data source already has data");
         }
     }
 
-    public abstract boolean tableExists();
+    protected boolean tableExists() {
+        return catalog.tableExists(tablePath);
+    }
 
-    public abstract void dropTable();
+    protected void dropTable() {
+        catalog.dropTable(tablePath, true);
+    }
 
-    public abstract void createTable();
+    protected void createTable() {
+        catalog.createTable(tablePath, catalogTable, true);
+    }
 
-    public abstract void truncateTable();
+    protected void truncateTable() {
+        catalog.truncateTable(tablePath, true);
+    }
 
-    public abstract boolean dataExists();
+    protected boolean dataExists() {
+        return catalog.isExistsData(tablePath);
+    }
 
-    public abstract void executeCustomSql();
+    protected void executeCustomSql() {
+        catalog.executeSql(customSql);
+    }
+
+    @Override
+    public void close() throws Exception {
+        catalog.close();
+    }
 }

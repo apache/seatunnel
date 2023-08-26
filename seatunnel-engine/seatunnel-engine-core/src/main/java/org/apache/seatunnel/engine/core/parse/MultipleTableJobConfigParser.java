@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.env.ParsingMode;
-import org.apache.seatunnel.api.sink.AbstractSaveModeHandler;
+import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -572,6 +572,7 @@ public class MultipleTableJobConfigParser {
             return sinkActions;
         }
 
+        // TODO move it into tryGenerateMultiTableSink when we don't support sink template
         // sink template
         for (Tuple2<CatalogTable, Action> tuple : inputVertices.get(0)) {
             SinkAction<?, ?, ?, ?> sinkAction =
@@ -639,7 +640,7 @@ public class MultipleTableJobConfigParser {
     public static void handleSaveMode(SeaTunnelSink<?, ?, ?, ?> sink) {
         if (SupportDataSaveMode.class.isAssignableFrom(sink.getClass())) {
             SupportDataSaveMode saveModeSink = (SupportDataSaveMode) sink;
-            try(AbstractSaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler();){
+            try (DefaultSaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler()) {
                 saveModeHandler.handleSaveMode();
             }catch (Exception e){
                 throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED,e);

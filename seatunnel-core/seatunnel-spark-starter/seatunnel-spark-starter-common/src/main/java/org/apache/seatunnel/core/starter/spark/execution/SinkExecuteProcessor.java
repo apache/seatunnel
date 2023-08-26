@@ -21,9 +21,11 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
@@ -41,6 +43,8 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
 
 public class SinkExecuteProcessor
         extends SparkAbstractPluginExecuteProcessor<SeaTunnelSink<?, ?, ?, ?>> {
@@ -109,7 +113,11 @@ public class SinkExecuteProcessor
                     (SeaTunnelRowType) TypeConverterUtils.convert(dataset.schema()));
             if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
                 SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
-                saveModeSink.getSaveModeHandler().handleSaveMode();
+                try (DefaultSaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler()) {
+                    saveModeHandler.handleSaveMode();
+                } catch (Exception e) {
+                    throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
+                }
             }
             SparkSinkInjector.inject(dataset.write(), seaTunnelSink)
                     .option("checkpointLocation", "/tmp")

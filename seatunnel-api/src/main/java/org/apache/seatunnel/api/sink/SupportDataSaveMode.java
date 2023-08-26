@@ -25,5 +25,5 @@ public interface SupportDataSaveMode {
     String SCHEMA_SAVE_MODE_KEY = "schema_save_mode";
 
     // This method defines the return of a specific save_mode handler
-    AbstractSaveModeHandler getSaveModeHandler();
+    DefaultSaveModeHandler getSaveModeHandler();
 }
