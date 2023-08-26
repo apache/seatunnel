@@ -168,7 +168,7 @@ public class Common {
 
     public static Set<URL> getThirdPartyJarsURL(String paths) {
         return Arrays.stream(paths.split(";"))
-                .filter(s -> !"".equals(s))
+                .filter(StringUtils::isNotBlank)
                 .filter(it -> it.endsWith(".jar"))
                 .map(
                         path -> {
