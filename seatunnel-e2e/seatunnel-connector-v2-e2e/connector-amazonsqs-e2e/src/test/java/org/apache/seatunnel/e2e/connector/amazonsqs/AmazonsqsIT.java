@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.connector.amazonsqs;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import software.amazon.awssdk.services.sqs.SqsClient;
@@ -34,7 +35,6 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
     private static final String AMAZONSQS_JOB_CONFIG = "/amazonsqsIT_source_to_sink.conf";
     private static final String SINK_TABLE = "sink_table";
     private static final String SOURCE_TABLE = "source_table";
-    private static final String PARTITION_KEY = "id";
 
     protected SqsClient sqsClient;
     
@@ -62,5 +62,6 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testAmazonSqs(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(AMAZONSQS_JOB_CONFIG);
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
