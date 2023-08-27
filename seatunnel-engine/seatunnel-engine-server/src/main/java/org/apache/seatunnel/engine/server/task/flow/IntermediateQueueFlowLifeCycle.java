@@ -46,7 +46,6 @@ public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<
         queue.received(record);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
         queue.collect(collector);

@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
 import java.io.Serializable;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 public class ResourceProfile implements Serializable {
 

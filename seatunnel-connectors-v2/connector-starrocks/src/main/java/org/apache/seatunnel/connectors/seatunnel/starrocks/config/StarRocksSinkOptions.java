@@ -19,8 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.StreamLoadFormat;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -71,21 +75,14 @@ public interface StarRocksSinkOptions {
                     .intType()
                     .defaultValue(1024)
                     .withDescription(
-                            "For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches batch_interval_ms, the data will be flushed into the StarRocks");
+                            "For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches checkpoint.interval, the data will be flushed into the StarRocks");
 
     Option<Long> BATCH_MAX_BYTES =
             Options.key("batch_max_bytes")
                     .longType()
                     .defaultValue((long) (5 * 1024 * 1024))
                     .withDescription(
-                            "For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches batch_interval_ms, the data will be flushed into the StarRocks");
-
-    Option<Integer> BATCH_INTERVAL_MS =
-            Options.key("batch_interval_ms")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches batch_interval_ms, the data will be flushed into the StarRocks");
+                            "For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches checkpoint.interval, the data will be flushed into the StarRocks");
 
     Option<Integer> MAX_RETRIES =
             Options.key("max_retries")
@@ -133,4 +130,12 @@ public interface StarRocksSinkOptions {
                     .enumType(StreamLoadFormat.class)
                     .defaultValue(StreamLoadFormat.JSON)
                     .withDescription("");
+
+    SingleChoiceOption<DataSaveMode> SAVE_MODE =
+            Options.key(SupportDataSaveMode.SAVE_MODE_KEY)
+                    .singleChoice(
+                            DataSaveMode.class, Arrays.asList(DataSaveMode.KEEP_SCHEMA_AND_DATA))
+                    .defaultValue(DataSaveMode.KEEP_SCHEMA_AND_DATA)
+                    .withDescription(
+                            "Table structure and data processing methods that already exist on the target end");
 }

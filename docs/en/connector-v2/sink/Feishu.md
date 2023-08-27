@@ -2,6 +2,17 @@
 
 > Feishu sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
+## Key Features
+
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [cdc](../../concept/connector-v2-features.md)
+
 ## Description
 
 Used to launch Feishu web hooks using data.
@@ -10,33 +21,36 @@ Used to launch Feishu web hooks using data.
 
 **Tips: Feishu sink only support `post json` webhook and the data from source will be treated as body content in web hook.**
 
-## Key features
+## Data Type Mapping
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+|     Seatunnel Data type     | Feishu Data type |
+|-----------------------------|------------------|
+| ROW<br/>MAP                 | Json             |
+| NULL                        | null             |
+| BOOLEAN                     | boolean          |
+| TINYINT                     | byte             |
+| SMALLINT                    | short            |
+| INT                         | int              |
+| BIGINT                      | long             |
+| FLOAT                       | float            |
+| DOUBLE                      | double           |
+| DECIMAL                     | BigDecimal       |
+| BYTES                       | byte[]           |
+| STRING                      | String           |
+| TIME<br/>TIMESTAMP<br/>TIME | String           |
+| ARRAY                       | JsonArray        |
 
-## Options
+## Sink Options
 
-|      name      |  type  | required | default value |
-|----------------|--------|----------|---------------|
-| url            | String | Yes      | -             |
-| headers        | Map    | No       | -             |
-| common-options |        | no       | -             |
+|      Name      |  Type  | Required | Default |                                             Description                                             |
+|----------------|--------|----------|---------|-----------------------------------------------------------------------------------------------------|
+| url            | String | Yes      | -       | Feishu webhook url                                                                                  |
+| headers        | Map    | No       | -       | Http request headers                                                                                |
+| common-options |        | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details |
 
-### url [string]
+## Task Example
 
-Feishu webhook url
-
-### headers [Map]
-
-Http request headers
-
-### common options
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
-
-## Example
-
-simple:
+### Simple:
 
 ```hocon
 Feishu {

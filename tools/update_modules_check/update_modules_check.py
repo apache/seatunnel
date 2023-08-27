@@ -172,10 +172,6 @@ def main(argv):
         get_cv2_modules(argv[2])
     elif argv[1] == "cv2-e2e":
         get_cv2_e2e_modules(argv[2])
-    elif argv[1] == "cv2-flink-e2e":
-        get_cv2_flink_e2e_modules(argv[2])
-    elif argv[1] == "cv2-spark-e2e":
-        get_cv2_spark_e2e_modules(argv[2])
     elif argv[1] == "engine":
         get_engine_modules(argv[2])
     elif argv[1] == "engine-e2e":

@@ -79,5 +79,5 @@ source {
 
 ### next version
 
-- [Feature] Add Maxcompute Source Connector([3640](https://github.com/apache/incubator-seatunnel/pull/3640))
+- [Feature] Add Maxcompute Source Connector([3640](https://github.com/apache/seatunnel/pull/3640))
 

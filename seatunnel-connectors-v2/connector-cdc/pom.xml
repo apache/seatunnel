@@ -33,9 +33,47 @@
         <module>connector-cdc-base</module>
         <module>connector-cdc-mysql</module>
         <module>connector-cdc-sqlserver</module>
+        <module>connector-cdc-mongodb</module>
     </modules>
 
     <properties>
         <debezium.version>1.6.4.Final</debezium.version>
+        <antlr.version>4.8</antlr.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.antlr</groupId>
+                <artifactId>antlr4</artifactId>
+                <version>${antlr.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.antlr</groupId>
+                    <artifactId>antlr4-maven-plugin</artifactId>
+                    <version>${antlr.version}</version>
+                    <configuration>
+                        <sourceDirectory>src/main/antlr4</sourceDirectory>
+                        <outputDirectory>src/main/java</outputDirectory>
+                        <listener>true</listener>
+                        <visitor>true</visitor>
+                        <treatWarningsAsErrors>true</treatWarningsAsErrors>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>antlr4</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

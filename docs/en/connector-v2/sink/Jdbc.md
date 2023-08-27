@@ -9,9 +9,9 @@ semantics (using XA transaction guarantee).
 
 :::tip
 
-Warn: for license compliance, you have to provide database driver yourself, copy to `$SEATNUNNEL_HOME/plugins/jdbc/lib/` directory in order to make them work.
+Warn: for license compliance, you have to provide database driver yourself, copy to `$SEATNUNNEL_HOME/lib/` directory in order to make them work.
 
-e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` to `$SEATNUNNEL_HOME/plugins/jdbc/lib/`
+e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` to `$SEATNUNNEL_HOME/lib/`. For Spark/Flink, you should also copy it to `$SPARK_HOME/jars/` or `$FLINK_HOME/lib/`.
 
 :::
 
@@ -33,6 +33,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | user                                      | String  | No       | -             |
 | password                                  | String  | No       | -             |
 | query                                     | String  | No       | -             |
+| compatible_mode                           | String  | No       | -             |
 | database                                  | String  | No       | -             |
 | table                                     | String  | No       | -             |
 | primary_keys                              | Array   | No       | -             |
@@ -40,7 +41,6 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | connection_check_timeout_sec              | Int     | No       | 30            |
 | max_retries                               | Int     | No       | 0             |
 | batch_size                                | Int     | No       | 1000          |
-| batch_interval_ms                         | Int     | No       | 1000          |
 | is_exactly_once                           | Boolean | No       | false         |
 | generate_sink_sql                         | Boolean | No       | false         |
 | xa_data_source_class_name                 | String  | No       | -             |
@@ -68,6 +68,12 @@ The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/tes
 ### query [string]
 
 Use this sql write upstream input datas to database. e.g `INSERT ...`
+
+### compatible_mode [string]
+
+The compatible mode of database, required when the database supports multiple compatible modes. For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.
+
+Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
 ### database [string]
 
@@ -100,12 +106,7 @@ The number of retries to submit failed (executeBatch)
 
 ### batch_size[int]
 
-For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `batch_interval_ms`
-, the data will be flushed into the database
-
-### batch_interval_ms[int]
-
-For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`
+For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`
 , the data will be flushed into the database
 
 ### is_exactly_once[boolean]
@@ -168,6 +169,7 @@ there are some reference value for params above.
 | Redshift   | com.amazon.redshift.jdbc42.Driver            | jdbc:redshift://localhost:5439/testdb                              | com.amazon.redshift.xa.RedshiftXADataSource        | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                      |
 | Snowflake  | net.snowflake.client.jdbc.SnowflakeDriver    | jdbc:snowflake://<account_name>.snowflakecomputing.com             | /                                                  | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                             |
 | Vertica    | com.vertica.jdbc.Driver                      | jdbc:vertica://localhost:5433                                      | /                                                  | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar             |
+| OceanBase  | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                    | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar              |
 
 ## Example
 
@@ -220,6 +222,26 @@ sink {
 }
 ```
 
+Postgresql 9.5 version below support CDC(Change data capture) event
+
+```
+sink {
+    jdbc {
+        url = "jdbc:postgresql://localhost:5432"
+        driver = "org.postgresql.Driver"
+        user = "root"
+        password = "123456"
+        compatible_mode="postgresLow"
+        database = "sink_database"
+        table = "sink_table"
+        support_upsert_by_query_primary_key_exist = true
+        generate_sink_sql = true
+        primary_keys = ["key1", "key2", ...]
+    }
+}
+
+```
+
 ## Changelog
 
 ### 2.2.0-beta 2022-09-26
@@ -228,22 +250,22 @@ sink {
 
 ### 2.3.0-beta 2022-10-20
 
-- [BugFix] Fix JDBC split exception ([2904](https://github.com/apache/incubator-seatunnel/pull/2904))
-- [Feature] Support Phoenix JDBC Sink ([2499](https://github.com/apache/incubator-seatunnel/pull/2499))
-- [Feature] Support SQL Server JDBC Sink ([2646](https://github.com/apache/incubator-seatunnel/pull/2646))
-- [Feature] Support Oracle JDBC Sink ([2550](https://github.com/apache/incubator-seatunnel/pull/2550))
-- [Feature] Support StarRocks JDBC Sink ([3060](https://github.com/apache/incubator-seatunnel/pull/3060))
-- [Feature] Support DB2 JDBC Sink ([2410](https://github.com/apache/incubator-seatunnel/pull/2410))
+- [BugFix] Fix JDBC split exception ([2904](https://github.com/apache/seatunnel/pull/2904))
+- [Feature] Support Phoenix JDBC Sink ([2499](https://github.com/apache/seatunnel/pull/2499))
+- [Feature] Support SQL Server JDBC Sink ([2646](https://github.com/apache/seatunnel/pull/2646))
+- [Feature] Support Oracle JDBC Sink ([2550](https://github.com/apache/seatunnel/pull/2550))
+- [Feature] Support StarRocks JDBC Sink ([3060](https://github.com/apache/seatunnel/pull/3060))
+- [Feature] Support DB2 JDBC Sink ([2410](https://github.com/apache/seatunnel/pull/2410))
 
 ### next version
 
-- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/incubator-seatunnel/issues/3378))
-- [Feature] Support Teradata JDBC　Sink ([3362](https://github.com/apache/incubator-seatunnel/pull/3362))
-- [Feature] Support Sqlite JDBC Sink ([3089](https://github.com/apache/incubator-seatunnel/pull/3089))
-- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/incubator-seatunnel/issues/3378))
+- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/seatunnel/issues/3378))
+- [Feature] Support Teradata JDBC　Sink ([3362](https://github.com/apache/seatunnel/pull/3362))
+- [Feature] Support Sqlite JDBC Sink ([3089](https://github.com/apache/seatunnel/pull/3089))
+- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/seatunnel/issues/3378))
 - [Feature] Support Doris JDBC Sink
-- [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/incubator-seatunnel/pull/3615))
-- [Improve] Add config item enable upsert by query([#3708](https://github.com/apache/incubator-seatunnel/pull/3708))
-- [Improve] Add database field to sink config([#4199](https://github.com/apache/incubator-seatunnel/pull/4199))
-- [Improve] Add Vertica connector([#4303](https://github.com/apache/incubator-seatunnel/pull/4303))
+- [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/seatunnel/pull/3615))
+- [Improve] Add config item enable upsert by query([#3708](https://github.com/apache/seatunnel/pull/3708))
+- [Improve] Add database field to sink config([#4199](https://github.com/apache/seatunnel/pull/4199))
+- [Improve] Add Vertica connector([#4303](https://github.com/apache/seatunnel/pull/4303))
 
