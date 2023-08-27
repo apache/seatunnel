@@ -55,7 +55,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 .build();
     }
 
-    private String serializeRowToString(SeaTunnelRow seaTunnelRow) {
+    public String serializeRowToString(SeaTunnelRow seaTunnelRow) {
         StringBuilder stringBuilder = new StringBuilder();
         for (int index = 0; index < seaTunnelRowType.getFieldNames().length; index++) {
             Object fieldValue = seaTunnelRow.getField(index);
