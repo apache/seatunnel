@@ -63,6 +63,7 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PARTITION_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PARTITION_UPPER_BOUND;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PROPERTIES;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.QUERY;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.URL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.USER;
@@ -260,7 +261,8 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         PARTITION_UPPER_BOUND,
                         PARTITION_LOWER_BOUND,
                         PARTITION_NUM,
-                        COMPATIBLE_MODE)
+                        COMPATIBLE_MODE,
+                        PROPERTIES)
                 .build();
     }
 
