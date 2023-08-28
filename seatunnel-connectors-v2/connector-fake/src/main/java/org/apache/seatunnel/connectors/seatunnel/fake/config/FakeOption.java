@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.util.List;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public class FakeOption {
 
     public static final Option<List<SeaTunnelRow>> ROWS =

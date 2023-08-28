@@ -89,7 +89,6 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
     private static final String PG_JSON = "json";
     private static final String PG_JSONB = "jsonb";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
