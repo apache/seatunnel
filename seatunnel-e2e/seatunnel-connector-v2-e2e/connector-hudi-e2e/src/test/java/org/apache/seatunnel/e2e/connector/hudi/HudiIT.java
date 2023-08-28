@@ -29,7 +29,7 @@ import java.io.IOException;
 public class HudiIT extends TestSuiteBase {
 
     @TestTemplate
-    public void testWriteAndReadPaimon(TestContainer container)
+    public void testWriteHudi(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_hudi.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
