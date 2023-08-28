@@ -128,7 +128,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 
 |                                     Mysql Data type                                      | SeaTunnel Data type |
 |------------------------------------------------------------------------------------------|---------------------|
-| BIT(1)                                                                                   | BOOLEAN             |
+| BIT(1)<br/>TINYINT(1)                                                                    | BOOLEAN             |
 | TINYINT                                                                                  | TINYINT             |
 | TINYINT UNSIGNED<br/>SMALLINT                                                            | SMALLINT            |
 | SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR      | INT                 |
