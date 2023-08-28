@@ -107,6 +107,39 @@ schema = {
 }
 ```
 
+### Random Generation
+
+> 16 data matching the type are randomly generated
+
+```hocon
+source {
+  # This is a example input plugin **only for test and demonstrate the feature input plugin**
+  FakeSource {
+    row.num = 16
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(30, 8)"
+        c_null = "null"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
+    }
+    result_table_name = "fake"
+  }
+}
+```
+
 ### Customize the data content Simple:
 
 > This is a self-defining data source information, defining whether each piece of data is an add or delete modification operation, and defining what each field stores
