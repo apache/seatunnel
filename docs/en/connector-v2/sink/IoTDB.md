@@ -2,6 +2,19 @@
 
 > IoTDB sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
+## Key Features
+
+- [x] [exactly-once](../../concept/connector-v2-features.md)
+
+IoTDB supports the `exactly-once` feature through idempotent writing. If two pieces of data have
+the same `key` and `timestamp`, the new data will overwrite the old one.
+
 ## Description
 
 Used to write data to IoTDB.
@@ -12,111 +25,50 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 
 :::
 
-## Key features
+## Supported DataSource Info
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+| Datasource | Supported Versions |      Url       |
+|------------|--------------------|----------------|
+| IoTDB      | `>= 0.13.0`        | localhost:6667 |
 
-IoTDB supports the `exactly-once` feature through idempotent writing. If two pieces of data have
-the same `key` and `timestamp`, the new data will overwrite the old one.
+## Database Dependency
 
-## Options
+## Data Type Mapping
 
-|            name             |  type   | required |         default value          |
-|-----------------------------|---------|----------|--------------------------------|
-| node_urls                   | list    | yes      | -                              |
-| username                    | string  | yes      | -                              |
-| password                    | string  | yes      | -                              |
-| key_device                  | string  | yes      | -                              |
-| key_timestamp               | string  | no       | processing time                |
-| key_measurement_fields      | array   | no       | exclude `device` & `timestamp` |
-| storage_group               | string  | no       | -                              |
-| batch_size                  | int     | no       | 1024                           |
-| batch_interval_ms           | int     | no       | -                              |
-| max_retries                 | int     | no       | -                              |
-| retry_backoff_multiplier_ms | int     | no       | -                              |
-| max_retry_backoff_ms        | int     | no       | -                              |
-| default_thrift_buffer_size  | int     | no       | -                              |
-| max_thrift_frame_size       | int     | no       | -                              |
-| zone_id                     | string  | no       | -                              |
-| enable_rpc_compression      | boolean | no       | -                              |
-| connection_timeout_in_ms    | int     | no       | -                              |
-| common-options              |         | no       | -                              |
+| IotDB Data type | SeaTunnel Data type |
+|-----------------|---------------------|
+| BOOLEAN         | BOOLEAN             |
+| INT32           | TINYINT             |
+| INT32           | SMALLINT            |
+| INT32           | INT                 |
+| INT64           | BIGINT              |
+| FLOAT           | FLOAT               |
+| DOUBLE          | DOUBLE              |
+| TEXT            | STRING              |
 
-### node_urls [list]
+## Sink Options
 
-`IoTDB` cluster address, the format is `["host:port", ...]`
+|            Name             |  Type   | Required |            Default             |                                                                            Description                                                                            |
+|-----------------------------|---------|----------|--------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| node_urls                   | Array   | Yes      | -                              | `IoTDB` cluster address, the format is `["host:port", ...]`                                                                                                       |
+| username                    | String  | Yes      | -                              | `IoTDB` user username                                                                                                                                             |
+| password                    | String  | Yes      | -                              | `IoTDB` user password                                                                                                                                             |
+| key_device                  | String  | No       | -                              | Specify field name of the `IoTDB` deviceId in SeaTunnelRow                                                                                                        |
+| key_timestamp               | String  | No       | processing time                | Specify field-name of the `IoTDB` timestamp in SeaTunnelRow. If not specified, use processing-time as timestamp                                                   |
+| key_measurement_fields      | Array   | No       | exclude `device` & `timestamp` | Specify field-name of the `IoTDB` measurement list in SeaTunnelRow. If not specified, include all fields but exclude `device` & `timestamp`                       |
+| storage_group               | Array   | No       | -                              | Specify device storage group(path prefix) <br/> example: deviceId = ${storage_group} + "." +  ${key_device}                                                       |
+| batch_size                  | Integer | No       | 1024                           | For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the IoTDB |
+| max_retries                 | Integer | No       | -                              | The number of retries to flush failed                                                                                                                             |
+| retry_backoff_multiplier_ms | Integer | No       | -                              | Using as a multiplier for generating the next delay for backoff                                                                                                   |
+| max_retry_backoff_ms        | Integer | No       | -                              | The amount of time to wait before attempting to retry a request to `IoTDB`                                                                                        |
+| default_thrift_buffer_size  | Integer | No       | -                              | Thrift init buffer size in `IoTDB` client                                                                                                                         |
+| max_thrift_frame_size       | Integer | No       | -                              | Thrift max frame size in `IoTDB` client                                                                                                                           |
+| zone_id                     | string  | No       | -                              | java.time.ZoneId in `IoTDB` client                                                                                                                                |
+| enable_rpc_compression      | Boolean | No       | -                              | Enable rpc compression in `IoTDB` client                                                                                                                          |
+| connection_timeout_in_ms    | Integer | No       | -                              | The maximum time (in ms) to wait when connecting to `IoTDB`                                                                                                       |
+| common-options              |         | no       | -                              | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                               |
 
-### username [string]
-
-`IoTDB` user username
-
-### password [string]
-
-`IoTDB` user password
-
-### key_device [string]
-
-Specify field name of the `IoTDB` deviceId in SeaTunnelRow
-
-### key_timestamp [string]
-
-Specify field-name of the `IoTDB` timestamp in SeaTunnelRow. If not specified, use processing-time as timestamp
-
-### key_measurement_fields [array]
-
-Specify field-name of the `IoTDB` measurement list in SeaTunnelRow. If not specified, include all fields but exclude `device` & `timestamp`
-
-### storage_group [string]
-
-Specify device storage group(path prefix)
-
-example: deviceId = ${storage_group} + "." +  ${key_device}
-
-### batch_size [int]
-
-For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the IoTDB
-
-### batch_interval_ms [int]
-
-For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the IoTDB
-
-### max_retries [int]
-
-The number of retries to flush failed
-
-### retry_backoff_multiplier_ms [int]
-
-Using as a multiplier for generating the next delay for backoff
-
-### max_retry_backoff_ms [int]
-
-The amount of time to wait before attempting to retry a request to `IoTDB`
-
-### default_thrift_buffer_size [int]
-
-Thrift init buffer size in `IoTDB` client
-
-### max_thrift_frame_size [int]
-
-Thrift max frame size in `IoTDB` client
-
-### zone_id [string]
-
-java.time.ZoneId in `IoTDB` client
-
-### enable_rpc_compression [boolean]
-
-Enable rpc compression in `IoTDB` client
-
-### connection_timeout_in_ms [int]
-
-The maximum time (in ms) to wait when connecting to `IoTDB`
-
-### common options
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
-
-## Examples
+## Task Example
 
 ### Case1
 
@@ -129,7 +81,6 @@ sink {
     username = "root"
     password = "root"
     batch_size = 1024
-    batch_interval_ms = 1000
   }
 }
 ```

@@ -230,7 +230,7 @@ public class SeaTunnelServer
         // must retry until the cluster have master node
         try {
             return RetryUtils.retryWithException(
-                    () -> nodeEngine.getMasterAddress().equals(nodeEngine.getThisAddress()),
+                    () -> nodeEngine.getThisAddress().equals(nodeEngine.getMasterAddress()),
                     new RetryUtils.RetryMaterial(
                             Constant.OPERATION_RETRY_TIME,
                             true,
