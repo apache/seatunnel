@@ -19,38 +19,63 @@
 
 ## Description
 
-> Used to read data from Socket.
+Used to read data from Socket.
 
-## Source Options
+## Data Type Mapping
 
-|      Name      |  Type   | Required | Default |                                               Description                                               |
-|----------------|---------|----------|---------|---------------------------------------------------------------------------------------------------------|
-| host           | String  | Yes      |         | socket server host                                                                                      |
-| port           | Integer | Yes      |         | socket server port                                                                                      |
-| common-options |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details |
+The File does not have a specific type list, and we can indicate which SeaTunnel data type the corresponding data needs to be converted to by specifying the Schema in the config.
 
-## Task Example
+| SeaTunnel Data type |
+|---------------------|
+| STRING              |
+| SHORT               |
+| INT                 |
+| BIGINT              |
+| BOOLEAN             |
+| DOUBLE              |
+| DECIMAL             |
+| FLOAT               |
+| DATE                |
+| TIME                |
+| TIMESTAMP           |
+| BYTES               |
+| ARRAY               |
+| MAP                 |
 
-### Simple:
+## Options
 
-> This is a streaming accept Socket data source Writes to console output
+| Name           | Type    | Required | Default | Description                                                                                              |
+|----------------|---------|----------|--------------|----------------------------------------------------------------------------------------------------------|
+| host           | String  | Yes      | _            | socket server host                                                                                       |
+| port           | Integer | Yes      | _            | socket server port                                                                                       |
+| common-options |         | no       | -            | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details. |
 
-```hocon
+## How to Create a Socket Data Synchronization Jobs
+
+* Configuring the SeaTunnel config file
+
+The following example demonstrates how to create a data synchronization job that reads data from Socket and prints it on the local client:
+
+```bash
+# Set the basic configuration of the task to be performed
 env {
   parallelism = 1
-}
-Socket {
-  host = "localhost"
-  port = 9999
+  job.mode = "BATCH"
 }
 
-transform {
-  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+# Create a source to connect to socket
+source {
+    Socket {
+        host = "localhost"
+        port = 9999
+    }
 }
 
+# Console printing of the read socket data
 sink {
-  Console {}
+  Console {
+    parallelism = 1
+  }
 }
 ```
 
@@ -80,14 +105,4 @@ spark
 [flink]
 [spark]
 ```
-
-## Changelog
-
-### 2.2.0-beta 2022-09-26
-
-- Add Socket Source Connector
-
-### Next Version
-
-- `host` and `port` become required ([3317](https://github.com/apache/seatunnel/pull/3317))
 
