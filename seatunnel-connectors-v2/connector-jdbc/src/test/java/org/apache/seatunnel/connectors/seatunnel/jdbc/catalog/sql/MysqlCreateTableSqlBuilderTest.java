@@ -93,7 +93,7 @@ public class MysqlCreateTableSqlBuilderTest {
                 MysqlCreateTableSqlBuilder.builder(tablePath, catalogTable).build("mysql");
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
-                "CREATE TABLE IF NOT EXISTS test_table (\n"
+                "CREATE TABLE test_table (\n"
                         + "\tid null NOT NULL COMMENT 'id', \n"
                         + "\tname null NOT NULL COMMENT 'name', \n"
                         + "\tage null NULL COMMENT 'age', \n"
