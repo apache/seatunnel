@@ -92,7 +92,7 @@ public class MySqlTypeUtils {
             case MYSQL_BIT:
                 return BasicType.BOOLEAN_TYPE;
             case MYSQL_TINYINT:
-                return BasicType.BYTE_TYPE;
+                return column.length() == 1 ? BasicType.BOOLEAN_TYPE : BasicType.INT_TYPE;
             case MYSQL_TINYINT_UNSIGNED:
             case MYSQL_SMALLINT:
                 return BasicType.SHORT_TYPE;
