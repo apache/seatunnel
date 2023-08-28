@@ -21,7 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -109,7 +109,7 @@ public class SinkExecuteProcessor
                     (SeaTunnelRowType) TypeConverterUtils.convert(stream.getType()));
             if (SupportSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
                 SupportSaveMode saveModeSink = (SupportSaveMode) seaTunnelSink;
-                try (DefaultSaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler()) {
+                try (SaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler()) {
                     saveModeHandler.handleSaveMode();
                 } catch (Exception e) {
                     throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
