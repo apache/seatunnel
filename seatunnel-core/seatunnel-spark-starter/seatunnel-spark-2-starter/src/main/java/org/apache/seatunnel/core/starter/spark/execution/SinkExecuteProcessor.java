@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.enums.PluginType;
@@ -110,8 +110,8 @@ public class SinkExecuteProcessor
             // TODO modify checkpoint location
             seaTunnelSink.setTypeInfo(
                     (SeaTunnelRowType) TypeConverterUtils.convert(dataset.schema()));
-            if (SupportDataSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
-                SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
+            if (SupportSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
+                SupportSaveMode saveModeSink = (SupportSaveMode) seaTunnelSink;
                 try (DefaultSaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler()) {
                     saveModeHandler.handleSaveMode();
                 } catch (Exception e) {

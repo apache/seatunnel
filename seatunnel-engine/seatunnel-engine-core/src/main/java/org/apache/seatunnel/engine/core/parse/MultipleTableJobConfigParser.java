@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.env.ParsingMode;
 import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceOptions;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -638,12 +638,12 @@ public class MultipleTableJobConfigParser {
     }
 
     public static void handleSaveMode(SeaTunnelSink<?, ?, ?, ?> sink) {
-        if (SupportDataSaveMode.class.isAssignableFrom(sink.getClass())) {
-            SupportDataSaveMode saveModeSink = (SupportDataSaveMode) sink;
+        if (SupportSaveMode.class.isAssignableFrom(sink.getClass())) {
+            SupportSaveMode saveModeSink = (SupportSaveMode) sink;
             try (DefaultSaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler()) {
                 saveModeHandler.handleSaveMode();
-            }catch (Exception e){
-                throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED,e);
+            } catch (Exception e) {
+                throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
             }
         }
     }

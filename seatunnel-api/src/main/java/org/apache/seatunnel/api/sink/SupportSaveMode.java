@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.api.sink;
 
-/** The Sink Connectors which support data SaveMode should implement this interface */
-public interface SupportDataSaveMode {
+/** The Sink Connectors which support schema and data SaveMode should implement this interface */
+public interface SupportSaveMode {
 
     String DATA_SAVE_MODE_KEY = "data_save_mode";
 
