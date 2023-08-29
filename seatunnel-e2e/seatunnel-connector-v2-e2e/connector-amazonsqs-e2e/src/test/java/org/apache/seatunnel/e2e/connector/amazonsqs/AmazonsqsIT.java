@@ -60,7 +60,7 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
         // start a localstack docker container
-        localstack = new LocalStackContainer(LOCALSTACK_DOCKER_IMAGE)
+        localstack = new LocalStackContainer()
                 .withServices(LocalStackContainer.Service.SQS)
                 .withNetwork(NETWORK)
                 .withNetworkAliases(AMAZONSQS_CONTAINER_HOST)
