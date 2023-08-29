@@ -30,10 +30,9 @@ import org.apache.avro.util.Utf8;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.sql.Timestamp;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneOffset;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -154,8 +153,8 @@ public class RowDataToAvroConverters {
 
                             @Override
                             public Object convert(Schema schema, Object object) {
-                                return ((LocalDateTime) object)
-                                        .toInstant(ZoneOffset.of("+8"))
+                                return ((Timestamp) object)
+                                        .toInstant()
                                         .toEpochMilli();
                             }
                         };
