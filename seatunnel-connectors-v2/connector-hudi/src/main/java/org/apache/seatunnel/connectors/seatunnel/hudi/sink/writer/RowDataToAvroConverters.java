@@ -153,9 +153,7 @@ public class RowDataToAvroConverters {
 
                             @Override
                             public Object convert(Schema schema, Object object) {
-                                return ((Timestamp) object)
-                                        .toInstant()
-                                        .toEpochMilli();
+                                return ((Timestamp) object).toInstant().toEpochMilli();
                             }
                         };
                 break;
