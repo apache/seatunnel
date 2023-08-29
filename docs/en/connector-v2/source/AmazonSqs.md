@@ -4,7 +4,7 @@
 
 ## Description
 
-Read and write data from/to Amazon DynamoDB.
+Read data from Amazon SQS.
 
 ## Key features
 
@@ -20,7 +20,7 @@ Read and write data from/to Amazon DynamoDB.
 | name              |  type  | required | default value |
 |-------------------|--------|----------|---------------|
 | url               | string | yes      | -             |
-| region            | string | yes      | -             |
+| region            | string | false    | -             |
 | queue             | string | false    | -             |
 | schema            | config | yes      | -             |
 | common-options    |        | yes      | -             |
@@ -29,10 +29,9 @@ Read and write data from/to Amazon DynamoDB.
 
 The URL to read from Amazon SQS.
 
-
 ### queue [string]
 
-the queue name to read from Amazon SQS
+the queue name to read from Amazon SQS.
 
 ### region [string]
 
@@ -42,7 +41,8 @@ The region of Amazon SQS.
 
 #### fields [config]
 
-Amazon SQS is a managed message queuing service
+Amazon SQS is a managed message queuing service provided by AWS. the schema and fields are required to deserialize the data from
+queue into SeaTunnel rows.
 such as:
 
 ```
@@ -92,6 +92,3 @@ AmazonSqs {
 ## Changelog
 
 ### next version
-
-- Add Amazon SQS Source Connector
-

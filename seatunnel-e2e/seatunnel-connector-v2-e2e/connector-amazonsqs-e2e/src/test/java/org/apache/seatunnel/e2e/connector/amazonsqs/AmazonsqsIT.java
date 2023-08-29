@@ -78,10 +78,6 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
                         AMAZONSQS_CONTAINER_PORT, AMAZONSQS_CONTAINER_PORT)));
         Startables.deepStart(Stream.of(localstack)).join();
 
-
-        log.info("Access Key: {}", localstack.getAccessKey());
-        log.info("Secret Key: {}", localstack.getSecretKey());
-
         log.info("localstack container started");
         given().ignoreExceptions()
                 .await()
@@ -105,7 +101,8 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
         sqsClient.createQueue(r -> r.queueName(SINK_QUEUE));
 
         // insert message to source queue
-        sqsClient.sendMessage(r -> r.queueUrl(sqsClient.listQueues().queueUrls().get(0)).messageBody("test message"));
+        sqsClient.sendMessage(r -> r.queueUrl(sqsClient.listQueues().queueUrls().get(0))
+                .messageBody("name: test_name"));
     }
 
     @AfterAll
