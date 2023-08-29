@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.flink.utils;
 
+import org.apache.flink.configuration.RestOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.common.config.CheckResult;
@@ -115,6 +116,9 @@ public final class EnvironmentUtil {
                 configuration.setString(
                         PipelineOptions.CLASSPATHS.key(), pipeline.getString("classpaths"));
             }
+        }
+        if (config.hasPath("rest.port")) {
+            configuration.setInteger(RestOptions.PORT, config.getInt("rest.port"));
         }
     }
 }
