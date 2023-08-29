@@ -20,6 +20,9 @@
     },
     {
       "pattern": "^https://opencollective.com"
+    },
+    {
+      "pattern": "^https://fake.link"
     }
   ],
   "timeout": "10s",
