@@ -40,7 +40,7 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
 
 public class AvroToRowConverter implements Serializable {
@@ -120,7 +120,7 @@ public class AvroToRowConverter implements Serializable {
                 return LocalDate.ofEpochDay((Long) val);
             case TIMESTAMP:
                 return LocalDateTime.ofInstant(
-                        Instant.ofEpochMilli((Long) val), ZoneOffset.of("+8"));
+                        Instant.ofEpochMilli((Long) val), ZoneId.systemDefault());
             case ROW:
                 SeaTunnelRowType subRow = (SeaTunnelRowType) dataType;
                 return converter((GenericRecord) val, subRow);

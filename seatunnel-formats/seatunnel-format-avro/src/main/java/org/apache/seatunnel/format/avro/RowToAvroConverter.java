@@ -42,7 +42,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -221,7 +221,7 @@ public class RowToAvroConverter implements Serializable {
                 return recordBuilder.build();
             case TIMESTAMP:
                 LocalDateTime dateTime = (LocalDateTime) data;
-                return (dateTime).toInstant(ZoneOffset.of("+8")).toEpochMilli();
+                return (dateTime).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
             default:
                 String errorMsg =
                         String.format(
