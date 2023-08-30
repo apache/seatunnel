@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES_PER_SECONDS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 
@@ -48,6 +51,9 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     private final Counter sourceReceivedCount;
 
     private final Meter sourceReceivedQPS;
+    private final Counter sourceReceivedBytes;
+
+    private final Meter sourceReceivedBytesPerSeconds;
 
     private volatile boolean emptyThisPollNext;
 
@@ -59,6 +65,8 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         this.outputs = outputs;
         sourceReceivedCount = metricsContext.counter(SOURCE_RECEIVED_COUNT);
         sourceReceivedQPS = metricsContext.meter(SOURCE_RECEIVED_QPS);
+        sourceReceivedBytes = metricsContext.counter(SOURCE_RECEIVED_BYTES);
+        sourceReceivedBytesPerSeconds = metricsContext.meter(SOURCE_RECEIVED_BYTES_PER_SECONDS);
     }
 
     @Override
@@ -68,6 +76,11 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
             emptyThisPollNext = false;
             sourceReceivedCount.inc();
             sourceReceivedQPS.markEvent();
+            if (row instanceof SeaTunnelRow) {
+                long size = ((SeaTunnelRow) row).getBytesSize();
+                sourceReceivedBytes.inc(size);
+                sourceReceivedBytesPerSeconds.markEvent(size);
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
