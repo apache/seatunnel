@@ -30,6 +30,7 @@ public class EnvOptionRule {
                         CommonOptions.PARALLELISM,
                         EnvCommonOptions.JARS,
                         EnvCommonOptions.CHECKPOINT_INTERVAL,
+                        EnvCommonOptions.CHECKPOINT_TIMEOUT,
                         EnvCommonOptions.CUSTOM_PARAMETERS)
                 .build();
     }

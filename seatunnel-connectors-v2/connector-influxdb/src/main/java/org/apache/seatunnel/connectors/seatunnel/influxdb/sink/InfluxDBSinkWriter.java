@@ -34,7 +34,6 @@ import org.influxdb.InfluxDB;
 import org.influxdb.dto.BatchPoints;
 import org.influxdb.dto.Point;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,10 +42,6 @@ import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
@@ -55,15 +50,11 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private InfluxDB influxdb;
     private final SinkConfig sinkConfig;
     private final List<Point> batchList;
-    private ScheduledExecutorService scheduler;
-    private ScheduledFuture<?> scheduledFuture;
     private volatile Exception flushException;
-    private final Integer batchIntervalMs;
 
     public InfluxDBSinkWriter(Config pluginConfig, SeaTunnelRowType seaTunnelRowType)
             throws ConnectException {
         this.sinkConfig = SinkConfig.loadConfig(pluginConfig);
-        this.batchIntervalMs = sinkConfig.getBatchIntervalMs();
         this.serializer =
                 new DefaultSerializer(
                         seaTunnelRowType,
@@ -72,26 +63,6 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         sinkConfig.getKeyTime(),
                         sinkConfig.getMeasurement());
         this.batchList = new ArrayList<>();
-
-        if (batchIntervalMs != null) {
-            scheduler =
-                    Executors.newSingleThreadScheduledExecutor(
-                            new ThreadFactoryBuilder()
-                                    .setNameFormat("influxDB-sink-output-%s")
-                                    .build());
-            scheduledFuture =
-                    scheduler.scheduleAtFixedRate(
-                            () -> {
-                                try {
-                                    flush();
-                                } catch (IOException e) {
-                                    flushException = e;
-                                }
-                            },
-                            batchIntervalMs,
-                            batchIntervalMs,
-                            TimeUnit.MILLISECONDS);
-        }
 
         connect();
     }
@@ -112,11 +83,6 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void close() throws IOException {
-        if (scheduledFuture != null) {
-            scheduledFuture.cancel(false);
-            scheduler.shutdown();
-        }
-
         flush();
 
         if (influxdb != null) {

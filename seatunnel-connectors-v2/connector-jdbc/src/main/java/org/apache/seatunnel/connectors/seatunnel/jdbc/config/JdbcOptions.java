@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.math.BigDecimal;
 import java.util.List;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public interface JdbcOptions {
 
     Option<String> URL = Options.key("url").stringType().noDefaultValue().withDescription("url");
