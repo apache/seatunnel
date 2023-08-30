@@ -22,14 +22,14 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.redis.common.JedisClusterRedisClient;
+import org.apache.seatunnel.connectors.seatunnel.redis.common.JedisRedisClient;
+import org.apache.seatunnel.connectors.seatunnel.redis.common.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
-
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisCluster;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -40,9 +40,7 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final SeaTunnelRowType seaTunnelRowType;
     private final RedisParameters redisParameters;
     private final SerializationSchema serializationSchema;
-    private Jedis jedis;
-    private JedisCluster jedisCluster;
-    private final RedisConfig.RedisMode redisMode;
+    private RedisClient redisClient;
 
     public RedisSinkWriter(SeaTunnelRowType seaTunnelRowType, RedisParameters redisParameters) {
         this.seaTunnelRowType = seaTunnelRowType;
@@ -50,14 +48,13 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         // TODO according to format to initialize serializationSchema
         // Now temporary using json serializationSchema
         this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
-        this.jedis = redisParameters.buildJedis();
-        this.redisMode = redisParameters.getMode();
+        RedisConfig.RedisMode redisMode = redisParameters.getMode();
         switch (redisMode) {
             case SINGLE:
-                this.jedis = redisParameters.buildJedis();
+                this.redisClient = new JedisRedisClient(redisParameters.buildJedis());
                 break;
             case CLUSTER:
-                this.jedisCluster = redisParameters.buildJedisCluster();
+                this.redisClient = new JedisClusterRedisClient(redisParameters.buildJedisCluster());
                 break;
             default:
                 // do nothing
@@ -79,13 +76,13 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             key = keyField;
         }
         long expire = redisParameters.getExpire();
-        redisDataType.set(jedis, jedisCluster, key, data, expire, redisMode);
+        redisDataType.set(redisClient, key, data, expire);
     }
 
     @Override
     public void close() throws IOException {
-        if (Objects.nonNull(jedis)) {
-            jedis.close();
+        if (Objects.nonNull(redisClient)) {
+            redisClient.close();
         }
     }
 }

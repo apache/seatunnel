@@ -22,14 +22,17 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.redis.common.JedisClusterRedisClient;
+import org.apache.seatunnel.connectors.seatunnel.redis.common.JedisRedisClient;
+import org.apache.seatunnel.connectors.seatunnel.redis.common.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
-
-import redis.clients.jedis.Jedis;
+import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
 import java.io.IOException;
 import java.util.List;
@@ -41,7 +44,7 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final RedisParameters redisParameters;
     private final SingleSplitReaderContext context;
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private Jedis jedis;
+    private RedisClient redisClient;
 
     public RedisSourceReader(
             RedisParameters redisParameters,
@@ -54,22 +57,34 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     @Override
     public void open() throws Exception {
-        this.jedis = redisParameters.buildJedis();
+        RedisConfig.RedisMode redisMode = redisParameters.getMode();
+        switch (redisMode) {
+            case SINGLE:
+                this.redisClient = new JedisRedisClient(redisParameters.buildJedis());
+                break;
+            case CLUSTER:
+                this.redisClient = new JedisClusterRedisClient(redisParameters.buildJedisCluster());
+                break;
+            default:
+                // do nothing
+                throw new RedisConnectorException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION, "Not support this redis mode");
+        }
     }
 
     @Override
     public void close() throws IOException {
-        if (Objects.nonNull(jedis)) {
-            jedis.close();
+        if (Objects.nonNull(redisClient)) {
+            redisClient.close();
         }
     }
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        Set<String> keys = jedis.keys(redisParameters.getKeysPattern());
+        Set<String> keys = redisClient.keys(redisParameters.getKeysPattern());
         RedisDataType redisDataType = redisParameters.getRedisDataType();
         for (String key : keys) {
-            List<String> values = redisDataType.get(jedis, key);
+            List<String> values = redisDataType.get(redisClient, key);
             for (String value : values) {
                 if (deserializationSchema == null) {
                     output.collect(new SeaTunnelRow(new Object[] {value}));

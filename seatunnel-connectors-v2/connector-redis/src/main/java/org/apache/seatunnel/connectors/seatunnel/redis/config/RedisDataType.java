@@ -17,158 +17,73 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
-import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.redis.common.RedisClient;
 
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisCluster;
-
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 public enum RedisDataType {
     KEY {
         @Override
-        public void set(
-                Jedis jedis,
-                JedisCluster jedisCluster,
-                String key,
-                String value,
-                long expire,
-                RedisConfig.RedisMode redisMode) {
-            if (RedisConfig.RedisMode.SINGLE == redisMode) {
-                jedis.set(key, value);
-            } else {
-                jedisCluster.set(key, value);
-            }
-            expire(jedis, jedisCluster, key, expire, redisMode);
+        public void set(RedisClient redisClient, String key, String value, long expire) {
+            redisClient.set(key, value, expire);
         }
 
         @Override
-        public List<String> get(Jedis jedis, String key) {
-            return Collections.singletonList(jedis.get(key));
+        public List<String> get(RedisClient redisClient, String key) {
+            return redisClient.get(key);
         }
     },
     HASH {
         @Override
-        public void set(
-                Jedis jedis,
-                JedisCluster jedisCluster,
-                String key,
-                String value,
-                long expire,
-                RedisConfig.RedisMode redisMode) {
-            Map<String, String> fieldsMap = JsonUtils.toMap(value);
-            if (RedisConfig.RedisMode.SINGLE == redisMode) {
-                jedis.hset(key, fieldsMap);
-            } else {
-                jedisCluster.hset(key, fieldsMap);
-            }
-            expire(jedis, jedisCluster, key, expire, redisMode);
+        public void set(RedisClient redisClient, String key, String value, long expire) {
+            redisClient.hset(key, value, expire);
         }
 
         @Override
-        public List<String> get(Jedis jedis, String key) {
-            Map<String, String> kvMap = jedis.hgetAll(key);
-            return Collections.singletonList(JsonUtils.toJsonString(kvMap));
+        public List<String> get(RedisClient redisClient, String key) {
+            return redisClient.hget(key);
         }
     },
     LIST {
         @Override
-        public void set(
-                Jedis jedis,
-                JedisCluster jedisCluster,
-                String key,
-                String value,
-                long expire,
-                RedisConfig.RedisMode redisMode) {
-            if (RedisConfig.RedisMode.SINGLE == redisMode) {
-                jedis.lpush(key, value);
-            } else {
-                jedisCluster.lpush(key, value);
-            }
-            expire(jedis, jedisCluster, key, expire, redisMode);
+        public void set(RedisClient redisClient, String key, String value, long expire) {
+            redisClient.lpush(key, value, expire);
         }
 
         @Override
-        public List<String> get(Jedis jedis, String key) {
-            return jedis.lrange(key, 0, -1);
+        public List<String> get(RedisClient redisClient, String key) {
+            return redisClient.lrange(key);
         }
     },
     SET {
         @Override
-        public void set(
-                Jedis jedis,
-                JedisCluster jedisCluster,
-                String key,
-                String value,
-                long expire,
-                RedisConfig.RedisMode redisMode) {
-            if (RedisConfig.RedisMode.SINGLE == redisMode) {
-                jedis.sadd(key, value);
-            } else {
-                jedisCluster.sadd(key, value);
-            }
-            expire(jedis, jedisCluster, key, expire, redisMode);
+        public void set(RedisClient redisClient, String key, String value, long expire) {
+            redisClient.sadd(key, value, expire);
         }
 
         @Override
-        public List<String> get(Jedis jedis, String key) {
-            Set<String> members = jedis.smembers(key);
-            return new ArrayList<>(members);
+        public List<String> get(RedisClient redisClient, String key) {
+            return redisClient.smembers(key);
         }
     },
     ZSET {
         @Override
-        public void set(
-                Jedis jedis,
-                JedisCluster jedisCluster,
-                String key,
-                String value,
-                long expire,
-                RedisConfig.RedisMode redisMode) {
-            if (RedisConfig.RedisMode.SINGLE == redisMode) {
-                jedis.zadd(key, 1, value);
-            } else {
-                jedisCluster.zadd(key, 1, value);
-            }
-            expire(jedis, jedisCluster, key, expire, redisMode);
+        public void set(RedisClient redisClient, String key, String value, long expire) {
+            redisClient.zadd(key, value, expire);
         }
 
         @Override
-        public List<String> get(Jedis jedis, String key) {
-            return jedis.zrange(key, 0, -1);
+        public List<String> get(RedisClient redisClient, String key) {
+            return redisClient.zrange(key);
         }
     };
 
-    public List<String> get(Jedis jedis, String key) {
+    public List<String> get(RedisClient redisClient, String key) {
         return Collections.emptyList();
     }
 
-    private static void expire(
-            Jedis jedis,
-            JedisCluster jedisCluster,
-            String key,
-            long expire,
-            RedisConfig.RedisMode redisMode) {
-        if (expire > 0) {
-            if (RedisConfig.RedisMode.SINGLE == redisMode) {
-                jedis.expire(key, expire);
-            } else {
-                jedisCluster.expire(key, expire);
-            }
-        }
-    }
-
-    public void set(
-            Jedis jedis,
-            JedisCluster jedisCluster,
-            String key,
-            String value,
-            long expire,
-            RedisConfig.RedisMode redisMode) {
+    public void set(RedisClient redisClient, String key, String value, long expire) {
         // do nothing
     }
 }
