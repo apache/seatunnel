@@ -144,9 +144,6 @@ public class RestApiIT {
                                 .getNodeExtension()
                                 .createExtensionServices()
                                 .get(Constant.SEATUNNEL_SERVICE_NAME);
-        JobStatus jobStatus =
-                seaTunnelServer.getCoordinatorService().getJobStatus(Long.parseLong(jobId));
-        Assertions.assertEquals(JobStatus.RUNNING, jobStatus);
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(
