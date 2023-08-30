@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
@@ -200,6 +201,12 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getDropDatabaseSql(String databaseName) {
         return "DROP DATABASE \"" + databaseName + "\"";
+    }
+
+    @Override
+    protected void dropDatabaseInternal(String databaseName) throws CatalogException {
+        closeDatabaseConnection(databaseName);
+        super.dropDatabaseInternal(databaseName);
     }
 
     private SeaTunnelDataType<?> fromJdbcType(String typeName, long precision, long scale) {

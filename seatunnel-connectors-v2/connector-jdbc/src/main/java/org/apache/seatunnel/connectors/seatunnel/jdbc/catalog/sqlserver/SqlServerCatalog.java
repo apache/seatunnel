@@ -32,7 +32,6 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -200,16 +199,13 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getDropDatabaseSql(String databaseName) {
-        String dbUrl = getUrlFromDatabaseName(databaseName);
-        try {
-            Connection connection = connectionMap.remove(dbUrl);
-            if (connection != null) {
-                connection.close();
-            }
-        } catch (SQLException e) {
-            throw new CatalogException(String.format("Failed to close %s via JDBC.", dbUrl), e);
-        }
         return String.format("DROP DATABASE %s;", databaseName);
+    }
+
+    @Override
+    protected void dropDatabaseInternal(String databaseName) throws CatalogException {
+        closeDatabaseConnection(databaseName);
+        super.dropDatabaseInternal(databaseName);
     }
 
     @Override

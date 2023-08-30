@@ -455,6 +455,18 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         }
     }
 
+    protected void closeDatabaseConnection(String databaseName) {
+        String dbUrl = getUrlFromDatabaseName(databaseName);
+        try {
+            Connection connection = connectionMap.remove(dbUrl);
+            if (connection != null) {
+                connection.close();
+            }
+        } catch (SQLException e) {
+            throw new CatalogException(String.format("Failed to close %s via JDBC.", dbUrl), e);
+        }
+    }
+
     @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
