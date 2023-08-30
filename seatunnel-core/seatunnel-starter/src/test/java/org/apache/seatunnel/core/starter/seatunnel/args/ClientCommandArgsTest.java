@@ -40,6 +40,7 @@ public class ClientCommandArgsTest {
         String password = "dsjr42=4wfskahdsd=w1chh";
         String fakeSourceTable = "fake";
         String fakeSinkTable = "sink";
+        String map = "[par1=20230829,par2=20230829]";
         String[] args = {
             "-c",
             "/args/user_defined_params.conf",
@@ -54,7 +55,9 @@ public class ClientCommandArgsTest {
             "-i",
             "password=" + password,
             "-i",
-            "username=" + username
+            "username=" + username,
+            "-i",
+            "map=" + map,
         };
         ClientCommandArgs clientCommandArgs =
                 CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-zeta", true);
@@ -88,6 +91,7 @@ public class ClientCommandArgsTest {
 
             Assertions.assertEquals(sinkConfig.getString("username"), username);
             Assertions.assertEquals(sinkConfig.getString("password"), password);
+            Assertions.assertEquals(sinkConfig.getString("map"), map);
         }
     }
 }
