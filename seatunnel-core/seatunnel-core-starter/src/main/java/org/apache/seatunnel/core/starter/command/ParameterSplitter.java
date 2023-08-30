@@ -45,7 +45,7 @@ public class ParameterSplitter implements IParameterSplitter {
             }
             start = matcher.end();
         }
-        stringBuilder.append(value.substring(start)); // 添加剩余部分
+        stringBuilder.append(value.substring(start)); 
 
         return Arrays.asList(stringBuilder.toString().split(";"));
     }
