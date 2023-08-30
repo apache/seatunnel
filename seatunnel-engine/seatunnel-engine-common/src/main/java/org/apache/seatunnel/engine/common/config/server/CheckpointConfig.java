@@ -21,20 +21,17 @@ import lombok.Data;
 
 import java.io.Serializable;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 @Data
-@SuppressWarnings("checkstyle:MagicNumber")
 public class CheckpointConfig implements Serializable {
 
     public static final long MINIMAL_CHECKPOINT_TIME = 10;
 
     private long checkpointInterval = ServerConfigOptions.CHECKPOINT_INTERVAL.defaultValue();
     private long checkpointTimeout = ServerConfigOptions.CHECKPOINT_TIMEOUT.defaultValue();
-    private int maxConcurrentCheckpoints =
-            ServerConfigOptions.CHECKPOINT_MAX_CONCURRENT.defaultValue();
-    private int tolerableFailureCheckpoints =
-            ServerConfigOptions.CHECKPOINT_TOLERABLE_FAILURE.defaultValue();
+    private long schemaChangeCheckpointTimeout =
+            ServerConfigOptions.SCHEMA_CHANGE_CHECKPOINT_TIMEOUT.defaultValue();
 
     private CheckpointStorageConfig storage = ServerConfigOptions.CHECKPOINT_STORAGE.defaultValue();
 
@@ -52,17 +49,10 @@ public class CheckpointConfig implements Serializable {
         this.checkpointTimeout = checkpointTimeout;
     }
 
-    public void setMaxConcurrentCheckpoints(int maxConcurrentCheckpoints) {
+    public void setSchemaChangeCheckpointTimeout(long checkpointTimeout) {
         checkArgument(
-                maxConcurrentCheckpoints >= 1,
-                "The minimum number of concurrent checkpoints is 1.");
-        this.maxConcurrentCheckpoints = maxConcurrentCheckpoints;
-    }
-
-    public void setTolerableFailureCheckpoints(int tolerableFailureCheckpoints) {
-        checkArgument(
-                maxConcurrentCheckpoints >= 0,
-                "The number of tolerance failed checkpoints must be a natural number.");
-        this.tolerableFailureCheckpoints = tolerableFailureCheckpoints;
+                checkpointTimeout >= MINIMAL_CHECKPOINT_TIME,
+                "The minimum checkpoint timeout is 10 ms.");
+        this.schemaChangeCheckpointTimeout = checkpointTimeout;
     }
 }

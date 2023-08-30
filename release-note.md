@@ -7,12 +7,15 @@
 - [Core] [API] Fix parse nested row data type key changed upper (#4459)
 - [Starter][Flink]Support transform-v2 for flink #3396
 - [Flink] Support flink 1.14.x #3963
+- [Core][Translation][Spark] Fix SeaTunnelRowConvertor fail to convert when schema contains row type (#5170)
+
 ### Transformer
 - [Spark] Support transform-v2 for spark (#3409)
 - [ALL]Add FieldMapper Transform #3781
 ### Connectors
 - [Elasticsearch] Support https protocol & compatible with opensearch
 - [Hbase] Add hbase sink connector #4049
+- [Clickhouse] Fix clickhouse old version compatibility #5326
 ### Formats
 - [Canal]Support read canal format message #3950
 - [Debezium]Support debezium canal format message #3981
@@ -79,8 +82,11 @@
 - [E2E] [Kafka] Fix kafka e2e testcase (#4520)
 - [Container Version] Fix risk of unreproducible test cases #4591
 - [E2e] [Mysql-cdc] Removing the excess MySqlIncrementalSourceIT e2e reduces the CI time (#4738)
+- [E2E] [Common] Update test container version of seatunnel engine (#5323)
 
 ## Improve
+
+- [Improve][Connector-V2][Jdbc-Source] Support for Decimal types as splict keys (#4634)
 
 ### Core
 
@@ -111,6 +117,7 @@
 ### CI
 
 - [CI] Fix error repository name in ci config files (#4795)
+- [CI][E2E][Zeta] Increase Zeta checkpoint timeout to avoid connector-file-sftp-e2e failed frequently (#5339)
 
 ### Zeta(ST-Engine)
 
@@ -181,6 +188,7 @@
 - [Docs] Fix markdown syntax (#4426)
 - [Docs] Fix Kafka Doc Error Config Key "kafka." (#4427)
 - [Docs] Add Transform to Quick Start v2 (#4436)
+- [Docs] Fix Dockerfile and seatunnel-flink.yaml in Set Up with Kubernetes (#4788)
 - [Docs] Fix Mysql sink format doc (#4800)
 - [Docs] Add the generate sink sql parameter for the jdbc sink document (#4797)
 - [Docs] Add the generate sink sql parameter And example (#4769)

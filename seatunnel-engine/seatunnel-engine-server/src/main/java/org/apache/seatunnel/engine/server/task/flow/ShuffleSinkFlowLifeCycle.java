@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleStrategy;
@@ -71,6 +72,8 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle
     @Override
     public void received(Record<?> record) throws IOException {
         if (record.getData() instanceof Barrier) {
+            long startTime = System.currentTimeMillis();
+
             // flush shuffle buffer
             shuffleFlush();
 
@@ -93,6 +96,18 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle
                     throw new RuntimeException(e);
                 }
             }
+
+            log.debug(
+                    "trigger barrier [{}] finished, cost: {}ms. taskLocation: [{}]",
+                    barrier.getId(),
+                    System.currentTimeMillis() - startTime,
+                    runningTask.getTaskLocation());
+        } else if (record.getData() instanceof SchemaChangeEvent) {
+            if (prepareClose) {
+                return;
+            }
+
+            shuffleItem(record);
         } else {
             if (prepareClose) {
                 return;

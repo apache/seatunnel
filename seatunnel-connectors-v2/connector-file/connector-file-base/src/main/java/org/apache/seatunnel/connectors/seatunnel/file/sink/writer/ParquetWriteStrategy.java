@@ -62,7 +62,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public class ParquetWriteStrategy extends AbstractWriteStrategy {
     private final LinkedHashMap<String, ParquetWriter<GenericRecord>> beingWrittenWriter;
     private AvroSchemaConverter schemaConverter;
@@ -163,7 +162,6 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         return writer;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private Object resolveObject(Object data, SeaTunnelDataType<?> seaTunnelDataType) {
         if (data == null) {
             return null;
@@ -222,7 +220,6 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static Type seaTunnelDataType2ParquetDataType(
             String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {

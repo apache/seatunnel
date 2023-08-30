@@ -68,7 +68,6 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
     private static final String ORACLE_RAW = "RAW";
     private static final String ORACLE_LONG_RAW = "LONG RAW";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
@@ -87,9 +86,10 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
                 if (scale == 0) {
                     if (precision <= 9) {
                         return BasicType.INT_TYPE;
-                    }
-                    if (precision <= 18) {
+                    } else if (precision <= 18) {
                         return BasicType.LONG_TYPE;
+                    } else if (precision <= 38) {
+                        return new DecimalType(38, 0);
                     }
                 }
                 return new DecimalType(38, 18);

@@ -30,8 +30,8 @@ import lombok.ToString;
 import java.time.ZoneId;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 @Setter
 @Getter
@@ -62,11 +62,6 @@ public class SinkConfig extends CommonConfig {
                     .intType()
                     .defaultValue(DEFAULT_BATCH_SIZE)
                     .withDescription("batch size");
-    public static final Option<String> BATCH_INTERVAL_MS =
-            Options.key("batch_interval_ms")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("batch interval ms");
     public static final Option<Integer> MAX_RETRIES =
             Options.key("max_retries").intType().noDefaultValue().withDescription("max retries");
     public static final Option<Integer> RETRY_BACKOFF_MULTIPLIER_MS =
@@ -107,7 +102,6 @@ public class SinkConfig extends CommonConfig {
     private List<String> keyMeasurementFields;
     private String storageGroup;
     private int batchSize = BATCH_SIZE.defaultValue();
-    private Integer batchIntervalMs;
     private int maxRetries;
     private int retryBackoffMultiplierMs;
     private int maxRetryBackoffMs;
@@ -143,10 +137,6 @@ public class SinkConfig extends CommonConfig {
         if (pluginConfig.hasPath(BATCH_SIZE.key())) {
             int batchSize = checkIntArgument(pluginConfig.getInt(BATCH_SIZE.key()));
             sinkConfig.setBatchSize(batchSize);
-        }
-        if (pluginConfig.hasPath(BATCH_INTERVAL_MS.key())) {
-            int batchIntervalMs = checkIntArgument(pluginConfig.getInt(BATCH_INTERVAL_MS.key()));
-            sinkConfig.setBatchIntervalMs(batchIntervalMs);
         }
         if (pluginConfig.hasPath(MAX_RETRIES.key())) {
             int maxRetries = checkIntArgument(pluginConfig.getInt(MAX_RETRIES.key()));

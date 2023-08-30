@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.math.BigDecimal;
 import java.util.List;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public interface JdbcOptions {
 
     Option<String> URL = Options.key("url").stringType().noDefaultValue().withDescription("url");
@@ -71,12 +70,6 @@ public interface JdbcOptions {
                             "For queries that return a large number of objects, "
                                     + "you can configure the row fetch size used in the query to improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.");
 
-    Option<Integer> BATCH_INTERVAL_MS =
-            Options.key("batch_interval_ms")
-                    .intType()
-                    .defaultValue(1000)
-                    .withDescription("batch interval milliSecond");
-
     Option<Boolean> IS_EXACTLY_ONCE =
             Options.key("is_exactly_once")
                     .booleanType()
@@ -121,6 +114,23 @@ public interface JdbcOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("support upsert by query primary_key exist");
+
+    Option<Boolean> ENABLE_UPSERT =
+            Options.key("enable_upsert")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("enable upsert by primary_keys exist");
+    Option<Boolean> IS_PRIMARY_KEY_UPDATED =
+            Options.key("is_primary_key_updated")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "is the primary key updated when performing an update operation");
+    Option<Boolean> SUPPORT_UPSERT_BY_INSERT_ONLY =
+            Options.key("support_upsert_by_insert_only")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("support upsert by insert only");
 
     /** source config */
     Option<String> PARTITION_COLUMN =
