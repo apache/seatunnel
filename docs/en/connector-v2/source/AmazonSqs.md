@@ -17,13 +17,13 @@ Read data from Amazon SQS.
 
 ## Options
 
-| name              |  type  | required | default value |
-|-------------------|--------|----------|---------------|
-| url               | string | yes      | -             |
-| region            | string | false    | -             |
-| queue             | string | false    | -             |
-| schema            | config | yes      | -             |
-| common-options    |        | yes      | -             |
+|      name      |  type  | required | default value |
+|----------------|--------|----------|---------------|
+| url            | string | yes      | -             |
+| region         | string | false    | -             |
+| queue          | string | false    | -             |
+| schema         | config | yes      | -             |
+| common-options |        | yes      | -             |
 
 ### url [string]
 
@@ -92,3 +92,4 @@ AmazonSqs {
 ## Changelog
 
 ### next version
+

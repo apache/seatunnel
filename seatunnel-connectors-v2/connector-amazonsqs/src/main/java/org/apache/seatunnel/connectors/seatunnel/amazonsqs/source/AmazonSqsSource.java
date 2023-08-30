@@ -48,7 +48,7 @@ import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonS
 public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
         implements SupportColumnProjection {
 
-    private AmazonSqsSourceOptions AmazonSqsSourceOptions;
+    private AmazonSqsSourceOptions amazonSqsSourceOptions;
 
     private SeaTunnelRowType typeInfo;
 
@@ -67,7 +67,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        AmazonSqsSourceOptions = new AmazonSqsSourceOptions(pluginConfig);
+        amazonSqsSourceOptions = new AmazonSqsSourceOptions(pluginConfig);
         typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
     }
 
@@ -84,6 +84,6 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
             SingleSplitReaderContext readerContext) throws Exception {
-        return new AmazonSqsSourceReader(readerContext, AmazonSqsSourceOptions, typeInfo);
+        return new AmazonSqsSourceReader(readerContext, amazonSqsSourceOptions, typeInfo);
     }
 }
