@@ -641,7 +641,9 @@ public class MultipleTableJobConfigParser {
         if (SupportSaveMode.class.isAssignableFrom(sink.getClass())) {
             SupportSaveMode saveModeSink = (SupportSaveMode) sink;
             try (SaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler()) {
-                saveModeHandler.handleSaveMode();
+                if (saveModeHandler != null) {
+                    saveModeHandler.handleSaveMode();
+                }
             } catch (Exception e) {
                 throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
             }
