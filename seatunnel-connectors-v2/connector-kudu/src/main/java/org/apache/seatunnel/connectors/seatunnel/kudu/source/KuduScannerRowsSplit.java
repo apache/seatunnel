@@ -182,10 +182,7 @@ public class KuduScannerRowsSplit {
             scannerRowsSplitBucket.clear();
             scannerRowsSplitBucket = tmpScannerRowsSplitBucket;
             if (getBucketNum() == 1) {
-                if (firstBucketSplit || lastBucketSplit) {
-                    firstBucketSplit = true;
-                    lastBucketSplit = true;
-                }
+                firstBucketSplit = lastBucketSplit = false;
             }
             bucketCapacity *= 2;
         }
