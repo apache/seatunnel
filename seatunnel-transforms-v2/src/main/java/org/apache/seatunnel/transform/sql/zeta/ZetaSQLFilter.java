@@ -56,16 +56,7 @@ public class ZetaSQLFilter {
     }
 
     public boolean isConditionExpr(Expression expression) {
-        boolean result =
-                expression instanceof IsNullExpression
-                        || expression instanceof InExpression
-                        || expression instanceof LikeExpression
-                        || expression instanceof ComparisonOperator
-                        || expression instanceof AndExpression
-                        || expression instanceof OrExpression
-                        || expression instanceof Parenthesis
-                        || BasicType.BOOLEAN_TYPE.equals(zetaSQLType.getExpressionType(expression));
-        return result;
+        return BasicType.BOOLEAN_TYPE.equals(zetaSQLType.getExpressionType(expression));
     }
 
     public boolean executeFilter(Expression whereExpr, Object[] inputFields) {

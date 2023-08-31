@@ -42,8 +42,13 @@ import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.TimeKeyExpression;
 import net.sf.jsqlparser.expression.WhenClause;
 import net.sf.jsqlparser.expression.operators.arithmetic.Concat;
+import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
+import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
 import net.sf.jsqlparser.expression.operators.relational.ComparisonOperator;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
+import net.sf.jsqlparser.expression.operators.relational.InExpression;
+import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
+import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.schema.Column;
 
 import java.util.ArrayList;
@@ -117,7 +122,12 @@ public class ZetaSQLType {
         if (expression instanceof CaseExpression) {
             return getCaseType((CaseExpression) expression);
         }
-        if (expression instanceof ComparisonOperator) {
+        if (expression instanceof ComparisonOperator
+                || expression instanceof IsNullExpression
+                || expression instanceof InExpression
+                || expression instanceof LikeExpression
+                || expression instanceof AndExpression
+                || expression instanceof OrExpression) {
             return BasicType.BOOLEAN_TYPE;
         }
         if (expression instanceof CastExpression) {
