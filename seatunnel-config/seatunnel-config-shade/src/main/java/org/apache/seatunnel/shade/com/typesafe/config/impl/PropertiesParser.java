@@ -7,6 +7,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigOrigin;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -155,7 +156,12 @@ final class PropertiesParser {
             if (convertedFromProperties) {
                 if (rawValue instanceof String) {
                     if (((String) rawValue).startsWith("[") && ((String) rawValue).endsWith("]")) {
-                        value = new ConfigString.Unquoted(origin, (String) rawValue);
+                        List<String> list =
+                                Arrays.asList(
+                                        ((String) rawValue)
+                                                .substring(1, ((String) rawValue).length() - 1)
+                                                .split(","));
+                        value = ConfigImpl.fromAnyRef(list, origin, FromMapMode.KEYS_ARE_PATHS);
                     } else {
                         value = new ConfigString.Quoted(origin, (String) rawValue);
                     }
