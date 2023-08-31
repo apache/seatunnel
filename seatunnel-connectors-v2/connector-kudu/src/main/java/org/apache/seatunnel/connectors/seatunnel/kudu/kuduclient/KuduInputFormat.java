@@ -17,26 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient;
 
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import lombok.extern.slf4j.Slf4j;
+
+import org.apache.kudu.ColumnSchema;
+import org.apache.kudu.Schema;
+import org.apache.kudu.client.*;
+import org.apache.seatunnel.api.table.type.*;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
-
-import org.apache.kudu.ColumnSchema;
-import org.apache.kudu.Schema;
-import org.apache.kudu.client.KuduClient;
-import org.apache.kudu.client.KuduException;
-import org.apache.kudu.client.KuduPredicate;
-import org.apache.kudu.client.KuduScanner;
-import org.apache.kudu.client.RowResult;
-
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -160,7 +151,7 @@ public class KuduInputFormat implements Serializable {
      * @param upperBound End of each slice
      * @return Get the kuduScanner object for each slice
      */
-    public KuduScanner getKuduBuildSplit(int lowerBound, int upperBound) {
+    public KuduScanner getKuduBuildSplit(Object lowerBound, Object upperBound) {
         KuduScanner kuduScanner = null;
         try {
             KuduScanner.KuduScannerBuilder kuduScannerBuilder =

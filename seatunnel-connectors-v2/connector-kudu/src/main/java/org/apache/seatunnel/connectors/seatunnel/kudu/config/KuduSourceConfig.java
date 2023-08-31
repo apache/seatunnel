@@ -41,4 +41,8 @@ public class KuduSourceConfig implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Specifies the column names of the table");
+
+    public static final int INIT_BUCKET_CAPACITY = 10000;
+
+    public static final int MAX_BUCKET_NUM = 32;
 }
