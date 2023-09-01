@@ -25,6 +25,7 @@ import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
@@ -74,6 +75,9 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
         IMap<Object, Long[]> runningJobStateTimestamp =
                 nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
 
+        EngineConfig engineConfig = new EngineConfig();
+        engineConfig.setQueueType(QueueType.BLOCKINGQUEUE);
+
         Map<Integer, CheckpointPlan> checkpointPlans =
                 PlanUtils.fromLogicalDAG(
                                 logicalDag,
@@ -84,7 +88,7 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                                 instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
                                 runningJobState,
                                 runningJobStateTimestamp,
-                                QueueType.BLOCKINGQUEUE,
+                                engineConfig,
                                 new CheckpointConfig())
                         .f1();
         Assertions.assertNotNull(checkpointPlans);

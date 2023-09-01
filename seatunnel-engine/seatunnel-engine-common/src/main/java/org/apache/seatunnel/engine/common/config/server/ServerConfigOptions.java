@@ -32,6 +32,12 @@ public class ServerConfigOptions {
                     .defaultValue(1)
                     .withDescription("The number of backup copies of each partition.");
 
+    public static final Option<Integer> PIPELINE_MAX_RESTORE_NUM =
+            Options.key("pipeline-max-restore-num")
+                    .intType()
+                    .defaultValue(4)
+                    .withDescription("The max num pipeline can restore.");
+
     public static final Option<Integer> PRINT_EXECUTION_INFO_INTERVAL =
             Options.key("print-execution-info-interval")
                     .intType()

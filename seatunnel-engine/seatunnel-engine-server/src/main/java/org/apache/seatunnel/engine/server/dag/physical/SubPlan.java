@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -53,7 +54,7 @@ public class SubPlan {
     private static final ILogger LOGGER = Logger.getLogger(SubPlan.class);
 
     /** The max num pipeline can restore. */
-    public static final int PIPELINE_MAX_RESTORE_NUM = 3; // TODO should set by config
+    public int pipelineMaxRestoreNum;
 
     private final List<PhysicalVertex> physicalVertexList;
 
@@ -100,12 +101,13 @@ public class SubPlan {
 
     private final Object restoreLock = new Object();
 
-    private volatile PipelineStatus currPipelineStatus = PipelineStatus.INITIALIZING;
+    private volatile PipelineStatus currPipelineStatus;
 
     public SubPlan(
             int pipelineId,
             int totalPipelineNum,
             long initializationTimestamp,
+            EngineConfig engineConfig,
             @NonNull List<PhysicalVertex> physicalVertexList,
             @NonNull List<PhysicalVertex> coordinatorVertexList,
             @NonNull JobImmutableInformation jobImmutableInformation,
@@ -118,6 +120,7 @@ public class SubPlan {
         this.pipelineFuture = new CompletableFuture<>();
         this.physicalVertexList = physicalVertexList;
         this.coordinatorVertexList = coordinatorVertexList;
+        this.pipelineMaxRestoreNum = engineConfig.getPipelineMaxRestoreNum();
         pipelineRestoreNum = 0;
 
         Long[] stateTimestamps = new Long[PipelineStatus.values().length];
@@ -294,12 +297,12 @@ public class SubPlan {
                 new RetryUtils.RetryMaterial(
                         Constant.OPERATION_RETRY_TIME,
                         true,
-                        exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                        ExceptionUtil::isOperationNeedRetryException,
                         Constant.OPERATION_RETRY_SLEEP));
     }
 
     public boolean canRestorePipeline() {
-        return jobMaster.isNeedRestore() && getPipelineRestoreNum() < PIPELINE_MAX_RESTORE_NUM;
+        return jobMaster.isNeedRestore() && getPipelineRestoreNum() < pipelineMaxRestoreNum;
     }
 
     private void turnToEndState(@NonNull PipelineStatus endState) throws Exception {
@@ -329,7 +332,7 @@ public class SubPlan {
                     new RetryUtils.RetryMaterial(
                             Constant.OPERATION_RETRY_TIME,
                             true,
-                            exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                            ExceptionUtil::isOperationNeedRetryException,
                             Constant.OPERATION_RETRY_SLEEP));
             this.currPipelineStatus = endState;
             LOGGER.info(
@@ -387,7 +390,7 @@ public class SubPlan {
                         new RetryUtils.RetryMaterial(
                                 Constant.OPERATION_RETRY_TIME,
                                 true,
-                                exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                                ExceptionUtil::isOperationNeedRetryException,
                                 Constant.OPERATION_RETRY_SLEEP));
                 this.currPipelineStatus = targetState;
                 return true;
@@ -530,7 +533,7 @@ public class SubPlan {
                 new RetryUtils.RetryMaterial(
                         Constant.OPERATION_RETRY_TIME,
                         true,
-                        exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                        ExceptionUtil::isOperationNeedRetryException,
                         Constant.OPERATION_RETRY_SLEEP));
     }
 
@@ -546,7 +549,7 @@ public class SubPlan {
                 LOGGER.info(
                         String.format(
                                 "Restore time %s, pipeline %s",
-                                pipelineRestoreNum + "", pipelineFullName));
+                                pipelineRestoreNum, pipelineFullName));
                 // We must ensure the scheduler complete and then can handle pipeline state change.
                 if (jobMaster.getScheduleFuture() != null) {
                     jobMaster.getScheduleFuture().join();

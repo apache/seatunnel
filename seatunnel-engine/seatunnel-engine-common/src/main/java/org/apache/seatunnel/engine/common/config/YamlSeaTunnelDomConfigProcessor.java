@@ -136,6 +136,12 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue(
                                 ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.key(),
                                 getTextContent(node)));
+            }
+            if (ServerConfigOptions.PIPELINE_MAX_RESTORE_NUM.key().equals(name)) {
+                engineConfig.setPipelineMaxRestoreNum(
+                        getIntegerValue(
+                                ServerConfigOptions.PIPELINE_MAX_RESTORE_NUM.key(),
+                                getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
