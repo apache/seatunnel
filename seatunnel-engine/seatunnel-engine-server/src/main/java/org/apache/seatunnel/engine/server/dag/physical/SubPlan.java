@@ -53,7 +53,7 @@ public class SubPlan {
     private static final ILogger LOGGER = Logger.getLogger(SubPlan.class);
 
     /** The max num pipeline can restore. */
-    public static final int PIPELINE_MAX_RESTORE_NUM = 3; // TODO should set by config
+    public static final int PIPELINE_MAX_RESTORE_NUM = 0; // TODO should set by config
 
     private final List<PhysicalVertex> physicalVertexList;
 
