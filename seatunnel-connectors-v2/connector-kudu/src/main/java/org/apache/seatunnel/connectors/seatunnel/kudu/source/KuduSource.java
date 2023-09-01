@@ -169,7 +169,7 @@ public class KuduSource
                 KuduScannerRowsSplit kuduScannerRowsSplit = new KuduScannerRowsSplit(
                         KuduSourceConfig.MAX_BUCKET_NUM, bucketCapacity, keyColType);
                 int count = 1;
-                Object minKeyColValue = null;
+                Object minKeyColValue =  null;
                 Object maxKeyColValue = null;
                 while (rowResults.hasNext()) {
                     RowResult row = rowResults.next();
@@ -179,24 +179,29 @@ public class KuduSource
                     if (count % nowBucketCapacity == 0) {
                         kuduScannerRowsSplit.add(value);
                     }
-                    if(minKeyColValue == null) {
+                    if (minKeyColValue == null) {
                         maxKeyColValue = minKeyColValue = value;
                     } else {
-                        if(KuduColumn.KeyColCompare(minKeyColValue, value, keyColType) > 0) {
+                        if (KuduColumn.KeyColCompare(minKeyColValue, value, keyColType) > 0) {
                             minKeyColValue = value;
-                        } else if(KuduColumn.KeyColCompare(maxKeyColValue, value, keyColType) < 0) {
+                        } else if (KuduColumn.KeyColCompare(maxKeyColValue, value, keyColType) < 0) {
                             maxKeyColValue = value;
                         }
                     }
                     count++;
                 }
-                if(numRows > 0) {
+                if (numRows > 0) {
                     if (KuduColumn.KeyColCompare(minKeyColValue, maxKeyColValue, keyColType) == 0) {
                         maxKeyColValue = KuduColumn.addValue(keyColType, maxKeyColValue);
                         kuduScannerRowsSplit.addBucketCapacity(numRows - bucketCapacity);
                     }
-                    kuduScannerRowsSplit.add(minKeyColValue);
-                    kuduScannerRowsSplit.add(maxKeyColValue);
+                    if (kuduScannerRowsSplit.getSize() == 0 ||
+                            KuduColumn.KeyColCompare(minKeyColValue, kuduScannerRowsSplit.getFirst(), keyColType) < 0) {
+                        kuduScannerRowsSplit.add(minKeyColValue);
+                    }
+                    if(KuduColumn.KeyColCompare(maxKeyColValue, kuduScannerRowsSplit.getLast(), keyColType) > 0) {
+                        kuduScannerRowsSplit.add(maxKeyColValue);
+                    }
                 }
                 kuduTableRowsSplit.add(kuduScannerRowsSplit);
             }
