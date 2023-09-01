@@ -19,7 +19,6 @@ source {
   MySQL-CDC {
     result_table_name = "table1"
 
-    hostname = localhost
     base-url="jdbc:mysql://localhost:3306/test"
     "startup.mode"=INITIAL
     catalog {

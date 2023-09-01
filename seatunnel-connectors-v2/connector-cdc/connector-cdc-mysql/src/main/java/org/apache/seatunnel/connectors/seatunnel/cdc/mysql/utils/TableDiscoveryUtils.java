@@ -48,7 +48,10 @@ public class TableDiscoveryUtils {
                 "SHOW DATABASES",
                 rs -> {
                     while (rs.next()) {
-                        databaseNames.add(rs.getString(1));
+                        String databaseName = rs.getString(1);
+                        if (tableFilters.databaseFilter().test(databaseName)) {
+                            databaseNames.add(databaseName);
+                        }
                     }
                 });
         LOG.info("\t list of available databases is: {}", databaseNames);
