@@ -124,7 +124,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
     private FlowControlStrategy getFlowControlStrategy() {
         FlowControlStrategy strategy;
         if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
-                && envOption.containsKey(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())) {
+                && envOption.containsKey(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())) {
             strategy =
                     FlowControlStrategy.of(
                             Integer.parseInt(
