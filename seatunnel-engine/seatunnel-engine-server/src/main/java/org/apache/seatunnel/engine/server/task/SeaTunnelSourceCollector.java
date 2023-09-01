@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
+import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
 import lombok.extern.slf4j.Slf4j;
@@ -56,31 +58,39 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     private final Meter sourceReceivedBytesPerSeconds;
 
     private volatile boolean emptyThisPollNext;
+    private FlowControlGate flowControlGate;
 
     public SeaTunnelSourceCollector(
             Object checkpointLock,
             List<OneInputFlowLifeCycle<Record<?>>> outputs,
-            MetricsContext metricsContext) {
+            MetricsContext metricsContext,
+            FlowControlStrategy flowControlStrategy) {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
         sourceReceivedCount = metricsContext.counter(SOURCE_RECEIVED_COUNT);
         sourceReceivedQPS = metricsContext.meter(SOURCE_RECEIVED_QPS);
         sourceReceivedBytes = metricsContext.counter(SOURCE_RECEIVED_BYTES);
         sourceReceivedBytesPerSeconds = metricsContext.meter(SOURCE_RECEIVED_BYTES_PER_SECONDS);
+        if (flowControlStrategy != null) {
+            flowControlGate = FlowControlGate.create(flowControlStrategy);
+        }
     }
 
     @Override
     public void collect(T row) {
         try {
-            sendRecordToNext(new Record<>(row));
-            emptyThisPollNext = false;
-            sourceReceivedCount.inc();
-            sourceReceivedQPS.markEvent();
             if (row instanceof SeaTunnelRow) {
                 long size = ((SeaTunnelRow) row).getBytesSize();
                 sourceReceivedBytes.inc(size);
                 sourceReceivedBytesPerSeconds.markEvent(size);
+                if (flowControlGate != null) {
+                    flowControlGate.audit((SeaTunnelRow) row);
+                }
             }
+            sendRecordToNext(new Record<>(row));
+            emptyThisPollNext = false;
+            sourceReceivedCount.inc();
+            sourceReceivedQPS.markEvent();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -18,8 +18,10 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
@@ -34,6 +36,7 @@ import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunnelTask {
@@ -44,15 +47,18 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     private transient Object checkpointLock;
     @Getter private transient Serializer<SplitT> splitSerializer;
+    private final Map<String, Object> envOption;
     private final PhysicalExecutionFlow<SourceAction, SourceConfig> sourceFlow;
 
     public SourceSeaTunnelTask(
             long jobID,
             TaskLocation taskID,
             int indexID,
-            PhysicalExecutionFlow<SourceAction, SourceConfig> executionFlow) {
+            PhysicalExecutionFlow<SourceAction, SourceConfig> executionFlow,
+            Map<String, Object> envOption) {
         super(jobID, taskID, indexID, executionFlow);
         this.sourceFlow = executionFlow;
+        this.envOption = envOption;
     }
 
     @Override
@@ -69,7 +75,10 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         } else {
             this.collector =
                     new SeaTunnelSourceCollector<>(
-                            checkpointLock, outputs, this.getMetricsContext());
+                            checkpointLock,
+                            outputs,
+                            this.getMetricsContext(),
+                            getFlowControlStrategy());
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
     }
@@ -110,5 +119,39 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         SourceFlowLifeCycle<T, SplitT> sourceFlow =
                 (SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle;
         sourceFlow.triggerBarrier(barrier);
+    }
+
+    private FlowControlStrategy getFlowControlStrategy() {
+        FlowControlStrategy strategy;
+        if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
+                && envOption.containsKey(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())) {
+            strategy =
+                    FlowControlStrategy.of(
+                            Integer.parseInt(
+                                    envOption
+                                            .get(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
+                                            .toString()),
+                            Integer.parseInt(
+                                    envOption
+                                            .get(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())
+                                            .toString()));
+        } else if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())) {
+            strategy =
+                    FlowControlStrategy.ofBytes(
+                            Integer.parseInt(
+                                    envOption
+                                            .get(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
+                                            .toString()));
+        } else if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())) {
+            strategy =
+                    FlowControlStrategy.ofCount(
+                            Integer.parseInt(
+                                    envOption
+                                            .get(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())
+                                            .toString()));
+        } else {
+            strategy = null;
+        }
+        return strategy;
     }
 }
