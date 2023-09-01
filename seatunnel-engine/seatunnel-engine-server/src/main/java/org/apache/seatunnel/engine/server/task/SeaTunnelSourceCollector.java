@@ -22,8 +22,11 @@ import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventDispatcher;
+import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventHandler;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
@@ -58,15 +61,20 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     private final Meter sourceReceivedBytesPerSeconds;
 
     private volatile boolean emptyThisPollNext;
+    private final DataTypeChangeEventHandler dataTypeChangeEventHandler =
+            new DataTypeChangeEventDispatcher();
+    private SeaTunnelRowType rowType;
     private FlowControlGate flowControlGate;
 
     public SeaTunnelSourceCollector(
             Object checkpointLock,
             List<OneInputFlowLifeCycle<Record<?>>> outputs,
             MetricsContext metricsContext,
-            FlowControlStrategy flowControlStrategy) {
+            FlowControlStrategy flowControlStrategy,
+            SeaTunnelRowType rowType) {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
+        this.rowType = rowType;
         sourceReceivedCount = metricsContext.counter(SOURCE_RECEIVED_COUNT);
         sourceReceivedQPS = metricsContext.meter(SOURCE_RECEIVED_QPS);
         sourceReceivedBytes = metricsContext.counter(SOURCE_RECEIVED_BYTES);
@@ -80,7 +88,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     public void collect(T row) {
         try {
             if (row instanceof SeaTunnelRow) {
-                long size = ((SeaTunnelRow) row).getBytesSize();
+                int size = ((SeaTunnelRow) row).getBytesSize(rowType);
                 sourceReceivedBytes.inc(size);
                 sourceReceivedBytesPerSeconds.markEvent(size);
                 if (flowControlGate != null) {
@@ -99,6 +107,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     @Override
     public void collect(SchemaChangeEvent event) {
         try {
+            rowType = dataTypeChangeEventHandler.reset(rowType).apply(event);
             sendRecordToNext(new Record<>(event));
         } catch (IOException e) {
             throw new RuntimeException(e);

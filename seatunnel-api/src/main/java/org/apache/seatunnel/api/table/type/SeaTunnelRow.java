@@ -100,7 +100,7 @@ public final class SeaTunnelRow implements Serializable {
         return this.fields[pos] == null;
     }
 
-    public long getBytesSize(SeaTunnelRowType rowType) {
+    public int getBytesSize(SeaTunnelRowType rowType) {
         if (size == 0) {
             int s = 0;
             for (int i = 0; i < fields.length; i++) {
@@ -197,8 +197,8 @@ public final class SeaTunnelRow implements Serializable {
     public int getBytesSize() {
         if (size == 0) {
             int s = 0;
-            for (int i = 0; i < fields.length; i++) {
-                s += getBytesForValue(fields[i]);
+            for (Object field : fields) {
+                s += getBytesForValue(field);
             }
             size = s;
         }
