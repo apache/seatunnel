@@ -52,8 +52,8 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | format                      | String  | No       | json    | The format of upstream data, now only support `json` `text`, default `json`.                                                         |
 | method                      | String  | No       | get     | Http request method, only supports GET, POST method.                                                                                 |
 | headers                     | Map     | No       | -       | Http headers.                                                                                                                        |
-| params                      | Map     | No       | -       | Http params.                                                                                                                         |
-| body                        | String  | No       | -       | Http body.                                                                                                                           |
+| params                      | Map     | No       | -       | Http params,the program will automatically add http header application/x-www-form-urlencoded.                                        |
+| body                        | String  | No       | -       | Http body,the program will automatically add http header application/json,body is jsonbody.                                          |
 | poll_interval_ms            | Int     | No       | -       | Request http api interval(millis) in stream mode.                                                                                    |
 | retry                       | Int     | No       | -       | The max retry times if request http return to `IOException`.                                                                         |
 | retry_backoff_multiplier_ms | Int     | No       | 100     | The retry-backoff times(millis) multiplier if request http failed.                                                                   |

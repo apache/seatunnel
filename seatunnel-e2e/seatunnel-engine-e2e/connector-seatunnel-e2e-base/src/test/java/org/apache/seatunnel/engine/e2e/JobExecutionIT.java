@@ -146,6 +146,28 @@ public class JobExecutionIT {
     }
 
     @Test
+    public void testGetUnKnownJobID() {
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+
+        ClientJobProxy newClientJobProxy =
+                engineClient.createJobClient().getJobProxy(System.currentTimeMillis());
+        CompletableFuture<JobStatus> waitForJobCompleteFuture =
+                CompletableFuture.supplyAsync(newClientJobProxy::waitForJobComplete);
+
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.UNKNOWABLE, waitForJobCompleteFuture.get()));
+
+        Assertions.assertEquals(
+                "UNKNOWABLE", engineClient.getJobClient().getJobStatus(System.currentTimeMillis()));
+    }
+
+    @Test
     public void testExpiredJobWasDeleted() throws Exception {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
@@ -164,8 +186,8 @@ public class JobExecutionIT {
         await().atMost(65, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertThrowsExactly(
-                                        NullPointerException.class, clientJobProxy::getJobStatus));
+                                Assertions.assertEquals(
+                                        JobStatus.UNKNOWABLE, clientJobProxy.getJobStatus()));
     }
 
     @AfterEach
