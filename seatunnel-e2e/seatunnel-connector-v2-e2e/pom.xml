@@ -61,6 +61,7 @@
         <module>connector-file-ftp-e2e</module>
         <module>connector-pulsar-e2e</module>
         <module>connector-paimon-e2e</module>
+        <module>connector-cdc-postgres-e2e</module>
     </modules>
 
     <dependencies>
