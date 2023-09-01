@@ -17,15 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
-import com.google.auto.service.AutoService;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.kudu.ColumnSchema;
-import org.apache.kudu.Type;
-import org.apache.kudu.client.*;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
-import org.apache.seatunnel.api.source.*;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -41,7 +42,18 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSourceState;
 import org.apache.seatunnel.connectors.seatunnel.kudu.utils.KuduColumn;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.kudu.ColumnSchema;
+import org.apache.kudu.Type;
+import org.apache.kudu.client.KuduTable;
+import org.apache.kudu.client.KuduScanner;
+import org.apache.kudu.client.RowResult;
+import org.apache.kudu.client.RowResultIterator;
+import org.apache.kudu.client.KuduClient;
+import org.apache.kudu.client.KuduException;
+
+import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -169,7 +181,7 @@ public class KuduSource
                 KuduScannerRowsSplit kuduScannerRowsSplit = new KuduScannerRowsSplit(
                         KuduSourceConfig.MAX_BUCKET_NUM, bucketCapacity, keyColType);
                 int count = 1;
-                Object minKeyColValue =  null;
+                Object minKeyColValue = null;
                 Object maxKeyColValue = null;
                 while (rowResults.hasNext()) {
                     RowResult row = rowResults.next();

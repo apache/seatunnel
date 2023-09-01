@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+
 import org.apache.kudu.Type;
 
 import java.io.Serializable;
