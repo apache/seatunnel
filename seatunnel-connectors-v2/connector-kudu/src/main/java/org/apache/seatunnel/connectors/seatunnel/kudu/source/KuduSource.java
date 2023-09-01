@@ -174,8 +174,9 @@ public class KuduSource
                 while (rowResults.hasNext()) {
                     RowResult row = rowResults.next();
                     Object value = row.getObject(keyColName);
+                    int nowBucketCapacity = kuduScannerRowsSplit.getBucketCapacity();
                     // The value is taken every bucketCapacity
-                    if (count % bucketCapacity == 0) {
+                    if (count % nowBucketCapacity == 0) {
                         kuduScannerRowsSplit.add(value);
                     }
                     if(minKeyColValue == null) {
@@ -190,6 +191,10 @@ public class KuduSource
                     count++;
                 }
                 if(numRows > 0) {
+                    if (KuduColumn.KeyColCompare(minKeyColValue, maxKeyColValue, keyColType) == 0) {
+                        maxKeyColValue = KuduColumn.addValue(keyColType, maxKeyColValue);
+                        kuduScannerRowsSplit.addBucketCapacity(numRows - bucketCapacity);
+                    }
                     kuduScannerRowsSplit.add(minKeyColValue);
                     kuduScannerRowsSplit.add(maxKeyColValue);
                 }

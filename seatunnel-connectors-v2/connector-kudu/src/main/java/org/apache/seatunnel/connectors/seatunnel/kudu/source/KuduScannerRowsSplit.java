@@ -83,6 +83,8 @@ public class KuduScannerRowsSplit {
         }
         if(compare != 0) {
             scannerRowsSplitBucket.add(i, intervalValue);
+        } else {
+            extendBucketCapacity();
         }
         if (isBucketNumFull()) {
             extendBucketCapacity();
