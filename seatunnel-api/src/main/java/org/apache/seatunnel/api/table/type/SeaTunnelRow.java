@@ -113,7 +113,9 @@ public final class SeaTunnelRow implements Serializable {
 
     /** faster version of {@link #getBytesSize(SeaTunnelRowType)}. */
     private int getBytesForValue(Object v, SeaTunnelDataType<?> dataType) {
-
+        if (v == null) {
+            return 0;
+        }
         SqlType sqlType = dataType.getSqlType();
         switch (sqlType) {
             case STRING:
