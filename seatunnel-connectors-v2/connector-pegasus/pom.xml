@@ -29,8 +29,6 @@
     <name>SeaTunnel : Connectors V2 : Pegasus</name>
 
     <properties>
-        
-        
         <pegasus.version>2.0.0</pegasus.version>
     </properties>
 

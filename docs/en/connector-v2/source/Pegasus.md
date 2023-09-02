@@ -31,7 +31,7 @@ simple:
 Pegasus {
   parallelism = 1
   result_table_name = "fake"
-  meta_server = "10.129.23.148:8170,10.129.23.46:8170,10.129.29.49:8170"
+  meta_server = "localhost:8170"
   table = "t1"
   read_mode="unorderedScanner"
 }

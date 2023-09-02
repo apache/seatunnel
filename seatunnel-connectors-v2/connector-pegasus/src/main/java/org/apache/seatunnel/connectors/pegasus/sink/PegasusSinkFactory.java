@@ -18,7 +18,9 @@
 package org.apache.seatunnel.connectors.pegasus.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
@@ -33,8 +35,13 @@ public class PegasusSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(PegasusSinkConfig.META_SERVER)
-                .required(PegasusSinkConfig.TABLE)
-                .build();
+            .required(PegasusSinkConfig.META_SERVER)
+            .required(PegasusSinkConfig.TABLE)
+            .build();
+    }
+
+    @Override
+    public TableSink createSink(TableFactoryContext context) {
+        return null;
     }
 }
