@@ -12,12 +12,12 @@ Write data to Amazon SQS
 
 ## Options
 
-| name              |  type  | required | default value |
-|-------------------|--------|----------|---------------|
-| url               | string | yes      | -             |
-| region            | string | yes      | -             |
-| queue             | string | no       | -             |
-| common-options    |        | no       | -             |
+|      name      |  type  | required | default value |
+|----------------|--------|----------|---------------|
+| url            | string | yes      | -             |
+| region         | string | yes      | -             |
+| queue          | string | no       | -             |
+| common-options |        | no       | -             |
 
 ### url [string]
 

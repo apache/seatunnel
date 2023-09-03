@@ -6,7 +6,9 @@ import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourc
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
@@ -17,17 +19,32 @@ import java.net.URI;
 public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     protected SqsClient sqsClient;
-    protected AmazonSqsSourceOptions amazonSqsSourceOptions;
     protected SeaTunnelRowSerializer seaTunnelRowSerializer;
 
     public AmazonSqsSinkWriter(
             AmazonSqsSourceOptions amazonSqsSourceOptions, SeaTunnelRowType seaTunnelRowType) {
-        sqsClient =
-                SqsClient.builder()
-                        .endpointOverride(URI.create(amazonSqsSourceOptions.getUrl()))
-                        .region(Region.of(amazonSqsSourceOptions.getRegion()))
-                        .credentialsProvider(DefaultCredentialsProvider.create())
-                        .build();
+        if (amazonSqsSourceOptions.getAccessKeyId() != null
+                & amazonSqsSourceOptions.getSecretAccessKey() != null) {
+            sqsClient =
+                    SqsClient.builder()
+                            .endpointOverride(URI.create(amazonSqsSourceOptions.getUrl()))
+                            // The region is meaningless for local Sqs but required for client
+                            // builder validation
+                            .region(Region.of(amazonSqsSourceOptions.getRegion()))
+                            .credentialsProvider(
+                                    StaticCredentialsProvider.create(
+                                            AwsBasicCredentials.create(
+                                                    amazonSqsSourceOptions.getAccessKeyId(),
+                                                    amazonSqsSourceOptions.getSecretAccessKey())))
+                            .build();
+        } else {
+            sqsClient =
+                    SqsClient.builder()
+                            .endpointOverride(URI.create(amazonSqsSourceOptions.getUrl()))
+                            .region(Region.of(amazonSqsSourceOptions.getRegion()))
+                            .credentialsProvider(DefaultCredentialsProvider.create())
+                            .build();
+        }
     }
 
     @Override
