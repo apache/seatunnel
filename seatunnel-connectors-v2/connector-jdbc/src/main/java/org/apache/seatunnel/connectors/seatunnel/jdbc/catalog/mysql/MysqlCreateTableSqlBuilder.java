@@ -226,7 +226,15 @@ public class MysqlCreateTableSqlBuilder {
                                             decimalType.getPrecision(), decimalType.getScale());
                             columnSqls.add(fieSql);
                         } else if (list.contains(name)) {
-                            fieSql = "(" + column.getLongColumnLength() + ")";
+                            if (MysqlType.VARCHAR.getName().equals(name)
+                                    && column.getLongColumnLength() == 0) {
+                                fieSql = "(" + "16383" + ")";
+                            } else if (MysqlType.CHAR.getName().equals(name)
+                                    && column.getLongColumnLength() == 0) {
+                                fieSql = "(" + "255" + ")";
+                            } else {
+                                fieSql = "(" + column.getLongColumnLength() + ")";
+                            }
                             columnSqls.add(fieSql);
                         }
                     }

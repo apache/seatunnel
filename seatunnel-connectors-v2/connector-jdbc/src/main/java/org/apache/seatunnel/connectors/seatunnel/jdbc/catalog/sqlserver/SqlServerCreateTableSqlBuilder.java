@@ -223,7 +223,7 @@ public class SqlServerCreateTableSqlBuilder {
                 tyNameDef = typeName;
                 // Add column length
                 if (StringUtils.equals(SqlServerType.VARCHAR.getName(), typeName)) {
-                    if (columnLength > 8000 || columnLength == -1) {
+                    if (columnLength > 8000 || columnLength == -1 || columnLength == 0) {
                         columnSqls.add(typeName);
                         fieldSuffixSql = "(max)";
                     } else if (columnLength > 4000) {
