@@ -602,6 +602,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             .getClassLoader();
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(classLoader);
+            final Task t = tracker.task;
             ProgressState result = null;
             try {
                 startedLatch.countDown();
