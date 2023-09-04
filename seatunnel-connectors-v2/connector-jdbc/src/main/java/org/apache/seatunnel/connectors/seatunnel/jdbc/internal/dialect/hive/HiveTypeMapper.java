@@ -99,10 +99,10 @@ public class HiveTypeMapper implements JdbcDialectTypeMapper {
             case HIVE_STRING:
             case HIVE_VARCHAR:
             case HIVE_CHAR:
-            case HIVE_BINARY:
                 return BasicType.STRING_TYPE;
             case HIVE_BOOLEAN:
                 return BasicType.BOOLEAN_TYPE;
+            case HIVE_BINARY:
             case HIVE_ARRAY:
             case HIVE_INTERVAL:
             case HIVE_MAP:
