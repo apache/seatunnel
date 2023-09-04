@@ -228,7 +228,7 @@ public class MysqlCreateTableSqlBuilder {
                         } else if (list.contains(name)) {
                             if (MysqlType.VARCHAR.getName().equals(name)
                                     && column.getLongColumnLength() == 0) {
-                                fieSql = "(" + "16383" + ")";
+                                fieSql = "(" + "16367" + ")";
                             } else if (MysqlType.CHAR.getName().equals(name)
                                     && column.getLongColumnLength() == 0) {
                                 fieSql = "(" + "255" + ")";

@@ -48,7 +48,7 @@ public class MySqlCatalogFactory implements CatalogFactory {
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
         String urlWithDatabase = options.get(JdbcCatalogOptions.BASE_URL);
         Preconditions.checkArgument(
-                StringUtils.isNoneBlank(urlWithDatabase),
+                StringUtils.isNotBlank(urlWithDatabase),
                 "Miss config <base-url>! Please check your config.");
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
         Optional<String> defaultDatabase = urlInfo.getDefaultDatabase();
