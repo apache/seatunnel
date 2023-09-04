@@ -39,7 +39,7 @@ Read data from hdfs file system.
 
 ## Source Options
 
-|           Name            |  Type   | Required |       Default       | Description                                                                                                                                                                                                                                                                                                                                   |
+|           Name            |  Type   | Required |       Default       |                                                                                                                                                                  Description                                                                                                                                                                  |
 |---------------------------|---------|----------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                      | string  | yes      | -                   | The source file path.                                                                                                                                                                                                                                                                                                                         |
 | file_format_type          | string  | yes      | -                   | We supported as the following file types:`text` `json` `csv` `orc` `parquet` `excel`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                                                      |
@@ -68,7 +68,6 @@ The compress codec of files and the details that supported as the following show
 - csv: `lzo` `none`
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
-
 
 ### Tips
 

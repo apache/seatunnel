@@ -33,19 +33,19 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-| name                          | type     | required | default value |
-|-------------------------------|----------|----------|---------------|
-| table_name                    | string   | yes      | -             |
-| metastore_uri                 | string   | yes      | -             |
-| kerberos_principal            | string   | no       | -             |
-| kerberos_keytab_path          | string   | no       | -             |
-| hdfs_site_path                | string   | no       | -             |
-| hive_site_path                | string   | no       | -             |
-| read_partitions               | list     | no       | -             |
-| read_columns                  | list     | no       | -             |
-| abort_drop_partition_metadata | boolean  | no       | true          |
-| compress_codec                | string   | no       | none          |
-| common-options                |          | no       | -             |
+|             name              |  type   | required | default value |
+|-------------------------------|---------|----------|---------------|
+| table_name                    | string  | yes      | -             |
+| metastore_uri                 | string  | yes      | -             |
+| kerberos_principal            | string  | no       | -             |
+| kerberos_keytab_path          | string  | no       | -             |
+| hdfs_site_path                | string  | no       | -             |
+| hive_site_path                | string  | no       | -             |
+| read_partitions               | list    | no       | -             |
+| read_columns                  | list    | no       | -             |
+| abort_drop_partition_metadata | boolean | no       | true          |
+| compress_codec                | string  | no       | none          |
+| common-options                |         | no       | -             |
 
 ### table_name [string]
 
