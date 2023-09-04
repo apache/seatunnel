@@ -65,6 +65,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ENCODE_VALUE_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.FULL_DOCUMENT;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.extractBsonDocument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class MongoDBConnectorDeserializationSchema
@@ -152,17 +153,6 @@ public class MongoDBConnectorDeserializationSchema
     private SeaTunnelRow extractRowData(BsonDocument document) {
         checkNotNull(document);
         return (SeaTunnelRow) physicalConverter.convert(document);
-    }
-
-    private BsonDocument extractBsonDocument(
-            Struct value, @Nonnull Schema valueSchema, String fieldName) {
-        if (valueSchema.field(fieldName) != null) {
-            String docString = value.getString(fieldName);
-            if (docString != null) {
-                return BsonDocument.parse(docString);
-            }
-        }
-        return null;
     }
 
     // -------------------------------------------------------------------------------------
