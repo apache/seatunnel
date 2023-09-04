@@ -122,7 +122,7 @@ sink {
     node_urls = "localhost:6667"
     username = "root"
     password = "root"
-    key_device = "device_name"
+    key_device = "device_name" # specify the `deviceId` use device_name field
   }
 }
 ```
@@ -150,8 +150,8 @@ sink {
     node_urls = "localhost:6667"
     username = "root"
     password = "root"
-    key_device = "device_name"
-    key_timestamp = "event_ts"
+    key_device = "device_name" # specify the `deviceId` use device_name field
+    key_timestamp = "event_ts" # specify the `timestamp` use event_ts field
   }
 }
 ```

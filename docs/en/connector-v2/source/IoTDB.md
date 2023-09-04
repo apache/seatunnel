@@ -51,7 +51,7 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 
 ## Source Options
 
-|            name            |  type   | required | default value |                                    Description                                     |
+|            Name            |  Type   | Required | Default Value |                                    Description                                     |
 |----------------------------|---------|----------|---------------|------------------------------------------------------------------------------------|
 | node_urls                  | string  | yes      | -             | `IoTDB` cluster address, the format is `"host1:port"` or `"host1:port,host2:port"` |
 | username                   | string  | yes      | -             | `IoTDB` user username                                                              |
