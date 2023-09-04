@@ -117,13 +117,19 @@ source {
     node_urls = "localhost:6667"
     username = "root"
     password = "root"
-    sql = "SELECT temperature, moisture FROM root.test_group.* WHERE time < 4102329600000 align by device"
+    sql = "SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_string, c_boolean FROM root.test_group.* WHERE time < 4102329600000 align by device"
     schema {
       fields {
         ts = timestamp
         device_name = string
         temperature = float
         moisture = bigint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_string = string
+        c_boolean = boolean
       }
     }
   }
@@ -138,23 +144,23 @@ sink {
 Upstream `IoTDB` data format is the following:
 
 ```shell
-IoTDB> SELECT temperature, moisture FROM root.test_group.* WHERE time < 4102329600000 align by device;
-+------------------------+------------------------+--------------+-----------+
-|                    Time|                  Device|   temperature|   moisture|
-+------------------------+------------------------+--------------+-----------+
-|2022-09-25T00:00:00.001Z|root.test_group.device_a|          36.1|        100|
-|2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101|
-|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102|
-+------------------------+------------------------+--------------+-----------+
+IoTDB> SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_string, c_boolean FROM root.test_group.* WHERE time < 4102329600000 align by device;
++------------------------+------------------------+--------------+-----------+--------+--------------+----------+---------+---------+----------+
+|                    Time|                  Device|   temperature|   moisture|   c_int|      c_bigint|   c_float| c_double| c_string| c_boolean|
++------------------------+------------------------+--------------+-----------+--------+--------------+----------+---------+---------+----------+
+|2022-09-25T00:00:00.001Z|root.test_group.device_a|          36.1|        100|       1|   21474836470|      1.0f|     1.0d|      abc|      true|
+|2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101|       2|   21474836470|      2.0f|     2.0d|      abc|      true|
+|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102|       3|   21474836470|      3.0f|     3.0d|      abc|      true|
++------------------------+------------------------+--------------+-----------+--------+--------------+----------+---------+---------+----------+
 ```
 
 Loaded to SeaTunnelRow data format is the following:
 
-|      ts       |       device_name        | temperature | moisture |
-|---------------|--------------------------|-------------|----------|
-| 1664035200001 | root.test_group.device_a | 36.1        | 100      |
-| 1664035200001 | root.test_group.device_b | 36.2        | 101      |
-| 1664035200001 | root.test_group.device_c | 36.3        | 102      |
+|      ts       |       device_name        | temperature | moisture | c_int |  c_bigint   | c_float | c_double | c_string | c_boolean |
+|---------------|--------------------------|-------------|----------|-------|-------------|---------|----------|----------|-----------|
+| 1664035200001 | root.test_group.device_a | 36.1        | 100      | 1     | 21474836470 | 1.0f    | 1.0d     | abc      | true      |
+| 1664035200001 | root.test_group.device_b | 36.2        | 101      | 2     | 21474836470 | 2.0f    | 2.0d     | abc      | true      |
+| 1664035200001 | root.test_group.device_c | 36.3        | 102      | 3     | 21474836470 | 3.0f    | 3.0d     | abc      | true      |
 
 ## Changelog
 

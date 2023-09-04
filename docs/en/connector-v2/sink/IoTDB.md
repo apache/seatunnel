@@ -86,8 +86,14 @@ source {
         temperature = "float"
         moisture = "int"
         event_ts = "bigint"
-        field_1 = "string"
-        field_2 = "string"
+        c_string = "string"
+        c_boolean = "boolean"
+        c_tinyint = "tinyint"
+        c_smallint = "smallint"
+        c_int = "int"
+        c_bigint = "bigint"
+        c_float = "float"
+        c_double = "double"
       }
     }
   }
@@ -99,15 +105,16 @@ source {
 
 Upstream SeaTunnelRow data format is the following:
 
-|       device_name        | temperature | moisture |   event_ts    | field_1 | field_2 |
-|--------------------------|-------------|----------|---------------|---------|---------|
-| root.test_group.device_a | 36.1        | 100      | 1664035200001 | abc1    | def1    |
-| root.test_group.device_b | 36.2        | 101      | 1664035200001 | abc2    | def2    |
-| root.test_group.device_c | 36.3        | 102      | 1664035200001 | abc3    | def3    |
+|       device_name        | temperature | moisture |   event_ts    | c_string | c_boolean | c_tinyint | c_smallint | c_int |  c_bigint  | c_float | c_double |
+|--------------------------|-------------|----------|---------------|----------|-----------|-----------|------------|-------|------------|---------|----------|
+| root.test_group.device_a | 36.1        | 100      | 1664035200001 | abc1     | true      | 1         | 1          | 1     | 2147483648 | 1.0     | 1.0      |
+| root.test_group.device_b | 36.2        | 101      | 1664035200001 | abc2     | false     | 2         | 2          | 2     | 2147483649 | 2.0     | 2.0      |
+| root.test_group.device_c | 36.3        | 102      | 1664035200001 | abc3     | false     | 3         | 3          | 3     | 2147483649 | 3.0     | 3.0      |
 
 ### Case1
 
-only fill required config, use current processing time as timestamp. and include all fields but exclude `device` & `timestamp` as measurement fields
+only fill required config.
+use current processing time as timestamp. and include all fields but exclude `device` & `timestamp` as measurement fields
 
 ```hocon
 sink {
@@ -124,13 +131,13 @@ Output to `IoTDB` data format is the following:
 
 ```shell
 IoTDB> SELECT * FROM root.test_group.* align by device;
-+------------------------+------------------------+--------------+-----------+---------------+---------+---------+
-|                    Time|                  Device|   temperature|   moisture|  event_ts     | field_1 | field_2 | 
-+------------------------+------------------------+--------------+-----------+---------------+---------+---------+
-|2023-09-01T00:00:00.001Z|root.test_group.device_a|          36.1|        100| 1664035200001 | abc1    | def1    |
-|2023-09-01T00:00:00.001Z|root.test_group.device_b|          36.2|        101| 1664035200001 | abc2    | def2    |
-|2023-09-01T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001 | abc3    | def3    |
-+------------------------+------------------------+--------------+-----------+---------------+---------+---------+
++------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
+|                    Time|                  Device|   temperature|   moisture|      event_ts| c_string| c_boolean| c_tinyint| c_smallint| c_int|   c_bigint| c_float| c_double|
++------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
+|2023-09-01T00:00:00.001Z|root.test_group.device_a|          36.1|        100| 1664035200001|     abc1|      true|         1|          1|     1| 2147483648|     1.0|      1.0| 
+|2023-09-01T00:00:00.001Z|root.test_group.device_b|          36.2|        101| 1664035200001|     abc2|     false|         2|          2|     2| 2147483649|     2.0|      2.0|
+|2023-09-01T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc2|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
++------------------------+------------------------+--------------+-----------+--------------+---------+---------+-----------+-----------+------+-----------+--------+---------+
 ```
 
 ### Case2
@@ -145,7 +152,6 @@ sink {
     password = "root"
     key_device = "device_name"
     key_timestamp = "event_ts"
-    key_measurement_fields = ["temperature", "moisture"]
   }
 }
 ```
@@ -154,13 +160,13 @@ Output to `IoTDB` data format is the following:
 
 ```shell
 IoTDB> SELECT * FROM root.test_group.* align by device;
-+------------------------+------------------------+--------------+-----------+
-|                    Time|                  Device|   temperature|   moisture|
-+------------------------+------------------------+--------------+-----------+
-|2022-09-25T00:00:00.001Z|root.test_group.device_a|          36.1|        100|
-|2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101|
-|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102|
-+------------------------+------------------------+--------------+-----------+
++------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
+|                    Time|                  Device|   temperature|   moisture|      event_ts| c_string| c_boolean| c_tinyint| c_smallint| c_int|   c_bigint| c_float| c_double|
++------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
+|2022-09-25T00:00:00.001Z|root.test_group.device_a|          36.1|        100| 1664035200001|     abc1|      true|         1|          1|     1| 2147483648|     1.0|      1.0| 
+|2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101| 1664035200001|     abc2|     false|         2|          2|     2| 2147483649|     2.0|      2.0|
+|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc2|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
++------------------------+------------------------+--------------+-----------+--------------+---------+---------+-----------+-----------+------+-----------+--------+---------+
 ```
 
 ### Case3
