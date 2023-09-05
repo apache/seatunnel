@@ -36,6 +36,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public abstract class BaseHdfsFileSource extends BaseFileSource {
 
@@ -110,13 +112,26 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                             "SeaTunnel does not supported this file format");
             }
         } else {
-            try {
-                rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
-            } catch (FileConnectorException e) {
+            FileConnectorException fileConnectorException = null;
+            String errFilePath = null;
+            List<String> tmpFilePaths = new ArrayList<>(filePaths);
+            // Iterate through the file, filtering for files that cannot get the row type
+            for (String filePath : tmpFilePaths) {
+                try {
+                    rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePath);
+                } catch (FileConnectorException e) {
+                    filePaths.remove(filePath);
+                    if (errFilePath == null) {
+                        errFilePath = filePath;
+                        fileConnectorException = e;
+                    }
+                }
+            }
+            if(filePaths.size() == 0 && fileConnectorException != null) {
                 String errorMsg =
-                        String.format("Get table schema from file [%s] failed", filePaths.get(0));
+                        String.format("Get table schema from file [%s] failed", errFilePath);
                 throw new FileConnectorException(
-                        CommonErrorCode.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
+                        CommonErrorCode.TABLE_SCHEMA_GET_FAILED, errorMsg, fileConnectorException);
             }
         }
     }
