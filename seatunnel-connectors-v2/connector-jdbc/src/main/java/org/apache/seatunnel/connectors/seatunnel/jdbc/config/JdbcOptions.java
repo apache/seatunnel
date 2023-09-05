@@ -156,7 +156,7 @@ public interface JdbcOptions {
                     .noDefaultValue()
                     .withDescription("partition num");
 
-    Option<IdentifierCase> FIELD_IDE =
+    Option<IdentifierCase> IDENTIFIER_CASE =
             Options.key("identifier_case")
                     .enumType(IdentifierCase.class)
                     .noDefaultValue()

@@ -209,7 +209,7 @@ public class JdbcSink
                                     catalogFactory.factoryIdentifier(),
                                     ReadonlyConfig.fromMap(new HashMap<>(catalogOptions)))) {
                         catalog.open();
-                        IdentifierCase identifierCaseEnum = config.get(JdbcOptions.FIELD_IDE);
+                        IdentifierCase identifierCaseEnum = config.get(JdbcOptions.IDENTIFIER_CASE);
                         String identifierCase =
                                 identifierCaseEnum == null
                                         ? IdentifierCase.ORIGINAL.getValue()
