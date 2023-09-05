@@ -35,9 +35,9 @@ public class PegasusSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(PegasusSinkConfig.META_SERVER)
-            .required(PegasusSinkConfig.TABLE)
-            .build();
+                .required(PegasusSinkConfig.META_SERVER)
+                .required(PegasusSinkConfig.TABLE)
+                .build();
     }
 
     @Override
