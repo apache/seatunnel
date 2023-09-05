@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import org.apache.commons.lang3.StringUtils;
@@ -44,9 +45,18 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final SinkWriter.Context context;
     private final DataTypeChangeEventHandler dataTypeChangeEventHandler;
 
-    public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType, SinkWriter.Context context) {
+    boolean isPrintData = true;
+    int delayMs = 0;
+
+    public ConsoleSinkWriter(
+            SeaTunnelRowType seaTunnelRowType,
+            SinkWriter.Context context,
+            boolean isPrintData,
+            int delayMs) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
+        this.isPrintData = isPrintData;
+        this.delayMs = delayMs;
         this.dataTypeChangeEventHandler = new DataTypeChangeEventDispatcher();
         log.info("output rowType: {}", fieldsInfo(seaTunnelRowType));
     }
@@ -66,13 +76,23 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         for (int i = 0; i < fieldTypes.length; i++) {
             arr[i] = fieldToString(fieldTypes[i], fields[i]);
         }
-        log.info(
-                "subtaskIndex={}  rowIndex={}:  SeaTunnelRow#tableId={} SeaTunnelRow#kind={} : {}",
-                context.getIndexOfSubtask(),
-                rowCounter.incrementAndGet(),
-                element.getTableId(),
-                element.getRowKind(),
-                StringUtils.join(arr, ", "));
+        if (isPrintData) {
+            log.info(
+                    "subtaskIndex={}  rowIndex={}:  SeaTunnelRow#tableId={} SeaTunnelRow#kind={} : {}",
+                    context.getIndexOfSubtask(),
+                    rowCounter.incrementAndGet(),
+                    element.getTableId(),
+                    element.getRowKind(),
+                    StringUtils.join(arr, ", "));
+        }
+        if (delayMs > 0) {
+            try {
+                Thread.sleep(delayMs);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new SeaTunnelException(e);
+            }
+        }
     }
 
     @Override
