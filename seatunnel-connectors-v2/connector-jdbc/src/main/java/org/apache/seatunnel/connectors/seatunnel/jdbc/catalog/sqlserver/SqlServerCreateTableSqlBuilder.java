@@ -56,6 +56,8 @@ public class SqlServerCreateTableSqlBuilder {
 
     private SqlServerDataTypeConvertor sqlServerDataTypeConvertor;
 
+    private String identifierCase;
+
     private SqlServerCreateTableSqlBuilder(String tableName) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
@@ -77,7 +79,8 @@ public class SqlServerCreateTableSqlBuilder {
                 .charset(null)
                 .primaryKey(tableSchema.getPrimaryKey())
                 .constraintKeys(tableSchema.getConstraintKeys())
-                .addColumn(tableSchema.getColumns());
+                .addColumn(tableSchema.getColumns())
+                .identifierCase(catalogTable.getOptions().get("identifierCase"));
     }
 
     public SqlServerCreateTableSqlBuilder addColumn(List<Column> columns) {
@@ -88,6 +91,11 @@ public class SqlServerCreateTableSqlBuilder {
 
     public SqlServerCreateTableSqlBuilder primaryKey(PrimaryKey primaryKey) {
         this.primaryKey = primaryKey;
+        return this;
+    }
+
+    public SqlServerCreateTableSqlBuilder identifierCase(String identifierCase) {
+        this.identifierCase = identifierCase;
         return this;
     }
 
@@ -138,9 +146,7 @@ public class SqlServerCreateTableSqlBuilder {
             sqls.add("COLLATE = " + collate);
         }
         String sqlTableSql = String.join(" ", sqls) + ";";
-        sqlTableSql =
-                CatalogUtils.quoteIdentifier(
-                        sqlTableSql, catalogTable.getOptions().get("fieldIde"));
+        sqlTableSql = CatalogUtils.quoteIdentifier(sqlTableSql, identifierCase);
         StringBuilder tableAndColumnComment = new StringBuilder();
         if (comment != null) {
             sqls.add("COMMENT = '" + comment + "'");

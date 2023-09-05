@@ -331,9 +331,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     @Override
     protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
             throws CatalogException {
-        String createTableSql =
-                new PostgresCreateTableSqlBuilder(table)
-                        .build(tablePath, table.getOptions().get("fieldIde"));
+        String createTableSql = new PostgresCreateTableSqlBuilder(table).build(tablePath);
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         Connection conn = getConnection(dbUrl);
         log.info("create table sql: {}", createTableSql);

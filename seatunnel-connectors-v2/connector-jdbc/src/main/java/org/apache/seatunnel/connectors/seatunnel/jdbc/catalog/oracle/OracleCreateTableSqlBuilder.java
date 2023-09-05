@@ -37,19 +37,17 @@ public class OracleCreateTableSqlBuilder {
     private PrimaryKey primaryKey;
     private OracleDataTypeConvertor oracleDataTypeConvertor;
     private String sourceCatalogName;
+    private String identifierCase;
 
     public OracleCreateTableSqlBuilder(CatalogTable catalogTable) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.oracleDataTypeConvertor = new OracleDataTypeConvertor();
         this.sourceCatalogName = catalogTable.getCatalogName();
+        this.identifierCase = catalogTable.getOptions().get("identifierCase");
     }
 
     public String build(TablePath tablePath) {
-        return build(tablePath, "");
-    }
-
-    public String build(TablePath tablePath, String fieldIde) {
         StringBuilder createTableSql = new StringBuilder();
         createTableSql
                 .append("CREATE TABLE ")
@@ -58,14 +56,17 @@ public class OracleCreateTableSqlBuilder {
 
         List<String> columnSqls =
                 columns.stream()
-                        .map(column -> CatalogUtils.getFieldIde(buildColumnSql(column), fieldIde))
+                        .map(
+                                column ->
+                                        CatalogUtils.getIdentifierCase(
+                                                buildColumnSql(column), identifierCase))
                         .collect(Collectors.toList());
 
         // Add primary key directly in the create table statement
         if (primaryKey != null
                 && primaryKey.getColumnNames() != null
                 && primaryKey.getColumnNames().size() > 0) {
-            columnSqls.add(buildPrimaryKeySql(primaryKey, fieldIde));
+            columnSqls.add(buildPrimaryKeySql(primaryKey));
         }
 
         createTableSql.append(String.join(",\n", columnSqls));
@@ -77,9 +78,7 @@ public class OracleCreateTableSqlBuilder {
                         .map(
                                 column ->
                                         buildColumnCommentSql(
-                                                column,
-                                                tablePath.getSchemaAndTableName("\""),
-                                                fieldIde))
+                                                column, tablePath.getSchemaAndTableName("\"")))
                         .collect(Collectors.toList());
 
         if (!commentSqls.isEmpty()) {
@@ -147,7 +146,7 @@ public class OracleCreateTableSqlBuilder {
         }
     }
 
-    private String buildPrimaryKeySql(PrimaryKey primaryKey, String fieldIde) {
+    private String buildPrimaryKeySql(PrimaryKey primaryKey) {
         String randomSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
         //        String columnNamesString = String.join(", ", primaryKey.getColumnNames());
         String columnNamesString =
@@ -161,7 +160,7 @@ public class OracleCreateTableSqlBuilder {
             primaryKeyStr = primaryKeyStr.substring(0, 25);
         }
 
-        return CatalogUtils.getFieldIde(
+        return CatalogUtils.getIdentifierCase(
                 "CONSTRAINT "
                         + primaryKeyStr
                         + "_"
@@ -169,18 +168,18 @@ public class OracleCreateTableSqlBuilder {
                         + " PRIMARY KEY ("
                         + columnNamesString
                         + ")",
-                fieldIde);
+                identifierCase);
     }
 
-    private String buildColumnCommentSql(Column column, String tableName, String fieldIde) {
+    private String buildColumnCommentSql(Column column, String tableName) {
         StringBuilder columnCommentSql = new StringBuilder();
         columnCommentSql
-                .append(CatalogUtils.quoteIdentifier("COMMENT ON COLUMN ", fieldIde))
+                .append(CatalogUtils.quoteIdentifier("COMMENT ON COLUMN ", identifierCase))
                 .append(tableName)
                 .append(".");
         columnCommentSql
-                .append(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "\""))
-                .append(CatalogUtils.quoteIdentifier(" IS '", fieldIde))
+                .append(CatalogUtils.quoteIdentifier(column.getName(), identifierCase, "\""))
+                .append(CatalogUtils.quoteIdentifier(" IS '", identifierCase))
                 .append(column.getComment())
                 .append("'");
         return columnCommentSql.toString();

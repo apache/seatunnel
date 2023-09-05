@@ -148,9 +148,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
             throws CatalogException {
-        String createTableSql =
-                new OracleCreateTableSqlBuilder(table)
-                        .build(tablePath, table.getOptions().get("fieldIde"));
+        String createTableSql = new OracleCreateTableSqlBuilder(table).build(tablePath);
         String[] createTableSqls = createTableSql.split(";");
         for (String sql : createTableSqls) {
             log.info("create table sql: {}", sql);

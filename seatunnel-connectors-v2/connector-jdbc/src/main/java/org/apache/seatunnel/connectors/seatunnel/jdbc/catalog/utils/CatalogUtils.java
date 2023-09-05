@@ -17,16 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.IdentifierCase;
 
 import org.apache.commons.lang3.StringUtils;
 
 public class CatalogUtils {
-    public static String getFieldIde(String identifier, String fieldIde) {
-        if (StringUtils.isBlank(fieldIde)) {
+    public static String getIdentifierCase(String identifier, String identifierCase) {
+        if (StringUtils.isBlank(identifierCase)) {
             return identifier;
         }
-        switch (FieldIdeEnum.valueOf(fieldIde.toUpperCase())) {
+        switch (IdentifierCase.valueOf(identifierCase.toUpperCase())) {
             case LOWERCASE:
                 return identifier.toLowerCase();
             case UPPERCASE:
@@ -36,7 +36,7 @@ public class CatalogUtils {
         }
     }
 
-    public static String quoteIdentifier(String identifier, String fieldIde, String quote) {
+    public static String quoteIdentifier(String identifier, String identifierCase, String quote) {
         if (identifier.contains(".")) {
             String[] parts = identifier.split("\\.");
             StringBuilder sb = new StringBuilder();
@@ -44,28 +44,28 @@ public class CatalogUtils {
                 sb.append(quote).append(parts[i]).append(quote).append(".");
             }
             return sb.append(quote)
-                    .append(getFieldIde(parts[parts.length - 1], fieldIde))
+                    .append(getIdentifierCase(parts[parts.length - 1], identifierCase))
                     .append(quote)
                     .toString();
         }
 
-        return quote + getFieldIde(identifier, fieldIde) + quote;
+        return quote + getIdentifierCase(identifier, identifierCase) + quote;
     }
 
-    public static String quoteIdentifier(String identifier, String fieldIde) {
-        return getFieldIde(identifier, fieldIde);
+    public static String quoteIdentifier(String identifier, String identifierCase) {
+        return getIdentifierCase(identifier, identifierCase);
     }
 
-    public static String quoteTableIdentifier(String identifier, String fieldIde) {
+    public static String quoteTableIdentifier(String identifier, String identifierCase) {
         if (identifier.contains(".")) {
             String[] parts = identifier.split("\\.");
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < parts.length - 1; i++) {
                 sb.append(parts[i]).append(".");
             }
-            return sb.append(getFieldIde(parts[parts.length - 1], fieldIde)).toString();
+            return sb.append(getIdentifierCase(parts[parts.length - 1], identifierCase)).toString();
         }
 
-        return getFieldIde(identifier, fieldIde);
+        return getIdentifierCase(identifier, identifierCase);
     }
 }

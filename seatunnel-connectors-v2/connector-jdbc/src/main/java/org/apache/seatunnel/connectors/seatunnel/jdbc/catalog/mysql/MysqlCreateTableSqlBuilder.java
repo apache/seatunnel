@@ -56,6 +56,8 @@ public class MysqlCreateTableSqlBuilder {
 
     private MysqlDataTypeConvertor mysqlDataTypeConvertor;
 
+    private String identifierCase;
+
     private MysqlCreateTableSqlBuilder(String tableName) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
@@ -77,7 +79,8 @@ public class MysqlCreateTableSqlBuilder {
                 .charset(null)
                 .primaryKey(tableSchema.getPrimaryKey())
                 .constraintKeys(tableSchema.getConstraintKeys())
-                .addColumn(tableSchema.getColumns());
+                .addColumn(tableSchema.getColumns())
+                .identifierCase(catalogTable.getOptions().get("identifierCase"));
     }
 
     public MysqlCreateTableSqlBuilder addColumn(List<Column> columns) {
@@ -88,6 +91,11 @@ public class MysqlCreateTableSqlBuilder {
 
     public MysqlCreateTableSqlBuilder primaryKey(PrimaryKey primaryKey) {
         this.primaryKey = primaryKey;
+        return this;
+    }
+
+    public MysqlCreateTableSqlBuilder identifierCase(String identifierCase) {
+        this.identifierCase = identifierCase;
         return this;
     }
 
@@ -116,13 +124,13 @@ public class MysqlCreateTableSqlBuilder {
         return this;
     }
 
-    public String build(String catalogName, String fieldIde) {
+    public String build(String catalogName) {
         List<String> sqls = new ArrayList<>();
         sqls.add(
                 String.format(
                         "CREATE TABLE IF NOT EXISTS %s (\n%s\n)",
-                        CatalogUtils.quoteIdentifier(tableName, fieldIde, "`"),
-                        buildColumnsIdentifySql(catalogName, fieldIde)));
+                        CatalogUtils.quoteIdentifier(tableName, identifierCase, "`"),
+                        buildColumnsIdentifySql(catalogName)));
         if (engine != null) {
             sqls.add("ENGINE = " + engine);
         }
@@ -138,13 +146,13 @@ public class MysqlCreateTableSqlBuilder {
         return String.join(" ", sqls) + ";";
     }
 
-    private String buildColumnsIdentifySql(String catalogName, String fieldIde) {
+    private String buildColumnsIdentifySql(String catalogName) {
         List<String> columnSqls = new ArrayList<>();
         for (Column column : columns) {
-            columnSqls.add("\t" + buildColumnIdentifySql(column, catalogName, fieldIde));
+            columnSqls.add("\t" + buildColumnIdentifySql(column, catalogName));
         }
         if (primaryKey != null) {
-            columnSqls.add("\t" + buildPrimaryKeySql(fieldIde));
+            columnSqls.add("\t" + buildPrimaryKeySql());
         }
         if (CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
@@ -157,9 +165,9 @@ public class MysqlCreateTableSqlBuilder {
         return String.join(", \n", columnSqls);
     }
 
-    private String buildColumnIdentifySql(Column column, String catalogName, String fieldIde) {
+    private String buildColumnIdentifySql(Column column, String catalogName) {
         final List<String> columnSqls = new ArrayList<>();
-        columnSqls.add(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "`"));
+        columnSqls.add(CatalogUtils.quoteIdentifier(column.getName(), identifierCase, "`"));
         if (StringUtils.equals(catalogName, "mysql")) {
             columnSqls.add(column.getSourceType());
         } else {
@@ -239,13 +247,13 @@ public class MysqlCreateTableSqlBuilder {
         return String.join(" ", columnSqls);
     }
 
-    private String buildPrimaryKeySql(String fieldIde) {
+    private String buildPrimaryKeySql() {
         String key =
                 primaryKey.getColumnNames().stream()
                         .map(columnName -> "`" + columnName + "`")
                         .collect(Collectors.joining(", "));
         // add sort type
-        return String.format("PRIMARY KEY (%s)", CatalogUtils.quoteIdentifier(key, fieldIde));
+        return String.format("PRIMARY KEY (%s)", CatalogUtils.quoteIdentifier(key, identifierCase));
     }
 
     private String buildConstraintKeySql(ConstraintKey constraintKey) {

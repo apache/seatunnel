@@ -44,7 +44,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.IdentifierCase;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
@@ -209,21 +209,21 @@ public class JdbcSink
                                     catalogFactory.factoryIdentifier(),
                                     ReadonlyConfig.fromMap(new HashMap<>(catalogOptions)))) {
                         catalog.open();
-                        FieldIdeEnum fieldIdeEnum = config.get(JdbcOptions.FIELD_IDE);
-                        String fieldIde =
-                                fieldIdeEnum == null
-                                        ? FieldIdeEnum.ORIGINAL.getValue()
-                                        : fieldIdeEnum.getValue();
+                        IdentifierCase identifierCaseEnum = config.get(JdbcOptions.FIELD_IDE);
+                        String identifierCase =
+                                identifierCaseEnum == null
+                                        ? IdentifierCase.ORIGINAL.getValue()
+                                        : identifierCaseEnum.getValue();
                         TablePath tablePath =
                                 TablePath.of(
                                         jdbcSinkConfig.getDatabase()
                                                 + "."
                                                 + CatalogUtils.quoteTableIdentifier(
-                                                        jdbcSinkConfig.getTable(), fieldIde));
+                                                        jdbcSinkConfig.getTable(), identifierCase));
                         if (!catalog.databaseExists(jdbcSinkConfig.getDatabase())) {
                             catalog.createDatabase(tablePath, true);
                         }
-                        catalogTable.getOptions().put("fieldIde", fieldIde);
+                        catalogTable.getOptions().put("identifierCase", identifierCase);
                         if (!catalog.tableExists(tablePath)) {
                             catalog.createTable(tablePath, catalogTable, true);
                         }

@@ -90,7 +90,7 @@ public class MysqlCreateTableSqlBuilderTest {
                         "User table");
 
         String createTableSql =
-                MysqlCreateTableSqlBuilder.builder(tablePath, catalogTable).build("mysql", "");
+                MysqlCreateTableSqlBuilder.builder(tablePath, catalogTable).build("mysql");
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
                 "CREATE TABLE IF NOT EXISTS `test_table` (\n"

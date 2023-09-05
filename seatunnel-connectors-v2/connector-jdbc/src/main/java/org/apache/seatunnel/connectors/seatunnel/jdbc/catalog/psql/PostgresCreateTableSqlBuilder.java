@@ -38,22 +38,20 @@ public class PostgresCreateTableSqlBuilder {
     private PrimaryKey primaryKey;
     private PostgresDataTypeConvertor postgresDataTypeConvertor;
     private String sourceCatalogName;
+    private String identifierCase;
 
     public PostgresCreateTableSqlBuilder(CatalogTable catalogTable) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.postgresDataTypeConvertor = new PostgresDataTypeConvertor();
         this.sourceCatalogName = catalogTable.getCatalogName();
+        this.identifierCase = catalogTable.getOptions().get("identifierCase");
     }
 
     public String build(TablePath tablePath) {
-        return build(tablePath, "");
-    }
-
-    public String build(TablePath tablePath, String fieldIde) {
         StringBuilder createTableSql = new StringBuilder();
         createTableSql
-                .append(CatalogUtils.quoteIdentifier("CREATE TABLE IF NOT EXISTS ", fieldIde))
+                .append(CatalogUtils.quoteIdentifier("CREATE TABLE IF NOT EXISTS ", identifierCase))
                 .append(tablePath.getSchemaAndTableName("\""))
                 .append(" (\n");
 
@@ -62,7 +60,7 @@ public class PostgresCreateTableSqlBuilder {
                         .map(
                                 column ->
                                         CatalogUtils.quoteIdentifier(
-                                                buildColumnSql(column), fieldIde))
+                                                buildColumnSql(column), identifierCase))
                         .collect(Collectors.toList());
 
         createTableSql.append(String.join(",\n", columnSqls));
@@ -74,9 +72,7 @@ public class PostgresCreateTableSqlBuilder {
                         .map(
                                 columns ->
                                         buildColumnCommentSql(
-                                                columns,
-                                                tablePath.getSchemaAndTableName("\""),
-                                                fieldIde))
+                                                columns, tablePath.getSchemaAndTableName("\"")))
                         .collect(Collectors.toList());
 
         if (!commentSqls.isEmpty()) {
@@ -143,15 +139,15 @@ public class PostgresCreateTableSqlBuilder {
         }
     }
 
-    private String buildColumnCommentSql(Column column, String tableName, String fieldIde) {
+    private String buildColumnCommentSql(Column column, String tableName) {
         StringBuilder columnCommentSql = new StringBuilder();
         columnCommentSql
-                .append(CatalogUtils.quoteIdentifier("COMMENT ON COLUMN ", fieldIde))
+                .append(CatalogUtils.quoteIdentifier("COMMENT ON COLUMN ", identifierCase))
                 .append(tableName)
                 .append(".");
         columnCommentSql
-                .append(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "\""))
-                .append(CatalogUtils.quoteIdentifier(" IS '", fieldIde))
+                .append(CatalogUtils.quoteIdentifier(column.getName(), identifierCase, "\""))
+                .append(CatalogUtils.quoteIdentifier(" IS '", identifierCase))
                 .append(column.getComment())
                 .append("'");
         return columnCommentSql.toString();
