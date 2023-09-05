@@ -204,9 +204,9 @@ public class SqlServerCreateTableSqlBuilder {
             SqlType dataType = column.getDataType().getSqlType();
             boolean isBytes = StringUtils.equals(dataType.name(), SqlType.BYTES.name());
             Long columnLength = column.getLongColumnLength();
-            Long bitLen = column.getBitLen();
-            bitLen = bitLen == -1 || bitLen <= 8 ? bitLen : bitLen >> 3;
             if (isBytes) {
+                Long bitLen = column.getBitLen();
+                bitLen = bitLen == -1 || bitLen <= 8 ? bitLen : bitLen >> 3;
                 if (bitLen > 8000 || bitLen == -1) {
                     columnSqls.add(SqlServerType.VARBINARY.getName());
                 } else {
