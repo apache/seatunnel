@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.connectors.cdc.base.utils;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
+import io.debezium.connector.AbstractSourceInfo;
 import io.debezium.data.Envelope;
 import io.debezium.document.DocumentReader;
 import io.debezium.relational.TableId;
@@ -192,5 +194,19 @@ public class SourceRecordUtils {
 
     private static BigDecimal toBigDecimal(Object numericObj) {
         return new BigDecimal(numericObj.toString());
+    }
+
+    public static TablePath getTablePath(SourceRecord record) {
+        Struct messageStruct = (Struct) record.value();
+        Struct sourceStruct = messageStruct.getStruct(Envelope.FieldName.SOURCE);
+        String databaseName = sourceStruct.getString(AbstractSourceInfo.DATABASE_NAME_KEY);
+        String tableName = sourceStruct.getString(AbstractSourceInfo.TABLE_NAME_KEY);
+        String schemaName = null;
+        try {
+            schemaName = sourceStruct.getString(AbstractSourceInfo.SCHEMA_NAME_KEY);
+        } catch (Throwable e) {
+            // ignore
+        }
+        return TablePath.of(databaseName, schemaName, tableName);
     }
 }

@@ -22,8 +22,6 @@ on:
     branches:
       - dev
     paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
       - 'seatunnel-ui/**'
 
 concurrency:

@@ -28,17 +28,12 @@ import org.apache.iotdb.rpc.StatementExecutionException;
 import org.apache.iotdb.session.Session;
 import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class IoTDBSinkClient {
@@ -47,8 +42,6 @@ public class IoTDBSinkClient {
     private final List<IoTDBRecord> batchList;
 
     private Session session;
-    private ScheduledExecutorService scheduler;
-    private ScheduledFuture<?> scheduledFuture;
     private volatile boolean initialize;
     private volatile Exception flushException;
 
@@ -95,26 +88,6 @@ public class IoTDBSinkClient {
                     "Initialize IoTDB client failed.",
                     e);
         }
-
-        if (sinkConfig.getBatchIntervalMs() != null) {
-            scheduler =
-                    Executors.newSingleThreadScheduledExecutor(
-                            new ThreadFactoryBuilder()
-                                    .setNameFormat("IoTDB-sink-output-%s")
-                                    .build());
-            scheduledFuture =
-                    scheduler.scheduleAtFixedRate(
-                            () -> {
-                                try {
-                                    flush();
-                                } catch (IOException e) {
-                                    flushException = e;
-                                }
-                            },
-                            sinkConfig.getBatchIntervalMs(),
-                            sinkConfig.getBatchIntervalMs(),
-                            TimeUnit.MILLISECONDS);
-        }
         initialize = true;
     }
 
@@ -129,11 +102,6 @@ public class IoTDBSinkClient {
     }
 
     public synchronized void close() throws IOException {
-        if (scheduledFuture != null) {
-            scheduledFuture.cancel(false);
-            scheduler.shutdown();
-        }
-
         flush();
 
         try {

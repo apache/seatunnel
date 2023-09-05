@@ -331,7 +331,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         return props;
     }
 
-    @SuppressWarnings("checkstyle:Indentation")
     private void generateTestData(ProducerRecordConverter converter, int start, int end) {
         for (int i = start; i < end; i++) {
             SeaTunnelRow row =

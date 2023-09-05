@@ -36,34 +36,34 @@ semantics (using XA transaction guarantee).
 
 ## Data Type Mapping
 
-|                         PostgreSQL Data type                         |                                                              SeaTunnel Data type                                                               |
-|----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| BOOL<br/>                                                            | BOOLEAN                                                                                                                                        |
-| _BOOL<br/>                                                           | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |
-| BYTEA<br/>                                                           | BYTES                                                                                                                                          |
-| _BYTEA<br/>                                                          | ARRAY&LT;TINYINT&GT;                                                                                                                           |
-| INT2<br/>SMALLSERIAL<br/>INT4<br/>SERIAL<br/>                        | INT                                                                                                                                            |
-| _INT2<br/>_INT4<br/>                                                 | ARRAY&LT;INT&GT;                                                                                                                               |
-| INT8<br/>BIGSERIAL<br/>                                              | BIGINT                                                                                                                                         |
-| _INT8<br/>                                                           | ARRAY&LT;BIGINT&GT;                                                                                                                            |
-| FLOAT4<br/>                                                          | FLOAT                                                                                                                                          |
-| _FLOAT4<br/>                                                         | ARRAY&LT;FLOAT&GT;                                                                                                                             |
-| FLOAT8<br/>                                                          | DOUBLE                                                                                                                                         |
-| _FLOAT8<br/>                                                         | ARRAY&LT;DOUBLE&GT;                                                                                                                            |
-| NUMERIC(Get the designated column's specified column size>0)         | DECIMAL(Get the designated column's specified column size,Gets the number of digits in the specified column to the right of the decimal point) |
-| NUMERIC(Get the designated column's specified column size<0)         | DECIMAL(38, 18)                                                                                                                                |
-| BPCHAR<br/>CHARACTER<br/>VARCHAR<br/>TEXT<br/>GEOMETRY<br/>GEOGRAPHY | STRING                                                                                                                                         |
-| _BPCHAR<br/>_CHARACTER<br/>_VARCHAR<br/>_TEXT                        | ARRAY&LT;STRING&GT;                                                                                                                            |
-| TIMESTAMP<br/>                                                       | TIMESTAMP                                                                                                                                      |
-| TIME<br/>                                                            | TIME                                                                                                                                           |
-| DATE<br/>                                                            | DATE                                                                                                                                           |
-| OTHER DATA TYPES                                                     | NOT SUPPORTED YET                                                                                                                              |
+|                                  PostgreSQL Data type                                   |                                                              SeaTunnel Data type                                                               |
+|-----------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| BOOL<br/>                                                                               | BOOLEAN                                                                                                                                        |
+| _BOOL<br/>                                                                              | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |
+| BYTEA<br/>                                                                              | BYTES                                                                                                                                          |
+| _BYTEA<br/>                                                                             | ARRAY&LT;TINYINT&GT;                                                                                                                           |
+| INT2<br/>SMALLSERIAL<br/>INT4<br/>SERIAL<br/>                                           | INT                                                                                                                                            |
+| _INT2<br/>_INT4<br/>                                                                    | ARRAY&LT;INT&GT;                                                                                                                               |
+| INT8<br/>BIGSERIAL<br/>                                                                 | BIGINT                                                                                                                                         |
+| _INT8<br/>                                                                              | ARRAY&LT;BIGINT&GT;                                                                                                                            |
+| FLOAT4<br/>                                                                             | FLOAT                                                                                                                                          |
+| _FLOAT4<br/>                                                                            | ARRAY&LT;FLOAT&GT;                                                                                                                             |
+| FLOAT8<br/>                                                                             | DOUBLE                                                                                                                                         |
+| _FLOAT8<br/>                                                                            | ARRAY&LT;DOUBLE&GT;                                                                                                                            |
+| NUMERIC(Get the designated column's specified column size>0)                            | DECIMAL(Get the designated column's specified column size,Gets the number of digits in the specified column to the right of the decimal point) |
+| NUMERIC(Get the designated column's specified column size<0)                            | DECIMAL(38, 18)                                                                                                                                |
+| BPCHAR<br/>CHARACTER<br/>VARCHAR<br/>TEXT<br/>GEOMETRY<br/>GEOGRAPHY<br/>JSON<br/>JSONB | STRING                                                                                                                                         |
+| _BPCHAR<br/>_CHARACTER<br/>_VARCHAR<br/>_TEXT                                           | ARRAY&LT;STRING&GT;                                                                                                                            |
+| TIMESTAMP<br/>                                                                          | TIMESTAMP                                                                                                                                      |
+| TIME<br/>                                                                               | TIME                                                                                                                                           |
+| DATE<br/>                                                                               | DATE                                                                                                                                           |
+| OTHER DATA TYPES                                                                        | NOT SUPPORTED YET                                                                                                                              |
 
 ## Options
 
 |                   Name                    |  Type   | Required | Default |                                                                                                                 Description                                                                                                                  |
 |-------------------------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost:5432/test                                                                                                                                                       |
+| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost:5432/test <br/>  if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option                                                   |
 | driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use PostgreSQL the value is `org.postgresql.Driver`.                                                                                                              |
 | user                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                 |
@@ -74,8 +74,7 @@ semantics (using XA transaction guarantee).
 | support_upsert_by_query_primary_key_exist | Boolean | No       | false   | Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupport upsert syntax. **Note**: that this method has low performance |
 | connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                          |
 | max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                        |
-| batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `batch_interval_ms`<br/>, the data will be flushed into the database                                                           |
-| batch_interval_ms                         | Int     | No       | 1000    | For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the database                                                                         |
+| batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                         |
 | is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                            |
 | generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to.                                                                                                                                                                    |
 | xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver, for example, PostgreSQL is `org.postgresql.xa.PGXADataSource`, and<br/>please refer to appendix for other data sources                                                                 |
@@ -126,6 +125,7 @@ transform {
 
 sink {
     jdbc {
+       # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = "org.postgresql.Driver"
         user = root
@@ -144,6 +144,7 @@ sink {
 ```
 sink {
     Jdbc {
+        # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = org.postgresql.Driver
         user = root
@@ -163,6 +164,7 @@ sink {
 ```
 sink {
     jdbc {
+       # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = "org.postgresql.Driver"
     
@@ -185,6 +187,7 @@ sink {
 ```
 sink {
     jdbc {
+        # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = "org.postgresql.Driver"
         user = root

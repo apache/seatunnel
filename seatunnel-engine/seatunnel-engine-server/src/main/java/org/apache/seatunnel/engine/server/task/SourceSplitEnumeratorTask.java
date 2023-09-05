@@ -77,6 +77,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private SeaTunnelSplitEnumeratorContext<SplitT> enumeratorContext;
 
     private Serializer<Serializable> enumeratorStateSerializer;
+    private Serializer<SplitT> splitSerializer;
 
     private int maxReaderSize;
     private Set<Long> unfinishedReaders;
@@ -102,6 +103,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 new SeaTunnelSplitEnumeratorContext<>(
                         this.source.getParallelism(), this, getMetricsContext());
         enumeratorStateSerializer = this.source.getSource().getEnumeratorStateSerializer();
+        splitSerializer = this.source.getSource().getSplitSerializer();
         taskMemberMapping = new ConcurrentHashMap<>();
         taskIDToTaskLocationMapping = new ConcurrentHashMap<>();
         taskIndexToTaskLocationMapping = new ConcurrentHashMap<>();
@@ -134,6 +136,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
+        long startTime = System.currentTimeMillis();
+
         log.debug("split enumer trigger barrier [{}]", barrier);
         if (barrier.prepareClose()) {
             this.prepareCloseTriggered = true;
@@ -164,6 +168,12 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                                                     Collections.singletonList(serialize)))))
                     .join();
         }
+
+        log.debug(
+                "trigger barrier [{}] finished, cost {}ms. taskLocation [{}]",
+                barrier.getId(),
+                System.currentTimeMillis() - startTime,
+                taskLocation);
     }
 
     @Override
@@ -186,12 +196,18 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         log.debug("restoreState split enumerator [{}] finished", actionStateList);
     }
 
+    public Serializer<SplitT> getSplitSerializer() throws ExecutionException, InterruptedException {
+        // Because the splitSerializer is initialized in the init method, it's necessary to wait for
+        // the Enumerator to finish initializing.
+        getEnumerator();
+        return splitSerializer;
+    }
+
     public void addSplitsBack(List<SplitT> splits, int subtaskId)
             throws ExecutionException, InterruptedException {
         getEnumerator().addSplitsBack(splits, subtaskId);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public void receivedReader(TaskLocation readerId, Address memberAddr)
             throws InterruptedException, ExecutionException {
         log.info("received reader register, readerID: " + readerId);
@@ -243,7 +259,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         return taskIndexToTaskLocationMapping.get(taskIndex);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private SourceSplitEnumerator<SplitT, Serializable> getEnumerator()
             throws InterruptedException, ExecutionException {
         // (restoreComplete == null) means that the Task has not yet executed Init, so we need to
@@ -263,7 +278,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private void stateProcess() throws Exception {
         switch (currState) {
             case INIT:
