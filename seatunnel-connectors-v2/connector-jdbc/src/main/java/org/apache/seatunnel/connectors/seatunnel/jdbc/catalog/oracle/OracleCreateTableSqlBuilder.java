@@ -103,11 +103,6 @@ public class OracleCreateTableSqlBuilder {
             columnSql.append(" NOT NULL");
         }
 
-        //        if (column.getDefaultValue() != null) {
-        //            columnSql.append(" DEFAULT
-        // '").append(column.getDefaultValue().toString()).append("'");
-        //        }
-
         return columnSql.toString();
     }
 
@@ -148,7 +143,6 @@ public class OracleCreateTableSqlBuilder {
 
     private String buildPrimaryKeySql(PrimaryKey primaryKey) {
         String randomSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
-        //        String columnNamesString = String.join(", ", primaryKey.getColumnNames());
         String columnNamesString =
                 primaryKey.getColumnNames().stream()
                         .map(columnName -> "\"" + columnName + "\"")

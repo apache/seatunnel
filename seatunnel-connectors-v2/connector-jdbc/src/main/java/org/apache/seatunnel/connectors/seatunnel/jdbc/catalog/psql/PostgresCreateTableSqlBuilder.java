@@ -104,12 +104,6 @@ public class PostgresCreateTableSqlBuilder {
             columnSql.append(" PRIMARY KEY");
         }
 
-        // Add default value if exists
-        //        if (column.getDefaultValue() != null) {
-        //            columnSql.append(" DEFAULT
-        // '").append(column.getDefaultValue().toString()).append("'");
-        //        }
-
         return columnSql.toString();
     }
 
