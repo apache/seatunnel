@@ -221,7 +221,7 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
     public void testKafkaSinkMaxWellFormat(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/maxwellForMatIt/kafkasource_maxwell_to_kafka.conf");
+                container.executeJob("/maxwellFormatIt/kafkasource_maxwell_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         List<String> expectedResult =
                 Arrays.asList(
@@ -260,7 +260,7 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
     public void testMaxWellFormatKafkaCdcToPgsql(TestContainer container)
             throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult =
-                container.executeJob("/maxwellForMatIt/kafkasource_maxwell_cdc_to_pgsql.conf");
+                container.executeJob("/maxwellFormatIt/kafkasource_maxwell_cdc_to_pgsql.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         List<Object> actual = new ArrayList<>();
         try (Connection connection =
