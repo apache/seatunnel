@@ -2,14 +2,16 @@
 
 > IoTDB source connector
 
-## Description
+## Support Those Engines
 
-Read external data source data through IoTDB.
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [column projection](../../concept/connector-v2-features.md)
 
@@ -18,106 +20,53 @@ supports query SQL and can achieve projection effect.
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-## Options
+## Description
 
-|            name            |  type   | required | default value |
-|----------------------------|---------|----------|---------------|
-| host                       | string  | no       | -             |
-| port                       | int     | no       | -             |
-| node_urls                  | string  | no       | -             |
-| username                   | string  | yes      | -             |
-| password                   | string  | yes      | -             |
-| sql                        | string  | yes      | -             |
-| schema                     | config  | yes      | -             |
-| fetch_size                 | int     | no       | -             |
-| lower_bound                | long    | no       | -             |
-| upper_bound                | long    | no       | -             |
-| num_partitions             | int     | no       | -             |
-| thrift_default_buffer_size | int     | no       | -             |
-| enable_cache_leader        | boolean | no       | -             |
-| version                    | string  | no       | -             |
-| common-options             |         | no       | -             |
+Read external data source data through IoTDB.
 
-### single node, you need to set host and port to connect to the remote data source.
+:::tip
 
-**host** [string] the host of the IoTDB when you select host of the IoTDB
+There is a conflict of thrift version between IoTDB and Spark.Therefore, you need to execute `rm -f $SPARK_HOME/jars/libthrift*` and `cp $IOTDB_HOME/lib/libthrift* $SPARK_HOME/jars/` to resolve it.
 
-**port** [int] the port of the IoTDB when you select
+:::
 
-### multi node, you need to set node_urls to connect to the remote data source.
+## Supported DataSource Info
 
-**node_urls** [string] the node_urls of the IoTDB when you select
+| Datasource | Supported Versions |      Url       |
+|------------|--------------------|----------------|
+| IoTDB      | `>= 0.13.0`        | localhost:6667 |
 
-e.g.
+## Data Type Mapping
 
-```text
-127.0.0.1:8080,127.0.0.2:8080
-```
+| IotDB Data type | SeaTunnel Data type |
+|-----------------|---------------------|
+| BOOLEAN         | BOOLEAN             |
+| INT32           | TINYINT             |
+| INT32           | SMALLINT            |
+| INT32           | INT                 |
+| INT64           | BIGINT              |
+| FLOAT           | FLOAT               |
+| DOUBLE          | DOUBLE              |
+| TEXT            | STRING              |
 
-### other parameters
+## Source Options
 
-**sql** [string]
-execute sql statement e.g.
-
-```
-select name,age from test
-```
-
-### schema [config]
-
-#### fields [Config]
-
-The schema of the IoTDB that you want to generate
-
-e.g.
-
-```
-schema {
-    fields {
-        name = string
-        age = int
-    }
-  }
-```
-
-### option parameters
-
-### fetch_size [int]
-
-the fetch_size of the IoTDB when you select
-
-### username [string]
-
-the username of the IoTDB when you select
-
-### password [string]
-
-the password of the IoTDB when you select
-
-### lower_bound [long]
-
-the lower_bound of the IoTDB when you select
-
-### upper_bound [long]
-
-the upper_bound of the IoTDB when you select
-
-### num_partitions [int]
-
-the num_partitions of the IoTDB when you select
-
-### thrift_default_buffer_size [int]
-
-the thrift_default_buffer_size of the IoTDB when you select
-
-### enable_cache_leader [boolean]
-
-enable_cache_leader of the IoTDB when you select
-
-### version [string]
-
-Version represents the SQL semantic version used by the client, which is used to be compatible with the SQL semantics of
-0.12 when upgrading 0.13. The possible values are: V_0_12, V_0_13.
+|            Name            |  Type   | Required | Default Value |                                    Description                                     |
+|----------------------------|---------|----------|---------------|------------------------------------------------------------------------------------|
+| node_urls                  | string  | yes      | -             | `IoTDB` cluster address, the format is `"host1:port"` or `"host1:port,host2:port"` |
+| username                   | string  | yes      | -             | `IoTDB` user username                                                              |
+| password                   | string  | yes      | -             | `IoTDB` user password                                                              |
+| sql                        | string  | yes      | -             | execute sql statement                                                              |
+| schema                     | config  | yes      | -             | the data schema                                                                    |
+| fetch_size                 | int     | no       | -             | the fetch_size of the IoTDB when you select                                        |
+| lower_bound                | long    | no       | -             | the lower_bound of the IoTDB when you select                                       |
+| upper_bound                | long    | no       | -             | the upper_bound of the IoTDB when you select                                       |
+| num_partitions             | int     | no       | -             | the num_partitions of the IoTDB when you select                                    |
+| thrift_default_buffer_size | int     | no       | -             | the thrift_default_buffer_size of the IoTDB when you select                        |
+| thrift_max_frame_size      | int     | no       | -             | the thrift max frame size                                                          |
+| enable_cache_leader        | boolean | no       | -             | enable_cache_leader of the IoTDB when you select                                   |
+| version                    | string  | no       | -             | SQL semantic version used by the client, The possible values are: V_0_12, V_0_13   |
+| common-options             |         | no       | -             |                                                                                    |
 
 ### split partitions
 
@@ -157,37 +106,37 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ## Examples
 
-### Case1
-
-Common options:
-
 ```hocon
+env {
+  execution.parallelism = 2
+  job.mode = "BATCH"
+}
+
 source {
   IoTDB {
     node_urls = "localhost:6667"
     username = "root"
     password = "root"
+    sql = "SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_string, c_boolean FROM root.test_group.* WHERE time < 4102329600000 align by device"
+    schema {
+      fields {
+        ts = timestamp
+        device_name = string
+        temperature = float
+        moisture = bigint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_string = string
+        c_boolean = boolean
+      }
+    }
   }
 }
-```
 
-When you assign `sql`、`fields`、`partition`, for example:
-
-```hocon
 sink {
-  IoTDB {
-    ...
-    sql = "SELECT temperature, moisture FROM root.test_group.* WHERE time < 4102329600000 align by device"
-    lower_bound = 1
-    upper_bound = 4102329600000
-    num_partitions = 10
-    fields {
-      ts = bigint
-      device_name = string
-
-      temperature = float
-      moisture = bigint
-    }
+  Console {
   }
 }
 ```
@@ -195,23 +144,23 @@ sink {
 Upstream `IoTDB` data format is the following:
 
 ```shell
-IoTDB> SELECT temperature, moisture FROM root.test_group.* WHERE time < 4102329600000 align by device;
-+------------------------+------------------------+--------------+-----------+
-|                    Time|                  Device|   temperature|   moisture|
-+------------------------+------------------------+--------------+-----------+
-|2022-09-25T00:00:00.001Z|root.test_group.device_a|          36.1|        100|
-|2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101|
-|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102|
-+------------------------+------------------------+--------------+-----------+
+IoTDB> SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_string, c_boolean FROM root.test_group.* WHERE time < 4102329600000 align by device;
++------------------------+------------------------+--------------+-----------+--------+--------------+----------+---------+---------+----------+
+|                    Time|                  Device|   temperature|   moisture|   c_int|      c_bigint|   c_float| c_double| c_string| c_boolean|
++------------------------+------------------------+--------------+-----------+--------+--------------+----------+---------+---------+----------+
+|2022-09-25T00:00:00.001Z|root.test_group.device_a|          36.1|        100|       1|   21474836470|      1.0f|     1.0d|      abc|      true|
+|2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101|       2|   21474836470|      2.0f|     2.0d|      abc|      true|
+|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102|       3|   21474836470|      3.0f|     3.0d|      abc|      true|
++------------------------+------------------------+--------------+-----------+--------+--------------+----------+---------+---------+----------+
 ```
 
 Loaded to SeaTunnelRow data format is the following:
 
-|      ts       |       device_name        | temperature | moisture |
-|---------------|--------------------------|-------------|----------|
-| 1664035200001 | root.test_group.device_a | 36.1        | 100      |
-| 1664035200001 | root.test_group.device_b | 36.2        | 101      |
-| 1664035200001 | root.test_group.device_c | 36.3        | 102      |
+|      ts       |       device_name        | temperature | moisture | c_int |  c_bigint   | c_float | c_double | c_string | c_boolean |
+|---------------|--------------------------|-------------|----------|-------|-------------|---------|----------|----------|-----------|
+| 1664035200001 | root.test_group.device_a | 36.1        | 100      | 1     | 21474836470 | 1.0f    | 1.0d     | abc      | true      |
+| 1664035200001 | root.test_group.device_b | 36.2        | 101      | 2     | 21474836470 | 2.0f    | 2.0d     | abc      | true      |
+| 1664035200001 | root.test_group.device_c | 36.3        | 102      | 3     | 21474836470 | 3.0f    | 3.0d     | abc      | true      |
 
 ## Changelog
 
