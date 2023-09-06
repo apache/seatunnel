@@ -18,8 +18,8 @@ describes how to set up the Postgres CDC connector to run SQL queries against Po
 
 ## Options
 
-| name                                           | type     | required | default value |
-| ---------------------------------------------- | -------- | -------- | ------------- |
+|                      name                      |   type   | required | default value |
+|------------------------------------------------|----------|----------|---------------|
 | base-url                                       | String   | Yes      | -             |
 | username                                       | String   | Yes      | -             |
 | password                                       | String   | Yes      | -             |
