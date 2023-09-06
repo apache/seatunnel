@@ -24,17 +24,22 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventHandler;
+import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES;
@@ -63,7 +68,8 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     private volatile boolean emptyThisPollNext;
     private final DataTypeChangeEventHandler dataTypeChangeEventHandler =
             new DataTypeChangeEventDispatcher();
-    private SeaTunnelRowType rowType;
+    private Map<String, SeaTunnelRowType> rowTypeMap = new HashMap<>();
+    private SeaTunnelDataType rowType;
     private FlowControlGate flowControlGate;
 
     public SeaTunnelSourceCollector(
@@ -71,10 +77,18 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
             List<OneInputFlowLifeCycle<Record<?>>> outputs,
             MetricsContext metricsContext,
             FlowControlStrategy flowControlStrategy,
-            SeaTunnelRowType rowType) {
+            SeaTunnelDataType rowType) {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
         this.rowType = rowType;
+        if (rowType instanceof MultipleRowType) {
+            ((MultipleRowType) rowType)
+                    .iterator()
+                    .forEachRemaining(
+                            type -> {
+                                this.rowTypeMap.put(type.getKey(), type.getValue());
+                            });
+        }
         sourceReceivedCount = metricsContext.counter(SOURCE_RECEIVED_COUNT);
         sourceReceivedQPS = metricsContext.meter(SOURCE_RECEIVED_QPS);
         sourceReceivedBytes = metricsContext.counter(SOURCE_RECEIVED_BYTES);
@@ -88,7 +102,18 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     public void collect(T row) {
         try {
             if (row instanceof SeaTunnelRow) {
-                int size = ((SeaTunnelRow) row).getBytesSize(rowType);
+                int size;
+                if (rowType instanceof SeaTunnelRowType) {
+                    size = ((SeaTunnelRow) row).getBytesSize((SeaTunnelRowType) rowType);
+                } else if (rowType instanceof MultipleRowType) {
+                    size =
+                            ((SeaTunnelRow) row)
+                                    .getBytesSize(
+                                            rowTypeMap.get(((SeaTunnelRow) row).getTableId()));
+                } else {
+                    throw new SeaTunnelEngineException(
+                            "Unsupported row type: " + rowType.getClass().getName());
+                }
                 sourceReceivedBytes.inc(size);
                 sourceReceivedBytesPerSeconds.markEvent(size);
                 if (flowControlGate != null) {
@@ -107,7 +132,17 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     @Override
     public void collect(SchemaChangeEvent event) {
         try {
-            rowType = dataTypeChangeEventHandler.reset(rowType).apply(event);
+            if (rowType instanceof SeaTunnelRowType) {
+                rowType = dataTypeChangeEventHandler.reset((SeaTunnelRowType) rowType).apply(event);
+            } else if (rowType instanceof MultipleRowType) {
+                String tableId = event.tablePath().toString();
+                rowTypeMap.put(
+                        tableId,
+                        dataTypeChangeEventHandler.reset(rowTypeMap.get(tableId)).apply(event));
+            } else {
+                throw new SeaTunnelEngineException(
+                        "Unsupported row type: " + rowType.getClass().getName());
+            }
             sendRecordToNext(new Record<>(event));
         } catch (IOException e) {
             throw new RuntimeException(e);
