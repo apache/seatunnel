@@ -127,7 +127,7 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                     }
                 }
             }
-            if(filePaths.size() == 0 && fileConnectorException != null) {
+            if (filePaths.size() == 0 && fileConnectorException != null) {
                 String errorMsg =
                         String.format("Get table schema from file [%s] failed", errFilePath);
                 throw new FileConnectorException(
