@@ -29,14 +29,10 @@ import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
 import org.apache.kudu.client.AsyncKuduClient;
 import org.apache.kudu.client.CreateTableOptions;
-import org.apache.kudu.client.Insert;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduScanner;
-import org.apache.kudu.client.KuduSession;
 import org.apache.kudu.client.KuduTable;
-import org.apache.kudu.client.OperationResponse;
-import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
 
@@ -52,11 +48,9 @@ import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.net.Inet4Address;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
@@ -88,8 +82,6 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final String TOXIPROXY_IMAGE = "ghcr.io/shopify/toxiproxy:2.4.0";
     private static final String TOXIPROXY_NETWORK_ALIAS = "toxiproxy";
     private ToxiproxyContainer toxiProxy;
-
-    private String KUDU_SOURCE_TABLE = "kudu_source_table";
     private String KUDU_SINK_TABLE = "kudu_sink_table";
 
     @BeforeAll
@@ -113,9 +105,6 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
                         .withNetwork(NETWORK)
                         .withNetworkAliases(TOXIPROXY_NETWORK_ALIAS);
         toxiProxy.start();
-
-        this.master.setPortBindings(
-                Lists.newArrayList(format("%s:%s", KUDU_MASTER_PORT, KUDU_MASTER_PORT)));
 
         String instanceName = "kudu-tserver";
 
@@ -141,8 +130,6 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)));
 
-        this.master.setPortBindings(
-                Lists.newArrayList(format("%s:%s", KUDU_TSERVER_PORT, KUDU_TSERVER_PORT)));
         Startables.deepStart(Stream.of(master)).join();
         Startables.deepStart(Stream.of(tServers)).join();
 
@@ -154,32 +141,6 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(this::getKuduClient);
 
         this.initializeKuduTable();
-        // this.batchInsertData();
-    }
-
-    private void batchInsertData() throws KuduException {
-        KuduTable table = kuduClient.openTable(KUDU_SOURCE_TABLE);
-        KuduSession kuduSession = kuduClient.newSession();
-        for (int i = 0; i < 100; i++) {
-            Insert insert = table.newInsert();
-            PartialRow row = insert.getRow();
-            row.addObject("id", i);
-            row.addObject("val_bool", true);
-            row.addObject("val_int8", (byte) 1);
-            row.addObject("val_int16", (short) 300);
-            row.addObject("val_int32", 30000);
-            row.addObject("val_int64", 30000000L);
-            row.addObject("val_float", 1.0f);
-            row.addObject("val_double", 2.0d);
-            row.addObject("val_decimal", new BigDecimal("1.1212"));
-            row.addObject("val_string", "test");
-            row.addObject("val_unixtime_micros", new java.sql.Timestamp(1693477266998L));
-            row.addObject("val_binary", "NEW".getBytes());
-            OperationResponse response = kuduSession.apply(insert);
-            if (response != null) {
-                System.out.println(response.getRowError());
-            }
-        }
     }
 
     private void initializeKuduTable() throws KuduException {
@@ -229,10 +190,6 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
                 new ColumnSchema.ColumnSchemaBuilder("val_unixtime_micros", Type.UNIXTIME_MICROS)
                         .nullable(true)
                         .build());
-        //  columns.add(
-        //          new ColumnSchema.ColumnSchemaBuilder("val_binary", Type.BINARY)
-        //                  .nullable(true)
-        //                  .build());
 
         Schema schema = new Schema(columns);
 
@@ -242,7 +199,6 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
         tableOptions.addHashPartitions(hashKeys, 2);
         tableOptions.setNumReplicas(1);
 
-        //  kuduClient.createTable(KUDU_SOURCE_TABLE, schema, tableOptions);
         kuduClient.createTable(KUDU_SINK_TABLE, schema, tableOptions);
     }
 
@@ -285,7 +241,19 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
     }
 
     @Override
-    public void tearDown() throws Exception {}
+    public void tearDown() throws Exception {
+        if (kuduClient != null) {
+            kuduClient.close();
+        }
+
+        if (master != null) {
+            master.close();
+        }
+
+        if (tServers != null) {
+            tServers.close();
+        }
+    }
 
     private static String getHostIPAddress() {
         try {

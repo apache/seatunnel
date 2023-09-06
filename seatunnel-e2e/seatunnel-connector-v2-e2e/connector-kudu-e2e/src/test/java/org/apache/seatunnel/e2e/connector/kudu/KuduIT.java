@@ -51,7 +51,6 @@ import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -112,9 +111,6 @@ public class KuduIT extends TestSuiteBase implements TestResource {
                         .withNetworkAliases(TOXIPROXY_NETWORK_ALIAS);
         toxiProxy.start();
 
-        this.master.setPortBindings(
-                Lists.newArrayList(format("%s:%s", KUDU_MASTER_PORT, KUDU_MASTER_PORT)));
-
         String instanceName = "kudu-tserver";
 
         ToxiproxyContainer.ContainerProxy proxy =
@@ -139,8 +135,6 @@ public class KuduIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)));
 
-        this.master.setPortBindings(
-                Lists.newArrayList(format("%s:%s", KUDU_TSERVER_PORT, KUDU_TSERVER_PORT)));
         Startables.deepStart(Stream.of(master)).join();
         Startables.deepStart(Stream.of(tServers)).join();
 
@@ -150,9 +144,6 @@ public class KuduIT extends TestSuiteBase implements TestResource {
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::getKuduClient);
-
-        this.initializeKuduTable();
-        this.batchInsertData();
     }
 
     private void batchInsertData() throws KuduException {
@@ -236,7 +227,6 @@ public class KuduIT extends TestSuiteBase implements TestResource {
 
         tableOptions.addHashPartitions(hashKeys, 2);
         tableOptions.setNumReplicas(1);
-
         kuduClient.createTable(KUDU_SOURCE_TABLE, schema, tableOptions);
         kuduClient.createTable(KUDU_SINK_TABLE, schema, tableOptions);
     }
@@ -254,6 +244,8 @@ public class KuduIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testKudu(TestContainer container) throws IOException, InterruptedException {
+        initializeKuduTable();
+        batchInsertData();
         Container.ExecResult execResult = container.executeJob("/kudu_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
@@ -263,6 +255,8 @@ public class KuduIT extends TestSuiteBase implements TestResource {
                             Assertions.assertIterableEquals(
                                     readData(KUDU_SINK_TABLE), readData(KUDU_SOURCE_TABLE));
                         });
+        kuduClient.deleteTable(KUDU_SOURCE_TABLE);
+        kuduClient.deleteTable(KUDU_SINK_TABLE);
     }
 
     public List<String> readData(String tableName) throws KuduException {
