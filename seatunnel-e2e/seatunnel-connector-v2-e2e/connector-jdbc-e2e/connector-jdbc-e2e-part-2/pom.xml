@@ -55,5 +55,11 @@
             <artifactId>ngdbc</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.oceanbase</groupId>
+            <artifactId>oceanbase-client</artifactId>
+            <version>2.4.3</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
