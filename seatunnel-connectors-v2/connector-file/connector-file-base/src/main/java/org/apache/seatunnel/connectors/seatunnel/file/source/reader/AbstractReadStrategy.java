@@ -153,7 +153,6 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         }
         if (this.fileNames.isEmpty()) {
             log.error("The current directory is empty " + path);
-            this.fileNames.add(path);
         }
         return fileNames;
     }
@@ -189,10 +188,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     protected Map<String, String> parsePartitionsByPath(String path) {
         LinkedHashMap<String, String> partitions = new LinkedHashMap<>();
-        Arrays.stream(path.split("/", -1))
-                .filter(split -> split.contains("="))
-                .map(split -> split.split("=", -1))
-                .forEach(kv -> partitions.put(kv[0], kv[1]));
+        if (path != null && !path.isEmpty()) {
+            Arrays.stream(path.split("/", -1))
+                    .filter(split -> split.contains("="))
+                    .map(split -> split.split("=", -1))
+                    .forEach(kv -> partitions.put(kv[0], kv[1]));
+        }
         return partitions;
     }
 
