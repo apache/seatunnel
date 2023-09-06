@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.transform.sql.zeta;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -28,6 +31,7 @@ import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.SystemFunction;
 
+import net.sf.jsqlparser.expression.ArrayExpression;
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.CastExpression;
 import net.sf.jsqlparser.expression.DoubleValue;
@@ -47,11 +51,15 @@ import net.sf.jsqlparser.expression.operators.arithmetic.Multiplication;
 import net.sf.jsqlparser.expression.operators.arithmetic.Subtraction;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.schema.Column;
+import net.sf.jsqlparser.schema.Table;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class ZetaSQLFunction {
     // ============================internal functions=====================
@@ -192,8 +200,70 @@ public class ZetaSQLFunction {
             return ((StringValue) expression).getValue();
         }
         if (expression instanceof Column) {
-            int idx = inputRowType.indexOf(((Column) expression).getColumnName());
-            return inputFields[idx];
+            Column column = (Column) expression;
+            String columnName = column.getColumnName();
+            Table table = column.getTable();
+            if (null == table) {
+                int index = inputRowType.indexOf(column.getColumnName());
+                return inputFields[index];
+            } else {
+                List<String> keys =
+                        Arrays.stream(table.getFullyQualifiedName().split("\\."))
+                                .collect(Collectors.toList());
+                keys.add(columnName);
+
+                int currentIndex = inputRowType.indexOf(keys.get(0));
+                SeaTunnelDataType<?> currentDataType = inputRowType.getFieldType(currentIndex);
+                Object currentFieldData = inputFields[currentIndex];
+                SeaTunnelRowType currentRowType;
+
+                for (int i = 1; i < keys.size(); i++) {
+                    if (currentDataType instanceof SeaTunnelRowType) {
+                        currentRowType = (SeaTunnelRowType) currentDataType;
+                        currentIndex = currentRowType.indexOf(keys.get(i));
+                        currentDataType = currentRowType.getFieldType(currentIndex);
+                        SeaTunnelRow row = (SeaTunnelRow) currentFieldData;
+                        if (i == keys.size() - 1) {
+                            return row.getField(currentIndex);
+                        }
+                        currentFieldData = row.getField(currentIndex);
+                    } else {
+                        throw new TransformException(
+                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                String.format("The column is not row type: %s ", keys.get(i - 1)));
+                    }
+                }
+            }
+        }
+        if (expression instanceof ArrayExpression) {
+            ArrayExpression arrayExpression = (ArrayExpression) expression;
+            Expression indexExpression = arrayExpression.getIndexExpression();
+            Expression objExpression = arrayExpression.getObjExpression();
+            String objectName = objExpression.toString();
+
+            int fieldIndex = inputRowType.indexOf(objectName);
+            SeaTunnelDataType<?> type = inputRowType.getFieldType(fieldIndex);
+            Object fieldData = inputFields[fieldIndex];
+            if (indexExpression instanceof StringValue) {
+                if (type instanceof MapType) {
+                    String key = ((StringValue) indexExpression).getValue();
+                    return ((Map<?, ?>) fieldData).get(key);
+                } else {
+                    throw new TransformException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            String.format("The column is not map type: %s ", objectName));
+                }
+            }
+            if (indexExpression instanceof LongValue) {
+                if (type instanceof ArrayType) {
+                    long index = ((LongValue) indexExpression).getValue();
+                    return ((Object[]) fieldData)[(int) index];
+                } else {
+                    throw new TransformException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            String.format("The column is not array type: %s ", objectName));
+                }
+            }
         }
         if (expression instanceof Function) {
             Function function = (Function) expression;

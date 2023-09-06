@@ -17,15 +17,18 @@
 
 package org.apache.seatunnel.transform.sql.zeta;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
 
+import net.sf.jsqlparser.expression.ArrayExpression;
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.CastExpression;
 import net.sf.jsqlparser.expression.DoubleValue;
@@ -40,9 +43,12 @@ import net.sf.jsqlparser.expression.TimeKeyExpression;
 import net.sf.jsqlparser.expression.operators.arithmetic.Concat;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.schema.Column;
+import net.sf.jsqlparser.schema.Table;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ZetaSQLType {
     public static final String DECIMAL = "DECIMAL";
@@ -87,8 +93,61 @@ public class ZetaSQLType {
             return BasicType.STRING_TYPE;
         }
         if (expression instanceof Column) {
-            String columnName = ((Column) expression).getColumnName();
-            return inputRowType.getFieldType(inputRowType.indexOf(columnName));
+            Column column = (Column) expression;
+            String columnName = column.getColumnName();
+            Table table = column.getTable();
+            if (null == table) {
+                return inputRowType.getFieldType(inputRowType.indexOf(columnName));
+            } else {
+                List<String> keys =
+                        Arrays.stream(table.getFullyQualifiedName().split("\\."))
+                                .collect(Collectors.toList());
+                keys.add(columnName);
+
+                int currentIndex = inputRowType.indexOf(keys.get(0));
+                SeaTunnelDataType<?> currentDataType = inputRowType.getFieldType(currentIndex);
+                SeaTunnelRowType currentRowType;
+
+                for (int i = 1; i < keys.size(); i++) {
+                    if (currentDataType instanceof SeaTunnelRowType) {
+                        currentRowType = (SeaTunnelRowType) currentDataType;
+                        currentIndex = currentRowType.indexOf(keys.get(i));
+                        if (i == keys.size() - 1) {
+                            return currentRowType.getFieldType(currentIndex);
+                        }
+                        currentDataType = currentRowType.getFieldType(currentIndex);
+                    } else {
+                        throw new TransformException(
+                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                String.format("The column is not row type: %s ", keys.get(i - 1)));
+                    }
+                }
+            }
+        }
+        if (expression instanceof ArrayExpression) {
+            ArrayExpression arrayExpression = (ArrayExpression) expression;
+            Expression indexExpression = arrayExpression.getIndexExpression();
+            Expression objExpression = arrayExpression.getObjExpression();
+            String objectName = objExpression.toString();
+            SeaTunnelDataType<?> type = inputRowType.getFieldType(inputRowType.indexOf(objectName));
+            if (indexExpression instanceof StringValue) {
+                if (type instanceof MapType) {
+                    return ((MapType<?, ?>) type).getValueType();
+                } else {
+                    throw new TransformException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            String.format("The column is not map type: %s ", objectName));
+                }
+            }
+            if (indexExpression instanceof LongValue) {
+                if (type instanceof ArrayType) {
+                    return ((ArrayType<?, ?>) type).getElementType();
+                } else {
+                    throw new TransformException(
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            String.format("The column is not array type: %s ", objectName));
+                }
+            }
         }
         if (expression instanceof Function) {
             return getFunctionType((Function) expression);
