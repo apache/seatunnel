@@ -371,9 +371,6 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                     }
                 }
             }
-            if (splitColumn != null) {
-                return splitColumn;
-            }
         }
 
         List<ConstraintKey> uniqueKeys = dialect.getUniqueKeys(jdbc, tableId);
@@ -392,9 +389,9 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                     }
                 }
             }
-            if (splitColumn != null) {
-                return splitColumn;
-            }
+        }
+        if (splitColumn != null) {
+            return splitColumn;
         }
 
         throw new UnsupportedOperationException(

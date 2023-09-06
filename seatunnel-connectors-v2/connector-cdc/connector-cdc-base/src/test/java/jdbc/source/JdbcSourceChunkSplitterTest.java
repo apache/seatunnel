@@ -17,6 +17,7 @@
 
 package jdbc.source;
 
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -42,6 +43,7 @@ import io.debezium.relational.history.TableChanges;
 
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -232,6 +234,12 @@ public class JdbcSourceChunkSplitterTest {
                                     "decimal",
                                     "tinyint_col",
                                     "bigint_col")));
+        }
+
+        @Override
+        public List<ConstraintKey> getUniqueKeys(JdbcConnection jdbcConnection, TableId tableId)
+                throws SQLException {
+            return new ArrayList<ConstraintKey>();
         }
     }
 }
