@@ -15,10 +15,11 @@
 ### Connectors
 - [Elasticsearch] Support https protocol & compatible with opensearch
 - [Hbase] Add hbase sink connector #4049
+- [Clickhouse] Fix clickhouse old version compatibility #5326
 ### Formats
 - [Canal]Support read canal format message #3950
 - [Debezium]Support debezium canal format message #3981
-
+ 
 ### Connector-V2
 
 - [Json-format] [Canal-Json] Fix json deserialize NPE (#4195)
@@ -81,6 +82,7 @@
 - [E2E] [Kafka] Fix kafka e2e testcase (#4520)
 - [Container Version] Fix risk of unreproducible test cases #4591
 - [E2e] [Mysql-cdc] Removing the excess MySqlIncrementalSourceIT e2e reduces the CI time (#4738)
+- [E2E] [Common] Update test container version of seatunnel engine (#5323)
 
 ## Improve
 
@@ -115,6 +117,7 @@
 ### CI
 
 - [CI] Fix error repository name in ci config files (#4795)
+- [CI][E2E][Zeta] Increase Zeta checkpoint timeout to avoid connector-file-sftp-e2e failed frequently (#5339)
 
 ### Zeta(ST-Engine)
 
@@ -176,7 +179,7 @@
 - [Zeta] Add OSS support for Imap storage to cluster-mode type (#4683)
 - [Zeta] Improve local mode startup request ports (#4660)
 
-## Docs
+## Docs 
 
 - [Docs] Optimizes part of the Doris and SelectDB connector documentation (#4365)
 - [Docs] Fix docs code style (#4368)
@@ -192,3 +195,4 @@
 - [Docs] Redshift add defaultRowFetchSize (#4616)
 - [Docs] Refactor connector-v2 docs using unified format Mysql (#4590)
 - [Docs] Add Value types in Java to Schema features (#5087)
+- [Docs] Replace username by user in the options of FtpFile (#5421)

@@ -50,10 +50,14 @@ public class MySqlTypeUtils {
     private static final String MYSQL_BIGINT_UNSIGNED = "BIGINT UNSIGNED";
     private static final String MYSQL_DECIMAL = "DECIMAL";
     private static final String MYSQL_DECIMAL_UNSIGNED = "DECIMAL UNSIGNED";
+    private static final String MYSQL_NUMERIC = "NUMERIC";
+    private static final String MYSQL_NUMERIC_UNSIGNED = "NUMERIC UNSIGNED";
     private static final String MYSQL_FLOAT = "FLOAT";
     private static final String MYSQL_FLOAT_UNSIGNED = "FLOAT UNSIGNED";
     private static final String MYSQL_DOUBLE = "DOUBLE";
     private static final String MYSQL_DOUBLE_UNSIGNED = "DOUBLE UNSIGNED";
+    private static final String MYSQL_REAL = "REAL";
+    private static final String MYSQL_REAL_UNSIGNED = "REAL UNSIGNED";
 
     // -------------------------string----------------------------
     private static final String MYSQL_CHAR = "CHAR";
@@ -63,6 +67,7 @@ public class MySqlTypeUtils {
     private static final String MYSQL_TEXT = "TEXT";
     private static final String MYSQL_LONGTEXT = "LONGTEXT";
     private static final String MYSQL_JSON = "JSON";
+    private static final String MYSQL_ENUM = "ENUM";
 
     // ------------------------------time-------------------------
     private static final String MYSQL_DATE = "DATE";
@@ -80,7 +85,6 @@ public class MySqlTypeUtils {
     private static final String MYSQL_VARBINARY = "VARBINARY";
     private static final String MYSQL_GEOMETRY = "GEOMETRY";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static SeaTunnelDataType<?> convertFromColumn(Column column) {
         String typeName = column.typeName();
         switch (typeName) {
@@ -90,6 +94,7 @@ public class MySqlTypeUtils {
                 return column.length() == 1 ? BasicType.BOOLEAN_TYPE : BasicType.INT_TYPE;
             case MYSQL_TINYINT_UNSIGNED:
             case MYSQL_SMALLINT:
+                return BasicType.SHORT_TYPE;
             case MYSQL_SMALLINT_UNSIGNED:
             case MYSQL_MEDIUMINT:
             case MYSQL_MEDIUMINT_UNSIGNED:
@@ -104,6 +109,9 @@ public class MySqlTypeUtils {
             case MYSQL_BIGINT_UNSIGNED:
                 return new DecimalType(20, 0);
             case MYSQL_DECIMAL:
+            case MYSQL_DECIMAL_UNSIGNED:
+            case MYSQL_NUMERIC:
+            case MYSQL_NUMERIC_UNSIGNED:
                 return new DecimalType(column.length(), column.scale().orElse(0));
             case MYSQL_FLOAT:
                 return BasicType.FLOAT_TYPE;
@@ -111,8 +119,10 @@ public class MySqlTypeUtils {
                 log.warn("{} will probably cause value overflow.", MYSQL_FLOAT_UNSIGNED);
                 return BasicType.FLOAT_TYPE;
             case MYSQL_DOUBLE:
+            case MYSQL_REAL:
                 return BasicType.DOUBLE_TYPE;
             case MYSQL_DOUBLE_UNSIGNED:
+            case MYSQL_REAL_UNSIGNED:
                 log.warn("{} will probably cause value overflow.", MYSQL_DOUBLE_UNSIGNED);
                 return BasicType.DOUBLE_TYPE;
             case MYSQL_CHAR:
@@ -121,6 +131,7 @@ public class MySqlTypeUtils {
             case MYSQL_TEXT:
             case MYSQL_VARCHAR:
             case MYSQL_JSON:
+            case MYSQL_ENUM:
                 return BasicType.STRING_TYPE;
             case MYSQL_LONGTEXT:
                 log.warn(

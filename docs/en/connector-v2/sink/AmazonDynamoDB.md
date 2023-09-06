@@ -20,7 +20,6 @@ Write data to Amazon DynamoDB
 | secret_access_key | string | yes      | -             |
 | table             | string | yes      | -             |
 | batch_size        | string | no       | 25            |
-| batch_interval_ms | string | no       | 1000          |
 | common-options    |        | no       | -             |
 
 ### url [string]
