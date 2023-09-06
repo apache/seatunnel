@@ -34,10 +34,19 @@ public class KuduSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        KuduSinkConfig.KUDU_MASTER,
-                        KuduSinkConfig.KUDU_SAVE_MODE,
-                        KuduSinkConfig.KUDU_TABLE_NAME)
+                .required(KuduSinkConfig.MASTER, KuduSinkConfig.TABLE_NAME)
+                .optional(KuduSinkConfig.WORKER_COUNT)
+                .optional(KuduSinkConfig.OPERATION_TIMEOUT)
+                .optional(KuduSinkConfig.ADMIN_OPERATION_TIMEOUT)
+                .optional(KuduSinkConfig.SAVE_MODE)
+                .optional(KuduSinkConfig.FLUSH_MODE)
+                .optional(KuduSinkConfig.MUTATION_BUFFER_SPACE)
+                .optional(KuduSinkConfig.BATCH_SIZE)
+                .optional(KuduSinkConfig.BUFFER_FLUSH_INTERVAL)
+                .optional(KuduSinkConfig.IGNORE_NOT_FOUND)
+                .optional(KuduSinkConfig.IGNORE_DUPLICATE)
+                .optional(KuduSinkConfig.KERBEROS_KRB5_CONF)
+                .bundled(KuduSinkConfig.KERBEROS_PRINCIPAL, KuduSinkConfig.KERBEROS_KEYTAB)
                 .build();
     }
 }

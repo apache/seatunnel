@@ -15,24 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kudu.source;
+package org.apache.seatunnel.connectors.seatunnel.kudu.state;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import java.io.Serializable;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-
-@Data
-@AllArgsConstructor
-public class KuduSourceSplit implements SourceSplit {
-
-    private static final long serialVersionUID = -1L;
-    public final Integer splitId;
-
-    private final byte[] token;
-
-    @Override
-    public String splitId() {
-        return splitId.toString();
-    }
-}
+public class KuduSinkState implements Serializable {}

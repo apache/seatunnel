@@ -15,24 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kudu.source;
+package org.apache.seatunnel.connectors.seatunnel.kudu.serialize;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.kudu.client.Operation;
 
-@Data
-@AllArgsConstructor
-public class KuduSourceSplit implements SourceSplit {
+public interface SeaTunnelRowSerializer {
 
-    private static final long serialVersionUID = -1L;
-    public final Integer splitId;
-
-    private final byte[] token;
-
-    @Override
-    public String splitId() {
-        return splitId.toString();
-    }
+    Operation serializeRow(SeaTunnelRow row);
 }
