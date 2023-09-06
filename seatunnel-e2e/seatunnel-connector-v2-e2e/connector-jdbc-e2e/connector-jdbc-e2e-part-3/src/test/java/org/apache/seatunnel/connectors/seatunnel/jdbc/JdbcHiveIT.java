@@ -52,7 +52,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
     private static final String DRIVER_CLASS = "org.apache.hive.jdbc.HiveDriver";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_HIVE_source_and_sink.conf");
+            Lists.newArrayList("/jdbc_hive_source_and_sink.conf");
     private static final String CREATE_SQL =
             "CREATE TABLE hive_e2e_source_table"
                     + "("
