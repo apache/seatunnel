@@ -19,6 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSourceState;
+import org.apache.seatunnel.connectors.seatunnel.kudu.utils.KuduColumn;
+
+import org.apache.kudu.Type;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -29,17 +32,12 @@ import java.util.stream.Collectors;
 public class KuduSourceSplitEnumerator
         implements SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> {
 
-    private final SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext;
-    private PartitionParameter partitionParameter;
+    private final Context<KuduSourceSplit> enumeratorContext;
+    private final PartitionParameter partitionParameter;
     List<KuduSourceSplit> allSplit = new ArrayList<>();
-    private Long maxVal;
-    private Long minVal;
-    private Long batchSize;
-    private Integer batchNum;
 
     public KuduSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext,
-            PartitionParameter partitionParameter) {
+            Context<KuduSourceSplit> enumeratorContext, PartitionParameter partitionParameter) {
         this.enumeratorContext = enumeratorContext;
         this.partitionParameter = partitionParameter;
     }
@@ -71,8 +69,8 @@ public class KuduSourceSplitEnumerator
             if (null != partitionParameter) {
                 Serializable[][] parameterValues =
                         getParameterValues(
-                                partitionParameter.minValue,
-                                partitionParameter.maxValue,
+                                partitionParameter.rangeValue,
+                                partitionParameter.getPartitionColumnType(),
                                 parallelism);
                 for (int i = 0; i < parameterValues.length; i++) {
                     allSplit.add(new KuduSourceSplit(parameterValues[i], i));
@@ -90,32 +88,26 @@ public class KuduSourceSplitEnumerator
         enumeratorContext.signalNoMoreSplits(subtaskId);
     }
 
-    private Serializable[][] getParameterValues(Long minVal, Long maxVal, int parallelism) {
-        this.maxVal = maxVal;
-        this.minVal = minVal;
-        long maxElemCount = (maxVal - minVal) + 1;
-        batchNum = parallelism;
-        getBatchSizeAndBatchNum(parallelism);
-        long bigBatchNum = maxElemCount - (batchSize - 1) * batchNum;
-
+    private Serializable[][] getParameterValues(
+            ArrayList<Object> rangeValue, Type type, int parallelism) {
+        int bucketNum = rangeValue.size() - 1;
+        int batchNum = Math.min(parallelism, bucketNum);
         Serializable[][] parameters = new Serializable[batchNum][2];
-        long start = minVal;
-        for (int i = 0; i < batchNum; i++) {
-            long end = start + batchSize - 1 - (i >= bigBatchNum ? 1 : 0);
-            parameters[i] = new Long[] {start, end};
-            start = end + 1;
+        int intervalNum = bucketNum / batchNum;
+        int remainNum = bucketNum % batchNum;
+        Object start = rangeValue.get(0);
+        int index = 0;
+        for (int i = 0; i < bucketNum; ) {
+            if (remainNum > 0) {
+                i += 1;
+                remainNum -= 1;
+            }
+            i = i + intervalNum;
+            Object end = rangeValue.get(i);
+            parameters[index++] = KuduColumn.getSerializable(type, start, end);
+            start = end;
         }
         return parameters;
-    }
-
-    private void getBatchSizeAndBatchNum(int parallelism) {
-        batchNum = parallelism;
-        long maxElemCount = (maxVal - minVal) + 1;
-        if (batchNum > maxElemCount) {
-            batchNum = (int) maxElemCount;
-        }
-        this.batchNum = batchNum;
-        this.batchSize = new Double(Math.ceil((double) maxElemCount / batchNum)).longValue();
     }
 
     @Override

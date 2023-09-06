@@ -160,7 +160,7 @@ public class KuduInputFormat implements Serializable {
      * @param upperBound End of each slice
      * @return Get the kuduScanner object for each slice
      */
-    public KuduScanner getKuduBuildSplit(int lowerBound, int upperBound) {
+    public KuduScanner getKuduBuildSplit(Object lowerBound, Object upperBound) {
         KuduScanner kuduScanner = null;
         try {
             KuduScanner.KuduScannerBuilder kuduScannerBuilder =

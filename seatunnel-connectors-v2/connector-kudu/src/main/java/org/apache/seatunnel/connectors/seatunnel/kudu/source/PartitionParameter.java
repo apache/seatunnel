@@ -17,16 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
+import org.apache.kudu.Type;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 
 @Data
 @AllArgsConstructor
 public class PartitionParameter implements Serializable {
 
     String partitionColumnName;
-    Long minValue;
-    Long maxValue;
+    Type partitionColumnType;
+    ArrayList<Object> rangeValue;
 }

@@ -38,14 +38,14 @@ import java.util.List;
 @Slf4j
 public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSplit> {
 
-    private final SourceReader.Context context;
+    private final Context context;
 
     private final KuduInputFormat kuduInputFormat;
     Deque<KuduSourceSplit> splits = new LinkedList<>();
 
     boolean noMoreSplit;
 
-    public KuduSourceReader(KuduInputFormat kuduInputFormat, SourceReader.Context context) {
+    public KuduSourceReader(KuduInputFormat kuduInputFormat, Context context) {
         this.context = context;
         this.kuduInputFormat = kuduInputFormat;
     }
@@ -64,8 +64,8 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         KuduSourceSplit split = splits.poll();
         Object[] parameterValues = split.parameterValues;
-        int lowerBound = Integer.parseInt(parameterValues[0].toString());
-        int upperBound = Integer.parseInt(parameterValues[1].toString());
+        Object lowerBound = parameterValues[0];
+        Object upperBound = parameterValues[1];
         List<ColumnSchema> columnSchemaList = kuduInputFormat.getColumnsSchemas();
         KuduScanner kuduScanner = kuduInputFormat.getKuduBuildSplit(lowerBound, upperBound);
         //

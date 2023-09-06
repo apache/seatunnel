@@ -41,11 +41,14 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSourceState;
+import org.apache.seatunnel.connectors.seatunnel.kudu.utils.KuduColumn;
 
 import org.apache.kudu.ColumnSchema;
+import org.apache.kudu.Type;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduScanner;
+import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
 
@@ -123,8 +126,8 @@ public class KuduSource
                         KuduSourceConfig.COLUMNS_LIST.key());
         if (checkResult.isSuccess()) {
             kudumaster = config.getString(KuduSourceConfig.KUDU_MASTER.key());
-            tableName = config.getString(KuduSourceConfig.TABLE_NAME.key());
             columnslist = config.getString(KuduSourceConfig.COLUMNS_LIST.key());
+            tableName = config.getString(KuduSourceConfig.TABLE_NAME.key());
             kuduInputFormat = new KuduInputFormat(kudumaster, tableName, columnslist);
         } else {
             throw new KuduConnectorException(
@@ -150,50 +153,82 @@ public class KuduSource
     }
 
     private PartitionParameter initPartitionParameter(KuduClient kuduClient, String tableName) {
-        String keyColumn = null;
-        int maxKey = 0;
-        int minKey = 0;
-        boolean flag = true;
+        String keyColName = null;
+        Type keyColType = null;
+        KuduTableRowsSplit kuduTableRowsSplit = null;
         try {
+            KuduTable kuduTable = kuduClient.openTable(tableName);
             KuduScanner.KuduScannerBuilder kuduScannerBuilder =
-                    kuduClient.newScannerBuilder(kuduClient.openTable(tableName));
+                    kuduClient.newScannerBuilder(kuduTable);
             ArrayList<String> columnsList = new ArrayList<String>();
-            keyColumn =
-                    kuduClient
-                            .openTable(tableName)
-                            .getSchema()
-                            .getPrimaryKeyColumns()
-                            .get(0)
-                            .getName();
-            columnsList.add("" + keyColumn);
+            ColumnSchema keyColumn = kuduTable.getSchema().getPrimaryKeyColumns().get(0);
+            keyColName = keyColumn.getName();
+            keyColType = keyColumn.getType();
+            columnsList.add("" + keyColName);
             kuduScannerBuilder.setProjectedColumnNames(columnsList);
             KuduScanner kuduScanner = kuduScannerBuilder.build();
+            kuduTableRowsSplit =
+                    new KuduTableRowsSplit(KuduSourceConfig.MAX_BUCKET_NUM, keyColType);
             while (kuduScanner.hasMoreRows()) {
                 RowResultIterator rowResults = kuduScanner.nextRows();
+                int numRows = rowResults.getNumRows();
+                int bucketCapacity = KuduSourceConfig.INIT_BUCKET_CAPACITY;
+                while (numRows > KuduSourceConfig.MAX_BUCKET_NUM * bucketCapacity) {
+                    bucketCapacity *= 2;
+                }
+                KuduScannerRowsSplit kuduScannerRowsSplit =
+                        new KuduScannerRowsSplit(
+                                KuduSourceConfig.MAX_BUCKET_NUM, bucketCapacity, keyColType);
+                int count = 1;
+                Object minKeyColValue = null;
+                Object maxKeyColValue = null;
                 while (rowResults.hasNext()) {
                     RowResult row = rowResults.next();
-                    int id = row.getInt("" + keyColumn);
-                    if (flag) {
-                        maxKey = id;
-                        minKey = id;
-                        flag = false;
+                    Object value = row.getObject(keyColName);
+                    int nowBucketCapacity = kuduScannerRowsSplit.getBucketCapacity();
+                    // The value is taken every bucketCapacity
+                    if (count % nowBucketCapacity == 0) {
+                        kuduScannerRowsSplit.add(value);
+                    }
+                    if (minKeyColValue == null) {
+                        maxKeyColValue = minKeyColValue = value;
                     } else {
-                        if (id >= maxKey) {
-                            maxKey = id;
-                        }
-                        if (id <= minKey) {
-                            minKey = id;
+                        if (KuduColumn.KeyColCompare(minKeyColValue, value, keyColType) > 0) {
+                            minKeyColValue = value;
+                        } else if (KuduColumn.KeyColCompare(maxKeyColValue, value, keyColType)
+                                < 0) {
+                            maxKeyColValue = value;
                         }
                     }
+                    count++;
                 }
+                if (numRows > 0) {
+                    if (KuduColumn.KeyColCompare(minKeyColValue, maxKeyColValue, keyColType) == 0) {
+                        maxKeyColValue = KuduColumn.addValue(keyColType, maxKeyColValue);
+                        kuduScannerRowsSplit.addBucketCapacity(numRows - bucketCapacity);
+                    }
+                    if (kuduScannerRowsSplit.getSize() == 0
+                            || KuduColumn.KeyColCompare(
+                                            minKeyColValue,
+                                            kuduScannerRowsSplit.getFirst(),
+                                            keyColType)
+                                    < 0) {
+                        kuduScannerRowsSplit.add(minKeyColValue);
+                    }
+                    if (KuduColumn.KeyColCompare(
+                                    maxKeyColValue, kuduScannerRowsSplit.getLast(), keyColType)
+                            > 0) {
+                        kuduScannerRowsSplit.add(maxKeyColValue);
+                    }
+                }
+                kuduTableRowsSplit.add(kuduScannerRowsSplit);
             }
         } catch (KuduException e) {
             throw new KuduConnectorException(
                     KuduConnectorErrorCode.GENERATE_KUDU_PARAMETERS_FAILED,
                     "Failed to generate upper and lower limits for each partition");
         }
-        return new PartitionParameter(
-                keyColumn, Long.parseLong(minKey + ""), Long.parseLong(maxKey + ""));
+        return new PartitionParameter(keyColName, keyColType, kuduTableRowsSplit.getRangeValue());
     }
 
     public SeaTunnelRowType getSeaTunnelRowType(List<ColumnSchema> columnSchemaList) {
