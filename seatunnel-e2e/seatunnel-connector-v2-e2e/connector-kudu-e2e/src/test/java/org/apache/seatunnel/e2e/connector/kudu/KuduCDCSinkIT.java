@@ -74,7 +74,7 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
 
     private static final String IMAGE = "apache/kudu:1.15.0";
     private static final Integer KUDU_MASTER_PORT = 7051;
-    private static final Integer KUDU_TSERVER_PORT = 7050;
+    private static final Integer KUDU_TSERVER_PORT = 7053;
     private GenericContainer<?> master;
     private GenericContainer<?> tServers;
     private KuduClient kuduClient;
@@ -96,7 +96,7 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
                         .withCommand("master")
                         .withEnv("MASTER_ARGS", "--default_num_replicas=1")
                         .withNetwork(NETWORK)
-                        .withNetworkAliases("kudu-master")
+                        .withNetworkAliases("kudu-master-cdc")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)));
 
@@ -106,7 +106,7 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
                         .withNetworkAliases(TOXIPROXY_NETWORK_ALIAS);
         toxiProxy.start();
 
-        String instanceName = "kudu-tserver";
+        String instanceName = "kudu-tserver-cdc";
 
         ToxiproxyContainer.ContainerProxy proxy =
                 toxiProxy.getProxy(instanceName, KUDU_TSERVER_PORT);
@@ -115,7 +115,7 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(IMAGE)
                         .withExposedPorts(KUDU_TSERVER_PORT)
                         .withCommand("tserver")
-                        .withEnv("KUDU_MASTERS", "kudu-master:" + KUDU_MASTER_PORT)
+                        .withEnv("KUDU_MASTERS", "kudu-master-cdc:" + KUDU_MASTER_PORT)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(instanceName)
                         .dependsOn(master)
