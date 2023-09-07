@@ -35,8 +35,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class MysqlCreateTableSqlBuilder {
 
@@ -119,7 +119,7 @@ public class MysqlCreateTableSqlBuilder {
         List<String> sqls = new ArrayList<>();
         sqls.add(
                 String.format(
-                        "CREATE TABLE IF NOT EXISTS %s (\n%s\n)",
+                        "CREATE TABLE %s (\n%s\n)",
                         tableName, buildColumnsIdentifySql(catalogName)));
         if (engine != null) {
             sqls.add("ENGINE = " + engine);

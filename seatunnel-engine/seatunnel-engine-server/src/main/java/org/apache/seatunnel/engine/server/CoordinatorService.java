@@ -152,7 +152,6 @@ public class CoordinatorService {
 
     private final EngineConfig engineConfig;
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
             @NonNull SeaTunnelServer seaTunnelServer,
@@ -219,7 +218,8 @@ public class CoordinatorService {
                                 .getMap(Constant.IMAP_FINISHED_JOB_METRICS),
                         nodeEngine
                                 .getHazelcastInstance()
-                                .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO));
+                                .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
+                        engineConfig.getHistoryJobExpireMinutes());
 
         List<CompletableFuture<Void>> collect =
                 runningJobInfoIMap.entrySet().stream()
@@ -390,7 +390,6 @@ public class CoordinatorService {
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private void clearCoordinatorService() {
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
@@ -506,9 +505,22 @@ public class CoordinatorService {
     public PassiveCompletableFuture<JobResult> waitForJobComplete(long jobId) {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
-            JobHistoryService.JobState jobState = jobHistoryService.getJobDetailState(jobId);
+            // Because operations on Imap cannot be performed within Operation.
+            CompletableFuture<JobHistoryService.JobState> jobStateFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                return jobHistoryService.getJobDetailState(jobId);
+                            },
+                            executorService);
+            JobHistoryService.JobState jobState = null;
+            try {
+                jobState = jobStateFuture.get();
+            } catch (Exception e) {
+                throw new SeaTunnelEngineException("get job state error", e);
+            }
+
             CompletableFuture<JobResult> future = new CompletableFuture<>();
-            if (jobState == null) future.complete(new JobResult(JobStatus.FAILED, null));
+            if (jobState == null) future.complete(new JobResult(JobStatus.UNKNOWABLE, null));
             else
                 future.complete(new JobResult(jobState.getJobStatus(), jobState.getErrorMessage()));
             return new PassiveCompletableFuture<>(future);
@@ -538,7 +550,7 @@ public class CoordinatorService {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
             JobHistoryService.JobState jobDetailState = jobHistoryService.getJobDetailState(jobId);
-            return null == jobDetailState ? null : jobDetailState.getJobStatus();
+            return null == jobDetailState ? JobStatus.UNKNOWABLE : jobDetailState.getJobStatus();
         }
         return runningJobMaster.getJobStatus();
     }

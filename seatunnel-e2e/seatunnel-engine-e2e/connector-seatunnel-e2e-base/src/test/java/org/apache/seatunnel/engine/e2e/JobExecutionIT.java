@@ -28,10 +28,9 @@ import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
-import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
@@ -42,13 +41,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static org.awaitility.Awaitility.await;
+
 @Slf4j
 public class JobExecutionIT {
 
     private static HazelcastInstanceImpl hazelcastInstance;
 
-    @BeforeAll
-    public static void beforeClass() throws Exception {
+    @BeforeEach
+    public void beforeClass() {
         hazelcastInstance =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName("JobExecutionIT"));
@@ -81,13 +82,9 @@ public class JobExecutionIT {
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
         CompletableFuture<JobStatus> objectCompletableFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            return clientJobProxy.waitForJobComplete();
-                        });
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
-        Awaitility.await()
-                .atMost(600000, TimeUnit.MILLISECONDS)
+        await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(
@@ -112,17 +109,12 @@ public class JobExecutionIT {
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
         JobStatus jobStatus1 = clientJobProxy.getJobStatus();
         Assertions.assertFalse(jobStatus1.isEndState());
-        ClientJobProxy finalClientJobProxy = clientJobProxy;
         CompletableFuture<JobStatus> objectCompletableFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            return finalClientJobProxy.waitForJobComplete();
-                        });
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
         Thread.sleep(1000);
         clientJobProxy.cancelJob();
 
-        Awaitility.await()
-                .atMost(20000, TimeUnit.MILLISECONDS)
+        await().atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(
@@ -143,19 +135,63 @@ public class JobExecutionIT {
         JobExecutionEnvironment jobExecutionEnv =
                 engineClient.createExecutionContext(filePath, jobConfig);
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-        JobStatus jobStatus = clientJobProxy.getJobStatus();
-        while (jobStatus == JobStatus.RUNNING) {
-            Thread.sleep(1 * 1000L);
-            jobStatus = clientJobProxy.getJobStatus();
-        }
-        CompletableFuture<JobResult> future = clientJobProxy.doWaitForJobComplete();
-        JobResult result = future.get();
+        CompletableFuture<JobStatus> completableFuture =
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+        await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
+
+        JobResult result = clientJobProxy.getJobResultCache();
         Assertions.assertEquals(result.getStatus(), JobStatus.FAILED);
         Assertions.assertTrue(result.getError().startsWith("java.lang.NumberFormatException"));
     }
 
-    @AfterAll
-    static void afterClass() {
+    @Test
+    public void testGetUnKnownJobID() {
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+
+        ClientJobProxy newClientJobProxy =
+                engineClient.createJobClient().getJobProxy(System.currentTimeMillis());
+        CompletableFuture<JobStatus> waitForJobCompleteFuture =
+                CompletableFuture.supplyAsync(newClientJobProxy::waitForJobComplete);
+
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.UNKNOWABLE, waitForJobCompleteFuture.get()));
+
+        Assertions.assertEquals(
+                "UNKNOWABLE", engineClient.getJobClient().getJobStatus(System.currentTimeMillis()));
+    }
+
+    @Test
+    public void testExpiredJobWasDeleted() throws Exception {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("job_expire");
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        JobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig);
+
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+        Assertions.assertEquals(clientJobProxy.waitForJobComplete(), JobStatus.FINISHED);
+        await().atMost(65, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.UNKNOWABLE, clientJobProxy.getJobStatus()));
+    }
+
+    @AfterEach
+    void afterClass() {
         if (hazelcastInstance != null) {
             hazelcastInstance.shutdown();
         }
