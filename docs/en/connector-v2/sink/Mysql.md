@@ -2,6 +2,10 @@
 
 > JDBC Mysql Sink Connector
 
+## Support Mysql Version
+
+- 5.5/5.6/5.7/8.0
+
 ## Support Those Engines
 
 > Spark<br/>

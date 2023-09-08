@@ -37,7 +37,7 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                 PostgreSQL Data type                                 | SeaTunnel Data type |
+|                                   Oracle Data type                                   | SeaTunnel Data type |
 |--------------------------------------------------------------------------------------|---------------------|
 | INTEGER                                                                              | INT                 |
 | FLOAT                                                                                | DECIMAL(38, 18)     |

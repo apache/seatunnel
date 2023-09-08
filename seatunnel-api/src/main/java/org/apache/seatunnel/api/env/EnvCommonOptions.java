@@ -51,6 +51,12 @@ public interface EnvCommonOptions {
                     .withDescription(
                             "The interval (in milliseconds) between two consecutive checkpoints.");
 
+    Option<Long> CHECKPOINT_TIMEOUT =
+            Options.key("checkpoint.timeout")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription("The timeout (in milliseconds) for a checkpoint.");
+
     Option<String> JARS =
             Options.key("jars")
                     .stringType()

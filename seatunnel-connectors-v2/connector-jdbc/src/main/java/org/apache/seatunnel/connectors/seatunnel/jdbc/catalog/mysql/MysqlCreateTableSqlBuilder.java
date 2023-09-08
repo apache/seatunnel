@@ -119,7 +119,7 @@ public class MysqlCreateTableSqlBuilder {
         List<String> sqls = new ArrayList<>();
         sqls.add(
                 String.format(
-                        "CREATE TABLE IF NOT EXISTS %s (\n%s\n)",
+                        "CREATE TABLE %s (\n%s\n)",
                         tableName, buildColumnsIdentifySql(catalogName)));
         if (engine != null) {
             sqls.add("ENGINE = " + engine);

@@ -24,7 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.exception.Amazon
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.SeaTunnelRowDeserializer;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -40,15 +39,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 public class DynamoDbSinkClient {
     private final AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
-    private ScheduledExecutorService scheduler;
-    private ScheduledFuture<?> scheduledFuture;
     private volatile boolean initialize;
     private volatile Exception flushException;
     private DynamoDbClient dynamoDbClient;
@@ -62,7 +55,7 @@ public class DynamoDbSinkClient {
         this.seaTunnelRowDeserializer = new DefaultSeaTunnelRowDeserializer(typeInfo);
     }
 
-    private void tryInit() throws IOException {
+    private void tryInit() {
         if (initialize) {
             return;
         }
@@ -78,25 +71,6 @@ public class DynamoDbSinkClient {
                                                 amazondynamodbSourceOptions.getAccessKeyId(),
                                                 amazondynamodbSourceOptions.getSecretAccessKey())))
                         .build();
-
-        scheduler =
-                Executors.newSingleThreadScheduledExecutor(
-                        new ThreadFactoryBuilder()
-                                .setNameFormat("DdynamoDb-sink-output-%s")
-                                .build());
-        scheduledFuture =
-                scheduler.scheduleAtFixedRate(
-                        () -> {
-                            try {
-                                flush();
-                            } catch (IOException e) {
-                                flushException = e;
-                            }
-                        },
-                        amazondynamodbSourceOptions.getBatchIntervalMs(),
-                        amazondynamodbSourceOptions.getBatchIntervalMs(),
-                        TimeUnit.MILLISECONDS);
-
         initialize = true;
     }
 
@@ -114,17 +88,13 @@ public class DynamoDbSinkClient {
     }
 
     public synchronized void close() throws IOException {
-        if (scheduledFuture != null) {
-            scheduledFuture.cancel(false);
-            scheduler.shutdown();
-        }
         if (dynamoDbClient != null) {
             flush();
             dynamoDbClient.close();
         }
     }
 
-    synchronized void flush() throws IOException {
+    synchronized void flush() {
         checkFlushException();
         if (batchList.isEmpty()) {
             return;
