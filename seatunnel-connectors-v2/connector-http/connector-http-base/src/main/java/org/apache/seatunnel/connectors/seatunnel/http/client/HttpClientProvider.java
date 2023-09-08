@@ -385,7 +385,6 @@ public class HttpClientProvider implements AutoCloseable {
         if (Objects.isNull(params) || params.isEmpty()) {
             return;
         }
-
         List<NameValuePair> parameters = new ArrayList<>();
         Set<Map.Entry<String, String>> entrySet = params.entrySet();
         for (Map.Entry<String, String> e : entrySet) {
@@ -394,7 +393,6 @@ public class HttpClientProvider implements AutoCloseable {
             NameValuePair pair = new BasicNameValuePair(name, value);
             parameters.add(pair);
         }
-
         // Set to the request's http object
         request.setEntity(new UrlEncodedFormEntity(parameters, ENCODING));
     }
