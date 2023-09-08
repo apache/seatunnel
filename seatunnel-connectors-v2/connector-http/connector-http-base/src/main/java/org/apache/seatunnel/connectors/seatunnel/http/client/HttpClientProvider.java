@@ -385,6 +385,7 @@ public class HttpClientProvider implements AutoCloseable {
         if (Objects.isNull(params) || params.isEmpty()) {
             return;
         }
+
         List<NameValuePair> parameters = new ArrayList<>();
         Set<Map.Entry<String, String>> entrySet = params.entrySet();
         for (Map.Entry<String, String> e : entrySet) {
@@ -393,6 +394,7 @@ public class HttpClientProvider implements AutoCloseable {
             NameValuePair pair = new BasicNameValuePair(name, value);
             parameters.add(pair);
         }
+
         // Set to the request's http object
         request.setEntity(new UrlEncodedFormEntity(parameters, ENCODING));
     }
@@ -404,7 +406,17 @@ public class HttpClientProvider implements AutoCloseable {
         headers.forEach(request::addHeader);
     }
 
+    private boolean checkAlreadyHaveContentType(HttpEntityEnclosingRequestBase request) {
+        if (request.getEntity() != null && request.getEntity().getContentType() != null) {
+            return HTTP.CONTENT_TYPE.equals(request.getEntity().getContentType().getName());
+        }
+        return false;
+    }
+
     private void addBody(HttpEntityEnclosingRequestBase request, String body) {
+        if (checkAlreadyHaveContentType(request)) {
+            return;
+        }
         request.addHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON);
 
         if (StringUtils.isBlank(body)) {
