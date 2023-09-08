@@ -73,6 +73,7 @@ public class HiveTypeMapper implements JdbcDialectTypeMapper {
         int precision = metadata.getPrecision(colIndex);
         switch (columnType) {
             case HIVE_TINYINT:
+                return BasicType.BYTE_TYPE;
             case HIVE_SMALLINT:
                 return BasicType.SHORT_TYPE;
             case HIVE_INT:
