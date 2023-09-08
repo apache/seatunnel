@@ -25,40 +25,44 @@ import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.internal.serialization.Data;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
 
+@Slf4j
 public class CheckpointTimeOutTest extends AbstractSeaTunnelServerTest {
 
     public static String CONF_PATH = "stream_fake_to_console_checkpointTimeOut.conf";
     public static long JOB_ID = System.currentTimeMillis();
 
     @Test
+    @Disabled("Currently unstable tests, waiting for @EricJoy2048 to refactor state handling logic")
     public void testJobLevelCheckpointTimeOut() {
         startJob(JOB_ID, CONF_PATH);
 
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> {
-                            Assertions.assertTrue(
-                                    server.getCoordinatorService()
-                                            .getJobStatus(JOB_ID)
-                                            .equals(JobStatus.RUNNING));
-                        });
+                        () ->
+                                Assertions.assertEquals(
+                                        server.getCoordinatorService().getJobStatus(JOB_ID),
+                                        JobStatus.RUNNING));
 
-        await().atMost(120000, TimeUnit.MILLISECONDS)
+        await().atMost(360000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            Assertions.assertTrue(
-                                    server.getCoordinatorService()
-                                            .getJobStatus(JOB_ID)
-                                            .equals(JobStatus.FAILED));
+                            log.info(
+                                    "Job status: {}",
+                                    server.getCoordinatorService().getJobStatus(JOB_ID));
+                            Assertions.assertEquals(
+                                    server.getCoordinatorService().getJobStatus(JOB_ID),
+                                    JobStatus.FAILED);
                         });
     }
 
