@@ -149,9 +149,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                 JdbcDialectLoader.load(
                         sinkConfig.getJdbcConnectionConfig().getUrl(),
                         sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
-                        fieldIdeEnum == null
-                                ? FieldIdeEnum.ORIGINAL.getValue()
-                                : fieldIdeEnum.getValue());
+                        fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
         CatalogTable finalCatalogTable = catalogTable;
         return () ->
                 new JdbcSink(
