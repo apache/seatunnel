@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum;
 
-public enum IdentifierCase {
+public enum FieldIdeEnum {
     ORIGINAL("original"), // Original string form
     UPPERCASE("uppercase"), // Convert to uppercase
     LOWERCASE("lowercase"); // Convert to lowercase
 
     private final String value;
 
-    IdentifierCase(String value) {
+    FieldIdeEnum(String value) {
         this.value = value;
     }
 

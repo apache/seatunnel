@@ -56,7 +56,7 @@ public class MysqlCreateTableSqlBuilder {
 
     private MysqlDataTypeConvertor mysqlDataTypeConvertor;
 
-    private String identifierCase;
+    private String fieldIde;
 
     private MysqlCreateTableSqlBuilder(String tableName) {
         checkNotNull(tableName, "tableName must not be null");
@@ -80,7 +80,7 @@ public class MysqlCreateTableSqlBuilder {
                 .primaryKey(tableSchema.getPrimaryKey())
                 .constraintKeys(tableSchema.getConstraintKeys())
                 .addColumn(tableSchema.getColumns())
-                .identifierCase(catalogTable.getOptions().get("identifierCase"));
+                .fieldIde(catalogTable.getOptions().get("fieldIde"));
     }
 
     public MysqlCreateTableSqlBuilder addColumn(List<Column> columns) {
@@ -94,8 +94,8 @@ public class MysqlCreateTableSqlBuilder {
         return this;
     }
 
-    public MysqlCreateTableSqlBuilder identifierCase(String identifierCase) {
-        this.identifierCase = identifierCase;
+    public MysqlCreateTableSqlBuilder fieldIde(String fieldIde) {
+        this.fieldIde = fieldIde;
         return this;
     }
 
@@ -129,7 +129,7 @@ public class MysqlCreateTableSqlBuilder {
         sqls.add(
                 String.format(
                         "CREATE TABLE %s (\n%s\n)",
-                        CatalogUtils.quoteIdentifier(tableName, identifierCase, "`"),
+                        CatalogUtils.quoteIdentifier(tableName, fieldIde, "`"),
                         buildColumnsIdentifySql(catalogName)));
         if (engine != null) {
             sqls.add("ENGINE = " + engine);
@@ -167,7 +167,7 @@ public class MysqlCreateTableSqlBuilder {
 
     private String buildColumnIdentifySql(Column column, String catalogName) {
         final List<String> columnSqls = new ArrayList<>();
-        columnSqls.add(CatalogUtils.quoteIdentifier(column.getName(), identifierCase, "`"));
+        columnSqls.add(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "`"));
         if (StringUtils.equals(catalogName, "mysql")) {
             columnSqls.add(column.getSourceType());
         } else {
@@ -253,7 +253,7 @@ public class MysqlCreateTableSqlBuilder {
                         .map(columnName -> "`" + columnName + "`")
                         .collect(Collectors.joining(", "));
         // add sort type
-        return String.format("PRIMARY KEY (%s)", CatalogUtils.quoteIdentifier(key, identifierCase));
+        return String.format("PRIMARY KEY (%s)", CatalogUtils.quoteIdentifier(key, fieldIde));
     }
 
     private String buildConstraintKeySql(ConstraintKey constraintKey) {

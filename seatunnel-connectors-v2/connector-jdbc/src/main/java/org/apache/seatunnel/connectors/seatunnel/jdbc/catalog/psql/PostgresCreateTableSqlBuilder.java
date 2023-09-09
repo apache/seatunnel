@@ -38,20 +38,20 @@ public class PostgresCreateTableSqlBuilder {
     private PrimaryKey primaryKey;
     private PostgresDataTypeConvertor postgresDataTypeConvertor;
     private String sourceCatalogName;
-    private String identifierCase;
+    private String fieldIde;
 
     public PostgresCreateTableSqlBuilder(CatalogTable catalogTable) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.postgresDataTypeConvertor = new PostgresDataTypeConvertor();
         this.sourceCatalogName = catalogTable.getCatalogName();
-        this.identifierCase = catalogTable.getOptions().get("identifierCase");
+        this.fieldIde = catalogTable.getOptions().get("fieldIde");
     }
 
     public String build(TablePath tablePath) {
         StringBuilder createTableSql = new StringBuilder();
         createTableSql
-                .append(CatalogUtils.quoteIdentifier("CREATE TABLE ", identifierCase))
+                .append(CatalogUtils.quoteIdentifier("CREATE TABLE ", fieldIde))
                 .append(tablePath.getSchemaAndTableName("\""))
                 .append(" (\n");
 
@@ -60,7 +60,7 @@ public class PostgresCreateTableSqlBuilder {
                         .map(
                                 column ->
                                         CatalogUtils.quoteIdentifier(
-                                                buildColumnSql(column), identifierCase))
+                                                buildColumnSql(column), fieldIde))
                         .collect(Collectors.toList());
 
         createTableSql.append(String.join(",\n", columnSqls));
@@ -136,12 +136,12 @@ public class PostgresCreateTableSqlBuilder {
     private String buildColumnCommentSql(Column column, String tableName) {
         StringBuilder columnCommentSql = new StringBuilder();
         columnCommentSql
-                .append(CatalogUtils.quoteIdentifier("COMMENT ON COLUMN ", identifierCase))
+                .append(CatalogUtils.quoteIdentifier("COMMENT ON COLUMN ", fieldIde))
                 .append(tableName)
                 .append(".");
         columnCommentSql
-                .append(CatalogUtils.quoteIdentifier(column.getName(), identifierCase, "\""))
-                .append(CatalogUtils.quoteIdentifier(" IS '", identifierCase))
+                .append(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "\""))
+                .append(CatalogUtils.quoteIdentifier(" IS '", fieldIde))
                 .append(column.getComment())
                 .append("'");
         return columnCommentSql.toString();
