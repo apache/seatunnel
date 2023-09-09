@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.tidb;
 
-import com.google.auto.service.AutoService;
-import com.google.common.collect.ImmutableMap;
-import com.mysql.cj.MysqlType;
-import org.apache.commons.collections4.MapUtils;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -31,6 +27,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+
+import org.apache.commons.collections4.MapUtils;
+
+import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableMap;
+import com.mysql.cj.MysqlType;
 
 import java.util.Collections;
 import java.util.Map;
