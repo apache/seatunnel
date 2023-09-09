@@ -63,7 +63,7 @@ import static org.awaitility.Awaitility.given;
         value = {},
         type = {EngineType.SPARK},
         disabledReason =
-                "There is a conflict of thrift version between IoTDB and Spark.Therefore. Refactor starter module, so disabled in flink")
+                "There is a conflict of thrift version between IoTDB and Spark.Therefore. Refactor starter module, so disabled in spark")
 public class IoTDBIT extends TestSuiteBase implements TestResource {
 
     private static final String IOTDB_DOCKER_IMAGE = "apache/iotdb:0.13.1-node";

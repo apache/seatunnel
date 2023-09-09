@@ -51,7 +51,7 @@ public class PostgresCreateTableSqlBuilder {
     public String build(TablePath tablePath) {
         StringBuilder createTableSql = new StringBuilder();
         createTableSql
-                .append(CatalogUtils.quoteIdentifier("CREATE TABLE IF NOT EXISTS ", identifierCase))
+                .append(CatalogUtils.quoteIdentifier("CREATE TABLE ", identifierCase))
                 .append(tablePath.getSchemaAndTableName("\""))
                 .append(" (\n");
 
