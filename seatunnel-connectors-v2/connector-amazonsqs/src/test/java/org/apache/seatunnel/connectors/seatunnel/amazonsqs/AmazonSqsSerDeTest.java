@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package amazonsqs;
+package org.apache.seatunnel.connectors.seatunnel.amazonsqs;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
