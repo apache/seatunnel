@@ -173,7 +173,7 @@ public class ZetaSQLFilter {
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(leftVal.toString());
 
-        return matcher.matches();
+        return matcher.matches() ^ likeExpression.isNot();
     }
 
     private Pair<Object, Object> executeComparisonOperator(
