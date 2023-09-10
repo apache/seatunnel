@@ -36,9 +36,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.Arrays;
@@ -57,13 +54,6 @@ import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 public class JsonToRowConverters implements Serializable {
 
     private static final long serialVersionUID = 1L;
-
-    @SuppressWarnings("MagicNumber")
-    public static final DateTimeFormatter TIME_FORMAT =
-            new DateTimeFormatterBuilder()
-                    .appendPattern("HH:mm:ss")
-                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
-                    .toFormatter();
 
     /** Flag indicating whether to fail if a field is missing. */
     private final boolean failOnMissingField;
@@ -245,13 +235,12 @@ public class JsonToRowConverters implements Serializable {
     }
 
     private LocalTime convertToLocalTime(JsonNode jsonNode) {
-        TemporalAccessor parsedTime = TIME_FORMAT.parse(jsonNode.asText());
+        TemporalAccessor parsedTime = TimeFormat.TIME_FORMAT.parse(jsonNode.asText());
         return parsedTime.query(TemporalQueries.localTime());
     }
 
     private LocalDateTime convertToLocalDateTime(JsonNode jsonNode) {
-        TemporalAccessor parsedTimestamp =
-                DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(jsonNode.asText());
+        TemporalAccessor parsedTimestamp = TimeFormat.parseDateTime(jsonNode.asText());
         LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
         LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
         return LocalDateTime.of(localDate, localTime);

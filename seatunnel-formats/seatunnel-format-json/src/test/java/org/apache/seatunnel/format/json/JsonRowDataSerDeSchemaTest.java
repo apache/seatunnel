@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -50,6 +51,29 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class JsonRowDataSerDeSchemaTest {
+
+    @Test
+    public void testDeCustomAndISODateTimeFormat() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        Timestamp timestamp3 = Timestamp.valueOf("1990-10-14 12:12:43.123");
+        Timestamp timestamp9 = Timestamp.valueOf("1990-10-14 12:12:43.123456789");
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("timestamp3", "1990-10-14 12:12:43.123");
+        root.put("timestamp9", "1990-10-14T12:12:43.123456789");
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"timestamp3", "timestamp9"},
+                        new SeaTunnelDataType[] {
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE, LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, schema);
+        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(root.toString());
+        SeaTunnelRow expected = new SeaTunnelRow(2);
+        expected.setField(0, timestamp3.toLocalDateTime());
+        expected.setField(1, timestamp9.toLocalDateTime());
+        assertEquals(expected, seaTunnelRow);
+    }
 
     @Test
     public void testSerDe() throws Exception {

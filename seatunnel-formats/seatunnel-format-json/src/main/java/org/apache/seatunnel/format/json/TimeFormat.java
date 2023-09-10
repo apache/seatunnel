@@ -20,7 +20,13 @@ package org.apache.seatunnel.format.json;
 
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
+
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 
 public class TimeFormat {
     private static final int MAX_TIME_PRECISION = 9;
@@ -29,4 +35,19 @@ public class TimeFormat {
                     .appendPattern("HH:mm:ss")
                     .appendFraction(ChronoField.NANO_OF_SECOND, 0, MAX_TIME_PRECISION, true)
                     .toFormatter();
+    public static final DateTimeFormatter CUSTOM_DATE_TIME_FORMAT =
+            new DateTimeFormatterBuilder()
+                    .parseCaseInsensitive()
+                    .append(ISO_LOCAL_DATE)
+                    .appendLiteral(' ')
+                    .append(ISO_LOCAL_TIME)
+                    .toFormatter();
+
+    public static TemporalAccessor parseDateTime(CharSequence text) {
+        try {
+            return ISO_LOCAL_DATE_TIME.parse(text);
+        } catch (DateTimeParseException e) {
+            return CUSTOM_DATE_TIME_FORMAT.parse(text);
+        }
+    }
 }
