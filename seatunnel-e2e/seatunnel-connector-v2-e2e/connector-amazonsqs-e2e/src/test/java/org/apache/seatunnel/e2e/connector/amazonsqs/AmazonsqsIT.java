@@ -19,9 +19,7 @@ package org.apache.seatunnel.e2e.connector.amazonsqs;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -91,7 +89,7 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(this::initializeSqsClient);
     }
 
-    private void initializeSqsClient() throws ConnectException {
+    private void initializeSqsClient() {
         // create a sqs client
         sqsClient =
                 SqsClient.builder()
