@@ -97,13 +97,16 @@ public class JdbcSource
         ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
         ConfigValidator.of(config).validate(new JdbcSourceFactory().optionRule());
         this.jdbcSourceConfig = JdbcSourceConfig.of(config);
-        this.jdbcConnectionProvider =
-                new SimpleJdbcConnectionProvider(jdbcSourceConfig.getJdbcConnectionConfig());
-        this.query = jdbcSourceConfig.getQuery();
         this.jdbcDialect =
                 JdbcDialectLoader.load(
                         jdbcSourceConfig.getJdbcConnectionConfig().getUrl(),
                         jdbcSourceConfig.getJdbcConnectionConfig().getCompatibleMode());
+        this.jdbcDialect
+                .defaultParameter()
+                .forEach(this.jdbcSourceConfig.getJdbcConnectionConfig().getInfo()::putIfAbsent);
+        this.jdbcConnectionProvider =
+                new SimpleJdbcConnectionProvider(jdbcSourceConfig.getJdbcConnectionConfig());
+        this.query = jdbcSourceConfig.getQuery();
         try (Connection connection = jdbcConnectionProvider.getOrEstablishConnection()) {
             this.typeInfo = initTableField(connection);
             this.partitionParameter =
