@@ -19,7 +19,7 @@
 ### Formats
 - [Canal]Support read canal format message #3950
 - [Debezium]Support debezium canal format message #3981
- 
+
 ### Connector-V2
 
 - [Json-format] [Canal-Json] Fix json deserialize NPE (#4195)
@@ -76,6 +76,7 @@
 - [Zeta] Fix cpu load problem (#4828)
 - [zeta] Fix the deadlock issue with JDBC driver loading (#4878)
 - [zeta] dynamically replace the value of the variable at runtime (#4950)
+- [Zeta] Add from_unixtime function (#5462)
 
 ### E2E
 
