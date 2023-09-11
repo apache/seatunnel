@@ -59,6 +59,8 @@ public class JsonUtils {
                     .configure(REQUIRE_SETTERS_FOR_GETTERS, true)
                     .setTimeZone(TimeZone.getDefault());
 
+    private static final ObjectMapper DEFAULT_OBJECT_MAPPER = new ObjectMapper();
+
     private JsonUtils() {
         throw new UnsupportedOperationException("Construct JSONUtils");
     }
@@ -172,8 +174,7 @@ public class JsonUtils {
     }
 
     public static Map<String, Object> toMap(JsonNode jsonNode) {
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.convertValue(jsonNode, new TypeReference<Map<String, Object>>() {});
+        return DEFAULT_OBJECT_MAPPER.convertValue(jsonNode, new TypeReference<Map<String, Object>>() {});
     }
 
     /**
