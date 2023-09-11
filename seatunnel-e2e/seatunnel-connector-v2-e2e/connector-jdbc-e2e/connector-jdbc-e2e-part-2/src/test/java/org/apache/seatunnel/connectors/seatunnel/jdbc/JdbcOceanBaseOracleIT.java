@@ -55,9 +55,9 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
 
     private static final String HOSTNAME = "e2e_oceanbase_oracle";
     private static final int PORT = 2883;
-    private static final String USERNAME = "SYS@test";
+    private static final String USERNAME = "TESTUSER@test";
     private static final String PASSWORD = "";
-    private static final String SCHEMA = "SYS";
+    private static final String SCHEMA = "TESTUSER";
 
     @Override
     List<String> configFile() {

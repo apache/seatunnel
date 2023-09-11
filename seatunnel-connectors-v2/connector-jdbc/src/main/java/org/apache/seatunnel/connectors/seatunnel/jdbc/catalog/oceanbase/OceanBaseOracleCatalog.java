@@ -17,24 +17,26 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 
-import org.apache.commons.lang3.StringUtils;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class OceanBaseOracleCatalog extends OracleCatalog {
 
     static {
-        SYS_DATABASES.clear();
-        SYS_DATABASES.add("information_schema");
-        SYS_DATABASES.add("mysql");
-        SYS_DATABASES.add("oceanbase");
-        SYS_DATABASES.add("LBACSYS");
-        SYS_DATABASES.add("ORAAUDITOR");
-        SYS_DATABASES.add("SYS");
+        EXCLUDED_SCHEMAS =
+                Collections.unmodifiableList(
+                        Arrays.asList("oceanbase", "LBACSYS", "ORAAUDITOR", "SYS"));
     }
 
     public OceanBaseOracleCatalog(
@@ -52,12 +54,46 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
     }
 
     @Override
-    protected String getTableName(ResultSet rs) throws SQLException {
-        String schemaName = rs.getString(1);
-        String tableName = rs.getString(2);
-        if (StringUtils.isNotBlank(schemaName) && !SYS_DATABASES.contains(schemaName)) {
-            return schemaName + "." + tableName;
+    public List<String> listTables(String databaseName)
+            throws CatalogException, DatabaseNotExistException {
+        String dbUrl = getUrlFromDatabaseName(databaseName);
+        try {
+            return queryString(dbUrl, getListTableSql(databaseName), this::getTableName);
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format("Failed listing database in catalog %s", catalogName), e);
         }
-        return null;
+    }
+
+    @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        try {
+            return listTables(tablePath.getDatabaseName()).contains(getTableName(tablePath));
+        } catch (DatabaseNotExistException e) {
+            return false;
+        }
+    }
+
+    @Override
+    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+        checkNotNull(tablePath, "Table path cannot be null");
+
+        if (defaultSchema.isPresent()) {
+            tablePath =
+                    new TablePath(
+                            tablePath.getDatabaseName(),
+                            defaultSchema.get(),
+                            tablePath.getTableName());
+        }
+
+        if (tableExists(tablePath)) {
+            if (ignoreIfExists) {
+                return;
+            }
+            throw new TableAlreadyExistException(catalogName, tablePath);
+        }
+
+        createTableInternal(tablePath, table);
     }
 }
