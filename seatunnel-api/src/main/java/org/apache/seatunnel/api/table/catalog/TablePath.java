@@ -22,6 +22,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @EqualsAndHashCode
@@ -54,18 +56,15 @@ public final class TablePath implements Serializable {
     }
 
     public String getSchemaAndTableName() {
-        return String.format("%s.%s", schemaName, tableName);
+        return getNameCommon(null, schemaName, tableName, null, null);
     }
 
     public String getSchemaAndTableName(String quote) {
-        return String.format("%s%s%s.%s%s%s", quote, schemaName, quote, quote, tableName, quote);
+        return getNameCommon(null, schemaName, tableName, quote, quote);
     }
 
     public String getFullName() {
-        if (schemaName == null) {
-            return String.format("%s.%s", databaseName, tableName);
-        }
-        return String.format("%s.%s.%s", databaseName, schemaName, tableName);
+        return getNameCommon(databaseName, schemaName, tableName, null, null);
     }
 
     public String getFullNameWithQuoted() {
@@ -73,32 +72,36 @@ public final class TablePath implements Serializable {
     }
 
     public String getFullNameWithQuoted(String quote) {
-        if (schemaName == null) {
-            return String.format(
-                    "%s%s%s.%s%s%s", quote, databaseName, quote, quote, tableName, quote);
-        }
-        return String.format(
-                "%s%s%s.%s%s%s.%s%s%s",
-                quote, databaseName, quote, quote, schemaName, quote, quote, tableName, quote);
+        return getNameCommon(databaseName, schemaName, tableName, quote, quote);
     }
 
     public String getFullNameWithQuoted(String quoteLeft, String quoteRight) {
-        if (schemaName == null) {
-            return String.format(
-                    "%s%s%s.%s%s%s",
-                    quoteLeft, databaseName, quoteRight, quoteLeft, tableName, quoteRight);
+        return getNameCommon(databaseName, schemaName, tableName, quoteLeft, quoteRight);
+    }
+
+    private String getNameCommon(
+            String databaseName,
+            String schemaName,
+            String tableName,
+            String quoteLeft,
+            String quoteRight) {
+        List<String> joinList = new ArrayList<>();
+        quoteLeft = quoteLeft == null ? "" : quoteLeft;
+        quoteRight = quoteRight == null ? "" : quoteRight;
+
+        if (databaseName != null) {
+            joinList.add(quoteLeft + databaseName + quoteRight);
         }
-        return String.format(
-                "%s%s%s.%s%s%s.%s%s%s",
-                quoteLeft,
-                databaseName,
-                quoteRight,
-                quoteLeft,
-                schemaName,
-                quoteRight,
-                quoteLeft,
-                tableName,
-                quoteRight);
+
+        if (schemaName != null) {
+            joinList.add(quoteLeft + schemaName + quoteRight);
+        }
+
+        if (tableName != null) {
+            joinList.add(quoteLeft + tableName + quoteRight);
+        }
+
+        return String.join(".", joinList);
     }
 
     @Override
