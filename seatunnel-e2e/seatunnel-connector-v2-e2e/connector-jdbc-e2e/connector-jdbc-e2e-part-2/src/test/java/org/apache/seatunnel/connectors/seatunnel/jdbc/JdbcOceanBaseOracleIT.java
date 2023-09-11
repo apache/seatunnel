@@ -28,6 +28,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 
@@ -49,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+@Disabled("Oracle mode of OceanBase Enterprise Edition does not provide docker environment")
 public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
 
     private static final String HOSTNAME = "e2e_oceanbase_oracle";

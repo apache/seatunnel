@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase.OceanBas
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Disabled;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -42,6 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Disabled("Disabled due to insufficient hardware resources in the CI environment")
 public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
 
     private static final String IMAGE = "oceanbase/oceanbase-ce:4.1.0.0";
