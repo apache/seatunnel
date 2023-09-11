@@ -60,6 +60,7 @@ public interface StarRocksSinkOptions {
                     .stringType()
                     .defaultValue(
                             "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
+                                    + "${rowtype_primary_key},\n"
                                     + "${rowtype_fields}\n"
                                     + ") ENGINE=OLAP\n"
                                     + " PRIMARY KEY (${rowtype_primary_key})\n"
