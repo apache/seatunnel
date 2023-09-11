@@ -133,15 +133,21 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                         OutputStream out =
                                 lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
                         fsDataOutputStream = new FSDataOutputStream(out, null);
+                        fsDataOutputStream.write(String.join(",", seaTunnelRowType.getFieldNames()).getBytes());
+                        fsDataOutputStream.write(System.lineSeparator().getBytes());
                         break;
                     case NONE:
                         fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        fsDataOutputStream.write(String.join(",", seaTunnelRowType.getFieldNames()).getBytes());
+                        fsDataOutputStream.write(System.lineSeparator().getBytes());
                         break;
                     default:
                         log.warn(
                                 "Text file does not support this compress type: {}",
                                 compressFormat.getCompressCodec());
                         fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        fsDataOutputStream.write(String.join(",", seaTunnelRowType.getFieldNames()).getBytes());
+                        fsDataOutputStream.write(System.lineSeparator().getBytes());
                         break;
                 }
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
