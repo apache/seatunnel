@@ -278,6 +278,11 @@ public class JobMaster {
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()).toString()));
         }
+        if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
+            jobCheckpointConfig.setCheckpointTimeout(
+                    Long.parseLong(
+                            jobEnv.get(EnvCommonOptions.CHECKPOINT_TIMEOUT.key()).toString()));
+        }
         return jobCheckpointConfig;
     }
 

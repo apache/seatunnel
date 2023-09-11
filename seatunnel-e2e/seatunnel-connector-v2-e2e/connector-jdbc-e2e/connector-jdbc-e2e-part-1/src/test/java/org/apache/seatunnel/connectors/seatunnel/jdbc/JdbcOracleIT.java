@@ -19,6 +19,8 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -27,6 +29,7 @@ import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
 import com.google.common.collect.Lists;
 
@@ -47,11 +50,13 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     private static final String DRIVER_CLASS = "oracle.jdbc.OracleDriver";
     private static final int ORACLE_PORT = 1521;
     private static final String ORACLE_URL = "jdbc:oracle:thin:@" + HOST + ":%s/%s";
-    private static final String USERNAME = "testUser";
+    private static final String USERNAME = "TESTUSER";
     private static final String PASSWORD = "testPassword";
-    private static final String DATABASE = "TESTUSER";
+    private static final String DATABASE = "XE";
+    private static final String SCHEMA = USERNAME;
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
+    private static final String CATALOG_TABLE = "E2E_TABLE_CATALOG";
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_oracle_source_to_sink.conf");
 
@@ -78,11 +83,11 @@ public class JdbcOracleIT extends AbstractJdbcIT {
         containerEnv.put("ORACLE_PASSWORD", PASSWORD);
         containerEnv.put("APP_USER", USERNAME);
         containerEnv.put("APP_USER_PASSWORD", PASSWORD);
-        String jdbcUrl = String.format(ORACLE_URL, ORACLE_PORT, DATABASE);
+        String jdbcUrl = String.format(ORACLE_URL, ORACLE_PORT, SCHEMA);
         Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
         String[] fieldNames = testDataSet.getKey();
 
-        String insertSql = insertTable(DATABASE, SOURCE_TABLE, fieldNames);
+        String insertSql = insertTable(SCHEMA, SOURCE_TABLE, fieldNames);
 
         return JdbcCase.builder()
                 .dockerImage(ORACLE_IMAGE)
@@ -97,8 +102,12 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 .userName(USERNAME)
                 .password(PASSWORD)
                 .database(DATABASE)
+                .schema(SCHEMA)
                 .sourceTable(SOURCE_TABLE)
                 .sinkTable(SINK_TABLE)
+                .catalogDatabase(DATABASE)
+                .catalogSchema(SCHEMA)
+                .catalogTable(CATALOG_TABLE)
                 .createSql(CREATE_SQL)
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
@@ -162,9 +171,10 @@ public class JdbcOracleIT extends AbstractJdbcIT {
 
         GenericContainer<?> container =
                 new OracleContainer(imageName)
-                        .withDatabaseName(DATABASE)
-                        .withUsername(USERNAME)
-                        .withPassword(PASSWORD)
+                        .withDatabaseName(SCHEMA)
+                        .withCopyFileToContainer(
+                                MountableFile.forClasspathResource("sql/oracle_init.sql"),
+                                "/container-entrypoint-startdb.d/init.sql")
                         .withNetwork(NETWORK)
                         .withNetworkAliases(ORACLE_NETWORK_ALIASES)
                         .withExposedPorts(ORACLE_PORT)
@@ -180,5 +190,28 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     @Override
     public String quoteIdentifier(String field) {
         return "\"" + field + "\"";
+    }
+
+    @Override
+    protected void clearTable(String database, String schema, String table) {
+        clearTable(schema, table);
+    }
+
+    @Override
+    protected String buildTableInfoWithSchema(String database, String schema, String table) {
+        return buildTableInfoWithSchema(schema, table);
+    }
+
+    @Override
+    protected void initCatalog() {
+        String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
+        catalog =
+                new OracleCatalog(
+                        "oracle",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        OracleURLParser.parse(jdbcUrl),
+                        SCHEMA);
+        catalog.open();
     }
 }

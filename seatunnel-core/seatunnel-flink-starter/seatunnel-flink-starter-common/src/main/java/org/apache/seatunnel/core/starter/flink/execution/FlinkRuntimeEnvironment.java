@@ -265,7 +265,10 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                 }
             }
 
-            if (config.hasPath(ConfigKeyName.CHECKPOINT_TIMEOUT)) {
+            if (config.hasPath(EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
+                long timeout = config.getLong(EnvCommonOptions.CHECKPOINT_TIMEOUT.key());
+                checkpointConfig.setCheckpointTimeout(timeout);
+            } else if (config.hasPath(ConfigKeyName.CHECKPOINT_TIMEOUT)) {
                 long timeout = config.getLong(ConfigKeyName.CHECKPOINT_TIMEOUT);
                 checkpointConfig.setCheckpointTimeout(timeout);
             }

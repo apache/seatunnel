@@ -195,3 +195,4 @@
 - [Docs] Redshift add defaultRowFetchSize (#4616)
 - [Docs] Refactor connector-v2 docs using unified format Mysql (#4590)
 - [Docs] Add Value types in Java to Schema features (#5087)
+- [Docs] Replace username by user in the options of FtpFile (#5421)
