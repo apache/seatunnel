@@ -37,6 +37,7 @@ import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
 
 import java.net.ConnectException;
@@ -46,10 +47,6 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SEATUNNEL, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK do not support cdc")
 public class AmazonsqsIT extends TestSuiteBase implements TestResource {
     private static final String LOCALSTACK_DOCKER_IMAGE = "localstack/localstack:0.11.2";
     private static final String AMAZONSQS_JOB_CONFIG = "/amazonsqsIT_source_to_sink.conf";
@@ -99,11 +96,10 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
         sqsClient =
                 SqsClient.builder()
                         .endpointOverride(localstack.getEndpoint())
+                        .region(Region.US_EAST_1)
                         .credentialsProvider(
                                 StaticCredentialsProvider.create(
-                                        AwsBasicCredentials.create(
-                                                localstack.getAccessKey(),
-                                                localstack.getSecretKey())))
+                                        AwsBasicCredentials.create("1234", "abcd")))
                         .build();
 
         // create source and sink queue
@@ -114,7 +110,7 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
         sqsClient.sendMessage(
                 r ->
                         r.queueUrl(sqsClient.listQueues().queueUrls().get(0))
-                                .messageBody("name: test_name"));
+                                .messageBody("{\"name\": \"test_name\"}"));
     }
 
     @AfterAll
@@ -129,8 +125,8 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
     public void testAmazonSqs(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(AMAZONSQS_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode());
-        //        assertHasData();
-        //        compareResult();
+        assertHasData();
+        compareResult();
     }
 
     private void assertHasData() {
