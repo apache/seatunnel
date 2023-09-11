@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.amazonsqs;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.sink.AmazonSqsSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.source.AmazonSqsSourceFactory;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -28,12 +29,12 @@ public class AmazonSqsSourceFactoryTest {
     /** Method: optionRule() */
     @Test
     public void testOptionRule() throws Exception {
-        AmazonSqsSourceFactory amazonDynamoDBSourceFactory = new AmazonSqsSourceFactory();
-        OptionRule sourceOptionRule = amazonDynamoDBSourceFactory.optionRule();
+        AmazonSqsSourceFactory amazonSqsSourceFactory = new AmazonSqsSourceFactory();
+        OptionRule sourceOptionRule = amazonSqsSourceFactory.optionRule();
         Assertions.assertNotNull(sourceOptionRule);
 
-        AmazonSqsSinkFactory amazonDynamoDBSinkFactory = new AmazonSqsSinkFactory();
-        OptionRule sinkOptionRule = amazonDynamoDBSinkFactory.optionRule();
+        AmazonSqsSinkFactory amazonSqsSinkFactory = new AmazonSqsSinkFactory();
+        OptionRule sinkOptionRule = amazonSqsSinkFactory.optionRule();
         Assertions.assertNotNull(sinkOptionRule);
     }
 }

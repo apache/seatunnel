@@ -23,6 +23,9 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.io.Serializable;
 
 public class AmazonSqsConfig implements Serializable {
+
+    public static final String DEFAULT_FIELD_DELIMITER = ",";
+
     public static final Option<String> URL =
             Options.key("url")
                     .stringType()
@@ -53,4 +56,27 @@ public class AmazonSqsConfig implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The message group id of Amazon SQS Service");
+    public static final Option<String> SCHEMA =
+            Options.key("schema")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The structure of the data, including field names and field types.");
+    public static final Option<MessageFormat> FORMAT =
+            Options.key("format")
+                    .enumType(MessageFormat.class)
+                    .defaultValue(MessageFormat.JSON)
+                    .withDescription(
+                            "Data format. The default format is json. Optional text format. The default field separator is \", \". "
+                                    + "If you customize the delimiter, add the \"field_delimiter\" option.");
+    public static final Option<String> FIELD_DELIMITER =
+            Options.key("field_delimiter")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Customize the field delimiter for data format.");
+    public static final Option<Boolean> DEBEZIUM_RECORD_INCLUDE_SCHEMA =
+            Options.key("debezium_record_include_schema")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("Does the debezium record carry a schema.");
 }

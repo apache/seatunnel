@@ -1,9 +1,9 @@
 package org.apache.seatunnel.connectors.seatunnel.amazonsqs.sink;
 
+import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -15,14 +15,20 @@ import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Arrays;
 
 public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     protected SqsClient sqsClient;
-    protected SeaTunnelRowSerializer seaTunnelRowSerializer;
+
+    private final AmazonSqsSourceOptions amazonSqsSourceOptions;
+
+    private final SerializationSchema serializationSchema;
 
     public AmazonSqsSinkWriter(
-            AmazonSqsSourceOptions amazonSqsSourceOptions, SeaTunnelRowType seaTunnelRowType) {
+            AmazonSqsSourceOptions amazonSqsSourceOptions,
+            SeaTunnelRowType seaTunnelRowType,
+            SerializationSchema serializationSchema) {
         if (amazonSqsSourceOptions.getAccessKeyId() != null
                 & amazonSqsSourceOptions.getSecretAccessKey() != null) {
             sqsClient =
@@ -45,11 +51,20 @@ public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                             .credentialsProvider(DefaultCredentialsProvider.create())
                             .build();
         }
+        this.serializationSchema = serializationSchema;
+        this.amazonSqsSourceOptions = amazonSqsSourceOptions;
     }
 
     @Override
     public void write(SeaTunnelRow row) throws IOException {
-        SendMessageRequest sendMessageRequest = seaTunnelRowSerializer.serialize(row);
+        byte[] serializedBody = serializationSchema.serialize(row);
+
+        SendMessageRequest sendMessageRequest =
+                SendMessageRequest.builder()
+                        .queueUrl(amazonSqsSourceOptions.getUrl())
+                        .messageBody(Arrays.toString(serializedBody))
+                        .build();
+
         sqsClient.sendMessage(sendMessageRequest);
     }
 

@@ -17,12 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazonsqs.source;
 
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.serialize.DefaultSeaTunnelRowDeserializer;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.serialize.SeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
@@ -47,15 +45,15 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     protected SqsClient sqsClient;
     protected SingleSplitReaderContext context;
     protected AmazonSqsSourceOptions amazonSqsSourceOptions;
-    protected SeaTunnelRowDeserializer seaTunnelRowDeserializer;
+    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
     public AmazonSqsSourceReader(
             SingleSplitReaderContext context,
             AmazonSqsSourceOptions amazonSqsSourceOptions,
-            SeaTunnelRowType typeInfo) {
+            DeserializationSchema<SeaTunnelRow> deserializationSchema) {
         this.context = context;
         this.amazonSqsSourceOptions = amazonSqsSourceOptions;
-        this.seaTunnelRowDeserializer = new DefaultSeaTunnelRowDeserializer(typeInfo);
+        this.deserializationSchema = deserializationSchema;
     }
 
     @Override
@@ -104,8 +102,7 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
 
         for (Message message : messages) {
             String messageBody = message.body();
-            SeaTunnelRow seaTunnelRow = seaTunnelRowDeserializer.deserialize(messageBody);
-            output.collect(seaTunnelRow);
+            deserializationSchema.deserialize(messageBody.getBytes(), output);
 
             // Delete the processed message
             DeleteMessageRequest deleteMessageRequest =

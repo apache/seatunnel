@@ -14,14 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.seatunnel.connectors.seatunnel.amazonsqs.config;
 
-package org.apache.seatunnel.connectors.seatunnel.amazonsqs.serialize;
-
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-
-import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
-
-public interface SeaTunnelRowSerializer {
-
-    SendMessageRequest serialize(SeaTunnelRow seaTunnelRow);
+public enum MessageFormat {
+    JSON,
+    TEXT,
+    CANAL_JSON,
+    DEBEZIUM_JSON,
 }
