@@ -97,10 +97,118 @@ source {
       }
     }
   }
-
 }
 
 transform {
+  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+  # please go to https://seatunnel.apache.org/docs/category/transform
+}
+
+sink {
+  Console {
+  }
+}
+```
+
+### Specified format consumption Simple:
+
+> When I consume the topic data in json format parsing and pulling the number of bars each time is 400, the consumption starts from the original location
+
+```hocon
+env {
+  execution.parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "localhost:9876"
+    topics = "test_topic"
+    result_table_name = "rocketmq_table"
+    start.mode = "CONSUME_FROM_FIRST_OFFSET"
+    batch.size = "400"
+    consumer.group = "test_topic_group"
+    format = "json"
+    format = json
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(30, 8)"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+transform {
+  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+  # please go to https://seatunnel.apache.org/docs/category/transform
+}
+sink {
+  Console {
+  }
+}
+```
+
+### Specified timestamp Simple:
+
+> This is to specify a time to consume, and I dynamically sense the existence of a new partition every 1000 milliseconds to pull the consumption
+
+```hocon
+env {
+  execution.parallelism = 1
+  spark.app.name = "SeaTunnel"
+  spark.executor.instances = 2
+  spark.executor.cores = 1
+  spark.executor.memory = "1g"
+  spark.master = local
+  job.mode = "BATCH"
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "localhost:9876"
+    topics = "test_topic"
+    partition.discovery.interval.millis = "1000"
+    start.mode.timestamp="1694508382000"
+    consumer.group="test_topic_group"
+    format="json"
+    format = json
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(30, 8)"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+transform {
+  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+  # please go to https://seatunnel.apache.org/docs/category/transform
 }
 
 sink {

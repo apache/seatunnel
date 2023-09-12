@@ -55,26 +55,20 @@ If name is set as the key, then the hash value of the name column will determine
 
 ## Task Example
 
-### Simple:
+### Fake to Rocketmq Simple
 
-> Randomly generated data is synchronously sent to RocketMQ with c_int as the partition key
+> The data is randomly generated and asynchronously sent to the test topic
 
 ```hocon
 env {
   execution.parallelism = 1
-  job.mode = "BATCH"
 }
 
 source {
   FakeSource {
-    row.num = 10
-    map.size = 10
-    array.size = 10
-    bytes.length = 10
-    string.length = 10
     schema = {
       fields {
-        c_map = "map<string, smallint>"
+        c_map = "map<string, string>"
         c_array = "array<int>"
         c_string = string
         c_boolean = boolean
@@ -85,7 +79,6 @@ source {
         c_float = float
         c_double = double
         c_decimal = "decimal(30, 8)"
-        c_null = "null"
         c_bytes = bytes
         c_date = date
         c_timestamp = timestamp
@@ -95,14 +88,112 @@ source {
 }
 
 transform {
-
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
   # please go to https://seatunnel.apache.org/docs/category/transform
 }
 
 sink {
   Rocketmq {
-    name.srv.addr = "rocketmq-e2e:9876"
+    name.srv.addr = "localhost:9876"
+    topic = "test_topic"
+  }
+}
+
+```
+
+### Rocketmq To Rocketmq Simple
+
+> Consuming Rocketmq writes to c_int field Hash number of partitions written to different partitions This is the default asynchronous way to write
+
+```hocon
+env {
+  execution.parallelism = 1
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "localhost:9876"
+    topics = "test_topic"
+    result_table_name = "rocketmq_table"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(30, 8)"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+sink {
+  Rocketmq {
+    name.srv.addr = "localhost:9876"
+    topic = "test_topic_sink"
+    partition.key.fields = ["c_int"]
+  }
+}
+```
+
+### Timestamp consumption write Simple
+
+> This is a stream consumption specified time stamp consumption, when there are new partitions added the program will refresh the perception and consumption at intervals, and write to another topic type
+
+```hocon
+
+env {
+  execution.parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "localhost:9876"
+    topics = "test_topic"
+    result_table_name = "rocketmq_table"
+    start.mode = "CONSUME_FROM_FIRST_OFFSET"
+    batch.size = "400"
+    consumer.group = "test_topic_group"
+    format = "json"
+    format = json
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(30, 8)"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+transform {
+  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+  # please go to https://seatunnel.apache.org/docs/category/transform
+}
+sink {
+  Rocketmq {
+    name.srv.addr = "localhost:9876"
     topic = "test_topic"
     partition.key.fields = ["c_int"]
     producer.send.sync = true
