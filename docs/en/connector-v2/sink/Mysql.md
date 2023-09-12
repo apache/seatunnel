@@ -122,7 +122,7 @@ transform {
 
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
@@ -140,7 +140,7 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
@@ -159,7 +159,7 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
     
         max_retries = 0
@@ -181,7 +181,7 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"

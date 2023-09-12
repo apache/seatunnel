@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -76,7 +77,7 @@ import java.util.stream.Stream;
 
 @NoArgsConstructor
 public abstract class IncrementalSource<T, C extends SourceConfig>
-        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
+        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState>, SupportCoordinate {
 
     protected ReadonlyConfig readonlyConfig;
     protected SourceConfig.Factory<C> configFactory;
