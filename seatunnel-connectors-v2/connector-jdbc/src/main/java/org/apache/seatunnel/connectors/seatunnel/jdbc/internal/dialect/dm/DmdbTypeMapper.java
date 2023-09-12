@@ -102,7 +102,6 @@ public class DmdbTypeMapper implements JdbcDialectTypeMapper {
     public static final String DM_LONGVARBINARY = "LONGVARBINARY";
 
     @Override
-    @SuppressWarnings("checkstyle:MagicNumber")
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
         String dmdbType = metadata.getColumnTypeName(colIndex).toUpperCase();

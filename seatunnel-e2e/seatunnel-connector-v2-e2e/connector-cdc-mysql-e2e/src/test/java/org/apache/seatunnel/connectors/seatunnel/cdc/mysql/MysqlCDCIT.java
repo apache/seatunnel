@@ -22,14 +22,17 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersio
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -52,7 +55,7 @@ import static org.awaitility.Awaitility.await;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
+        type = {EngineType.SPARK},
         disabledReason = "Currently SPARK and FLINK do not support cdc")
 public class MysqlCDCIT extends TestSuiteBase implements TestResource {
 
@@ -85,6 +88,9 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                     + " f_enum, cast(f_mediumblob as char) as f_mediumblob, f_long_varchar, f_real, f_time, f_tinyint, f_tinyint_unsigned,"
                     + " f_json, cast(f_year as year) from mysql_cdc_e2e_sink_table";
 
+    private static final String CLEAN_SOURCE = "truncate table mysql_cdc_e2e_source_table";
+    private static final String CLEAN_SINK = "truncate table mysql_cdc_e2e_sink_table";
+
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         MySqlContainer mySqlContainer =
                 new MySqlContainer(version)
@@ -102,6 +108,22 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
         return mySqlContainer;
     }
 
+    private String driverUrl() {
+        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
+    }
+
+    @TestContainerExtension
+    protected final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
+                                        + driverUrl());
+                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+            };
+
     @BeforeAll
     @Override
     public void startUp() throws ClassNotFoundException, InterruptedException {
@@ -115,6 +137,9 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testMysqlCdcCheckDataE2e(TestContainer container)
             throws IOException, InterruptedException {
+        // Clear related content to ensure that multiple operations are not affected
+        executeSql(CLEAN_SOURCE);
+        executeSql(CLEAN_SINK);
 
         CompletableFuture<Void> executeJobFuture =
                 CompletableFuture.supplyAsync(

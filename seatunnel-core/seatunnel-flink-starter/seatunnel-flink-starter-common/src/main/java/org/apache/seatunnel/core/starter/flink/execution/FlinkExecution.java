@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
 import org.apache.seatunnel.core.starter.execution.TaskExecution;
 import org.apache.seatunnel.core.starter.flink.FlinkStarter;
 
+import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 
@@ -111,6 +113,12 @@ public class FlinkExecution implements TaskExecution {
                 "Flink Execution Plan: {}",
                 flinkRuntimeEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
         log.info("Flink job name: {}", flinkRuntimeEnvironment.getJobName());
+        if (!flinkRuntimeEnvironment.isStreaming()) {
+            flinkRuntimeEnvironment
+                    .getStreamExecutionEnvironment()
+                    .setRuntimeMode(RuntimeExecutionMode.BATCH);
+            log.info("Flink job Mode: {}", JobMode.BATCH);
+        }
         try {
             flinkRuntimeEnvironment
                     .getStreamExecutionEnvironment()

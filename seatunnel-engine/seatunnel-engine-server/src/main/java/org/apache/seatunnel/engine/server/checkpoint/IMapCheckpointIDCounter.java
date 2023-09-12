@@ -19,10 +19,10 @@ package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 
-import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 
@@ -56,7 +56,7 @@ public class IMapCheckpointIDCounter implements CheckpointIDCounter {
                 new RetryUtils.RetryMaterial(
                         Constant.OPERATION_RETRY_TIME,
                         true,
-                        exception -> exception instanceof HazelcastInstanceNotActiveException,
+                        exception -> ExceptionUtil.isOperationNeedRetryException(exception),
                         Constant.OPERATION_RETRY_SLEEP));
     }
 

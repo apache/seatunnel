@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -50,12 +49,12 @@ public class StarRocksSinkFactory implements TableSinkFactory {
                         StarRocksSinkOptions.LABEL_PREFIX,
                         StarRocksSinkOptions.BATCH_MAX_SIZE,
                         StarRocksSinkOptions.BATCH_MAX_BYTES,
-                        StarRocksSinkOptions.BATCH_INTERVAL_MS,
                         StarRocksSinkOptions.MAX_RETRIES,
                         StarRocksSinkOptions.MAX_RETRY_BACKOFF_MS,
                         StarRocksSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS,
                         StarRocksSinkOptions.STARROCKS_CONFIG,
                         StarRocksSinkOptions.ENABLE_UPSERT_DELETE,
+                        StarRocksSinkOptions.SAVE_MODE,
                         StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
                 .build();
     }
@@ -67,6 +66,6 @@ public class StarRocksSinkFactory implements TableSinkFactory {
         if (StringUtils.isBlank(sinkConfig.getTable())) {
             sinkConfig.setTable(catalogTable.getTableId().getTableName());
         }
-        return () -> new StarRocksSink(DataSaveMode.KEEP_SCHEMA_AND_DATA, sinkConfig, catalogTable);
+        return () -> new StarRocksSink(sinkConfig, catalogTable);
     }
 }

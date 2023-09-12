@@ -19,6 +19,8 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -48,6 +50,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     private static final String MYSQL_DATABASE = "seatunnel";
     private static final String MYSQL_SOURCE = "source";
     private static final String MYSQL_SINK = "sink";
+    private static final String CATALOG_DATABASE = "catalog_database";
 
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
@@ -64,47 +67,50 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
-                    + "    `c_bit_1`              bit(1)                DEFAULT NULL,\n"
-                    + "    `c_bit_8`              bit(8)                DEFAULT NULL,\n"
-                    + "    `c_bit_16`             bit(16)               DEFAULT NULL,\n"
-                    + "    `c_bit_32`             bit(32)               DEFAULT NULL,\n"
-                    + "    `c_bit_64`             bit(64)               DEFAULT NULL,\n"
-                    + "    `c_boolean`            tinyint(1)            DEFAULT NULL,\n"
-                    + "    `c_tinyint`            tinyint(4)            DEFAULT NULL,\n"
-                    + "    `c_tinyint_unsigned`   tinyint(3) unsigned   DEFAULT NULL,\n"
-                    + "    `c_smallint`           smallint(6)           DEFAULT NULL,\n"
-                    + "    `c_smallint_unsigned`  smallint(5) unsigned  DEFAULT NULL,\n"
-                    + "    `c_mediumint`          mediumint(9)          DEFAULT NULL,\n"
-                    + "    `c_mediumint_unsigned` mediumint(8) unsigned DEFAULT NULL,\n"
-                    + "    `c_int`                int(11)               DEFAULT NULL,\n"
-                    + "    `c_integer`            int(11)               DEFAULT NULL,\n"
-                    + "    `c_bigint`             bigint(20)            DEFAULT NULL,\n"
-                    + "    `c_bigint_unsigned`    bigint(20) unsigned   DEFAULT NULL,\n"
-                    + "    `c_decimal`            decimal(20, 0)        DEFAULT NULL,\n"
-                    + "    `c_decimal_unsigned`   decimal(38, 18)       DEFAULT NULL,\n"
-                    + "    `c_float`              float                 DEFAULT NULL,\n"
-                    + "    `c_float_unsigned`     float unsigned        DEFAULT NULL,\n"
-                    + "    `c_double`             double                DEFAULT NULL,\n"
-                    + "    `c_double_unsigned`    double unsigned       DEFAULT NULL,\n"
-                    + "    `c_char`               char(1)               DEFAULT NULL,\n"
-                    + "    `c_tinytext`           tinytext,\n"
-                    + "    `c_mediumtext`         mediumtext,\n"
-                    + "    `c_text`               text,\n"
-                    + "    `c_varchar`            varchar(255)          DEFAULT NULL,\n"
-                    + "    `c_json`               json                  DEFAULT NULL,\n"
-                    + "    `c_longtext`           longtext,\n"
-                    + "    `c_date`               date                  DEFAULT NULL,\n"
-                    + "    `c_datetime`           datetime              DEFAULT NULL,\n"
-                    + "    `c_timestamp`          timestamp NULL        DEFAULT NULL,\n"
-                    + "    `c_tinyblob`           tinyblob,\n"
-                    + "    `c_mediumblob`         mediumblob,\n"
-                    + "    `c_blob`               blob,\n"
-                    + "    `c_longblob`           longblob,\n"
-                    + "    `c_varbinary`          varbinary(255)        DEFAULT NULL,\n"
-                    + "    `c_binary`             binary(1)             DEFAULT NULL,\n"
-                    + "    `c_year`               year(4)               DEFAULT NULL,\n"
-                    + "    `c_int_unsigned`       int(10) unsigned      DEFAULT NULL,\n"
-                    + "    `c_integer_unsigned`   int(10) unsigned      DEFAULT NULL\n"
+                    + "    `c_bit_1`                bit(1)                DEFAULT NULL,\n"
+                    + "    `c_bit_8`                bit(8)                DEFAULT NULL,\n"
+                    + "    `c_bit_16`               bit(16)               DEFAULT NULL,\n"
+                    + "    `c_bit_32`               bit(32)               DEFAULT NULL,\n"
+                    + "    `c_bit_64`               bit(64)               DEFAULT NULL,\n"
+                    + "    `c_boolean`              tinyint(1)            DEFAULT NULL,\n"
+                    + "    `c_tinyint`              tinyint(4)            DEFAULT NULL,\n"
+                    + "    `c_tinyint_unsigned`     tinyint(3) unsigned   DEFAULT NULL,\n"
+                    + "    `c_smallint`             smallint(6)           DEFAULT NULL,\n"
+                    + "    `c_smallint_unsigned`    smallint(5) unsigned  DEFAULT NULL,\n"
+                    + "    `c_mediumint`            mediumint(9)          DEFAULT NULL,\n"
+                    + "    `c_mediumint_unsigned`   mediumint(8) unsigned DEFAULT NULL,\n"
+                    + "    `c_int`                  int(11)               DEFAULT NULL,\n"
+                    + "    `c_integer`              int(11)               DEFAULT NULL,\n"
+                    + "    `c_bigint`               bigint(20)            DEFAULT NULL,\n"
+                    + "    `c_bigint_unsigned`      bigint(20) unsigned   DEFAULT NULL,\n"
+                    + "    `c_decimal`              decimal(20, 0)        DEFAULT NULL,\n"
+                    + "    `c_decimal_unsigned`     decimal(38, 18)       DEFAULT NULL,\n"
+                    + "    `c_float`                float                 DEFAULT NULL,\n"
+                    + "    `c_float_unsigned`       float unsigned        DEFAULT NULL,\n"
+                    + "    `c_double`               double                DEFAULT NULL,\n"
+                    + "    `c_double_unsigned`      double unsigned       DEFAULT NULL,\n"
+                    + "    `c_char`                 char(1)               DEFAULT NULL,\n"
+                    + "    `c_tinytext`             tinytext,\n"
+                    + "    `c_mediumtext`           mediumtext,\n"
+                    + "    `c_text`                 text,\n"
+                    + "    `c_varchar`              varchar(255)          DEFAULT NULL,\n"
+                    + "    `c_json`                 json                  DEFAULT NULL,\n"
+                    + "    `c_longtext`             longtext,\n"
+                    + "    `c_date`                 date                  DEFAULT NULL,\n"
+                    + "    `c_datetime`             datetime              DEFAULT NULL,\n"
+                    + "    `c_timestamp`            timestamp NULL        DEFAULT NULL,\n"
+                    + "    `c_tinyblob`             tinyblob,\n"
+                    + "    `c_mediumblob`           mediumblob,\n"
+                    + "    `c_blob`                 blob,\n"
+                    + "    `c_longblob`             longblob,\n"
+                    + "    `c_varbinary`            varbinary(255)        DEFAULT NULL,\n"
+                    + "    `c_binary`               binary(1)             DEFAULT NULL,\n"
+                    + "    `c_year`                 year(4)               DEFAULT NULL,\n"
+                    + "    `c_int_unsigned`         int(10) unsigned      DEFAULT NULL,\n"
+                    + "    `c_integer_unsigned`     int(10) unsigned      DEFAULT NULL,\n"
+                    + "    `c_bigint_30`            BIGINT(40)  unsigned  DEFAULT NULL,\n"
+                    + "    `c_decimal_unsigned_30`  DECIMAL(30) unsigned  DEFAULT NULL,\n"
+                    + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL\n"
                     + ");";
 
     @Override
@@ -135,6 +141,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                .catalogDatabase(CATALOG_DATABASE)
+                .catalogTable(MYSQL_SINK)
                 .build();
     }
 
@@ -190,10 +198,15 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_blob",
                     "c_longblob",
                     "c_varbinary",
-                    "c_binary"
+                    "c_binary",
+                    "c_bigint_30",
+                    "c_decimal_unsigned_30",
+                    "c_decimal_30",
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
+        BigDecimal bigintValue = new BigDecimal("2844674407371055000");
+        BigDecimal decimalValue = new BigDecimal("999999999999999999999999999899");
         for (int i = 0; i < 100; i++) {
             byte byteArr = Integer.valueOf(i).byteValue();
             SeaTunnelRow row =
@@ -242,7 +255,10 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                                 "test".getBytes(),
                                 "test".getBytes(),
                                 "test".getBytes(),
-                                "f".getBytes()
+                                "f".getBytes(),
+                                bigintValue.add(BigDecimal.valueOf(i)),
+                                decimalValue.add(BigDecimal.valueOf(i)),
+                                decimalValue.add(BigDecimal.valueOf(i)),
                             });
             rows.add(row);
         }
@@ -270,5 +286,17 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
 
         return container;
+    }
+
+    @Override
+    protected void initCatalog() {
+        catalog =
+                new MySqlCatalog(
+                        "mysql",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())));
+        catalog.open();
     }
 }

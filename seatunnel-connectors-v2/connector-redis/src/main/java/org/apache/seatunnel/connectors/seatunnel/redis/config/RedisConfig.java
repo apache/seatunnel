@@ -102,6 +102,12 @@ public class RedisConfig {
                     .withDescription(
                             "hash key parse mode, support all or kv, default value is all");
 
+    public static final Option<Long> EXPIRE =
+            Options.key("expire")
+                    .longType()
+                    .defaultValue(-1L)
+                    .withDescription("Set redis expiration time.");
+
     public enum Format {
         JSON,
         // TEXT will be supported later
