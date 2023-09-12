@@ -173,13 +173,12 @@ public class JdbcSinkFactory implements TableSinkFactory {
         // always execute
         final ReadonlyConfig options = config;
         JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
-        String fieldIde =
-                config.get(JdbcOptions.FIELD_IDE) == null
-                        ? FieldIdeEnum.ORIGINAL.getValue()
-                        : config.get(JdbcOptions.FIELD_IDE).getValue();
-        catalogTable.getOptions().put("fieldIde", fieldIde);
+        FieldIdeEnum fieldIdeEnum = config.get(JdbcOptions.FIELD_IDE);
         JdbcDialect dialect =
-                JdbcDialectLoader.load(sinkConfig.getJdbcConnectionConfig().getUrl(), fieldIde);
+                JdbcDialectLoader.load(
+                        sinkConfig.getJdbcConnectionConfig().getUrl(),
+                        sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
+                        fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
         CatalogTable finalCatalogTable = catalogTable;
         // get saveMode
         DataSaveMode dataSaveMode = config.get(DATA_SAVE_MODE);
