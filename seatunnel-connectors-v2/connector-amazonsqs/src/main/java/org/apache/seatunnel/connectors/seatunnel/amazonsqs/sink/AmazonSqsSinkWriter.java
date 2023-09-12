@@ -17,11 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazonsqs.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.format.json.JsonSerializationSchema;
+import org.apache.seatunnel.format.json.canal.CanalJsonSerializationSchema;
+import org.apache.seatunnel.format.json.debezium.DebeziumJsonSerializationSchema;
+import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -34,6 +42,10 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 
+import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.DEFAULT_FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.FORMAT;
+
 public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     protected SqsClient sqsClient;
@@ -45,7 +57,7 @@ public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     public AmazonSqsSinkWriter(
             AmazonSqsSourceOptions amazonSqsSourceOptions,
             SeaTunnelRowType seaTunnelRowType,
-            SerializationSchema serializationSchema) {
+            ReadonlyConfig pluginConfig) {
         if (amazonSqsSourceOptions.getAccessKeyId() != null
                 & amazonSqsSourceOptions.getSecretAccessKey() != null) {
             sqsClient =
@@ -68,8 +80,8 @@ public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                             .credentialsProvider(DefaultCredentialsProvider.create())
                             .build();
         }
-        this.serializationSchema = serializationSchema;
         this.amazonSqsSourceOptions = amazonSqsSourceOptions;
+        this.serializationSchema = createSerializationSchema(seaTunnelRowType, pluginConfig);
     }
 
     @Override
@@ -88,5 +100,30 @@ public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     @Override
     public void close() throws IOException {
         sqsClient.close();
+    }
+
+    private static SerializationSchema createSerializationSchema(
+            SeaTunnelRowType rowType, ReadonlyConfig config) {
+        MessageFormat format = config.get(FORMAT);
+        switch (format) {
+            case JSON:
+                return new JsonSerializationSchema(rowType);
+            case TEXT:
+                String delimiter = DEFAULT_FIELD_DELIMITER;
+                if (config.get(FIELD_DELIMITER) != null) {
+                    delimiter = config.get(FIELD_DELIMITER);
+                }
+                return TextSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(delimiter)
+                        .build();
+            case CANAL_JSON:
+                return new CanalJsonSerializationSchema(rowType);
+            case DEBEZIUM_JSON:
+                return new DebeziumJsonSerializationSchema(rowType);
+            default:
+                throw new SeaTunnelJsonFormatException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
+        }
     }
 }

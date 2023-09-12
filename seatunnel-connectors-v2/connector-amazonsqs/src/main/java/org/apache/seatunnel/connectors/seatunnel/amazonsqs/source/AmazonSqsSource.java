@@ -107,8 +107,6 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
 
     private void setDeserialization(Config config) {
         if (config.hasPath(SCHEMA.key())) {
-            Config schema = config.getConfig(SCHEMA.key());
-            // todo: use KafkaDataTypeConvertor here?
             typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
             MessageFormat format = ReadonlyConfig.fromConfig(config).get(FORMAT);
             switch (format) {
