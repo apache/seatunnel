@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.doris.util;
 
+import org.apache.seatunnel.api.sink.SaveModeConstants;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -27,15 +28,15 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class DorisCatalogUtil {
@@ -98,123 +99,91 @@ public class DorisCatalogUtil {
      *
      * @param createTableTemplate create table template
      * @param catalogTable catalog table
-     * @param properties create table properties
      * @return create table stmt
      */
     public static String getCreateTableStatement(
-            String createTableTemplate,
-            TablePath tablePath,
-            CatalogTable catalogTable,
-            List<String> distributionCols,
-            String distributionBucket,
-            Map<String, String> properties) {
+            String createTableTemplate, TablePath tablePath, CatalogTable catalogTable) {
 
         String template = createTableTemplate;
-
-        String databaseName = tablePath.getDatabaseName();
-        String tableName = tablePath.getTableName();
-        String tableIdentifier = "`" + databaseName + "`.`" + tableName + "`";
-        template =
-                template.replaceAll(
-                        String.format("\\$\\{%s\\}", "table_identifier"), tableIdentifier);
-
         TableSchema tableSchema = catalogTable.getTableSchema();
 
-        List<Column> columns = tableSchema.getColumns();
-        String columnDefinition = buildColumnDefinition(columns);
-        template =
-                template.replaceAll(
-                        String.format("\\$\\{%s\\}", "column_definition"), columnDefinition);
-
-        template = template.replaceAll(String.format("\\$\\{%s\\}", "engine_type"), "OLAP");
-
-        List<String> keys = tableSchema.getPrimaryKey().getColumnNames();
-        Set<String> keySet = new HashSet<>(keys);
-        template =
-                template.replaceAll(
-                        String.format("\\$\\{%s\\}", "key_columns"),
-                        keys.stream().map(k -> "`" + k + "`").collect(Collectors.joining(",")));
-
-        template =
-                template.replaceAll(
-                        String.format("\\$\\{%s\\}", "table_comment"),
-                        "\"" + catalogTable.getComment() + "\"");
-
-        List<String> partitionKeys = catalogTable.getPartitionKeys();
-        if (!keySet.containsAll(partitionKeys)) {
-            throw new IllegalArgumentException("partition columns should all be key column");
+        String primaryKey = "";
+        if (tableSchema.getPrimaryKey() != null) {
+            primaryKey =
+                    tableSchema.getPrimaryKey().getColumnNames().stream()
+                            .map(r -> "`" + r + "`")
+                            .collect(Collectors.joining(","));
         }
         template =
                 template.replaceAll(
-                        String.format("\\$\\{%s\\}", "partition_info"),
-                        partitionKeys.stream()
-                                .map(k -> "`" + k + "`")
-                                .collect(Collectors.joining(",")));
+                        String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_PRIMARY_KEY),
+                        primaryKey);
+        Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
+                CreateTableParser.getColumnList(template);
+        template = mergeColumnInTemplate(columnInTemplate, tableSchema, template);
 
-        if (!keySet.containsAll(distributionCols)) {
-            throw new IllegalArgumentException("distribution columns should all be key column");
-        }
-        template =
-                template.replaceAll(
-                        String.format("\\$\\{%s\\}", "distribution_columns"),
-                        distributionCols.stream()
-                                .map(col -> "`" + col + "`")
-                                .collect(Collectors.joining(",")));
-        if (!"AUTO".equalsIgnoreCase(distributionBucket)
-                && Integer.parseInt(distributionBucket) < 1) {
-            throw new IllegalArgumentException(
-                    "distribution bucket num should be equals or greater than 1 or be auto");
-        }
-        template =
-                template.replaceAll(
-                        String.format("\\$\\{%s\\}", "distribution_bucket"),
-                        distributionBucket.toUpperCase());
-
-        String props = "";
-        if (properties != null && !properties.isEmpty()) {
-            props =
-                    properties.entrySet().stream()
-                            .map(
-                                    entry ->
-                                            "\""
-                                                    + entry.getKey()
-                                                    + "\" = \""
-                                                    + entry.getValue()
-                                                    + "\"")
-                            .collect(Collectors.joining(",\n"));
-        }
-        template = template.replaceAll(String.format("\\$\\{%s\\}", "properties"), props);
-
-        template = template.replaceAll("\n\n", "\n");
-
-        return template;
+        String rowTypeFields =
+                tableSchema.getColumns().stream()
+                        .filter(column -> !columnInTemplate.containsKey(column.getName()))
+                        .map(
+                                column ->
+                                        String.format(
+                                                "`%s` %s %s ",
+                                                column.getName(),
+                                                fromSeaTunnelType(
+                                                        column.getDataType(),
+                                                        column.getColumnLength()),
+                                                column.isNullable() ? "NULL" : "NOT NULL"))
+                        .collect(Collectors.joining(",\n"));
+        return template.replaceAll(
+                        String.format("\\$\\{%s\\}", SaveModeConstants.DATABASE),
+                        tablePath.getDatabaseName())
+                .replaceAll(
+                        String.format("\\$\\{%s\\}", SaveModeConstants.TABLE_NAME),
+                        tablePath.getTableName())
+                .replaceAll(
+                        String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_FIELDS),
+                        rowTypeFields);
     }
 
-    private static String buildColumnDefinition(List<Column> columns) {
-
-        List<String> columnList = new ArrayList<>(columns.size());
-
-        for (Column column : columns) {
-            String name = column.getName();
-            SeaTunnelDataType<?> dataType = column.getDataType();
-            Integer columnLength = column.getColumnLength();
-            String type = fromSeaTunnelType(dataType, columnLength);
-            boolean nullable = column.isNullable();
-            Object defaultValue = column.getDefaultValue();
-            String comment = column.getComment();
-            columnList.add(
-                    String.format(
-                            "`%s` %s%s%s%s",
-                            name,
-                            type,
-                            nullable ? " NULL" : " NOT NULL",
-                            nullable || defaultValue == null
-                                    ? ""
-                                    : " DEFAULT \"" + defaultValue + "\"",
-                            " COMMENT \"" + comment + "\""));
+    private static String mergeColumnInTemplate(
+            Map<String, CreateTableParser.ColumnInfo> columnInTemplate,
+            TableSchema tableSchema,
+            String template) {
+        int offset = 0;
+        Map<String, Column> columnMap =
+                tableSchema.getColumns().stream()
+                        .collect(Collectors.toMap(Column::getName, Function.identity()));
+        for (String col : columnInTemplate.keySet()) {
+            CreateTableParser.ColumnInfo columnInfo = columnInTemplate.get(col);
+            if (StringUtils.isEmpty(columnInfo.getInfo())) {
+                if (columnMap.containsKey(col)) {
+                    Column column = columnMap.get(col);
+                    String newCol =
+                            String.format(
+                                    "`%s` %s %s ",
+                                    column.getName(),
+                                    fromSeaTunnelType(
+                                            column.getDataType(), column.getColumnLength()),
+                                    column.isNullable() ? "NULL" : "NOT NULL");
+                    String prefix = template.substring(0, columnInfo.getStartIndex() + offset);
+                    String suffix = template.substring(offset + columnInfo.getEndIndex());
+                    if (prefix.endsWith("`")) {
+                        prefix = prefix.substring(0, prefix.length() - 1);
+                        offset--;
+                    }
+                    if (suffix.startsWith("`")) {
+                        suffix = suffix.substring(1);
+                        offset--;
+                    }
+                    template = prefix + newCol + suffix;
+                    offset += newCol.length() - columnInfo.getName().length();
+                } else {
+                    throw new IllegalArgumentException("Can't find column " + col + " in table.");
+                }
+            }
         }
-
-        return String.join(",\n", columnList);
+        return template;
     }
 
     public static SeaTunnelDataType<?> fromDorisType(ResultSet rs) throws SQLException {

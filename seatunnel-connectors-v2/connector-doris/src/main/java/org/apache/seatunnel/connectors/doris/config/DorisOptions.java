@@ -223,29 +223,19 @@ public interface DorisOptions {
                     .withDescription(
                             "Table structure and data processing methods that already exist on the target end");
 
-    Option<String> CREATE_TEMPLATE =
-            Options.key("create.template")
+    Option<String> SAVE_MODE_CREATE_TEMPLATE =
+            Options.key("save_mode_create_template")
                     .stringType()
-                    .defaultValue(DEFAULT_CREATE_TEMPLATE)
-                    .withDescription("");
-
-    Option<String> CREATE_DISTRIBUTION_COLUMNS =
-            Options.key("create.distribution-columns")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("");
-
-    Option<String> CREATE_DISTRIBUTION_BUCKET =
-            Options.key("create.distribution-bucket")
-                    .stringType()
-                    .defaultValue("10")
-                    .withDescription("");
-
-    Option<Map<String, String>> CREATE_PROPERTIES =
-            Options.key("create.properties")
-                    .mapType()
-                    .defaultValue(DEFAULT_CREATE_PROPERTIES)
-                    .withDescription("");
+                    .defaultValue(
+                            "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
+                                    + "${rowtype_fields}\n"
+                                    + ") ENGINE=OLAP\n"
+                                    + " PRIMARY KEY (${rowtype_primary_key})\n"
+                                    + "DISTRIBUTED BY HASH (${rowtype_primary_key})"
+                                    + "PROPERTIES (\n"
+                                    + "    \"replication_num\" = \"1\" \n"
+                                    + ")")
+                    .withDescription("Create table statement template, used to create Doris table");
 
     OptionRule.Builder SINK_RULE =
             OptionRule.builder().required(FENODES, USERNAME, PASSWORD, TABLE_IDENTIFIER);
@@ -254,8 +244,5 @@ public interface DorisOptions {
             OptionRule.builder()
                     .required(FENODES, QUERY_PORT, USERNAME, PASSWORD)
                     .optional(SAVE_MODE)
-                    .conditional(
-                            SAVE_MODE,
-                            DataSaveMode.KEEP_SCHEMA_AND_DATA,
-                            CREATE_DISTRIBUTION_COLUMNS);
+                    .conditional(SAVE_MODE, DataSaveMode.KEEP_SCHEMA_AND_DATA);
 }

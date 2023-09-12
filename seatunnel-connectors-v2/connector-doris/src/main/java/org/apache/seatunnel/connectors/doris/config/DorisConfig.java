@@ -30,10 +30,6 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.Properties;
 
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.CREATE_DISTRIBUTION_BUCKET;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.CREATE_DISTRIBUTION_COLUMNS;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.CREATE_PROPERTIES;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.CREATE_TEMPLATE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_DESERIALIZE_ARROW_ASYNC;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_DESERIALIZE_QUEUE_SIZE;
@@ -49,6 +45,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisOptions.FENODES;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.PASSWORD;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.QUERY_PORT;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SAVE_MODE;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SAVE_MODE_CREATE_TEMPLATE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_BUFFER_COUNT;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_BUFFER_SIZE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_CHECK_INTERVAL;
@@ -98,9 +95,6 @@ public class DorisConfig implements Serializable {
     // create table option
     private DataSaveMode saveMode;
     private String createTableTemplate;
-    private String createDistributionColumns;
-    private String createDistributionBucket;
-    private Map<String, String> createProperties;
 
     public static DorisConfig of(Config pluginConfig) {
         return of(ReadonlyConfig.fromConfig(pluginConfig));
@@ -141,10 +135,7 @@ public class DorisConfig implements Serializable {
 
         // create table option
         dorisConfig.setSaveMode(config.get(SAVE_MODE));
-        dorisConfig.setCreateTableTemplate(config.get(CREATE_TEMPLATE));
-        dorisConfig.setCreateDistributionColumns(config.get(CREATE_DISTRIBUTION_COLUMNS));
-        dorisConfig.setCreateDistributionBucket(config.get(CREATE_DISTRIBUTION_BUCKET));
-        dorisConfig.setCreateProperties(config.get(CREATE_PROPERTIES));
+        dorisConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));
 
         return dorisConfig;
     }

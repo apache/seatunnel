@@ -43,7 +43,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -126,7 +125,7 @@ public class DorisCatalog implements Catalog {
         try {
             conn.close();
         } catch (SQLException e) {
-            throw new CatalogException("", e);
+            throw new CatalogException("close doris catalog failed", e);
         }
     }
 
@@ -141,13 +140,10 @@ public class DorisCatalog implements Catalog {
         try (PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, databaseName);
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                return true;
-            }
+            return rs.next();
         } catch (SQLException e) {
-            throw new CatalogException("", e);
+            throw new CatalogException("check database exists failed", e);
         }
-        return false;
     }
 
     @Override
@@ -161,7 +157,7 @@ public class DorisCatalog implements Catalog {
                 databases.add(database);
             }
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw new CatalogException("list databases failed", e);
         }
         Collections.sort(databases);
         return databases;
@@ -180,7 +176,8 @@ public class DorisCatalog implements Catalog {
                 tables.add(table);
             }
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw new CatalogException(
+                    String.format("list tables of database [%s] failed", databaseName), e);
         }
         Collections.sort(tables);
         return tables;
@@ -193,13 +190,11 @@ public class DorisCatalog implements Catalog {
             ps.setString(1, tablePath.getDatabaseName());
             ps.setString(2, tablePath.getTableName());
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                return true;
-            }
+            return rs.next();
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw new CatalogException(
+                    String.format("check table [%s] exists failed", tablePath.getFullName()), e);
         }
-        return false;
     }
 
     @Override
@@ -246,7 +241,8 @@ public class DorisCatalog implements Catalog {
             }
 
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw new CatalogException(
+                    String.format("get table [%s] failed", tablePath.getFullName()), e);
         }
 
         String comment = "";
@@ -280,12 +276,7 @@ public class DorisCatalog implements Catalog {
 
         String stmt =
                 DorisCatalogUtil.getCreateTableStatement(
-                        dorisConfig.getCreateTableTemplate(),
-                        tablePath,
-                        table,
-                        Arrays.asList(dorisConfig.getCreateDistributionColumns().split(",")),
-                        dorisConfig.getCreateDistributionBucket(),
-                        dorisConfig.getCreateProperties());
+                        dorisConfig.getCreateTableTemplate(), tablePath, table);
 
         try (Statement statement = conn.createStatement()) {
             statement.execute(stmt);
@@ -309,7 +300,8 @@ public class DorisCatalog implements Catalog {
         try (Statement stmt = conn.createStatement()) {
             stmt.execute(query);
         } catch (SQLException e) {
-            throw new CatalogException("", e);
+            throw new CatalogException(
+                    String.format("create database [%s] failed", tablePath.getDatabaseName()), e);
         }
     }
 
@@ -322,7 +314,8 @@ public class DorisCatalog implements Catalog {
         try (Statement stmt = conn.createStatement()) {
             stmt.execute(query);
         } catch (SQLException e) {
-            throw new CatalogException("", e);
+            throw new CatalogException(
+                    String.format("drop database [%s] failed", tablePath.getDatabaseName()), e);
         }
     }
 
