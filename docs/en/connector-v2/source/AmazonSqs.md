@@ -23,47 +23,16 @@ Read data from Amazon SQS.
 
 ## Source Options
 
-|      name      |  type  | required | default value |
-|----------------|--------|----------|---------------|
-| url            | string | yes      | -             |
-| region         | string | false    | -             |
-| queue          | string | false    | -             |
-| schema         | config | yes      | -             |
-| common-options |        | yes      | -             |
-
-### url [string]
-
-The URL to read from Amazon SQS.
-
-### queue [string]
-
-the queue name to read from Amazon SQS.
-
-### region [string]
-
-The region of Amazon SQS.
-
-### schema [Config]
-
-#### fields [config]
-
-Amazon SQS is a managed message queuing service provided by AWS. the schema and fields are required to deserialize the data from
-queue into SeaTunnel rows.
-such as:
-
-```
-schema {
-  fields {
-    id = int
-    key_aa = string
-    key_bb = string
-  }
-}
-```
-
-### common options
-
-Source Plugin common parameters, refer to [Source Plugin](common-options.md) for details
+|          Name           |  Type  | Required | Default |                                                                                                                                                                                                             Description                                                                                                                                                                                                             |
+|-------------------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                     | String | Yes      | -       | The Queue URL to read from Amazon SQS.                                                                                                                                                                                                                                                                                                                                                                                              |
+| queue                   | String | No       | -       | The name of the queue to read from. If omitted, you need to specify it in the url.                                                                                                                                                                                                                                                                                                                                                  |
+| region                  | String | No       | -       | The AWS region for the SQS service                                                                                                                                                                                                                                                                                                                                                                                                  |
+| schema                  | Config | No       | -       | The structure of the data, including field names and field types.                                                                                                                                                                                                                                                                                                                                                                   |
+| format                  | String | No       | json    | Data format. The default format is json. Optional text format, canal-json and debezium-json.If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. |
+| format_error_handle_way | String | No       | fail    | The processing method of data format error. The default value is fail, and the optional value is (fail, skip). When fail is selected, data format error will block and an exception will be thrown. When skip is selected, data format error will skip this line data.                                                                                                                                                              |
+| field_delimiter         | String | No       | ,       | Customize the field delimiter for data format.                                                                                                                                                                                                                                                                                                                                                                                      |
+| common-options          |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                                                                                                                                                                                             |
 
 ## Task Example
 
