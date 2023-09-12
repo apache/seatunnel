@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserve
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import java.util.Arrays;
 import java.util.List;
@@ -27,6 +28,15 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class SqlServerDialect implements JdbcDialect {
+
+    public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
+
+    public SqlServerDialect() {}
+
+    public SqlServerDialect(String fieldIde) {
+        this.fieldIde = fieldIde;
+    }
+
     @Override
     public String dialectName() {
         return "Sqlserver";
@@ -104,5 +114,27 @@ public class SqlServerDialect implements JdbcDialect {
                         insertValues);
 
         return Optional.of(upsertSQL);
+    }
+
+    @Override
+    public String quoteIdentifier(String identifier) {
+        if (identifier.contains(".")) {
+            String[] parts = identifier.split("\\.");
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < parts.length - 1; i++) {
+                sb.append("[").append(parts[i]).append("]").append(".");
+            }
+            return sb.append("[")
+                    .append(getFieldIde(parts[parts.length - 1], fieldIde))
+                    .append("]")
+                    .toString();
+        }
+
+        return "[" + getFieldIde(identifier, fieldIde) + "]";
+    }
+
+    @Override
+    public String quoteDatabaseIdentifier(String identifier) {
+        return "[" + identifier + "]";
     }
 }

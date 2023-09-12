@@ -55,7 +55,7 @@ import static org.awaitility.Awaitility.await;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
+        type = {EngineType.SPARK},
         disabledReason = "Currently SPARK and FLINK do not support cdc")
 public class MysqlCDCIT extends TestSuiteBase implements TestResource {
 
@@ -87,6 +87,9 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                     + " f_text, f_tinytext, f_varchar, f_date, f_datetime, f_timestamp, f_bit1, cast(f_bit64 as char) as f_bit64, f_char,"
                     + " f_enum, cast(f_mediumblob as char) as f_mediumblob, f_long_varchar, f_real, f_time, f_tinyint, f_tinyint_unsigned,"
                     + " f_json, cast(f_year as year) from mysql_cdc_e2e_sink_table";
+
+    private static final String CLEAN_SOURCE = "truncate table mysql_cdc_e2e_source_table";
+    private static final String CLEAN_SINK = "truncate table mysql_cdc_e2e_sink_table";
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         MySqlContainer mySqlContainer =
@@ -134,6 +137,9 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testMysqlCdcCheckDataE2e(TestContainer container)
             throws IOException, InterruptedException {
+        // Clear related content to ensure that multiple operations are not affected
+        executeSql(CLEAN_SOURCE);
+        executeSql(CLEAN_SINK);
 
         CompletableFuture<Void> executeJobFuture =
                 CompletableFuture.supplyAsync(
