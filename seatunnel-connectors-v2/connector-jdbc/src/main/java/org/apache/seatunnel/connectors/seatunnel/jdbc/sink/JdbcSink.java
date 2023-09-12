@@ -38,11 +38,13 @@ import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
@@ -210,14 +212,21 @@ public class JdbcSink
                                     catalogFactory.factoryIdentifier(),
                                     ReadonlyConfig.fromMap(new HashMap<>(catalogOptions)))) {
                         catalog.open();
+                        FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcOptions.FIELD_IDE);
+                        String fieldIde =
+                                fieldIdeEnumEnum == null
+                                        ? FieldIdeEnum.ORIGINAL.getValue()
+                                        : fieldIdeEnumEnum.getValue();
                         TablePath tablePath =
                                 TablePath.of(
                                         jdbcSinkConfig.getDatabase()
                                                 + "."
-                                                + jdbcSinkConfig.getTable());
+                                                + CatalogUtils.quoteTableIdentifier(
+                                                        jdbcSinkConfig.getTable(), fieldIde));
                         if (!catalog.databaseExists(jdbcSinkConfig.getDatabase())) {
                             catalog.createDatabase(tablePath, true);
                         }
+                        catalogTable.getOptions().put("fieldIde", fieldIde);
                         if (!catalog.tableExists(tablePath)) {
                             catalog.createTable(tablePath, catalogTable, true);
                         }
