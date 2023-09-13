@@ -52,7 +52,7 @@ semantics (using XA transaction guarantee).
 
 ## Options
 
-|                   Name                    |  Type   | Required | Default |                                                                                                                 Description                                                                                                                  |
+| Name                                      | Type    | Required | Default | Description                                                                                                                                                                                                                                  |
 |-------------------------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:oracle:thin:@datasource01:1523:xe                                                                                                                                                      |
 | driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use Oracle the value is `oracle.jdbc.OracleDriver`.                                                                                                               |
@@ -73,6 +73,7 @@ semantics (using XA transaction guarantee).
 | max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                          |
 | auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                           |
+| properties                                |         | No       | -       | Additional connection configuration parameters                                                                                                                                                                                               |
 | common-options                            |         | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                          |
 
 ### Tips

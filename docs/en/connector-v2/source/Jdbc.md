@@ -28,7 +28,7 @@ supports query SQL and can achieve projection effect.
 
 ## Options
 
-|             name             |  type  | required |  default value  |
+|             name             | type   | required | default value   |
 |------------------------------|--------|----------|-----------------|
 | url                          | String | Yes      | -               |
 | driver                       | String | Yes      | -               |
@@ -42,6 +42,7 @@ supports query SQL and can achieve projection effect.
 | partition_lower_bound        | Long   | No       | -               |
 | partition_num                | Int    | No       | job parallelism |
 | fetch_size                   | Int    | No       | 0               |
+| properties                   |        | No       | -               |
 | common-options               |        | No       | -               |
 
 ### driver [string]
@@ -92,6 +93,9 @@ The number of partition count, only support positive integer. default value is j
 
 For queries that return a large number of objects, you can configure the row fetch size used in the query to
 improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.
+
+### properties
+additional connection configuration parameters
 
 ### common options
 

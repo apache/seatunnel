@@ -26,7 +26,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 ## Options
 
-|                   name                    |  type   | required | default value |
+| name                                      | type    | required | default value |
 |-------------------------------------------|---------|----------|---------------|
 | url                                       | String  | Yes      | -             |
 | driver                                    | String  | Yes      | -             |
@@ -48,6 +48,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | transaction_timeout_sec                   | Int     | No       | -1            |
 | auto_commit                               | Boolean | No       | true          |
 | field_ide                                 | String  | No       | -             |
+| properties                                |         | No       | -             |
 | common-options                            |         | no       | -             |
 
 ### driver [string]
@@ -142,6 +143,9 @@ Automatic transaction commit is enabled by default
 The field "field_ide" is used to identify whether the field needs to be converted to uppercase or lowercase when
 synchronizing from the source to the sink. "ORIGINAL" indicates no conversion is needed, "UPPERCASE" indicates
 conversion to uppercase, and "LOWERCASE" indicates conversion to lowercase.
+
+### properties
+additional connection configuration parameters
 
 ### common options
 

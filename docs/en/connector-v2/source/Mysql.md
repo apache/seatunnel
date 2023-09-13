@@ -60,7 +60,7 @@ Read external data source data through JDBC.
 
 ## Source Options
 
-|             Name             |    Type    | Required |     Default     |                                                                                                                            Description                                                                                                                            |
+|             Name             | Type       | Required | Default         | Description                                                                                                                                                                                                                                                       |
 |------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                                            |
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                                     |
@@ -73,6 +73,7 @@ Read external data source data through JDBC.
 | partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
 | partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
 | fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
+| properties                   |            | No       | -               | Additional connection configuration parameters                                                                                                                                                                                                                    |
 | common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
 
 ### Tips
@@ -135,6 +136,9 @@ source {
         partition_column = "id"
         # Number of fragments
         partition_num = 10
+        properties {
+         useSSL=false
+        }
     }
 }
 sink {
@@ -162,6 +166,9 @@ source {
         # Read end boundary
         partition_upper_bound = 500
         partition_num = 10
+        properties {
+         useSSL=false
+        }
     }
 }
 ```
