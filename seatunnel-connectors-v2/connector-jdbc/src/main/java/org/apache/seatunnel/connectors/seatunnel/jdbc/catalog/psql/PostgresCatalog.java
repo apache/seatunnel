@@ -158,7 +158,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     @Override
     public List<String> listDatabases() throws CatalogException {
         try (PreparedStatement ps =
-                     defaultConnection.prepareStatement("select datname from pg_database;")) {
+                defaultConnection.prepareStatement("select datname from pg_database;")) {
 
             List<String> databases = new ArrayList<>();
             ResultSet rs = ps.executeQuery();
@@ -187,8 +187,8 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         String dbUrl = getUrlFromDatabaseName(databaseName);
         Connection connection = getConnection(dbUrl);
         try (PreparedStatement ps =
-                     connection.prepareStatement(
-                             "SELECT table_schema, table_name FROM information_schema.tables;")) {
+                connection.prepareStatement(
+                        "SELECT table_schema, table_name FROM information_schema.tables;")) {
 
             ResultSet rs = ps.executeQuery();
 
@@ -240,7 +240,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
                             tablePath.getSchemaName(),
                             tablePath.getTableName());
             try (PreparedStatement ps = conn.prepareStatement(sql);
-                 ResultSet resultSet = ps.executeQuery()) {
+                    ResultSet resultSet = ps.executeQuery()) {
                 TableSchema.Builder builder = TableSchema.builder();
 
                 // add column
@@ -332,9 +332,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     @Override
     protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
             throws CatalogException {
-        String createTableSql =
-                new PostgresCreateTableSqlBuilder(table)
-                        .build(tablePath);
+        String createTableSql = new PostgresCreateTableSqlBuilder(table).build(tablePath);
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         Connection conn = getConnection(dbUrl);
         log.info("create table sql: {}", createTableSql);
@@ -366,7 +364,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     }
 
     public String getCountSql(TablePath tablePath) {
-        return String.format("select count(*) from %s;", tablePath.getFullName());
+        return String.format("select * from %s limit 1;", tablePath.getFullName());
     }
 
     @Override
@@ -406,7 +404,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         try {
             return databaseExists(tablePath.getDatabaseName())
                     && listTables(tablePath.getDatabaseName())
-                    .contains(tablePath.getSchemaAndTableName());
+                            .contains(tablePath.getSchemaAndTableName());
         } catch (DatabaseNotExistException e) {
             return false;
         }

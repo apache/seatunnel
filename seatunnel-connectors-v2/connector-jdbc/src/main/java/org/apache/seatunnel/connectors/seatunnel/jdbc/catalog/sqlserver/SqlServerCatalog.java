@@ -77,7 +77,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     @Override
     public List<String> listDatabases() throws CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-             PreparedStatement ps = conn.prepareStatement("SELECT NAME FROM sys.databases")) {
+                PreparedStatement ps = conn.prepareStatement("SELECT NAME FROM sys.databases")) {
 
             List<String> databases = new ArrayList<>();
             ResultSet rs = ps.executeQuery();
@@ -105,11 +105,11 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
 
         String dbUrl = getUrlFromDatabaseName(databaseName);
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
-             PreparedStatement ps =
-                     conn.prepareStatement(
-                             "SELECT TABLE_SCHEMA, TABLE_NAME FROM "
-                                     + databaseName
-                                     + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")) {
+                PreparedStatement ps =
+                        conn.prepareStatement(
+                                "SELECT TABLE_SCHEMA, TABLE_NAME FROM "
+                                        + databaseName
+                                        + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")) {
 
             ResultSet rs = ps.executeQuery();
 
@@ -131,7 +131,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
         try {
             return databaseExists(tablePath.getDatabaseName())
                     && listTables(tablePath.getDatabaseName())
-                    .contains(tablePath.getSchemaAndTableName());
+                            .contains(tablePath.getSchemaAndTableName());
         } catch (DatabaseNotExistException e) {
             return false;
         }
@@ -170,7 +170,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                             tablePath.getTableName());
 
             try (PreparedStatement ps = conn.prepareStatement(columnSql);
-                 ResultSet resultSet = ps.executeQuery(); ) {
+                    ResultSet resultSet = ps.executeQuery(); ) {
                 TableSchema.Builder builder = TableSchema.builder();
                 while (resultSet.next()) {
                     buildTable(resultSet, builder);
@@ -301,7 +301,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
         // table.getOptions().get("fieldIde"));
         log.info("create table sql: {}", createTableSql);
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-             PreparedStatement ps = conn.prepareStatement(createTableSql)) {
+                PreparedStatement ps = conn.prepareStatement(createTableSql)) {
             System.out.println(createTableSql);
             return ps.execute();
         } catch (Exception e) {
@@ -314,10 +314,10 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     protected boolean dropTableInternal(TablePath tablePath) throws CatalogException {
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
-             PreparedStatement ps =
-                     conn.prepareStatement(
-                             String.format(
-                                     "DROP TABLE IF EXISTS %s", tablePath.getFullName()))) {
+                PreparedStatement ps =
+                        conn.prepareStatement(
+                                String.format(
+                                        "DROP TABLE IF EXISTS %s", tablePath.getFullName()))) {
             // Will there exist concurrent drop for one table?
             return ps.execute();
         } catch (SQLException e) {
@@ -327,16 +327,16 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     }
 
     public String getCountSql(TablePath tablePath) {
-        return String.format("select count(*) from %s;", tablePath.getFullName());
+        return String.format("select TOP 1 * from %s ;", tablePath.getFullName());
     }
 
     @Override
     protected boolean truncateTableInternal(TablePath tablePath) throws CatalogException {
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
-             PreparedStatement ps =
-                     conn.prepareStatement(
-                             String.format("TRUNCATE TABLE  %s", tablePath.getFullName()))) {
+                PreparedStatement ps =
+                        conn.prepareStatement(
+                                String.format("TRUNCATE TABLE  %s", tablePath.getFullName()))) {
             // Will there exist concurrent drop for one table?
             return ps.execute();
         } catch (SQLException e) {
@@ -348,9 +348,9 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     @Override
     protected boolean createDatabaseInternal(String databaseName) throws CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-             PreparedStatement ps =
-                     conn.prepareStatement(
-                             String.format("CREATE DATABASE [%s]", databaseName))) {
+                PreparedStatement ps =
+                        conn.prepareStatement(
+                                String.format("CREATE DATABASE [%s]", databaseName))) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(
@@ -364,9 +364,9 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     @Override
     protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-             PreparedStatement ps =
-                     conn.prepareStatement(
-                             String.format("DROP DATABASE IF EXISTS [%s];", databaseName))) {
+                PreparedStatement ps =
+                        conn.prepareStatement(
+                                String.format("DROP DATABASE IF EXISTS [%s];", databaseName))) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(

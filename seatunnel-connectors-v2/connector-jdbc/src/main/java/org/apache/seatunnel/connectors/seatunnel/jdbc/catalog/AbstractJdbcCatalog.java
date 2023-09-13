@@ -153,13 +153,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         String sql = getCountSql(tablePath);
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ResultSet resultSet = ps.executeQuery();
-            if (resultSet == null) {
-                return false;
-            }
-            resultSet.next();
-            int count = 0;
-            count = resultSet.getInt(1);
-            return count > 0;
+            return resultSet.next();
         } catch (SQLException e) {
             throw new CatalogException(String.format("Failed executeSql error %s", sql), e);
         }

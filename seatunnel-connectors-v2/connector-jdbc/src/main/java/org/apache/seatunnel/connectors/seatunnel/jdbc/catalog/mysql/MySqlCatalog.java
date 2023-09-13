@@ -181,7 +181,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                     String.format(
                             SELECT_COLUMNS, tablePath.getDatabaseName(), tablePath.getTableName());
             try (PreparedStatement ps = conn.prepareStatement(sql);
-                 ResultSet resultSet = ps.executeQuery(); ) {
+                    ResultSet resultSet = ps.executeQuery(); ) {
 
                 TableSchema.Builder builder = TableSchema.builder();
                 while (resultSet.next()) {
@@ -297,8 +297,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
 
         String createTableSql =
-                MysqlCreateTableSqlBuilder.builder(tablePath, table)
-                        .build(table.getCatalogName());
+                MysqlCreateTableSqlBuilder.builder(tablePath, table).build(table.getCatalogName());
         createTableSql =
                 CatalogUtils.getFieldIde(createTableSql, table.getOptions().get("fieldIde"));
         Connection connection = getConnection(dbUrl);
@@ -316,10 +315,10 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         Connection connection = getConnection(dbUrl);
         try (PreparedStatement ps =
-                     connection.prepareStatement(
-                             String.format(
-                                     "DROP TABLE IF EXISTS %s.%s;",
-                                     tablePath.getDatabaseName(), tablePath.getTableName()))) {
+                connection.prepareStatement(
+                        String.format(
+                                "DROP TABLE IF EXISTS %s.%s;",
+                                tablePath.getDatabaseName(), tablePath.getTableName()))) {
             // Will there exist concurrent drop for one table?
             return ps.execute();
         } catch (SQLException e) {
@@ -333,10 +332,10 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         Connection connection = getConnection(dbUrl);
         try (PreparedStatement ps =
-                     connection.prepareStatement(
-                             String.format(
-                                     "TRUNCATE TABLE %s.%s;",
-                                     tablePath.getDatabaseName(), tablePath.getTableName()))) {
+                connection.prepareStatement(
+                        String.format(
+                                "TRUNCATE TABLE %s.%s;",
+                                tablePath.getDatabaseName(), tablePath.getTableName()))) {
             // Will there exist concurrent truncate for one table?
             return ps.execute();
         } catch (SQLException e) {
@@ -348,8 +347,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     @Override
     protected boolean createDatabaseInternal(String databaseName) throws CatalogException {
         try (PreparedStatement ps =
-                     defaultConnection.prepareStatement(
-                             String.format("CREATE DATABASE `%s`;", databaseName))) {
+                defaultConnection.prepareStatement(
+                        String.format("CREATE DATABASE `%s`;", databaseName))) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(
@@ -363,8 +362,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     @Override
     protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
         try (PreparedStatement ps =
-                     defaultConnection.prepareStatement(
-                             String.format("DROP DATABASE `%s`;", databaseName))) {
+                defaultConnection.prepareStatement(
+                        String.format("DROP DATABASE `%s`;", databaseName))) {
             return ps.execute();
         } catch (Exception e) {
             throw new CatalogException(
@@ -377,7 +376,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
     public String getCountSql(TablePath tablePath) {
         return String.format(
-                "select count(*) from %s.%s;",
+                "select * from %s.%s limit 1;",
                 tablePath.getDatabaseName(), tablePath.getTableName());
     }
 

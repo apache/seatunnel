@@ -131,7 +131,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     public List<String> listDatabases() throws CatalogException {
         try (PreparedStatement ps =
-                     defaultConnection.prepareStatement("SELECT name FROM v$database")) {
+                defaultConnection.prepareStatement("SELECT name FROM v$database")) {
 
             List<String> databases = new ArrayList<>();
             ResultSet rs = ps.executeQuery();
@@ -150,9 +150,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
             throws CatalogException {
-        String createTableSql =
-                new OracleCreateTableSqlBuilder(table)
-                        .build(tablePath);
+        String createTableSql = new OracleCreateTableSqlBuilder(table).build(tablePath);
         String[] createTableSqls = createTableSql.split(";");
         for (String sql : createTableSqls) {
             log.info("create table sql: {}", sql);
@@ -173,10 +171,10 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     protected boolean dropTableInternal(TablePath tablePath) throws CatalogException {
         Connection connection = defaultConnection;
         try (PreparedStatement ps =
-                     connection.prepareStatement(
-                             String.format(
-                                     "DROP TABLE %s.%s",
-                                     tablePath.getSchemaName(), tablePath.getTableName()))) {
+                connection.prepareStatement(
+                        String.format(
+                                "DROP TABLE %s.%s",
+                                tablePath.getSchemaName(), tablePath.getTableName()))) {
             // Will there exist concurrent truncate for one table?
             return ps.execute();
         } catch (SQLException e) {
@@ -189,10 +187,10 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     protected boolean truncateTableInternal(TablePath tablePath) throws CatalogException {
         Connection connection = defaultConnection;
         try (PreparedStatement ps =
-                     connection.prepareStatement(
-                             String.format(
-                                     "TRUNCATE TABLE %s.%s",
-                                     tablePath.getSchemaName(), tablePath.getTableName()))) {
+                connection.prepareStatement(
+                        String.format(
+                                "TRUNCATE TABLE %s.%s",
+                                tablePath.getSchemaName(), tablePath.getTableName()))) {
             // Will there exist concurrent truncate for one table?
             return ps.execute();
         } catch (SQLException e) {
@@ -213,7 +211,8 @@ public class OracleCatalog extends AbstractJdbcCatalog {
 
     public String getCountSql(TablePath tablePath) {
         return String.format(
-                "select count(*) from %s.%s", tablePath.getSchemaName(), tablePath.getTableName());
+                "select * from %s.%s WHERE ROWNUM=1 ",
+                tablePath.getSchemaName(), tablePath.getTableName());
     }
 
     @Override
@@ -221,7 +220,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
         try {
             return databaseExists(tablePath.getDatabaseName())
                     && listTables(tablePath.getDatabaseName())
-                    .contains(tablePath.getSchemaAndTableName());
+                            .contains(tablePath.getSchemaAndTableName());
         } catch (DatabaseNotExistException e) {
             return false;
         }
@@ -235,12 +234,12 @@ public class OracleCatalog extends AbstractJdbcCatalog {
         }
 
         try (PreparedStatement ps =
-                     defaultConnection.prepareStatement(
-                             "SELECT OWNER, TABLE_NAME FROM ALL_TABLES\n"
-                                     + "WHERE TABLE_NAME NOT LIKE 'MDRT_%'\n"
-                                     + "  AND TABLE_NAME NOT LIKE 'MDRS_%'\n"
-                                     + "  AND TABLE_NAME NOT LIKE 'MDXT_%'\n"
-                                     + "  AND (TABLE_NAME NOT LIKE 'SYS_IOT_OVER_%' AND IOT_NAME IS NULL)")) {
+                defaultConnection.prepareStatement(
+                        "SELECT OWNER, TABLE_NAME FROM ALL_TABLES\n"
+                                + "WHERE TABLE_NAME NOT LIKE 'MDRT_%'\n"
+                                + "  AND TABLE_NAME NOT LIKE 'MDRS_%'\n"
+                                + "  AND TABLE_NAME NOT LIKE 'MDXT_%'\n"
+                                + "  AND (TABLE_NAME NOT LIKE 'SYS_IOT_OVER_%' AND IOT_NAME IS NULL)")) {
 
             ResultSet rs = ps.executeQuery();
             List<String> tables = new ArrayList<>();
@@ -286,7 +285,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                             tablePath.getSchemaName(),
                             tablePath.getTableName());
             try (PreparedStatement ps = defaultConnection.prepareStatement(sql);
-                 ResultSet resultSet = ps.executeQuery()) {
+                    ResultSet resultSet = ps.executeQuery()) {
                 TableSchema.Builder builder = TableSchema.builder();
                 // add column
                 while (resultSet.next()) {
