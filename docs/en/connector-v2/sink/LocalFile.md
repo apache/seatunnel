@@ -30,7 +30,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|               name               |  type   | required |               default value                |                          remarks                          |
+|               name               | type    | required | default value                              | remarks                                                   |
 |----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
 | path                             | string  | yes      | -                                          |                                                           |
 | custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                      |
@@ -50,6 +50,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | common-options                   | object  | no       | -                                          |                                                           |
 | max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                 |
 | sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                 |
+| enable_header_write              | boolean | no       | false                                      | false:dont write header,true:write header.                |
 
 ### path [string]
 
@@ -165,6 +166,10 @@ When File Format is Excel,The maximum number of data items that can be cached in
 ### sheet_name [string]
 
 Writer the sheet of the workbook
+
+### enable_header_write [boolean]
+
+false:dont write header,true:write header.
 
 ## Example
 
