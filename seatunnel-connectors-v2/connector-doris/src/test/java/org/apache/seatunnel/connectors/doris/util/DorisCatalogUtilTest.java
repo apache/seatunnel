@@ -66,19 +66,18 @@ public class DorisCatalogUtilTest {
                         template, TablePath.of("test", "create_test_tbl"), catalogTable);
 
         String result =
-                "CREATE TABLE IF NOT EXISTS `test`.`create_test_tbl`\n" +
-                        "(\n" +
-                        "    `k1` INT(11) NOT NULL ,\n" +
-                        "`k2` VARCHAR(64) NOT NULL ,\n" +
-                        "`v1` DOUBLE NULL ,\n" +
-                        "`v2` DECIMALV3(10,2) NOT NULL \n" +
-                        ") ENGINE = OLAP DISTRIBUTED BY HASH (`k1`,`k2`)\n" +
-                        "    PROPERTIES\n" +
-                        "(\n" +
-                        "    \"replication_num\" = \"1\"\n" +
-                        ");";
+                "CREATE TABLE IF NOT EXISTS `test`.`create_test_tbl`\n"
+                        + "(\n"
+                        + "    `k1` INT(11) NOT NULL ,\n"
+                        + "`k2` VARCHAR(64) NOT NULL ,\n"
+                        + "`v1` DOUBLE NULL ,\n"
+                        + "`v2` DECIMALV3(10,2) NOT NULL \n"
+                        + ") ENGINE = OLAP DISTRIBUTED BY HASH (`k1`,`k2`)\n"
+                        + "    PROPERTIES\n"
+                        + "(\n"
+                        + "    \"replication_num\" = \"1\"\n"
+                        + ");";
 
         Assertions.assertEquals(statement, result);
-
     }
 }

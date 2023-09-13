@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.doris;
 
-import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -32,13 +30,16 @@ import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -89,8 +90,10 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
                         .withPrivilegedMode(true)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", QUERY_PORT, DOCKER_QUERY_PORT),
-                String.format("%s:%s", HTTP_PORT, DOCKER_HTTP_PORT)));
+        container.setPortBindings(
+                Lists.newArrayList(
+                        String.format("%s:%s", QUERY_PORT, DOCKER_QUERY_PORT),
+                        String.format("%s:%s", HTTP_PORT, DOCKER_HTTP_PORT)));
         Startables.deepStart(Stream.of(container)).join();
         log.info("doris container started");
         given().ignoreExceptions()
@@ -104,7 +107,15 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
         String catalogName = "doris";
         String frontEndNodes = container.getHost() + ":" + HTTP_PORT;
         DorisConfig config = DorisConfig.of(ReadonlyConfig.fromMap(new HashMap<>()));
-        catalog = new DorisCatalog(catalogName, frontEndNodes, QUERY_PORT, USERNAME, PASSWORD, config, DATABASE);
+        catalog =
+                new DorisCatalog(
+                        catalogName,
+                        frontEndNodes,
+                        QUERY_PORT,
+                        USERNAME,
+                        PASSWORD,
+                        config,
+                        DATABASE);
         catalog.open();
     }
 
@@ -149,7 +160,6 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
             catalog.dropDatabase(tablePath, false);
             Assertions.assertFalse(catalog.databaseExists(tablePath.getDatabaseName()));
         }
-
     }
 
     @Override
@@ -167,7 +177,7 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
 
     private void initializeJdbcConnection()
             throws SQLException, ClassNotFoundException, InstantiationException,
-            IllegalAccessException, MalformedURLException {
+                    IllegalAccessException, MalformedURLException {
         URLClassLoader urlClassLoader =
                 new URLClassLoader(
                         new URL[] {new URL(DRIVER_JAR)}, DorisCDCSinkIT.class.getClassLoader());
@@ -181,5 +191,4 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
             statement.execute(SET_SQL);
         }
     }
-
 }
