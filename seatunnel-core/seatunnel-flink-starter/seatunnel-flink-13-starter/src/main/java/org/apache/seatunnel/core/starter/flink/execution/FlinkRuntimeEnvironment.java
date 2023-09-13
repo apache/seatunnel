@@ -31,6 +31,7 @@ import org.apache.seatunnel.core.starter.flink.utils.TableUtil;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.RuntimeExecutionMode;
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
@@ -185,7 +186,8 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
     }
 
     private void createStreamEnvironment() {
-        Configuration configuration = EnvironmentUtil.initConfiguration(config);
+        Configuration configuration = new Configuration();
+        EnvironmentUtil.initConfiguration(config, configuration);
         environment = StreamExecutionEnvironment.getExecutionEnvironment(configuration);
         setTimeCharacteristic();
 
@@ -265,7 +267,10 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                 }
             }
 
-            if (config.hasPath(ConfigKeyName.CHECKPOINT_TIMEOUT)) {
+            if (config.hasPath(EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
+                long timeout = config.getLong(EnvCommonOptions.CHECKPOINT_TIMEOUT.key());
+                checkpointConfig.setCheckpointTimeout(timeout);
+            } else if (config.hasPath(ConfigKeyName.CHECKPOINT_TIMEOUT)) {
                 long timeout = config.getLong(ConfigKeyName.CHECKPOINT_TIMEOUT);
                 checkpointConfig.setCheckpointTimeout(timeout);
             }
@@ -313,20 +318,24 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
         }
     }
 
-    public void registerResultTable(Config config, DataStream<Row> dataStream) {
-        if (config.hasPath(RESULT_TABLE_NAME)) {
-            String name = config.getString(RESULT_TABLE_NAME);
-            StreamTableEnvironment tableEnvironment = this.getStreamTableEnvironment();
-            if (!TableUtil.tableExists(tableEnvironment, name)) {
+    public void registerResultTable(
+            Config config, DataStream<Row> dataStream, String name, Boolean isAppend) {
+        StreamTableEnvironment tableEnvironment = this.getStreamTableEnvironment();
+        if (!TableUtil.tableExists(tableEnvironment, name)) {
+            if (isAppend) {
                 if (config.hasPath("field_name")) {
                     String fieldName = config.getString("field_name");
                     Expression[] expression = getExpression(fieldName);
                     tableEnvironment.createTemporaryView(name, dataStream, expression);
-                } else {
-                    tableEnvironment.createTemporaryView(name, dataStream);
+                    return;
                 }
+                tableEnvironment.createTemporaryView(name, dataStream);
+                return;
+
             }
         }
+        tableEnvironment.createTemporaryView(
+                name, tableEnvironment.fromChangelogStream(dataStream));
     }
 
     public static FlinkRuntimeEnvironment getInstance(Config config) {

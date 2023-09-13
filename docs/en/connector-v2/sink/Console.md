@@ -14,13 +14,23 @@ Used to send data to Console. Both support streaming and batch mode.
 
 ## Options
 
-|      name      | type | required | default value |
-|----------------|------|----------|---------------|
-| common-options |      | no       | -             |
+|        name        |  type   | required | default value |
+|--------------------|---------|----------|---------------|
+| common-options     |         | no       | -             |
+| log.print.data     | boolean | no       | yes           |
+| log.print.delay.ms | int     | no       | 0             |
 
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+
+### log.print.data
+
+Flag to determine whether data should be printed in the logs. The default value is `true`.
+
+### log.print.delay.ms
+
+Delay in milliseconds between printing each data item to the logs. The default value is `0`.
 
 ## Example
 

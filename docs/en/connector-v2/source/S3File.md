@@ -1,22 +1,14 @@
 # S3File
 
-> S3 file source connector
+> S3 File Source Connector
 
-## Description
+## Support Those Engines
 
-Read data from aws s3 file system.
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
-:::tip
-
-If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
-
-If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
-
-To use this connector you need put hadoop-aws-3.1.4.jar and aws-java-sdk-bundle-1.11.271.jar in ${SEATUNNEL_HOME}/lib dir.
-
-:::
-
-## Key features
+## Key Features
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
@@ -35,103 +27,30 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
   - [x] json
   - [x] excel
 
-## Options
+## Description
 
-|              name               |  type   | required |                     default value                     |
-|---------------------------------|---------|----------|-------------------------------------------------------|
-| path                            | string  | yes      | -                                                     |
-| file_format_type                | string  | yes      | -                                                     |
-| bucket                          | string  | yes      | -                                                     |
-| fs.s3a.endpoint                 | string  | yes      | -                                                     |
-| fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider |
-| read_columns                    | list    | no       | -                                                     |
-| access_key                      | string  | no       | -                                                     |
-| access_secret                   | string  | no       | -                                                     |
-| hadoop_s3_properties            | map     | no       | -                                                     |
-| delimiter                       | string  | no       | \001                                                  |
-| parse_partition_from_path       | boolean | no       | true                                                  |
-| date_format                     | string  | no       | yyyy-MM-dd                                            |
-| datetime_format                 | string  | no       | yyyy-MM-dd HH:mm:ss                                   |
-| time_format                     | string  | no       | HH:mm:ss                                              |
-| skip_header_row_number          | long    | no       | 0                                                     |
-| schema                          | config  | no       | -                                                     |
-| common-options                  |         | no       | -                                                     |
-| sheet_name                      | string  | no       | -                                                     |
-| file_filter_pattern             | string  | no       | -                                                     |
+Read data from aws s3 file system.
 
-### path [string]
+## Supported DataSource Info
 
-The source file path.
+| Datasource | Supported versions |
+|------------|--------------------|
+| S3         | current            |
 
-### fs.s3a.endpoint [string]
+## Dependency
 
-fs s3a endpoint
+> If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.<br/>
+>
+> If you use SeaTunnel Zeta, It automatically integrated the hadoop jar when you download and install SeaTunnel Zeta. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.<br/>
+> To use this connector you need put hadoop-aws-3.1.4.jar and aws-java-sdk-bundle-1.11.271.jar in ${SEATUNNEL_HOME}/lib dir.
 
-### fs.s3a.aws.credentials.provider [string]
+## Data Type Mapping
 
-The way to authenticate s3a. We only support `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider` now.
-
-More information about the credential provider you can see [Hadoop AWS Document](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A)
-
-### delimiter [string]
-
-Field delimiter, used to tell connector how to slice and dice fields when reading text files
-
-default `\001`, the same as hive's default delimiter
-
-### parse_partition_from_path [boolean]
-
-Control whether parse the partition keys and values from file path
-
-For example if you read a file from path `s3n://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`
-
-Every record data from file will be added these two fields:
-
-|     name      | age |
-|---------------|-----|
-| tyrantlucifer | 26  |
-
-Tips: **Do not define partition fields in schema option**
-
-### date_format [string]
-
-Date type format, used to tell connector how to convert string to date, supported as the following formats:
-
-`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`
-
-default `yyyy-MM-dd`
-
-### datetime_format [string]
-
-Datetime type format, used to tell connector how to convert string to datetime, supported as the following formats:
-
-`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`
-
-default `yyyy-MM-dd HH:mm:ss`
-
-### time_format [string]
-
-Time type format, used to tell connector how to convert string to time, supported as the following formats:
-
-`HH:mm:ss` `HH:mm:ss.SSS`
-
-default `HH:mm:ss`
-
-### skip_header_row_number [long]
-
-Skip the first few lines, but only for the txt and csv.
-
-For example, set like following:
-
-`skip_header_row_number = 2`
-
-then SeaTunnel will skip the first 2 lines from source files
-
-### file_format_type [string]
-
-File type, supported as the following file types:
+Data type mapping is related to the type of file being read, We supported as the following file types:
 
 `text` `csv` `parquet` `orc` `json` `excel`
+
+### JSON File Type
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -174,7 +93,7 @@ connector will generate data as the following:
 |------|-------------|---------|
 | 200  | get success | true    |
 
-If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
+### Text Or CSV File Type
 
 If you assign file type to `text` `csv`, you can choose to specify the schema information or not.
 
@@ -215,61 +134,102 @@ connector will generate data as the following:
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
-### bucket [string]
+### Orc File Type
 
-The bucket address of s3 file system, for example: `s3n://seatunnel-test`, if you use `s3a` protocol, this parameter should be `s3a://seatunnel-test`.
+If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
 
-### access_key [string]
+|          Orc Data type           |                      SeaTunnel Data type                       |
+|----------------------------------|----------------------------------------------------------------|
+| BOOLEAN                          | BOOLEAN                                                        |
+| INT                              | INT                                                            |
+| BYTE                             | BYTE                                                           |
+| SHORT                            | SHORT                                                          |
+| LONG                             | LONG                                                           |
+| FLOAT                            | FLOAT                                                          |
+| DOUBLE                           | DOUBLE                                                         |
+| BINARY                           | BINARY                                                         |
+| STRING<br/>VARCHAR<br/>CHAR<br/> | STRING                                                         |
+| DATE                             | LOCAL_DATE_TYPE                                                |
+| TIMESTAMP                        | LOCAL_DATE_TIME_TYPE                                           |
+| DECIMAL                          | DECIMAL                                                        |
+| LIST(STRING)                     | STRING_ARRAY_TYPE                                              |
+| LIST(BOOLEAN)                    | BOOLEAN_ARRAY_TYPE                                             |
+| LIST(TINYINT)                    | BYTE_ARRAY_TYPE                                                |
+| LIST(SMALLINT)                   | SHORT_ARRAY_TYPE                                               |
+| LIST(INT)                        | INT_ARRAY_TYPE                                                 |
+| LIST(BIGINT)                     | LONG_ARRAY_TYPE                                                |
+| LIST(FLOAT)                      | FLOAT_ARRAY_TYPE                                               |
+| LIST(DOUBLE)                     | DOUBLE_ARRAY_TYPE                                              |
+| Map<K,V>                         | MapType, This type of K and V will transform to SeaTunnel type |
+| STRUCT                           | SeaTunnelRowType                                               |
 
-The access key of s3 file system. If this parameter is not set, please confirm that the credential provider chain can be authenticated correctly, you could check this [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
+### Parquet File Type
 
-### access_secret [string]
+If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
 
-The access secret of s3 file system. If this parameter is not set, please confirm that the credential provider chain can be authenticated correctly, you could check this [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
+|    Orc Data type     |                      SeaTunnel Data type                       |
+|----------------------|----------------------------------------------------------------|
+| INT_8                | BYTE                                                           |
+| INT_16               | SHORT                                                          |
+| DATE                 | DATE                                                           |
+| TIMESTAMP_MILLIS     | TIMESTAMP                                                      |
+| INT64                | LONG                                                           |
+| INT96                | TIMESTAMP                                                      |
+| BINARY               | BYTES                                                          |
+| FLOAT                | FLOAT                                                          |
+| DOUBLE               | DOUBLE                                                         |
+| BOOLEAN              | BOOLEAN                                                        |
+| FIXED_LEN_BYTE_ARRAY | TIMESTAMP<br/> DECIMAL                                         |
+| DECIMAL              | DECIMAL                                                        |
+| LIST(STRING)         | STRING_ARRAY_TYPE                                              |
+| LIST(BOOLEAN)        | BOOLEAN_ARRAY_TYPE                                             |
+| LIST(TINYINT)        | BYTE_ARRAY_TYPE                                                |
+| LIST(SMALLINT)       | SHORT_ARRAY_TYPE                                               |
+| LIST(INT)            | INT_ARRAY_TYPE                                                 |
+| LIST(BIGINT)         | LONG_ARRAY_TYPE                                                |
+| LIST(FLOAT)          | FLOAT_ARRAY_TYPE                                               |
+| LIST(DOUBLE)         | DOUBLE_ARRAY_TYPE                                              |
+| Map<K,V>             | MapType, This type of K and V will transform to SeaTunnel type |
+| STRUCT               | SeaTunnelRowType                                               |
 
-### hadoop_s3_properties [map]
+## Options
 
-If you need to add a other option, you could add it here and refer to this [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
-
-```
-hadoop_s3_properties {
-      "xxx" = "xxx"
-   }
-```
-
-### schema [config]
-
-#### fields [Config]
-
-The schema of upstream data.
-
-### read_columns [list]
-
-The read column list of the data source, user can use it to implement field projection.
-
-The file type supported column projection as the following shown:
-
-- text
-- json
-- csv
-- orc
-- parquet
-- excel
-
-**Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
-
-### common options
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
-
-### sheet_name [string]
-
-Reader the sheet of the workbook,Only used when file_format_type is excel.
+|              name               |  type   | required |                     default value                     |                                                                                                                                                                                                Description                                                                                                                                                                                                 |
+|---------------------------------|---------|----------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| path                            | string  | yes      | -                                                     | The s3 path that needs to be read can have sub paths, but the sub paths need to meet certain format requirements. Specific requirements can be referred to "parse_partition_from_path" option                                                                                                                                                                                                              |
+| file_format_type                | string  | yes      | -                                                     | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel`                                                                                                                                                                                                                                                                                                              |
+| bucket                          | string  | yes      | -                                                     | The bucket address of s3 file system, for example: `s3n://seatunnel-test`, if you use `s3a` protocol, this parameter should be `s3a://seatunnel-test`.                                                                                                                                                                                                                                                     |
+| fs.s3a.endpoint                 | string  | yes      | -                                                     | fs s3a endpoint                                                                                                                                                                                                                                                                                                                                                                                            |
+| fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | The way to authenticate s3a. We only support `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider` now. More information about the credential provider you can see [Hadoop AWS Document](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A) |
+| read_columns                    | list    | no       | -                                                     | The read column list of the data source, user can use it to implement field projection. The file type supported column projection as the following shown: `text` `csv` `parquet` `orc` `json` `excel` . If the user wants to use this feature when reading `text` `json` `csv` files, the "schema" option must be configured.                                                                              |
+| access_key                      | string  | no       | -                                                     | Only used when `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider `                                                                                                                                                                                                                                                                                                  |
+| access_secret                   | string  | no       | -                                                     | Only used when `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider `                                                                                                                                                                                                                                                                                                  |
+| hadoop_s3_properties            | map     | no       | -                                                     | If you need to add other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)                                                                                                                                                                                                                                              |
+| delimiter                       | string  | no       | \001                                                  | Field delimiter, used to tell connector how to slice and dice fields when reading text files. Default `\001`, the same as hive's default delimiter.                                                                                                                                                                                                                                                        |
+| parse_partition_from_path       | boolean | no       | true                                                  | Control whether parse the partition keys and values from file path. For example if you read a file from path `s3n://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`. Every record data from file will be added these two fields: name="tyrantlucifer", age=16                                                                                                                              |
+| date_format                     | string  | no       | yyyy-MM-dd                                            | Date type format, used to tell connector how to convert string to date, supported as the following formats:`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`. default `yyyy-MM-dd`                                                                                                                                                                                                                                    |
+| datetime_format                 | string  | no       | yyyy-MM-dd HH:mm:ss                                   | Datetime type format, used to tell connector how to convert string to datetime, supported as the following formats:`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`                                                                                                                                                                                                      |
+| time_format                     | string  | no       | HH:mm:ss                                              | Time type format, used to tell connector how to convert string to time, supported as the following formats:`HH:mm:ss` `HH:mm:ss.SSS`                                                                                                                                                                                                                                                                       |
+| skip_header_row_number          | long    | no       | 0                                                     | Skip the first few lines, but only for the txt and csv. For example, set like following:`skip_header_row_number = 2`. Then SeaTunnel will skip the first 2 lines from source files                                                                                                                                                                                                                         |
+| schema                          | config  | no       | -                                                     | The schema of upstream data.                                                                                                                                                                                                                                                                                                                                                                               |
+| common-options                  |         | no       | -                                                     | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                                                                                                                                                                                                                                                                                   |
+| sheet_name                      | string  | no       | -                                                     | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                                                                                                      |
 
 ## Example
 
-```hocon
+1. In this example, We read data from s3 path `s3a://seatunnel-test/seatunnel/text` and the file type is orc in this path.
+   We use `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` to authentication so `access_key` and `secret_key` is required.
+   All columns in the file will be read and send to sink.
 
+```
+# Defining the runtime environment
+env {
+  # You can set flink configuration here
+  execution.parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
   S3File {
     path = "/seatunnel/text"
     fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
@@ -279,8 +239,20 @@ Reader the sheet of the workbook,Only used when file_format_type is excel.
     bucket = "s3a://seatunnel-test"
     file_format_type = "orc"
   }
+}
 
+transform {
+  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+    # please go to https://seatunnel.apache.org/docs/category/transform-v2
+}
+
+sink {
+  Console {}
+}
 ```
+
+2. Use `InstanceProfileCredentialsProvider` to authentication
+   The file type in S3 is json, so need config schema option.
 
 ```hocon
 
@@ -300,9 +272,47 @@ Reader the sheet of the workbook,Only used when file_format_type is excel.
 
 ```
 
-### file_filter_pattern [string]
+3. Use `InstanceProfileCredentialsProvider` to authentication
+   The file type in S3 is json and has five fields (`id`, `name`, `age`, `sex`, `type`), so need config schema option.
+   In this job, we only need send `id` and `name` column to mysql.
 
-Filter pattern, which used for filtering files.
+```
+# Defining the runtime environment
+env {
+  # You can set flink configuration here
+  execution.parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  S3File {
+    path = "/seatunnel/json"
+    bucket = "s3a://seatunnel-test"
+    fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+    file_format_type = "json"
+    read_columns = ["id", "name"]
+    schema {
+      fields {
+        id = int 
+        name = string
+        age = int
+        sex = int
+        type = string
+      }
+    }
+  }
+}
+
+transform {
+  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+    # please go to https://seatunnel.apache.org/docs/category/transform-v2
+}
+
+sink {
+  Console {}
+}
+```
 
 ## Changelog
 

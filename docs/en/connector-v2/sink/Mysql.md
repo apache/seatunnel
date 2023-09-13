@@ -2,6 +2,10 @@
 
 > JDBC Mysql Sink Connector
 
+## Support Mysql Version
+
+- 5.5/5.6/5.7/8.0
+
 ## Support Those Engines
 
 > Spark<br/>
@@ -118,7 +122,7 @@ transform {
 
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
@@ -136,7 +140,7 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
@@ -155,7 +159,7 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
     
         max_retries = 0
@@ -177,7 +181,7 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"

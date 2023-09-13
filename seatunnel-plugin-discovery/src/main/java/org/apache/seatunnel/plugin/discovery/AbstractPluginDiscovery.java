@@ -228,7 +228,6 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      *
      * @return the all plugin identifier of the engine
      */
-    @SuppressWarnings("checkstyle:WhitespaceAfter")
     public Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> getAllPlugin()
             throws IOException {
         List<Factory> factories;
