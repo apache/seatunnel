@@ -175,9 +175,11 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
         tableEnvironment =
                 StreamTableEnvironment.create(getStreamExecutionEnvironment(), environmentSettings);
         TableConfig config = tableEnvironment.getConfig();
-        if (this.config.hasPath(ConfigKeyName.TABLE_TTL)) {
-            long ttl = this.config.getLong(ConfigKeyName.TABLE_TTL);
-            config.setIdleStateRetention(Duration.ofMillis(ttl));
+        if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME)
+                && this.config.hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
+            long max = this.config.getLong(ConfigKeyName.MAX_STATE_RETENTION_TIME);
+            long min = this.config.getLong(ConfigKeyName.MIN_STATE_RETENTION_TIME);
+            config.setIdleStateRetentionTime(Time.seconds(min), Time.seconds(max));
         }
     }
 
