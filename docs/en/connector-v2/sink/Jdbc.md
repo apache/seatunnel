@@ -47,6 +47,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | max_commit_attempts                       | Int     | No       | 3             |
 | transaction_timeout_sec                   | Int     | No       | -1            |
 | auto_commit                               | Boolean | No       | true          |
+| field_ide                                 | String  | No       | -             |
 | common-options                            |         | no       | -             |
 
 ### driver [string]
@@ -135,6 +136,12 @@ exactly-once semantics
 ### auto_commit [boolean]
 
 Automatic transaction commit is enabled by default
+
+### field_ide [String]
+
+The field "field_ide" is used to identify whether the field needs to be converted to uppercase or lowercase when
+synchronizing from the source to the sink. "ORIGINAL" indicates no conversion is needed, "UPPERCASE" indicates
+conversion to uppercase, and "LOWERCASE" indicates conversion to lowercase.
 
 ### common options
 

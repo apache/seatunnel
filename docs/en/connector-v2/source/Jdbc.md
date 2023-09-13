@@ -145,15 +145,25 @@ Jdbc {
 parallel:
 
 ```
-Jdbc {
-    url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
-    driver = "com.mysql.cj.jdbc.Driver"
-    connection_check_timeout_sec = 100
-    user = "root"
-    password = "123456"
-    query = "select * from type_bin"
-    partition_column = "id"
-    partition_num = 10
+env {
+  execution.parallelism = 10
+  job.mode = "BATCH"
+}
+source {
+    Jdbc {
+        url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+        driver = "com.mysql.cj.jdbc.Driver"
+        connection_check_timeout_sec = 100
+        user = "root"
+        password = "123456"
+        query = "select * from type_bin"
+        partition_column = "id"
+        partition_num = 10
+    }
+}
+
+sink {
+  Console {}
 }
 ```
 

@@ -65,9 +65,11 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
         List<DataStream<Row>> sources = new ArrayList<>();
         for (int i = 0; i < plugins.size(); i++) {
             SeaTunnelSource internalSource = plugins.get(i);
+            Config pluginConfig = pluginConfigs.get(i);
             BaseSeaTunnelSourceFunction sourceFunction;
             if (internalSource instanceof SupportCoordinate) {
                 sourceFunction = new SeaTunnelCoordinatedSource(internalSource);
+                registerAppendStream(pluginConfig);
             } else {
                 sourceFunction = new SeaTunnelParallelSource(internalSource);
             }
@@ -80,7 +82,6 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
                             sourceFunction,
                             "SeaTunnel " + internalSource.getClass().getSimpleName(),
                             bounded);
-            Config pluginConfig = pluginConfigs.get(i);
             if (pluginConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 int parallelism = pluginConfig.getInt(CommonOptions.PARALLELISM.key());
                 sourceStream.setParallelism(parallelism);
