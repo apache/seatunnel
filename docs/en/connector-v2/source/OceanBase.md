@@ -71,7 +71,7 @@ Read external data source data through JDBC.
 
 ## Source Options
 
-| Name                         | Type       | Required | Default         | Description                                                                                                                                                                                                                                                           |
+|             Name             |    Type    | Required |     Default     |                                                                                                                              Description                                                                                                                              |
 |------------------------------|------------|----------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:oceanbase://localhost:2883/test                                                                                                                                                                                 |
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source, should be `com.oceanbase.jdbc.Driver`.                                                                                                                                                                 |

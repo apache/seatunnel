@@ -26,7 +26,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 ## Options
 
-| name                                      | type    | required | default value |
+|                   name                    |  type   | required | default value |
 |-------------------------------------------|---------|----------|---------------|
 | url                                       | String  | Yes      | -             |
 | driver                                    | String  | Yes      | -             |
@@ -145,6 +145,7 @@ synchronizing from the source to the sink. "ORIGINAL" indicates no conversion is
 conversion to uppercase, and "LOWERCASE" indicates conversion to lowercase.
 
 ### properties
+
 additional connection configuration parameters
 
 ### common options

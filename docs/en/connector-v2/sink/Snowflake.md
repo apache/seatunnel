@@ -48,7 +48,7 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 
 ## Options
 
-| name                                      | type    | required | default value | description                                                                                                                                                                                                                                  |
+|                   name                    |  type   | required | default value |                                                                                                                 description                                                                                                                  |
 |-------------------------------------------|---------|----------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -             | The URL of the JDBC connection. Refer to a case: jdbc:snowflake://<account_name>.snowflakecomputing.com                                                                                                                                      |
 | driver                                    | String  | Yes      | -             | The jdbc class name used to connect to the remote data source,<br/> if you use Snowflake the value is `net.snowflake.client.jdbc.SnowflakeDriver`.                                                                                           |
@@ -79,63 +79,64 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table. Before run this job, you need create database test and table test_table in your snowflake database. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
 
 ```
- # Defining the runtime environment
- env {
- # You can set flink configuration here
- execution.parallelism = 1
- job.mode = "BATCH"
- }
- source {
- # This is a example source plugin **only for test and demonstrate the feature source plugin**
- FakeSource {
- parallelism = 1
- result_table_name = "fake"
- row.num = 16
- schema = {
- fields {
- name = "string"
- age = "int"
- }
- }
- }
- # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
- # please go to https://seatunnel.apache.org/docs/category/source-v2
- }
- transform {
- # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
- # please go to https://seatunnel.apache.org/docs/category/transform-v2
- }
- sink {
- jdbc {
- url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
- driver = "net.snowflake.client.jdbc.SnowflakeDriver"
- user = "root"
- password = "123456"
- query = "insert into test_table(name,age) values(?,?)"
- }
- # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
- # please go to https://seatunnel.apache.org/docs/category/sink-v2
- }
+# Defining the runtime environment
+env {
+# You can set flink configuration here
+execution.parallelism = 1
+job.mode = "BATCH"
+}
+source {
+# This is a example source plugin **only for test and demonstrate the feature source plugin**
+FakeSource {
+parallelism = 1
+result_table_name = "fake"
+row.num = 16
+schema = {
+fields {
+name = "string"
+age = "int"
+}
+}
+}
+# If you would like to get more information about how to configure seatunnel and see full list of source plugins,
+# please go to https://seatunnel.apache.org/docs/category/source-v2
+}
+transform {
+# If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+# please go to https://seatunnel.apache.org/docs/category/transform-v2
+}
+sink {
+jdbc {
+url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+user = "root"
+password = "123456"
+query = "insert into test_table(name,age) values(?,?)"
+}
+# If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
+# please go to https://seatunnel.apache.org/docs/category/sink-v2
+}
 ```
 
 ### CDC(Change data capture) event
 
 > CDC change data is also supported by us In this case, you need config database, table and primary_keys.
 
- ```
- sink {
-    jdbc {
-    url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
-    driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-    user = "root"
-    password = "123456"
-    generate_sink_sql = true
-    
-    
-    # You need to configure both database and table
-    database = test
-    table = sink_table
-    primary_keys = ["id","name"]
-   }
+```
+sink {
+   jdbc {
+   url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+   driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+   user = "root"
+   password = "123456"
+   generate_sink_sql = true
+   
+   
+   # You need to configure both database and table
+   database = test
+   table = sink_table
+   primary_keys = ["id","name"]
+  }
 }
 ```
+

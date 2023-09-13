@@ -28,7 +28,7 @@ supports query SQL and can achieve projection effect.
 
 ## Options
 
-|             name             | type   | required | default value   |
+|             name             |  type  | required |  default value  |
 |------------------------------|--------|----------|-----------------|
 | url                          | String | Yes      | -               |
 | driver                       | String | Yes      | -               |
@@ -95,6 +95,7 @@ For queries that return a large number of objects, you can configure the row fet
 improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.
 
 ### properties
+
 additional connection configuration parameters
 
 ### common options
