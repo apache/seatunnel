@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -32,6 +33,14 @@ import java.util.stream.Collectors;
 public class PostgresDialect implements JdbcDialect {
 
     public static final int DEFAULT_POSTGRES_FETCH_SIZE = 128;
+
+    public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
+
+    public PostgresDialect() {}
+
+    public PostgresDialect(String fieldIde) {
+        this.fieldIde = fieldIde;
+    }
 
     @Override
     public String dialectName() {
@@ -87,5 +96,33 @@ public class PostgresDialect implements JdbcDialect {
             statement.setFetchSize(DEFAULT_POSTGRES_FETCH_SIZE);
         }
         return statement;
+    }
+
+    @Override
+    public String tableIdentifier(String database, String tableName) {
+        // resolve pg database name upper or lower not recognised
+        return quoteDatabaseIdentifier(database) + "." + quoteIdentifier(tableName);
+    }
+
+    @Override
+    public String quoteIdentifier(String identifier) {
+        if (identifier.contains(".")) {
+            String[] parts = identifier.split("\\.");
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < parts.length - 1; i++) {
+                sb.append("\"").append(parts[i]).append("\"").append(".");
+            }
+            return sb.append("\"")
+                    .append(getFieldIde(parts[parts.length - 1], fieldIde))
+                    .append("\"")
+                    .toString();
+        }
+
+        return "\"" + getFieldIde(identifier, fieldIde) + "\"";
+    }
+
+    @Override
+    public String quoteDatabaseIdentifier(String identifier) {
+        return "\"" + identifier + "\"";
     }
 }
