@@ -864,7 +864,7 @@ Example:
 
 // use default zone
 
-CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss') 
+CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss')
 
 or
 
