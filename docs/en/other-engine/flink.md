@@ -12,9 +12,12 @@ I set a precise Checkpoint for this job
 ```
 env {
   execution.parallelism = 1  
-  flink.execution.checkpointing.mode="EXACTLY_ONCE"
+  flink.execution.checkpointing.unaligned.enabled=true
 }
 ```
+
+Enumeration types are not currently supported, you need to specify them in the Flink conf file ,Only these types of Settings are supported for the time being:<br/>
+Integer/Boolean/String/Duration
 
 ### How to set up a simple Flink job
 
@@ -23,14 +26,13 @@ This is a simple job that runs on Flink Randomly generated data is printed to th
 ```
 env {
   execution.parallelism = 1
-  flink.execution.checkpointing.mode="EXACTLY_ONCE"
+  flink.execution.checkpointing.interval=5000
 }
 
 source {
   FakeSource {
-    row.num = 5
-    int.template = [2]
-    result_table_name = "mongodb_table"
+    row.num = 16
+    result_table_name = "fake_table"
     schema = {
       fields {
         c_map = "map<string, string>"
@@ -67,7 +69,7 @@ transform {
   # please go to https://seatunnel.apache.org/docs/transform-v2/sql
 }
 
-Sink{
+sink{
    Console{}   
 }
 ```
@@ -78,4 +80,4 @@ After you pull the code to the local, go to the `seatunnel-examples/seatunnel-fl
 
 ### If you want to hand in an assignment
 
-[Quick Start With Flink](quick-start-flink.md)
+[Quick Start With Flink](docs/en/start-v2/locally/quick-start-flink.md)

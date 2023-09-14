@@ -1,0 +1,68 @@
+package org.apache.seatunnel.core.starter.flink;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.starter.flink.utils.EnvironmentUtil;
+import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+import org.apache.seatunnel.core.starter.utils.FileUtils;
+
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+public class TestFlinkParameter {
+
+    @Test
+    public void testFlinkParameter() throws Exception {
+        // Verified Map
+        List<String> checkList = new ArrayList<>();
+        checkList.add("execution.checkpointing.interval=5000");
+        checkList.add("execution.checkpointing.unaligned.enabled=true");
+        checkList.add("execution.checkpointing.aligned-checkpoint-timeout=100000");
+        checkList.add("jobstore.cache-size=52428801");
+        checkList.add("state.backend.rocksdb.predefined-options=SPINNING_DISK_OPTIMIZED_HIGH_MEM");
+        FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
+        flinkCommandArgs.setDeployMode(DeployMode.RUN);
+        flinkCommandArgs.setJobName("SeaTunnelFlinkParamete");
+        flinkCommandArgs.setEncrypt(false);
+        flinkCommandArgs.setDecrypt(false);
+        flinkCommandArgs.setHelp(false);
+        flinkCommandArgs.setConfigFile("src/test/java/resources/test_flink_run_parameter.conf");
+        flinkCommandArgs.setVariables(null);
+        Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
+        Config config = ConfigBuilder.of(configFile).getConfig("env");
+
+        Configuration configurations = new Configuration();
+
+        EnvironmentUtil.initConfiguration(config, configurations);
+        StreamExecutionEnvironment executionEnvironment =
+                StreamExecutionEnvironment.getExecutionEnvironment(configurations);
+        List<String> ExternalSettingLists = new ArrayList<>();
+        String[] split =
+                executionEnvironment
+                        .getConfiguration()
+                        .toString()
+                        .replaceAll(" ", "")
+                        .replaceAll("\\{", "")
+                        .replaceAll("\\}", "")
+                        .replaceAll("\"", "")
+                        .trim()
+                        .split(",");
+        for (String value : split) {
+            if (checkList.contains(value)) {
+                ExternalSettingLists.add(value);
+            }
+        }
+        checkList.sort(null);
+        ExternalSettingLists.sort(null);
+        Assertions.assertIterableEquals(checkList, ExternalSettingLists);
+    }
+}
