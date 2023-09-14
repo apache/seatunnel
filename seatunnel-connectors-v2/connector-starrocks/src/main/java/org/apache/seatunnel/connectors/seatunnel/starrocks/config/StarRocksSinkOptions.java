@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.sink.DataSaveMode;
-import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.StreamLoadFormat;
 
 import java.util.Arrays;
@@ -133,7 +133,7 @@ public interface StarRocksSinkOptions {
                     .withDescription("");
 
     SingleChoiceOption<DataSaveMode> SAVE_MODE =
-            Options.key(SupportDataSaveMode.SAVE_MODE_KEY)
+            Options.key(SupportSaveMode.DATA_SAVE_MODE_KEY)
                     .singleChoice(
                             DataSaveMode.class, Arrays.asList(DataSaveMode.KEEP_SCHEMA_AND_DATA))
                     .defaultValue(DataSaveMode.KEEP_SCHEMA_AND_DATA)
