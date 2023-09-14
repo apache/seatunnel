@@ -15,87 +15,54 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public class MysqlDialect implements JdbcDialect {
-    public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
-
-    public MysqlDialect() {}
-
-    public MysqlDialect(String fieldIde) {
-        this.fieldIde = fieldIde;
-    }
+public class KingbaseDialect implements JdbcDialect {
 
     @Override
     public String dialectName() {
-        return "MySQL";
+        return "Kingbase";
     }
 
     @Override
     public JdbcRowConverter getRowConverter() {
-        return new MysqlJdbcRowConverter();
+        return new KingbaseJdbcRowConverter();
     }
 
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
-        return new MySqlTypeMapper();
-    }
-
-    @Override
-    public String quoteIdentifier(String identifier) {
-        return "`" + getFieldIde(identifier, fieldIde) + "`";
-    }
-
-    @Override
-    public String quoteDatabaseIdentifier(String identifier) {
-        return "`" + identifier + "`";
+        return new KingbaseTypeMapper();
     }
 
     @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+        String uniqueColumns =
+                Arrays.stream(uniqueKeyFields)
+                        .map(this::quoteIdentifier)
+                        .collect(Collectors.joining(", "));
         String updateClause =
                 Arrays.stream(fieldNames)
                         .map(
                                 fieldName ->
                                         quoteIdentifier(fieldName)
-                                                + "=VALUES("
-                                                + quoteIdentifier(fieldName)
-                                                + ")")
+                                                + "=EXCLUDED."
+                                                + quoteIdentifier(fieldName))
                         .collect(Collectors.joining(", "));
         String upsertSQL =
-                getInsertIntoStatement(database, tableName, fieldNames)
-                        + " ON DUPLICATE KEY UPDATE "
-                        + updateClause;
+                String.format(
+                        "%s ON CONFLICT (%s) DO UPDATE SET %s",
+                        getInsertIntoStatement(database, tableName, fieldNames),
+                        uniqueColumns,
+                        updateClause);
         return Optional.of(upsertSQL);
-    }
-
-    @Override
-    public PreparedStatement creatPreparedStatement(
-            Connection connection, String queryTemplate, int fetchSize) throws SQLException {
-        PreparedStatement statement =
-                connection.prepareStatement(
-                        queryTemplate, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-        statement.setFetchSize(Integer.MIN_VALUE);
-        return statement;
-    }
-
-    @Override
-    public String extractTableName(TablePath tablePath) {
-        return tablePath.getTableName();
     }
 }

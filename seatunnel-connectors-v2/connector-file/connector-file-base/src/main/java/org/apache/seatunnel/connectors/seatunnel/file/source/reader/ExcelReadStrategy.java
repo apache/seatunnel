@@ -136,7 +136,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                     "Schmea information is not set or incorrect schmea settings");
         }
         SeaTunnelRowType userDefinedRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
+                mergePartitionTypes(
+                        fileNames.size() > 0 ? fileNames.get(0) : null, seaTunnelRowType);
         // column projection
         if (pluginConfig.hasPath(BaseSourceConfig.READ_COLUMNS.key())) {
             // get the read column index from user-defined row type

@@ -15,30 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+public enum FieldIdeEnum {
+    ORIGINAL("original"), // Original string form
+    UPPERCASE("uppercase"), // Convert to uppercase
+    LOWERCASE("lowercase"); // Convert to lowercase
 
-import com.google.auto.service.AutoService;
+    private final String value;
 
-import javax.annotation.Nonnull;
-
-/** Factory for {@link OracleDialect}. */
-@AutoService(JdbcDialectFactory.class)
-public class OracleDialectFactory implements JdbcDialectFactory {
-    @Override
-    public boolean acceptsURL(String url) {
-        return url.startsWith("jdbc:oracle:thin:");
+    FieldIdeEnum(String value) {
+        this.value = value;
     }
 
-    @Override
-    public JdbcDialect create() {
-        return new OracleDialect();
-    }
-
-    @Override
-    public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
-        return new OracleDialect(fieldIde);
+    public String getValue() {
+        return value;
     }
 }

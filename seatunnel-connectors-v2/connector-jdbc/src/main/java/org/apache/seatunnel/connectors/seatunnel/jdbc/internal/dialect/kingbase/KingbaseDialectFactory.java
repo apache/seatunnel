@@ -15,30 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
-
-/** Factory for {@link OracleDialect}. */
+/** Factory for {@link KingbaseDialect}. */
 @AutoService(JdbcDialectFactory.class)
-public class OracleDialectFactory implements JdbcDialectFactory {
+public class KingbaseDialectFactory implements JdbcDialectFactory {
+
     @Override
     public boolean acceptsURL(String url) {
-        return url.startsWith("jdbc:oracle:thin:");
+        return url.startsWith("jdbc:kingbase8:");
     }
 
     @Override
     public JdbcDialect create() {
-        return new OracleDialect();
-    }
-
-    @Override
-    public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
-        return new OracleDialect(fieldIde);
+        return new KingbaseDialect();
     }
 }
