@@ -59,7 +59,6 @@ public class HiveMetaStoreProxy {
             String kerberosKrb5ConfPath =
                     config.getString(BaseSourceConfig.KERBEROS_KRB5_CONF_PATH.key());
             System.setProperty("java.security.krb5.conf", kerberosKrb5ConfPath);
-            // System.setProperty("krb.principal", "hadoop");
             log.info(
                     "conf kerberosKrb5ConfPath:{},hdfsSitePath:{}",
                     kerberosKrb5ConfPath,
