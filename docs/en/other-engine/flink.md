@@ -77,7 +77,3 @@ sink{
 ### How to run a job in a project
 
 After you pull the code to the local, go to the `seatunnel-examples/seatunnel-flink-connector-v2-example` module find `org.apache.seatunnel.example.flink.v2.SeaTunnelApiExample` To complete the operation of the job
-
-### If you want to hand in an assignment
-
-[Quick Start With Flink](docs/en/start-v2/locally/quick-start-flink.md)
