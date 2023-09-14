@@ -75,7 +75,7 @@ jobs:
             const name = 'Build'
             const head_sha = context.payload.pull_request.head.sha
             let status = 'queued'
-
+            console.log('runs: ' + runs)
             if (!runs || runs.data.workflow_runs.length === 0) {
               status = 'completed'
               const conclusion = 'action_required'
