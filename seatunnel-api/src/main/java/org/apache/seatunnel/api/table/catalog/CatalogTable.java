@@ -18,6 +18,8 @@
 package org.apache.seatunnel.api.table.catalog;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -59,6 +61,17 @@ public final class CatalogTable implements Serializable {
         return new CatalogTable(tableId, tableSchema, options, partitionKeys, comment, catalogName);
     }
 
+    public static CatalogTable of(TableIdentifier tableId, CatalogTable catalogTable) {
+        CatalogTable newTable = catalogTable.copy();
+        return new CatalogTable(
+                tableId.copy(),
+                newTable.getTableSchema(),
+                newTable.getOptions(),
+                newTable.getPartitionKeys(),
+                newTable.getComment(),
+                newTable.getCatalogName());
+    }
+
     private CatalogTable(
             TableIdentifier tableId,
             TableSchema tableSchema,
@@ -81,6 +94,16 @@ public final class CatalogTable implements Serializable {
         this.partitionKeys = partitionKeys;
         this.comment = comment;
         this.catalogName = catalogName;
+    }
+
+    public CatalogTable copy() {
+        return new CatalogTable(
+                tableId.copy(),
+                tableSchema.copy(),
+                new HashMap<>(options),
+                new ArrayList<>(partitionKeys),
+                comment,
+                catalogName);
     }
 
     public TableIdentifier getTableId() {
