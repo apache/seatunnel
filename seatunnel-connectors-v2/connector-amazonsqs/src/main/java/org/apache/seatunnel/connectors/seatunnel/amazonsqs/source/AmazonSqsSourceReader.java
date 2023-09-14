@@ -105,12 +105,14 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             deserializationSchema.deserialize(messageBody.getBytes(), output);
 
             // Delete the processed message
-            DeleteMessageRequest deleteMessageRequest =
-                    DeleteMessageRequest.builder()
-                            .queueUrl(amazonSqsSourceOptions.getUrl())
-                            .receiptHandle(message.receiptHandle())
-                            .build();
-            sqsClient.deleteMessage(deleteMessageRequest);
+            if (amazonSqsSourceOptions.isDeleteMessage()) {
+                DeleteMessageRequest deleteMessageRequest =
+                        DeleteMessageRequest.builder()
+                                .queueUrl(amazonSqsSourceOptions.getUrl())
+                                .receiptHandle(message.receiptHandle())
+                                .build();
+                sqsClient.deleteMessage(deleteMessageRequest);
+            }
         }
     }
 }

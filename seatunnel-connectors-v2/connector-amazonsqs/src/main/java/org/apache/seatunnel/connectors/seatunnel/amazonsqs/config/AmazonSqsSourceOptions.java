@@ -38,6 +38,8 @@ public class AmazonSqsSourceOptions implements Serializable {
 
     private String messageGroupId;
 
+    private boolean deleteMessage;
+
     public AmazonSqsSourceOptions(Config config) {
         this.url = config.getString(AmazonSqsConfig.URL.key());
         this.region = config.getString(AmazonSqsConfig.REGION.key());
@@ -49,6 +51,9 @@ public class AmazonSqsSourceOptions implements Serializable {
         }
         if (config.hasPath(AmazonSqsConfig.MESSAGE_GROUP_ID.key())) {
             this.messageGroupId = config.getString(AmazonSqsConfig.MESSAGE_GROUP_ID.key());
+        }
+        if (config.hasPath(AmazonSqsConfig.DELETE_MESSAGE.key())) {
+            this.deleteMessage = config.getBoolean(AmazonSqsConfig.DELETE_MESSAGE.key());
         }
     }
 }

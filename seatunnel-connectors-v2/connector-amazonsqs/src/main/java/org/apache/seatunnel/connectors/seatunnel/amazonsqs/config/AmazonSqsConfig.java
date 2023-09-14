@@ -75,4 +75,10 @@ public class AmazonSqsConfig implements Serializable {
                     .booleanType()
                     .defaultValue(true)
                     .withDescription("Does the debezium record carry a schema.");
+
+    public static final Option<Boolean> DELETE_MESSAGE =
+            Options.key("delete_message")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Delete the message after it is consumed if configured.");
 }

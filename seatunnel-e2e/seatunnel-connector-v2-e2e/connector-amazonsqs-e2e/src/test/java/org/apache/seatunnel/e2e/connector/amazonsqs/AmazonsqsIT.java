@@ -47,9 +47,12 @@ import static org.awaitility.Awaitility.given;
 public class AmazonsqsIT extends TestSuiteBase implements TestResource {
     private static final String LOCALSTACK_DOCKER_IMAGE = "localstack/localstack:0.11.2";
     private static final String AMAZONSQS_JOB_CONFIG = "/amazonsqsIT_source_to_sink.conf";
+    private static final String AMAZONSQS_CONTAINER_HOST = "sqs-host";
     private static final int AMAZONSQS_CONTAINER_PORT = 4566;
     private static final String SINK_QUEUE = "sink_queue";
     private static final String SOURCE_QUEUE = "source_queue";
+
+    private static final String TEST_MESSAGE = "{\"name\": \"test_name\"}";
 
     protected SqsClient sqsClient;
 
@@ -66,6 +69,7 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
                         .withEnv("AWS_ACCESS_KEY_ID", "1234")
                         .withEnv("AWS_SECRET_ACCESS_KEY", "abcd")
                         .withNetwork(NETWORK)
+                        .withNetworkAliases(AMAZONSQS_CONTAINER_HOST)
                         .withExposedPorts(AMAZONSQS_CONTAINER_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -105,7 +109,7 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
         sqsClient.sendMessage(
                 r ->
                         r.queueUrl(sqsClient.listQueues().queueUrls().get(0))
-                                .messageBody("{\"name\": \"test_name\"}"));
+                                .messageBody(TEST_MESSAGE));
     }
 
     @AfterAll
@@ -136,18 +140,14 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
 
     private void compareResult() {
         // compare the message in source queue and sink queue
-        String sourceQueueMessage =
-                sqsClient
-                        .receiveMessage(r -> r.queueUrl(sqsClient.listQueues().queueUrls().get(0)))
-                        .messages()
-                        .get(0)
-                        .body();
+        // source messaged is deleted after consumption, so it is directly referencing the raw
+        // message.
         String sinkQueueMessage =
                 sqsClient
                         .receiveMessage(r -> r.queueUrl(sqsClient.listQueues().queueUrls().get(1)))
                         .messages()
                         .get(0)
                         .body();
-        Assertions.assertEquals(sourceQueueMessage, sinkQueueMessage);
+        Assertions.assertEquals(TEST_MESSAGE, sinkQueueMessage);
     }
 }
