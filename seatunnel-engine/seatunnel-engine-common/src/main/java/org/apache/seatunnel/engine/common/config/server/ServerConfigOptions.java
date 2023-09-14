@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.Map;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public class ServerConfigOptions {
 
     public static final Option<Integer> BACKUP_COUNT =
@@ -85,17 +84,12 @@ public class ServerConfigOptions {
                     .defaultValue(30000)
                     .withDescription("The timeout (in milliseconds) for a checkpoint.");
 
-    public static final Option<Integer> CHECKPOINT_MAX_CONCURRENT =
-            Options.key("max-concurrent")
+    public static final Option<Integer> SCHEMA_CHANGE_CHECKPOINT_TIMEOUT =
+            Options.key("schema-change-timeout")
                     .intType()
-                    .defaultValue(1)
-                    .withDescription("The maximum number of concurrent checkpoints.");
-
-    public static final Option<Integer> CHECKPOINT_TOLERABLE_FAILURE =
-            Options.key("tolerable-failure")
-                    .intType()
-                    .defaultValue(0)
-                    .withDescription("The tolerable failure number of a checkpoint.");
+                    .defaultValue(30000)
+                    .withDescription(
+                            "The timeout (in milliseconds) for a schema change checkpoint.");
 
     public static final Option<String> CHECKPOINT_STORAGE_TYPE =
             Options.key("type")
@@ -138,4 +132,9 @@ public class ServerConfigOptions {
                     .type(new TypeReference<Map<String, String>>() {})
                     .noDefaultValue()
                     .withDescription("The checkpoint storage instance configuration.");
+    public static final Option<Integer> HISTORY_JOB_EXPIRE_MINUTES =
+            Options.key("history-job-expire-minutes")
+                    .intType()
+                    .defaultValue(1440)
+                    .withDescription("The expire time of history jobs.time unit minute");
 }

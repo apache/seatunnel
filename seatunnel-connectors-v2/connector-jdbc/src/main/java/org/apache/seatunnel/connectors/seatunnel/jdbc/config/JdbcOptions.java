@@ -19,11 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import java.math.BigDecimal;
 import java.util.List;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public interface JdbcOptions {
 
     Option<String> URL = Options.key("url").stringType().noDefaultValue().withDescription("url");
@@ -70,12 +70,6 @@ public interface JdbcOptions {
                     .withDescription(
                             "For queries that return a large number of objects, "
                                     + "you can configure the row fetch size used in the query to improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.");
-
-    Option<Integer> BATCH_INTERVAL_MS =
-            Options.key("batch_interval_ms")
-                    .intType()
-                    .defaultValue(0)
-                    .withDescription("batch interval milliSecond");
 
     Option<Boolean> IS_EXACTLY_ONCE =
             Options.key("is_exactly_once")
@@ -161,4 +155,10 @@ public interface JdbcOptions {
                     .intType()
                     .noDefaultValue()
                     .withDescription("partition num");
+
+    Option<FieldIdeEnum> FIELD_IDE =
+            Options.key("field_ide")
+                    .enumType(FieldIdeEnum.class)
+                    .noDefaultValue()
+                    .withDescription("Whether case conversion is required");
 }

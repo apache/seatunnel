@@ -138,7 +138,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         SeaTunnelRowType userDefinedRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
+                mergePartitionTypes(
+                        fileNames.size() > 0 ? fileNames.get(0) : null, seaTunnelRowType);
         if (pluginConfig.hasPath(BaseSourceConfig.DELIMITER.key())) {
             fieldDelimiter = pluginConfig.getString(BaseSourceConfig.DELIMITER.key());
         } else {

@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -36,6 +37,7 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.HybridSplitAssigner;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.IncrementalSourceEnumerator;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.IncrementalSplitAssigner;
@@ -75,7 +77,7 @@ import java.util.stream.Stream;
 
 @NoArgsConstructor
 public abstract class IncrementalSource<T, C extends SourceConfig>
-        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
+        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState>, SupportCoordinate {
 
     protected ReadonlyConfig readonlyConfig;
     protected SourceConfig.Factory<C> configFactory;
@@ -167,17 +169,22 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue =
                 new LinkedBlockingQueue<>(2);
 
+        SchemaChangeResolver schemaChangeResolver = deserializationSchema.getSchemaChangeResolver();
         Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier =
                 () ->
                         new IncrementalSourceSplitReader<>(
-                                readerContext.getIndexOfSubtask(), dataSourceDialect, sourceConfig);
+                                readerContext.getIndexOfSubtask(),
+                                dataSourceDialect,
+                                sourceConfig,
+                                schemaChangeResolver);
         return new IncrementalSourceReader<>(
                 elementsQueue,
                 splitReaderSupplier,
                 createRecordEmitter(sourceConfig, readerContext.getMetricsContext()),
                 new SourceReaderOptions(readonlyConfig),
                 readerContext,
-                sourceConfig);
+                sourceConfig,
+                deserializationSchema);
     }
 
     protected RecordEmitter<SourceRecords, T, SourceSplitStateBase> createRecordEmitter(

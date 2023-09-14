@@ -20,11 +20,7 @@ on:
   push:
   pull_request:
     branches:
-      - dev
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - 'seatunnel-ui/**'
+      - '**'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
@@ -32,7 +28,7 @@ concurrency:
 
 jobs:
   license-header:
-    if: github.repository == '${{github.actor}}/seatunnel'
+    if: github.repository == 'apache/seatunnel'
     name: License header
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -44,7 +40,7 @@ jobs:
         uses: apache/skywalking-eyes@985866ce7e324454f61e22eb2db2e998db09d6f3
 
   code-style:
-    if: github.repository == '${{github.actor}}/seatunnel'
+    if: github.repository == 'apache/seatunnel'
     name: Code style
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -56,7 +52,7 @@ jobs:
         run: ./mvnw --batch-mode --quiet --no-snapshot-updates clean spotless:check
 
   dead-link:
-    if: github.repository == '${{github.actor}}/seatunnel'
+    if: github.repository != 'apache/seatunnel'
     name: Dead links
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -69,7 +65,7 @@ jobs:
           done
 
   sanity-check:
-    if: github.repository == '${{github.actor}}/seatunnel'
+    if: github.repository != 'apache/seatunnel'
     name: Sanity check results
     needs: [ license-header, code-style, dead-link ]
     runs-on: ubuntu-latest
@@ -83,7 +79,7 @@ jobs:
 
   changes:
     runs-on: ubuntu-latest
-    if: github.repository == '${{github.actor}}/seatunnel'
+    if: github.repository != 'apache/seatunnel'
     timeout-minutes: 10
     outputs:
       api: ${{ steps.filter.outputs.api }}
@@ -235,7 +231,7 @@ jobs:
           echo "modules=$build_modules" >> $GITHUB_OUTPUT
 
   dependency-license:
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true')
     name: Dependency licenses
     needs: [ changes, sanity-check ]
     runs-on: ubuntu-latest
@@ -262,7 +258,7 @@ jobs:
 
   unit-test:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != '')
+    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''))
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -293,7 +289,7 @@ jobs:
 
   updated-modules-integration-test-part-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -311,14 +307,14 @@ jobs:
       - name: run updated modules integration test (part-1)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 4 0`
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 7 0`
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx2048m
 
   updated-modules-integration-test-part-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -336,7 +332,7 @@ jobs:
       - name: run updated modules integration test (part-2)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 4 1`
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 7 1`
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -347,7 +343,7 @@ jobs:
 
   updated-modules-integration-test-part-3:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -365,7 +361,7 @@ jobs:
       - name: run updated modules integration test (part-3)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 4 2`
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 7 2`
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -376,7 +372,7 @@ jobs:
 
   updated-modules-integration-test-part-4:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -394,7 +390,7 @@ jobs:
       - name: run updated modules integration test (part-4)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 4 3`
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 7 3`
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -402,10 +398,93 @@ jobs:
           fi
         env:
           MAVEN_OPTS: -Xmx2048m
-
+  updated-modules-integration-test-part-5:
+    needs: [ changes, sanity-check ]
+    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run updated modules integration test (part-5)
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+        run: |
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 7 4`
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
+        env:
+          MAVEN_OPTS: -Xmx2048m
+  updated-modules-integration-test-part-6:
+    needs: [ changes, sanity-check ]
+    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run updated modules integration test (part-6)
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+        run: |
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 7 5`
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
+        env:
+          MAVEN_OPTS: -Xmx2048m
+  updated-modules-integration-test-part-7:
+    needs: [ changes, sanity-check ]
+    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run updated modules integration test (part-7)
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+        run: |
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 7 6`
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
+        env:
+          MAVEN_OPTS: -Xmx2048m
   engine-v2-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -429,7 +508,7 @@ jobs:
 
   transform-v2-it-part-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -453,7 +532,7 @@ jobs:
 
   transform-v2-it-part-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -477,7 +556,7 @@ jobs:
 
   all-connectors-it-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -504,7 +583,7 @@ jobs:
 
   all-connectors-it-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -531,7 +610,7 @@ jobs:
 
   all-connectors-it-3:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -558,7 +637,7 @@ jobs:
 
   all-connectors-it-4:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -585,7 +664,7 @@ jobs:
 
   all-connectors-it-5:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -612,7 +691,7 @@ jobs:
 
   all-connectors-it-6:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -639,7 +718,7 @@ jobs:
 
   all-connectors-it-7:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -666,7 +745,7 @@ jobs:
 
   jdbc-connectors-it-part-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -690,7 +769,7 @@ jobs:
 
   jdbc-connectors-it-part-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -714,7 +793,7 @@ jobs:
 
   jdbc-connectors-it-part-3:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -738,7 +817,7 @@ jobs:
 
   jdbc-connectors-it-part-4:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -760,9 +839,33 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx4096m
 
+  jdbc-connectors-it-part-5:
+    needs: [ changes, sanity-check ]
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run jdbc connectors integration test (part-5)
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw -B -T 1C verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-5 -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
   kafka-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -786,7 +889,7 @@ jobs:
 
   rocketmq-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
