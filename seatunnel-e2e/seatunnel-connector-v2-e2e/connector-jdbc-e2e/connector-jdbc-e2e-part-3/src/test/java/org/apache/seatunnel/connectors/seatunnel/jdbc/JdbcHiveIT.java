@@ -39,7 +39,7 @@ import java.util.Map;
 public class JdbcHiveIT extends AbstractJdbcIT {
 
     private static final String HIVE_IMAGE = "youngyangp/hive_3.1.2_arm:1.0.0";
-    private static final String HIVE_CONTAINER_HOST = "localhost";
+    private static final String HIVE_CONTAINER_HOST = "e2ehivejdbc";
 
     private static final String HIVE_DATABASE = "default";
 
@@ -47,12 +47,12 @@ public class JdbcHiveIT extends AbstractJdbcIT {
     private static final String HIVE_USERNAME = "root";
     private static final String HIVE_PASSWORD = null;
     private static final int HIVE_PORT = 10000;
-    private static final String HIVE_URL = "jdbc:hive2://" + HIVE_CONTAINER_HOST + ":%s/%s";
+    private static final String HIVE_URL = "jdbc:hive2://" + HOST + ":%s/%s";
 
     private static final String DRIVER_CLASS = "org.apache.hive.jdbc.HiveDriver";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_hive_source_and_sink.conf");
+            Lists.newArrayList("/jdbc_hive_source_and_assert.conf");
     private static final String CREATE_SQL =
             "CREATE TABLE hive_e2e_source_table"
                     + "("
@@ -164,5 +164,9 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(HIVE_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HIVE_PORT, HIVE_PORT)));
         return container;
+    }
+
+    public void clearTable(String schema, String table) {
+        // do nothing.
     }
 }
