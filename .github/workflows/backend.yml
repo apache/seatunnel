@@ -16,11 +16,6 @@
 #
 
 name: Backend
-on:
-  push:
-  pull_request:
-    branches:
-      - '**'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
