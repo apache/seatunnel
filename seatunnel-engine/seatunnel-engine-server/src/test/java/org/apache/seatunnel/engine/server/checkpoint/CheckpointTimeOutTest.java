@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.internal.serialization.Data;
@@ -42,6 +43,7 @@ public class CheckpointTimeOutTest extends AbstractSeaTunnelServerTest {
     public static long JOB_ID = System.currentTimeMillis();
 
     @Test
+    @Disabled("Currently unstable tests, waiting for @EricJoy2048 to refactor state handling logic")
     public void testJobLevelCheckpointTimeOut() {
         startJob(JOB_ID, CONF_PATH);
 

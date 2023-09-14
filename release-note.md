@@ -159,6 +159,7 @@
 - [Connector-V2] [Paimon] Introduce paimon connector (#4178)
 - [Connector V2] [Cassandra] Expose configurable options in Cassandra (#3681)
 - [Connector V2] [Jdbc] Supports GEOMETRY data type for PostgreSQL (#4673)
+- [Connector V2] [Jdbc] Supports Kingbase database (#4803)
 - [Transform-V2] Add UDF SPI and an example implement for SQL Transform plugin (#4392)
 - [Transform-V2] Support copy field list (#4404)
 - [Transform-V2] Add support CatalogTable for FieldMapperTransform (#4423)
@@ -195,3 +196,4 @@
 - [Docs] Redshift add defaultRowFetchSize (#4616)
 - [Docs] Refactor connector-v2 docs using unified format Mysql (#4590)
 - [Docs] Add Value types in Java to Schema features (#5087)
+- [Docs] Replace username by user in the options of FtpFile (#5421)

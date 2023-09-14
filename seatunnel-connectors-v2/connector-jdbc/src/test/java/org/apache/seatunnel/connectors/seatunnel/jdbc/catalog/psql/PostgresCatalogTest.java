@@ -53,7 +53,7 @@ class PostgresCatalogTest {
                 catalog.getTable(TablePath.of("st_test", "public", "all_types_table_02"));
         System.out.println("find table: " + table);
 
-        catalog.createTableInternal(
-                new TablePath("liulitest", "public", "all_types_table_02"), table);
+        catalog.createTable(
+                new TablePath("liulitest", "public", "all_types_table_02"), table, false);
     }
 }
