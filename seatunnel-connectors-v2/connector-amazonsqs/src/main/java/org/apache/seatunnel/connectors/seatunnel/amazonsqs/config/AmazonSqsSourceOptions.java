@@ -36,8 +36,6 @@ public class AmazonSqsSourceOptions implements Serializable {
 
     private String secretAccessKey;
 
-    private String queue;
-
     private String messageGroupId;
 
     public AmazonSqsSourceOptions(Config config) {
@@ -48,9 +46,6 @@ public class AmazonSqsSourceOptions implements Serializable {
         }
         if (config.hasPath(AmazonSqsConfig.SECRET_ACCESS_KEY.key())) {
             this.secretAccessKey = config.getString(AmazonSqsConfig.SECRET_ACCESS_KEY.key());
-        }
-        if (config.hasPath(AmazonSqsConfig.QUEUE.key())) {
-            this.queue = config.getString(AmazonSqsConfig.QUEUE.key());
         }
         if (config.hasPath(AmazonSqsConfig.MESSAGE_GROUP_ID.key())) {
             this.messageGroupId = config.getString(AmazonSqsConfig.MESSAGE_GROUP_ID.key());

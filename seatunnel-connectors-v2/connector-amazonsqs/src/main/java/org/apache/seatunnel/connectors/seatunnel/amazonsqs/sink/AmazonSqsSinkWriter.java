@@ -40,7 +40,7 @@ import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.Arrays;
+import java.nio.charset.StandardCharsets;
 
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.DEFAULT_FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.FIELD_DELIMITER;
@@ -86,12 +86,14 @@ public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
     @Override
     public void write(SeaTunnelRow row) throws IOException {
-        byte[] serializedBody = serializationSchema.serialize(row);
+        byte[] bytes = serializationSchema.serialize(row);
+
+        String messageBody = new String(bytes, StandardCharsets.UTF_8);
 
         SendMessageRequest sendMessageRequest =
                 SendMessageRequest.builder()
                         .queueUrl(amazonSqsSourceOptions.getUrl())
-                        .messageBody(Arrays.toString(serializedBody))
+                        .messageBody(messageBody)
                         .build();
 
         sqsClient.sendMessage(sendMessageRequest);

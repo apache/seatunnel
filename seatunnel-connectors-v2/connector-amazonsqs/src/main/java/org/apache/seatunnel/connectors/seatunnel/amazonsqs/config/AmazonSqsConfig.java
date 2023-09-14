@@ -46,11 +46,7 @@ public class AmazonSqsConfig implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The access secret key of Amazon SQS Service");
-    public static final Option<String> QUEUE =
-            Options.key("queue")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The queue name of Amazon SQS Service");
+
     public static final Option<String> MESSAGE_GROUP_ID =
             Options.key("message_group_id")
                     .stringType()
