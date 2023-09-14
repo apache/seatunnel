@@ -38,21 +38,28 @@ public class DateTimeFunctionTest {
                 new SeaTunnelRowType(
                         new String[] {"unixtime"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE});
 
+        // 1672502400 means `2023-01-01 00:00:00` in unix time
+        Long unixTime = 1672502400L;
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Long[] {unixTime});
+
         // transform by `from_unixtime` function
         sqlEngine.init(
                 "test",
                 null,
                 rowType,
                 "select from_unixtime(unixtime,'yyyy-MM-dd HH:mm:ss') as ts from test");
-
-        // 1672502400 means `2023-01-01 00:00:00` in unix time
-        Long unixTime = 1672502400L;
-        SeaTunnelRow inputRow = new SeaTunnelRow(new Long[] {unixTime});
-
-        // transform by sql
         SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow);
         Object field = outRow.getField(0);
-
         Assertions.assertEquals("2023-01-01 00:00:00", field.toString());
+
+        // transform by `from_unixtime` time zone function
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select from_unixtime(unixtime,'yyyy-MM-dd HH:mm:ss','UTC+6') as ts from test");
+        SeaTunnelRow outRow1 = sqlEngine.transformBySQL(inputRow);
+        Object field1 = outRow1.getField(0);
+        Assertions.assertEquals("2022-12-31 22:00:00", field1.toString());
     }
 }

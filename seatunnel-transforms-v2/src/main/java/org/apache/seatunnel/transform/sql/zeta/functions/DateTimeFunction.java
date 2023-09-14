@@ -550,9 +550,13 @@ public class DateTimeFunction {
             return null;
         }
         String format = (String) args.get(1);
+        ZoneId zoneId = ZoneId.systemDefault();
+        if (args.size() == 3) {
+            String timeZone = (String) args.get(2);
+            zoneId = ZoneId.of(timeZone);
+        }
         DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
-        LocalDateTime datetime =
-                Instant.ofEpochSecond(unixTime).atZone(ZoneId.systemDefault()).toLocalDateTime();
+        LocalDateTime datetime = Instant.ofEpochSecond(unixTime).atZone(zoneId).toLocalDateTime();
         return df.format(datetime);
     }
 }
