@@ -40,7 +40,6 @@ If tests were not added, please describe why they were not added and/or why it w
 
 ### Check list
 
-* [ ] Code changed are covered with tests, or it does not need tests for reason:
 * [ ] If any new Jar binary package adding in your PR, please add License Notice according
   [New License Guide](https://github.com/apache/seatunnel/blob/dev/docs/en/contribution/new-license.md)
 * [ ] If necessary, please update the documentation to describe the new feature. https://github.com/apache/seatunnel/tree/dev/docs
