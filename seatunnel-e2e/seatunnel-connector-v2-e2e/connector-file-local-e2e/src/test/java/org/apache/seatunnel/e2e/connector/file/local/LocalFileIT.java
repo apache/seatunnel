@@ -36,7 +36,9 @@ import java.io.IOException;
         disabledReason = "The apache-compress version is not compatible with apache-poi")
 public class LocalFileIT extends TestSuiteBase {
 
-    /** Copy data files to container */
+    /**
+     * Copy data files to container
+     */
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
@@ -61,6 +63,12 @@ public class LocalFileIT extends TestSuiteBase {
                         container);
 
                 ContainerUtil.copyFileIntoContainers(
+                        "/orc/e2e_err.orc",
+                        "/seatunnel/read/orc/name=tyrantlucifer/hobby=coding/e2e_err.orc",
+                        container
+                );
+
+                ContainerUtil.copyFileIntoContainers(
                         "/parquet/e2e.parquet",
                         "/seatunnel/read/parquet/name=tyrantlucifer/hobby=coding/e2e.parquet",
                         container);
@@ -79,31 +87,31 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/excel/fake_to_local_excel.conf");
         helper.execute("/excel/local_excel_to_assert.conf");
         helper.execute("/excel/local_excel_projection_to_assert.conf");
-        // test write local text file
+        // e2e_err.orc write local text file
         helper.execute("/text/fake_to_local_file_text.conf");
-        // test read skip header
+        // e2e_err.orc read skip header
         helper.execute("/text/local_file_text_skip_headers.conf");
-        // test read local text file
+        // e2e_err.orc read local text file
         helper.execute("/text/local_file_text_to_assert.conf");
-        // test read local text file with projection
+        // e2e_err.orc read local text file with projection
         helper.execute("/text/local_file_text_projection_to_assert.conf");
-        // test write local json file
+        // e2e_err.orc write local json file
         helper.execute("/json/fake_to_local_file_json.conf");
-        // test read local json file
+        // e2e_err.orc read local json file
         helper.execute("/json/local_file_json_to_assert.conf");
-        // test write local orc file
+        // e2e_err.orc write local orc file
         helper.execute("/orc/fake_to_local_file_orc.conf");
-        // test read local orc file
+        // e2e_err.orc read local orc file
         helper.execute("/orc/local_file_orc_to_assert.conf");
-        // test read local orc file with projection
+        // e2e_err.orc read local orc file with projection
         helper.execute("/orc/local_file_orc_projection_to_assert.conf");
-        // test write local parquet file
+        // e2e_err.orc write local parquet file
         helper.execute("/parquet/fake_to_local_file_parquet.conf");
-        // test read local parquet file
+        // e2e_err.orc read local parquet file
         helper.execute("/parquet/local_file_parquet_to_assert.conf");
-        // test read local parquet file with projection
+        // e2e_err.orc read local parquet file with projection
         helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
-        // test read filtered local file
+        // e2e_err.orc read filtered local file
         helper.execute("/excel/local_filter_excel_to_assert.conf");
     }
 }
