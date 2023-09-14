@@ -320,14 +320,9 @@ public class PhysicalVertex {
             Function<TaskGroupImmutableInformation, TaskDeployState> taskGroupConsumer) {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 getTaskGroupImmutableInformation();
-        synchronized (this) {
-            if (ExecutionState.DEPLOYING.equals(currExecutionState)) {
-                TaskDeployState state = taskGroupConsumer.apply(taskGroupImmutableInformation);
-                updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
-                return state;
-            }
-            return TaskDeployState.success();
-        }
+        TaskDeployState state = taskGroupConsumer.apply(taskGroupImmutableInformation);
+        updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
+        return state;
     }
 
     private TaskGroupImmutableInformation getTaskGroupImmutableInformation() {
