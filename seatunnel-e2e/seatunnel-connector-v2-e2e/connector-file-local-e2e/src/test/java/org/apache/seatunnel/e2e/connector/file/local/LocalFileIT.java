@@ -87,31 +87,31 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/excel/fake_to_local_excel.conf");
         helper.execute("/excel/local_excel_to_assert.conf");
         helper.execute("/excel/local_excel_projection_to_assert.conf");
-        // e2e_err.orc write local text file
+        // test write local text file
         helper.execute("/text/fake_to_local_file_text.conf");
-        // e2e_err.orc read skip header
+        // test read skip header
         helper.execute("/text/local_file_text_skip_headers.conf");
-        // e2e_err.orc read local text file
+        // test read local text file
         helper.execute("/text/local_file_text_to_assert.conf");
-        // e2e_err.orc read local text file with projection
+        // test read local text file with projection
         helper.execute("/text/local_file_text_projection_to_assert.conf");
-        // e2e_err.orc write local json file
+        // test write local json file
         helper.execute("/json/fake_to_local_file_json.conf");
-        // e2e_err.orc read local json file
+        // test read local json file
         helper.execute("/json/local_file_json_to_assert.conf");
-        // e2e_err.orc write local orc file
+        // test write local orc file
         helper.execute("/orc/fake_to_local_file_orc.conf");
-        // e2e_err.orc read local orc file
+        // test read local orc file
         helper.execute("/orc/local_file_orc_to_assert.conf");
-        // e2e_err.orc read local orc file with projection
+        // test read local orc file with projection
         helper.execute("/orc/local_file_orc_projection_to_assert.conf");
-        // e2e_err.orc write local parquet file
+        // test write local parquet file
         helper.execute("/parquet/fake_to_local_file_parquet.conf");
-        // e2e_err.orc read local parquet file
+        // test read local parquet file
         helper.execute("/parquet/local_file_parquet_to_assert.conf");
-        // e2e_err.orc read local parquet file with projection
+        // test read local parquet file with projection
         helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
-        // e2e_err.orc read filtered local file
+        // test read filtered local file
         helper.execute("/excel/local_filter_excel_to_assert.conf");
     }
 }
