@@ -156,7 +156,7 @@
                 <exclude>org.apache.seatunnel:connector-file-base-hadoop</exclude>
                 <exclude>org.apache.seatunnel:connector-cdc-base</exclude>
             </excludes>
-            <outputDirectory>/connectors/seatunnel</outputDirectory>
+            <outputDirectory>/connectors</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
 
