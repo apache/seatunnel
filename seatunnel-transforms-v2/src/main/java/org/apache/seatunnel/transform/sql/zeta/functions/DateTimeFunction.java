@@ -552,7 +552,7 @@ public class DateTimeFunction {
         String format = (String) args.get(1);
         DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
         LocalDateTime datetime =
-                Instant.ofEpochSecond(unixTime).atZone(ZoneId.of("UTC")).toLocalDateTime();
+                Instant.ofEpochSecond(unixTime).atZone(ZoneId.systemDefault()).toLocalDateTime();
         return df.format(datetime);
     }
 }
