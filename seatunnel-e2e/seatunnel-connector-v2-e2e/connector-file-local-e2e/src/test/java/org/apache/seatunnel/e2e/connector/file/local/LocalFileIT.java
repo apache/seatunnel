@@ -36,9 +36,7 @@ import java.io.IOException;
         disabledReason = "The apache-compress version is not compatible with apache-poi")
 public class LocalFileIT extends TestSuiteBase {
 
-    /**
-     * Copy data files to container
-     */
+    /** Copy data files to container */
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
@@ -65,8 +63,7 @@ public class LocalFileIT extends TestSuiteBase {
                 ContainerUtil.copyFileIntoContainers(
                         "/orc/e2e_err.orc",
                         "/seatunnel/read/orc/name=tyrantlucifer/hobby=coding/e2e_err.orc",
-                        container
-                );
+                        container);
 
                 ContainerUtil.copyFileIntoContainers(
                         "/parquet/e2e.parquet",
