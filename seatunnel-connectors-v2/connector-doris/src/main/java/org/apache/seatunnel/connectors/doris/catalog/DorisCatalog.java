@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.doris.catalog;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -136,8 +137,7 @@ public class DorisCatalog implements Catalog {
 
     @Override
     public boolean databaseExists(String databaseName) throws CatalogException {
-        String query = DorisCatalogUtil.getDatabaseQuery();
-        try (PreparedStatement ps = conn.prepareStatement(query)) {
+        try (PreparedStatement ps = conn.prepareStatement(DorisCatalogUtil.DATABASE_QUERY)) {
             ps.setString(1, databaseName);
             ResultSet rs = ps.executeQuery();
             return rs.next();
@@ -148,9 +148,8 @@ public class DorisCatalog implements Catalog {
 
     @Override
     public List<String> listDatabases() throws CatalogException {
-        String query = DorisCatalogUtil.getAllDatabasesQuery();
         List<String> databases = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement(query)) {
+        try (PreparedStatement ps = conn.prepareStatement(DorisCatalogUtil.ALL_DATABASES_QUERY)) {
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 String database = rs.getString(1);
@@ -166,9 +165,8 @@ public class DorisCatalog implements Catalog {
     @Override
     public List<String> listTables(String databaseName)
             throws CatalogException, DatabaseNotExistException {
-        String query = DorisCatalogUtil.getTablesQueryWithDatabase();
         List<String> tables = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement(query)) {
+        try (PreparedStatement ps = conn.prepareStatement(DorisCatalogUtil.TABLES_QUERY_WITH_DATABASE_QUERY)) {
             ps.setString(1, databaseName);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
@@ -185,8 +183,7 @@ public class DorisCatalog implements Catalog {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
-        String query = DorisCatalogUtil.getTablesQueryWithIdentifier();
-        try (PreparedStatement ps = conn.prepareStatement(query)) {
+        try (PreparedStatement ps = conn.prepareStatement(DorisCatalogUtil.TABLES_QUERY_WITH_IDENTIFIER_QUERY)) {
             ps.setString(1, tablePath.getDatabaseName());
             ps.setString(2, tablePath.getTableName());
             ResultSet rs = ps.executeQuery();
@@ -205,8 +202,7 @@ public class DorisCatalog implements Catalog {
             throw new TableNotExistException(catalogName, tablePath);
         }
         TableSchema.Builder builder = TableSchema.builder();
-        String query = DorisCatalogUtil.getTableSchemaQuery();
-        try (PreparedStatement ps = conn.prepareStatement(query)) {
+        try (PreparedStatement ps = conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
 
             List<String> keyList = new ArrayList<>();
             ps.setString(1, tablePath.getDatabaseName());
@@ -245,15 +241,13 @@ public class DorisCatalog implements Catalog {
                     String.format("get table [%s] failed", tablePath.getFullName()), e);
         }
 
-        String comment = "";
-
         return CatalogTable.of(
                 TableIdentifier.of(
                         catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
                 builder.build(),
                 connectorOptions(),
                 Collections.emptyList(),
-                comment);
+                StringUtils.EMPTY);
     }
 
     @Override

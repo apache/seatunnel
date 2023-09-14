@@ -41,6 +41,26 @@ import java.util.stream.Collectors;
 
 public class DorisCatalogUtil {
 
+    public static final String ALL_DATABASES_QUERY = "SELECT SCHEMA_NAME FROM information_schema.schemata WHERE CATALOG_NAME = 'internal' ORDER BY SCHEMA_NAME";
+
+    public static final String DATABASE_QUERY = "SELECT SCHEMA_NAME FROM information_schema.schemata "
+            + "WHERE CATALOG_NAME = 'internal' AND SCHEMA_NAME = ? "
+            + "ORDER BY SCHEMA_NAME";
+
+    public static final String TABLES_QUERY_WITH_DATABASE_QUERY = "SELECT TABLE_NAME FROM information_schema.tables "
+            + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? "
+            + "ORDER BY TABLE_NAME";
+
+    public static final String TABLES_QUERY_WITH_IDENTIFIER_QUERY = "SELECT TABLE_NAME FROM information_schema.tables "
+            + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
+            + "ORDER BY TABLE_NAME";
+
+    public static final String TABLE_SCHEMA_QUERY = "SELECT COLUMN_NAME,ORDINAL_POSITION,COLUMN_DEFAULT,IS_NULLABLE,COLUMN_TYPE,COLUMN_SIZE,"
+            + "COLUMN_KEY,NUMERIC_PRECISION,NUMERIC_SCALE,COLUMN_COMMENT "
+            + "FROM information_schema.columns "
+            + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
+            + "ORDER BY ORDINAL_POSITION";
+
     public static String randomFrontEndHost(String[] frontEndNodes) {
         if (frontEndNodes.length == 1) {
             return frontEndNodes[0].split(":")[0];
@@ -54,36 +74,6 @@ public class DorisCatalogUtil {
         return String.format("jdbc:mysql://%s:%d/%s", host, port, database);
     }
 
-    public static String getAllDatabasesQuery() {
-        return "SELECT SCHEMA_NAME FROM information_schema.schemata WHERE CATALOG_NAME = 'internal' ORDER BY SCHEMA_NAME";
-    }
-
-    public static String getDatabaseQuery() {
-        return "SELECT SCHEMA_NAME FROM information_schema.schemata "
-                + "WHERE CATALOG_NAME = 'internal' AND SCHEMA_NAME = ? "
-                + "ORDER BY SCHEMA_NAME";
-    }
-
-    public static String getTablesQueryWithDatabase() {
-        return "SELECT TABLE_NAME FROM information_schema.tables "
-                + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? "
-                + "ORDER BY TABLE_NAME";
-    }
-
-    public static String getTablesQueryWithIdentifier() {
-        return "SELECT TABLE_NAME FROM information_schema.tables "
-                + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
-                + "ORDER BY TABLE_NAME";
-    }
-
-    public static String getTableSchemaQuery() {
-        return "SELECT COLUMN_NAME,ORDINAL_POSITION,COLUMN_DEFAULT,IS_NULLABLE,COLUMN_TYPE,COLUMN_SIZE,"
-                + "COLUMN_KEY,NUMERIC_PRECISION,NUMERIC_SCALE,COLUMN_COMMENT "
-                + "FROM information_schema.columns "
-                + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
-                + "ORDER BY ORDINAL_POSITION";
-    }
-
     public static String getCreateDatabaseQuery(String database, boolean ignoreIfExists) {
         return "CREATE DATABASE " + (ignoreIfExists ? "IF NOT EXISTS " : "") + database;
     }
@@ -93,12 +83,8 @@ public class DorisCatalogUtil {
     }
 
     /**
-     * CREATE TABLE ${table_identifier} ( ${column_definition} ) ENGINE = ${engine_type} UNIQUE KEY
-     * (${key_columns}) COMMENT ${table_comment} ${partition_info} DISTRIBUTED BY HASH
-     * (${distribution_columns}) BUCKETS ${distribution_bucket} PROPERTIES ( ${properties} )
-     *
      * @param createTableTemplate create table template
-     * @param catalogTable catalog table
+     * @param catalogTable        catalog table
      * @return create table stmt
      */
     public static String getCreateTableStatement(
