@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
@@ -76,12 +77,15 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
             boolean bounded =
                     internalSource.getBoundedness()
                             == org.apache.seatunnel.api.source.Boundedness.BOUNDED;
+
             DataStreamSource<Row> sourceStream =
                     addSource(
                             executionEnvironment,
                             sourceFunction,
                             "SeaTunnel " + internalSource.getClass().getSimpleName(),
                             bounded);
+            stageType(pluginConfig, (SeaTunnelRowType) internalSource.getProducedType());
+
             if (pluginConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 int parallelism = pluginConfig.getInt(CommonOptions.PARALLELISM.key());
                 sourceStream.setParallelism(parallelism);
