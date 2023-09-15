@@ -38,7 +38,7 @@ import java.util.Map;
 @Slf4j
 public class JdbcHiveIT extends AbstractJdbcIT {
 
-    private static final String HIVE_IMAGE = "youngyangp/hive_3.1.2_arm:1.0.0";
+    private static final String HIVE_IMAGE = "apache/hive:3.1.3";
     private static final String HIVE_CONTAINER_HOST = "e2ehivejdbc";
 
     private static final String HIVE_DATABASE = "default";
@@ -160,6 +160,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                         .withExposedPorts(HIVE_PORT)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HIVE_CONTAINER_HOST)
+                        .withEnv("SERVICE_NAME","hiveserver2")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(HIVE_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HIVE_PORT, HIVE_PORT)));
