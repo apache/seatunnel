@@ -83,6 +83,7 @@ public class TiDBDataTypeConvertor implements DataTypeConvertor<MysqlType> {
     }
 
     // todo: It's better to wrapper MysqlType to a pojo in ST, since MysqlType doesn't contains
+    // properties.
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
             MysqlType mysqlType, Map<String, Object> dataTypeProperties)
