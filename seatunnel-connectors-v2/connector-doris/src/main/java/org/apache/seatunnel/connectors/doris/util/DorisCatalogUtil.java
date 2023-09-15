@@ -41,25 +41,30 @@ import java.util.stream.Collectors;
 
 public class DorisCatalogUtil {
 
-    public static final String ALL_DATABASES_QUERY = "SELECT SCHEMA_NAME FROM information_schema.schemata WHERE CATALOG_NAME = 'internal' ORDER BY SCHEMA_NAME";
+    public static final String ALL_DATABASES_QUERY =
+            "SELECT SCHEMA_NAME FROM information_schema.schemata WHERE CATALOG_NAME = 'internal' ORDER BY SCHEMA_NAME";
 
-    public static final String DATABASE_QUERY = "SELECT SCHEMA_NAME FROM information_schema.schemata "
-            + "WHERE CATALOG_NAME = 'internal' AND SCHEMA_NAME = ? "
-            + "ORDER BY SCHEMA_NAME";
+    public static final String DATABASE_QUERY =
+            "SELECT SCHEMA_NAME FROM information_schema.schemata "
+                    + "WHERE CATALOG_NAME = 'internal' AND SCHEMA_NAME = ? "
+                    + "ORDER BY SCHEMA_NAME";
 
-    public static final String TABLES_QUERY_WITH_DATABASE_QUERY = "SELECT TABLE_NAME FROM information_schema.tables "
-            + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? "
-            + "ORDER BY TABLE_NAME";
+    public static final String TABLES_QUERY_WITH_DATABASE_QUERY =
+            "SELECT TABLE_NAME FROM information_schema.tables "
+                    + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? "
+                    + "ORDER BY TABLE_NAME";
 
-    public static final String TABLES_QUERY_WITH_IDENTIFIER_QUERY = "SELECT TABLE_NAME FROM information_schema.tables "
-            + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
-            + "ORDER BY TABLE_NAME";
+    public static final String TABLES_QUERY_WITH_IDENTIFIER_QUERY =
+            "SELECT TABLE_NAME FROM information_schema.tables "
+                    + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
+                    + "ORDER BY TABLE_NAME";
 
-    public static final String TABLE_SCHEMA_QUERY = "SELECT COLUMN_NAME,ORDINAL_POSITION,COLUMN_DEFAULT,IS_NULLABLE,COLUMN_TYPE,COLUMN_SIZE,"
-            + "COLUMN_KEY,NUMERIC_PRECISION,NUMERIC_SCALE,COLUMN_COMMENT "
-            + "FROM information_schema.columns "
-            + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
-            + "ORDER BY ORDINAL_POSITION";
+    public static final String TABLE_SCHEMA_QUERY =
+            "SELECT COLUMN_NAME,ORDINAL_POSITION,COLUMN_DEFAULT,IS_NULLABLE,COLUMN_TYPE,COLUMN_SIZE,"
+                    + "COLUMN_KEY,NUMERIC_PRECISION,NUMERIC_SCALE,COLUMN_COMMENT "
+                    + "FROM information_schema.columns "
+                    + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
+                    + "ORDER BY ORDINAL_POSITION";
 
     public static String randomFrontEndHost(String[] frontEndNodes) {
         if (frontEndNodes.length == 1) {
@@ -84,7 +89,7 @@ public class DorisCatalogUtil {
 
     /**
      * @param createTableTemplate create table template
-     * @param catalogTable        catalog table
+     * @param catalogTable catalog table
      * @return create table stmt
      */
     public static String getCreateTableStatement(

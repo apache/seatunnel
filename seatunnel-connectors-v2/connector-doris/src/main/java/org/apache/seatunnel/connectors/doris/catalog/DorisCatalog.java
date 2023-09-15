@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.doris.catalog;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -33,6 +32,8 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
+
+import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -166,7 +167,8 @@ public class DorisCatalog implements Catalog {
     public List<String> listTables(String databaseName)
             throws CatalogException, DatabaseNotExistException {
         List<String> tables = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement(DorisCatalogUtil.TABLES_QUERY_WITH_DATABASE_QUERY)) {
+        try (PreparedStatement ps =
+                conn.prepareStatement(DorisCatalogUtil.TABLES_QUERY_WITH_DATABASE_QUERY)) {
             ps.setString(1, databaseName);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
@@ -183,7 +185,8 @@ public class DorisCatalog implements Catalog {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try (PreparedStatement ps = conn.prepareStatement(DorisCatalogUtil.TABLES_QUERY_WITH_IDENTIFIER_QUERY)) {
+        try (PreparedStatement ps =
+                conn.prepareStatement(DorisCatalogUtil.TABLES_QUERY_WITH_IDENTIFIER_QUERY)) {
             ps.setString(1, tablePath.getDatabaseName());
             ps.setString(2, tablePath.getTableName());
             ResultSet rs = ps.executeQuery();
