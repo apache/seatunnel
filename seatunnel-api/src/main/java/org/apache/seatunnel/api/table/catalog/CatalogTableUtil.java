@@ -177,10 +177,21 @@ public class CatalogTableUtil implements Serializable {
                                         String.format(
                                                 "Get catalog tables, cost time: %d",
                                                 System.currentTimeMillis() - startTime));
+                                if (catalogTables.isEmpty()) {
+                                    throw new SeaTunnelException(
+                                            String.format(
+                                                    "Can not find catalog table with factoryId [%s]",
+                                                    factoryId));
+                                }
                                 return catalogTables;
                             }
                         })
-                .orElse(Collections.emptyList());
+                .orElseThrow(
+                        () ->
+                                new SeaTunnelException(
+                                        String.format(
+                                                "Can not find catalog with factoryId [%s]",
+                                                factoryId)));
     }
 
     public static CatalogTableUtil buildWithConfig(Config config) {

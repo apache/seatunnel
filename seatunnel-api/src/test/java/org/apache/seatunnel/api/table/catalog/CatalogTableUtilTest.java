@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -27,6 +28,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -36,7 +38,11 @@ import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
+
+import static org.apache.seatunnel.api.table.catalog.CatalogOptions.TABLE_NAMES;
+import static org.apache.seatunnel.common.constants.CollectionConstants.PLUGIN_NAME;
 
 public class CatalogTableUtilTest {
     @Test
@@ -93,6 +99,24 @@ public class CatalogTableUtilTest {
         Assertions.assertEquals(
                 TableIdentifier.of("InMemory", TablePath.of("st.public.table2")),
                 catalogTables.get(1).getTableId());
+        // test empty tables
+        Config emptyTableSource =
+                source.withValue(
+                        TABLE_NAMES.key(), ConfigValueFactory.fromIterable(new ArrayList<>()));
+        Assertions.assertThrows(
+                SeaTunnelException.class,
+                () ->
+                        CatalogTableUtil.getCatalogTablesFromConfig(
+                                emptyTableSource, Thread.currentThread().getContextClassLoader()));
+        // test unknown catalog
+        Config cannotFindCatalogSource =
+                source.withValue(PLUGIN_NAME, ConfigValueFactory.fromAnyRef("unknownCatalog"));
+        Assertions.assertThrows(
+                SeaTunnelException.class,
+                () ->
+                        CatalogTableUtil.getCatalogTablesFromConfig(
+                                cannotFindCatalogSource,
+                                Thread.currentThread().getContextClassLoader()));
     }
 
     public static String getTestConfigFile(String configFile)
