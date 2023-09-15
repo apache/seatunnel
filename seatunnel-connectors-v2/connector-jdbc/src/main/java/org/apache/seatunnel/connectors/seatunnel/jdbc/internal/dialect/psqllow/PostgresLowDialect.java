@@ -22,6 +22,11 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.Post
 import java.util.Optional;
 
 public class PostgresLowDialect extends PostgresDialect {
+
+    public PostgresLowDialect(String fieldIde) {
+        this.fieldIde = fieldIde;
+    }
+
     @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
