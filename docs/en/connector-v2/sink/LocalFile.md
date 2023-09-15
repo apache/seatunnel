@@ -50,7 +50,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | common-options                   | object  | no       | -                                          |                                                                                         |
 | max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                                               |
 | sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                               |
-| enable_header_write              | boolean | no       | false                                      | Only used when file_format_type is text,csv. false:dont write header,true:write header. |
+| enable_header_write              | boolean | no       | false                                      | Only used when file_format_type is text,csv. false:don't write header,true:write header. |
 
 ### path [string]
 
@@ -169,7 +169,7 @@ Writer the sheet of the workbook
 
 ### enable_header_write [boolean]
 
-Only used when file_format_type is text,csv.false:dont write header,true:write header.
+Only used when file_format_type is text,csv.false:don't write header,true:write header.
 
 ## Example
 
