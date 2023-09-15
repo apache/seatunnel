@@ -174,7 +174,8 @@ public class JsonUtils {
     }
 
     public static Map<String, Object> toMap(JsonNode jsonNode) {
-        return DEFAULT_OBJECT_MAPPER.convertValue(jsonNode, new TypeReference<Map<String, Object>>() {});
+        return DEFAULT_OBJECT_MAPPER.convertValue(
+            jsonNode, new TypeReference<Map<String, Object>>() {});
     }
 
     /**
