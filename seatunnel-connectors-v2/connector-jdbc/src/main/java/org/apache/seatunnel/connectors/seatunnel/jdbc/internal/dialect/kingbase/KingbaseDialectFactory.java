@@ -15,29 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.assertion.exception;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
-public enum AssertConnectorErrorCode implements SeaTunnelErrorCode {
-    RULE_VALIDATION_FAILED("ASSERT-01", "Rule validate failed"),
-    TYPES_NOT_SUPPORTED_FAILED("ASSERT-02", "Types not supported");
+import com.google.auto.service.AutoService;
 
-    private final String code;
-    private final String description;
+/** Factory for {@link KingbaseDialect}. */
+@AutoService(JdbcDialectFactory.class)
+public class KingbaseDialectFactory implements JdbcDialectFactory {
 
-    AssertConnectorErrorCode(String code, String description) {
-        this.code = code;
-        this.description = description;
+    @Override
+    public boolean acceptsURL(String url) {
+        return url.startsWith("jdbc:kingbase8:");
     }
 
     @Override
-    public String getCode() {
-        return code;
-    }
-
-    @Override
-    public String getDescription() {
-        return description;
+    public JdbcDialect create() {
+        return new KingbaseDialect();
     }
 }

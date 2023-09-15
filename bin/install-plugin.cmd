@@ -43,18 +43,12 @@ if not exist "%SEATUNNEL_HOME%\connectors" (
     echo create connectors directory
 )
 
-REM Create the seatunnel connectors directory (for v2)
-if not exist "%SEATUNNEL_HOME%\connectors\seatunnel" (
-    mkdir "%SEATUNNEL_HOME%\connectors\seatunnel"
-    echo create seatunnel connectors directory
-)
-
 for /f "usebackq delims=" %%a in ("%SEATUNNEL_HOME%\config\plugin_config") do (
     set "line=%%a"
     setlocal enabledelayedexpansion
     if "!line:~0,1!" neq "-" if "!line:~0,1!" neq "#" (
         echo install connector : !line!
-        call "%SEATUNNEL_HOME%\mvnw.cmd" dependency:get -DgroupId="org.apache.seatunnel" -DartifactId="!line!" -Dversion="%version%" -Ddest="%SEATUNNEL_HOME%\connectors\seatunnel"
+        call "%SEATUNNEL_HOME%\mvnw.cmd" dependency:get -DgroupId="org.apache.seatunnel" -DartifactId="!line!" -Dversion="%version%" -Ddest="%SEATUNNEL_HOME%\connectors"
     )
     endlocal
 )
