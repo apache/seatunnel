@@ -138,6 +138,10 @@ public class PhysicalPlan {
         future.thenAcceptAsync(
                 pipelineState -> {
                     try {
+                        log.info(
+                                "{} future complete with state {}",
+                                subPlan.getPipelineFullName(),
+                                pipelineState.getPipelineStatus());
                         if (PipelineStatus.CANCELED.equals(pipelineState.getPipelineStatus())) {
                             canceledPipelineNum.incrementAndGet();
                         } else if (PipelineStatus.FAILED.equals(
@@ -149,7 +153,7 @@ public class PhysicalPlan {
                                         String.format(
                                                 "cancel job %s because makeJobEndWhenPipelineEnded is true",
                                                 jobFullName));
-                                updateJobState(getJobStatus(), JobStatus.FAILING);
+                                updateJobState(JobStatus.FAILING);
                             }
                         }
 
@@ -184,7 +188,7 @@ public class PhysicalPlan {
             return;
         }
 
-        updateJobState(getJobStatus(), JobStatus.CANCELING);
+        updateJobState(JobStatus.CANCELING);
     }
 
     public List<SubPlan> getPipelineList() {
@@ -199,15 +203,9 @@ public class PhysicalPlan {
         runningJobStateTimestampsIMap.set(jobId, stateTimestamps);
     }
 
-    public void updateJobState(@NonNull JobStatus targetState) {
-        synchronized (this) {
-            updateJobState((JobStatus) runningJobStateIMap.get(jobId), targetState);
-        }
-    }
-
-    public synchronized void updateJobState(
-            @NonNull JobStatus current, @NonNull JobStatus targetState) {
+    public synchronized void updateJobState(@NonNull JobStatus targetState) {
         try {
+            JobStatus current = (JobStatus) runningJobStateIMap.get(jobId);
             log.debug(
                     String.format(
                             "Try to update the %s state from %s to %s",
@@ -223,23 +221,6 @@ public class PhysicalPlan {
             if (current.isEndState()) {
                 String message = "Job is trying to leave terminal state " + current;
                 throw new SeaTunnelEngineException(message);
-            }
-
-            JobStatus stateInMap = (JobStatus) runningJobStateIMap.get(jobId);
-            if (!current.equals(stateInMap)) {
-                if (JobStatus.FAILING.equals(stateInMap)
-                        || JobStatus.CANCELING.equals(stateInMap)) {
-                    log.debug(
-                            String.format(
-                                    "%s state is %s, can not be turn to %s.",
-                                    jobFullName, targetState));
-                    return;
-                } else {
-                    throw new SeaTunnelEngineException(
-                            String.format(
-                                    "%s have error state: %s, Never come here.",
-                                    jobFullName, stateInMap));
-                }
             }
 
             // now do the actual state transition
@@ -289,7 +270,13 @@ public class PhysicalPlan {
 
     public void startJob() {
         isRunning = true;
+        log.info("{} state process is start", getJobFullName());
         stateProcess();
+    }
+
+    public void stopJobStateProcess() {
+        isRunning = false;
+        log.info("{} state process is stop", getJobFullName());
     }
 
     private synchronized void stateProcess() {
@@ -299,7 +286,7 @@ public class PhysicalPlan {
         }
         switch (getJobStatus()) {
             case CREATED:
-                updateJobState(JobStatus.CREATED, JobStatus.SCHEDULED);
+                updateJobState(JobStatus.SCHEDULED);
                 break;
             case SCHEDULED:
                 getPipelineList()
@@ -307,10 +294,10 @@ public class PhysicalPlan {
                                 subPlan -> {
                                     if (PipelineStatus.CREATED.equals(
                                             subPlan.getCurrPipelineStatus())) {
-                                        subPlan.startSubPlan();
+                                        subPlan.startSubPlanStateProcess();
                                     }
                                 });
-                updateJobState(JobStatus.SCHEDULED, JobStatus.RUNNING);
+                updateJobState(JobStatus.RUNNING);
                 break;
             case RUNNING:
                 try {
@@ -327,7 +314,7 @@ public class PhysicalPlan {
             case FAILED:
             case CANCELED:
             case FINISHED:
-                isRunning = false;
+                stopJobStateProcess();
                 jobEndFuture.complete(new JobResult(getJobStatus(), errorBySubPlan.get()));
                 return;
             default:

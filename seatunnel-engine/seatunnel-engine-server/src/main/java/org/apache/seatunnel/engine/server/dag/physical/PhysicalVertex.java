@@ -192,11 +192,11 @@ public class PhysicalVertex {
         // exists.
         if (ExecutionState.RUNNING.equals(currExecutionState)) {
             if (!checkTaskGroupIsExecuting(taskGroupLocation)) {
-                updateTaskState(ExecutionState.RUNNING, ExecutionState.FAILING);
+                updateTaskState(ExecutionState.FAILING);
             }
         } else if (ExecutionState.DEPLOYING.equals(currExecutionState)) {
             if (!checkTaskGroupIsExecuting(taskGroupLocation)) {
-                updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
+                updateTaskState(ExecutionState.RUNNING);
             }
         }
         return new PassiveCompletableFuture<>(this.taskFuture);
@@ -204,6 +204,7 @@ public class PhysicalVertex {
 
     public void restoreExecutionState() {
         startPhysicalVertex();
+        stateProcess();
     }
 
     private boolean checkTaskGroupIsExecuting(TaskGroupLocation taskGroupLocation) {
@@ -300,7 +301,7 @@ public class PhysicalVertex {
     }
 
     public void makeTaskGroupDeploy() {
-        updateTaskState(ExecutionState.CREATED, ExecutionState.DEPLOYING);
+        updateTaskState(ExecutionState.DEPLOYING);
     }
 
     // This method must not throw an exception
@@ -321,7 +322,7 @@ public class PhysicalVertex {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 getTaskGroupImmutableInformation();
         TaskDeployState state = taskGroupConsumer.apply(taskGroupImmutableInformation);
-        updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
+        updateTaskState(ExecutionState.RUNNING);
         return state;
     }
 
@@ -332,9 +333,9 @@ public class PhysicalVertex {
                 this.pluginJarsUrls);
     }
 
-    public synchronized void updateTaskState(
-            @NonNull ExecutionState current, @NonNull ExecutionState targetState) {
+    public synchronized void updateTaskState(@NonNull ExecutionState targetState) {
         try {
+            ExecutionState current = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
             log.debug(
                     String.format(
                             "Try to update the task %s state from %s to %s",
@@ -353,25 +354,6 @@ public class PhysicalVertex {
                 String message = "Task is trying to leave terminal state " + current;
                 log.error(message);
                 return;
-            }
-
-            ExecutionState currentStateInImap =
-                    (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
-            if (!current.equals(currentStateInImap)) {
-                if (ExecutionState.FAILING.equals(currentStateInImap)
-                        || ExecutionState.CANCELING.equals(currentStateInImap)
-                        || currentStateInImap.isEndState()) {
-                    log.debug(
-                            String.format(
-                                    "%s state is %s, can not be turn to %s.",
-                                    taskFullName, targetState));
-                    return;
-                } else {
-                    throw new SeaTunnelEngineException(
-                            String.format(
-                                    "%s have error state: %s, Never come here.",
-                                    taskFullName, currentStateInImap));
-                }
             }
 
             // now do the actual state transition
@@ -401,7 +383,7 @@ public class PhysicalVertex {
 
     public synchronized void cancel() {
         if (!getExecutionState().isEndState()) {
-            updateTaskState(getExecutionState(), ExecutionState.CANCELING);
+            updateTaskState(ExecutionState.CANCELING);
         }
     }
 
@@ -409,7 +391,7 @@ public class PhysicalVertex {
         // Check whether the node exists, and whether the Task on the node exists. If there is no
         // direct update state
         if (!checkTaskGroupIsExecuting(taskGroupLocation)) {
-            updateTaskState(ExecutionState.CANCELING, ExecutionState.CANCELED);
+            updateTaskState(ExecutionState.CANCELED);
             return;
         }
         int i = 0;
@@ -515,7 +497,7 @@ public class PhysicalVertex {
                             taskExecutionState.getExecutionState()));
         }
         errorByPhysicalVertex.compareAndSet(null, taskExecutionState.getThrowableMsg());
-        updateTaskState(getExecutionState(), taskExecutionState.getExecutionState());
+        updateTaskState(taskExecutionState.getExecutionState());
     }
 
     public Address getCurrentExecutionAddress() {
@@ -536,16 +518,17 @@ public class PhysicalVertex {
 
     public void startPhysicalVertex() {
         isRunning = true;
-        stateProcess();
+        log.info(String.format("%s state process is start", taskFullName));
     }
 
     public void stopPhysicalVertex() {
         isRunning = false;
+        log.info(String.format("%s state process is stopped", taskFullName));
     }
 
     public synchronized void stateProcess() {
         if (!isRunning) {
-            log.warn(String.format("%s state process is stopped", taskFullName));
+            log.warn(String.format("%s state process is not start", taskFullName));
             return;
         }
         switch (getExecutionState()) {
@@ -560,11 +543,11 @@ public class PhysicalVertex {
                     makeTaskGroupFailing(
                             new TaskGroupDeployException(deployState.getThrowableMsg()));
                 } else {
-                    updateTaskState(getExecutionState(), ExecutionState.RUNNING);
+                    updateTaskState(ExecutionState.RUNNING);
                 }
                 break;
             case FAILING:
-                updateTaskState(ExecutionState.FAILING, ExecutionState.FAILED);
+                updateTaskState(ExecutionState.FAILED);
                 break;
             case CANCELING:
                 noticeTaskExecutionServiceCancel();
@@ -607,8 +590,6 @@ public class PhysicalVertex {
 
     public void makeTaskGroupFailing(Throwable err) {
         errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(err));
-        updateTaskState(
-                (ExecutionState) runningJobStateIMap.get(taskGroupLocation),
-                ExecutionState.FAILING);
+        updateTaskState(ExecutionState.FAILING);
     }
 }

@@ -32,7 +32,7 @@ public enum JobStatus {
     /** Job will scheduler every pipeline */
     SCHEDULED(EndState.NOT_END),
 
-    /** Job is running and begine to scheduler pipeline running. */
+    /** The job is already running, and each pipeline is already running. */
     RUNNING(EndState.NOT_END),
 
     /** The job has failed and is currently waiting for the cleanup to complete. */

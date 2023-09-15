@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -157,22 +156,27 @@ public class SubPlan {
         errorByPhysicalVertex = new AtomicReference<>();
         physicalVertexList.forEach(
                 physicalVertex -> {
-                    addPhysicalVertexCallBack(physicalVertex.initStateFuture());
+                    addPhysicalVertexCallBack(physicalVertex.initStateFuture(), physicalVertex);
                 });
 
         coordinatorVertexList.forEach(
                 coordinator -> {
-                    addPhysicalVertexCallBack(coordinator.initStateFuture());
+                    addPhysicalVertexCallBack(coordinator.initStateFuture(), coordinator);
                 });
 
         this.pipelineFuture = new CompletableFuture<>();
         return new PassiveCompletableFuture<>(pipelineFuture);
     }
 
-    private void addPhysicalVertexCallBack(PassiveCompletableFuture<TaskExecutionState> future) {
+    private void addPhysicalVertexCallBack(
+            PassiveCompletableFuture<TaskExecutionState> future, PhysicalVertex task) {
         future.thenAcceptAsync(
                 executionState -> {
                     try {
+                        log.info(
+                                "{} future complete with state {}",
+                                task.getTaskFullName(),
+                                executionState.getExecutionState());
                         // We need not handle t, Because we will not return t from PhysicalVertex
                         if (ExecutionState.CANCELED.equals(executionState.getExecutionState())) {
                             canceledTaskNum.incrementAndGet();
@@ -186,7 +190,7 @@ public class SubPlan {
                             failedTaskNum.incrementAndGet();
                             errorByPhysicalVertex.compareAndSet(
                                     null, executionState.getThrowableMsg());
-                            updatePipelineState(getCurrPipelineStatus(), PipelineStatus.FAILING);
+                            updatePipelineState(PipelineStatus.FAILING);
                         }
 
                         if (finishedTaskNum.incrementAndGet()
@@ -196,7 +200,7 @@ public class SubPlan {
                                     String.format(
                                             "%s will end with state %s",
                                             this.pipelineFullName, pipelineEndState));
-                            updatePipelineState(getCurrPipelineStatus(), pipelineEndState);
+                            updatePipelineState(pipelineEndState);
                         }
                     } catch (Throwable e) {
                         log.error(
@@ -292,10 +296,10 @@ public class SubPlan {
         return jobMaster.isNeedRestore() && getPipelineRestoreNum() < PIPELINE_MAX_RESTORE_NUM;
     }
 
-    public synchronized void updatePipelineState(
-            @NonNull PipelineStatus current, @NonNull PipelineStatus targetState) {
+    public synchronized void updatePipelineState(@NonNull PipelineStatus targetState) {
         try {
-            log.info(
+            PipelineStatus current = (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
+            log.debug(
                     String.format(
                             "Try to update the %s state from %s to %s",
                             pipelineFullName, current, targetState));
@@ -311,25 +315,8 @@ public class SubPlan {
             // consistency check
             if (current.isEndState()) {
                 String message = "Pipeline is trying to leave terminal state " + current;
-                log.error(message);
+                log.info(message);
                 return;
-            }
-
-            PipelineStatus stateInMap = (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
-            if (!current.equals(stateInMap)) {
-                if (PipelineStatus.FAILING.equals(stateInMap)
-                        || PipelineStatus.CANCELING.equals(stateInMap)) {
-                    log.debug(
-                            String.format(
-                                    "%s state is %s, can not be turn to %s.",
-                                    pipelineFullName, current, targetState));
-                    return;
-                } else {
-                    throw new SeaTunnelEngineException(
-                            String.format(
-                                    "%s have error state: %s, Never come here.",
-                                    pipelineFullName, stateInMap));
-                }
             }
 
             // now do the actual state transition
@@ -362,7 +349,9 @@ public class SubPlan {
 
     public synchronized void cancelPipeline() {
         cancelCheckpointCoordinator();
-        updatePipelineState(getPipelineState(), PipelineStatus.CANCELING);
+        if (!getPipelineState().isEndState()) {
+            updatePipelineState(PipelineStatus.CANCELING);
+        }
     }
 
     private void cancelCheckpointCoordinator() {
@@ -454,16 +443,16 @@ public class SubPlan {
     /** restore the pipeline when pipeline failed or canceled by error. */
     public void restorePipeline() {
         try {
-            isRunning = true;
             if (jobMaster.getCheckpointManager().isCompletedPipeline(pipelineId)) {
                 forcePipelineFinish();
             }
-            stateProcess();
+            startSubPlanStateProcess();
         } catch (Throwable e) {
             log.error(
                     String.format("Restore pipeline %s error with exception: ", pipelineFullName),
                     e);
             makePipelineFailing(e);
+            startSubPlanStateProcess();
         }
     }
 
@@ -498,7 +487,7 @@ public class SubPlan {
                         });
 
         if (getPipelineState().ordinal() < PipelineStatus.RUNNING.ordinal()) {
-            updatePipelineState(getPipelineState(), PipelineStatus.CANCELING);
+            updatePipelineState(PipelineStatus.CANCELING);
         } else if (PipelineStatus.RUNNING.equals(getPipelineState())) {
             AtomicBoolean allTaskRunning = new AtomicBoolean(true);
             getCoordinatorVertexList()
@@ -524,7 +513,7 @@ public class SubPlan {
                     .reportedPipelineRunning(
                             this.getPipelineLocation().getPipelineId(), allTaskRunning.get());
         }
-        startSubPlan();
+        startSubPlanStateProcess();
     }
 
     public List<PhysicalVertex> getPhysicalVertexList() {
@@ -564,20 +553,26 @@ public class SubPlan {
         this.cancelPipeline();
     }
 
-    public void startSubPlan() {
+    public void startSubPlanStateProcess() {
         isRunning = true;
+        log.info("{} state process is start", getPipelineFullName());
         stateProcess();
+    }
+
+    public void stopSubPlanStateProcess() {
+        isRunning = false;
+        log.info("{} state process is stop", getPipelineFullName());
     }
 
     private synchronized void stateProcess() {
         if (!isRunning) {
-            log.warn(String.format("%s state process is stopped", pipelineFullName));
+            log.warn(String.format("%s state process not start", pipelineFullName));
             return;
         }
         PipelineStatus state = getCurrPipelineStatus();
         switch (state) {
             case CREATED:
-                updatePipelineState(PipelineStatus.CREATED, PipelineStatus.SCHEDULED);
+                updatePipelineState(PipelineStatus.SCHEDULED);
                 break;
             case SCHEDULED:
                 try {
@@ -590,7 +585,7 @@ public class SubPlan {
                             this.getPipelineLocation());
                     // sead slot information to JobMaster
                     jobMaster.setOwnedSlotProfiles(pipelineLocation, slotProfiles);
-                    updatePipelineState(PipelineStatus.SCHEDULED, PipelineStatus.DEPLOYING);
+                    updatePipelineState(PipelineStatus.DEPLOYING);
                 } catch (Exception e) {
                     makePipelineFailing(e);
                 }
@@ -599,19 +594,19 @@ public class SubPlan {
                 coordinatorVertexList.forEach(
                         task -> {
                             if (task.getExecutionState().equals(ExecutionState.CREATED)) {
-                                task.makeTaskGroupDeploy();
                                 task.startPhysicalVertex();
+                                task.makeTaskGroupDeploy();
                             }
                         });
 
                 physicalVertexList.forEach(
                         task -> {
                             if (task.getExecutionState().equals(ExecutionState.CREATED)) {
-                                task.makeTaskGroupDeploy();
                                 task.startPhysicalVertex();
+                                task.makeTaskGroupDeploy();
                             }
                         });
-                updatePipelineState(PipelineStatus.DEPLOYING, PipelineStatus.RUNNING);
+                updatePipelineState(PipelineStatus.RUNNING);
                 break;
             case RUNNING:
                 try {
@@ -640,13 +635,13 @@ public class SubPlan {
                     return;
                 }
                 subPlanDone(state);
-                isRunning = false;
+                stopSubPlanStateProcess();
                 pipelineFuture.complete(
                         new PipelineExecutionState(pipelineId, state, errorByPhysicalVertex.get()));
                 return;
             case FINISHED:
                 subPlanDone(state);
-                isRunning = false;
+                stopSubPlanStateProcess();
                 pipelineFuture.complete(
                         new PipelineExecutionState(
                                 pipelineId, getPipelineState(), errorByPhysicalVertex.get()));
@@ -658,6 +653,6 @@ public class SubPlan {
 
     public void makePipelineFailing(Throwable e) {
         errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(e));
-        updatePipelineState(getPipelineState(), PipelineStatus.FAILING);
+        updatePipelineState(PipelineStatus.FAILING);
     }
 }

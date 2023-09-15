@@ -284,10 +284,6 @@ public class JobMaster {
                 withTryCatch(
                         LOGGER,
                         (v, t) -> {
-                            // We need not handle t, Because we will not return t from physicalPlan
-                            if (JobStatus.FAILING.equals(v.getStatus())) {
-                                physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
-                            }
                             JobMaster.this.errorMessage = v.getError();
                             JobResult jobResult =
                                     new JobResult(physicalPlan.getJobStatus(), v.getError());

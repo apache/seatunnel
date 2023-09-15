@@ -840,7 +840,7 @@ public class ClusterFaultToleranceIT {
             node1.shutdown();
             node2.shutdown();
 
-            log.info(
+            System.out.println(
                     "==========================================All node is done========================================");
             Thread.sleep(10000);
 
@@ -848,7 +848,7 @@ public class ClusterFaultToleranceIT {
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            log.info(
+            System.out.println(
                     "==========================================All node is start, begin check node size ========================================");
             // waiting all node added to cluster
             HazelcastInstanceImpl restoreFinalNode = node1;
@@ -859,7 +859,7 @@ public class ClusterFaultToleranceIT {
                                     Assertions.assertEquals(
                                             2, restoreFinalNode.getCluster().getMembers().size()));
 
-            log.info(
+            System.out.println(
                     "==========================================All node is running========================================");
             engineClient = new SeaTunnelClient(clientConfig);
             ClientJobProxy newClientJobProxy = engineClient.createJobClient().getJobProxy(jobId);
@@ -895,7 +895,7 @@ public class ClusterFaultToleranceIT {
 
             // sleep 10s and expect the job don't write more rows.
             Thread.sleep(10000);
-            log.info(
+            System.out.println(
                     "==========================================Cancel Job========================================");
             newClientJobProxy.cancelJob();
 
@@ -913,7 +913,7 @@ public class ClusterFaultToleranceIT {
             Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
         } finally {
-            log.info(
+            System.out.println(
                     "==========================================Clean test resource ========================================");
             if (engineClient != null) {
                 engineClient.shutdown();

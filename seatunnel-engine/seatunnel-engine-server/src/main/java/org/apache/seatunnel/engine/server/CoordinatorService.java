@@ -300,7 +300,7 @@ public class CoordinatorService {
                         // voidCompletableFuture will be cancelled when zeta master node
                         // shutdown to simulate master failure,
                         // don't update runningJobMasterMap is this case.
-                        if (!jobMaster.getJobMasterCompleteFuture().isCancelled()) {
+                        if (!jobMaster.getJobMasterCompleteFuture().isCompletedExceptionally()) {
                             runningJobMasterMap.remove(jobId);
                         }
                     }
@@ -496,7 +496,11 @@ public class CoordinatorService {
             JobHistoryService.JobState jobDetailState = jobHistoryService.getJobDetailState(jobId);
             return null == jobDetailState ? JobStatus.UNKNOWABLE : jobDetailState.getJobStatus();
         }
-        return runningJobMaster.getJobStatus();
+        JobStatus jobStatus = runningJobMaster.getJobStatus();
+        if (jobStatus == null) {
+            return jobHistoryService.getFinishedJobStateImap().get(jobId).getJobStatus();
+        }
+        return jobStatus;
     }
 
     public JobMetrics getJobMetrics(long jobId) {
@@ -687,9 +691,6 @@ public class CoordinatorService {
         AtomicLong cancellingJobCount = new AtomicLong();
         AtomicLong canceledJobCount = new AtomicLong();
         AtomicLong finishedJobCount = new AtomicLong();
-        AtomicLong restartingJobCount = new AtomicLong();
-        AtomicLong suspendedJobCount = new AtomicLong();
-        AtomicLong reconcilingJobCount = new AtomicLong();
 
         if (runningJobInfoIMap != null) {
             runningJobInfoIMap
@@ -702,6 +703,9 @@ public class CoordinatorService {
                                     switch (jobStatus) {
                                         case CREATED:
                                             createdJobCount.addAndGet(1);
+                                            break;
+                                        case SCHEDULED:
+                                            scheduledJobCount.addAndGet(1);
                                             break;
                                         case RUNNING:
                                             runningJobCount.addAndGet(1);
@@ -745,12 +749,6 @@ public class CoordinatorService {
                         "canceledJobCount",
                         canceledJobCount,
                         "finishedJobCount",
-                        finishedJobCount,
-                        "restartingJobCount",
-                        restartingJobCount,
-                        "suspendedJobCount",
-                        suspendedJobCount,
-                        "reconcilingJobCount",
-                        reconcilingJobCount));
+                        finishedJobCount));
     }
 }
