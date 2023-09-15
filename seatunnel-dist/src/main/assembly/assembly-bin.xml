@@ -184,7 +184,7 @@
                 <include>org.apache.seatunnel:connector-fake:jar</include>
                 <include>org.apache.seatunnel:connector-console:jar</include>
             </includes>
-            <outputDirectory>/connectors/seatunnel</outputDirectory>
+            <outputDirectory>/connectors</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
     </dependencySets>
