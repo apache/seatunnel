@@ -89,7 +89,8 @@ const sidebars = {
                 "concept/config",
                 "concept/connector-v2-features",
                 'concept/schema-feature',
-                'concept/JobEnvConfig'
+                'concept/JobEnvConfig',
+                'concept/speed-limit'
             ]
         },
         "Connector-v2-release-state",
