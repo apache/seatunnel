@@ -22,6 +22,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import com.google.auto.service.AutoService;
 
+import javax.annotation.Nonnull;
+
 /** Factory for {@link MysqlDialect}. */
 @AutoService(JdbcDialectFactory.class)
 public class MySqlDialectFactory implements JdbcDialectFactory {
@@ -33,5 +35,10 @@ public class MySqlDialectFactory implements JdbcDialectFactory {
     @Override
     public JdbcDialect create() {
         return new MysqlDialect();
+    }
+
+    @Override
+    public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
+        return new MysqlDialect(fieldIde);
     }
 }
