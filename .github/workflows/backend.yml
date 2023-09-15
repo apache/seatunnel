@@ -26,7 +26,6 @@ concurrency:
 
 jobs:
   license-header:
-    if: github.repository == 'apache/seatunnel'
     name: License header
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -38,7 +37,6 @@ jobs:
         uses: apache/skywalking-eyes@985866ce7e324454f61e22eb2db2e998db09d6f3
 
   code-style:
-    if: github.repository == 'apache/seatunnel'
     name: Code style
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -50,7 +48,6 @@ jobs:
         run: ./mvnw --batch-mode --quiet --no-snapshot-updates clean spotless:check
 
   dead-link:
-    if: github.repository != 'apache/seatunnel'
     name: Dead links
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -63,7 +60,6 @@ jobs:
           done
 
   sanity-check:
-    if: github.repository != 'apache/seatunnel'
     name: Sanity check results
     needs: [ license-header, code-style, dead-link ]
     runs-on: ubuntu-latest
@@ -77,7 +73,6 @@ jobs:
 
   changes:
     runs-on: ubuntu-latest
-    if: github.repository != 'apache/seatunnel'
     timeout-minutes: 10
     outputs:
       api: ${{ steps.filter.outputs.api }}
@@ -229,7 +224,7 @@ jobs:
           echo "modules=$build_modules" >> $GITHUB_OUTPUT
 
   dependency-license:
-    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     name: Dependency licenses
     needs: [ changes, sanity-check ]
     runs-on: ubuntu-latest
@@ -256,7 +251,7 @@ jobs:
 
   unit-test:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''))
+    if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != '')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -287,7 +282,7 @@ jobs:
 
   updated-modules-integration-test-part-1:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -312,7 +307,7 @@ jobs:
 
   updated-modules-integration-test-part-2:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -341,7 +336,7 @@ jobs:
 
   updated-modules-integration-test-part-3:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -370,7 +365,7 @@ jobs:
 
   updated-modules-integration-test-part-4:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -398,7 +393,7 @@ jobs:
           MAVEN_OPTS: -Xmx2048m
   updated-modules-integration-test-part-5:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -426,7 +421,7 @@ jobs:
           MAVEN_OPTS: -Xmx2048m
   updated-modules-integration-test-part-6:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -454,7 +449,7 @@ jobs:
           MAVEN_OPTS: -Xmx2048m
   updated-modules-integration-test-part-7:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -482,7 +477,7 @@ jobs:
           MAVEN_OPTS: -Xmx2048m
   engine-v2-it:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -506,7 +501,7 @@ jobs:
 
   transform-v2-it-part-1:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -530,7 +525,7 @@ jobs:
 
   transform-v2-it-part-2:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -554,7 +549,7 @@ jobs:
 
   all-connectors-it-1:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -581,7 +576,7 @@ jobs:
 
   all-connectors-it-2:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -608,7 +603,7 @@ jobs:
 
   all-connectors-it-3:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -635,7 +630,7 @@ jobs:
 
   all-connectors-it-4:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -662,7 +657,7 @@ jobs:
 
   all-connectors-it-5:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -689,7 +684,7 @@ jobs:
 
   all-connectors-it-6:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -716,7 +711,7 @@ jobs:
 
   all-connectors-it-7:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -743,7 +738,7 @@ jobs:
 
   jdbc-connectors-it-part-1:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -767,7 +762,7 @@ jobs:
 
   jdbc-connectors-it-part-2:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -791,7 +786,7 @@ jobs:
 
   jdbc-connectors-it-part-3:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -815,7 +810,7 @@ jobs:
 
   jdbc-connectors-it-part-4:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -839,7 +834,7 @@ jobs:
 
   jdbc-connectors-it-part-5:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -863,7 +858,7 @@ jobs:
 
   kafka-connector-it:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -887,7 +882,7 @@ jobs:
 
   rocketmq-connector-it:
     needs: [ changes, sanity-check ]
-    if: github.repository != 'apache/seatunnel' && needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
