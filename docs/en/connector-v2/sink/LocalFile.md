@@ -169,7 +169,7 @@ Writer the sheet of the workbook
 
 ### enable_header_write [boolean]
 
-Only used when file_format_type is text,csv.false:dont write header,true:write header.
+Only used when file_format_type is text,csv.false:don't write header,true:write header.
 
 ## Example
 
