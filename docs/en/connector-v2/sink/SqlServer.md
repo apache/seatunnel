@@ -2,7 +2,7 @@
 
 > JDBC SQL Server Sink Connector
 
-## Support Mysql Version
+## Support SQL Server Version
 
 - server:2008 (Or later version for information only)
 
