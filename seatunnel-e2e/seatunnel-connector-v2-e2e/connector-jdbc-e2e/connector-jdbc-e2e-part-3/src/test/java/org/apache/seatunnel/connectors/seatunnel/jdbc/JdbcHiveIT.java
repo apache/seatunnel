@@ -160,7 +160,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                         .withExposedPorts(HIVE_PORT)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HIVE_CONTAINER_HOST)
-                        .withEnv("SERVICE_NAME","hiveserver2")
+                        .withEnv("SERVICE_NAME", "hiveserver2")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(HIVE_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HIVE_PORT, HIVE_PORT)));
