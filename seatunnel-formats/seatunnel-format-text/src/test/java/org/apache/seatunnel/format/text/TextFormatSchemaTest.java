@@ -45,7 +45,14 @@ public class TextFormatSchemaTest {
                     + '\002'
                     + "Kris"
                     + '\003'
-                    + "21\001"
+                    + "21"
+                    + '\002'
+                    + "nullValueKey"
+                    + '\003'
+                    + '\002'
+                    + '\003'
+                    + "1231"
+                    + "\001"
                     + "tyrantlucifer\001"
                     + "true\001"
                     + "1\001"
@@ -66,7 +73,6 @@ public class TextFormatSchemaTest {
 
     public SeaTunnelRowType seaTunnelRowType;
 
-    @SuppressWarnings("checkstyle:Indentation")
     @BeforeEach
     public void initSeaTunnelRowType() {
         seaTunnelRowType =

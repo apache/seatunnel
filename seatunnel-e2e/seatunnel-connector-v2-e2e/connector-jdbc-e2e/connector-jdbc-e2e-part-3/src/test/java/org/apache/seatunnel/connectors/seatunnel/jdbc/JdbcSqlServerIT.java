@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -44,9 +46,16 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
     private static final String SQLSERVER_SOURCE = "source";
     private static final String SQLSERVER_SINK = "sink";
+    private static final String SQLSERVER_DATABASE = "master";
+    private static final String SQLSERVER_SCHEMA = "dbo";
+    private static final String SQLSERVER_CATALOG_DATABASE = "catalog_test";
+
     private static final int SQLSERVER_CONTAINER_PORT = 1433;
     private static final String SQLSERVER_URL =
-            "jdbc:sqlserver://" + AbstractJdbcIT.HOST + ":%s;encrypt=false;";
+            "jdbc:sqlserver://"
+                    + AbstractJdbcIT.HOST
+                    + ":%s;encrypt=false;databaseName="
+                    + SQLSERVER_DATABASE;
     private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_sqlserver_source_to_sink.conf");
@@ -81,8 +90,13 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                 .jdbcUrl(jdbcUrl)
                 .userName(username)
                 .password(password)
+                .database(SQLSERVER_DATABASE)
+                .schema(SQLSERVER_SCHEMA)
                 .sourceTable(SQLSERVER_SOURCE)
                 .sinkTable(SQLSERVER_SINK)
+                .catalogDatabase(SQLSERVER_CATALOG_DATABASE)
+                .catalogSchema(SQLSERVER_SCHEMA)
+                .catalogTable(SQLSERVER_SINK)
                 .createSql(CREATE_SQL)
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
@@ -157,5 +171,23 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     @Override
     public void clearTable(String schema, String table) {
         // do nothing.
+    }
+
+    @Override
+    protected String buildTableInfoWithSchema(String database, String schema, String table) {
+        return buildTableInfoWithSchema(schema, table);
+    }
+
+    @Override
+    protected void initCatalog() {
+        catalog =
+                new SqlServerCatalog(
+                        "sqlserver",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        SqlServerURLParser.parse(
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
+                        SQLSERVER_SCHEMA);
+        catalog.open();
     }
 }

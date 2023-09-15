@@ -25,7 +25,6 @@ import java.time.ZoneId;
 import java.util.List;
 
 /** Configurations for {@link IncrementalSource} of JDBC data source. */
-@SuppressWarnings("checkstyle:MagicNumber")
 public class JdbcSourceOptions extends SourceOptions {
 
     public static final Option<String> HOSTNAME =

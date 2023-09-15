@@ -24,7 +24,6 @@ import java.io.Serializable;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 @Data
-@SuppressWarnings("checkstyle:MagicNumber")
 public class CheckpointConfig implements Serializable {
 
     public static final long MINIMAL_CHECKPOINT_TIME = 10;

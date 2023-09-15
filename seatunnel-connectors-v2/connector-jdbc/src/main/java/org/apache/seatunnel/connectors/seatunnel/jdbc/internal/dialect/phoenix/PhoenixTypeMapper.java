@@ -73,7 +73,6 @@ public class PhoenixTypeMapper implements JdbcDialectTypeMapper {
     private static final String PHOENIX_BINARY = "BINARY";
     private static final String PHOENIX_VARBINARY = "VARBINARY";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {

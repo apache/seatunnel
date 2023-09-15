@@ -42,7 +42,6 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
         while (true) {
