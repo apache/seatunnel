@@ -30,7 +30,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|               name               |  type   | required |               default value                | remarks                                                                                 |
+|               name               |  type   | required |               default value                |                                         remarks                                         |
 |----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------------------------------------|
 | path                             | string  | yes      | -                                          |                                                                                         |
 | custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                                                    |
