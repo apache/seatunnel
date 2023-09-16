@@ -31,6 +31,8 @@ public class EnvOptionRule {
                         EnvCommonOptions.JARS,
                         EnvCommonOptions.CHECKPOINT_INTERVAL,
                         EnvCommonOptions.CHECKPOINT_TIMEOUT,
+                        EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND,
+                        EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND,
                         EnvCommonOptions.CUSTOM_PARAMETERS)
                 .build();
     }
