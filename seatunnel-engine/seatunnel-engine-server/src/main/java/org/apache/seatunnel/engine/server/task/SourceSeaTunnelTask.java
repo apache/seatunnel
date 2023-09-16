@@ -18,10 +18,8 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
-import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
@@ -39,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import static org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy.getFlowControlStrategy;
+
 public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunnelTask {
 
     private static final ILogger LOGGER = Logger.getLogger(SourceSeaTunnelTask.class);
@@ -47,7 +47,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     private transient Object checkpointLock;
     @Getter private transient Serializer<SplitT> splitSerializer;
-    private final Map<String, Object> envOption;
+    private final transient Map<String, Object> envOption;
     private final PhysicalExecutionFlow<SourceAction, SourceConfig> sourceFlow;
 
     public SourceSeaTunnelTask(
@@ -78,7 +78,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                             checkpointLock,
                             outputs,
                             this.getMetricsContext(),
-                            getFlowControlStrategy(),
+                            getFlowControlStrategy(envOption),
                             sourceFlow.getAction().getSource().getProducedType());
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
@@ -120,39 +120,5 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         SourceFlowLifeCycle<T, SplitT> sourceFlow =
                 (SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle;
         sourceFlow.triggerBarrier(barrier);
-    }
-
-    private FlowControlStrategy getFlowControlStrategy() {
-        FlowControlStrategy strategy;
-        if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
-                && envOption.containsKey(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())) {
-            strategy =
-                    FlowControlStrategy.of(
-                            Integer.parseInt(
-                                    envOption
-                                            .get(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
-                                            .toString()),
-                            Integer.parseInt(
-                                    envOption
-                                            .get(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())
-                                            .toString()));
-        } else if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())) {
-            strategy =
-                    FlowControlStrategy.ofBytes(
-                            Integer.parseInt(
-                                    envOption
-                                            .get(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
-                                            .toString()));
-        } else if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())) {
-            strategy =
-                    FlowControlStrategy.ofCount(
-                            Integer.parseInt(
-                                    envOption
-                                            .get(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())
-                                            .toString()));
-        } else {
-            strategy = null;
-        }
-        return strategy;
     }
 }
