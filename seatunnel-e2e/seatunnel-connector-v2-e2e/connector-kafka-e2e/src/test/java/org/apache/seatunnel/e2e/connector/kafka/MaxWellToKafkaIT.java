@@ -89,8 +89,6 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_HOST = "kafka_e2e_maxwell";
 
-    private static final int KAFKA_PORT = 9098;
-
     private static KafkaContainer KAFKA_CONTAINER;
 
     private KafkaConsumer<String, String> kafkaConsumer;
@@ -102,10 +100,9 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
     private static final String MYSQL_USER_NAME = "st_user";
     private static final String MYSQL_USER_PASSWORD = "seatunnel";
 
-    private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
+    private static MySqlContainer MYSQL_CONTAINER;
 
-    private final UniqueDatabase inventoryDatabase =
-            new UniqueDatabase(MYSQL_CONTAINER, MYSQL_DATABASE, "mysqluser", "mysqlpw");
+    private static UniqueDatabase inventoryDatabase;
 
     // ----------------------------------------------------------------------------
     // postgres
@@ -113,6 +110,8 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String PG_DRIVER_JAR =
             "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
+    private static final int PG_PORT = 5432;
+    private static final String PG_HOST = "postgresql_maxwell_e2e";
 
     private static PostgreSQLContainer<?> POSTGRESQL_CONTAINER;
 
@@ -128,16 +127,17 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 
-    private static MySqlContainer createMySqlContainer(MySqlVersion version) {
-        return new MySqlContainer(MySqlVersion.V8_0)
-                .withConfigurationOverride("docker/server-gtids/my.cnf")
-                .withSetupSQL("docker/setup.sql")
-                .withNetwork(NETWORK)
-                .withNetworkAliases(MYSQL_HOST)
-                .withDatabaseName(MYSQL_DATABASE)
-                .withUsername(MYSQL_USER_NAME)
-                .withPassword(MYSQL_USER_PASSWORD)
-                .withLogConsumer(new Slf4jLogConsumer(LOG));
+    private void createMysqlContainer() {
+        MYSQL_CONTAINER =
+                new MySqlContainer(MySqlVersion.V8_0)
+                        .withConfigurationOverride("docker/server-gtids/my.cnf")
+                        .withSetupSQL("docker/setup.sql")
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(MYSQL_HOST)
+                        .withDatabaseName(MYSQL_DATABASE)
+                        .withUsername(MYSQL_USER_NAME)
+                        .withPassword(MYSQL_USER_PASSWORD)
+                        .withLogConsumer(new Slf4jLogConsumer(LOG));
     }
 
     private void createMaxWellContainer() {
@@ -147,8 +147,8 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
                                 MountableFile.forClasspathResource("maxwell/config.properties"),
                                 "/config.properties")
                         .withNetwork(NETWORK)
-                        .withEnv("MAXWELL_LOG_LEVEL", "DEBUG")
                         .withCommand("bin/maxwell --config /config.properties")
+                        .dependsOn(MYSQL_CONTAINER, KAFKA_CONTAINER)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(MAXWELL_DOCKER_IMAGE)));
@@ -162,19 +162,17 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
-        KAFKA_CONTAINER.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", KAFKA_PORT, KAFKA_PORT)));
     }
 
     private void createPostgreSQLContainer() throws ClassNotFoundException {
         POSTGRESQL_CONTAINER =
                 new PostgreSQLContainer<>(DockerImageName.parse(PG_IMAGE))
                         .withNetwork(NETWORK)
-                        .withNetworkAliases("postgresql")
-                        .withExposedPorts(5432)
+                        .withNetworkAliases(PG_HOST)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
+        POSTGRESQL_CONTAINER.setPortBindings(
+                Lists.newArrayList(String.format("%s:%s", PG_PORT, PG_PORT)));
     }
 
     @BeforeAll
@@ -187,6 +185,7 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
         LOG.info("Kafka Containers are started");
 
         LOG.info("The second stage: Starting Mysql containers...");
+        createMysqlContainer();
         Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
         LOG.info("Mysql Containers are started");
 
@@ -213,6 +212,8 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initKafkaConsumer);
+        inventoryDatabase =
+                new UniqueDatabase(MYSQL_CONTAINER, MYSQL_DATABASE, "mysqluser", "mysqlpw");
         inventoryDatabase.createAndInitialize();
         Thread.sleep(10 * 1000);
     }
@@ -221,7 +222,7 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
     public void testKafkaSinkMaxWellFormat(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/maxwellForMatIt/kafkasource_maxwell_to_kafka.conf");
+                container.executeJob("/maxwellFormatIt/kafkasource_maxwell_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         List<String> expectedResult =
                 Arrays.asList(
@@ -260,7 +261,7 @@ public class MaxWellToKafkaIT extends TestSuiteBase implements TestResource {
     public void testMaxWellFormatKafkaCdcToPgsql(TestContainer container)
             throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult =
-                container.executeJob("/maxwellForMatIt/kafkasource_maxwell_cdc_to_pgsql.conf");
+                container.executeJob("/maxwellFormatIt/kafkasource_maxwell_cdc_to_pgsql.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         List<Object> actual = new ArrayList<>();
         try (Connection connection =
