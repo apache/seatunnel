@@ -68,8 +68,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         try {
             if (uri.startsWith(SUBMIT_JOB_URL)) {
                 handleSubmitJob(httpPostCommand, uri);
-            }
-            if (uri.startsWith(STOP_JOB_URL)) {
+            } else if (uri.startsWith(STOP_JOB_URL)) {
                 handleStopJob(httpPostCommand, uri);
             } else {
                 original.handle(httpPostCommand);
@@ -146,7 +145,9 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
             coordinatorService.cancelJob(jobId);
         }
 
-        this.prepareResponse(httpPostCommand, new JsonObject().add(RestConstant.JOB_ID, jobId));
+        this.prepareResponse(
+                httpPostCommand,
+                new JsonObject().add(RestConstant.JOB_ID, map.get(RestConstant.JOB_ID).toString()));
     }
 
     @Override

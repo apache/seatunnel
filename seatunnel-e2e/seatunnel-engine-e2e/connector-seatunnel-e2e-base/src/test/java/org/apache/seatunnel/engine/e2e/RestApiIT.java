@@ -136,7 +136,7 @@ public class RestApiIT {
 
     @Test
     public void testSubmitJob() {
-        String jobId = submitJob().getBody().jsonPath().getString("jobId");
+        String jobId = submitJob("BATH").getBody().jsonPath().getString("jobId");
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer)
                         hazelcastInstance
@@ -160,7 +160,7 @@ public class RestApiIT {
 
     @Test
     public void testStopJob() {
-        String jobId = submitJob().getBody().jsonPath().getString("jobId");
+        String jobId = submitJob("STREAMING").getBody().jsonPath().getString("jobId");
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer)
                         hazelcastInstance
@@ -172,7 +172,7 @@ public class RestApiIT {
                 seaTunnelServer.getCoordinatorService().getJobStatus(Long.parseLong(jobId));
         Assertions.assertEquals(JobStatus.RUNNING, jobStatus);
 
-        String parameters = "{" + "\"jobId\":" + jobId + "," + "\"isStopWithSavePoint\":false}";
+        String parameters = "{" + "\"jobId\":" + jobId + "," + "\"isStopWithSavePoint\":true}";
 
         given().body(parameters)
                 .post(
@@ -192,10 +192,39 @@ public class RestApiIT {
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
-                                        JobStatus.CANCELED,
+                                        JobStatus.FINISHED,
                                         seaTunnelServer
                                                 .getCoordinatorService()
                                                 .getJobStatus(Long.parseLong(jobId))));
+
+        String jobId2 = submitJob("STREAMING").getBody().jsonPath().getString("jobId");
+
+        jobStatus = seaTunnelServer.getCoordinatorService().getJobStatus(Long.parseLong(jobId2));
+        Assertions.assertEquals(JobStatus.RUNNING, jobStatus);
+        parameters = "{" + "\"jobId\":" + jobId2 + "," + "\"isStopWithSavePoint\":false}";
+
+        given().body(parameters)
+                .post(
+                        HOST
+                                + hazelcastInstance
+                                        .getCluster()
+                                        .getLocalMember()
+                                        .getAddress()
+                                        .getPort()
+                                + RestConstant.STOP_JOB_URL)
+                .then()
+                .statusCode(200)
+                .body("jobId", equalTo(jobId2));
+
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId2))));
     }
 
     @AfterAll
@@ -205,11 +234,13 @@ public class RestApiIT {
         }
     }
 
-    private Response submitJob() {
+    private Response submitJob(String jobMode) {
         String requestBody =
                 "{\n"
                         + "    \"env\": {\n"
-                        + "        \"job.mode\": \"batch\"\n"
+                        + "        \"job.mode\": \""
+                        + jobMode
+                        + "\"\n"
                         + "    },\n"
                         + "    \"source\": [\n"
                         + "        {\n"
