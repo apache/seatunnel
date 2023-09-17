@@ -8,7 +8,7 @@ Read data from aliyun oss file system using jindo api.
 
 :::tip
 
-You need to download [jindosdk-4.6.1.tar.gz](https://emr-public-sh.oss-cn-shanghai.aliyuncs.com/emrjindodata%2Fv4.6.1%2Fjindosdk-4.6.1.tar.gz)
+You need to download [jindosdk-4.6.1.tar.gz](https://jindodata-binary.oss-cn-shanghai.aliyuncs.com/release/4.6.1/jindosdk-4.6.1.tar.gz)
 and then unzip it, copy jindo-sdk-4.6.1.jar and jindo-core-4.6.1.jar from lib to ${SEATUNNEL_HOME}/lib.
 
 If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
