@@ -84,7 +84,7 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
             String envKey = entry.getKey();
             String envValue = entry.getValue().render();
             if (envKey != null && envValue != null) {
-                envOption.put(entry.getKey(), entry.getValue().render());
+                envOption.put(envKey, envValue);
             }
         }
     }
