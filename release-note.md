@@ -76,6 +76,7 @@
 - [Zeta] Fix cpu load problem (#4828)
 - [zeta] Fix the deadlock issue with JDBC driver loading (#4878)
 - [zeta] dynamically replace the value of the variable at runtime (#4950)
+- [zeta] Fix CDC task restore throw NPE (#5507)
 
 ### E2E
 
