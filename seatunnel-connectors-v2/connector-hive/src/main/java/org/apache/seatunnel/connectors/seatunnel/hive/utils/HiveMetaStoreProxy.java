@@ -76,10 +76,7 @@ public class HiveMetaStoreProxy {
         try {
             if (config.hasPath(HiveConfig.HIVE_SITE_PATH.key())) {
                 String hiveSitePath = config.getString(HiveConfig.HIVE_SITE_PATH.key());
-                hiveConf.addResource(
-                        new File(hiveSitePath)
-                                .toURI()
-                                .toURL());
+                hiveConf.addResource(new File(hiveSitePath).toURI().toURL());
             }
             hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf);
         } catch (MetaException e) {
