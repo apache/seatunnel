@@ -122,11 +122,6 @@ public class Common {
         return Paths.get(getSeaTunnelHome(), "plugins");
     }
 
-    /** Plugin Connector Jar Dir */
-    public static Path connectorJarDir(String engine) {
-        return Paths.get(getSeaTunnelHome(), "connectors", engine.toLowerCase());
-    }
-
     /** Plugin Connector Dir */
     public static Path connectorDir() {
         return Paths.get(getSeaTunnelHome(), "connectors");
