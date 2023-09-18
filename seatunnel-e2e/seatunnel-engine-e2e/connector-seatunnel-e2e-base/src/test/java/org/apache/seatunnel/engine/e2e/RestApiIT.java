@@ -168,9 +168,15 @@ public class RestApiIT {
                                 .getNodeExtension()
                                 .createExtensionServices()
                                 .get(Constant.SEATUNNEL_SERVICE_NAME);
-        JobStatus jobStatus =
-                seaTunnelServer.getCoordinatorService().getJobStatus(Long.parseLong(jobId));
-        Assertions.assertEquals(JobStatus.RUNNING, jobStatus);
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId))));
 
         String parameters = "{" + "\"jobId\":" + jobId + "," + "\"isStopWithSavePoint\":true}";
 
@@ -199,8 +205,15 @@ public class RestApiIT {
 
         String jobId2 = submitJob("STREAMING").getBody().jsonPath().getString("jobId");
 
-        jobStatus = seaTunnelServer.getCoordinatorService().getJobStatus(Long.parseLong(jobId2));
-        Assertions.assertEquals(JobStatus.RUNNING, jobStatus);
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId2))));
         parameters = "{" + "\"jobId\":" + jobId2 + "," + "\"isStopWithSavePoint\":false}";
 
         given().body(parameters)
