@@ -79,7 +79,6 @@ public class CheckpointTimeOutTest extends AbstractSeaTunnelServerTest {
                         Collections.emptyList(),
                         Collections.emptyList());
 
-
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
