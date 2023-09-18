@@ -26,10 +26,8 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,8 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class InMemoryCatalog implements Catalog {
-    private static final Logger LOGGER = LoggerFactory.getLogger(InMemoryCatalog.class);
     private final ReadonlyConfig options;
     private final String name;
     // database -> tables
@@ -116,7 +114,7 @@ public class InMemoryCatalog implements Catalog {
         String password = options.get(InMemoryCatalogOptionRule.password);
         String host = options.get(InMemoryCatalogOptionRule.host);
         int port = options.get(InMemoryCatalogOptionRule.port);
-        LOGGER.trace(
+        log.trace(
                 String.format(
                         "InMemoryCatalog %s opening with %s/%s in %s:%s",
                         name, username, password, host, port));
@@ -124,7 +122,7 @@ public class InMemoryCatalog implements Catalog {
 
     @Override
     public void close() throws CatalogException {
-        LOGGER.trace(String.format("InMemoryCatalog %s closing", name));
+        log.trace(String.format("InMemoryCatalog %s closing", name));
     }
 
     @Override
@@ -184,7 +182,7 @@ public class InMemoryCatalog implements Catalog {
             List<CatalogTable> tables = catalogTables.get(tablePath.getDatabaseName());
             if (tables.stream().anyMatch(t -> t.getTableId().toTablePath().equals(tablePath))) {
                 if (ignoreIfExists) {
-                    LOGGER.debug("Table {} already exists, ignore", tablePath.getFullName());
+                    log.debug("Table {} already exists, ignore", tablePath.getFullName());
                 } else {
                     throw new TableAlreadyExistException(name, tablePath);
                 }
@@ -205,7 +203,7 @@ public class InMemoryCatalog implements Catalog {
                 tables.removeIf(t -> t.getTableId().toTablePath().equals(tablePath));
             } else {
                 if (ignoreIfNotExists) {
-                    LOGGER.debug("Table {} not exists, ignore", tablePath.getFullName());
+                    log.debug("Table {} not exists, ignore", tablePath.getFullName());
                 } else {
                     throw new TableNotExistException(name, tablePath);
                 }
@@ -220,7 +218,7 @@ public class InMemoryCatalog implements Catalog {
             throws DatabaseAlreadyExistException, CatalogException {
         if (catalogTables.containsKey(tablePath.getDatabaseName())) {
             if (ignoreIfExists) {
-                LOGGER.debug("Database {} already exists, ignore", tablePath.getDatabaseName());
+                log.debug("Database {} already exists, ignore", tablePath.getDatabaseName());
             } else {
                 throw new DatabaseAlreadyExistException(name, tablePath.getDatabaseName());
             }
@@ -236,7 +234,7 @@ public class InMemoryCatalog implements Catalog {
             catalogTables.remove(tablePath.getDatabaseName());
         } else {
             if (ignoreIfNotExists) {
-                LOGGER.debug("Database {} not exists, ignore", tablePath.getDatabaseName());
+                log.debug("Database {} not exists, ignore", tablePath.getDatabaseName());
             } else {
                 throw new DatabaseNotExistException(name, tablePath.getDatabaseName());
             }
