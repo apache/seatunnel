@@ -37,11 +37,9 @@ public final class TableUtil {
         if (isAppend) {
             return tableEnvironment.toAppendStream(table, typeInfo);
         }
-        return tableEnvironment
-                .toRetractStream(table, typeInfo)
-                .filter(row -> row.f0)
-                .map(row -> row.f1)
-                .returns(typeInfo);
+        DataStream<Row> dataStream = tableEnvironment.toChangelogStream(table);
+        dataStream.getTransformation().setOutputType(typeInfo);
+        return dataStream;
     }
 
     public static boolean tableExists(TableEnvironment tableEnvironment, String name) {

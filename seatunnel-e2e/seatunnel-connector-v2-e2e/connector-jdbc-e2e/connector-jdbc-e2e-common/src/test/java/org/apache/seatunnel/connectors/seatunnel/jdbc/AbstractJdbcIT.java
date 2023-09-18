@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -31,6 +34,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -76,6 +80,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected GenericContainer<?> dbServer;
     protected JdbcCase jdbcCase;
     protected Connection connection;
+    protected Catalog catalog;
 
     abstract JdbcCase getJdbcCase();
 
@@ -141,12 +146,16 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                     String.format(
                             createTemplate,
                             buildTableInfoWithSchema(
-                                    jdbcCase.getDatabase(), jdbcCase.getSourceTable()));
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSchema(),
+                                    jdbcCase.getSourceTable()));
             String createSink =
                     String.format(
                             createTemplate,
                             buildTableInfoWithSchema(
-                                    jdbcCase.getDatabase(), jdbcCase.getSinkTable()));
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSchema(),
+                                    jdbcCase.getSinkTable()));
 
             statement.execute(createSource);
             statement.execute(createSink);
@@ -171,6 +180,14 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                 + " VALUES ("
                 + placeholders
                 + ")";
+    }
+
+    protected void clearTable(String database, String schema, String table) {
+        clearTable(database, table);
+    }
+
+    protected String buildTableInfoWithSchema(String database, String schema, String table) {
+        return buildTableInfoWithSchema(database, table);
     }
 
     public void clearTable(String schema, String table) {
@@ -215,6 +232,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         createSchemaIfNeeded();
         createNeededTables();
         insertTestData();
+        initCatalog();
     }
 
     @Override
@@ -225,6 +243,10 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
         if (connection != null) {
             connection.close();
+        }
+
+        if (catalog != null) {
+            catalog.close();
         }
     }
 
@@ -238,6 +260,43 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         }
 
         compareResult();
-        clearTable(jdbcCase.getDatabase(), jdbcCase.getSinkTable());
+        clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
+    }
+
+    protected void initCatalog() {}
+
+    @Test
+    public void testCatalog() {
+        if (catalog == null) {
+            return;
+        }
+
+        TablePath sourceTablePath =
+                new TablePath(
+                        jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSourceTable());
+        TablePath targetTablePath =
+                new TablePath(
+                        jdbcCase.getCatalogDatabase(),
+                        jdbcCase.getCatalogSchema(),
+                        jdbcCase.getCatalogTable());
+        boolean createdDb = false;
+
+        if (!catalog.databaseExists(targetTablePath.getDatabaseName())) {
+            catalog.createDatabase(targetTablePath, false);
+            Assertions.assertTrue(catalog.databaseExists(targetTablePath.getDatabaseName()));
+            createdDb = true;
+        }
+
+        CatalogTable catalogTable = catalog.getTable(sourceTablePath);
+        catalog.createTable(targetTablePath, catalogTable, false);
+        Assertions.assertTrue(catalog.tableExists(targetTablePath));
+
+        catalog.dropTable(targetTablePath, false);
+        Assertions.assertFalse(catalog.tableExists(targetTablePath));
+
+        if (createdDb) {
+            catalog.dropDatabase(targetTablePath, false);
+            Assertions.assertFalse(catalog.databaseExists(targetTablePath.getDatabaseName()));
+        }
     }
 }
