@@ -39,16 +39,31 @@ public interface ZetaUDF {
 
 ## UDF Implements Example
 
-Add the dependency of transform-v2 and provided scope to your maven project:
+Add these dependencies and provided scope to your maven project:
 
 ```xml
 
-<dependency>
-    <groupId>org.apache.seatunnel</groupId>
-    <artifactId>seatunnel-transforms-v2</artifactId>
-    <version>2.3.x</version>
-    <scope>provided</scope>
-</dependency>
+<dependencies>
+    <dependency>
+        <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel-transforms-v2</artifactId>
+        <version>2.3.2</version>
+        <scope>provided</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel-api</artifactId>
+        <version>2.3.2</version>
+        <scope>provided</scope>
+    </dependency>
+    <dependency>
+        <groupId>com.google.auto.service</groupId>
+        <artifactId>auto-service</artifactId>
+        <version>1.0.1</version>
+        <scope>provided</scope>
+    </dependency>
+</dependencies>
+
 ```
 
 Add a Java Class implements of ZetaUDF like this:

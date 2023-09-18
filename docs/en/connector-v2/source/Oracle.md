@@ -37,7 +37,7 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                 PostgreSQL Data type                                 | SeaTunnel Data type |
+|                                   Oracle Data type                                   | SeaTunnel Data type |
 |--------------------------------------------------------------------------------------|---------------------|
 | INTEGER                                                                              | INT                 |
 | FLOAT                                                                                | DECIMAL(38, 18)     |
@@ -111,6 +111,10 @@ sink {
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
 
 ```
+env {
+  execution.parallelism = 10
+  job.mode = "BATCH"
+}
 source {
     Jdbc {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
@@ -125,6 +129,9 @@ source {
         # Number of fragments
         partition_num = 10
     }
+}
+sink {
+  Console {}
 }
 ```
 

@@ -83,7 +83,6 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
     // other
     private static final String DB2_XML = "XML";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {

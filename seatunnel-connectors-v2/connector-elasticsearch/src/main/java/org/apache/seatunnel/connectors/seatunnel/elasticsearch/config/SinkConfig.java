@@ -51,14 +51,12 @@ public class SinkConfig {
                     .withDescription(
                             "Delimiter for composite keys (\"_\" by default), e.g., \"$\" would result in document `_id` \"KEY1$KEY2$KEY3\".");
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> MAX_BATCH_SIZE =
             Options.key("max_batch_size")
                     .intType()
                     .defaultValue(10)
                     .withDescription("batch bulk doc max size");
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> MAX_RETRY_COUNT =
             Options.key("max_retry_count")
                     .intType()

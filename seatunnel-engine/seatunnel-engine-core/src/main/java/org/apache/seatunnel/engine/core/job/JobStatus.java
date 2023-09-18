@@ -60,7 +60,10 @@ public enum JobStatus {
     SUSPENDED(EndState.LOCALLY),
 
     /** The job is currently reconciling and waits for task execution report to recover state. */
-    RECONCILING(EndState.NOT_END);
+    RECONCILING(EndState.NOT_END),
+
+    /** Cannot find the JobID or the job status has already been cleared. */
+    UNKNOWABLE(EndState.GLOBALLY);
 
     // --------------------------------------------------------------------------------------------
 
