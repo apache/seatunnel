@@ -58,6 +58,8 @@ public interface ConnectorJarStorageStrategy extends Serializable {
 
     void deleteConnectorJar(ConnectorJarIdentifier connectorJarIdentifier);
 
+    void deleteConnectorJarInExecutionNode(ConnectorJarIdentifier connectorJarIdentifier);
+
     void deleteConnectorJarInternal(File storageLocation);
 
     byte[] readConnectorJarByteDataInternal(File connectorJarFile);

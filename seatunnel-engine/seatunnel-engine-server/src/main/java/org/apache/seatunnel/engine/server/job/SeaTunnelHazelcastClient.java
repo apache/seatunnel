@@ -137,4 +137,8 @@ public class SeaTunnelHazelcastClient {
             hazelcastClient.shutdown();
         }
     }
+
+    public HazelcastClientInstanceImpl getHazelcastClient() {
+        return hazelcastClient;
+    }
 }

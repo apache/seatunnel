@@ -17,8 +17,15 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.client.impl.spi.ClientClusterService;
+import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Member;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -30,9 +37,14 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.engine.server.job.SeaTunnelHazelcastClient;
+import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMemberNodeOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 public class ConnectorPackageService {
@@ -49,6 +61,8 @@ public class ConnectorPackageService {
 
     private final NodeEngineImpl nodeEngine;
 
+    private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
+
     public ConnectorPackageService(
             SeaTunnelServer seaTunnelServer, ConnectorPackageHAStorage connectorPackageHAStorage) {
         this.seaTunnelServer = seaTunnelServer;
@@ -62,6 +76,8 @@ public class ConnectorPackageService {
                         connectorJarStorageConfig,
                         seaTunnelServer,
                         connectorPackageHAStorage);
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        this.seaTunnelHazelcastClient = new SeaTunnelHazelcastClient(clientConfig);
     }
 
     public ConnectorJarIdentifier storageConnectorJarFile(long jobId, Data connectorJarData) {
@@ -69,6 +85,21 @@ public class ConnectorPackageService {
         ConnectorJar connectorJar = nodeEngine.getSerializationService().toObject(connectorJarData);
         ConnectorJarIdentifier connectorJarIdentifier =
                 connectorJarStorageStrategy.storageConnectorJarFile(jobId, connectorJar);
+        ClientClusterService clientClusterService = seaTunnelHazelcastClient.getHazelcastClient().getClientClusterService();
+        Address masterNodeAddress = clientClusterService.getMasterMember().getAddress();
+        Collection<Member> memberList = clientClusterService.getMemberList();
+        memberList.forEach(member -> {
+            Address address = member.getAddress();
+            if (!address.equals(masterNodeAddress)) {
+                InvocationFuture<Object> invocationFuture = NodeEngineUtil.sendOperationToMemberNode(nodeEngine,
+                        new SendConnectorJarToMemberNodeOperation(
+                                seaTunnelHazelcastClient.getSerializationService().toData(connectorJar),
+                                seaTunnelHazelcastClient.getSerializationService().toData(connectorJarIdentifier)),
+                        address);
+                invocationFuture.join();
+            }
+                }
+        );
         return connectorJarIdentifier;
     }
 

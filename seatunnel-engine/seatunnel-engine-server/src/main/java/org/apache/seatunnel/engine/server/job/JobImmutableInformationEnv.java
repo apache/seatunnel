@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.server.job;
 
+import com.hazelcast.internal.util.CollectionUtil;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
@@ -36,6 +39,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -47,12 +51,9 @@ public class JobImmutableInformationEnv extends AbstractJobEnvironment {
 
     private final Long jobId;
 
-    private final ConnectorPackageClient connectorPackageClient;
-
     public JobImmutableInformationEnv(
             JobConfig jobConfig,
             Config seaTunnelJobConfig,
-            SeaTunnelHazelcastClient seaTunnelHazelcastClient,
             Node node,
             boolean isStartWithSavePoint,
             Long jobId) {
@@ -68,7 +69,6 @@ public class JobImmutableInformationEnv extends AbstractJobEnvironment {
                                         .getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME)
                                         .newId()));
         this.jobId = Long.valueOf(jobConfig.getJobContext().getJobId());
-        this.connectorPackageClient = new ConnectorPackageClient(seaTunnelHazelcastClient);
     }
 
     public Long getJobId() {
@@ -79,37 +79,13 @@ public class JobImmutableInformationEnv extends AbstractJobEnvironment {
     protected LogicalDag getLogicalDag() {
         ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
         actions.addAll(immutablePair.getLeft());
-
-        Set<ConnectorJarIdentifier> commonJarIdentifiers =
-                connectorPackageClient.uploadCommonPluginJars(
-                        Long.parseLong(jobConfig.getJobContext().getJobId()), commonPluginJars);
-        Set<URL> commonPluginJarUrls = getJarUrlsFromIdentifiers(commonJarIdentifiers);
-        Set<ConnectorJarIdentifier> pluginJarIdentifiers = new HashSet<>();
-        transformActionPluginJarUrls(actions, pluginJarIdentifiers);
-        Set<URL> connectorPluginJarUrls = getJarUrlsFromIdentifiers(pluginJarIdentifiers);
-        connectorJarIdentifiers.addAll(commonJarIdentifiers);
-        connectorJarIdentifiers.addAll(pluginJarIdentifiers);
         jarUrls.addAll(commonPluginJars);
-        jarUrls.addAll(connectorPluginJarUrls);
+        jarUrls.addAll(immutablePair.getRight());
         actions.forEach(
                 action -> {
-                    addCommonPluginJarsToAction(action, commonPluginJarUrls, commonJarIdentifiers);
+                    addCommonPluginJarsToAction(action, new HashSet<>(commonPluginJars), Collections.emptySet());
                 });
         return getLogicalDagGenerator().generate();
-    }
-
-    @Override
-    protected Set<ConnectorJarIdentifier> uploadPluginJarUrls(Set<URL> pluginJarUrls) {
-        Set<ConnectorJarIdentifier> pluginJarIdentifiers = new HashSet<>();
-        pluginJarUrls.forEach(
-                pluginJarUrl -> {
-                    ConnectorJarIdentifier connectorJarIdentifier =
-                            connectorPackageClient.uploadConnectorPluginJar(
-                                    Long.parseLong(jobConfig.getJobContext().getJobId()),
-                                    pluginJarUrl);
-                    pluginJarIdentifiers.add(connectorJarIdentifier);
-                });
-        return pluginJarIdentifiers;
     }
 
     @Override

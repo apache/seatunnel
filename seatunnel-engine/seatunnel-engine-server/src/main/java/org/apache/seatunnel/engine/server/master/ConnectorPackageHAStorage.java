@@ -48,10 +48,13 @@ public class ConnectorPackageHAStorage extends AbstractConnectorPackageHAStorage
     public void uploadConnectorJar(
             long jobId, File localFile, ConnectorJarIdentifier connectorJarIdentifier) {
         String storageLocationPath = getStorageLocationPath(jobId, connectorJarIdentifier);
-        try (FSDataOutputStream os = fileSystem.create(new Path(storageLocationPath))) {
-            LOGGER.info(String.format("Copying from %s to {}.", localFile, storageLocationPath));
-            Files.copy(localFile, os);
-            os.hsync();
+        try {
+            if (!fileSystem.exists(new Path(storageLocationPath))) {
+                FSDataOutputStream os = fileSystem.create(new Path(storageLocationPath));
+                LOGGER.info(String.format("Copying from %s to {}.", localFile, storageLocationPath));
+                Files.copy(localFile, os);
+                os.hsync();
+            }
         } catch (IOException e) {
             LOGGER.info(
                     String.format(

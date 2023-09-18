@@ -235,8 +235,8 @@ public class CoordinatorService {
         // which is used to maintain the jar package files from all currently executing jobs
         // and provide download services for the task execution nodes.
         if (seaTunnelServer.isMasterNode()) {
-            connectorPackageHAStorage =
-                    new ConnectorPackageHAStorage(engineConfig.getConnectorJarStorageConfig());
+//            connectorPackageHAStorage =
+//                    new ConnectorPackageHAStorage(engineConfig.getConnectorJarStorageConfig());
             connectorPackageService =
                     new ConnectorPackageService(seaTunnelServer, connectorPackageHAStorage);
         }
@@ -279,18 +279,18 @@ public class CoordinatorService {
             runningJobInfoIMap.remove(jobId);
             return;
         }
-        Data jobImmutableInformationData = jobInfo.getJobImmutableInformation();
-        JobImmutableInformation jobImmutableInformation =
-                nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
-        List<ConnectorJarIdentifier> pluginJarIdentifiers =
-                jobImmutableInformation.getPluginJarIdentifiers();
-        pluginJarIdentifiers.forEach(
-                pluginJarIdentifier -> {
-                    String storagePath = pluginJarIdentifier.getStoragePath();
-                    if (!new File(storagePath).exists()) {
-                        connectorPackageHAStorage.downloadConnectorJar(jobId, pluginJarIdentifier);
-                    }
-                });
+//        Data jobImmutableInformationData = jobInfo.getJobImmutableInformation();
+//        JobImmutableInformation jobImmutableInformation =
+//                nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
+//        List<ConnectorJarIdentifier> pluginJarIdentifiers =
+//                jobImmutableInformation.getPluginJarIdentifiers();
+//        pluginJarIdentifiers.forEach(
+//                pluginJarIdentifier -> {
+//                    String storagePath = pluginJarIdentifier.getStoragePath();
+//                    if (!new File(storagePath).exists()) {
+//                        connectorPackageHAStorage.downloadConnectorJar(jobId, pluginJarIdentifier);
+//                    }
+//                });
 
         JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
         JobMaster jobMaster =

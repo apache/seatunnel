@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -106,17 +107,16 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         Config config = RestUtil.buildConfig(requestBodyJsonNode);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(requestParams.get("jobName"));
-        @NonNull ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
         JobImmutableInformationEnv jobImmutableInformationEnv =
                 new JobImmutableInformationEnv(
                         jobConfig,
                         config,
-                        new SeaTunnelHazelcastClient(clientConfig),
                         textCommandService.getNode(),
                         Boolean.parseBoolean(requestParams.get("isStartWithSavePoint")),
                         Long.parseLong(requestParams.get("jobId")));
         JobImmutableInformation jobImmutableInformation = jobImmutableInformationEnv.build();
-        CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
+
         Data data =
                 textCommandService
                         .getNode()

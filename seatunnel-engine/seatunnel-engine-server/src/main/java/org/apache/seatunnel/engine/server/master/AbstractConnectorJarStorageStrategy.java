@@ -17,9 +17,15 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.client.impl.spi.ClientClusterService;
+import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Member;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelProperties;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import org.apache.commons.lang3.StringUtils;
@@ -27,6 +33,9 @@ import org.apache.commons.lang3.StringUtils;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import org.apache.seatunnel.engine.server.job.SeaTunnelHazelcastClient;
+import org.apache.seatunnel.engine.server.task.operation.DeleteConnectorJarInExecutionNode;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -35,6 +44,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
@@ -45,7 +55,7 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
 
     protected static final String COMMON_PLUGIN_JAR_STORAGE_PATH = "/plugins";
 
-    protected static final String CONNECTOR__PLUGIN_JAR_STORAGE_PATH = "/connectors/seatunnel";
+    protected static final String CONNECTOR_PLUGIN_JAR_STORAGE_PATH = "/connectors/seatunnel";
 
     protected String storageDir;
 
@@ -57,6 +67,8 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
 
     protected final ConnectorPackageHAStorage connectorPackageHAStorage;
 
+    protected final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
+
     public AbstractConnectorJarStorageStrategy(
             ConnectorJarStorageConfig connectorJarStorageConfig,
             SeaTunnelServer seaTunnelServer,
@@ -67,6 +79,8 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
         checkNotNull(connectorJarStorageConfig);
         this.connectorJarStorageConfig = connectorJarStorageConfig;
         this.storageDir = getConnectorJarStorageDir();
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        this.seaTunnelHazelcastClient = new SeaTunnelHazelcastClient(clientConfig);
     }
 
     @Override
@@ -137,6 +151,20 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
         if (!storageFile.delete() && storageFile.exists()) {
             LOGGER.warning(String.format("Failed to delete connector jar file %s", storageFile));
         }
+    }
+
+    @Override
+    public void deleteConnectorJarInExecutionNode(ConnectorJarIdentifier connectorJarIdentifier) {
+        Address masterNodeAddress = nodeEngine.getMasterAddress();
+        ClientClusterService clientClusterService = seaTunnelHazelcastClient.getHazelcastClient().getClientClusterService();
+        Collection<Member> memberList = clientClusterService.getMemberList();
+        memberList.forEach(member -> {
+            if (!member.getAddress().equals(masterNodeAddress)) {
+                NodeEngineUtil.sendOperationToMemberNode(nodeEngine, new DeleteConnectorJarInExecutionNode(connectorJarIdentifier),
+                        member.getAddress()
+                );
+            }
+        });
     }
 
     @Override

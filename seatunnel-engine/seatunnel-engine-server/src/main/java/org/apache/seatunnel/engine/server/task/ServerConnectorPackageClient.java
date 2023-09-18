@@ -87,23 +87,26 @@ public class ServerConnectorPackageClient {
         // Initializing the clean up task
         this.cleanupTimer = new Timer(true);
         this.cleanupInterval = connectorJarStorageConfig.getCleanupTaskInterval() * 1000;
-        this.cleanupTimer.schedule(
-                new ServerConnectorJarCleanupTask(
-                        LOGGER, this::deleteConnectorJar, connectorJarExpiryTimes),
-                cleanupInterval,
-                cleanupInterval);
+//        this.cleanupTimer.schedule(
+//                new ServerConnectorJarCleanupTask(
+//                        LOGGER, this::deleteConnectorJar, connectorJarExpiryTimes),
+//                cleanupInterval,
+//                cleanupInterval);
         this.readWriteLock = new ReentrantReadWriteLock();
     }
 
-    public Set<URL> getConnectorJarPath(Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+    public Set<URL> getConnectorJarFromLocal(Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
         return connectorJarIdentifiers.stream()
                 .map(
                         connectorJarIdentifier -> {
-                            String connectorJarStoragePath =
-                                    getConnectorJarFileLocallyFirst(connectorJarIdentifier);
+                            String connectorJarStoragePath = connectorJarIdentifier.getStoragePath();
                             File storageFile = new File(connectorJarStoragePath);
                             try {
-                                return Optional.of(storageFile.toURI().toURL());
+                                if (storageFile.exists()) {
+                                    return Optional.of(storageFile.toURI().toURL());
+                                } else {
+                                    return Optional.empty();
+                                }
                             } catch (MalformedURLException e) {
                                 LOGGER.warning(
                                         String.format("Cannot get plugin URL: {%s}", storageFile));
@@ -118,22 +121,45 @@ public class ServerConnectorPackageClient {
                 .collect(Collectors.toSet());
     }
 
-    public String getConnectorJarFileLocallyFirst(ConnectorJarIdentifier connectorJarIdentifier) {
-        ExpiryTime expiryTime = connectorJarExpiryTimes.get(connectorJarIdentifier);
-        if (expiryTime != null) {
-            // update TTL for connector jar package in connectorJarExpiryTimes
-            expiryTime.keepUntil = System.currentTimeMillis() + connectorJarExpiryTime;
-            connectorJarExpiryTimes.put(connectorJarIdentifier, expiryTime);
-            return connectorJarIdentifier.getStoragePath();
-        } else {
-            ConnectorJarIdentifier identifierFromMasterNode =
-                    downloadFromMasterNode(connectorJarIdentifier);
-            connectorJarExpiryTimes.put(
-                    identifierFromMasterNode,
-                    new ExpiryTime(System.currentTimeMillis() + connectorJarExpiryTime));
-            return identifierFromMasterNode.getStoragePath();
-        }
-    }
+//    public Set<URL> getConnectorJarFromLocalOrRemote(Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+//        return connectorJarIdentifiers.stream()
+//                .map(
+//                        connectorJarIdentifier -> {
+//                            String connectorJarStoragePath =
+//                                    getConnectorJarFileLocallyFirst(connectorJarIdentifier);
+//                            File storageFile = new File(connectorJarStoragePath);
+//                            try {
+//                                return Optional.of(storageFile.toURI().toURL());
+//                            } catch (MalformedURLException e) {
+//                                LOGGER.warning(
+//                                        String.format("Cannot get plugin URL: {%s}", storageFile));
+//                                return Optional.empty();
+//                            }
+//                        })
+//                .filter(Optional::isPresent)
+//                .map(
+//                        optional -> {
+//                            return (URL) optional.get();
+//                        })
+//                .collect(Collectors.toSet());
+//    }
+
+//    public String getConnectorJarFileLocallyFirst(ConnectorJarIdentifier connectorJarIdentifier) {
+//        ExpiryTime expiryTime = connectorJarExpiryTimes.get(connectorJarIdentifier);
+//        if (expiryTime != null) {
+//            // update TTL for connector jar package in connectorJarExpiryTimes
+//            expiryTime.keepUntil = System.currentTimeMillis() + connectorJarExpiryTime;
+//            connectorJarExpiryTimes.put(connectorJarIdentifier, expiryTime);
+//            return connectorJarIdentifier.getStoragePath();
+//        } else {
+//            ConnectorJarIdentifier identifierFromMasterNode =
+//                    downloadFromMasterNode(connectorJarIdentifier);
+//            connectorJarExpiryTimes.put(
+//                    identifierFromMasterNode,
+//                    new ExpiryTime(System.currentTimeMillis() + connectorJarExpiryTime));
+//            return identifierFromMasterNode.getStoragePath();
+//        }
+//    }
 
     public ConnectorJarIdentifier downloadFromMasterNode(
             ConnectorJarIdentifier connectorJarIdentifier) {
@@ -160,6 +186,13 @@ public class ServerConnectorPackageClient {
                 connectorJarByteData, new File(immutablePair.getRight().getStoragePath()));
         readWriteLock.writeLock().unlock();
         return immutablePair.getRight();
+    }
+
+    public void storageConnectorJarFile(byte[] connectorJarByteData, ConnectorJarIdentifier connectorJarIdentifier) {
+        readWriteLock.writeLock().lock();
+        storageConnectorJarFile(
+                connectorJarByteData, new File(connectorJarIdentifier.getStoragePath()));
+        readWriteLock.writeLock().unlock();
     }
 
     private void storageConnectorJarFile(byte[] connectorJarByteData, File storageFile) {
@@ -196,17 +229,27 @@ public class ServerConnectorPackageClient {
     }
 
     public void deleteConnectorJar(ConnectorJarIdentifier connectorJarIdentifier) {
-        ExpiryTime expiryTime = connectorJarExpiryTimes.get(connectorJarIdentifier);
-        if (expiryTime != null) {
-            try {
-                File storageLocation = new File(connectorJarIdentifier.getStoragePath());
-                readWriteLock.writeLock().lock();
-                deleteConnectorJarInternal(storageLocation);
-            } finally {
-                readWriteLock.writeLock().unlock();
-            }
+        try {
+            File storageLocation = new File(connectorJarIdentifier.getStoragePath());
+            readWriteLock.writeLock().lock();
+            deleteConnectorJarInternal(storageLocation);
+        } finally {
+            readWriteLock.writeLock().unlock();
         }
     }
+
+//    public void deleteConnectorJar(ConnectorJarIdentifier connectorJarIdentifier) {
+//        ExpiryTime expiryTime = connectorJarExpiryTimes.get(connectorJarIdentifier);
+//        if (expiryTime != null) {
+//            try {
+//                File storageLocation = new File(connectorJarIdentifier.getStoragePath());
+//                readWriteLock.writeLock().lock();
+//                deleteConnectorJarInternal(storageLocation);
+//            } finally {
+//                readWriteLock.writeLock().unlock();
+//            }
+//        }
+//    }
 
     private void deleteConnectorJarInternal(File storageFile) {
         if (!storageFile.delete() && storageFile.exists()) {

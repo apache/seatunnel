@@ -261,15 +261,24 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         try {
             Set<ConnectorJarIdentifier> connectorJarIdentifiers =
                     taskImmutableInfo.getConnectorJarIdentifiers();
+            Set<URL> jars = taskImmutableInfo.getJars();
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
             if (!CollectionUtils.isEmpty(connectorJarIdentifiers)) {
                 // Prioritize obtaining the jar package file required for the current task execution
                 // from the local,
                 // if it does not exist locally, it will be downloaded from the master node.
                 Set<URL> connectorJarPath =
-                        serverConnectorPackageClient.getConnectorJarPath(connectorJarIdentifiers);
+                        serverConnectorPackageClient.getConnectorJarFromLocal(connectorJarIdentifiers);
                 classLoader =
                         new SeaTunnelChildFirstClassLoader(Lists.newArrayList(connectorJarPath));
+                taskGroup =
+                        CustomClassLoadedObject.deserializeWithCustomClassLoader(
+                                nodeEngine.getSerializationService(),
+                                classLoader,
+                                taskImmutableInfo.getGroup());
+            } else if (!CollectionUtils.isEmpty(jars)) {
+                classLoader =
+                        new SeaTunnelChildFirstClassLoader(Lists.newArrayList(jars));
                 taskGroup =
                         CustomClassLoadedObject.deserializeWithCustomClassLoader(
                                 nodeEngine.getSerializationService(),
@@ -898,5 +907,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         boolean executionCompletedExceptionally() {
             return executionException.get() != null;
         }
+    }
+
+    public ServerConnectorPackageClient getServerConnectorPackageClient() {
+        return serverConnectorPackageClient;
     }
 }

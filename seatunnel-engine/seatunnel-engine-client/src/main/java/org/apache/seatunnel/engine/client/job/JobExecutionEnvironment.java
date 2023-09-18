@@ -29,12 +29,16 @@ import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import java.io.File;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 public class JobExecutionEnvironment extends AbstractJobEnvironment {
 
@@ -103,7 +107,6 @@ public class JobExecutionEnvironment extends AbstractJobEnvironment {
         return getLogicalDagGenerator().generate();
     }
 
-    @Override
     protected Set<ConnectorJarIdentifier> uploadPluginJarUrls(Set<URL> pluginJarUrls) {
         Set<ConnectorJarIdentifier> pluginJarIdentifiers = new HashSet<>();
         pluginJarUrls.forEach(
@@ -115,6 +118,49 @@ public class JobExecutionEnvironment extends AbstractJobEnvironment {
                     pluginJarIdentifiers.add(connectorJarIdentifier);
                 });
         return pluginJarIdentifiers;
+    }
+
+    private void transformActionPluginJarUrls(
+            List<Action> actions, Set<ConnectorJarIdentifier> result) {
+        actions.forEach(
+                action -> {
+                    Set<URL> jarUrls = action.getJarUrls();
+                    Set<ConnectorJarIdentifier> jarIdentifiers = uploadPluginJarUrls(jarUrls);
+                    result.addAll(jarIdentifiers);
+                    // Reset the client URL of the jar package in Set
+                    // add the URLs from remote master node
+                    jarUrls.clear();
+                    jarUrls.addAll(getJarUrlsFromIdentifiers(jarIdentifiers));
+                    action.getConnectorJarIdentifiers().addAll(jarIdentifiers);
+                    if (!action.getUpstream().isEmpty()) {
+                        transformActionPluginJarUrls(action.getUpstream(), result);
+                    }
+                });
+    }
+
+    private Set<URL> getJarUrlsFromIdentifiers(
+            Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        Set<URL> jarUrls = new HashSet<>();
+        connectorJarIdentifiers.stream()
+                .map(
+                        connectorJarIdentifier -> {
+                            File storageFile = new File(connectorJarIdentifier.getStoragePath());
+                            try {
+                                return Optional.of(storageFile.toURI().toURL());
+                            } catch (MalformedURLException e) {
+                                LOGGER.warning(
+                                        String.format("Cannot get plugin URL: {%s}", storageFile));
+                                return Optional.empty();
+                            }
+                        })
+                .collect(Collectors.toList())
+                .forEach(
+                        optional -> {
+                            if (optional.isPresent()) {
+                                jarUrls.add((URL) optional.get());
+                            }
+                        });
+        return jarUrls;
     }
 
     public ClientJobProxy execute() throws ExecutionException, InterruptedException {
