@@ -136,6 +136,7 @@ public class JobConfigParser {
     }
 
     public List<SinkAction<?, ?, ?, ?>> parseSinks(
+            int configIndex,
             List<List<Tuple2<CatalogTable, Action>>> inputVertices,
             Config sinkConfig,
             JobConfig jobConfig) {
@@ -151,6 +152,7 @@ public class JobConfigParser {
             checkProducedTypeEquals(inputActions);
             SinkAction<?, ?, ?, ?> sinkAction =
                     parseSink(
+                            configIndex,
                             sinkConfig,
                             jobConfig,
                             spareParallelism,
@@ -170,6 +172,7 @@ public class JobConfigParser {
                 int parallelism = inputAction.getParallelism();
                 SinkAction<?, ?, ?, ?> sinkAction =
                         parseSink(
+                                configIndex,
                                 sinkConfig,
                                 jobConfig,
                                 parallelism,
@@ -182,6 +185,7 @@ public class JobConfigParser {
     }
 
     private SinkAction<?, ?, ?, ?> parseSink(
+            int configIndex,
             Config config,
             JobConfig jobConfig,
             int parallelism,
@@ -204,7 +208,8 @@ public class JobConfigParser {
             handleSaveMode(sink);
         }
         final String actionName =
-                createSinkActionName(0, tuple.getLeft().getPluginName(), getTableName(config));
+                createSinkActionName(
+                        configIndex, tuple.getLeft().getPluginName(), getTableName(config));
         final SinkAction action =
                 new SinkAction<>(
                         idGenerator.getNextId(),

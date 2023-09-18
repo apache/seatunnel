@@ -283,6 +283,11 @@ public class JobMaster {
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()).toString()));
         }
+        if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
+            jobCheckpointConfig.setCheckpointTimeout(
+                    Long.parseLong(
+                            jobEnv.get(EnvCommonOptions.CHECKPOINT_TIMEOUT.key()).toString()));
+        }
         return jobCheckpointConfig;
     }
 
@@ -305,7 +310,6 @@ public class JobMaster {
                         }));
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public void run() {
         try {
             if (!restore) {
@@ -678,7 +682,6 @@ public class JobMaster {
         return ownedSlotProfilesIMap.get(pipelineLocation);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public void setOwnedSlotProfiles(
             @NonNull PipelineLocation pipelineLocation,
             @NonNull Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles) {

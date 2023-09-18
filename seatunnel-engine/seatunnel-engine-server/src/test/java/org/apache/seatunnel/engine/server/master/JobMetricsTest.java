@@ -96,7 +96,6 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     public void testMetricsOnJobRestart() throws InterruptedException {
 
         long jobId3 = System.currentTimeMillis() + 323475L;

@@ -83,16 +83,12 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     protected final ConcurrentHashMap<PluginIdentifier, Optional<URL>> pluginJarPath =
             new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
 
-    public AbstractPluginDiscovery(
-            String pluginSubDir, BiConsumer<ClassLoader, URL> addURLToClassloader) {
-        this(
-                Common.connectorJarDir(pluginSubDir),
-                loadConnectorPluginConfig(),
-                addURLToClassloader);
+    public AbstractPluginDiscovery(BiConsumer<ClassLoader, URL> addURLToClassloader) {
+        this(Common.connectorDir(), loadConnectorPluginConfig(), addURLToClassloader);
     }
 
-    public AbstractPluginDiscovery(String pluginSubDir) {
-        this(Common.connectorJarDir(pluginSubDir), loadConnectorPluginConfig());
+    public AbstractPluginDiscovery() {
+        this(Common.connectorDir(), loadConnectorPluginConfig());
     }
 
     public AbstractPluginDiscovery(Path pluginDir) {
@@ -228,7 +224,6 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      *
      * @return the all plugin identifier of the engine
      */
-    @SuppressWarnings("checkstyle:WhitespaceAfter")
     public Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> getAllPlugin()
             throws IOException {
         List<Factory> factories;

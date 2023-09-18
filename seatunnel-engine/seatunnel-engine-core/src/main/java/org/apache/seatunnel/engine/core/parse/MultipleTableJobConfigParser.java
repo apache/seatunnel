@@ -537,7 +537,7 @@ public class MultipleTableJobConfigParser {
                         factoryId,
                         (factory) -> factory.createSink(null));
         if (fallback) {
-            return fallbackParser.parseSinks(inputVertices, sinkConfig, jobConfig);
+            return fallbackParser.parseSinks(configIndex, inputVertices, sinkConfig, jobConfig);
         }
 
         Map<TablePath, CatalogTable> tableMap =

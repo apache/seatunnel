@@ -321,7 +321,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return deployLocalTask(taskGroup, Thread.currentThread().getContextClassLoader());
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
             @NonNull TaskGroup taskGroup, @NonNull ClassLoader classLoader) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
@@ -401,7 +400,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private void notifyTaskStatusToMaster(
             TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState) {
         long sleepTime = 1000;
@@ -628,10 +626,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
+            ProgressState result = null;
             try {
                 startedLatch.countDown();
                 t.init();
-                ProgressState result;
                 do {
                     result = t.call();
                 } while (!result.isDone()
@@ -648,10 +646,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 taskGroupExecutionTracker.exception(e);
             } finally {
                 taskGroupExecutionTracker.taskDone(t);
-                try {
-                    tracker.task.close();
-                } catch (IOException e) {
-                    logger.severe("Close task error", e);
+                if (result == null || !result.isDone()) {
+                    try {
+                        tracker.task.close();
+                    } catch (IOException e) {
+                        logger.severe("Close task error", e);
+                    }
                 }
             }
             Thread.currentThread().setContextClassLoader(oldClassLoader);
@@ -685,7 +685,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         private Future<?> thisTaskFuture;
         private BlockingQueue<Future<?>> futureBlockingQueue;
 
-        @SuppressWarnings("checkstyle:MagicNumber")
         public CooperativeTaskWorker(
                 LinkedBlockingDeque<TaskTracker> taskqueue,
                 RunBusWorkSupplier runBusWorkSupplier,
