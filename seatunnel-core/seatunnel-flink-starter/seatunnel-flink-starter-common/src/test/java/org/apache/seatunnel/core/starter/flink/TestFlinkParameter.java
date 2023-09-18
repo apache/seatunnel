@@ -47,7 +47,7 @@ public class TestFlinkParameter {
         checkList.add("state.backend.rocksdb.predefined-options=SPINNING_DISK_OPTIMIZED_HIGH_MEM");
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         flinkCommandArgs.setDeployMode(DeployMode.RUN);
-        flinkCommandArgs.setJobName("SeaTunnelFlinkParamete");
+        flinkCommandArgs.setJobName("SeaTunnelFlinkParameter");
         flinkCommandArgs.setEncrypt(false);
         flinkCommandArgs.setDecrypt(false);
         flinkCommandArgs.setHelp(false);
