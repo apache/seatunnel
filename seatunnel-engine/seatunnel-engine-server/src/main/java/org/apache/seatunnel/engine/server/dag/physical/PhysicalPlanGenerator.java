@@ -555,7 +555,10 @@ public class PhysicalPlanGenerator {
                                                                         (PhysicalExecutionFlow<
                                                                                         SourceAction,
                                                                                         SourceConfig>)
-                                                                                f);
+                                                                                f,
+                                                                        jobImmutableInformation
+                                                                                .getJobConfig()
+                                                                                .getEnvOptions());
                                                             } else {
                                                                 return new TransformSeaTunnelTask(
                                                                         jobImmutableInformation
