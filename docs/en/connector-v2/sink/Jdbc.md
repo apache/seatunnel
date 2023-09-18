@@ -48,7 +48,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | transaction_timeout_sec                   | Int     | No       | -1            |
 | auto_commit                               | Boolean | No       | true          |
 | field_ide                                 | String  | No       | -             |
-| properties                                |         | No       | -             |
+| properties                                | Map     | No       | -             |
 | common-options                            |         | no       | -             |
 
 ### driver [string]

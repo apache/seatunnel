@@ -42,7 +42,7 @@ supports query SQL and can achieve projection effect.
 | partition_lower_bound        | Long   | No       | -               |
 | partition_num                | Int    | No       | job parallelism |
 | fetch_size                   | Int    | No       | 0               |
-| properties                   |        | No       | -               |
+| properties                   | Map    | No       | -               |
 | common-options               |        | No       | -               |
 
 ### driver [string]
