@@ -552,7 +552,13 @@ public class PhysicalPlanGenerator {
                                                                                 .getJobId(),
                                                                         taskLocation,
                                                                         finalParallelismIndex,
-                                                                        f);
+                                                                        (PhysicalExecutionFlow<
+                                                                                        SourceAction,
+                                                                                        SourceConfig>)
+                                                                                f,
+                                                                        jobImmutableInformation
+                                                                                .getJobConfig()
+                                                                                .getEnvOptions());
                                                             } else {
                                                                 return new TransformSeaTunnelTask(
                                                                         jobImmutableInformation
@@ -734,7 +740,6 @@ public class PhysicalPlanGenerator {
                         .contains(true);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private long mixIDPrefixAndIndex(long idPrefix, int index) {
         return idPrefix * 10000 + index;
     }

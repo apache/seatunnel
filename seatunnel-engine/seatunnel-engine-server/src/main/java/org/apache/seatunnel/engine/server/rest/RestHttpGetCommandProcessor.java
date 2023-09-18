@@ -243,7 +243,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         JobStatus jobStatus = getSeaTunnelServer().getCoordinatorService().getJobStatus(jobId);
 
         jobInfoJson
-                .add("jobId", jobId)
+                .add("jobId", String.valueOf(jobId))
                 .add("jobName", logicalDag.getJobConfig().getName())
                 .add("jobStatus", jobStatus.toString())
                 .add("envOptions", JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))

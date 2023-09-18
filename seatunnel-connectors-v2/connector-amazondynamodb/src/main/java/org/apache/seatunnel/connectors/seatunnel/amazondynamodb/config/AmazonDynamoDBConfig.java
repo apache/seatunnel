@@ -49,14 +49,12 @@ public class AmazonDynamoDBConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription("The table of Amazon DynamoDB");
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size")
                     .intType()
                     .defaultValue(25)
                     .withDescription("The batch size of Amazon DynamoDB");
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> BATCH_INTERVAL_MS =
             Options.key("batch_interval_ms")
                     .intType()

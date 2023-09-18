@@ -46,10 +46,8 @@ import java.util.stream.Stream;
 
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.ENABLE_CACHE_LEADER;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.FETCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.NODE_URLS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.PORT;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.THRIFT_DEFAULT_BUFFER_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.THRIFT_MAX_FRAME_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.USERNAME;
@@ -130,17 +128,10 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
 
     private Session buildSession(Map<String, Object> conf) {
         Session.Builder sessionBuilder = new Session.Builder();
-        if (conf.containsKey(HOST.key())) {
-            sessionBuilder
-                    .host((String) conf.get(HOST.key()))
-                    .port(Integer.parseInt(conf.get(PORT.key()).toString()))
-                    .build();
-        } else {
-            String nodeUrlsString = (String) conf.get(NODE_URLS.key());
-            List<String> nodes =
-                    Stream.of(nodeUrlsString.split(NODES_SPLIT)).collect(Collectors.toList());
-            sessionBuilder.nodeUrls(nodes);
-        }
+        String nodeUrlsString = (String) conf.get(NODE_URLS.key());
+        List<String> nodes =
+                Stream.of(nodeUrlsString.split(NODES_SPLIT)).collect(Collectors.toList());
+        sessionBuilder.nodeUrls(nodes);
         if (null != conf.get(FETCH_SIZE.key())) {
             sessionBuilder.fetchSize(Integer.parseInt(conf.get(FETCH_SIZE.key()).toString()));
         }

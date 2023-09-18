@@ -147,6 +147,12 @@ public class JobMaster {
 
     private CheckpointConfig jobCheckpointConfig;
 
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    private String errorMessage;
+
     public JobMaster(
             @NonNull Data jobImmutableInformationData,
             @NonNull NodeEngine nodeEngine,
@@ -258,10 +264,6 @@ public class JobMaster {
         CheckpointConfig jobCheckpointConfig = new CheckpointConfig();
         jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
-        jobCheckpointConfig.setMaxConcurrentCheckpoints(
-                defaultCheckpointConfig.getMaxConcurrentCheckpoints());
-        jobCheckpointConfig.setTolerableFailureCheckpoints(
-                defaultCheckpointConfig.getTolerableFailureCheckpoints());
 
         CheckpointStorageConfig jobCheckpointStorageConfig = new CheckpointStorageConfig();
         jobCheckpointStorageConfig.setStorage(defaultCheckpointConfig.getStorage().getStorage());
@@ -275,6 +277,11 @@ public class JobMaster {
             jobCheckpointConfig.setCheckpointInterval(
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()).toString()));
+        }
+        if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
+            jobCheckpointConfig.setCheckpointTimeout(
+                    Long.parseLong(
+                            jobEnv.get(EnvCommonOptions.CHECKPOINT_TIMEOUT.key()).toString()));
         }
         return jobCheckpointConfig;
     }
@@ -290,6 +297,7 @@ public class JobMaster {
                             if (JobStatus.FAILING.equals(v.getStatus())) {
                                 physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
                             }
+                            JobMaster.this.errorMessage = v.getError();
                             JobResult jobResult =
                                     new JobResult(physicalPlan.getJobStatus(), v.getError());
                             cleanJob();
@@ -297,7 +305,6 @@ public class JobMaster {
                         }));
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public void run() {
         try {
             if (!restore) {
@@ -666,7 +673,6 @@ public class JobMaster {
         return ownedSlotProfilesIMap.get(pipelineLocation);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public void setOwnedSlotProfiles(
             @NonNull PipelineLocation pipelineLocation,
             @NonNull Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles) {

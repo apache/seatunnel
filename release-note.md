@@ -7,12 +7,15 @@
 - [Core] [API] Fix parse nested row data type key changed upper (#4459)
 - [Starter][Flink]Support transform-v2 for flink #3396
 - [Flink] Support flink 1.14.x #3963
+- [Core][Translation][Spark] Fix SeaTunnelRowConvertor fail to convert when schema contains row type (#5170)
+
 ### Transformer
 - [Spark] Support transform-v2 for spark (#3409)
 - [ALL]Add FieldMapper Transform #3781
 ### Connectors
 - [Elasticsearch] Support https protocol & compatible with opensearch
 - [Hbase] Add hbase sink connector #4049
+- [Clickhouse] Fix clickhouse old version compatibility #5326
 ### Formats
 - [Canal]Support read canal format message #3950
 - [Debezium]Support debezium canal format message #3981
@@ -73,14 +76,18 @@
 - [Zeta] Fix cpu load problem (#4828)
 - [zeta] Fix the deadlock issue with JDBC driver loading (#4878)
 - [zeta] dynamically replace the value of the variable at runtime (#4950)
+- [zeta] Fix CDC task restore throw NPE (#5507)
 
 ### E2E
 
 - [E2E] [Kafka] Fix kafka e2e testcase (#4520)
 - [Container Version] Fix risk of unreproducible test cases #4591
 - [E2e] [Mysql-cdc] Removing the excess MySqlIncrementalSourceIT e2e reduces the CI time (#4738)
+- [E2E] [Common] Update test container version of seatunnel engine (#5323)
 
 ## Improve
+
+- [Improve][Connector-V2][Jdbc-Source] Support for Decimal types as splict keys (#4634)
 
 ### Core
 
@@ -111,6 +118,7 @@
 ### CI
 
 - [CI] Fix error repository name in ci config files (#4795)
+- [CI][E2E][Zeta] Increase Zeta checkpoint timeout to avoid connector-file-sftp-e2e failed frequently (#5339)
 
 ### Zeta(ST-Engine)
 
@@ -152,6 +160,7 @@
 - [Connector-V2] [Paimon] Introduce paimon connector (#4178)
 - [Connector V2] [Cassandra] Expose configurable options in Cassandra (#3681)
 - [Connector V2] [Jdbc] Supports GEOMETRY data type for PostgreSQL (#4673)
+- [Connector V2] [Jdbc] Supports Kingbase database (#4803)
 - [Transform-V2] Add UDF SPI and an example implement for SQL Transform plugin (#4392)
 - [Transform-V2] Support copy field list (#4404)
 - [Transform-V2] Add support CatalogTable for FieldMapperTransform (#4423)
@@ -181,9 +190,11 @@
 - [Docs] Fix markdown syntax (#4426)
 - [Docs] Fix Kafka Doc Error Config Key "kafka." (#4427)
 - [Docs] Add Transform to Quick Start v2 (#4436)
+- [Docs] Fix Dockerfile and seatunnel-flink.yaml in Set Up with Kubernetes (#4788)
 - [Docs] Fix Mysql sink format doc (#4800)
 - [Docs] Add the generate sink sql parameter for the jdbc sink document (#4797)
 - [Docs] Add the generate sink sql parameter And example (#4769)
 - [Docs] Redshift add defaultRowFetchSize (#4616)
 - [Docs] Refactor connector-v2 docs using unified format Mysql (#4590)
 - [Docs] Add Value types in Java to Schema features (#5087)
+- [Docs] Replace username by user in the options of FtpFile (#5421)

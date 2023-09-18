@@ -293,6 +293,17 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                         Arrays.asList(107, "rocks", "box of assorted rocks", "7.88"),
                         Arrays.asList(108, "jacket", "water resistent black wind breaker", "0.1"));
         Assertions.assertIterableEquals(expected, actual);
+
+        try (Connection connection =
+                DriverManager.getConnection(
+                        POSTGRESQL_CONTAINER.getJdbcUrl(),
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword())) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("truncate table sink");
+                LOG.info("testCanalFormatKafkaCdcToPgsql truncate table sink");
+            }
+        }
     }
 
     private void initKafkaConsumer() {

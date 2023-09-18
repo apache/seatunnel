@@ -107,23 +107,43 @@ public class MultipleTableJobConfigParser {
     private final ReadonlyConfig envOptions;
 
     private final JobConfigParser fallbackParser;
+    private final boolean isStartWithSavePoint;
 
     public MultipleTableJobConfigParser(
             String jobDefineFilePath, IdGenerator idGenerator, JobConfig jobConfig) {
-        this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList());
+        this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList(), false);
     }
 
     public MultipleTableJobConfigParser(
             String jobDefineFilePath,
             IdGenerator idGenerator,
             JobConfig jobConfig,
-            List<URL> commonPluginJars) {
+            List<URL> commonPluginJars,
+            boolean isStartWithSavePoint) {
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
+        this.isStartWithSavePoint = isStartWithSavePoint;
         this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath));
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
-        this.fallbackParser = new JobConfigParser(idGenerator, commonPluginJars);
+        this.fallbackParser =
+                new JobConfigParser(idGenerator, commonPluginJars, isStartWithSavePoint);
+    }
+
+    public MultipleTableJobConfigParser(
+            Config seaTunnelJobConfig,
+            IdGenerator idGenerator,
+            JobConfig jobConfig,
+            List<URL> commonPluginJars,
+            boolean isStartWithSavePoint) {
+        this.idGenerator = idGenerator;
+        this.jobConfig = jobConfig;
+        this.commonPluginJars = commonPluginJars;
+        this.isStartWithSavePoint = isStartWithSavePoint;
+        this.seaTunnelJobConfig = seaTunnelJobConfig;
+        this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
+        this.fallbackParser =
+                new JobConfigParser(idGenerator, commonPluginJars, isStartWithSavePoint);
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse() {
@@ -511,7 +531,7 @@ public class MultipleTableJobConfigParser {
                         factoryId,
                         (factory) -> factory.createSink(null));
         if (fallback) {
-            return fallbackParser.parseSinks(inputVertices, sinkConfig, jobConfig);
+            return fallbackParser.parseSinks(configIndex, inputVertices, sinkConfig, jobConfig);
         }
 
         Map<TablePath, CatalogTable> tableMap =
@@ -607,7 +627,9 @@ public class MultipleTableJobConfigParser {
                         sink,
                         factoryUrls,
                         actionConfig);
-        handleSaveMode(sink);
+        if (!isStartWithSavePoint) {
+            handleSaveMode(sink);
+        }
         sinkAction.setParallelism(parallelism);
         return sinkAction;
     }

@@ -48,6 +48,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
 | sheet_name                | string  | no       | -                   |
+| file_filter_pattern       | string  | no       | -                   |
 
 ### host [string]
 
@@ -57,9 +58,9 @@ The target ftp host is required
 
 The target ftp port is required
 
-### username [string]
+### user [string]
 
-The target ftp username is required
+The target ftp user name is required
 
 ### password [string]
 
@@ -225,7 +226,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ### sheet_name [string]
 
-Reader the sheet of the workbook,Only used when file_format is excel.
+Reader the sheet of the workbook,Only used when file_format_type is excel.
 
 ## Example
 

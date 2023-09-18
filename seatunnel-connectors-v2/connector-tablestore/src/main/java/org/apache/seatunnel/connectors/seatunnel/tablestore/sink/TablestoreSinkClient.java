@@ -27,22 +27,15 @@ import com.alicloud.openservices.tablestore.SyncClient;
 import com.alicloud.openservices.tablestore.model.BatchWriteRowRequest;
 import com.alicloud.openservices.tablestore.model.BatchWriteRowResponse;
 import com.alicloud.openservices.tablestore.model.RowPutChange;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class TablestoreSinkClient {
     private final TablestoreOptions tablestoreOptions;
-    private ScheduledExecutorService scheduler;
-    private ScheduledFuture<?> scheduledFuture;
     private volatile boolean initialize;
     private volatile Exception flushException;
     private SyncClient syncClient;
@@ -64,24 +57,6 @@ public class TablestoreSinkClient {
                         tablestoreOptions.getAccessKeySecret(),
                         tablestoreOptions.getInstanceName());
 
-        scheduler =
-                Executors.newSingleThreadScheduledExecutor(
-                        new ThreadFactoryBuilder()
-                                .setNameFormat("Tablestore-sink-output-%s")
-                                .build());
-        scheduledFuture =
-                scheduler.scheduleAtFixedRate(
-                        () -> {
-                            try {
-                                flush();
-                            } catch (IOException e) {
-                                flushException = e;
-                            }
-                        },
-                        tablestoreOptions.getBatchIntervalMs(),
-                        tablestoreOptions.getBatchIntervalMs(),
-                        TimeUnit.MILLISECONDS);
-
         initialize = true;
     }
 
@@ -96,17 +71,13 @@ public class TablestoreSinkClient {
     }
 
     public void close() throws IOException {
-        if (scheduledFuture != null) {
-            scheduledFuture.cancel(false);
-            scheduler.shutdown();
-        }
         if (syncClient != null) {
             flush();
             syncClient.shutdown();
         }
     }
 
-    synchronized void flush() throws IOException {
+    synchronized void flush() {
         checkFlushException();
         if (batchList.isEmpty()) {
             return;
