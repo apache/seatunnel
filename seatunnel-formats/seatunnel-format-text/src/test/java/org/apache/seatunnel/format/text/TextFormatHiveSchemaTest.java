@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Map;
 
 public class TextFormatHiveSchemaTest {
     public String content =
@@ -137,10 +138,17 @@ public class TextFormatHiveSchemaTest {
                         .build();
         SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
         String data = new String(serializationSchema.serialize(seaTunnelRow));
-        System.out.println(data);
+        Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(1))).get("tyrantlucifer"), 18);
+        Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(1))).get("Kris"), 21);
+        Assertions.assertArrayEquals(
+                (byte[]) seaTunnelRow.getField(12), "tyrantlucifer".getBytes());
+        Assertions.assertEquals(seaTunnelRow.getField(2), "tyrantlucifer");
+
         String[] result = data.split("#");
         Assertions.assertEquals(result[0], "1,2,3,4,5,6");
         Assertions.assertEquals(result[1], "tyrantlucifer:18,Kris:21,nullValueKey:null,null:1231");
         Assertions.assertEquals(result[16], "20,123@qq.com");
+
+
     }
 }
