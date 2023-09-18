@@ -81,7 +81,6 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @SneakyThrows
     @Override
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     public void write(SeaTunnelRow element) {
         final ArrayList<Object> tags = Lists.newArrayList();
         for (int i = element.getArity() - tagsNum; i < element.getArity(); i++) {

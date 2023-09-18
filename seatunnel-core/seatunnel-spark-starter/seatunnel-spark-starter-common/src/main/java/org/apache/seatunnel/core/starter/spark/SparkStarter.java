@@ -80,7 +80,6 @@ public class SparkStarter implements Starter {
         this.commandArgs = commandArgs;
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) throws IOException {
         SparkStarter starter = getInstance(args);
         List<String> command = starter.buildCommands();
@@ -170,9 +169,9 @@ public class SparkStarter implements Starter {
                                 Map.Entry::getKey, e -> e.getValue().unwrapped().toString()));
     }
 
-    /** return connector's jars, which located in 'connectors/spark/*'. */
+    /** return connector's jars, which located in 'connectors/*'. */
     private List<Path> getConnectorJarDependencies() {
-        Path pluginRootDir = Common.connectorJarDir("seatunnel");
+        Path pluginRootDir = Common.connectorDir();
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
         }
@@ -260,7 +259,6 @@ public class SparkStarter implements Starter {
                 Common.appStarterDir().resolve(EngineType.SPARK3.getStarterJarName()).toString());
     }
 
-    @SuppressWarnings("checkstyle:Indentation")
     private List<PluginIdentifier> getPluginIdentifiers(Config config, PluginType... pluginTypes) {
         return Arrays.stream(pluginTypes)
                 .flatMap(

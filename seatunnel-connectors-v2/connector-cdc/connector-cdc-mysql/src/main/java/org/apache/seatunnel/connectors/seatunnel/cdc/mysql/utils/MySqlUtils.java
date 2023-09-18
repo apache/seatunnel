@@ -79,7 +79,6 @@ public class MySqlUtils {
                 });
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static long queryApproximateRowCnt(JdbcConnection jdbc, TableId tableId)
             throws SQLException {
         // The statement used to get approximate row count which is less

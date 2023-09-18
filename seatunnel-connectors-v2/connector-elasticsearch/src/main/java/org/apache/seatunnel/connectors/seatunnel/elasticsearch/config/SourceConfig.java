@@ -47,7 +47,6 @@ public class SourceConfig {
                     .withDescription(
                             "Amount of time Elasticsearch will keep the search context alive for scroll requests");
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> SCROLL_SIZE =
             Options.key("scroll_size")
                     .intType()
