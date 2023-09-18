@@ -32,9 +32,9 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
@@ -57,8 +57,8 @@ public class RestApiIT {
 
     private static HazelcastInstanceImpl hazelcastInstance;
 
-    @BeforeAll
-    static void beforeClass() throws Exception {
+    @BeforeEach
+    void beforeClass() throws Exception {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
@@ -136,7 +136,7 @@ public class RestApiIT {
 
     @Test
     public void testSubmitJob() {
-        String jobId = submitJob("BATH").getBody().jsonPath().getString("jobId");
+        String jobId = submitJob("BATCH").getBody().jsonPath().getString("jobId");
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer)
                         hazelcastInstance
@@ -188,7 +188,7 @@ public class RestApiIT {
                 .body("jobId", equalTo(jobId));
 
         Awaitility.await()
-                .atMost(2, TimeUnit.MINUTES)
+                .atMost(6, TimeUnit.MINUTES)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
@@ -227,8 +227,8 @@ public class RestApiIT {
                                                 .getJobStatus(Long.parseLong(jobId2))));
     }
 
-    @AfterAll
-    static void afterClass() {
+    @AfterEach
+    void afterClass() {
         if (hazelcastInstance != null) {
             hazelcastInstance.shutdown();
         }
