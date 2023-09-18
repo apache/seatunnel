@@ -28,9 +28,7 @@ import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
-import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
@@ -64,7 +62,6 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.NonNull;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -235,8 +232,9 @@ public class CoordinatorService {
         // which is used to maintain the jar package files from all currently executing jobs
         // and provide download services for the task execution nodes.
         if (seaTunnelServer.isMasterNode()) {
-//            connectorPackageHAStorage =
-//                    new ConnectorPackageHAStorage(engineConfig.getConnectorJarStorageConfig());
+            //            connectorPackageHAStorage =
+            //                    new
+            // ConnectorPackageHAStorage(engineConfig.getConnectorJarStorageConfig());
             connectorPackageService =
                     new ConnectorPackageService(seaTunnelServer, connectorPackageHAStorage);
         }
@@ -279,18 +277,20 @@ public class CoordinatorService {
             runningJobInfoIMap.remove(jobId);
             return;
         }
-//        Data jobImmutableInformationData = jobInfo.getJobImmutableInformation();
-//        JobImmutableInformation jobImmutableInformation =
-//                nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
-//        List<ConnectorJarIdentifier> pluginJarIdentifiers =
-//                jobImmutableInformation.getPluginJarIdentifiers();
-//        pluginJarIdentifiers.forEach(
-//                pluginJarIdentifier -> {
-//                    String storagePath = pluginJarIdentifier.getStoragePath();
-//                    if (!new File(storagePath).exists()) {
-//                        connectorPackageHAStorage.downloadConnectorJar(jobId, pluginJarIdentifier);
-//                    }
-//                });
+        //        Data jobImmutableInformationData = jobInfo.getJobImmutableInformation();
+        //        JobImmutableInformation jobImmutableInformation =
+        //
+        // nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
+        //        List<ConnectorJarIdentifier> pluginJarIdentifiers =
+        //                jobImmutableInformation.getPluginJarIdentifiers();
+        //        pluginJarIdentifiers.forEach(
+        //                pluginJarIdentifier -> {
+        //                    String storagePath = pluginJarIdentifier.getStoragePath();
+        //                    if (!new File(storagePath).exists()) {
+        //                        connectorPackageHAStorage.downloadConnectorJar(jobId,
+        // pluginJarIdentifier);
+        //                    }
+        //                });
 
         JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
         JobMaster jobMaster =

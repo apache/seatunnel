@@ -17,26 +17,26 @@
 
 package org.apache.seatunnel.engine.server.task.operation;
 
-import com.hazelcast.nio.ObjectDataInput;
-import com.hazelcast.nio.ObjectDataOutput;
-import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.impl.operationservice.Operation;
-import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.ServerConnectorPackageClient;
 
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
+
 import java.io.IOException;
 
-public class DeleteConnectorJarInExecutionNode extends Operation implements IdentifiedDataSerializable {
+public class DeleteConnectorJarInExecutionNode extends Operation
+        implements IdentifiedDataSerializable {
     private ConnectorJarIdentifier connectorJarIdentifier;
 
-    public DeleteConnectorJarInExecutionNode() {
-    }
+    public DeleteConnectorJarInExecutionNode() {}
 
     public DeleteConnectorJarInExecutionNode(ConnectorJarIdentifier connectorJarIdentifier) {
-        this.connectorJarIdentifier  = connectorJarIdentifier;
+        this.connectorJarIdentifier = connectorJarIdentifier;
     }
 
     @Override
@@ -49,11 +49,11 @@ public class DeleteConnectorJarInExecutionNode extends Operation implements Iden
         return TaskDataSerializerHook.DELETE_CONNECTOR_JAR_IN_EXECUTION_NODE;
     }
 
-
     @Override
     public void run() throws Exception {
         SeaTunnelServer seaTunnelServer = getService();
-        ServerConnectorPackageClient serverConnectorPackageClient = seaTunnelServer.getTaskExecutionService().getServerConnectorPackageClient();
+        ServerConnectorPackageClient serverConnectorPackageClient =
+                seaTunnelServer.getTaskExecutionService().getServerConnectorPackageClient();
         serverConnectorPackageClient.deleteConnectorJar(connectorJarIdentifier);
     }
 

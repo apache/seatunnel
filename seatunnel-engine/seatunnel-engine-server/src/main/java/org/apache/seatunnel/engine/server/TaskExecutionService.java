@@ -268,7 +268,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 // from the local,
                 // if it does not exist locally, it will be downloaded from the master node.
                 Set<URL> connectorJarPath =
-                        serverConnectorPackageClient.getConnectorJarFromLocal(connectorJarIdentifiers);
+                        serverConnectorPackageClient.getConnectorJarFromLocal(
+                                connectorJarIdentifiers);
                 classLoader =
                         new SeaTunnelChildFirstClassLoader(Lists.newArrayList(connectorJarPath));
                 taskGroup =
@@ -277,8 +278,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 classLoader,
                                 taskImmutableInfo.getGroup());
             } else if (!CollectionUtils.isEmpty(jars)) {
-                classLoader =
-                        new SeaTunnelChildFirstClassLoader(Lists.newArrayList(jars));
+                classLoader = new SeaTunnelChildFirstClassLoader(Lists.newArrayList(jars));
                 taskGroup =
                         CustomClassLoadedObject.deserializeWithCustomClassLoader(
                                 nodeEngine.getSerializationService(),

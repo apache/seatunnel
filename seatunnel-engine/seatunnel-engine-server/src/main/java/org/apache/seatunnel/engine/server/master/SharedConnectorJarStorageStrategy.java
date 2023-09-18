@@ -17,13 +17,7 @@
 
 package org.apache.seatunnel.engine.server.master;
 
-import com.hazelcast.client.config.ClientConfig;
-import com.hazelcast.client.impl.spi.ClientClusterService;
-import com.hazelcast.cluster.Address;
-import com.hazelcast.cluster.Member;
-import lombok.NonNull;
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.core.job.CommonPluginJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
@@ -33,12 +27,8 @@ import org.apache.seatunnel.engine.core.job.RefCount;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import com.hazelcast.map.IMap;
-import org.apache.seatunnel.engine.server.job.SeaTunnelHazelcastClient;
-import org.apache.seatunnel.engine.server.task.operation.DeleteConnectorJarInExecutionNode;
-import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import java.io.File;
-import java.util.Collection;
 import java.util.List;
 import java.util.Timer;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -98,8 +88,9 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
         Long references = refCount.getReferences();
         refCount.setReferences(++references);
         connectorJarRefCounters.put(connectorJarIdentifier, refCount);
-//        connectorPackageHAStorage.uploadConnectorJar(
-//                jobId, new File(connectorJarIdentifier.getStoragePath()), connectorJarIdentifier);
+        //        connectorPackageHAStorage.uploadConnectorJar(
+        //                jobId, new File(connectorJarIdentifier.getStoragePath()),
+        // connectorJarIdentifier);
         return connectorJarIdentifier;
     }
 

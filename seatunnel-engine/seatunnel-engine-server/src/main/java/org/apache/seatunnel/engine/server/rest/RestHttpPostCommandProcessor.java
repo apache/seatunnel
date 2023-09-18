@@ -17,29 +17,24 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
-import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.job.JobImmutableInformationEnv;
-import org.apache.seatunnel.engine.server.job.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpPostCommandProcessor;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
-import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpPostCommand;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.serialization.Data;
-import lombok.NonNull;
 
 import java.io.IOException;
 import java.util.HashMap;

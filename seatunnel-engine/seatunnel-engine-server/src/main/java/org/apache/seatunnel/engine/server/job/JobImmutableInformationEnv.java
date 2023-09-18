@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.engine.server.job;
 
-import com.hazelcast.internal.util.CollectionUtil;
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
@@ -28,7 +25,6 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;
-import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
@@ -83,7 +79,8 @@ public class JobImmutableInformationEnv extends AbstractJobEnvironment {
         jarUrls.addAll(immutablePair.getRight());
         actions.forEach(
                 action -> {
-                    addCommonPluginJarsToAction(action, new HashSet<>(commonPluginJars), Collections.emptySet());
+                    addCommonPluginJarsToAction(
+                            action, new HashSet<>(commonPluginJars), Collections.emptySet());
                 });
         return getLogicalDagGenerator().generate();
     }

@@ -17,25 +17,25 @@
 
 package org.apache.seatunnel.engine.server.master;
 
-import com.hazelcast.client.config.ClientConfig;
-import com.hazelcast.client.impl.spi.ClientClusterService;
-import com.hazelcast.cluster.Address;
-import com.hazelcast.cluster.Member;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelProperties;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-
-import org.apache.commons.lang3.StringUtils;
-
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.logging.Logger;
-import com.hazelcast.spi.impl.NodeEngineImpl;
 import org.apache.seatunnel.engine.server.job.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.server.task.operation.DeleteConnectorJarInExecutionNode;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
+
+import org.apache.commons.lang3.StringUtils;
+
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.client.impl.spi.ClientClusterService;
+import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Member;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -156,15 +156,18 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
     @Override
     public void deleteConnectorJarInExecutionNode(ConnectorJarIdentifier connectorJarIdentifier) {
         Address masterNodeAddress = nodeEngine.getMasterAddress();
-        ClientClusterService clientClusterService = seaTunnelHazelcastClient.getHazelcastClient().getClientClusterService();
+        ClientClusterService clientClusterService =
+                seaTunnelHazelcastClient.getHazelcastClient().getClientClusterService();
         Collection<Member> memberList = clientClusterService.getMemberList();
-        memberList.forEach(member -> {
-            if (!member.getAddress().equals(masterNodeAddress)) {
-                NodeEngineUtil.sendOperationToMemberNode(nodeEngine, new DeleteConnectorJarInExecutionNode(connectorJarIdentifier),
-                        member.getAddress()
-                );
-            }
-        });
+        memberList.forEach(
+                member -> {
+                    if (!member.getAddress().equals(masterNodeAddress)) {
+                        NodeEngineUtil.sendOperationToMemberNode(
+                                nodeEngine,
+                                new DeleteConnectorJarInExecutionNode(connectorJarIdentifier),
+                                member.getAddress());
+                    }
+                });
     }
 
     @Override

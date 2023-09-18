@@ -17,31 +17,31 @@
 
 package org.apache.seatunnel.engine.server.task.operation;
 
-import com.hazelcast.internal.serialization.Data;
+import org.apache.seatunnel.engine.core.job.ConnectorJar;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.ServerConnectorPackageClient;
+
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
-import org.apache.seatunnel.engine.core.job.ConnectorJar;
-import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
-import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
-import org.apache.seatunnel.engine.server.task.ServerConnectorPackageClient;
 
 import java.io.IOException;
 
-public class SendConnectorJarToMemberNodeOperation extends Operation implements IdentifiedDataSerializable {
+public class SendConnectorJarToMemberNodeOperation extends Operation
+        implements IdentifiedDataSerializable {
 
     private ConnectorJar connectorJar;
     private ConnectorJarIdentifier connectorJarIdentifier;
 
-    public SendConnectorJarToMemberNodeOperation() {
-    }
+    public SendConnectorJarToMemberNodeOperation() {}
 
-    public SendConnectorJarToMemberNodeOperation(ConnectorJar connectorJar, ConnectorJarIdentifier connectorJarIdentifier) {
+    public SendConnectorJarToMemberNodeOperation(
+            ConnectorJar connectorJar, ConnectorJarIdentifier connectorJarIdentifier) {
         this.connectorJar = connectorJar;
-        this.connectorJarIdentifier  = connectorJarIdentifier;
+        this.connectorJarIdentifier = connectorJarIdentifier;
     }
 
     @Override
@@ -54,12 +54,13 @@ public class SendConnectorJarToMemberNodeOperation extends Operation implements 
         return TaskDataSerializerHook.SEND_CONNECTOR_JAR_TO_MEMBER_NODE_OPERATION;
     }
 
-
     @Override
     public void run() throws Exception {
         SeaTunnelServer seaTunnelServer = getService();
-        ServerConnectorPackageClient serverConnectorPackageClient = seaTunnelServer.getTaskExecutionService().getServerConnectorPackageClient();
-        serverConnectorPackageClient.storageConnectorJarFile(connectorJar.getData(), connectorJarIdentifier);
+        ServerConnectorPackageClient serverConnectorPackageClient =
+                seaTunnelServer.getTaskExecutionService().getServerConnectorPackageClient();
+        serverConnectorPackageClient.storageConnectorJarFile(
+                connectorJar.getData(), connectorJarIdentifier);
     }
 
     @Override

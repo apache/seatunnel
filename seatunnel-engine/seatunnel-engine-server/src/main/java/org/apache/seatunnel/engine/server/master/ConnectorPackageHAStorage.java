@@ -51,7 +51,8 @@ public class ConnectorPackageHAStorage extends AbstractConnectorPackageHAStorage
         try {
             if (!fileSystem.exists(new Path(storageLocationPath))) {
                 FSDataOutputStream os = fileSystem.create(new Path(storageLocationPath));
-                LOGGER.info(String.format("Copying from %s to {}.", localFile, storageLocationPath));
+                LOGGER.info(
+                        String.format("Copying from %s to {}.", localFile, storageLocationPath));
                 Files.copy(localFile, os);
                 os.hsync();
             }

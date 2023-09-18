@@ -58,10 +58,13 @@ public class ConnectorPackageClient {
         // Upload commonPluginJar
         for (URL commonPluginJar : commonPluginJars) {
             // handle the local file path
-            // origin path : /${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar -> ${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar
+            // origin path : /${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar ->
+            // ${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar
             Path path = Paths.get(commonPluginJar.getPath().substring(1));
             // Obtain the directory name of the relative location of the file path.
-            // for example, The path is ${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar, so the name obtained here is the connector plugin name : JDBC
+            // for example, The path is
+            // ${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar, so the name
+            // obtained here is the connector plugin name : JDBC
             int directoryIndex = path.getNameCount() - 3;
             String pluginName = path.getName(directoryIndex).toString();
             ConnectorJarIdentifier connectorJarIdentifier =

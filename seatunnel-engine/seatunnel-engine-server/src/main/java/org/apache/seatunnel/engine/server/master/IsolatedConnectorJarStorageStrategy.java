@@ -17,15 +17,12 @@
 
 package org.apache.seatunnel.engine.server.master;
 
-import com.hazelcast.client.config.ClientConfig;
-import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.core.job.CommonPluginJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.job.SeaTunnelHazelcastClient;
 
 import java.io.File;
 import java.util.List;
@@ -50,8 +47,8 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
         String storagePath = storageConnectorJarFileInternal(connectorJar, storageFile).toString();
         ConnectorJarIdentifier connectorJarIdentifier =
                 ConnectorJarIdentifier.of(connectorJar, storagePath);
-//        connectorPackageHAStorage.uploadConnectorJar(
-//                jobId, new File(storagePath), connectorJarIdentifier);
+        //        connectorPackageHAStorage.uploadConnectorJar(
+        //                jobId, new File(storagePath), connectorJarIdentifier);
         return connectorJarIdentifier;
     }
 
@@ -61,7 +58,8 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
         connectorJarIdentifierList.forEach(
                 connectorJarIdentifier -> {
                     deleteConnectorJar(connectorJarIdentifier);
-//                    connectorPackageHAStorage.deleteConnectorJar(jobId, connectorJarIdentifier);
+                    //                    connectorPackageHAStorage.deleteConnectorJar(jobId,
+                    // connectorJarIdentifier);
                 });
     }
 
@@ -69,8 +67,6 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
     public void deleteConnectorJar(ConnectorJarIdentifier connectorJarIdentifier) {
         deleteConnectorJarInternal(new File(connectorJarIdentifier.getStoragePath()));
     }
-
-
 
     @Override
     public String getStorageLocationPath(long jobId, ConnectorJar connectorJar) {
