@@ -148,7 +148,5 @@ public class TextFormatHiveSchemaTest {
         Assertions.assertEquals(result[0], "1,2,3,4,5,6");
         Assertions.assertEquals(result[1], "tyrantlucifer:18,Kris:21,nullValueKey:null,null:1231");
         Assertions.assertEquals(result[16], "20,123@qq.com");
-
-
     }
 }
