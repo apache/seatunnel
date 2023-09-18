@@ -38,7 +38,7 @@ public enum FileFormat implements Serializable {
         @Override
         public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
             fileSinkConfig.setFieldDelimiter(",");
-            return new TextWriteStrategy(fileSinkConfig);
+            return new TextWriteStrategy(fileSinkConfig, FileFormat.CSV.name());
         }
 
         @Override
@@ -49,7 +49,18 @@ public enum FileFormat implements Serializable {
     TEXT("txt") {
         @Override
         public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
-            return new TextWriteStrategy(fileSinkConfig);
+            return new TextWriteStrategy(fileSinkConfig, FileFormat.TEXT.name());
+        }
+
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new TextReadStrategy();
+        }
+    },
+    HIVE_TEXT("txt") {
+        @Override
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            return new TextWriteStrategy(fileSinkConfig, FileFormat.HIVE_TEXT.name());
         }
 
         @Override

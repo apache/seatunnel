@@ -25,21 +25,24 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] hive_text
 - [x] compress codec
   - [x] lzo
 
 ## Options
 
-|         name         |  type  | required | default value |
-|----------------------|--------|----------|---------------|
-| table_name           | string | yes      | -             |
-| metastore_uri        | string | yes      | -             |
-| compress_codec       | string | no       | none          |
-| hdfs_site_path       | string | no       | -             |
-| hive_site_path       | string | no       | -             |
-| kerberos_principal   | string | no       | -             |
-| kerberos_keytab_path | string | no       | -             |
-| common-options       |        | no       | -             |
+|           name            |  type  | required | default value |
+|---------------------------|--------|----------|---------------|
+| table_name                | string | yes      | -             |
+| metastore_uri             | string | yes      | -             |
+| compress_codec            | string | no       | none          |
+| hdfs_site_path            | string | no       | -             |
+| hive_site_path            | string | no       | -             |
+| kerberos_principal        | string | no       | -             |
+| kerberos_keytab_path      | string | no       | -             |
+| common-options            |        | no       | -             |
+| collection_delimiter_hive | string | no       | ,             |
+| map_keys_delimiter_hive   | string | no       | :             |
 
 ### table_name [string]
 
@@ -68,6 +71,14 @@ The keytab path of kerberos
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+
+### collection_delimiter_hive [string]
+
+Hive specifies the separator between array and structural elements, which defaults ','
+
+### map_keys_delimiter_hive [string]
+
+HIVE sets the separator between the key and value of MAP, with the ':'
 
 ## Example
 

@@ -24,8 +24,10 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
+import org.apache.seatunnel.format.text.TextSerializationHiveSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -48,8 +50,11 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private final DateTimeUtils.Formatter dateTimeFormat;
     private final TimeUtils.Formatter timeFormat;
     private SerializationSchema serializationSchema;
+    private String fileFormat;
+    private String collectionDelimiter;
+    private String mapKeysDelimiter;
 
-    public TextWriteStrategy(FileSinkConfig fileSinkConfig) {
+    public TextWriteStrategy(FileSinkConfig fileSinkConfig, String fileFormat) {
         super(fileSinkConfig);
         this.beingWrittenOutputStream = new LinkedHashMap<>();
         this.isFirstWrite = new HashMap<>();
@@ -58,20 +63,36 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         this.dateFormat = fileSinkConfig.getDateFormat();
         this.dateTimeFormat = fileSinkConfig.getDatetimeFormat();
         this.timeFormat = fileSinkConfig.getTimeFormat();
+        this.fileFormat = fileFormat;
+        this.collectionDelimiter = fileSinkConfig.getCollectionDelimiter();
+        this.mapKeysDelimiter = fileSinkConfig.getMapKeysDelimiter();
     }
 
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
-        this.serializationSchema =
-                TextSerializationSchema.builder()
-                        .seaTunnelRowType(
-                                buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow))
-                        .delimiter(fieldDelimiter)
-                        .dateFormatter(dateFormat)
-                        .dateTimeFormatter(dateTimeFormat)
-                        .timeFormatter(timeFormat)
-                        .build();
+        if (FileFormat.HIVE_TEXT.name().equals(fileFormat)) {
+            this.serializationSchema =
+                    TextSerializationHiveSchema.builder()
+                            .seaTunnelRowType(seaTunnelRowType)
+                            .delimiter(fieldDelimiter)
+                            .dateFormatter(dateFormat)
+                            .dateTimeFormatter(dateTimeFormat)
+                            .timeFormatter(timeFormat)
+                            .collectionDelimiter(collectionDelimiter)
+                            .mapKeysDelimiter(mapKeysDelimiter)
+                            .build();
+        } else {
+            this.serializationSchema =
+                    TextSerializationSchema.builder()
+                            .seaTunnelRowType(
+                                    buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow))
+                            .delimiter(fieldDelimiter)
+                            .dateFormatter(dateFormat)
+                            .dateTimeFormatter(dateTimeFormat)
+                            .timeFormatter(timeFormat)
+                            .build();
+        }
     }
 
     @Override

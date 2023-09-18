@@ -141,7 +141,7 @@ public class HiveSink extends BaseHdfsFileSink {
                     pluginConfig
                             .withValue(
                                     FILE_FORMAT_TYPE.key(),
-                                    ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()))
+                                    ConfigValueFactory.fromAnyRef(FileFormat.HIVE_TEXT.toString()))
                             .withValue(
                                     FIELD_DELIMITER.key(),
                                     ConfigValueFactory.fromAnyRef(parameters.get("field.delim")))
