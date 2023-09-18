@@ -56,6 +56,7 @@ public class TestFlinkParameter {
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
         Config config = ConfigBuilder.of(configFile).getConfig("env");
 
+        // set Flink Configuration
         Configuration configurations = new Configuration();
 
         EnvironmentUtil.initConfiguration(config, configurations);
@@ -77,6 +78,7 @@ public class TestFlinkParameter {
                 ExternalSettingLists.add(value);
             }
         }
+        //
         checkList.sort(null);
         ExternalSettingLists.sort(null);
         Assertions.assertIterableEquals(checkList, ExternalSettingLists);
