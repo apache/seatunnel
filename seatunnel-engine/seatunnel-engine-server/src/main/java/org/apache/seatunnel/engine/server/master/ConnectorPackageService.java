@@ -76,6 +76,7 @@ public class ConnectorPackageService {
 
     public ConnectorJarIdentifier storageConnectorJarFile(long jobId, Data connectorJarData) {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(seaTunnelConfig.getHazelcastConfig().getClusterName());
         SeaTunnelHazelcastClient seaTunnelHazelcastClient =
                 new SeaTunnelHazelcastClient(clientConfig);
         // deserialize connector jar package data
