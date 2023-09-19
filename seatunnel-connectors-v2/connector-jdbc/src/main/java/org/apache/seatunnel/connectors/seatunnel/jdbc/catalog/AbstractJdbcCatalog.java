@@ -77,12 +77,9 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             String defaultSchema) {
 
         checkArgument(StringUtils.isNotBlank(username));
-        urlInfo.getDefaultDatabase()
-                .orElseThrow(
-                        () -> new IllegalArgumentException("Can't find default database in url"));
         checkArgument(StringUtils.isNotBlank(urlInfo.getUrlWithoutDatabase()));
         this.catalogName = catalogName;
-        this.defaultDatabase = urlInfo.getDefaultDatabase().get();
+        this.defaultDatabase = urlInfo.getDefaultDatabase().orElse(null);
         this.username = username;
         this.pwd = pwd;
         this.baseUrl = urlInfo.getUrlWithoutDatabase();
