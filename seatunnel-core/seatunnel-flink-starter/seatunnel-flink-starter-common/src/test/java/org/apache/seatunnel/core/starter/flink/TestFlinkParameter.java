@@ -58,7 +58,6 @@ public class TestFlinkParameter {
 
         // set Flink Configuration
         Configuration configurations = new Configuration();
-
         EnvironmentUtil.initConfiguration(config, configurations);
         StreamExecutionEnvironment executionEnvironment =
                 StreamExecutionEnvironment.getExecutionEnvironment(configurations);
