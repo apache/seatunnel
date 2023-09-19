@@ -90,7 +90,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                 .orElseThrow(
                         () -> new IllegalArgumentException("Can't find default database in url"));
         checkArgument(StringUtils.isNotBlank(urlInfo.getUrlWithoutDatabase()));
-        this.catalogName = catalogName;
+        // because catalog name it could be passed down as null
+        this.catalogName = StringUtils.isEmpty(catalogName) ? getCatalogName() : catalogName;
         this.defaultDatabase = urlInfo.getDefaultDatabase().get();
         this.username = username;
         this.pwd = pwd;
@@ -145,6 +146,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
         throw new UnsupportedOperationException();
+    }
+
+    protected String getCatalogName() {
+        return "";
     }
 
     protected TableIdentifier getTableIdentifier(TablePath tablePath) {
@@ -542,6 +547,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     // If sql is DDL, the execute() method always returns false, so the return value
     // should not be used to determine whether changes were made in database.
     protected boolean executeInternal(String url, String sql) throws SQLException {
+        LOG.info("create table sql is: {}", sql);
         try (PreparedStatement ps = getConnection(url).prepareStatement(sql)) {
             return ps.execute();
         }

@@ -215,4 +215,9 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         dataTypeProperties.put(PostgresDataTypeConvertor.SCALE, scale);
         return DATA_TYPE_CONVERTOR.toSeaTunnelType(typeName, dataTypeProperties);
     }
+
+    @Override
+    protected String getCatalogName() {
+        return "postgres";
+    }
 }
