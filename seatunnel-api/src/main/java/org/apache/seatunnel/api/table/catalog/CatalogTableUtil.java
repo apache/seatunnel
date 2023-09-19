@@ -40,6 +40,7 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -92,6 +93,8 @@ public class CatalogTableUtil implements Serializable {
                 "It is converted from RowType and only has column information.");
     }
 
+    // TODO remove this method after https://github.com/apache/seatunnel/issues/5483 done.
+    @Deprecated
     public static List<CatalogTable> getCatalogTables(Config config, ClassLoader classLoader) {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
         Map<String, String> catalogOptions =
@@ -130,6 +133,65 @@ public class CatalogTableUtil implements Serializable {
                             }
                         })
                 .orElse(Collections.emptyList());
+    }
+
+    /**
+     * Get catalog table from config, if schema is specified, return a catalog table with specified
+     * schema, otherwise, return a catalog table with schema from catalog.
+     *
+     * @deprecated DO NOT invoke it in any new TableSourceFactory/TableSinkFactory, please directly
+     *     use TableSourceFactory/TableSinkFactory instance to get CatalogTable. We just use it to
+     *     transition the old CatalogTable creation logic. Details please <a
+     *     href="https://cwiki.apache.org/confluence/display/SEATUNNEL/STIP5-Refactor+Catalog+and+CatalogTable">check
+     *     </a>
+     */
+    @Deprecated
+    public static List<CatalogTable> getCatalogTablesFromConfig(
+            Config config, ClassLoader classLoader) {
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
+
+        // We use plugin_name as factoryId, so MySQL-CDC should be MySQL
+        String factoryId = readonlyConfig.get(CommonOptions.PLUGIN_NAME).replace("-CDC", "");
+        // Highest priority: specified schema
+        Map<String, String> schemaMap = readonlyConfig.get(CatalogTableUtil.SCHEMA);
+        if (schemaMap != null) {
+            if (schemaMap.isEmpty()) {
+                throw new SeaTunnelException("Schema config can not be empty");
+            }
+            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config).getCatalogTable();
+            return Collections.singletonList(catalogTable);
+        }
+
+        Optional<Catalog> optionalCatalog =
+                FactoryUtil.createOptionalCatalog(
+                        factoryId, readonlyConfig, classLoader, factoryId);
+        return optionalCatalog
+                .map(
+                        c -> {
+                            long startTime = System.currentTimeMillis();
+                            try (Catalog catalog = c) {
+                                catalog.open();
+                                List<CatalogTable> catalogTables =
+                                        catalog.getTables(readonlyConfig);
+                                log.info(
+                                        String.format(
+                                                "Get catalog tables, cost time: %d",
+                                                System.currentTimeMillis() - startTime));
+                                if (catalogTables.isEmpty()) {
+                                    throw new SeaTunnelException(
+                                            String.format(
+                                                    "Can not find catalog table with factoryId [%s]",
+                                                    factoryId));
+                                }
+                                return catalogTables;
+                            }
+                        })
+                .orElseThrow(
+                        () ->
+                                new SeaTunnelException(
+                                        String.format(
+                                                "Can not find catalog with factoryId [%s]",
+                                                factoryId)));
     }
 
     public static CatalogTableUtil buildWithConfig(Config config) {
