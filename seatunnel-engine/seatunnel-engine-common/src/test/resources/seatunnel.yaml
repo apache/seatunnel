@@ -18,6 +18,7 @@
 seatunnel:
     engine:
         backup-count: 1
+        pipeline-max-restore-num: 4
         print-execution-info-interval: 2
         slot-service:
             dynamic-slot: false
@@ -32,4 +33,4 @@ seatunnel:
                     namespace: /tmp/seatunnel/checkpoint_snapshot
                     storage.type: hdfs
                     fs.defaultFS: file:/// # Ensure that the directory has written permission
-                    
+

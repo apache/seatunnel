@@ -105,6 +105,18 @@ seatunnel:
     history-job-expire-minutes: 1440
 ```
 
+### 4.5 PIPELINE_MAX_RESTORE_NUM
+
+The max num pipeline can restore.
+
+Example
+
+```
+seatunnel:
+  engine:
+    pipeline-max-restore-num: 4
+```
+
 ## 5. Config SeaTunnel Engine Server
 
 All SeaTunnel Engine Server config in `hazelcast.yaml` file.

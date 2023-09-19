@@ -33,6 +33,7 @@ import static com.hazelcast.internal.util.Preconditions.checkPositive;
 public class EngineConfig {
 
     private int backupCount = ServerConfigOptions.BACKUP_COUNT.defaultValue();
+    private int pipelineMaxRestoreNum = ServerConfigOptions.PIPELINE_MAX_RESTORE_NUM.defaultValue();
     private int printExecutionInfoInterval =
             ServerConfigOptions.PRINT_EXECUTION_INFO_INTERVAL.defaultValue();
 
@@ -56,6 +57,13 @@ public class EngineConfig {
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);
         this.backupCount = newBackupCount;
+    }
+
+    public void setPipelineMaxRestoreNum(int pipelineMaxRestoreNum) {
+        checkPositive(
+                pipelineMaxRestoreNum,
+                ServerConfigOptions.PIPELINE_MAX_RESTORE_NUM + " must be > 0");
+        this.pipelineMaxRestoreNum = pipelineMaxRestoreNum;
     }
 
     public void setPrintExecutionInfoInterval(int printExecutionInfoInterval) {

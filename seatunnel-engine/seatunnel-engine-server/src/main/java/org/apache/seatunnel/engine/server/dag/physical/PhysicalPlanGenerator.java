@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -125,6 +126,8 @@ public class PhysicalPlanGenerator {
 
     private final QueueType queueType;
 
+    private final EngineConfig engineConfig;
+
     public PhysicalPlanGenerator(
             @NonNull ExecutionPlan executionPlan,
             @NonNull NodeEngine nodeEngine,
@@ -134,7 +137,7 @@ public class PhysicalPlanGenerator {
             @NonNull FlakeIdGenerator flakeIdGenerator,
             @NonNull IMap runningJobStateIMap,
             @NonNull IMap runningJobStateTimestampsIMap,
-            @NonNull QueueType queueType) {
+            @NonNull EngineConfig engineConfig) {
         this.pipelines = executionPlan.getPipelines();
         this.nodeEngine = nodeEngine;
         this.jobImmutableInformation = jobImmutableInformation;
@@ -147,7 +150,8 @@ public class PhysicalPlanGenerator {
         this.subtaskActions = new HashMap<>();
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
-        this.queueType = queueType;
+        this.queueType = engineConfig.getQueueType();
+        this.engineConfig = engineConfig;
     }
 
     public Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> generate() {
@@ -201,6 +205,7 @@ public class PhysicalPlanGenerator {
                                             pipelineId,
                                             totalPipelineNum,
                                             initializationTimestamp,
+                                            engineConfig,
                                             physicalVertexList,
                                             coordinatorVertexList,
                                             jobImmutableInformation,

@@ -41,6 +41,8 @@ public class YamlSeaTunnelConfigParserTest {
 
         Assertions.assertEquals(1, config.getEngineConfig().getBackupCount());
 
+        Assertions.assertEquals(4, config.getEngineConfig().getPipelineMaxRestoreNum());
+
         Assertions.assertEquals(2, config.getEngineConfig().getPrintExecutionInfoInterval());
 
         Assertions.assertFalse(config.getEngineConfig().getSlotServiceConfig().isDynamicSlot());
