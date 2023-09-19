@@ -59,8 +59,6 @@ public class ConnectorPackageService {
 
     private final NodeEngineImpl nodeEngine;
 
-    private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
-
     public ConnectorPackageService(
             SeaTunnelServer seaTunnelServer, ConnectorPackageHAStorage connectorPackageHAStorage) {
         this.seaTunnelServer = seaTunnelServer;
@@ -74,11 +72,11 @@ public class ConnectorPackageService {
                         connectorJarStorageConfig,
                         seaTunnelServer,
                         connectorPackageHAStorage);
-        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        this.seaTunnelHazelcastClient = new SeaTunnelHazelcastClient(clientConfig);
     }
 
     public ConnectorJarIdentifier storageConnectorJarFile(long jobId, Data connectorJarData) {
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        SeaTunnelHazelcastClient seaTunnelHazelcastClient = new SeaTunnelHazelcastClient(clientConfig);
         // deserialize connector jar package data
         ConnectorJar connectorJar = nodeEngine.getSerializationService().toObject(connectorJarData);
         ConnectorJarIdentifier connectorJarIdentifier =
