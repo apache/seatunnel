@@ -22,7 +22,6 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
-import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointErrorReportOperation;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
@@ -101,24 +100,10 @@ public class RestoredSplitOperation extends TaskOperation {
                         for (byte[] split : splits) {
                             deserializeSplits.add(task.getSplitSerializer().deserialize(split));
                         }
+                        task.addSplitsBack(deserializeSplits, subtaskIndex);
                     } finally {
                         Thread.currentThread().setContextClassLoader(mainClassLoader);
                     }
-
-                    task.getExecutionContext()
-                            .getTaskExecutionService()
-                            .asyncExecuteFunction(
-                                    taskLocation.getTaskGroupLocation(),
-                                    () -> {
-                                        try {
-                                            task.addSplitsBack(deserializeSplits, subtaskIndex);
-                                        } catch (Exception e) {
-                                            task.getExecutionContext()
-                                                    .sendToMaster(
-                                                            new CheckpointErrorReportOperation(
-                                                                    taskLocation, e));
-                                        }
-                                    });
                     return null;
                 },
                 new RetryUtils.RetryMaterial(

@@ -41,6 +41,14 @@ public final class TableIdentifier implements Serializable {
         return new TableIdentifier(catalogName, databaseName, null, tableName);
     }
 
+    public static TableIdentifier of(String catalogName, TablePath tablePath) {
+        return new TableIdentifier(
+                catalogName,
+                tablePath.getDatabaseName(),
+                tablePath.getSchemaName(),
+                tablePath.getTableName());
+    }
+
     public static TableIdentifier of(
             String catalogName, String databaseName, String schemaName, String tableName) {
         return new TableIdentifier(catalogName, databaseName, schemaName, tableName);
