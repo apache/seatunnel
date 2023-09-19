@@ -46,7 +46,6 @@ public class ResourceManagerFunctionTest
         resourceProfiles.add(new ResourceProfile());
         resourceProfiles.add(new ResourceProfile());
         resourceProfiles.add(new ResourceProfile());
-
         List<SlotProfile> slotProfiles = resourceManager.applyResources(1L, resourceProfiles).get();
         Assertions.assertEquals(slotProfiles.size(), 5);
 
