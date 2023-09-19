@@ -67,8 +67,6 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
 
     protected final ConnectorPackageHAStorage connectorPackageHAStorage;
 
-    protected final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
-
     public AbstractConnectorJarStorageStrategy(
             ConnectorJarStorageConfig connectorJarStorageConfig,
             SeaTunnelServer seaTunnelServer,
@@ -79,8 +77,6 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
         checkNotNull(connectorJarStorageConfig);
         this.connectorJarStorageConfig = connectorJarStorageConfig;
         this.storageDir = getConnectorJarStorageDir();
-        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        this.seaTunnelHazelcastClient = new SeaTunnelHazelcastClient(clientConfig);
     }
 
     @Override
@@ -156,6 +152,9 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
     @Override
     public void deleteConnectorJarInExecutionNode(ConnectorJarIdentifier connectorJarIdentifier) {
         Address masterNodeAddress = nodeEngine.getMasterAddress();
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        SeaTunnelHazelcastClient seaTunnelHazelcastClient =
+                new SeaTunnelHazelcastClient(clientConfig);
         ClientClusterService clientClusterService =
                 seaTunnelHazelcastClient.getHazelcastClient().getClientClusterService();
         Collection<Member> memberList = clientClusterService.getMemberList();
