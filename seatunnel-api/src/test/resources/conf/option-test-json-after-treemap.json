@@ -1,0 +1,102 @@
+{
+  "env" : {
+    "execution" : {
+      "parallelism" : "1",
+      "checkpoint" : {
+        "interval" : "5000"
+      }
+    },
+    "job" : {
+      "mode" : "STREAMING"
+    }
+  },
+  "source" : [ {
+    "option" : {
+      "string" : "Hello, Apache SeaTunnel",
+      "enum" : "LATEST",
+      "list-json" : "[\"Hello\", \"Apache SeaTunnel\"]",
+      "list-str" : "Silk,Song",
+      "complex-type" : [ {
+        "inner" : {
+          "list" : [ {
+            "inner" : {
+              "path" : "mac",
+              "name" : "ashulin",
+              "map" : "{\"fantasy\":\"final\"}"
+            },
+            "type" : "source",
+            "patch" : {
+              "note" : "hollow"
+            },
+            "name" : "saitou"
+          }, {
+            "inner" : {
+              "path" : "mac",
+              "name" : "ashulin",
+              "map" : "{\"fantasy\":\"final\"}"
+            },
+            "type" : "source",
+            "patch" : {
+              "note" : "hollow"
+            },
+            "name" : "saitou"
+          } ],
+          "list-2" : [ {
+            "inner" : {
+              "path" : "mac",
+              "name" : "ashulin",
+              "map" : "{\"fantasy\":\"final\"}"
+            },
+            "type" : "source",
+            "patch" : {
+              "note" : "hollow"
+            },
+            "name" : "saitou"
+          } ]
+        }
+      } ],
+      "long" : "21474836470",
+      "list" : [ "final", "fantasy", "VII" ],
+      "numeric-list" : [ "1", "2" ],
+      "long-str" : "21474836470",
+      "enum-list" : [ "EARLIEST", "LATEST" ],
+      "bool" : "true",
+      "bool-str" : "false",
+      "int" : "2147483647",
+      "int-str" : "100",
+      "float" : "3.3333",
+      "float-str" : "3.1415",
+      "double" : "3.141592653589793",
+      "double-str" : "3.1415926535897932384626433832795028841971",
+      "map" : {
+        "inner" : {
+          "path" : "mac",
+          "name" : "ashulin",
+          "map" : "{\"fantasy\":\"final\"}"
+        },
+        "type" : "source",
+        "patch" : {
+          "note" : "hollow"
+        },
+        "name" : "saitou"
+      }
+    },
+    "plugin_name" : "FakeSource"
+  } ],
+  "transform" : [ {
+    "plugin_name" : "sql",
+    "sql" : "select name,age from fake"
+  } ],
+  "sink" : [ {
+    "file_name_expression" : "${transactionId}_${now}",
+    "path" : "file:///tmp/hive/warehouse/test2",
+    "row_delimiter" : "\\n",
+    "file_format_type" : "text",
+    "partition_dir_expression" : "${k0}=${v0}",
+    "plugin_name" : "File",
+    "field_delimiter" : "\\t",
+    "partition_by" : [ "age" ],
+    "is_partition_field_write_in_file" : "true",
+    "sink_columns" : [ "name", "age" ]
+  } ]
+}

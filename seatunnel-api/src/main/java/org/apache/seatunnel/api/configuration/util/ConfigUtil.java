@@ -52,13 +52,93 @@ public class ConfigUtil {
      * </pre>
      */
     public static Map<String, Object> treeMap(Object rawMap) {
-        // TODO: Keeping the order of the values in the map
         try {
-            return PROPERTIES_MAPPER.readValue(
-                    PROPERTIES_MAPPER.writeValueAsString(rawMap),
-                    new TypeReference<Map<String, Object>>() {});
+            Map<List<String>, String> properties =
+                    Arrays.stream(PROPERTIES_MAPPER.writeValueAsString(rawMap).split("\n"))
+                            .map(line -> line.split("=", 2))
+                            .collect(
+                                    Collectors.toMap(
+                                            kv -> Arrays.asList(kv[0].split("\\.")),
+                                            kv -> kv[1],
+                                            (o, n) -> o,
+                                            LinkedHashMap::new));
+            return loadPropertiesStyleMap(properties);
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Json parsing exception.");
+        }
+    }
+
+    private static Map<String, Object> loadPropertiesStyleMap(
+            Map<List<String>, String> properties) {
+        Map<String, Object> propertiesMap = new LinkedHashMap<>();
+        Map<List<String>, String> temp = new LinkedHashMap<>();
+        String tempPrefix = null;
+        for (Map.Entry<List<String>, String> entry : properties.entrySet()) {
+            String key = entry.getKey().get(0);
+            if (!key.equals(tempPrefix)) {
+                putKeyValueToMapCheck(propertiesMap, temp, tempPrefix);
+                tempPrefix = key;
+            }
+            if (entry.getKey().size() > 1) {
+                temp.put(entry.getKey().subList(1, entry.getKey().size()), entry.getValue());
+            } else {
+                temp.put(null, entry.getValue());
+            }
+        }
+        putKeyValueToMapCheck(propertiesMap, temp, tempPrefix);
+        return propertiesMap;
+    }
+
+    private static void putKeyValueToMapCheck(
+            Map<String, Object> propertiesMap, Map<List<String>, String> temp, String tempPrefix) {
+        if (!temp.isEmpty()) {
+            if (propertiesMap.containsKey(tempPrefix)) {
+                // only could be the map because use same prefix in different order
+                // eg:
+                //    execution.parallelism = 1
+                //    job.mode = "STREAMING"
+                //    execution.checkpoint.interval = 5000
+                // The map key `execution` with map value not closely together
+                ((Map) propertiesMap.get(tempPrefix)).putAll(loadPropertiesStyleMap(temp));
+            } else {
+                propertiesMap.put(tempPrefix, loadPropertiesStyleObject(temp));
+            }
+            temp.clear();
+        }
+    }
+
+    private static List<Object> loadPropertiesStyleList(Map<List<String>, String> properties) {
+        List<Object> propertiesList = new ArrayList<>();
+        Map<List<String>, String> temp = new LinkedHashMap<>();
+        int tempIndex = -1;
+        for (Map.Entry<List<String>, String> entry : properties.entrySet()) {
+            int index = Integer.parseInt(entry.getKey().get(0));
+            if (index != tempIndex) {
+                if (!temp.isEmpty()) {
+                    propertiesList.add(loadPropertiesStyleObject(temp));
+                    temp.clear();
+                }
+                tempIndex = index;
+            }
+            if (entry.getKey().size() == 1) {
+                temp.put(null, entry.getValue());
+            } else {
+                temp.put(entry.getKey().subList(1, entry.getKey().size()), entry.getValue());
+            }
+        }
+        if (!temp.isEmpty()) {
+            propertiesList.add(loadPropertiesStyleObject(temp));
+        }
+        return propertiesList;
+    }
+
+    private static Object loadPropertiesStyleObject(Map<List<String>, String> properties) {
+        if (properties.containsKey(null)) {
+            return properties.get(null);
+        } else if (properties.entrySet().stream().anyMatch(kv -> kv.getKey().get(0).equals("1"))) {
+            return loadPropertiesStyleList(properties);
+        } else {
+            return loadPropertiesStyleMap(properties);
         }
     }
 
@@ -118,9 +198,9 @@ public class ConfigUtil {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> T convertValue(Object rawValue, Option<T> option) {
+    public static <T> T convertValue(Object rawValue, Option<T> option, boolean flatten) {
         TypeReference<T> typeReference = option.typeReference();
-        rawValue = flatteningMapWithObject(rawValue);
+        rawValue = flatten ? flatteningMapWithObject(rawValue) : rawValue;
         if (typeReference.getType() instanceof Class) {
             // simple type
             Class<T> clazz = (Class<T>) typeReference.getType();
