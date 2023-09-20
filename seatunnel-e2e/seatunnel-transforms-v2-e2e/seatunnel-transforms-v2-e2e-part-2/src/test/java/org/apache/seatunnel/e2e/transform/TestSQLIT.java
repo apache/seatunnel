@@ -52,5 +52,8 @@ public class TestSQLIT extends TestSuiteBase {
         Container.ExecResult sqlAllColumns =
                 container.executeJob("/sql_transform/sql_all_columns.conf");
         Assertions.assertEquals(0, sqlAllColumns.getExitCode());
+        Container.ExecResult sqlComplexType =
+                container.executeJob("/sql_transform/sql_complex_type.conf");
+        Assertions.assertEquals(0, sqlComplexType.getExitCode());
     }
 }

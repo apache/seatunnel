@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
 
+import net.sf.jsqlparser.expression.ArrayExpression;
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.CastExpression;
 import net.sf.jsqlparser.expression.DoubleValue;
@@ -86,9 +87,15 @@ public class ZetaSQLType {
         if (expression instanceof StringValue) {
             return BasicType.STRING_TYPE;
         }
+
+        ZetaExpressionVisitor expressionVisitor = new ZetaExpressionVisitor(inputRowType, null);
         if (expression instanceof Column) {
-            String columnName = ((Column) expression).getColumnName();
-            return inputRowType.getFieldType(inputRowType.indexOf(columnName));
+            expressionVisitor.visit((Column) expression);
+            return expressionVisitor.getType();
+        }
+        if (expression instanceof ArrayExpression) {
+            expressionVisitor.visit((ArrayExpression) expression);
+            return expressionVisitor.getType();
         }
         if (expression instanceof Function) {
             return getFunctionType((Function) expression);

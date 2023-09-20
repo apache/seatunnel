@@ -28,6 +28,7 @@ import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.SystemFunction;
 
+import net.sf.jsqlparser.expression.ArrayExpression;
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.CastExpression;
 import net.sf.jsqlparser.expression.DoubleValue;
@@ -191,10 +192,20 @@ public class ZetaSQLFunction {
         if (expression instanceof StringValue) {
             return ((StringValue) expression).getValue();
         }
+
+        ZetaExpressionVisitor expressionVisitor =
+                new ZetaExpressionVisitor(inputRowType, inputFields);
+
         if (expression instanceof Column) {
-            int idx = inputRowType.indexOf(((Column) expression).getColumnName());
-            return inputFields[idx];
+            expressionVisitor.visit((Column) expression);
+            return expressionVisitor.getValue();
         }
+
+        if (expression instanceof ArrayExpression) {
+            expressionVisitor.visit((ArrayExpression) expression);
+            return expressionVisitor.getValue();
+        }
+
         if (expression instanceof Function) {
             Function function = (Function) expression;
             ExpressionList expressionList = function.getParameters();
