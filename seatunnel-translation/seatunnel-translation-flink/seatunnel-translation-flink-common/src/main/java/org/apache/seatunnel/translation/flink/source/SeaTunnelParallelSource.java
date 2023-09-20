@@ -33,9 +33,9 @@ public class SeaTunnelParallelSource extends BaseSeaTunnelSourceFunction
 
     protected static final String PARALLEL_SOURCE_STATE_NAME = "parallel-source-states";
 
-    public SeaTunnelParallelSource(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Config envConfis) {
+    public SeaTunnelParallelSource(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Config envConfigs) {
         // TODO: Make sure the source is uncoordinated.
-        super(source, envConfis);
+        super(source, envConfigs);
     }
 
     @Override

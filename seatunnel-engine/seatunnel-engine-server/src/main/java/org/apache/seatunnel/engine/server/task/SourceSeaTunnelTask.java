@@ -47,7 +47,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     private transient Object checkpointLock;
     @Getter private transient Serializer<SplitT> splitSerializer;
-    private final transient Map<String, Object> envOption;
+    private final Map<String, Object> envOption;
     private final PhysicalExecutionFlow<SourceAction, SourceConfig> sourceFlow;
 
     public SourceSeaTunnelTask(

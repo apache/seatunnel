@@ -69,7 +69,7 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
     protected final AtomicLong latestCompletedCheckpointId = new AtomicLong(0);
     protected final AtomicLong latestTriggerCheckpointId = new AtomicLong(0);
     // Env Conf Info
-    private Config envConfis;
+    private Config envConfigs;
     // Store env for external Settings
     private Map<String, Object> envOption = new HashMap<>();
 
@@ -77,10 +77,10 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
     private volatile boolean running = true;
 
     public BaseSeaTunnelSourceFunction(
-            SeaTunnelSource<SeaTunnelRow, ?, ?> source, Config sourceEnvConfis) {
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source, Config envConfigs) {
         this.source = source;
-        this.envConfis = sourceEnvConfis;
-        for (Map.Entry<String, ConfigValue> entry : this.envConfis.entrySet()) {
+        this.envConfigs = envConfigs;
+        for (Map.Entry<String, ConfigValue> entry : this.envConfigs.entrySet()) {
             String envKey = entry.getKey();
             String envValue = entry.getValue().render();
             if (envKey != null && envValue != null) {

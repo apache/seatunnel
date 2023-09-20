@@ -53,11 +53,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SeaTunnelSource> {
     private static final String PLUGIN_TYPE = PluginType.SOURCE.getType();
-    private Config envConfis;
+    private Config envConfigs;
 
     public SourceExecuteProcessor(List<URL> jarPaths, Config ConfigsInfo, JobContext jobContext) {
         super(jarPaths, ConfigsInfo.getConfigList(Constants.SOURCE), jobContext);
-        this.envConfis = ConfigsInfo.getConfig("env");
+        this.envConfigs = ConfigsInfo.getConfig("env");
     }
 
     @Override
@@ -70,11 +70,11 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
             Config pluginConfig = pluginConfigs.get(i);
             BaseSeaTunnelSourceFunction sourceFunction;
             if (internalSource instanceof SupportCoordinate) {
-                sourceFunction = new SeaTunnelCoordinatedSource(internalSource, envConfis);
+                sourceFunction = new SeaTunnelCoordinatedSource(internalSource, envConfigs);
 
                 registerAppendStream(pluginConfig);
             } else {
-                sourceFunction = new SeaTunnelParallelSource(internalSource, envConfis);
+                sourceFunction = new SeaTunnelParallelSource(internalSource, envConfigs);
             }
             boolean bounded =
                     internalSource.getBoundedness()

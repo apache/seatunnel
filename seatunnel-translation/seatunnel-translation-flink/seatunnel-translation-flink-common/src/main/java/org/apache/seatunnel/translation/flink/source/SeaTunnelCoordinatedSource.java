@@ -30,9 +30,9 @@ public class SeaTunnelCoordinatedSource extends BaseSeaTunnelSourceFunction {
     protected static final String COORDINATED_SOURCE_STATE_NAME = "coordinated-source-states";
 
     public SeaTunnelCoordinatedSource(
-            SeaTunnelSource<SeaTunnelRow, ?, ?> source, Config envConfis) {
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source, Config envConfigs) {
         // TODO: Make sure the source is coordinated.
-        super(source, envConfis);
+        super(source, envConfigs);
     }
 
     @Override
