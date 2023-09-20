@@ -43,18 +43,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.aliyun.jindodata</groupId>
-            <artifactId>jindo-core</artifactId>
-            <version>${jindo-sdk.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.aliyun.jindodata</groupId>
-            <artifactId>jindosdk</artifactId>
-            <version>${jindo-sdk.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-common</artifactId>
             <version>${hadoop-common.version}</version>
