@@ -62,6 +62,7 @@ public class TestFlinkParameter {
         StreamExecutionEnvironment executionEnvironment =
                 StreamExecutionEnvironment.getExecutionEnvironment(configurations);
         List<String> ExternalSettingLists = new ArrayList<>();
+        // Replace excess conceits for easy validation of parameters
         String[] split =
                 executionEnvironment
                         .getConfiguration()
@@ -77,7 +78,7 @@ public class TestFlinkParameter {
                 ExternalSettingLists.add(value);
             }
         }
-        //
+        // Sort keeping order
         checkList.sort(null);
         ExternalSettingLists.sort(null);
         Assertions.assertIterableEquals(checkList, ExternalSettingLists);
