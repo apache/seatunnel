@@ -66,7 +66,7 @@ public class RetryUtils {
                                 backoff);
                         Thread.sleep(backoff);
                     } else {
-                        log.debug(attemptMessage, ExceptionUtils.getMessage(e), i, retryTimes, 0);
+                        log.info(attemptMessage, ExceptionUtils.getMessage(e), i, retryTimes, 0);
                     }
                 }
             }

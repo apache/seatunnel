@@ -19,6 +19,8 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -48,6 +50,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     private static final String MYSQL_DATABASE = "seatunnel";
     private static final String MYSQL_SOURCE = "source";
     private static final String MYSQL_SINK = "sink";
+    private static final String CATALOG_DATABASE = "catalog_database";
 
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
@@ -138,6 +141,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                .catalogDatabase(CATALOG_DATABASE)
+                .catalogTable(MYSQL_SINK)
                 .build();
     }
 
@@ -281,5 +286,17 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
 
         return container;
+    }
+
+    @Override
+    protected void initCatalog() {
+        catalog =
+                new MySqlCatalog(
+                        "mysql",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())));
+        catalog.open();
     }
 }

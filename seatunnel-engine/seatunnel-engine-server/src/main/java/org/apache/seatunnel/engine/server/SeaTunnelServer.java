@@ -91,7 +91,6 @@ public class SeaTunnelServer
         return slotService;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
@@ -160,7 +159,6 @@ public class SeaTunnelServer
         return liveOperationRegistry;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public CoordinatorService getCoordinatorService() {
         int retryCount = 0;
         if (isMasterNode()) {
@@ -229,12 +227,11 @@ public class SeaTunnelServer
         return taskState != null && ((ExecutionState) taskState).isEndState();
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public boolean isMasterNode() {
         // must retry until the cluster have master node
         try {
             return RetryUtils.retryWithException(
-                    () -> nodeEngine.getMasterAddress().equals(nodeEngine.getThisAddress()),
+                    () -> nodeEngine.getThisAddress().equals(nodeEngine.getMasterAddress()),
                     new RetryUtils.RetryMaterial(
                             Constant.OPERATION_RETRY_TIME,
                             true,

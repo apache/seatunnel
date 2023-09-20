@@ -81,7 +81,6 @@ public class CoordinatorServiceTest {
         instance2.shutdown();
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testClearCoordinatorService()
             throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
