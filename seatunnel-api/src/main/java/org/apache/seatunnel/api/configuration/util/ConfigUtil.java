@@ -26,6 +26,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.Option;
 
+import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.ParameterizedType;
@@ -36,6 +39,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA;
 
 @Slf4j
 public class ConfigUtil {
@@ -51,10 +56,11 @@ public class ConfigUtil {
      * poll.interval = 500
      * </pre>
      */
-    public static Map<String, Object> treeMap(Object rawMap) {
+    public static Map<String, Object> treeMap(Map<String, Object> rawMap) {
         try {
             Map<List<String>, String> properties =
                     Arrays.stream(PROPERTIES_MAPPER.writeValueAsString(rawMap).split("\n"))
+                            .filter(StringUtils::isNoneEmpty)
                             .map(line -> line.split("=", 2))
                             .collect(
                                     Collectors.toMap(
@@ -62,7 +68,13 @@ public class ConfigUtil {
                                             kv -> kv[1],
                                             (o, n) -> o,
                                             LinkedHashMap::new));
-            return loadPropertiesStyleMap(properties);
+            Map<String, Object> result = loadPropertiesStyleMap(properties);
+            // Special case, we shouldn't change key in schema config.
+            // TODO we should not hard code it, it should be as a config.
+            if (rawMap.containsKey(SCHEMA.key())) {
+                result.put(SCHEMA.key(), rawMap.get(SCHEMA.key()));
+            }
+            return result;
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Json parsing exception.");
         }
@@ -134,7 +146,7 @@ public class ConfigUtil {
 
     private static Object loadPropertiesStyleObject(Map<List<String>, String> properties) {
         if (properties.containsKey(null)) {
-            return properties.get(null);
+            return StringEscapeUtils.unescapeJava(properties.get(null));
         } else if (properties.entrySet().stream().anyMatch(kv -> kv.getKey().get(0).equals("1"))) {
             return loadPropertiesStyleList(properties);
         } else {

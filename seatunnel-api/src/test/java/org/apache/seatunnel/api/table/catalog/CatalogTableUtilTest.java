@@ -87,6 +87,17 @@ public class CatalogTableUtilTest {
     }
 
     @Test
+    public void testSpecialSchemaParse() throws FileNotFoundException, URISyntaxException {
+        String path = getTestConfigFile("/conf/config_special_schema.conf");
+        Config config = ConfigFactory.parseFile(new File(path));
+        SeaTunnelRowType seaTunnelRowType =
+                CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+        Assertions.assertEquals(seaTunnelRowType.getTotalFields(), 12);
+        Assertions.assertEquals(seaTunnelRowType.getFieldType(5).getSqlType(), SqlType.BYTES);
+        Assertions.assertEquals(seaTunnelRowType.getFieldName(6), "t.date");
+    }
+
+    @Test
     public void testCatalogUtilGetCatalogTable() throws FileNotFoundException, URISyntaxException {
         String path = getTestConfigFile("/conf/getCatalogTable.conf");
         Config config = ConfigFactory.parseFile(new File(path));
