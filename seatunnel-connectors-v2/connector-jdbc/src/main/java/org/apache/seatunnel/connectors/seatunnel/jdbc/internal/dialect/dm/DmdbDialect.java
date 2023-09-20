@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
@@ -101,10 +100,5 @@ public class DmdbDialect implements JdbcDialect {
                         insertValues);
 
         return Optional.of(upsertSQL);
-    }
-
-    @Override
-    public String extractTableName(TablePath tablePath) {
-        return tablePath.getTableName();
     }
 }
