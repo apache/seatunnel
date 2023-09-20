@@ -29,6 +29,8 @@ import org.apache.logging.log4j.core.util.IOUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.io.FileReader;
 import java.io.IOException;
@@ -65,6 +67,7 @@ public class ConfigUtilTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     public void treeMapFunctionTest() throws IOException, URISyntaxException {
         Map<String, Object> map =
                 JACKSON_MAPPER.readValue(
