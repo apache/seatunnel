@@ -50,3 +50,4 @@ spark-warehouse
 
 seatunnel-examples
 /lib/*
+version.properties
