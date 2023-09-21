@@ -524,30 +524,24 @@ public class CheckpointCoordinator {
                         checkpointTimeout = coordinatorConfig.getSchemaChangeCheckpointTimeout();
                     }
                     // TODO Need change to polling check until max timeout fails
-                    pendingCheckpoints
-                            .get(pendingCheckpoint.getCheckpointId())
-                            .setCheckpointTimeOutFuture(
-                                    scheduler.schedule(
-                                            () -> {
-                                                // If any task is not acked within the checkpoint
-                                                // timeout
-                                                if (pendingCheckpoints.get(
-                                                                        pendingCheckpoint
-                                                                                .getCheckpointId())
-                                                                != null
-                                                        && !pendingCheckpoint
-                                                                .isFullyAcknowledged()) {
-                                                    LOG.info(
-                                                            "timeout checkpoint: "
-                                                                    + pendingCheckpoint.getInfo());
-                                                    handleCoordinatorError(
-                                                            CheckpointCloseReason
-                                                                    .CHECKPOINT_EXPIRED,
-                                                            null);
-                                                }
-                                            },
-                                            checkpointTimeout,
-                                            TimeUnit.MILLISECONDS));
+                    pendingCheckpoint.setCheckpointTimeOutFuture(
+                            scheduler.schedule(
+                                    () -> {
+                                        // If any task is not acked within the checkpoint
+                                        // timeout
+                                        if (pendingCheckpoints.get(
+                                                                pendingCheckpoint.getCheckpointId())
+                                                        != null
+                                                && !pendingCheckpoint.isFullyAcknowledged()) {
+                                            LOG.info(
+                                                    "timeout checkpoint: "
+                                                            + pendingCheckpoint.getInfo());
+                                            handleCoordinatorError(
+                                                    CheckpointCloseReason.CHECKPOINT_EXPIRED, null);
+                                        }
+                                    },
+                                    checkpointTimeout,
+                                    TimeUnit.MILLISECONDS));
                 });
     }
 
