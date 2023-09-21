@@ -406,15 +406,15 @@ public class CheckpointCoordinator {
                                 shutdown));
                 return;
             }
-            if (checkpointType.isFinalCheckpoint() || checkpointType.isSchemaChangeCheckpoint()) {
-                if (pendingCounter.get() > 0) {
-                    scheduleTriggerPendingCheckpoint(checkpointType, 500L);
-                    return;
-                }
-            }
 
             if (schemaChanging.get() && checkpointType.isGeneralCheckpoint()) {
                 LOG.info("skip trigger generic-checkpoint because schema change in progress");
+                return;
+            }
+
+            if (pendingCounter.get() > 0) {
+                scheduleTriggerPendingCheckpoint(checkpointType, 500L);
+                LOG.info("skip trigger checkpoint because there is already a pending checkpoint.");
                 return;
             }
 
