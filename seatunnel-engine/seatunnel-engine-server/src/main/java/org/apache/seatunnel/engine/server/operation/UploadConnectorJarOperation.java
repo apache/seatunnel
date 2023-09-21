@@ -80,8 +80,7 @@ public class UploadConnectorJarOperation extends Operation implements Identified
                 CompletableFuture.supplyAsync(
                         () -> {
                             ConnectorJarIdentifier connectorJarIdentifier =
-                                    service.getCoordinatorService()
-                                            .getConnectorPackageService()
+                                    service.getConnectorPackageService()
                                             .storageConnectorJarFile(jobId, connectorJar);
                             return this.getNodeEngine().toData(connectorJarIdentifier);
                         },

@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
@@ -63,6 +64,8 @@ public class SeaTunnelServer
     @Getter private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
 
     private final SeaTunnelConfig seaTunnelConfig;
+
+    private ConnectorPackageService connectorPackageService;
 
     private volatile boolean isRunning = true;
 
@@ -109,6 +112,7 @@ public class SeaTunnelServer
                 TimeUnit.SECONDS);
 
         seaTunnelHealthMonitor = new SeaTunnelHealthMonitor(((NodeEngineImpl) engine).getNode());
+        connectorPackageService = new ConnectorPackageService(this);
     }
 
     @Override
@@ -257,5 +261,56 @@ public class SeaTunnelServer
 
     public NodeEngineImpl getNodeEngine() {
         return nodeEngine;
+    }
+
+    public ConnectorPackageService getConnectorPackageService() {
+        int retryCount = 0;
+        if (isMasterNode()) {
+            // The hazelcast operator request invocation will retry, We must wait enough time to
+            // wait the invocation return.
+            String hazelcastInvocationMaxRetry =
+                    seaTunnelConfig
+                            .getHazelcastConfig()
+                            .getProperty("hazelcast.invocation.max.retry.count");
+            int maxRetry =
+                    hazelcastInvocationMaxRetry == null
+                            ? 250 * 2
+                            : Integer.parseInt(hazelcastInvocationMaxRetry) * 2;
+
+            String hazelcastRetryPause =
+                    seaTunnelConfig
+                            .getHazelcastConfig()
+                            .getProperty("hazelcast.invocation.retry.pause.millis");
+
+            int retryPause =
+                    hazelcastRetryPause == null ? 500 : Integer.parseInt(hazelcastRetryPause);
+
+            while (isMasterNode()
+                    && !connectorPackageService.isCoordinatorActive()
+                    && retryCount < maxRetry
+                    && isRunning) {
+                try {
+                    LOGGER.warning(
+                            "This is master node, waiting the coordinator service init finished");
+                    Thread.sleep(retryPause);
+                    retryCount++;
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            if (connectorPackageService.isCoordinatorActive()) {
+                return connectorPackageService;
+            }
+
+            if (!isMasterNode()) {
+                throw new SeaTunnelEngineException("This is not a master node now.");
+            }
+
+            throw new SeaTunnelEngineException(
+                    "Can not get connector jar package service from an active master node.");
+        } else {
+            throw new SeaTunnelEngineException(
+                    "Please don't get connector jar package service from an inactive master node");
+        }
     }
 }

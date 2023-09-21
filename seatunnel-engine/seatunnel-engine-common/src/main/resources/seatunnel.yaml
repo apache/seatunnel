@@ -33,15 +33,8 @@ seatunnel:
                     storage.type: hdfs
                     fs.defaultFS: file:///tmp/
         jar-storage:
+            enable: false
             connector-jar-storage-mode: SHARED
             connector-jar-storage-path: ""
             connector-jar-cleanup-task-interval: 3600
             connector-jar-expiry-time: 600
-            jar-ha-storage:
-                type: localfile
-                plugin-config:
-                    type: local
-                    max-retained: 3
-                    basePath: /tmp/seatunnel/
-                    storage.type: local
-                    fs.defaultFS: file:///tmp/

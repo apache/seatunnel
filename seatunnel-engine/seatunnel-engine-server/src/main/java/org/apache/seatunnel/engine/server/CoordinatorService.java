@@ -40,8 +40,6 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.master.ConnectorPackageHAStorage;
-import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
@@ -87,10 +85,6 @@ public class CoordinatorService {
     private volatile ResourceManager resourceManager;
 
     private JobHistoryService jobHistoryService;
-
-    private ConnectorPackageService connectorPackageService;
-
-    private ConnectorPackageHAStorage connectorPackageHAStorage;
 
     /**
      * IMap key is jobId and value is {@link JobInfo}. Tuple2 key is JobMaster init timestamp and
@@ -227,17 +221,6 @@ public class CoordinatorService {
                                 .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
                         engineConfig.getHistoryJobExpireMinutes());
 
-        // Only when the current node is the master node will the connector jar service be provided,
-        // which is used to maintain the jar package files from all currently executing jobs
-        // and provide download services for the task execution nodes.
-        if (seaTunnelServer.isMasterNode()) {
-            //            connectorPackageHAStorage =
-            //                    new
-            // ConnectorPackageHAStorage(engineConfig.getConnectorJarStorageConfig());
-            connectorPackageService =
-                    new ConnectorPackageService(seaTunnelServer, connectorPackageHAStorage);
-        }
-
         List<CompletableFuture<Void>> collect =
                 runningJobInfoIMap.entrySet().stream()
                         .map(
@@ -305,7 +288,7 @@ public class CoordinatorService {
                         runningJobInfoIMap,
                         metricsImap,
                         engineConfig,
-                        connectorPackageService);
+                        seaTunnelServer);
 
         // If Job Status is CANCELLING , set needRestore to false
         try {
@@ -481,7 +464,7 @@ public class CoordinatorService {
                         runningJobInfoIMap,
                         metricsImap,
                         engineConfig,
-                        connectorPackageService);
+                        seaTunnelServer);
         executorService.submit(
                 () -> {
                     try {
@@ -853,13 +836,5 @@ public class CoordinatorService {
                         suspendedJobCount,
                         "reconcilingJobCount",
                         reconcilingJobCount));
-    }
-
-    public ConnectorPackageService getConnectorPackageService() {
-        return connectorPackageService;
-    }
-
-    public ConnectorPackageHAStorage getConnectorPackageHAStorage() {
-        return connectorPackageHAStorage;
     }
 }

@@ -17,17 +17,17 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.job.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMemberNodeOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
-
-import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.impl.spi.ClientClusterService;
@@ -40,9 +40,11 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.File;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class ConnectorPackageService {
@@ -51,36 +53,33 @@ public class ConnectorPackageService {
 
     private final SeaTunnelServer seaTunnelServer;
 
-    private final ConnectorJarStorageStrategy connectorJarStorageStrategy;
-
     private final SeaTunnelConfig seaTunnelConfig;
 
     private final ConnectorJarStorageConfig connectorJarStorageConfig;
 
     private final NodeEngineImpl nodeEngine;
 
-    public ConnectorPackageService(
-            SeaTunnelServer seaTunnelServer, ConnectorPackageHAStorage connectorPackageHAStorage) {
+    private ConnectorJarStorageStrategy connectorJarStorageStrategy;
+
+    private SeaTunnelHazelcastClient seaTunnelHazelcastClient;
+
+    private final ScheduledExecutorService masterActiveListener;
+
+    /** If this node is a master node */
+    private volatile boolean isActive = false;
+
+    public ConnectorPackageService(SeaTunnelServer seaTunnelServer) {
         this.seaTunnelServer = seaTunnelServer;
         this.seaTunnelConfig = seaTunnelServer.getSeaTunnelConfig();
         this.connectorJarStorageConfig =
                 seaTunnelConfig.getEngineConfig().getConnectorJarStorageConfig();
         this.nodeEngine = seaTunnelServer.getNodeEngine();
-        this.connectorJarStorageStrategy =
-                StorageStrategyFactory.of(
-                        connectorJarStorageConfig.getStorageMode(),
-                        connectorJarStorageConfig,
-                        seaTunnelServer,
-                        connectorPackageHAStorage);
+        masterActiveListener = Executors.newSingleThreadScheduledExecutor();
+        masterActiveListener.scheduleAtFixedRate(
+                this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
     }
 
     public ConnectorJarIdentifier storageConnectorJarFile(long jobId, Data connectorJarData) {
-        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        // The local cluster will generate a random cluster name,
-        // which needs to be reset to ensure the correct connection to the cluster.
-        clientConfig.setClusterName(seaTunnelConfig.getHazelcastConfig().getClusterName());
-        SeaTunnelHazelcastClient seaTunnelHazelcastClient =
-                new SeaTunnelHazelcastClient(clientConfig);
         // deserialize connector jar package data
         ConnectorJar connectorJar = nodeEngine.getSerializationService().toObject(connectorJarData);
         ConnectorJarIdentifier connectorJarIdentifier =
@@ -93,33 +92,82 @@ public class ConnectorPackageService {
                 member -> {
                     Address address = member.getAddress();
                     if (!address.equals(masterNodeAddress)) {
-                        InvocationFuture<Object> invocationFuture =
-                                NodeEngineUtil.sendOperationToMemberNode(
-                                        nodeEngine,
-                                        new SendConnectorJarToMemberNodeOperation(
-                                                seaTunnelHazelcastClient
-                                                        .getSerializationService()
-                                                        .toData(connectorJar),
-                                                seaTunnelHazelcastClient
-                                                        .getSerializationService()
-                                                        .toData(connectorJarIdentifier)),
-                                        address);
-                        invocationFuture.join();
+                        sendConnectorJarToMemberNode(connectorJarIdentifier, connectorJar, address);
                     }
                 });
         return connectorJarIdentifier;
     }
 
-    public ImmutablePair<byte[], ConnectorJarIdentifier> readConnectorJarFromLocal(
-            ConnectorJarIdentifier connectorJarIdentifier) {
-        byte[] bytes =
-                connectorJarStorageStrategy.readConnectorJarByteData(
-                        new File(connectorJarIdentifier.getStoragePath()));
-        return new ImmutablePair<>(bytes, connectorJarIdentifier);
+    private void sendConnectorJarToMemberNode(
+            ConnectorJarIdentifier connectorJarIdentifier,
+            ConnectorJar connectorJar,
+            Address address) {
+        InvocationFuture<Object> invocationFuture =
+                NodeEngineUtil.sendOperationToMemberNode(
+                        nodeEngine,
+                        new SendConnectorJarToMemberNodeOperation(
+                                seaTunnelHazelcastClient
+                                        .getSerializationService()
+                                        .toData(connectorJar),
+                                seaTunnelHazelcastClient
+                                        .getSerializationService()
+                                        .toData(connectorJarIdentifier)),
+                        address);
+        invocationFuture.join();
     }
 
     public void cleanUpWhenJobFinished(
             long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList) {
         connectorJarStorageStrategy.cleanUpWhenJobFinished(jobId, connectorJarIdentifierList);
+    }
+
+    private void initConnectorPackageService() {
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        // The local cluster will generate a random cluster name,
+        // which needs to be reset to ensure the correct connection to the cluster.
+        clientConfig.setClusterName(seaTunnelConfig.getHazelcastConfig().getClusterName());
+        this.seaTunnelHazelcastClient = new SeaTunnelHazelcastClient(clientConfig);
+        this.connectorJarStorageStrategy =
+                StorageStrategyFactory.of(
+                        connectorJarStorageConfig.getStorageMode(),
+                        connectorJarStorageConfig,
+                        seaTunnelServer,
+                        seaTunnelHazelcastClient);
+    }
+
+    private void clearConnectorPackageService() {
+        seaTunnelHazelcastClient = null;
+        this.connectorJarStorageStrategy = null;
+    }
+
+    private void checkNewActiveMaster() {
+        // Only when the current node is the master node will the connector jar service be provided,
+        // which is used to maintain the jar package files from all currently executing jobs
+        // and provide download services for the task execution nodes.
+        try {
+            if (!isActive && this.seaTunnelServer.isMasterNode()) {
+                LOGGER.info(
+                        "This node become a new active master node, begin init connector package service");
+                initConnectorPackageService();
+                isActive = true;
+            } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
+                isActive = false;
+                LOGGER.info(
+                        "This node become leave active master node, begin clear connector package service");
+                clearConnectorPackageService();
+            }
+        } catch (Exception e) {
+            isActive = false;
+            LOGGER.severe(ExceptionUtils.getMessage(e));
+            throw new SeaTunnelEngineException("check new active master error, stop loop", e);
+        }
+    }
+
+    /**
+     * return true if this node is a master node and the connector jar package service init
+     * finished.
+     */
+    public boolean isCoordinatorActive() {
+        return isActive;
     }
 }

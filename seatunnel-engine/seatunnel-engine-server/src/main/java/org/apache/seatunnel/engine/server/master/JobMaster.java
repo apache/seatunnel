@@ -39,6 +39,7 @@ import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
@@ -116,7 +117,7 @@ public class JobMaster {
 
     private JobDAGInfo jobDAGInfo;
 
-    private ConnectorPackageService connectorPackageService;
+    private SeaTunnelServer seaTunnelServer;
 
     /**
      * we need store slot used by task in Hazelcast IMap and release or reuse it when a new master
@@ -168,7 +169,7 @@ public class JobMaster {
             @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
             @NonNull IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap,
             EngineConfig engineConfig,
-            ConnectorPackageService connectorPackageService) {
+            SeaTunnelServer seaTunnelServer) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
@@ -184,7 +185,7 @@ public class JobMaster {
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
         this.metricsImap = metricsImap;
-        this.connectorPackageService = connectorPackageService;
+        this.seaTunnelServer = seaTunnelServer;
     }
 
     public void init(long initializationTimestamp, boolean restart, boolean canRestoreAgain)
@@ -337,8 +338,10 @@ public class JobMaster {
             jobMasterCompleteFuture.join();
             List<ConnectorJarIdentifier> pluginJarIdentifiers =
                     jobImmutableInformation.getPluginJarIdentifiers();
-            connectorPackageService.cleanUpWhenJobFinished(
-                    jobImmutableInformation.getJobId(), pluginJarIdentifiers);
+            seaTunnelServer
+                    .getConnectorPackageService()
+                    .cleanUpWhenJobFinished(
+                            jobImmutableInformation.getJobId(), pluginJarIdentifiers);
         }
     }
 

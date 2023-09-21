@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.job.SeaTunnelHazelcastClient;
 
 import java.io.File;
 import java.util.List;
@@ -34,8 +35,8 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
     public IsolatedConnectorJarStorageStrategy(
             ConnectorJarStorageConfig connectorJarStorageConfig,
             SeaTunnelServer seaTunnelServer,
-            ConnectorPackageHAStorage connectorPackageHAStorage) {
-        super(connectorJarStorageConfig, seaTunnelServer, connectorPackageHAStorage);
+            SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
+        super(connectorJarStorageConfig, seaTunnelServer, seaTunnelHazelcastClient);
     }
 
     @Override
@@ -47,8 +48,6 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
         String storagePath = storageConnectorJarFileInternal(connectorJar, storageFile).toString();
         ConnectorJarIdentifier connectorJarIdentifier =
                 ConnectorJarIdentifier.of(connectorJar, storagePath);
-        //        connectorPackageHAStorage.uploadConnectorJar(
-        //                jobId, new File(storagePath), connectorJarIdentifier);
         return connectorJarIdentifier;
     }
 
@@ -58,26 +57,25 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
         connectorJarIdentifierList.forEach(
                 connectorJarIdentifier -> {
                     deleteConnectorJar(connectorJarIdentifier);
-                    //                    connectorPackageHAStorage.deleteConnectorJar(jobId,
-                    // connectorJarIdentifier);
                 });
     }
 
     @Override
     public void deleteConnectorJar(ConnectorJarIdentifier connectorJarIdentifier) {
         deleteConnectorJarInternal(new File(connectorJarIdentifier.getStoragePath()));
+        deleteConnectorJarInExecutionNode(connectorJarIdentifier);
     }
 
     @Override
     public String getStorageLocationPath(long jobId, ConnectorJar connectorJar) {
         checkNotNull(jobId);
-        CommonPluginJar commonPluginJar = (CommonPluginJar) connectorJar;
         if (connectorJar.getType() == ConnectorJarType.COMMON_PLUGIN_JAR) {
+            CommonPluginJar commonPluginJar = (CommonPluginJar) connectorJar;
             return String.format(
                     "%s/%s/%s/%s/%s/%s",
                     storageDir,
-                    jobId,
                     COMMON_PLUGIN_JAR_STORAGE_PATH,
+                    jobId,
                     commonPluginJar.getPluginName(),
                     "lib",
                     connectorJar.getFileName());
@@ -85,8 +83,8 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
             return String.format(
                     "%s/%s/%s/%s",
                     storageDir,
-                    jobId,
                     CONNECTOR_PLUGIN_JAR_STORAGE_PATH,
+                    jobId,
                     connectorJar.getFileName());
         }
     }

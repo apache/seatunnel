@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server.master;
 
-import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelProperties;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
@@ -29,7 +28,6 @@ import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.impl.spi.ClientClusterService;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
@@ -65,18 +63,18 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
 
     protected final NodeEngineImpl nodeEngine;
 
-    protected final ConnectorPackageHAStorage connectorPackageHAStorage;
+    protected final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
 
     public AbstractConnectorJarStorageStrategy(
             ConnectorJarStorageConfig connectorJarStorageConfig,
             SeaTunnelServer seaTunnelServer,
-            ConnectorPackageHAStorage connectorPackageHAStorage) {
+            SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
         this.seaTunnelServer = seaTunnelServer;
         this.nodeEngine = seaTunnelServer.getNodeEngine();
-        this.connectorPackageHAStorage = connectorPackageHAStorage;
         checkNotNull(connectorJarStorageConfig);
         this.connectorJarStorageConfig = connectorJarStorageConfig;
         this.storageDir = getConnectorJarStorageDir();
+        this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
     }
 
     @Override
@@ -100,7 +98,6 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
         try {
             if (!storageFile.exists()) {
                 FileOutputStream fos = new FileOutputStream(storageFile);
-                // md.update(value);
                 fos.write(connectorJar.getData());
             } else {
                 LOGGER.warning(
@@ -152,13 +149,6 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
     @Override
     public void deleteConnectorJarInExecutionNode(ConnectorJarIdentifier connectorJarIdentifier) {
         Address masterNodeAddress = nodeEngine.getMasterAddress();
-        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        // The local cluster will generate a random cluster name,
-        // which needs to be reset to ensure the correct connection to the cluster.
-        clientConfig.setClusterName(
-                seaTunnelServer.getSeaTunnelConfig().getHazelcastConfig().getClusterName());
-        SeaTunnelHazelcastClient seaTunnelHazelcastClient =
-                new SeaTunnelHazelcastClient(clientConfig);
         ClientClusterService clientClusterService =
                 seaTunnelHazelcastClient.getHazelcastClient().getClientClusterService();
         Collection<Member> memberList = clientClusterService.getMemberList();

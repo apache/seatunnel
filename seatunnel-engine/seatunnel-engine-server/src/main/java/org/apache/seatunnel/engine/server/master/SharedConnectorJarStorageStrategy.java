@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
 import org.apache.seatunnel.engine.core.job.RefCount;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.job.SeaTunnelHazelcastClient;
 
 import com.hazelcast.map.IMap;
 
@@ -53,8 +54,8 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
     public SharedConnectorJarStorageStrategy(
             ConnectorJarStorageConfig connectorJarStorageConfig,
             SeaTunnelServer seaTunnelServer,
-            ConnectorPackageHAStorage connectorPackageHAStorage) {
-        super(connectorJarStorageConfig, seaTunnelServer, connectorPackageHAStorage);
+            SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
+        super(connectorJarStorageConfig, seaTunnelServer, seaTunnelHazelcastClient);
         this.readWriteLock = new ReentrantReadWriteLock();
         this.connectorJarRefCounters =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS);
@@ -103,7 +104,6 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
                 readWriteLock.writeLock().lock();
                 deleteConnectorJarInternal(storageLocation);
                 deleteConnectorJarInExecutionNode(connectorJarIdentifier);
-                // connectorPackageHAStorage.deleteConnectorJar(0L, connectorJarIdentifier);
                 connectorJarRefCounters.remove(connectorJarIdentifier);
             } finally {
                 readWriteLock.writeLock().unlock();
