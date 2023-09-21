@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.e2e;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -41,10 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 import scala.Tuple3;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -62,24 +61,21 @@ public class TextHeaderT {
     @Test
     public void testEnableWriteHeader() {
         List<Tuple3> lists = new ArrayList<>();
-        lists.add(new Tuple3<>("text", "true", 2));
-        lists.add(new Tuple3<>("text", "false", 1));
-        lists.add(new Tuple3<>("csv", "true", 2));
-        lists.add(new Tuple3<>("csv", "false", 1));
+        lists.add(new Tuple3<>("text", "true", "name" + TextFormatConstant.SEPARATOR[0] + "age"));
+        lists.add(new Tuple3<>("text", "false", "name" + TextFormatConstant.SEPARATOR[0] + "age"));
+        lists.add(new Tuple3<>("csv", "true", "name,age"));
+        lists.add(new Tuple3<>("csv", "false", "name,age"));
         lists.forEach(
                 t -> {
                     try {
-                        enableWriteHeader(
-                                t._1().toString(),
-                                t._2().toString(),
-                                Integer.parseInt(t._3().toString()));
+                        enableWriteHeader(t._1().toString(), t._2().toString(), t._3().toString());
                     } catch (ExecutionException | InterruptedException e) {
                         throw new RuntimeException(e);
                     }
                 });
     }
 
-    public void enableWriteHeader(String file_format_type, String headerWrite, int lineNumber)
+    public void enableWriteHeader(String file_format_type, String headerWrite, String headerContent)
             throws ExecutionException, InterruptedException {
         String testClusterName = "ClusterFaultToleranceIT_EnableWriteHeaderNode";
         HazelcastInstanceImpl node1 = null;
@@ -127,10 +123,17 @@ public class TextHeaderT {
                                                 && JobStatus.FINISHED.equals(
                                                         objectCompletableFuture.get()));
                             });
-
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(lineNumber, fileLineNumberFromDir);
+            File file = new File(testResources.getLeft());
+            for (File targetFile : Objects.requireNonNull(file.listFiles())) {
+                String[] texts =
+                        FileUtils.readFileToStr(targetFile.toPath())
+                                .split(BaseSinkConfig.ROW_DELIMITER.defaultValue());
+                if (headerWrite.equals("true")) {
+                    Assertions.assertEquals(headerContent, texts[0]);
+                } else {
+                    Assertions.assertNotEquals(headerContent, texts[0]);
+                }
+            }
             log.info("========================clean test resource====================");
         } finally {
             if (engineClient != null) {
