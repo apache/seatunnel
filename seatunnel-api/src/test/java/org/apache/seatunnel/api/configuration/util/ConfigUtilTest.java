@@ -22,17 +22,11 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
-
-import org.apache.logging.log4j.core.util.IOUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
 
-import java.io.FileReader;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
@@ -44,19 +38,25 @@ public class ConfigUtilTest {
 
     private static Config config;
 
+    private static Config errorConfig;
+
     @BeforeAll
     public static void init() throws URISyntaxException {
         config =
                 ConfigFactory.parseFile(
-                                Paths.get(
-                                                ConfigUtilTest.class
-                                                        .getResource("/conf/option-test.conf")
-                                                        .toURI())
-                                        .toFile())
-                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                        .resolveWith(
-                                ConfigFactory.systemProperties(),
-                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+                        Paths.get(
+                                        ConfigUtilTest.class
+                                                .getResource("/conf/option-test.conf")
+                                                .toURI())
+                                .toFile());
+
+        errorConfig =
+                ConfigFactory.parseFile(
+                        Paths.get(
+                                        ConfigUtilTest.class
+                                                .getResource("/conf/config_with_error.conf")
+                                                .toURI())
+                                .toFile());
     }
 
     @Test
@@ -67,24 +67,28 @@ public class ConfigUtilTest {
     }
 
     @Test
-    @DisabledOnOs(OS.WINDOWS)
     public void treeMapFunctionTest() throws IOException, URISyntaxException {
         Map<String, Object> map =
                 JACKSON_MAPPER.readValue(
                         config.root().render(ConfigRenderOptions.concise()),
                         new TypeReference<Map<String, Object>>() {});
         Map<String, Object> result = ConfigUtil.treeMap(map);
-        String prettyResult =
-                JACKSON_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(result);
-        String expectResult =
-                IOUtils.toString(
-                        new FileReader(
-                                Paths.get(
-                                                ConfigUtilTest.class
-                                                        .getResource(
-                                                                "/conf/option-test-json-after-treemap.json")
-                                                        .toURI())
-                                        .toFile()));
-        Assertions.assertEquals(prettyResult, expectResult);
+        Map<String, Object> expectResult =
+                JACKSON_MAPPER.readValue(
+                        ConfigUtilTest.class
+                                .getResource("/conf/option-test-json-after-treemap.json")
+                                .toURI()
+                                .toURL(),
+                        new TypeReference<Map<String, Object>>() {});
+        Assertions.assertEquals(result, expectResult);
+
+        Map<String, Object> errorConfigMap =
+                JACKSON_MAPPER.readValue(
+                        errorConfig.root().render(ConfigRenderOptions.concise()),
+                        new TypeReference<Map<String, Object>>() {});
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> ConfigUtil.treeMap(errorConfigMap),
+                "Unsupported both value is map and string of key: start_mode");
     }
 }

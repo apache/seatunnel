@@ -93,6 +93,9 @@ public class ConfigUtil {
             }
             if (entry.getKey().size() > 1) {
                 temp.put(entry.getKey().subList(1, entry.getKey().size()), entry.getValue());
+            } else if (!temp.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Unsupported both value is map and string of key: " + key);
             } else {
                 temp.put(null, entry.getValue());
             }
@@ -111,6 +114,10 @@ public class ConfigUtil {
                 //    job.mode = "STREAMING"
                 //    execution.checkpoint.interval = 5000
                 // The map key `execution` with map value not closely together
+                if (temp.containsKey(null) || propertiesMap.get(tempPrefix) instanceof String) {
+                    throw new IllegalArgumentException(
+                            "Unsupported both value is map and string of key: " + tempPrefix);
+                }
                 ((Map) propertiesMap.get(tempPrefix)).putAll(loadPropertiesStyleMap(temp));
             } else {
                 propertiesMap.put(tempPrefix, loadPropertiesStyleObject(temp));
