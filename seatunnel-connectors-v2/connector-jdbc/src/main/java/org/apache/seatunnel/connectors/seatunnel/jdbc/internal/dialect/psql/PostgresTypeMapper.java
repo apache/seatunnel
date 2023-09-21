@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 
 public class PostgresTypeMapper implements JdbcDialectTypeMapper {
 
@@ -95,9 +96,6 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
 
         String pgType = metadata.getColumnTypeName(colIndex);
 
-        int precision = metadata.getPrecision(colIndex);
-        int scale = metadata.getScale(colIndex);
-
         switch (pgType) {
             case PG_BOOLEAN:
                 return BasicType.BOOLEAN_TYPE;
@@ -129,9 +127,10 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
             case PG_DOUBLE_PRECISION_ARRAY:
                 return ArrayType.DOUBLE_ARRAY_TYPE;
             case PG_NUMERIC:
-                // see SPARK-26538: handle numeric without explicit precision and scale.
+                int precision = metadata.getPrecision(colIndex);
+                int scale = metadata.getScale(colIndex);
                 if (precision > 0) {
-                    return new DecimalType(precision, metadata.getScale(colIndex));
+                    return new DecimalType(precision, scale);
                 }
                 return new DecimalType(38, 18);
             case PG_CHAR:
@@ -162,9 +161,45 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
             case PG_TIME_ARRAY:
             case PG_DATE_ARRAY:
             default:
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format("Doesn't support Postgres type '%s' yet", pgType));
+                // to use JDBCType Mappings.
         }
+        int jdbcType = metadata.getColumnType(colIndex);
+        // see source: org.postgresql.jdbc.TypeInfoCache#types
+        switch (jdbcType) {
+            case Types.SMALLINT:
+            case Types.INTEGER:
+                return BasicType.INT_TYPE;
+            case Types.BIGINT:
+                return BasicType.LONG_TYPE;
+            case Types.DOUBLE:
+                return BasicType.DOUBLE_TYPE;
+            case Types.NUMERIC:
+                int precision = metadata.getPrecision(colIndex);
+                int scale = metadata.getScale(colIndex);
+                if (precision > 0) {
+                    return new DecimalType(precision, scale);
+                }
+                return new DecimalType(38, 18);
+            case Types.REAL:
+                return BasicType.FLOAT_TYPE;
+            case Types.CHAR:
+            case Types.VARCHAR:
+                return BasicType.STRING_TYPE;
+            case Types.BINARY:
+                return PrimitiveByteArrayType.INSTANCE;
+            case Types.BIT:
+                return BasicType.BOOLEAN_TYPE;
+            case Types.DATE:
+                return LocalTimeType.LOCAL_DATE_TYPE;
+            case Types.TIME:
+                return LocalTimeType.LOCAL_TIME_TYPE;
+            case Types.TIMESTAMP:
+                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case Types.REF_CURSOR:
+            case Types.OTHER:
+        }
+        throw new JdbcConnectorException(
+                CommonErrorCode.UNSUPPORTED_OPERATION,
+                String.format("Doesn't support Postgres type '%s' yet", pgType));
     }
 }
