@@ -138,6 +138,16 @@ public class ServerConfigOptions {
                     .defaultValue(1440)
                     .withDescription("The expire time of history jobs.time unit minute");
 
+    public static final Option<Boolean> ENABLE_CONNECTOR_JAR_STORAGE =
+            Options.key("connector-jar-storage-mode")
+                    .booleanType()
+                    .defaultValue(Boolean.TRUE)
+                    .withDescription(
+                            "Enable the engine server Jar package storage service,"
+                                    + " automatically upload connector Jar packages and dependent third-party Jar packages"
+                                    + " to the server before job execution."
+                                    + " Enabling this configuration does not require the server to hold all connector Jar packages");
+
     public static final Option<ConnectorJarStorageMode> CONNECTOR_JAR_STORAGE_MODE =
             Options.key("connector-jar-storage-mode")
                     .type(new TypeReference<ConnectorJarStorageMode>() {})

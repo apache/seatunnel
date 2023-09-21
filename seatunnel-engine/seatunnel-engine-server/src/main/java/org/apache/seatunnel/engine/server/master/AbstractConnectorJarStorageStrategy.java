@@ -153,6 +153,8 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
     public void deleteConnectorJarInExecutionNode(ConnectorJarIdentifier connectorJarIdentifier) {
         Address masterNodeAddress = nodeEngine.getMasterAddress();
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        // The local cluster will generate a random cluster name,
+        // which needs to be reset to ensure the correct connection to the cluster.
         clientConfig.setClusterName(
                 seaTunnelServer.getSeaTunnelConfig().getHazelcastConfig().getClusterName());
         SeaTunnelHazelcastClient seaTunnelHazelcastClient =

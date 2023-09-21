@@ -219,7 +219,9 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         ConnectorJarStorageConfig connectorJarStorageConfig = new ConnectorJarStorageConfig();
         for (Node node : childElements(connectorJarStorageConfigNode)) {
             String name = cleanNodeName(node);
-            if (ServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE.key().equals(name)) {
+            if (ServerConfigOptions.ENABLE_CONNECTOR_JAR_STORAGE.key().equals(name)) {
+                connectorJarStorageConfig.setEnable(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE.key().equals(name)) {
                 String mode = getTextContent(node).toUpperCase();
                 if (StringUtils.isNotBlank(mode)
                         && !Arrays.asList("SHARED", "ISOLATED").contains(mode)) {

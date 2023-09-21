@@ -76,6 +76,8 @@ public class ConnectorPackageService {
 
     public ConnectorJarIdentifier storageConnectorJarFile(long jobId, Data connectorJarData) {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        // The local cluster will generate a random cluster name,
+        // which needs to be reset to ensure the correct connection to the cluster.
         clientConfig.setClusterName(seaTunnelConfig.getHazelcastConfig().getClusterName());
         SeaTunnelHazelcastClient seaTunnelHazelcastClient =
                 new SeaTunnelHazelcastClient(clientConfig);

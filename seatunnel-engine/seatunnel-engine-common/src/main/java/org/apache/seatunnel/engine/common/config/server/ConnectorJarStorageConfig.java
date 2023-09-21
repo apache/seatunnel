@@ -23,6 +23,8 @@ import static com.hazelcast.internal.util.Preconditions.checkNotNull;
 
 @Data
 public class ConnectorJarStorageConfig {
+    private Boolean enable = ServerConfigOptions.ENABLE_CONNECTOR_JAR_STORAGE.defaultValue();
+
     private ConnectorJarStorageMode storageMode =
             ServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE.defaultValue();
 
