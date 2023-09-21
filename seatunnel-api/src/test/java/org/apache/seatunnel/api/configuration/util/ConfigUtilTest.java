@@ -56,7 +56,8 @@ public class ConfigUtilTest {
                 ConfigFactory.parseFile(
                         Paths.get(
                                         ConfigUtilTest.class
-                                            .getResource("/conf/config_with_key_with_different_type_value.conf")
+                                                .getResource(
+                                                        "/conf/config_with_key_with_different_type_value.conf")
                                                 .toURI())
                                 .toFile());
     }
@@ -86,7 +87,7 @@ public class ConfigUtilTest {
 
         Map<String, Object> differentValueMap =
                 JACKSON_MAPPER.readValue(
-                    differentValueConfig.root().render(ConfigRenderOptions.concise()),
+                        differentValueConfig.root().render(ConfigRenderOptions.concise()),
                         new TypeReference<Map<String, Object>>() {});
 
         Map<String, Object> value = ConfigUtil.treeMap(differentValueMap);
@@ -96,6 +97,7 @@ public class ConfigUtilTest {
         expect.put("", "specific_offsets");
         expect.put("offsets", offsets);
         offsets.put("test_topic_source-0", "50");
-        Assertions.assertEquals(((Map) ((List) value.get("source")).get(0)).get("start_mode"), expect);
+        Assertions.assertEquals(
+                ((Map) ((List) value.get("source")).get(0)).get("start_mode"), expect);
     }
 }
