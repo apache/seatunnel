@@ -54,7 +54,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class SimpleJdbcConnectionProviderTest {
-    private static final String MYSQL_DOCKER_IMAGE = "mysql:8.0";
+    private static final String MYSQL_DOCKER_IMAGE = "mysql:latest";
 
     private MySQLContainer<?> mc;
     private static final String SQL = "select * from test";
