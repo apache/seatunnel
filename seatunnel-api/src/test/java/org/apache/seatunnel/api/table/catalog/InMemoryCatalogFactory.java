@@ -15,25 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.env;
+package org.apache.seatunnel.api.table.catalog;
 
-import org.apache.seatunnel.api.common.CommonOptions;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
+import org.apache.seatunnel.api.table.factory.Factory;
 
-public class EnvOptionRule {
+import com.google.auto.service.AutoService;
 
-    public static OptionRule getEnvOptionRules() {
+@AutoService(Factory.class)
+public class InMemoryCatalogFactory implements CatalogFactory {
+    @Override
+    public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
+        return new InMemoryCatalog(catalogName, options);
+    }
+
+    @Override
+    public String factoryIdentifier() {
+        return "InMemory";
+    }
+
+    @Override
+    public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(EnvCommonOptions.JOB_MODE)
-                .optional(
-                        EnvCommonOptions.JOB_NAME,
-                        CommonOptions.PARALLELISM,
-                        EnvCommonOptions.JARS,
-                        EnvCommonOptions.CHECKPOINT_INTERVAL,
-                        EnvCommonOptions.CHECKPOINT_TIMEOUT,
-                        EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND,
-                        EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND,
-                        EnvCommonOptions.CUSTOM_PARAMETERS)
+                .required(InMemoryCatalogOptionRule.username, InMemoryCatalogOptionRule.password)
+                .optional(InMemoryCatalogOptionRule.host, InMemoryCatalogOptionRule.port)
                 .build();
     }
 }
