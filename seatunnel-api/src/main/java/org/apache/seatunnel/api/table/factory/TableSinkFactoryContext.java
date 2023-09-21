@@ -18,17 +18,18 @@
 package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
 import lombok.Getter;
 
 @Getter
-public abstract class TableFactoryContext {
+public class TableSinkFactoryContext extends TableFactoryContext {
 
-    private final ReadonlyConfig options;
-    private final ClassLoader classLoader;
+    private final CatalogTable catalogTable;
 
-    public TableFactoryContext(ReadonlyConfig options, ClassLoader classLoader) {
-        this.options = options;
-        this.classLoader = classLoader;
+    public TableSinkFactoryContext(
+            CatalogTable catalogTable, ReadonlyConfig options, ClassLoader classLoader) {
+        super(options, classLoader);
+        this.catalogTable = catalogTable;
     }
 }

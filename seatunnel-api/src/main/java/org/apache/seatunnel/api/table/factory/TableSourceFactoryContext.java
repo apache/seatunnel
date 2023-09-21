@@ -22,13 +22,9 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import lombok.Getter;
 
 @Getter
-public abstract class TableFactoryContext {
+public class TableSourceFactoryContext extends TableFactoryContext {
 
-    private final ReadonlyConfig options;
-    private final ClassLoader classLoader;
-
-    public TableFactoryContext(ReadonlyConfig options, ClassLoader classLoader) {
-        this.options = options;
-        this.classLoader = classLoader;
+    public TableSourceFactoryContext(ReadonlyConfig options, ClassLoader classLoader) {
+        super(options, classLoader);
     }
 }
