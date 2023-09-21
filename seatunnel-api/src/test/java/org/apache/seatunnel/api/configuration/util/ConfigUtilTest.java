@@ -26,6 +26,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -70,6 +72,7 @@ public class ConfigUtilTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     public void treeMapFunctionTest() throws IOException, URISyntaxException {
         Map<String, Object> map =
                 JACKSON_MAPPER.readValue(
