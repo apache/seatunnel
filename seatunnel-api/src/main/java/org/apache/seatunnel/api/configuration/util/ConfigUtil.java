@@ -34,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -94,8 +95,7 @@ public class ConfigUtil {
             if (entry.getKey().size() > 1) {
                 temp.put(entry.getKey().subList(1, entry.getKey().size()), entry.getValue());
             } else if (!temp.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Unsupported both value is map and string of key: " + key);
+                temp.put(Collections.singletonList(""), entry.getValue());
             } else {
                 temp.put(null, entry.getValue());
             }
@@ -108,17 +108,13 @@ public class ConfigUtil {
             Map<String, Object> propertiesMap, Map<List<String>, String> temp, String tempPrefix) {
         if (!temp.isEmpty()) {
             if (propertiesMap.containsKey(tempPrefix)) {
-                // only could be the map because use same prefix in different order
-                // eg:
-                //    execution.parallelism = 1
-                //    job.mode = "STREAMING"
-                //    execution.checkpoint.interval = 5000
-                // The map key `execution` with map value not closely together
-                if (temp.containsKey(null) || propertiesMap.get(tempPrefix) instanceof String) {
-                    throw new IllegalArgumentException(
-                            "Unsupported both value is map and string of key: " + tempPrefix);
+                if (temp.containsKey(null)) {
+                    ((Map) propertiesMap.get(tempPrefix)).put("", temp.get(null));
+                } else if (propertiesMap.get(tempPrefix) instanceof String) {
+                    loadPropertiesStyleMap(temp).put("", propertiesMap.get(tempPrefix));
+                } else {
+                    ((Map) propertiesMap.get(tempPrefix)).putAll(loadPropertiesStyleMap(temp));
                 }
-                ((Map) propertiesMap.get(tempPrefix)).putAll(loadPropertiesStyleMap(temp));
             } else {
                 propertiesMap.put(tempPrefix, loadPropertiesStyleObject(temp));
             }

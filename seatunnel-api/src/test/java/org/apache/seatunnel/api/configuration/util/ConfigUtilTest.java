@@ -30,6 +30,8 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ConfigUtilTest {
@@ -38,7 +40,7 @@ public class ConfigUtilTest {
 
     private static Config config;
 
-    private static Config errorConfig;
+    private static Config differentValueConfig;
 
     @BeforeAll
     public static void init() throws URISyntaxException {
@@ -50,11 +52,11 @@ public class ConfigUtilTest {
                                                 .toURI())
                                 .toFile());
 
-        errorConfig =
+        differentValueConfig =
                 ConfigFactory.parseFile(
                         Paths.get(
                                         ConfigUtilTest.class
-                                                .getResource("/conf/config_with_error.conf")
+                                            .getResource("/conf/config_with_key_with_different_type_value.conf")
                                                 .toURI())
                                 .toFile());
     }
@@ -82,13 +84,18 @@ public class ConfigUtilTest {
                         new TypeReference<Map<String, Object>>() {});
         Assertions.assertEquals(result, expectResult);
 
-        Map<String, Object> errorConfigMap =
+        Map<String, Object> differentValueMap =
                 JACKSON_MAPPER.readValue(
-                        errorConfig.root().render(ConfigRenderOptions.concise()),
+                    differentValueConfig.root().render(ConfigRenderOptions.concise()),
                         new TypeReference<Map<String, Object>>() {});
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> ConfigUtil.treeMap(errorConfigMap),
-                "Unsupported both value is map and string of key: start_mode");
+
+        Map<String, Object> value = ConfigUtil.treeMap(differentValueMap);
+        Assertions.assertEquals(value.size(), 2);
+        Map<String, Object> expect = new HashMap<>();
+        Map<String, Object> offsets = new HashMap<>();
+        expect.put("", "specific_offsets");
+        expect.put("offsets", offsets);
+        offsets.put("test_topic_source-0", "50");
+        Assertions.assertEquals(((Map) ((List) value.get("source")).get(0)).get("start_mode"), expect);
     }
 }
