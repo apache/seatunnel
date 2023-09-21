@@ -53,7 +53,7 @@ import java.util.concurrent.TimeUnit;
  * capability in case of cluster node failure
  */
 @Slf4j
-public class TextHeaderT {
+public class TextHeaderIT {
 
     private String FILE_FORMAT_TYPE = "file_format_type";
     private String ENABLE_HEADER_WRITE = "enable_header_write";
