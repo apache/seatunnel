@@ -146,7 +146,7 @@ conversion to uppercase, and "LOWERCASE" indicates conversion to lowercase.
 
 ### properties
 
-additional connection configuration parameters
+Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.
 
 ### common options
 
