@@ -42,7 +42,6 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
@@ -69,12 +68,6 @@ public class CatalogTableUtil implements Serializable {
     private static final SeaTunnelRowType SIMPLE_SCHEMA =
             new SeaTunnelRowType(
                     new String[] {"content"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
-
-    @Getter private final CatalogTable catalogTable;
-
-    private CatalogTableUtil(CatalogTable catalogTable) {
-        this.catalogTable = catalogTable;
-    }
 
     @Deprecated
     public static CatalogTable getCatalogTable(String tableName, SeaTunnelRowType rowType) {
@@ -108,7 +101,7 @@ public class CatalogTableUtil implements Serializable {
         // Highest priority: specified schema
         Map<String, String> schemaMap = readonlyConfig.get(CatalogTableUtil.SCHEMA);
         if (schemaMap != null && schemaMap.size() > 0) {
-            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config).getCatalogTable();
+            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
             return Collections.singletonList(catalogTable);
         }
 
@@ -158,7 +151,7 @@ public class CatalogTableUtil implements Serializable {
             if (schemaMap.isEmpty()) {
                 throw new SeaTunnelException("Schema config can not be empty");
             }
-            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config).getCatalogTable();
+            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
             return Collections.singletonList(catalogTable);
         }
 
@@ -194,29 +187,24 @@ public class CatalogTableUtil implements Serializable {
                                                 factoryId)));
     }
 
-    public static CatalogTableUtil buildWithConfig(Config config) {
+    public static CatalogTable buildWithConfig(Config config) {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(config, "schema");
         if (!checkResult.isSuccess()) {
             throw new RuntimeException(
                     "Schema config need option [schema], please correct your config first");
         }
         TableSchema tableSchema = parseTableSchema(config.getConfig("schema"));
-        return new CatalogTableUtil(
-                CatalogTable.of(
-                        // TODO: other table info
-                        TableIdentifier.of("", "", ""),
-                        tableSchema,
-                        new HashMap<>(),
-                        new ArrayList<>(),
-                        ""));
+        return CatalogTable.of(
+                // TODO: other table info
+                TableIdentifier.of("", "", ""),
+                tableSchema,
+                new HashMap<>(),
+                new ArrayList<>(),
+                "");
     }
 
     public static SeaTunnelRowType buildSimpleTextSchema() {
         return SIMPLE_SCHEMA;
-    }
-
-    public SeaTunnelRowType getSeaTunnelRowType() {
-        return catalogTable.getTableSchema().toPhysicalRowDataType();
     }
 
     public static SeaTunnelDataType<?> parseDataType(String columnStr) {
