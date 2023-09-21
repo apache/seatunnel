@@ -35,6 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -56,15 +57,15 @@ public class SimpleJdbcConnectionProviderTest {
     private static final String MYSQL_DOCKER_IMAGE = "mysql:8.0";
 
     private MySQLContainer<?> mc;
-
     private static final String SQL = "select * from test";
+    private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
 
     @BeforeEach
     void before() throws Exception {
         mc =
                 new MySQLContainer<>(DockerImageName.parse(MYSQL_DOCKER_IMAGE))
-                        .withUsername("root")
-                        .withPassword("")
+                        .withNetworkAliases(MYSQL_CONTAINER_HOST)
+                        .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(MYSQL_DOCKER_IMAGE)));
