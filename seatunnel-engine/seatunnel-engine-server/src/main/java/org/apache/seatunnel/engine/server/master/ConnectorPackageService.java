@@ -25,12 +25,10 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.job.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMemberNodeOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.client.config.ClientConfig;
-import com.hazelcast.client.impl.spi.ClientClusterService;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.serialization.Data;
@@ -61,8 +59,6 @@ public class ConnectorPackageService {
 
     private ConnectorJarStorageStrategy connectorJarStorageStrategy;
 
-    private SeaTunnelHazelcastClient seaTunnelHazelcastClient;
-
     private final ScheduledExecutorService masterActiveListener;
 
     /** If this node is a master node */
@@ -84,10 +80,8 @@ public class ConnectorPackageService {
         ConnectorJar connectorJar = nodeEngine.getSerializationService().toObject(connectorJarData);
         ConnectorJarIdentifier connectorJarIdentifier =
                 connectorJarStorageStrategy.storageConnectorJarFile(jobId, connectorJar);
-        ClientClusterService clientClusterService =
-                seaTunnelHazelcastClient.getHazelcastClient().getClientClusterService();
-        Address masterNodeAddress = clientClusterService.getMasterMember().getAddress();
-        Collection<Member> memberList = clientClusterService.getMemberList();
+        Address masterNodeAddress = nodeEngine.getClusterService().getMasterAddress();
+        Collection<Member> memberList = nodeEngine.getClusterService().getMembers();
         memberList.forEach(
                 member -> {
                     Address address = member.getAddress();
@@ -106,10 +100,8 @@ public class ConnectorPackageService {
                 NodeEngineUtil.sendOperationToMemberNode(
                         nodeEngine,
                         new SendConnectorJarToMemberNodeOperation(
-                                seaTunnelHazelcastClient
-                                        .getSerializationService()
-                                        .toData(connectorJar),
-                                seaTunnelHazelcastClient
+                                nodeEngine.getSerializationService().toData(connectorJar),
+                                nodeEngine
                                         .getSerializationService()
                                         .toData(connectorJarIdentifier)),
                         address);
@@ -123,20 +115,14 @@ public class ConnectorPackageService {
 
     private void initConnectorPackageService() {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        // The local cluster will generate a random cluster name,
-        // which needs to be reset to ensure the correct connection to the cluster.
-        clientConfig.setClusterName(seaTunnelConfig.getHazelcastConfig().getClusterName());
-        this.seaTunnelHazelcastClient = new SeaTunnelHazelcastClient(clientConfig);
         this.connectorJarStorageStrategy =
                 StorageStrategyFactory.of(
                         connectorJarStorageConfig.getStorageMode(),
                         connectorJarStorageConfig,
-                        seaTunnelServer,
-                        seaTunnelHazelcastClient);
+                        seaTunnelServer);
     }
 
     private void clearConnectorPackageService() {
-        seaTunnelHazelcastClient = null;
         this.connectorJarStorageStrategy = null;
     }
 

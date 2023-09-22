@@ -21,7 +21,6 @@ import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfi
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.job.SeaTunnelHazelcastClient;
 
 public class StorageStrategyFactory {
 
@@ -30,15 +29,14 @@ public class StorageStrategyFactory {
     public static ConnectorJarStorageStrategy of(
             ConnectorJarStorageMode connectorJarStorageMode,
             ConnectorJarStorageConfig connectorJarStorageConfig,
-            SeaTunnelServer seaTunnelServer,
-            SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
+            SeaTunnelServer seaTunnelServer) {
         switch (connectorJarStorageMode) {
             case SHARED:
                 return new SharedConnectorJarStorageStrategy(
-                        connectorJarStorageConfig, seaTunnelServer, seaTunnelHazelcastClient);
+                        connectorJarStorageConfig, seaTunnelServer);
             case ISOLATED:
                 return new IsolatedConnectorJarStorageStrategy(
-                        connectorJarStorageConfig, seaTunnelServer, seaTunnelHazelcastClient);
+                        connectorJarStorageConfig, seaTunnelServer);
             default:
                 throw new IllegalArgumentException(
                         ServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE

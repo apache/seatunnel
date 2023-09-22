@@ -22,13 +22,11 @@ import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfi
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.job.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.server.task.operation.DeleteConnectorJarInExecutionNode;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.hazelcast.client.impl.spi.ClientClusterService;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.logging.ILogger;
@@ -63,18 +61,13 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
 
     protected final NodeEngineImpl nodeEngine;
 
-    protected final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
-
     public AbstractConnectorJarStorageStrategy(
-            ConnectorJarStorageConfig connectorJarStorageConfig,
-            SeaTunnelServer seaTunnelServer,
-            SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
+            ConnectorJarStorageConfig connectorJarStorageConfig, SeaTunnelServer seaTunnelServer) {
         this.seaTunnelServer = seaTunnelServer;
         this.nodeEngine = seaTunnelServer.getNodeEngine();
         checkNotNull(connectorJarStorageConfig);
         this.connectorJarStorageConfig = connectorJarStorageConfig;
         this.storageDir = getConnectorJarStorageDir();
-        this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
     }
 
     @Override
@@ -149,9 +142,7 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
     @Override
     public void deleteConnectorJarInExecutionNode(ConnectorJarIdentifier connectorJarIdentifier) {
         Address masterNodeAddress = nodeEngine.getMasterAddress();
-        ClientClusterService clientClusterService =
-                seaTunnelHazelcastClient.getHazelcastClient().getClientClusterService();
-        Collection<Member> memberList = clientClusterService.getMemberList();
+        Collection<Member> memberList = nodeEngine.getClusterService().getMembers();
         memberList.forEach(
                 member -> {
                     if (!member.getAddress().equals(masterNodeAddress)) {

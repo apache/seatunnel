@@ -23,7 +23,6 @@ import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.job.SeaTunnelHazelcastClient;
 
 import java.io.File;
 import java.util.List;
@@ -33,10 +32,8 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarStorageStrategy {
 
     public IsolatedConnectorJarStorageStrategy(
-            ConnectorJarStorageConfig connectorJarStorageConfig,
-            SeaTunnelServer seaTunnelServer,
-            SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
-        super(connectorJarStorageConfig, seaTunnelServer, seaTunnelHazelcastClient);
+            ConnectorJarStorageConfig connectorJarStorageConfig, SeaTunnelServer seaTunnelServer) {
+        super(connectorJarStorageConfig, seaTunnelServer);
     }
 
     @Override
