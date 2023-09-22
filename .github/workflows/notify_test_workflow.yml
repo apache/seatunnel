@@ -41,7 +41,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const endpoint = 'GET /repos/:owner/:repo/actions/workflows/:id/runs?&branch=:branch'
-            const check_run_endpoint = 'GET /repos/:owner/:repo/commits/:ref/check-runs'
+            const check_run_endpoint = 'GET /repos/:owner/:repo/commits/:ref/check-runs?per_page=100'
 
             // TODO: Should use pull_request.user and pull_request.user.repos_url?
             // If a different person creates a commit to another forked repo,
@@ -75,7 +75,7 @@ jobs:
             const name = 'Build'
             const head_sha = context.payload.pull_request.head.sha
             let status = 'queued'
-            console.log('runs: ' + runs)
+            console.log('runs: ' + JSON.stringify(runs))
             if (!runs || runs.data.workflow_runs.length === 0) {
               status = 'completed'
               const conclusion = 'action_required'
@@ -116,8 +116,10 @@ jobs:
 
               // Here we get check run ID to provide Check run view instead of Actions view, see also SPARK-37879.
               const check_runs = await github.request(check_run_endpoint, check_run_params)
+              console.log('check_runs: ' + JSON.stringify(check_runs))
               const check_run_head = check_runs.data.check_runs.filter(r => r.name === "Run / License header")[0]
 
+              console.log('check_run_head: ' + JSON.stringify(check_run_head))
               if (check_run_head.head_sha != context.payload.pull_request.head.sha) {
                 throw new Error('There was a new unsynced commit pushed. Please retrigger the workflow.');
               }
