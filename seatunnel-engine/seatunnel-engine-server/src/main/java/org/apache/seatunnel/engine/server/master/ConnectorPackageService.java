@@ -167,7 +167,7 @@ public class ConnectorPackageService {
      * return true if this node is a master node and the connector jar package service init
      * finished.
      */
-    public boolean isCoordinatorActive() {
+    public boolean isConnectorPackageServiceActive() {
         return isActive;
     }
 }

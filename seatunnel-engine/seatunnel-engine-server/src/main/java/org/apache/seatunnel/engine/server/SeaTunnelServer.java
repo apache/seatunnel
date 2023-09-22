@@ -286,7 +286,7 @@ public class SeaTunnelServer
                     hazelcastRetryPause == null ? 500 : Integer.parseInt(hazelcastRetryPause);
 
             while (isMasterNode()
-                    && !connectorPackageService.isCoordinatorActive()
+                    && !connectorPackageService.isConnectorPackageServiceActive()
                     && retryCount < maxRetry
                     && isRunning) {
                 try {
@@ -298,7 +298,7 @@ public class SeaTunnelServer
                     throw new RuntimeException(e);
                 }
             }
-            if (connectorPackageService.isCoordinatorActive()) {
+            if (connectorPackageService.isConnectorPackageServiceActive()) {
                 return connectorPackageService;
             }
 
