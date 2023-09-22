@@ -54,7 +54,9 @@ public class JobExecutionIT {
     @BeforeEach
     public void beforeClass() {
         SEATUNNEL_CONFIG = ConfigProvider.locateAndGetSeaTunnelConfig();
-        SEATUNNEL_CONFIG.getHazelcastConfig().setClusterName("JobExecutionIT");
+        SEATUNNEL_CONFIG
+                .getHazelcastConfig()
+                .setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(SEATUNNEL_CONFIG);
     }
 
