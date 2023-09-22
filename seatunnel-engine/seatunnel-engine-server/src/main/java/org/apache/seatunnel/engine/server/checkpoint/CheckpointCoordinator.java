@@ -112,7 +112,7 @@ public class CheckpointCoordinator {
     private final Set<TaskLocation> readyToCloseStartingTask;
     private final ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints;
 
-    private final ArrayDeque<CompletedCheckpoint> completedCheckpoints;
+    private final ArrayDeque<String> completedCheckpointIds;
 
     private volatile CompletedCheckpoint latestCompletedCheckpoint = null;
 
@@ -166,7 +166,7 @@ public class CheckpointCoordinator {
         this.plan = plan;
         this.coordinatorConfig = checkpointConfig;
         this.pendingCheckpoints = new ConcurrentHashMap<>();
-        this.completedCheckpoints =
+        this.completedCheckpointIds =
                 new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
         this.scheduler =
                 Executors.newScheduledThreadPool(
@@ -702,7 +702,7 @@ public class CheckpointCoordinator {
                 completedCheckpoint.getCheckpointTimestamp(),
                 completedCheckpoint.getCompletedTimestamp());
         final long checkpointId = completedCheckpoint.getCheckpointId();
-        completedCheckpoints.addLast(completedCheckpoint);
+        completedCheckpointIds.addLast(String.valueOf(completedCheckpoint.getCheckpointId()));
         try {
             byte[] states = serializer.serialize(completedCheckpoint);
             checkpointStorage.storeCheckPoint(
@@ -712,18 +712,17 @@ public class CheckpointCoordinator {
                             .pipelineId(pipelineId)
                             .states(states)
                             .build());
-            if (completedCheckpoints.size()
+            if (completedCheckpointIds.size()
                                     % coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
                             == 0
-                    && completedCheckpoints.size()
+                    && completedCheckpointIds.size()
                                     / coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
                             > 1) {
                 List<String> needDeleteCheckpointId = new ArrayList<>();
                 for (int i = 0;
                         i < coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
                         i++) {
-                    needDeleteCheckpointId.add(
-                            completedCheckpoints.removeFirst().getCheckpointId() + "");
+                    needDeleteCheckpointId.add(completedCheckpointIds.removeFirst());
                 }
                 checkpointStorage.deleteCheckpoint(
                         String.valueOf(completedCheckpoint.getJobId()),
