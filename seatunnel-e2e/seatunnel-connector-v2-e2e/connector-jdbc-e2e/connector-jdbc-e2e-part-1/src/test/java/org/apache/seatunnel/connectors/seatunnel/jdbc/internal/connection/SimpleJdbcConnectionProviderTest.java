@@ -34,14 +34,15 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.google.common.collect.Lists;
 import com.mysql.cj.jdbc.ConnectionImpl;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -52,7 +53,6 @@ import java.util.HashMap;
 import java.util.Properties;
 import java.util.stream.Stream;
 
-@Slf4j
 public class SimpleJdbcConnectionProviderTest {
     private static final String MYSQL_DOCKER_IMAGE = "mysql:latest";
 
@@ -60,15 +60,29 @@ public class SimpleJdbcConnectionProviderTest {
     private static final String SQL = "select * from test";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
 
+    private static final String MYSQL_IMAGE = "mysql:latest";
+    private static final String MYSQL_DATABASE = "seatunnel";
+
+    private static final String MYSQL_USERNAME = "root";
+    private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
+    private static final int MYSQL_PORT = 3306;
+
     @BeforeEach
     void before() throws Exception {
+        DockerImageName imageName = DockerImageName.parse(MYSQL_IMAGE);
         mc =
-                new MySQLContainer<>(DockerImageName.parse(MYSQL_DOCKER_IMAGE))
+                new MySQLContainer<>(imageName)
+                        .withUsername(MYSQL_USERNAME)
+                        .withPassword(MYSQL_PASSWORD)
+                        .withDatabaseName(MYSQL_DATABASE)
+                        .withNetwork(Network.newNetwork())
                         .withNetworkAliases(MYSQL_CONTAINER_HOST)
+                        .withExposedPorts(MYSQL_PORT)
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger(MYSQL_DOCKER_IMAGE)));
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
+
+        mc.setPortBindings(Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3307)));
         Startables.deepStart(Stream.of(mc)).join();
         create("CREATE TABLE IF NOT EXISTS test (`id` int(11))");
     }
