@@ -38,12 +38,15 @@ import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.jet.datamodel.Tuple3;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import scala.Tuple3;
 
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -61,14 +64,14 @@ public class TextHeaderIT {
     @Test
     public void testEnableWriteHeader() {
         List<Tuple3> lists = new ArrayList<>();
-        lists.add(new Tuple3<>("text", "true", "name" + TextFormatConstant.SEPARATOR[0] + "age"));
-        lists.add(new Tuple3<>("text", "false", "name" + TextFormatConstant.SEPARATOR[0] + "age"));
-        lists.add(new Tuple3<>("csv", "true", "name,age"));
-        lists.add(new Tuple3<>("csv", "false", "name,age"));
+        lists.add(Tuple3.tuple3("text", "true", "name" + TextFormatConstant.SEPARATOR[0] + "age"));
+        lists.add(Tuple3.tuple3("text", "false", "name" + TextFormatConstant.SEPARATOR[0] + "age"));
+        lists.add(Tuple3.tuple3("csv", "true", "name,age"));
+        lists.add(Tuple3.tuple3("csv", "false", "name,age"));
         lists.forEach(
                 t -> {
                     try {
-                        enableWriteHeader(t._1().toString(), t._2().toString(), t._3().toString());
+                        enableWriteHeader(t.toString(), t.toString(), t.toString());
                     } catch (ExecutionException | InterruptedException e) {
                         throw new RuntimeException(e);
                     }
@@ -124,7 +127,7 @@ public class TextHeaderIT {
                                                         objectCompletableFuture.get()));
                             });
             File file = new File(testResources.getLeft());
-            for (File targetFile : Objects.requireNonNull(file.listFiles())) {
+            for (File targetFile : file.listFiles()) {
                 String[] texts =
                         FileUtils.readFileToStr(targetFile.toPath())
                                 .split(BaseSinkConfig.ROW_DELIMITER.defaultValue());
