@@ -24,6 +24,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSource;
@@ -33,15 +35,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import com.mysql.cj.jdbc.ConnectionImpl;
 
 import java.io.IOException;
@@ -54,24 +53,20 @@ import java.util.Properties;
 import java.util.stream.Stream;
 
 public class SimpleJdbcConnectionProviderTest {
-    private static final String MYSQL_DOCKER_IMAGE = "mysql:latest";
 
-    private MySQLContainer<?> mc;
+    private MySqlContainer mc;
     private static final String SQL = "select * from test";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
-
-    private static final String MYSQL_IMAGE = "mysql:latest";
     private static final String MYSQL_DATABASE = "seatunnel";
 
-    private static final String MYSQL_USERNAME = "root";
+    private static final String MYSQL_USERNAME = "root1";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 3306;
 
     @BeforeEach
     void before() throws Exception {
-        DockerImageName imageName = DockerImageName.parse(MYSQL_IMAGE);
         mc =
-                new MySQLContainer<>(imageName)
+                new MySqlContainer((MySqlVersion.V8_0))
                         .withUsername(MYSQL_USERNAME)
                         .withPassword(MYSQL_PASSWORD)
                         .withDatabaseName(MYSQL_DATABASE)
@@ -80,9 +75,9 @@ public class SimpleJdbcConnectionProviderTest {
                         .withExposedPorts(MYSQL_PORT)
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger("mysql-docker-image")));
 
-        mc.setPortBindings(Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3307)));
         Startables.deepStart(Stream.of(mc)).join();
         create("CREATE TABLE IF NOT EXISTS test (`id` int(11))");
     }
