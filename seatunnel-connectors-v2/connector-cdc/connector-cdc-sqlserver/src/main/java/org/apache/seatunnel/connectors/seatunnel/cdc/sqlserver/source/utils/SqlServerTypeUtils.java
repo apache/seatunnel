@@ -32,7 +32,15 @@ import java.util.List;
 
 /** Utilities for converting from SqlServer types to SeaTunnel types. */
 public class SqlServerTypeUtils {
+    private static final String DATETIME_OFFSET = "datetimeoffset";
+
     public static SeaTunnelDataType<?> convertFromColumn(Column column) {
+
+        switch (column.typeExpression()) {
+            case DATETIME_OFFSET:
+                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+        }
+
         switch (column.jdbcType()) {
             case Types.CHAR:
             case Types.VARCHAR:

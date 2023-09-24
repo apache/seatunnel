@@ -206,14 +206,14 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                         + "                               1.123, 2, 3.323, 4.323, 5.323, 6.323,\n"
                         + "                               1, 22, 333, 4444, 55555,\n"
                         + "                               '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',\n"
-                        + "                               '<a>b</a>');");
+                        + "                               '<a>b</a>',SYSDATETIMEOFFSET());");
         executeSql(
                 "INSERT INTO column_type_test.dbo.full_types VALUES (4,\n"
                         + "                               'cč4', 'vcč', 'tč', N'cč', N'vcč', N'tč',\n"
                         + "                               1.123, 2, 3.323, 4.323, 5.323, 6.323,\n"
                         + "                               1, 22, 333, 4444, 55555,\n"
                         + "                               '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',\n"
-                        + "                               '<a>b</a>');");
+                        + "                               '<a>b</a>',SYSDATETIMEOFFSET());");
 
         executeSql("DELETE FROM column_type_test.dbo.full_types where id = 2");
 
