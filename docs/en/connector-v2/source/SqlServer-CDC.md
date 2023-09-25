@@ -1,8 +1,8 @@
-# SqlServer CDC
+# SQL Server CDC
 
 > SqlServer CDC source connector
 
-## Support Mysql Version
+## Support SQL Server Version
 
 - server:2019 (Or later version for information only)
 
@@ -27,9 +27,9 @@ describes how to setup the SqlServer CDC connector to run SQL queries against Sq
 
 ## Supported DataSource Info
 
-| Datasource |                                          Supported versions                                           |                    Driver                    |               Url               |                                 Maven                                 |
-|------------|-------------------------------------------------------------------------------------------------------|----------------------------------------------|---------------------------------|-----------------------------------------------------------------------|
-| SqlServer  | <li> [SqlServer](https://dev.mysql.com/doc): server:2019 (Or later version for information only)</li> | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433 | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc |
+| Datasource |                      Supported versions                       |                    Driver                    |                              Url                              |                                 Maven                                 |
+|------------|---------------------------------------------------------------|----------------------------------------------|---------------------------------------------------------------|-----------------------------------------------------------------------|
+| SqlServer  | <li> server:2019 (Or later version for information only)</li> | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433;databaseName=column_type_test | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc |
 
 ### Install Jdbc Driver
 
@@ -37,7 +37,7 @@ Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For ex
 
 ## Data Type Mapping
 
-|                                          Mysql Data type                                          |                SeaTunnel Data type                 |
+|                                        SQLserver Data type                                        |                SeaTunnel Data type                 |
 |---------------------------------------------------------------------------------------------------|----------------------------------------------------|
 | CHAR<br/>VARCHAR<br/>NCHAR<br/>NVARCHAR<br/>STRUCT<br/>CLOB<br/>LONGVARCHAR<br/>LONGNVARCHAR<br/> | STRING                                             |
 | BLOB                                                                                              | BYTES                                              |
@@ -90,41 +90,6 @@ Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For ex
 ### initiali read Simple
 
 > This is a stream mode cdc initializes read table data will be read incrementally after successful read The following sql DDL is for reference only
-
-```
-CREATE DATABASE column_type_test;
-
-USE column_type_test;
-EXEC sys.sp_cdc_enable_db;
-
-CREATE TABLE full_types (
-    id int NOT NULL,
-    val_char char(3),
-    val_varchar varchar(1000),
-    val_text text,
-    val_nchar nchar(3),
-    val_nvarchar nvarchar(1000),
-    val_ntext ntext,
-    val_decimal decimal(6,3),
-    val_numeric numeric,
-    val_float float,
-    val_real real,
-    val_smallmoney smallmoney,
-    val_money money,
-    val_bit bit,
-    val_tinyint tinyint,
-    val_smallint smallint,
-    val_int int,
-    val_bigint bigint,
-    val_date date,
-    val_time time,
-    val_datetime2 datetime2,
-    val_datetime datetime,
-    val_smalldatetime smalldatetime,
-    val_xml xml
-    PRIMARY KEY (id)
-);
-```
 
 ```
 env {

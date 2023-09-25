@@ -80,46 +80,71 @@ Read external data source data through JDBC.
 
 ### Simple:
 
-> Read the table directly and print to the console DDL is for reference only
+> Simple single task to read the data table
 
 ```
-CREATE DATABASE column_type_test;
+# Defining the runtime environment
+env {
+  # You can set flink configuration here
+  execution.parallelism = 1
+  job.mode = "BATCH"
+}
+source{
+    Jdbc {
+        driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
+        url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
+        user = SA
+        password = "Y.sa123456"
+        query = "select * from full_types_jdbc"
+    }
+}
 
-USE column_type_test;
-EXEC sys.sp_cdc_enable_db;
+transform {
+    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+    # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+}
 
-CREATE TABLE full_types_jdbc (
-    id int NOT NULL,
-    val_char char(3),
-    val_varchar varchar(1000),
-    val_text text,
-    val_nchar nchar(3),
-    val_nvarchar nvarchar(1000),
-    val_ntext ntext,
-    val_decimal decimal(6,3),
-    val_numeric numeric,
-    val_float float,
-    val_real real,
-    val_smallmoney smallmoney,
-    val_money money,
-    val_bit bit,
-    val_tinyint tinyint,
-    val_smallint smallint,
-    val_int int,
-    val_bigint bigint,
-    val_date date,
-    val_time time,
-    val_datetime2 datetime2,
-    val_datetime datetime,
-    val_smalldatetime smalldatetime
-    PRIMARY KEY (id)
-);
-
+sink {
+    Console {}
+}
 ```
 
 ### Parallel:
 
-> Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
+> Read your query table in parallel with the shard field you configured and the shard data You can do this if you want to read the whole table
+
+```
+env {
+  # You can set flink configuration here
+  execution.parallelism = 10
+  job.mode = "BATCH"
+}
+
+source {
+    Jdbc {
+        driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
+        url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
+        user = SA
+        password = "Y.sa123456"
+        # Define query logic as required
+        query = "select * from full_types_jdbc"
+        # Parallel sharding reads fields
+        partition_column = "id"
+        # Number of fragments
+        partition_num = 10
+    }
+}
+
+transform {
+    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+    # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+}
+
+sink {
+    Console {}
+}
+
+```
 
 ### Fragmented Parallel Read Simple:
 
@@ -151,7 +176,6 @@ source {
 
 
 transform {
-
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
   # please go to https://seatunnel.apache.org/docs/transform-v2/sql
 }
