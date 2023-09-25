@@ -9,7 +9,7 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistExce
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Config;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -31,6 +31,11 @@ public class S3FileCatalog implements Catalog {
 
     @Override
     public void close() throws CatalogException {}
+
+    @Override
+    public String name() {
+        return null;
+    }
 
     @Override
     public String getDefaultDatabase() throws CatalogException {
@@ -56,7 +61,7 @@ public class S3FileCatalog implements Catalog {
     @SneakyThrows
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
-        return fileSystemUtils.existsPath(readonlyConfig.get(S3Config.FILE_PATH));
+        return fileSystemUtils.existsPath(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
     }
 
     @Override
@@ -69,14 +74,14 @@ public class S3FileCatalog implements Catalog {
     @Override
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
-        fileSystemUtils.createDir(readonlyConfig.get(S3Config.FILE_PATH));
+        fileSystemUtils.createDir(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
     }
 
     @SneakyThrows
     @Override
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
-        fileSystemUtils.deleteDir(readonlyConfig.get(S3Config.FILE_PATH));
+        fileSystemUtils.deleteDir(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
     }
 
     @Override
@@ -91,8 +96,8 @@ public class S3FileCatalog implements Catalog {
     @Override
     public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
-        if (fileSystemUtils.deleteDir(readonlyConfig.get(S3Config.FILE_PATH))) {
-            fileSystemUtils.createDir(readonlyConfig.get(S3Config.FILE_PATH));
+        if (fileSystemUtils.deleteDir(readonlyConfig.get(S3ConfigOptions.FILE_PATH))) {
+            fileSystemUtils.createDir(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
         }
     }
 
@@ -100,7 +105,7 @@ public class S3FileCatalog implements Catalog {
     @Override
     public boolean isExistsData(TablePath tablePath) {
         final List<LocatedFileStatus> locatedFileStatuses =
-                fileSystemUtils.fileList(readonlyConfig.get(S3Config.FILE_PATH));
+                fileSystemUtils.fileList(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
         return CollectionUtils.isNotEmpty(locatedFileStatuses);
     }
 }

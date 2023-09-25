@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.file.s3.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -43,6 +42,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Optional;
+
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
 @AutoService(SeaTunnelSink.class)
@@ -63,11 +64,13 @@ public class S3FileSink extends BaseFileSink implements SupportSaveMode {
     public S3FileSink(CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
         this.catalogTable = catalogTable;
         this.readonlyConfig = readonlyConfig;
-        Config pluginConfig = ConfigFactory.parseMap(readonlyConfig.getConfData());
+        Config pluginConfig = readonlyConfig.toConfig();
         super.prepare(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
-                        pluginConfig, S3Config.FILE_PATH.key(), S3Config.S3_BUCKET.key());
+                        pluginConfig,
+                        S3ConfigOptions.FILE_PATH.key(),
+                        S3ConfigOptions.S3_BUCKET.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -98,7 +101,7 @@ public class S3FileSink extends BaseFileSink implements SupportSaveMode {
     }
 
     @Override
-    public SaveModeHandler getSaveModeHandler() {
+    public Optional<SaveModeHandler> getSaveModeHandler() {
 
         CatalogFactory catalogFactory =
                 discoverFactory(
@@ -107,9 +110,10 @@ public class S3FileSink extends BaseFileSink implements SupportSaveMode {
             return null;
         }
         final Catalog catalog = catalogFactory.createCatalog(S3, readonlyConfig);
-        SchemaSaveMode schemaSaveMode = readonlyConfig.get(S3Config.SCHEMA_SAVE_MODE);
-        DataSaveMode dataSaveMode = readonlyConfig.get(S3Config.DATA_SAVE_MODE);
-        return new DefaultSaveModeHandler(
-                schemaSaveMode, dataSaveMode, catalog, catalogTable, null);
+        SchemaSaveMode schemaSaveMode = readonlyConfig.get(S3ConfigOptions.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = readonlyConfig.get(S3ConfigOptions.DATA_SAVE_MODE);
+        return Optional.of(
+                new DefaultSaveModeHandler(
+                        schemaSaveMode, dataSaveMode, catalog, catalogTable, null));
     }
 }
