@@ -120,7 +120,7 @@ public class JdbcPhoenixIT extends AbstractJdbcIT {
 
     @Override
     String driverUrl() {
-        return "https://maven.aliyun.com/repository/public/com/aliyun/phoenix/ali-phoenix-shaded-thin-client/5.2.5-HBase-2.x/ali-phoenix-shaded-thin-client-5.2.5-HBase-2.x.jar";
+        return "https://repo1.maven.org/maven2/com/aliyun/phoenix/ali-phoenix-shaded-thin-client/5.2.5-HBase-2.x/ali-phoenix-shaded-thin-client-5.2.5-HBase-2.x.jar";
     }
 
     @Override
