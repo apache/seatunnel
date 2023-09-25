@@ -52,6 +52,7 @@ public class SqlServerTypeUtils {
             case Types.LONGNVARCHAR:
                 return BasicType.STRING_TYPE;
             case Types.BLOB:
+            case Types.VARBINARY:
                 return PrimitiveByteArrayType.INSTANCE;
             case Types.INTEGER:
                 return BasicType.INT_TYPE;
