@@ -23,16 +23,21 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
+import org.apache.logging.log4j.core.util.IOUtils;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -79,15 +84,46 @@ public class ConfigUtilTest {
                         config.root().render(ConfigRenderOptions.concise()),
                         new TypeReference<Map<String, Object>>() {});
         Map<String, Object> result = ConfigUtil.treeMap(map);
-        Map<String, Object> expectResult =
-                JACKSON_MAPPER.readValue(
-                        ConfigUtilTest.class
-                                .getResource("/conf/option-test-json-after-treemap.json")
-                                .toURI()
-                                .toURL(),
-                        new TypeReference<Map<String, Object>>() {});
-        Assertions.assertEquals(result, expectResult);
+        String expectResult =
+                IOUtils.toString(
+                        new FileReader(
+                                new File(
+                                        ConfigUtilTest.class
+                                                .getResource(
+                                                        "/conf/option-test-json-after-treemap.json")
+                                                .toURI())));
+        Assertions.assertEquals(
+                JACKSON_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(result),
+                expectResult);
 
+        // Check the order of option after treemap
+        Iterator<String> resultIterator = result.keySet().iterator();
+        for (String entry : map.keySet()) {
+            String r = resultIterator.next();
+            Assertions.assertEquals(entry, r);
+        }
+        String data =
+                String.join(
+                        ",",
+                        ((Map<String, Object>)
+                                        ((List<Map<String, Object>>) result.get("source"))
+                                                .get(0)
+                                                .get("option"))
+                                .keySet());
+        String data2 =
+                String.join(
+                        ",",
+                        ((Map<String, Object>)
+                                        ((List<Map<String, Object>>) map.get("source"))
+                                                .get(0)
+                                                .get("option"))
+                                .keySet());
+        String sameOrder = "bool,bool-str,int,int-str,float,float-str,double,double-str,map";
+        Assertions.assertEquals(
+                "string,enum,list-json,list-str,complex-type,long,list,numeric-list,long-str,enum-list,"
+                        + sameOrder,
+                data);
+        Assertions.assertEquals(sameOrder + ",map.name", data2);
         Map<String, Object> differentValueMap =
                 JACKSON_MAPPER.readValue(
                         differentValueConfig.root().render(ConfigRenderOptions.concise()),
