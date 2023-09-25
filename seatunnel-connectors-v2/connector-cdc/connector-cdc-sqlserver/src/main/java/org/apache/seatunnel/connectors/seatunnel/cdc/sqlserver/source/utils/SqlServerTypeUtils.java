@@ -36,7 +36,7 @@ public class SqlServerTypeUtils {
 
     public static SeaTunnelDataType<?> convertFromColumn(Column column) {
 
-        switch (column.typeExpression()) {
+        switch (column.typeName().toLowerCase()) {
             case DATETIME_OFFSET:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
         }
