@@ -38,8 +38,9 @@ import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import com.hazelcast.jet.datamodel.Tuple3;
+import lombok.Getter;
 import lombok.NonNull;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
@@ -61,17 +62,36 @@ public class TextHeaderIT {
     private String FILE_FORMAT_TYPE = "file_format_type";
     private String ENABLE_HEADER_WRITE = "enable_header_write";
 
+    @Getter
+    @Setter
+    static class ContentHeader {
+        private String fileStyle;
+        private String enableWriteHeader;
+        private String headerName;
+
+        public ContentHeader(String fileStyle, String enableWriteHeader, String headerName) {
+            this.fileStyle = fileStyle;
+            this.enableWriteHeader = enableWriteHeader;
+            this.headerName = headerName;
+        }
+    }
+
     @Test
     public void testEnableWriteHeader() {
-        List<Tuple3> lists = new ArrayList<>();
-        lists.add(Tuple3.tuple3("text", "true", "name" + TextFormatConstant.SEPARATOR[0] + "age"));
-        lists.add(Tuple3.tuple3("text", "false", "name" + TextFormatConstant.SEPARATOR[0] + "age"));
-        lists.add(Tuple3.tuple3("csv", "true", "name,age"));
-        lists.add(Tuple3.tuple3("csv", "false", "name,age"));
+        List<ContentHeader> lists = new ArrayList<>();
+        lists.add(
+                new ContentHeader(
+                        "text", "true", "name" + TextFormatConstant.SEPARATOR[0] + "age"));
+        lists.add(
+                new ContentHeader(
+                        "text", "false", "name" + TextFormatConstant.SEPARATOR[0] + "age"));
+        lists.add(new ContentHeader("csv", "true", "name,age"));
+        lists.add(new ContentHeader("csv", "false", "name,age"));
         lists.forEach(
                 t -> {
                     try {
-                        enableWriteHeader(t.toString(), t.toString(), t.toString());
+                        enableWriteHeader(
+                                t.getFileStyle(), t.getEnableWriteHeader(), t.getHeaderName());
                     } catch (ExecutionException | InterruptedException e) {
                         throw new RuntimeException(e);
                     }
