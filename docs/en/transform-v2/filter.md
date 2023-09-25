@@ -52,6 +52,29 @@ Then the data in result table `fake1` will like this
 | Kin Dom  | 123  |
 | Joy Dom  | 123  |
 
+If it's a multi-table scenario, then the configuration example is as follows:
+
+```
+transform {
+    Filter {
+        source_table_name = "fake"
+        result_table_name = "fake1"
+
+        table_transform = [
+             {
+                tablePath = "liuliTest.transform_1"
+                fields = ["id_1"]
+             }
+             ,
+             {
+                tablePath = "liuliTest.transform_2"
+                fields = ["name_2", "age_2"]
+             }
+        ]
+    }
+}
+```
+
 ## Changelog
 
 ### new version

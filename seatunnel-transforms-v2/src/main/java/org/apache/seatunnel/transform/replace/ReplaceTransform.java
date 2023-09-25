@@ -42,16 +42,17 @@ import java.util.stream.Collectors;
 @AutoService(SeaTunnelTransform.class)
 @NoArgsConstructor
 public class ReplaceTransform extends SingleFieldOutputTransform {
-    private ReadonlyConfig config;
+    public static String PLUGIN_NAME = "Replace";
+    private ReplaceTransformConfig config;
     private int inputFieldIndex;
 
     public ReplaceTransform(
-            @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
+            @NonNull ReplaceTransformConfig config, @NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
         this.config = config;
         initOutputFields(
                 inputCatalogTable.getTableSchema().toPhysicalRowDataType(),
-                this.config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD));
+                this.config.getReplaceField());
     }
 
     @Override
@@ -63,12 +64,12 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
     protected void setConfig(Config pluginConfig) {
         ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
                 .validate(new ReplaceTransformFactory().optionRule());
-        this.config = ReadonlyConfig.fromConfig(pluginConfig);
+        this.config = ReplaceTransformConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
     }
 
     @Override
     protected void setInputRowType(SeaTunnelRowType rowType) {
-        initOutputFields(rowType, config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD));
+        initOutputFields(rowType, config.getReplaceField());
     }
 
     private void initOutputFields(SeaTunnelRowType inputRowType, String replaceField) {
@@ -81,7 +82,7 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
 
     @Override
     protected String getOutputFieldName() {
-        return config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD);
+        return config.getReplaceField();
     }
 
     @Override
@@ -96,29 +97,18 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
             return null;
         }
 
-        boolean isRegex =
-                config.get(ReplaceTransformConfig.KEY_IS_REGEX) == null
-                        ? false
-                        : config.get(ReplaceTransformConfig.KEY_IS_REGEX);
+        boolean isRegex = config.getIsRegex() == null ? false : config.getIsRegex();
         if (isRegex) {
-            if (config.get(ReplaceTransformConfig.KEY_REPLACE_FIRST)) {
+            if (config.getReplaceFirst()) {
                 return inputFieldValue
                         .toString()
-                        .replaceFirst(
-                                config.get(ReplaceTransformConfig.KEY_PATTERN),
-                                config.get(ReplaceTransformConfig.KEY_REPLACEMENT));
+                        .replaceFirst(config.getPattern(), config.getReplacement());
             }
             return inputFieldValue
                     .toString()
-                    .replaceAll(
-                            config.get(ReplaceTransformConfig.KEY_PATTERN),
-                            config.get(ReplaceTransformConfig.KEY_REPLACEMENT));
+                    .replaceAll(config.getPattern(), config.getReplacement());
         }
-        return inputFieldValue
-                .toString()
-                .replace(
-                        config.get(ReplaceTransformConfig.KEY_PATTERN),
-                        config.get(ReplaceTransformConfig.KEY_REPLACEMENT));
+        return inputFieldValue.toString().replace(config.getPattern(), config.getReplacement());
     }
 
     @Override
@@ -126,19 +116,11 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
         List<Column> columns = inputCatalogTable.getTableSchema().getColumns();
         List<Column> collect =
                 columns.stream()
-                        .filter(
-                                column ->
-                                        column.getName()
-                                                .equals(
-                                                        config.get(
-                                                                ReplaceTransformConfig
-                                                                        .KEY_REPLACE_FIELD)))
+                        .filter(column -> column.getName().equals(config.getReplaceField()))
                         .collect(Collectors.toList());
         if (CollectionUtils.isEmpty(collect)) {
             throw new IllegalArgumentException(
-                    "Cannot find ["
-                            + config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD)
-                            + "] field in input catalog table");
+                    "Cannot find [" + config.getReplaceField() + "] field in input catalog table");
         }
         return collect.get(0).copy();
     }

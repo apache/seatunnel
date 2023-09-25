@@ -113,6 +113,33 @@ sink {
 }
 ```
 
+If it's a multi-table scenario, then the configuration example is as follows:
+
+```
+transform {
+    Replace {
+        source_table_name = "fake"
+        result_table_name = "fake1"
+
+        table_transform = [
+             {
+                tablePath = "liuliTest.transform_1"
+                replace_field = "name_1"
+                pattern = "_"
+                replacement = "."
+             }
+             ,
+             {
+                tablePath = "liuliTest.transform_2"
+                replace_field = "name_2"
+                pattern = "_"
+                replacement = "."
+             }
+        ]
+    }
+}
+```
+
 ## Changelog
 
 ### new version

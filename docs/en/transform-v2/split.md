@@ -64,6 +64,33 @@ Then the data in result table `fake1` will like this
 | Kin Dom  | 20  | 123  | Kin        | Dom       |
 | Joy Dom  | 20  | 123  | Joy        | Dom       |
 
+If it's a multi-table scenario, then the configuration example is as follows:
+
+```
+transform {
+    Split {
+        source_table_name = "fake"
+        result_table_name = "fake1"
+
+        table_transform = [
+             {
+                tablePath = "liuliTest.transform_1"
+                separator = "_"
+                split_field = "name_1"
+                output_fields = ["f1", "f2"]
+             }
+             ,
+             {
+                tablePath = "liuliTest.transform_2"
+                separator = "_"
+                split_field = "name_2"
+                output_fields = ["f1", "f2"]
+             }
+        ]
+    }
+}
+```
+
 ## Changelog
 
 ### new version

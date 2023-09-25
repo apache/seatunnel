@@ -56,10 +56,10 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
     private String[] fields;
 
     public FilterFieldTransform(
-            @NonNull ReadonlyConfig config, @NonNull CatalogTable catalogTable) {
+            @NonNull FilterFieldTransformConfig config, @NonNull CatalogTable catalogTable) {
         super(catalogTable);
         SeaTunnelRowType seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
-        fields = config.get(FilterFieldTransformConfig.KEY_FIELDS).toArray(new String[0]);
+        fields = config.getFields();
         List<String> canNotFoundFields =
                 Arrays.stream(fields)
                         .filter(field -> seaTunnelRowType.indexOf(field) == -1)
@@ -116,7 +116,10 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
         for (int i = 0; i < fields.length; i++) {
             values[i] = inputRow.getField(inputValueIndex[i]);
         }
-        return new SeaTunnelRow(values);
+        SeaTunnelRow outputRow = new SeaTunnelRow(values);
+        outputRow.setRowKind(inputRow.getRowKind());
+        outputRow.setTableId(inputRow.getTableId());
+        return outputRow;
     }
 
     @Override

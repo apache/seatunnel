@@ -92,6 +92,29 @@ sink {
 }
 ```
 
+If it's a multi-table scenario, then the configuration example is as follows:
+
+```
+transform {
+    Sql {
+        source_table_name = "fake"
+        result_table_name = "fake1"
+
+        table_transform = [
+             {
+                tablePath = "liuliTest.transform_1"
+                query = "select id_1, regexp_replace(name_1, '_', '.') as name, age_1+1 as age, pi() as pi from fake"
+             }
+             ,
+             {
+                tablePath = "liuliTest.transform_2"
+                query = "select id_2, regexp_replace(name_2, '_', '-') as name, age_2+1 as age, pi() as pi from fake"
+             }
+        ]
+    }
+}
+```
+
 ## Changelog
 
 ### new version

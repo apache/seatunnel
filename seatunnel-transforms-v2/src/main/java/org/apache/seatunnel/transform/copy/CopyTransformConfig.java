@@ -17,15 +17,22 @@
 
 package org.apache.seatunnel.transform.copy;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAnySetter;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -53,6 +60,27 @@ public class CopyTransformConfig implements Serializable {
                     .withDescription(
                             "Specify the field copy relationship between input and output");
 
+    public static final Option<List<TableTransforms>> MULTI_TABLES =
+            Options.key("table_transform")
+                    .listType(TableTransforms.class)
+                    .noDefaultValue()
+                    .withDescription("");
+
+    @Data
+    public static class TableTransforms implements Serializable {
+        @JsonAlias("table_path")
+        private String tablePath;
+
+        private Map<String, String> fields = new HashMap<>();
+
+        @JsonAnySetter
+        public void add(String key, String value) {
+            // TODO Currently, ReadonlyConfig does not support storing objects, so special handling
+            // is required
+            fields.put(key.substring("fields.".length()), value);
+        }
+    }
+
     private LinkedHashMap<String, String> fields;
 
     public static CopyTransformConfig of(ReadonlyConfig config) {
@@ -62,6 +90,39 @@ public class CopyTransformConfig implements Serializable {
             fields.putAll(config.get(FIELDS));
         } else {
             fields.put(config.get(DEST_FIELD), config.get(SRC_FIELD));
+        }
+
+        CopyTransformConfig copyTransformConfig = new CopyTransformConfig();
+        copyTransformConfig.setFields(fields);
+        return copyTransformConfig;
+    }
+
+    public static CopyTransformConfig of(ReadonlyConfig config, CatalogTable catalogTable) {
+
+        String tableID = catalogTable.getTableId().toTablePath().toString();
+
+        LinkedHashMap<String, String> fields = new LinkedHashMap<>();
+        Optional<List<TableTransforms>> multiTableOp = config.getOptional(MULTI_TABLES);
+        Optional<Map<String, String>> fieldsOp = config.getOptional(FIELDS);
+        Optional<String> destOp = config.getOptional(DEST_FIELD);
+        Optional<String> srcOp = config.getOptional(SRC_FIELD);
+
+        if (multiTableOp.isPresent()) {
+            List<TableTransforms> tableTransforms = config.get(MULTI_TABLES);
+            for (TableTransforms tableTransform : tableTransforms) {
+                if (tableTransform.getTablePath().equals(tableID)) {
+                    fields.putAll(tableTransform.getFields());
+                    break;
+                }
+            }
+        }
+
+        if (fields.isEmpty()) {
+            if (fieldsOp.isPresent()) {
+                fields.putAll(config.get(FIELDS));
+            } else if (destOp.isPresent() && srcOp.isPresent()) {
+                fields.put(config.get(DEST_FIELD), config.get(SRC_FIELD));
+            }
         }
 
         CopyTransformConfig copyTransformConfig = new CopyTransformConfig();

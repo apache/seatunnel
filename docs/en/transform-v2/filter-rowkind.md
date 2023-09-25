@@ -66,3 +66,26 @@ sink {
 }
 ```
 
+If it's a multi-table scenario, then the configuration example is as follows:
+
+```
+transform {
+    FilterRowKind {
+        source_table_name = "fake"
+        result_table_name = "fake1"
+
+        table_transform = [
+             {
+                tablePath = "liuliTest.transform_1"
+                exclude_kinds = ["INSERT"]
+             }
+             ,
+             {
+                tablePath = "liuliTest.transform_2"
+                include_kinds = ["INSERT"]
+             }
+        ]
+    }
+}
+```
+

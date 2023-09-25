@@ -44,6 +44,7 @@ import java.util.stream.IntStream;
 @AutoService(SeaTunnelTransform.class)
 @NoArgsConstructor
 public class SplitTransform extends MultipleFieldOutputTransform {
+    public static String PLUGIN_NAME = "Split";
     private SplitTransformConfig splitTransformConfig;
     private int splitFieldIndex;
 

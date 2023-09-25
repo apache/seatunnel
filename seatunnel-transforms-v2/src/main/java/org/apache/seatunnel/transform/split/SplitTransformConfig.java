@@ -17,10 +17,14 @@
 
 package org.apache.seatunnel.transform.split;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -48,6 +52,27 @@ public class SplitTransformConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription("The result fields after split");
 
+    public static final Option<List<TableTransforms>> MULTI_TABLES =
+            Options.key("table_transform")
+                    .listType(TableTransforms.class)
+                    .noDefaultValue()
+                    .withDescription("");
+
+    @Data
+    public static class TableTransforms implements Serializable {
+        @JsonAlias("table_path")
+        private String tablePath;
+
+        @JsonAlias("separator")
+        private String separator;
+
+        @JsonAlias("split_field")
+        private String splitField;
+
+        @JsonAlias("output_fields")
+        private String[] outputFields;
+    }
+
     private String separator;
     private String splitField;
     private String[] outputFields;
@@ -61,5 +86,28 @@ public class SplitTransformConfig implements Serializable {
         splitTransformConfig.setEmptySplits(
                 new String[splitTransformConfig.getOutputFields().length]);
         return splitTransformConfig;
+    }
+
+    public static SplitTransformConfig of(ReadonlyConfig config, CatalogTable catalogTable) {
+        String tablePath = catalogTable.getTableId().toTablePath().getFullName();
+        if (null != config.get(MULTI_TABLES)) {
+            return config.get(MULTI_TABLES).stream()
+                    .filter(tableTransforms -> tableTransforms.getTablePath().equals(tablePath))
+                    .findFirst()
+                    .map(
+                            tableTransforms -> {
+                                SplitTransformConfig splitTransformConfig =
+                                        new SplitTransformConfig();
+                                splitTransformConfig.setSeparator(tableTransforms.getSeparator());
+                                splitTransformConfig.setSplitField(tableTransforms.getSplitField());
+                                splitTransformConfig.setOutputFields(
+                                        tableTransforms.getOutputFields());
+                                splitTransformConfig.setEmptySplits(
+                                        new String[splitTransformConfig.getOutputFields().length]);
+                                return splitTransformConfig;
+                            })
+                    .orElseGet(() -> of(config));
+        }
+        return of(config);
     }
 }

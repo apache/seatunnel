@@ -17,9 +17,14 @@
 
 package org.apache.seatunnel.transform.filter;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -35,4 +40,44 @@ public class FilterFieldTransformConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription(
                             "The list of fields that need to be kept. Fields not in the list will be deleted");
+
+    public static final Option<List<TableTransforms>> MULTI_TABLES =
+            Options.key("table_transform")
+                    .listType(TableTransforms.class)
+                    .noDefaultValue()
+                    .withDescription("");
+
+    @Data
+    public static class TableTransforms implements Serializable {
+        @JsonAlias("table_path")
+        private String tablePath;
+
+        private String[] fields = new String[] {};
+    }
+
+    private String[] fields = new String[] {};
+
+    public static FilterFieldTransformConfig of(ReadonlyConfig config) {
+        FilterFieldTransformConfig transformConfig = new FilterFieldTransformConfig();
+        transformConfig.setFields(config.get(KEY_FIELDS).toArray(new String[0]));
+        return transformConfig;
+    }
+
+    public static FilterFieldTransformConfig of(ReadonlyConfig config, CatalogTable catalogTable) {
+        String tablePath = catalogTable.getTableId().toTablePath().getFullName();
+        if (null != config.get(MULTI_TABLES)) {
+            return config.get(MULTI_TABLES).stream()
+                    .filter(tableTransforms -> tableTransforms.getTablePath().equals(tablePath))
+                    .findFirst()
+                    .map(
+                            tableTransforms -> {
+                                FilterFieldTransformConfig filterFieldTransformConfig =
+                                        new FilterFieldTransformConfig();
+                                filterFieldTransformConfig.setFields(tableTransforms.getFields());
+                                return filterFieldTransformConfig;
+                            })
+                    .orElseGet(() -> of(config));
+        }
+        return of(config);
+    }
 }
