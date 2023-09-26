@@ -67,7 +67,7 @@ public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
         if (super.jdbcConfig.getPassword().isPresent()) {
             info.setProperty("password", super.jdbcConfig.getPassword().get());
         }
-        super.connection=driver.connect(super.jdbcConfig.getUrl(), info);
+        super.connection = driver.connect(super.jdbcConfig.getUrl(), info);
         if (super.getConnection() == null) {
             // Throw same exception as DriverManager.getConnection when no driver found to match
             // caller expectation.
