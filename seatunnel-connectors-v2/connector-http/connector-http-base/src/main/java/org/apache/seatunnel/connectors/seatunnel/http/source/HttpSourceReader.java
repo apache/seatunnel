@@ -32,6 +32,14 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 
+import com.google.common.base.Strings;
+import com.jayway.jsonpath.Configuration;
+import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.Option;
+import com.jayway.jsonpath.ReadContext;
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
@@ -41,14 +49,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import com.google.common.base.Strings;
-import com.jayway.jsonpath.Configuration;
-import com.jayway.jsonpath.JsonPath;
-import com.jayway.jsonpath.Option;
-import com.jayway.jsonpath.ReadContext;
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
-
 @Slf4j
 @Setter
 public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
@@ -56,7 +56,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     protected final HttpParameter httpParameter;
     protected HttpClientProvider httpClient;
     private final Configuration jsonConfiguration =
-        Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
+            Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
     private final DeserializationCollector deserializationCollector;
     private static final Option[] DEFAULT_OPTIONS = {
         Option.SUPPRESS_EXCEPTIONS, Option.ALWAYS_RETURN_LIST, Option.DEFAULT_PATH_LEAF_TO_NULL
@@ -68,11 +68,11 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private PageInfo pageInfo;
 
     public HttpSourceReader(
-        HttpParameter httpParameter,
-        SingleSplitReaderContext context,
-        DeserializationSchema<SeaTunnelRow> deserializationSchema,
-        JsonField jsonField,
-        String contentJson) {
+            HttpParameter httpParameter,
+            SingleSplitReaderContext context,
+            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            JsonField jsonField,
+            String contentJson) {
         this.context = context;
         this.httpParameter = httpParameter;
         this.deserializationCollector = new DeserializationCollector(deserializationSchema);
@@ -94,12 +94,12 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     public void pollAndCollectData(Collector<SeaTunnelRow> output) throws Exception {
         HttpResponse response =
-            httpClient.execute(
-                this.httpParameter.getUrl(),
-                this.httpParameter.getMethod().getMethod(),
-                this.httpParameter.getHeaders(),
-                this.httpParameter.getParams(),
-                this.httpParameter.getBody());
+                httpClient.execute(
+                        this.httpParameter.getUrl(),
+                        this.httpParameter.getMethod().getMethod(),
+                        this.httpParameter.getHeaders(),
+                        this.httpParameter.getParams(),
+                        this.httpParameter.getBody());
         if (HttpResponse.STATUS_OK == response.getCode()) {
             String content = response.getContent();
             if (!Strings.isNullOrEmpty(content)) {
@@ -115,22 +115,22 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 }
             }
             log.info(
-                "http client execute success request param:[{}], http response status code:[{}], content:[{}]",
-                httpParameter.getParams(),
-                response.getCode(),
-                response.getContent());
+                    "http client execute success request param:[{}], http response status code:[{}], content:[{}]",
+                    httpParameter.getParams(),
+                    response.getCode(),
+                    response.getContent());
         } else {
             log.error(
-                "http client execute exception, http response status code:[{}], content:[{}]",
-                response.getCode(),
-                response.getContent());
+                    "http client execute exception, http response status code:[{}], content:[{}]",
+                    response.getCode(),
+                    response.getContent());
         }
     }
 
     private void updateRequestParam(PageInfo pageInfo) {
         this.httpParameter
-            .getParams()
-            .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
+                .getParams()
+                .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
         //
     }
 
@@ -148,7 +148,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     pollAndCollectData(output);
                     pageIndex += 1;
                     if ((pageInfo.getTotalPageSize() > 0 && pageIndex > pageInfo.getTotalPageSize())
-                        | pageIndex > pageInfo.getMaxPageSize()) {
+                            | pageIndex > pageInfo.getMaxPageSize()) {
                         noMoreElementFlag = true;
                     }
                 }
