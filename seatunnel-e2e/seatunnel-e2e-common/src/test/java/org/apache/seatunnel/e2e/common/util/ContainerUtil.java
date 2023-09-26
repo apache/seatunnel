@@ -88,8 +88,7 @@ public final class ContainerUtil {
                 jar ->
                         container.copyFileToContainer(
                                 MountableFile.forHostPath(jar.getAbsolutePath()),
-                                Paths.get(seatunnelHome, "connectors", connectorType, jar.getName())
-                                        .toString()));
+                                Paths.get(seatunnelHome, "connectors", jar.getName()).toString()));
     }
 
     public static String copyConfigFileToContainer(GenericContainer<?> container, String confFile) {

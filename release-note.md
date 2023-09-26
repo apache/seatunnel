@@ -76,6 +76,7 @@
 - [Zeta] Fix cpu load problem (#4828)
 - [zeta] Fix the deadlock issue with JDBC driver loading (#4878)
 - [zeta] dynamically replace the value of the variable at runtime (#4950)
+- [zeta] Fix CDC task restore throw NPE (#5507)
 
 ### E2E
 
@@ -138,6 +139,7 @@
 - [Zeta] Cancel pipeline add retry to avoid cancel failed. (#4792)
 - [Zeta] Improve Zeta operation max count and ignore NPE (#4787)
 - [Zeta] Remove serialize(deserialize) cost when use shuffle action (#4722)
+- [zeta] Checkpoint exception status messages exclude state data (#5547)
 
 ## Feature
 
@@ -147,6 +149,7 @@
 - [Core] [API] Add copy method to Catalog codes (#4414)
 - [Core] [API] Add options check before create source and sink and transform in FactoryUtil (#4424)
 - [Core] [Shade] Add guava shade module (#4358)
+- [Core] [Flink] Support Decimal Type with configurable precision and scale (#5419)
 
 ### Connector-V2
 
