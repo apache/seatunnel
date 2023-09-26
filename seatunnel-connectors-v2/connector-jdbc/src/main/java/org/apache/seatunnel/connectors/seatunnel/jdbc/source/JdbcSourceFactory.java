@@ -38,7 +38,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcInputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 
@@ -81,13 +80,13 @@ public class JdbcSourceFactory implements TableSourceFactory {
             TableSource<T, SplitT, StateT> createSource(TableFactoryContext context) {
         CatalogTable catalogTable = context.getCatalogTable();
         JdbcSourceConfig config = JdbcSourceConfig.of(context.getOptions());
-        JdbcConnectionProvider connectionProvider =
-                new SimpleJdbcConnectionProvider(config.getJdbcConnectionConfig());
         final String querySql = config.getQuery();
         JdbcDialect dialect =
                 JdbcDialectLoader.load(
                         config.getJdbcConnectionConfig().getUrl(),
                         config.getJdbcConnectionConfig().getCompatibleMode());
+        JdbcConnectionProvider connectionProvider =
+                dialect.getJdbcConnectionProvider(config.getJdbcConnectionConfig());
         TableSchema tableSchema = catalogTable.getTableSchema();
         SeaTunnelRowType rowType = tableSchema.toPhysicalRowDataType();
         Optional<PartitionParameter> partitionParameter =

@@ -36,7 +36,6 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcInputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
@@ -97,13 +96,13 @@ public class JdbcSource
         ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
         ConfigValidator.of(config).validate(new JdbcSourceFactory().optionRule());
         this.jdbcSourceConfig = JdbcSourceConfig.of(config);
-        this.jdbcConnectionProvider =
-                new SimpleJdbcConnectionProvider(jdbcSourceConfig.getJdbcConnectionConfig());
         this.query = jdbcSourceConfig.getQuery();
         this.jdbcDialect =
                 JdbcDialectLoader.load(
                         jdbcSourceConfig.getJdbcConnectionConfig().getUrl(),
                         jdbcSourceConfig.getJdbcConnectionConfig().getCompatibleMode());
+        this.jdbcConnectionProvider =
+                jdbcDialect.getJdbcConnectionProvider(jdbcSourceConfig.getJdbcConnectionConfig());
         try (Connection connection = jdbcConnectionProvider.getOrEstablishConnection()) {
             this.typeInfo = initTableField(connection);
             this.partitionParameter =

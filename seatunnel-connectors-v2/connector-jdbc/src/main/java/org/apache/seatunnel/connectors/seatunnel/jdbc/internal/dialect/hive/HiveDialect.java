@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.hive;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
@@ -56,5 +58,11 @@ public class HiveDialect implements JdbcDialect {
             Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
         PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
         return ps.executeQuery().getMetaData();
+    }
+
+    @Override
+    public JdbcConnectionProvider getJdbcConnectionProvider(
+            JdbcConnectionConfig jdbcConnectionConfig) {
+        return new HiveJdbcConnectionProvider(jdbcConnectionConfig);
     }
 }

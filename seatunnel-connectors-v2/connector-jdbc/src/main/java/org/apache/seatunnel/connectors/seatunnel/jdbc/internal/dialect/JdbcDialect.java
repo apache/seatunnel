@@ -18,7 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
@@ -239,5 +242,10 @@ public interface JdbcDialect extends Serializable {
             default:
                 return identifier;
         }
+    }
+
+    default JdbcConnectionProvider getJdbcConnectionProvider(
+            JdbcConnectionConfig jdbcConnectionConfig) {
+        return new SimpleJdbcConnectionProvider(jdbcConnectionConfig);
     }
 }
