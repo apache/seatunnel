@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import com.beust.jcommander.internal.Nullable;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.time.Instant;
 import java.util.List;
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledFuture;
 
 public class PendingCheckpoint implements Checkpoint {
     private static final Logger LOG = LoggerFactory.getLogger(PendingCheckpoint.class);
@@ -56,6 +58,8 @@ public class PendingCheckpoint implements Checkpoint {
     private final CompletableFuture<CompletedCheckpoint> completableFuture;
 
     @Getter private CheckpointException failureCause;
+
+    @Setter ScheduledFuture<?> checkpointTimeOutFuture;
 
     public PendingCheckpoint(
             long jobId,
@@ -172,6 +176,15 @@ public class PendingCheckpoint implements Checkpoint {
             this.failureCause = new CheckpointException(closedReason, cause);
             completableFuture.completeExceptionally(failureCause);
         }
+    }
+
+    // Avoid memory leak in ScheduledThreadPoolExecutor due to overly long timeout settings causing
+    // numerous completed checkpoints to remain
+    public void abortCheckpointTimeoutFutureWhenIsCompleted() {
+        if (checkpointTimeOutFuture == null) {
+            return;
+        }
+        checkpointTimeOutFuture.cancel(false);
     }
 
     public String getInfo() {
