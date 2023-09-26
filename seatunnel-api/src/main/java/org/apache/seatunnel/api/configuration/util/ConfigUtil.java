@@ -113,12 +113,29 @@ public class ConfigUtil {
                 } else if (propertiesMap.get(tempPrefix) instanceof String) {
                     loadPropertiesStyleMap(temp).put("", propertiesMap.get(tempPrefix));
                 } else {
-                    ((Map) propertiesMap.get(tempPrefix)).putAll(loadPropertiesStyleMap(temp));
+                    mergeTwoMap((Map) propertiesMap.get(tempPrefix), loadPropertiesStyleMap(temp));
                 }
             } else {
                 propertiesMap.put(tempPrefix, loadPropertiesStyleObject(temp));
             }
             temp.clear();
+        }
+    }
+
+    private static void mergeTwoMap(Map<String, Object> base, Map<String, Object> merged) {
+        for (Map.Entry<String, Object> entry : merged.entrySet()) {
+            if (base.containsKey(entry.getKey())) {
+                if (base.get(entry.getKey()) instanceof Map && entry.getValue() instanceof Map) {
+                    mergeTwoMap((Map) base.get(entry.getKey()), (Map) entry.getValue());
+                } else {
+                    throw new IllegalArgumentException(
+                            String.format(
+                                    "Duplicate key '%s' in config file, value '%s' and value '%s'",
+                                    entry.getKey(), base.get(entry.getKey()), entry.getValue()));
+                }
+            } else {
+                base.put(entry.getKey(), entry.getValue());
+            }
         }
     }
 

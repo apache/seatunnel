@@ -38,6 +38,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -138,5 +139,21 @@ public class ConfigUtilTest {
         offsets.put("test_topic_source-0", "50");
         Assertions.assertEquals(
                 ((Map) ((List) value.get("source")).get(0)).get("start_mode"), expect);
+    }
+
+    @Test
+    public void testSamePrefixDifferentSuffixKey() {
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put(
+                "fs.s3a.aws.credentials.provider",
+                "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider");
+        config.put("other", "value");
+        config.put("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn");
+        Map<String, Object> result = ConfigUtil.treeMap(config);
+        Map<String, Object> s3aMap =
+                (Map<String, Object>) ((Map<String, Object>) result.get("fs")).get("s3a");
+        Assertions.assertTrue(s3aMap.containsKey("aws"));
+        Assertions.assertTrue(s3aMap.containsKey("endpoint"));
+        Assertions.assertEquals(2, s3aMap.size());
     }
 }
