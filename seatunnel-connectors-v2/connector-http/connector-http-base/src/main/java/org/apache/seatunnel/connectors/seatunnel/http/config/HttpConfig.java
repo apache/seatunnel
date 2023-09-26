@@ -29,6 +29,38 @@ public class HttpConfig {
     public static final boolean DEFAULT_ENABLE_MULTI_LINES = false;
     public static final Option<String> URL =
             Options.key("url").stringType().noDefaultValue().withDescription("Http request url");
+    public static final Option<Long> TOTAL_PAGE_SIZE =
+            Options.key("total_page_size")
+                    .longType()
+                    .defaultValue(0L)
+                    .withDescription("total page size");
+    public static final Option<String> JSON_VERIFY_EXPRESSION =
+            Options.key("json_verify_expression")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("json verify expression ");
+    public static final Option<String> JSON_VERIFY_VALUE =
+            Options.key("json_verify_value")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("json verify value ");
+    public static final Option<Long> MAX_PAGE_SIZE =
+            Options.key("max_page_size")
+                    .longType()
+                    .defaultValue(10000L)
+                    .withDescription("max page size ");
+    public static final Option<String> PAGE_FIELD =
+            Options.key("page_field")
+                    .stringType()
+                    .defaultValue("page")
+                    .withDescription("page field");
+    public static final Option<String> TOTAL_PAGE_FIELD_PATH =
+            Options.key("total_page_field_path")
+                    .stringType()
+                    .defaultValue("$.pages")
+                    .withDescription("total page field json path");
+    public static final Option<Map<String, String>> PAGEING =
+            Options.key("pageing").mapType().noDefaultValue().withDescription("pageing");
     public static final Option<HttpRequestMethod> METHOD =
             Options.key("method")
                     .enumType(HttpRequestMethod.class)
