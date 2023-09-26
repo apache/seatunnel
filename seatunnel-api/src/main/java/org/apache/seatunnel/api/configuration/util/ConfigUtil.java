@@ -127,6 +127,13 @@ public class ConfigUtil {
             if (base.containsKey(entry.getKey())) {
                 if (base.get(entry.getKey()) instanceof Map && entry.getValue() instanceof Map) {
                     mergeTwoMap((Map) base.get(entry.getKey()), (Map) entry.getValue());
+                } else if (base.get(entry.getKey()) instanceof Map) {
+                    ((Map) base.get(entry.getKey())).put("", entry.getValue());
+                } else if (entry.getValue() instanceof Map) {
+                    Map<String, Object> child = new LinkedHashMap<>();
+                    child.put("", base.get(entry.getKey()));
+                    child.putAll((Map) entry.getValue());
+                    base.put(entry.getKey(), child);
                 } else {
                     throw new IllegalArgumentException(
                             String.format(
@@ -165,8 +172,14 @@ public class ConfigUtil {
     }
 
     private static Object loadPropertiesStyleObject(Map<List<String>, String> properties) {
-        if (properties.containsKey(null)) {
+        if (properties.containsKey(null) && properties.size() == 1) {
             return StringEscapeUtils.unescapeJava(properties.get(null));
+        } else if (properties.containsKey(null)) {
+            if (properties.containsKey(null)) {
+                properties.put(Collections.singletonList(""), properties.get(null));
+                properties.remove(null);
+            }
+            return loadPropertiesStyleMap(properties);
         } else if (properties.entrySet().stream().anyMatch(kv -> kv.getKey().get(0).equals("1"))) {
             return loadPropertiesStyleList(properties);
         } else {

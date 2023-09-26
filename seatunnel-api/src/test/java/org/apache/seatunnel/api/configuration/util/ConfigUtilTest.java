@@ -156,4 +156,39 @@ public class ConfigUtilTest {
         Assertions.assertTrue(s3aMap.containsKey("endpoint"));
         Assertions.assertEquals(2, s3aMap.size());
     }
+
+    @Test
+    public void testSamePrefixDifferentValueType() {
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("start.mode", "CONSUME_FROM_TIMESTAMP");
+        config.put("other", "value");
+        config.put("start.mode.timestamp", "1667179890315");
+        Map<String, Object> result = ConfigUtil.treeMap(config);
+        Map<String, Object> s3aMap =
+                (Map<String, Object>) ((Map<String, Object>) result.get("start")).get("mode");
+        Assertions.assertTrue(s3aMap.containsKey(""));
+        Assertions.assertTrue(s3aMap.containsKey("timestamp"));
+        Assertions.assertEquals(2, s3aMap.size());
+
+        config.clear();
+        config.put("start.mode", "CONSUME_FROM_TIMESTAMP");
+        config.put("start.mode.timestamp", "1667179890315");
+        Map<String, Object> result2 = ConfigUtil.treeMap(config);
+        Map<String, Object> s3aMap2 =
+                (Map<String, Object>) ((Map<String, Object>) result2.get("start")).get("mode");
+        Assertions.assertTrue(s3aMap2.containsKey(""));
+        Assertions.assertTrue(s3aMap2.containsKey("timestamp"));
+        Assertions.assertEquals(2, s3aMap2.size());
+
+        config.clear();
+        config.put("start.mode", "CONSUME_FROM_TIMESTAMP");
+        config.put("start.mode.timestamp.test1", "1667179890315");
+        config.put("start.mode.timestamp.test2", "1667179890315");
+        Map<String, Object> result3 = ConfigUtil.treeMap(config);
+        Map<String, Object> s3aMap3 =
+                (Map<String, Object>) ((Map<String, Object>) result3.get("start")).get("mode");
+        Assertions.assertTrue(s3aMap3.containsKey(""));
+        Assertions.assertTrue(s3aMap3.containsKey("timestamp"));
+        Assertions.assertEquals(2, s3aMap3.size());
+    }
 }
