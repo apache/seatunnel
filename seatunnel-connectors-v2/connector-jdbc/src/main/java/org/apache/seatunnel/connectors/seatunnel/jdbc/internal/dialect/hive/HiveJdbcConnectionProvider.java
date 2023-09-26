@@ -46,7 +46,7 @@ public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
         if (isConnectionValid()) {
             return super.getConnection();
         }
-        JdbcConnectionConfig jdbcConfig = super.getJdbcConfig();
+        JdbcConnectionConfig jdbcConfig = super.jdbcConfig;
         if (jdbcConfig.useKerberos) {
             System.setProperty("java.security.krb5.conf", jdbcConfig.krb5Path);
             Configuration configuration = new Configuration();
@@ -61,19 +61,19 @@ public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
         }
         Driver driver = getLoadedDriver();
         Properties info = new Properties();
-        if (super.getJdbcConfig().getUsername().isPresent()) {
-            info.setProperty("user", super.getJdbcConfig().getUsername().get());
+        if (super.jdbcConfig.getUsername().isPresent()) {
+            info.setProperty("user", super.jdbcConfig.getUsername().get());
         }
-        if (super.getJdbcConfig().getPassword().isPresent()) {
-            info.setProperty("password", super.getJdbcConfig().getPassword().get());
+        if (super.jdbcConfig.getPassword().isPresent()) {
+            info.setProperty("password", super.jdbcConfig.getPassword().get());
         }
-        super.setConnection(driver.connect(super.getJdbcConfig().getUrl(), info));
+        super.connection=driver.connect(super.jdbcConfig.getUrl(), info);
         if (super.getConnection() == null) {
             // Throw same exception as DriverManager.getConnection when no driver found to match
             // caller expectation.
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.NO_SUITABLE_DRIVER,
-                    "No suitable driver found for " + super.getJdbcConfig().getUrl());
+                    "No suitable driver found for " + super.jdbcConfig.getUrl());
         }
         return super.getConnection();
     }

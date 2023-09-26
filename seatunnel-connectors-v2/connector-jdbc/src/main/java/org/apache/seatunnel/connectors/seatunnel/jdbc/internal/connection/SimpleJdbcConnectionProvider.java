@@ -38,17 +38,16 @@ import java.util.Properties;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /** Simple JDBC connection provider. */
-@Data
 public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Serializable {
 
     private static final Logger LOG = LoggerFactory.getLogger(SimpleJdbcConnectionProvider.class);
 
     private static final long serialVersionUID = 1L;
 
-    private final JdbcConnectionConfig jdbcConfig;
+    protected final JdbcConnectionConfig jdbcConfig;
 
     private transient Driver loadedDriver;
-    private transient Connection connection;
+    protected transient Connection connection;
 
     public SimpleJdbcConnectionProvider(@NonNull JdbcConnectionConfig jdbcConfig) {
         this.jdbcConfig = jdbcConfig;
