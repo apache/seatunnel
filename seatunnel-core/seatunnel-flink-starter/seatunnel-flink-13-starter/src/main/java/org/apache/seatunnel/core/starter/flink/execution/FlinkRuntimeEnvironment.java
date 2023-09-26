@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.starter.flink.execution;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -51,8 +52,11 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -64,7 +68,8 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
     private StreamExecutionEnvironment environment;
 
     private StreamTableEnvironment tableEnvironment;
-
+    private Map<String, SeaTunnelRowType> stagedTypes = new LinkedHashMap<>();
+    private Optional<SeaTunnelRowType> defaultType = Optional.empty();
     private JobMode jobMode;
 
     private String jobName = Constants.LOGO;
@@ -332,6 +337,24 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
         }
         tableEnvironment.createTemporaryView(
                 name, tableEnvironment.fromChangelogStream(dataStream));
+    }
+
+    public void stageType(String tblName, SeaTunnelRowType type) {
+        stagedTypes.put(tblName, type);
+    }
+
+    public void stageDefaultType(SeaTunnelRowType type) {
+        this.defaultType = Optional.of(type);
+    }
+
+    public Optional<SeaTunnelRowType> type(String tblName) {
+        return stagedTypes.containsKey(tblName)
+                ? Optional.of(stagedTypes.get(tblName))
+                : Optional.empty();
+    }
+
+    public Optional<SeaTunnelRowType> defaultType() {
+        return this.defaultType;
     }
 
     public static FlinkRuntimeEnvironment getInstance(Config config) {
