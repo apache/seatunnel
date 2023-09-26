@@ -16,12 +16,20 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
+import org.apache.seatunnel.shade.com.google.common.io.ByteStreams;
+
+import org.apache.commons.codec.binary.Base64;
+
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.sql.Blob;
 import java.sql.Date;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.Formatter;
 
 public final class JdbcUtils {
 
@@ -102,5 +110,46 @@ public final class JdbcUtils {
             return null;
         }
         return resultSet.getBytes(columnIndex);
+    }
+
+    /** Support to LOG for debug. */
+    public static void formatResultSet(ResultSet resultSet, Appendable appendable)
+            throws SQLException, IOException {
+        ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
+        int columnCount = resultSetMetaData.getColumnCount();
+        StringBuilder formatBuilder = new StringBuilder();
+        Formatter formatter = new Formatter(appendable);
+        Object[] headers = new String[columnCount];
+        formatBuilder.append("|");
+        for (int col = 1; col <= columnCount; col++) {
+            formatBuilder.append("%-8.8s").append("|");
+            headers[col - 1] = resultSetMetaData.getColumnName(col);
+        }
+        String format = formatBuilder.toString();
+        formatter.format(format, headers);
+        if (resultSetMetaData.getColumnCount() > 0) {
+            while (resultSet.next()) {
+                Object[] row = new Object[columnCount];
+                for (int col = 1; col <= columnCount; col++) {
+                    Object obj = resultSet.getObject(col);
+                    if (obj == null) {
+                        row[col - 1] = "\\N";
+                    } else {
+                        if (obj instanceof Blob) {
+                            row[col - 1] =
+                                    Base64.encodeBase64String(
+                                            ByteStreams.toByteArray(
+                                                    ((Blob) obj).getBinaryStream()));
+                        } else {
+                            row[col - 1] = obj;
+                        }
+                    }
+                }
+                appendable.append("\n");
+                formatter.format(format, row);
+            }
+        } else {
+            appendable.append("\n").append("<Not Row>");
+        }
     }
 }
