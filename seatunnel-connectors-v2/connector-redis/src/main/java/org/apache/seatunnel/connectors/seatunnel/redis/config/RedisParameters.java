@@ -120,7 +120,7 @@ public class RedisParameters implements Serializable {
                 if (StringUtils.isNotBlank(user)) {
                     jedis.aclSetUser(user);
                 }
-                if (dbNum !=null && dbNum> 0) {
+                if (dbNum != null && dbNum > 0) {
                     jedis.select(dbNum);
                 }
                 return jedis;
@@ -157,7 +157,7 @@ public class RedisParameters implements Serializable {
                     jedisCluster = new JedisCluster(nodes);
                 }
                 JedisWrapper jedisWrapper = new JedisWrapper(jedisCluster);
-                if (dbNum !=null && dbNum> 0) {
+                if (dbNum != null && dbNum > 0) {
                     jedisWrapper.select(dbNum);
                 }
                 return jedisWrapper;
