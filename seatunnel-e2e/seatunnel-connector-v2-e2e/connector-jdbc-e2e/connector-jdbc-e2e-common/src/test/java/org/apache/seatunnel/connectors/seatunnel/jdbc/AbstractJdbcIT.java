@@ -40,6 +40,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.lifecycle.Startables;
 
+import com.github.dockerjava.api.model.Image;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -239,6 +240,23 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     public void tearDown() throws SQLException {
         if (dbServer != null) {
             dbServer.close();
+            String images =
+                    dockerClient.listImagesCmd().exec().stream()
+                            .map(Image::getId)
+                            .collect(Collectors.joining(","));
+            log.info(
+                    "before remove image {}, list images: {}",
+                    dbServer.getDockerImageName(),
+                    images);
+            dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
+            images =
+                    dockerClient.listImagesCmd().exec().stream()
+                            .map(Image::getId)
+                            .collect(Collectors.joining(","));
+            log.info(
+                    "after remove image {}, list images: {}",
+                    dbServer.getDockerImageName(),
+                    images);
         }
 
         if (connection != null) {
