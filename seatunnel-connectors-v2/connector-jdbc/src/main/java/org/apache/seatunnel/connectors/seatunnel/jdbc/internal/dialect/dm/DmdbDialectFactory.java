@@ -19,8 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
 
 import com.google.auto.service.AutoService;
+
+import javax.annotation.Nonnull;
 
 /** Factory for {@link DmdbDialect}. */
 @AutoService(JdbcDialectFactory.class)
@@ -34,5 +37,10 @@ public class DmdbDialectFactory implements JdbcDialectFactory {
     @Override
     public JdbcDialect create() {
         return new DmdbDialect();
+    }
+
+    @Override
+    public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
+        return new MysqlDialect(fieldIde);
     }
 }
