@@ -1,11 +1,3 @@
-package org.apache.seatunnel.connectors.seatunnel.http.config;
-
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-
-import java.io.Serializable;
-
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more contributor license
  * agreements. See the NOTICE file distributed with this work for additional information regarding
@@ -20,6 +12,14 @@ import java.io.Serializable;
  * express or implied. See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.seatunnel.connectors.seatunnel.http.config;
+
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+
+import java.io.Serializable;
+
 @Setter
 @Getter
 @ToString
