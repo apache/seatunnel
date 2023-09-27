@@ -61,7 +61,7 @@ public class JdbcOracleLowerTableIT extends AbstractJdbcIT {
     private static final List<String> CONFIG_FILE = Lists.newArrayList();
 
     private static final String CREATE_SQL =
-            "create table \"%s\"\n"
+            "create table %s\n"
                     + "(\n"
                     + "    VARCHAR_10_COL                varchar2(10),\n"
                     + "    CHAR_10_COL                   char(10),\n"
