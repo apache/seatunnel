@@ -73,7 +73,6 @@ public class MySqlConnectionUtils {
     }
 
     /** Fetch earliest binlog offsets in MySql Server. */
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static BinlogOffset earliestBinlogOffset(JdbcConnection jdbc) {
         final String showMasterStmt = "SHOW MASTER LOGS";
         JdbcConnection.ResultSetMapper<BinlogOffset> getCurrentBinlogOffset =
@@ -87,7 +86,6 @@ public class MySqlConnectionUtils {
     }
 
     /** Fetch current binlog offsets in MySql Server. */
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static BinlogOffset currentBinlogOffset(JdbcConnection jdbc) {
         final String showMasterStmt = "SHOW MASTER STATUS";
         JdbcConnection.ResultSetMapper<BinlogOffset> getCurrentBinlogOffset =

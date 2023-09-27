@@ -33,7 +33,6 @@ import org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.MapTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
-import org.apache.flink.table.runtime.typeutils.BigDecimalTypeInfo;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -43,7 +42,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public class TypeConverterUtils {
 
     private static final Map<Class<?>, BridgedType> BRIDGED_TYPES = new HashMap<>(32);
@@ -71,11 +69,15 @@ public class TypeConverterUtils {
                 BridgedType.of(BasicType.DOUBLE_TYPE, BasicTypeInfo.DOUBLE_TYPE_INFO));
         BRIDGED_TYPES.put(
                 Void.class, BridgedType.of(BasicType.VOID_TYPE, BasicTypeInfo.VOID_TYPE_INFO));
-        // TODO: there is a still an unresolved issue that the BigDecimal type will lose the
-        // precision and scale
+        /**
+         * To solve lost precision and scale of {@link
+         * org.apache.seatunnel.api.table.type.DecimalType}, use {@link
+         * org.apache.flink.api.common.typeinfo.BasicTypeInfo#STRING_TYPE_INFO} as the payload of
+         * {@link org.apache.seatunnel.api.table.type.DecimalType}.
+         */
         BRIDGED_TYPES.put(
                 BigDecimal.class,
-                BridgedType.of(new DecimalType(38, 18), BasicTypeInfo.BIG_DEC_TYPE_INFO));
+                BridgedType.of(new DecimalType(38, 18), BasicTypeInfo.STRING_TYPE_INFO));
 
         // data time types
         BRIDGED_TYPES.put(
@@ -135,10 +137,7 @@ public class TypeConverterUtils {
         if (bridgedType != null) {
             return bridgedType.getSeaTunnelType();
         }
-        if (dataType instanceof BigDecimalTypeInfo) {
-            BigDecimalTypeInfo decimalType = (BigDecimalTypeInfo) dataType;
-            return new DecimalType(decimalType.precision(), decimalType.scale());
-        }
+
         if (dataType instanceof MapTypeInfo) {
             MapTypeInfo<?, ?> mapTypeInfo = (MapTypeInfo<?, ?>) dataType;
             return new MapType<>(
@@ -161,10 +160,7 @@ public class TypeConverterUtils {
         if (bridgedType != null) {
             return bridgedType.getFlinkType();
         }
-        if (dataType instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) dataType;
-            return new BigDecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
-        }
+
         if (dataType instanceof MapType) {
             MapType<?, ?> mapType = (MapType<?, ?>) dataType;
             return new MapTypeInfo<>(

@@ -2,6 +2,10 @@
 
 > JDBC Mysql Sink Connector
 
+## Support Mysql Version
+
+- 5.5/5.6/5.7/8.0
+
 ## Support Those Engines
 
 > Spark<br/>
@@ -74,6 +78,7 @@ semantics (using XA transaction guarantee).
 | max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                          |
 | auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                           |
+| field_ide                                 | String  | No       | -       | Identify whether the field needs to be converted when synchronizing from the source to the sink. `ORIGINAL` indicates no conversion is needed;`UPPERCASE` indicates conversion to uppercase;`LOWERCASE` indicates conversion to lowercase.   |
 | common-options                            |         | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                          |
 
 ### Tips
@@ -118,7 +123,7 @@ transform {
 
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
@@ -136,7 +141,7 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
@@ -155,7 +160,7 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
     
         max_retries = 0
@@ -177,7 +182,7 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
@@ -187,6 +192,7 @@ sink {
         database = test
         table = sink_table
         primary_keys = ["id","name"]
+        field_ide = UPPERCASE
     }
 }
 ```

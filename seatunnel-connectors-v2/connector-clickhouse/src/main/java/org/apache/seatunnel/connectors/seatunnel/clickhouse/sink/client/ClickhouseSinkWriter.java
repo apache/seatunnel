@@ -90,7 +90,14 @@ public class ClickhouseSinkWriter
 
     @Override
     public Optional<CKCommitInfo> prepareCommit() throws IOException {
-        flush();
+        for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
+            JdbcBatchStatementExecutor statement = batchStatement.getJdbcBatchStatementExecutor();
+            IntHolder intHolder = batchStatement.getIntHolder();
+            if (intHolder.getValue() > 0) {
+                flush(statement);
+                intHolder.setValue(0);
+            }
+        }
         return Optional.empty();
     }
 
@@ -208,7 +215,8 @@ public class ClickhouseSinkWriter
             }
             return false;
         } catch (SQLException e) {
-            throw new ClickhouseConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, e);
+            log.warn("Failed to get clickhouse server config: {}", configKey, e);
+            return false;
         }
     }
 }

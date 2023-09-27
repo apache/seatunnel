@@ -37,7 +37,6 @@ import java.util.Set;
 
 public class MultipleTableJobConfigParserTest {
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Test
     public void testSimpleJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
@@ -58,7 +57,6 @@ public class MultipleTableJobConfigParserTest {
         Assertions.assertEquals(3, actions.get(0).getParallelism());
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Test
     public void testComplexJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
@@ -88,5 +86,21 @@ public class MultipleTableJobConfigParserTest {
         Assertions.assertEquals(3, actions.get(0).getUpstream().get(0).getParallelism());
         Assertions.assertEquals(3, actions.get(0).getUpstream().get(1).getParallelism());
         Assertions.assertEquals(3, actions.get(0).getParallelism());
+    }
+
+    @Test
+    public void testMultipleSinkName() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/batch_fakesource_to_two_file.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig);
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
+        List<Action> actions = parse.getLeft();
+        Assertions.assertEquals(2, actions.size());
+
+        Assertions.assertEquals("Sink[0]-LocalFile-default-identifier", actions.get(0).getName());
+        Assertions.assertEquals("Sink[1]-LocalFile-default-identifier", actions.get(1).getName());
     }
 }

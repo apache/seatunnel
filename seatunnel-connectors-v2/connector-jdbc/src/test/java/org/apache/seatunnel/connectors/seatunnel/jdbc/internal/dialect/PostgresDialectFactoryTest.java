@@ -30,7 +30,7 @@ public class PostgresDialectFactoryTest {
     @Test
     public void testPostgresDialectCreate() {
         PostgresDialectFactory postgresDialectFactory = new PostgresDialectFactory();
-        JdbcDialect postgresLow = postgresDialectFactory.create("postgresLow");
+        JdbcDialect postgresLow = postgresDialectFactory.create("postgresLow", "");
         String[] fields = {"id", "name", "age"};
         String[] uniqueKeyField = {"id"};
         Optional<String> upsertStatement =

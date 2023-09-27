@@ -217,7 +217,6 @@ public class PulsarSplitEnumerator
                 subscriptionName);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     static int getSplitOwner(TopicPartition tp, int numReaders) {
         int startIndex = ((tp.getTopic().hashCode() * 31) & 0x7FFFFFFF) % numReaders;
 
