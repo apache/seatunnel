@@ -102,7 +102,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
             SingleSplitReaderContext readerContext) throws Exception {
         return new AmazonSqsSourceReader(
-                readerContext, amazonSqsSourceOptions, deserializationSchema);
+                readerContext, amazonSqsSourceOptions, deserializationSchema, typeInfo);
     }
 
     private void setDeserialization(Config config) {

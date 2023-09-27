@@ -20,7 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.amazonsqs.source;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.deserialize.AmazonSqsDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.deserialize.SeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
@@ -45,15 +48,16 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     protected SqsClient sqsClient;
     protected SingleSplitReaderContext context;
     protected AmazonSqsSourceOptions amazonSqsSourceOptions;
-    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private final SeaTunnelRowDeserializer seaTunnelRowDeserializer;
 
     public AmazonSqsSourceReader(
             SingleSplitReaderContext context,
             AmazonSqsSourceOptions amazonSqsSourceOptions,
-            DeserializationSchema<SeaTunnelRow> deserializationSchema) {
+            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            SeaTunnelRowType seaTunnelRowType) {
         this.context = context;
         this.amazonSqsSourceOptions = amazonSqsSourceOptions;
-        this.deserializationSchema = deserializationSchema;
+        this.seaTunnelRowDeserializer = new AmazonSqsDeserializer(deserializationSchema);
     }
 
     @Override
@@ -102,7 +106,8 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
 
         for (Message message : messages) {
             String messageBody = message.body();
-            deserializationSchema.deserialize(messageBody.getBytes(), output);
+            SeaTunnelRow seaTunnelRow = this.seaTunnelRowDeserializer.deserializeRow(messageBody);
+            output.collect(seaTunnelRow);
 
             // Delete the processed message
             if (amazonSqsSourceOptions.isDeleteMessage()) {
@@ -114,5 +119,6 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
                 sqsClient.deleteMessage(deleteMessageRequest);
             }
         }
+        this.context.signalNoMoreElement();
     }
 }

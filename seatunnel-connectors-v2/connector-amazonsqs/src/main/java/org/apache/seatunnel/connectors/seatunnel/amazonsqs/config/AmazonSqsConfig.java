@@ -80,5 +80,5 @@ public class AmazonSqsConfig implements Serializable {
             Options.key("delete_message")
                     .booleanType()
                     .defaultValue(false)
-                    .withDescription("Delete the message after it is consumed if configured.");
+                    .withDescription("Delete the message after it is consumed if set true.");
 }
