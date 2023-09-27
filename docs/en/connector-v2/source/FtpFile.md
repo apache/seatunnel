@@ -59,9 +59,9 @@ The target ftp host is required
 
 The target ftp port is required
 
-### username [string]
+### user [string]
 
-The target ftp username is required
+The target ftp user name is required
 
 ### password [string]
 

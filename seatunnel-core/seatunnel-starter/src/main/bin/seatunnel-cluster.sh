@@ -93,7 +93,7 @@ fi
 # Usage instructions:
 # If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
 # port in your IDE. After that, you can happily debug your code.
-# JAVA_OPTS="${JAVA_OPTS} -Xrunjdwp:server=y,transport=dt_socket,address=8000,suspend=n"
+# JAVA_OPTS="${JAVA_OPTS} -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5001,suspend=y"
 
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 

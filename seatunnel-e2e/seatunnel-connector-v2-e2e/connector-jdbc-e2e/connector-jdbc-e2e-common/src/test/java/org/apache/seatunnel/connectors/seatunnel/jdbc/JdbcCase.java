@@ -41,6 +41,7 @@ public class JdbcCase {
     private int port;
     private int localPort;
     private String database;
+    private String schema;
     private String sourceTable;
     private String sinkTable;
     private String jdbcTemplate;
@@ -50,4 +51,8 @@ public class JdbcCase {
     private List<String> configFile;
     private Pair<String[], List<SeaTunnelRow>> testData;
     private Map<String, String> containerEnv;
+
+    private String catalogDatabase;
+    private String catalogSchema;
+    private String catalogTable;
 }
