@@ -200,9 +200,4 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         dataTypeProperties.put(MysqlDataTypeConvertor.SCALE, scale);
         return DATA_TYPE_CONVERTOR.toSeaTunnelType(mysqlType, dataTypeProperties);
     }
-
-    @Override
-    protected String getCatalogName() {
-        return "mysql";
-    }
 }

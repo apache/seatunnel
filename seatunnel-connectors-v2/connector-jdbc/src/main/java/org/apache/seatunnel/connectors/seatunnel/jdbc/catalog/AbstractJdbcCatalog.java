@@ -87,8 +87,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(urlInfo.getUrlWithoutDatabase()));
-        // because catalog name it could be passed down as null
-        this.catalogName = StringUtils.isEmpty(catalogName) ? getCatalogName() : catalogName;
+        this.catalogName = catalogName;
         this.defaultDatabase = urlInfo.getDefaultDatabase().orElse(null);
         this.username = username;
         this.pwd = pwd;
@@ -143,10 +142,6 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
         throw new UnsupportedOperationException();
-    }
-
-    protected String getCatalogName() {
-        return "";
     }
 
     protected TableIdentifier getTableIdentifier(TablePath tablePath) {

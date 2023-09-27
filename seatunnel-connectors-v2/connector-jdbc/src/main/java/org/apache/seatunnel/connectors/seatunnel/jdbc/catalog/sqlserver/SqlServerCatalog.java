@@ -212,9 +212,4 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     protected String getUrlFromDatabaseName(String databaseName) {
         return baseUrl + ";databaseName=" + databaseName + ";" + suffix;
     }
-
-    @Override
-    protected String getCatalogName() {
-        return "sqlserver";
-    }
 }

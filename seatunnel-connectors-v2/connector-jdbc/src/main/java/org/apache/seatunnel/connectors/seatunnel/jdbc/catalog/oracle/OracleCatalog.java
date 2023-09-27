@@ -228,9 +228,4 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     protected String getOptionTableName(TablePath tablePath) {
         return tablePath.getSchemaAndTableName();
     }
-
-    @Override
-    protected String getCatalogName() {
-        return "oracle";
-    }
 }
