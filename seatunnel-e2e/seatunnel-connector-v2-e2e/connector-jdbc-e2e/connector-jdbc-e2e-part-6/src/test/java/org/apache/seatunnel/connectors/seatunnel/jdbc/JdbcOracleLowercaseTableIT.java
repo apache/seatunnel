@@ -43,7 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class JdbcOracleLowerTableIT extends AbstractJdbcIT {
+public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
 
     private static final String ORACLE_IMAGE = "gvenzl/oracle-xe:21-slim-faststart";
     private static final String ORACLE_NETWORK_ALIASES = "e2e_oracleDb";

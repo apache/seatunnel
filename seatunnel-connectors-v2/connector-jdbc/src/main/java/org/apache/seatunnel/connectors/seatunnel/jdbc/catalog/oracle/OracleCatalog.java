@@ -133,11 +133,6 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getTableName(TablePath tablePath) {
-        return tablePath.getSchemaAndTableName();
-    }
-
-    @Override
     protected String getListTableSql(String databaseName) {
         return "SELECT OWNER, TABLE_NAME FROM ALL_TABLES"
                 + "  WHERE TABLE_NAME NOT LIKE 'MDRT_%'"
