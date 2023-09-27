@@ -54,8 +54,8 @@ public class JdbcOracleLowerTableIT extends AbstractJdbcIT {
     private static final String PASSWORD = "testPassword";
     private static final String DATABASE = "XE";
     private static final String SCHEMA = USERNAME;
-    private static final String SOURCE_TABLE = "e2e_table_source_lower";
-    private static final String SINK_TABLE = "e2e_table_sink_lower";
+    private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE_LOWER";
+    private static final String SINK_TABLE = "E2E_TABLE_SINK_LOWER";
     private static final String CATALOG_TABLE = "e2e_table_catalog_lower";
     // no execute conf just test lower oracle create table
     private static final List<String> CONFIG_FILE = Lists.newArrayList();
