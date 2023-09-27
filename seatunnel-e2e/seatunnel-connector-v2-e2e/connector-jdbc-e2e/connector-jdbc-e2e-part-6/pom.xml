@@ -18,58 +18,34 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel-connector-v2-e2e</artifactId>
+        <artifactId>connector-jdbc-e2e</artifactId>
         <version>${revision}</version>
     </parent>
 
-    <artifactId>connector-jdbc-e2e</artifactId>
-    <packaging>pom</packaging>
-    <name>SeaTunnel : E2E : Connector V2 : Jdbc</name>
-
-    <modules>
-        <module>connector-jdbc-e2e-common</module>
-        <module>connector-jdbc-e2e-part-1</module>
-        <module>connector-jdbc-e2e-part-2</module>
-        <module>connector-jdbc-e2e-part-3</module>
-        <module>connector-jdbc-e2e-part-4</module>
-        <module>connector-jdbc-e2e-part-5</module>
-        <module>connector-jdbc-e2e-part-6</module>
-    </modules>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.apache.seatunnel</groupId>
-                <artifactId>connector-jdbc</artifactId>
-                <version>${project.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+    <artifactId>connector-jdbc-e2e-part-6</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Jdbc : Part 2</name>
 
     <dependencies>
-        <!-- SeaTunnel connectors -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-jdbc</artifactId>
+            <artifactId>connector-jdbc-e2e-common</artifactId>
             <version>${project.version}</version>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-assert</artifactId>
-            <version>${project.version}</version>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>oracle-xe</artifactId>
+            <version>${testcontainer.version}</version>
             <scope>test</scope>
         </dependency>
 
+        <!-- drivers -->
         <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-console</artifactId>
-            <version>${project.version}</version>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc8</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
-
 </project>
