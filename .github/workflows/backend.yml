@@ -141,7 +141,7 @@ jobs:
         if: ${{ steps.filter.outputs.cv2 == 'true' }}
         run: |
           update_files='${{ steps.filter.outputs.cv2_files }}'
-          modules=`python tools/update_modules_check/update_modules_check.py cv2 $update_files`
+          modules=`python tools/update_modules_check/update_modules_check.py cv2 "$update_files"`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
@@ -150,7 +150,7 @@ jobs:
         if: ${{ steps.filter.outputs.cv2-e2e == 'true' }}
         run: |
           update_files='${{ steps.filter.outputs.cv2-e2e_files }}'
-          modules=`python tools/update_modules_check/update_modules_check.py cv2-e2e $update_files`
+          modules=`python tools/update_modules_check/update_modules_check.py cv2-e2e "$update_files"`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
@@ -159,7 +159,7 @@ jobs:
         if: ${{ steps.filter.outputs.engine == 'true' }}
         run: |
           update_files='${{ steps.filter.outputs.engine_files }}'
-          modules=`python tools/update_modules_check/update_modules_check.py engine $update_files`
+          modules=`python tools/update_modules_check/update_modules_check.py engine "$update_files"`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
@@ -168,7 +168,7 @@ jobs:
         if: ${{ steps.filter.outputs.engine-e2e == 'true' }}
         run: |
           update_files='${{ steps.filter.outputs.engine-e2e_files }}'
-          modules=`python tools/update_modules_check/update_modules_check.py engine-e2e $update_files`
+          modules=`python tools/update_modules_check/update_modules_check.py engine-e2e "$update_files"`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
@@ -177,7 +177,7 @@ jobs:
         if: ${{ steps.filter.outputs.deleted-poms == 'true' }}
         run: |
           update_files='${{ steps.filter.outputs.deleted-poms_files }}'
-          modules=`python tools/update_modules_check/update_modules_check.py delete $update_files`
+          modules=`python tools/update_modules_check/update_modules_check.py delete "$update_files"`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT      
 
@@ -187,11 +187,11 @@ jobs:
         run: |
           modules='${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
-          pl_modules=`python tools/update_modules_check/update_modules_check.py replace $modules`
+          pl_modules=`python tools/update_modules_check/update_modules_check.py replace "$modules"`
           # remove deleted modules
           delete_modules='${{ steps.deleted-modules.outputs.modules }}'
           if [[ "zz"$delete_modules != "zz" ]];then
-            pl_modules=`python tools/update_modules_check/update_modules_check.py rm $pl_modules $delete_modules`
+            pl_modules=`python tools/update_modules_check/update_modules_check.py rm "$pl_modules" "$delete_modules"`
           fi
           
           if [[ "zz"$pl_modules == "zz" ]];then
@@ -201,7 +201,7 @@ jobs:
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           tree_modules="$modules$sub_modules"
-          includes=`python tools/update_modules_check/update_modules_check.py tree $tree_modules`
+          includes=`python tools/update_modules_check/update_modules_check.py tree "$tree_modules"`
           ./mvnw -Pci -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
           build_modules=`python tools/update_modules_check/update_modules_check.py final_ut /tmp/tree_out.txt`
           if [[ "zz"$build_modules == "zz" ]];then
@@ -216,11 +216,11 @@ jobs:
         run: |
           modules='${{ steps.cv2-e2e-modules.outputs.modules }}${{ steps.cv2-flink-e2e-modules.outputs.modules }}${{ steps.cv2-spark-e2e-modules.outputs.modules }}${{ steps.engine-e2e-modules.outputs.modules }}${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
-          pl_modules=`python tools/update_modules_check/update_modules_check.py replace $modules`
+          pl_modules=`python tools/update_modules_check/update_modules_check.py replace "$modules"`
           # remove deleted modules
           delete_modules='${{ steps.deleted-modules.outputs.modules }}'
           if [[ "zz"$delete_modules != "zz" ]];then
-            pl_modules=`python tools/update_modules_check/update_modules_check.py rm $pl_modules $delete_modules`
+            pl_modules=`python tools/update_modules_check/update_modules_check.py rm "$pl_modules" "$delete_modules"`
           fi
           
           if [[ "zz"$pl_modules == "zz" ]];then
@@ -230,7 +230,7 @@ jobs:
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           tree_modules="$modules$sub_modules"
-          includes=`python tools/update_modules_check/update_modules_check.py tree $tree_modules`
+          includes=`python tools/update_modules_check/update_modules_check.py tree "$tree_modules"`
           ./mvnw -Pci -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
           build_modules=`python tools/update_modules_check/update_modules_check.py final_it /tmp/tree_out.txt`
           echo $build_modules
@@ -241,7 +241,7 @@ jobs:
     name: Dependency licenses
     needs: [ changes, sanity-check ]
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
         with:
@@ -582,7 +582,7 @@ jobs:
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 7 0`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 0`
           ./mvnw -B -T 1C verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
@@ -609,7 +609,7 @@ jobs:
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 7 1`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 1`
           ./mvnw -B -T 1C verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
@@ -636,7 +636,7 @@ jobs:
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 7 2`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 2`
           ./mvnw -B -T 1C verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
@@ -663,7 +663,7 @@ jobs:
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 7 3`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 3`
           ./mvnw -B -T 1C verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
@@ -690,7 +690,7 @@ jobs:
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 7 4`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 4`
           ./mvnw -B -T 1C verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
@@ -717,7 +717,7 @@ jobs:
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 7 5`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 5`
           ./mvnw -B -T 1C verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
@@ -744,7 +744,7 @@ jobs:
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module $sub_modules 7 6`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 6`
           ./mvnw -B -T 1C verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
