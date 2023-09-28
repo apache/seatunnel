@@ -88,7 +88,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             datas = serializeCheckPointData(state);
         } catch (IOException e) {
             throw new CheckpointStorageException(
-                    "Failed to serialize checkpoint data,state is :" + state, e);
+                    String.format("Failed to serialize checkpoint data, state: %s", state), e);
         }
         Path filePath =
                 new Path(
@@ -108,7 +108,10 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             out.write(datas);
         } catch (IOException e) {
             throw new CheckpointStorageException(
-                    "Failed to write checkpoint data, state: " + state, e);
+                    String.format(
+                            "Failed to write checkpoint data, file: %s, state: %s",
+                            tmpFilePath, state),
+                    e);
         }
         try {
             boolean success = fs.rename(tmpFilePath, filePath);
