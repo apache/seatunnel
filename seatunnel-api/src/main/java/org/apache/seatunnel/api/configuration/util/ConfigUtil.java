@@ -26,16 +26,22 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.Option;
 
+import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA;
 
 @Slf4j
 public class ConfigUtil {
@@ -51,14 +57,103 @@ public class ConfigUtil {
      * poll.interval = 500
      * </pre>
      */
-    public static Map<String, Object> treeMap(Object rawMap) {
-        // TODO: Keeping the order of the values in the map
+    public static Map<String, Object> treeMap(Map<String, Object> rawMap) {
         try {
-            return PROPERTIES_MAPPER.readValue(
-                    PROPERTIES_MAPPER.writeValueAsString(rawMap),
-                    new TypeReference<Map<String, Object>>() {});
+            Map<List<String>, String> properties =
+                    Arrays.stream(PROPERTIES_MAPPER.writeValueAsString(rawMap).split("\n"))
+                            .filter(StringUtils::isNoneEmpty)
+                            .map(line -> line.split("=", 2))
+                            .collect(
+                                    Collectors.toMap(
+                                            kv -> Arrays.asList(kv[0].split("\\.")),
+                                            kv -> kv[1],
+                                            (o, n) -> o,
+                                            LinkedHashMap::new));
+            Map<String, Object> result = loadPropertiesStyleMap(properties);
+            // Special case, we shouldn't change key in schema config.
+            // TODO we should not hard code it, it should be as a config.
+            if (rawMap.containsKey(SCHEMA.key())) {
+                result.put(SCHEMA.key(), rawMap.get(SCHEMA.key()));
+            }
+            return result;
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Json parsing exception.");
+        }
+    }
+
+    private static Map<String, Object> loadPropertiesStyleMap(
+            Map<List<String>, String> properties) {
+        Map<String, Object> propertiesMap = new LinkedHashMap<>();
+        Map<List<String>, String> temp = new LinkedHashMap<>();
+        String tempPrefix = null;
+        for (Map.Entry<List<String>, String> entry : properties.entrySet()) {
+            String key = entry.getKey().get(0);
+            if (!key.equals(tempPrefix)) {
+                putKeyValueToMapCheck(propertiesMap, temp, tempPrefix);
+                tempPrefix = key;
+            }
+            if (entry.getKey().size() > 1) {
+                temp.put(entry.getKey().subList(1, entry.getKey().size()), entry.getValue());
+            } else if (!temp.isEmpty()) {
+                temp.put(Collections.singletonList(""), entry.getValue());
+            } else {
+                temp.put(null, entry.getValue());
+            }
+        }
+        putKeyValueToMapCheck(propertiesMap, temp, tempPrefix);
+        return propertiesMap;
+    }
+
+    private static void putKeyValueToMapCheck(
+            Map<String, Object> propertiesMap, Map<List<String>, String> temp, String tempPrefix) {
+        if (!temp.isEmpty()) {
+            if (propertiesMap.containsKey(tempPrefix)) {
+                if (temp.containsKey(null)) {
+                    ((Map) propertiesMap.get(tempPrefix)).put("", temp.get(null));
+                } else if (propertiesMap.get(tempPrefix) instanceof String) {
+                    loadPropertiesStyleMap(temp).put("", propertiesMap.get(tempPrefix));
+                } else {
+                    ((Map) propertiesMap.get(tempPrefix)).putAll(loadPropertiesStyleMap(temp));
+                }
+            } else {
+                propertiesMap.put(tempPrefix, loadPropertiesStyleObject(temp));
+            }
+            temp.clear();
+        }
+    }
+
+    private static List<Object> loadPropertiesStyleList(Map<List<String>, String> properties) {
+        List<Object> propertiesList = new ArrayList<>();
+        Map<List<String>, String> temp = new LinkedHashMap<>();
+        int tempIndex = -1;
+        for (Map.Entry<List<String>, String> entry : properties.entrySet()) {
+            int index = Integer.parseInt(entry.getKey().get(0));
+            if (index != tempIndex) {
+                if (!temp.isEmpty()) {
+                    propertiesList.add(loadPropertiesStyleObject(temp));
+                    temp.clear();
+                }
+                tempIndex = index;
+            }
+            if (entry.getKey().size() == 1) {
+                temp.put(null, entry.getValue());
+            } else {
+                temp.put(entry.getKey().subList(1, entry.getKey().size()), entry.getValue());
+            }
+        }
+        if (!temp.isEmpty()) {
+            propertiesList.add(loadPropertiesStyleObject(temp));
+        }
+        return propertiesList;
+    }
+
+    private static Object loadPropertiesStyleObject(Map<List<String>, String> properties) {
+        if (properties.containsKey(null)) {
+            return StringEscapeUtils.unescapeJava(properties.get(null));
+        } else if (properties.entrySet().stream().anyMatch(kv -> kv.getKey().get(0).equals("1"))) {
+            return loadPropertiesStyleList(properties);
+        } else {
+            return loadPropertiesStyleMap(properties);
         }
     }
 
@@ -118,9 +213,9 @@ public class ConfigUtil {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> T convertValue(Object rawValue, Option<T> option) {
+    public static <T> T convertValue(Object rawValue, Option<T> option, boolean flatten) {
         TypeReference<T> typeReference = option.typeReference();
-        rawValue = flatteningMapWithObject(rawValue);
+        rawValue = flatten ? flatteningMapWithObject(rawValue) : rawValue;
         if (typeReference.getType() instanceof Class) {
             // simple type
             Class<T> clazz = (Class<T>) typeReference.getType();

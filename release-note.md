@@ -49,6 +49,7 @@
 - [Connector-v2] [Jdbc] Fix oracle sql table identifier (#4754)
 - [Connector-v2] [Clickhouse] fix get clickhouse local table name with closing bracket from distributed table engineFull (#4710)
 - [Connector-v2] [CDC] Fix jdbc connection leak for mysql (#5037)
+- [Connector-v2] [File] Fix WriteStrategy parallel writing thread unsafe issue #5546
 
 ### Zeta(ST-Engine)
 
@@ -139,6 +140,7 @@
 - [Zeta] Cancel pipeline add retry to avoid cancel failed. (#4792)
 - [Zeta] Improve Zeta operation max count and ignore NPE (#4787)
 - [Zeta] Remove serialize(deserialize) cost when use shuffle action (#4722)
+- [zeta] Checkpoint exception status messages exclude state data (#5547)
 
 ## Feature
 
@@ -148,6 +150,7 @@
 - [Core] [API] Add copy method to Catalog codes (#4414)
 - [Core] [API] Add options check before create source and sink and transform in FactoryUtil (#4424)
 - [Core] [Shade] Add guava shade module (#4358)
+- [Core] [Flink] Support Decimal Type with configurable precision and scale (#5419)
 
 ### Connector-V2
 
