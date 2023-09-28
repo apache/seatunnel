@@ -209,6 +209,25 @@ public class CatalogTableUtil implements Serializable {
         }
     }
 
+    public static List<CatalogTable> convertDataTypeToCatalogTables(
+            SeaTunnelDataType<?> seaTunnelDataType, String tableId) {
+        List<CatalogTable> catalogTables;
+        if (seaTunnelDataType instanceof MultipleRowType) {
+            catalogTables = new ArrayList<>();
+            for (String id : ((MultipleRowType) seaTunnelDataType).getTableIds()) {
+                catalogTables.add(
+                        CatalogTableUtil.getCatalogTable(
+                                id, ((MultipleRowType) seaTunnelDataType).getRowType(id)));
+            }
+        } else {
+            catalogTables =
+                    Collections.singletonList(
+                            CatalogTableUtil.getCatalogTable(
+                                    tableId, (SeaTunnelRowType) seaTunnelDataType));
+        }
+        return catalogTables;
+    }
+
     public static CatalogTable buildWithConfig(ReadonlyConfig readonlyConfig) {
         if (readonlyConfig.get(SCHEMA) == null) {
             throw new RuntimeException(

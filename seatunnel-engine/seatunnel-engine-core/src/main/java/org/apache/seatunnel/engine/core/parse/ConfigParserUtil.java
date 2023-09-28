@@ -45,7 +45,7 @@ import static org.apache.seatunnel.api.common.CommonOptions.FACTORY_ID;
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
 import static org.apache.seatunnel.api.common.CommonOptions.SOURCE_TABLE_NAME;
-import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser.DEFAULT_ID;
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
 
 @Slf4j
 public final class ConfigParserUtil {
