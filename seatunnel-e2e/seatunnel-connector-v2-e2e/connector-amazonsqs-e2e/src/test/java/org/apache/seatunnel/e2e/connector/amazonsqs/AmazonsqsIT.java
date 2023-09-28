@@ -52,7 +52,7 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
     private static final String SINK_QUEUE = "sink_queue";
     private static final String SOURCE_QUEUE = "source_queue";
 
-    private static final String TEST_MESSAGE = "{\"name\": \"test_name\"}";
+    private static final String TEST_MESSAGE = "{\"name\":\"test_name\"}";
 
     protected SqsClient sqsClient;
 
