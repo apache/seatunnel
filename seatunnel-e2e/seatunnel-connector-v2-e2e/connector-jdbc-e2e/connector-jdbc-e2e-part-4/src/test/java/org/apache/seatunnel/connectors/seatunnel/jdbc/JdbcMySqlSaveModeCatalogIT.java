@@ -46,7 +46,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.stream.Stream;
@@ -56,9 +55,8 @@ import java.util.stream.Stream;
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
         disabledReason = "Currently SPARK and FLINK do not support cdc")
-public class JdbcMySqlToMysqlSaveModeTableExistIT extends TestSuiteBase implements TestResource {
+public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestResource {
 
-    private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
     private static final String MYSQL_DRIVER_JAR =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
@@ -68,21 +66,9 @@ public class JdbcMySqlToMysqlSaveModeTableExistIT extends TestSuiteBase implemen
 
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 33061;
-    private static final String MYSQL_DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
+    private static final int MYSQL_PORT = 3308;
 
     private MySQLContainer<?> mysql_container;
-
-    private static final String mysqlCheck =
-            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'auto' AND table_name = '%s') AS table_exists";
-
-    private static final String CREATE_SQL_DATABASE =
-            "IF NOT EXISTS (\n"
-                    + "   SELECT name \n"
-                    + "   FROM sys.databases \n"
-                    + "   WHERE name = N'testauto'\n"
-                    + ")\n"
-                    + "CREATE DATABASE testauto;\n";
 
     private static final String CREATE_TABLE_SQL =
             "CREATE TABLE IF NOT EXISTS mysql_auto_create\n"
@@ -142,10 +128,6 @@ public class JdbcMySqlToMysqlSaveModeTableExistIT extends TestSuiteBase implemen
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
-    String driverMySqlUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
     void initContainer() throws ClassNotFoundException {
         // ============= mysql
         DockerImageName imageName = DockerImageName.parse(MYSQL_IMAGE);
@@ -160,7 +142,8 @@ public class JdbcMySqlToMysqlSaveModeTableExistIT extends TestSuiteBase implemen
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
-        mysql_container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 3306, 3306)));
+        mysql_container.setPortBindings(
+                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3306)));
 
         Startables.deepStart(Stream.of(mysql_container)).join();
     }
@@ -173,11 +156,10 @@ public class JdbcMySqlToMysqlSaveModeTableExistIT extends TestSuiteBase implemen
     }
 
     static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:33061/auto?useSSL=false");
+            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3308/auto?useSSL=false");
 
     @TestTemplate
-    public void testAutoCreateTable(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testCatalog(TestContainer container) throws IOException, InterruptedException {
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
         TablePath tablePathMySql_Sink = TablePath.of("auto", "mysql_auto_create_sink");
         MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo);
@@ -224,20 +206,7 @@ public class JdbcMySqlToMysqlSaveModeTableExistIT extends TestSuiteBase implemen
             statement.execute(CREATE_TABLE_SQL);
             statement.execute(getInsertSql);
         } catch (SQLException e) {
-            throw new RuntimeException("Initializing PostgreSql table failed!", e);
-        }
-    }
-
-    private boolean checkMysql(String sql) {
-        try (Connection connection = getJdbcMySqlConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
-            boolean tableExists = false;
-            if (resultSet.next()) {
-                tableExists = resultSet.getBoolean(1);
-            }
-            return tableExists;
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Initializing Mysql table failed!", e);
         }
     }
 }
