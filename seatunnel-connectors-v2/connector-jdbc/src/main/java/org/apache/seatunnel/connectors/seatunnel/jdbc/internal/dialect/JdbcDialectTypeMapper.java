@@ -17,15 +17,61 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.io.Serializable;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Collections;
+
+import static java.sql.Types.BINARY;
+import static java.sql.Types.BLOB;
+import static java.sql.Types.LONGVARBINARY;
+import static java.sql.Types.VARBINARY;
 
 /** Separate the jdbc meta-information type to SeaTunnelDataType into the interface. */
 public interface JdbcDialectTypeMapper extends Serializable {
 
     /** Convert ResultSetMetaData to SeaTunnel data type {@link SeaTunnelDataType}. */
     SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException;
+
+    default Column mappingColumn(ResultSetMetaData metadata, int colIndex) throws SQLException {
+        SeaTunnelDataType seaTunnelType = mapping(metadata, colIndex);
+
+        String columnName = metadata.getColumnLabel(colIndex);
+        int jdbcType = metadata.getColumnType(colIndex);
+        String nativeType = metadata.getColumnTypeName(colIndex);
+        int isNullable = metadata.isNullable(colIndex);
+        int precision = metadata.getPrecision(colIndex);
+
+        int columnLength = precision;
+        long longColumnLength = precision;
+        long bitLength = 0;
+        switch (jdbcType) {
+            case BINARY:
+            case VARBINARY:
+            case LONGVARBINARY:
+            case BLOB:
+                bitLength = precision * 8;
+                break;
+            default:
+                break;
+        }
+
+        return PhysicalColumn.of(
+                columnName,
+                seaTunnelType,
+                columnLength,
+                isNullable != ResultSetMetaData.columnNoNulls,
+                null,
+                null,
+                nativeType,
+                false,
+                false,
+                bitLength,
+                Collections.emptyMap(),
+                longColumnLength);
+    }
 }

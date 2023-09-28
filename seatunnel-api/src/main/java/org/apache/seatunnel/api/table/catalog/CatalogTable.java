@@ -42,6 +42,16 @@ public final class CatalogTable implements Serializable {
 
     private final String catalogName;
 
+    public static CatalogTable of(TableIdentifier tableId, CatalogTable catalogTable) {
+        return new CatalogTable(
+                tableId,
+                catalogTable.getTableSchema(),
+                catalogTable.getOptions(),
+                catalogTable.getPartitionKeys(),
+                catalogTable.getComment(),
+                catalogTable.getCatalogName());
+    }
+
     public static CatalogTable of(
             TableIdentifier tableId,
             TableSchema tableSchema,

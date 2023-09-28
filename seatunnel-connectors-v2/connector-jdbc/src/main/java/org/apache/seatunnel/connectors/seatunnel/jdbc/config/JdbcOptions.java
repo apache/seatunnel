@@ -66,7 +66,7 @@ public interface JdbcOptions {
     Option<Integer> FETCH_SIZE =
             Options.key("fetch_size")
                     .intType()
-                    .defaultValue(0)
+                    .defaultValue(1024)
                     .withDescription(
                             "For queries that return a large number of objects, "
                                     + "you can configure the row fetch size used in the query to improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.");
