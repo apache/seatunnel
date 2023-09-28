@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.JsonNodeType;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.Option;
@@ -37,8 +37,6 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
@@ -58,12 +56,11 @@ public class CatalogTableUtil implements Serializable {
     public static final Option<Map<String, String>> SCHEMA =
             Options.key("schema").mapType().noDefaultValue().withDescription("SeaTunnel Schema");
 
-    public static final Option<String> FIELDS =
+    public static final Option<Map<String, Object>> FIELDS =
             Options.key("schema.fields")
-                    .stringType()
+                    .type(new TypeReference<Map<String, Object>>() {})
                     .noDefaultValue()
                     .withDescription("SeaTunnel Schema Fields");
-    private static final String FIELD_KEY = "fields";
 
     private static final SeaTunnelRowType SIMPLE_SCHEMA =
             new SeaTunnelRowType(
@@ -140,8 +137,7 @@ public class CatalogTableUtil implements Serializable {
      */
     @Deprecated
     public static List<CatalogTable> getCatalogTablesFromConfig(
-            Config config, ClassLoader classLoader) {
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
+            ReadonlyConfig readonlyConfig, ClassLoader classLoader) {
 
         // We use plugin_name as factoryId, so MySQL-CDC should be MySQL
         String factoryId = readonlyConfig.get(CommonOptions.PLUGIN_NAME).replace("-CDC", "");
@@ -151,7 +147,7 @@ public class CatalogTableUtil implements Serializable {
             if (schemaMap.isEmpty()) {
                 throw new SeaTunnelException("Schema config can not be empty");
             }
-            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
+            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
             return Collections.singletonList(catalogTable);
         }
 
@@ -188,12 +184,16 @@ public class CatalogTableUtil implements Serializable {
     }
 
     public static CatalogTable buildWithConfig(Config config) {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(config, "schema");
-        if (!checkResult.isSuccess()) {
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
+        return buildWithConfig(readonlyConfig);
+    }
+
+    public static CatalogTable buildWithConfig(ReadonlyConfig readonlyConfig) {
+        if (readonlyConfig.get(SCHEMA) == null) {
             throw new RuntimeException(
                     "Schema config need option [schema], please correct your config first");
         }
-        TableSchema tableSchema = parseTableSchema(config.getConfig("schema"));
+        TableSchema tableSchema = parseTableSchema(readonlyConfig);
         return CatalogTable.of(
                 // TODO: other table info
                 TableIdentifier.of("", "", ""),
@@ -265,7 +265,7 @@ public class CatalogTableUtil implements Serializable {
     }
 
     private static SeaTunnelDataType<?> parseRowType(String columnStr) {
-        Map<String, String> fieldsMap = convertJsonToMap(columnStr);
+        Map<String, String> fieldsMap = convertJsonToMap(JsonUtils.parseObject(columnStr));
         String[] fieldsName = new String[fieldsMap.size()];
         SeaTunnelDataType<?>[] seaTunnelDataTypes = new SeaTunnelDataType<?>[fieldsMap.size()];
         int i = 0;
@@ -335,16 +335,7 @@ public class CatalogTableUtil implements Serializable {
         return new DecimalType(precision, scale);
     }
 
-    private static Map<String, String> convertConfigToMap(Config config) {
-        // Because the entrySet in typesafe config couldn't keep key-value order
-        // So use jackson parsing schema information into a map to keep key-value order
-        ConfigRenderOptions options = ConfigRenderOptions.concise();
-        String schema = config.root().render(options);
-        return convertJsonToMap(schema);
-    }
-
-    private static Map<String, String> convertJsonToMap(String json) {
-        ObjectNode jsonNodes = JsonUtils.parseObject(json);
+    private static Map<String, String> convertJsonToMap(ObjectNode jsonNodes) {
         LinkedHashMap<String, String> fieldsMap = new LinkedHashMap<>();
         jsonNodes
                 .fields()
@@ -361,8 +352,9 @@ public class CatalogTableUtil implements Serializable {
         return fieldsMap;
     }
 
-    private static TableSchema parseTableSchema(Config config) {
-        Map<String, String> fieldsMap = convertConfigToMap(config.getConfig(FIELD_KEY));
+    private static TableSchema parseTableSchema(ReadonlyConfig config) {
+        Map<String, String> fieldsMap =
+                convertJsonToMap((ObjectNode) JsonUtils.toJsonNode(config.get(FIELDS, false)));
         int fieldsNum = fieldsMap.size();
         List<Column> columns = new ArrayList<>(fieldsNum);
         for (Map.Entry<String, String> entry : fieldsMap.entrySet()) {

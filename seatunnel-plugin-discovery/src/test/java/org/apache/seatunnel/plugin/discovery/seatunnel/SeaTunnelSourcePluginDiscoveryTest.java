@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.plugin.discovery;
+package org.apache.seatunnel.plugin.discovery.seatunnel;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -28,37 +29,57 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
-import java.util.Map;
+import com.google.common.collect.Lists;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 
 @DisabledOnOs(OS.WINDOWS)
-public class AbstractPluginDiscoveryTest {
+class SeaTunnelSourcePluginDiscoveryTest {
 
     private String originSeatunnelHome = null;
     private DeployMode originMode = null;
     private static final String seatunnelHome =
-            AbstractPluginDiscoveryTest.class.getResource("/home").getPath();
+            SeaTunnelSourcePluginDiscoveryTest.class.getResource("/duplicate").getPath();
+    private static final List<Path> pluginJars =
+            Lists.newArrayList(
+                    Paths.get(seatunnelHome, "connectors", "connector-http-jira.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-http.jar"));
 
     @BeforeEach
-    public void before() {
+    public void before() throws IOException {
         originMode = Common.getDeployMode();
         Common.setDeployMode(DeployMode.CLIENT);
         originSeatunnelHome = Common.getSeaTunnelHome();
         Common.setSeaTunnelHome(seatunnelHome);
+
+        // The file is created under target directory.
+        for (Path pluginJar : pluginJars) {
+            Files.createFile(pluginJar);
+        }
     }
 
     @Test
-    public void testGetAllPlugins() {
-        Map<PluginIdentifier, String> sourcePlugins =
-                AbstractPluginDiscovery.getAllSupportedPlugins(PluginType.SOURCE);
-        Assertions.assertEquals(27, sourcePlugins.size());
-
-        Map<PluginIdentifier, String> sinkPlugins =
-                AbstractPluginDiscovery.getAllSupportedPlugins(PluginType.SINK);
-        Assertions.assertEquals(30, sinkPlugins.size());
+    void getPluginBaseClass() {
+        List<PluginIdentifier> pluginIdentifiers =
+                Lists.newArrayList(
+                        PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "HttpJira"),
+                        PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "HttpBase"));
+        SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
+                new SeaTunnelSourcePluginDiscovery();
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers));
     }
 
     @AfterEach
-    public void after() {
+    public void after() throws IOException {
+        for (Path pluginJar : pluginJars) {
+            Files.deleteIfExists(pluginJar);
+        }
         Common.setSeaTunnelHome(originSeatunnelHome);
         Common.setDeployMode(originMode);
     }
