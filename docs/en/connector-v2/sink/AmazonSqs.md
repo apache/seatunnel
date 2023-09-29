@@ -2,6 +2,12 @@
 
 > Amazon SQS sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Write data to Amazon SQS
@@ -12,12 +18,12 @@ Write data to Amazon SQS
 
 ## Options
 
-|      name      |  type  | required | default value |
-|----------------|--------|----------|---------------|
-| url            | string | yes      | -             |
-| region         | string | yes      | -             |
-| queue          | string | no       | -             |
-| common-options |        | no       | -             |
+|          Name           |  Type  | Required | Default |                                                                                                                                                                                                             Description                                                                                                                                                                                                             |
+|-------------------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                     | String | Yes      | -       | The Queue URL to read from Amazon SQS.                                                                                                                                                                                                                                                                                                                                                                                              |
+| region                  | String | No       | -       | The AWS region for the SQS service                                                                                                                                                                                                                                                                                                                                                                                                  |
+| common-options          |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                                                                                                                                                                                             |
+
 
 ### url [string]
 

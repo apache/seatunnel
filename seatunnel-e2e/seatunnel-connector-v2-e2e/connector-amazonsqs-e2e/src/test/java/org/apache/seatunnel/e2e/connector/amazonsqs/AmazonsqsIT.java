@@ -138,6 +138,6 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
                         .receiveMessage(r -> r.queueUrl(sqsClient.listQueues().queueUrls().get(1)))
                         .messages();
         Assertions.assertEquals(1, messages.size());
-        Assertions.assertEquals(TEST_MESSAGE, messages.get(0));
+        Assertions.assertEquals(TEST_MESSAGE, messages.get(0).body());
     }
 }
