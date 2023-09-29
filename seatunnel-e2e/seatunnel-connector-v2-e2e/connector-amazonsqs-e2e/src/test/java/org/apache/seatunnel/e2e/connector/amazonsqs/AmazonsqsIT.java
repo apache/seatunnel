@@ -37,7 +37,9 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.Message;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -124,30 +126,17 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
     public void testAmazonSqs(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(AMAZONSQS_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode());
-        assertHasData();
-        compareResult();
+        assertHasDataAndCompareResult();
     }
 
-    private void assertHasData() {
-        // check if there is message in sink queue
-        Assertions.assertEquals(
-                1,
+    private void assertHasDataAndCompareResult() {
+        // check if there is message in sink queue, and compare the sink record with the source record
+        // the message is invisible after reception, so don't call it twice.
+        List<Message> messages =
                 sqsClient
                         .receiveMessage(r -> r.queueUrl(sqsClient.listQueues().queueUrls().get(1)))
-                        .messages()
-                        .size());
-    }
-
-    private void compareResult() {
-        // compare the message in source queue and sink queue
-        // source messaged is deleted after consumption, so it is directly referencing the raw
-        // message.
-        String sinkQueueMessage =
-                sqsClient
-                        .receiveMessage(r -> r.queueUrl(sqsClient.listQueues().queueUrls().get(1)))
-                        .messages()
-                        .get(0)
-                        .body();
-        Assertions.assertEquals(TEST_MESSAGE, sinkQueueMessage);
+                        .messages();
+        Assertions.assertEquals(1, messages.size());
+        Assertions.assertEquals(TEST_MESSAGE, messages.get(0));
     }
 }
