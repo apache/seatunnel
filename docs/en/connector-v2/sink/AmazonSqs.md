@@ -22,24 +22,10 @@ Write data to Amazon SQS
 |-------------------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                     | String | Yes      | -       | The Queue URL to read from Amazon SQS.                                                                                                                                                                                                                                                                                                                                                                                              |
 | region                  | String | No       | -       | The AWS region for the SQS service                                                                                                                                                                                                                                                                                                                                                                                                  |
+| format                  | String | No       | json    | Data format. The default format is json. Optional text format, canal-json and debezium-json.If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. |
+| format_error_handle_way | String | No       | fail    | The processing method of data format error. The default value is fail, and the optional value is (fail, skip). When fail is selected, data format error will block and an exception will be thrown. When skip is selected, data format error will skip this line data.                                                                                                                                                              |
+| field_delimiter         | String | No       | ,       | Customize the field delimiter for data format.                                                                                                                                                                                                                                                                                                                                                                                      |
 | common-options          |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                                                                                                                                                                                             |
-
-
-### url [string]
-
-The URL to write to Amazon SQS.
-
-### region [string]
-
-The region of Amazon SQS.
-
-### queue [string]
-
-The queue of Amazon SQS.
-
-### common options
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
 
 ## Example
 
@@ -48,12 +34,7 @@ amazonsqs {
     url = "http://127.0.0.1:8000"
     region = "us-east-1"
     queue = "queueName"
+    format = json
   }
 ```
-
-## Changelog
-
-### next version
-
-- Add Amazon SQS Sink Connector
 
