@@ -130,7 +130,8 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
     }
 
     private void assertHasDataAndCompareResult() {
-        // check if there is message in sink queue, and compare the sink record with the source record
+        // check if there is message in sink queue, and compare the sink record with the source
+        // record
         // the message is invisible after reception, so don't call it twice.
         List<Message> messages =
                 sqsClient
