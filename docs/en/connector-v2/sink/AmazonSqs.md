@@ -14,7 +14,12 @@ Write data to Amazon SQS
 
 ## Key features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [batch](../../concept/connector-v2-features.md)
+- [x] [stream](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [column projection](../../concept/connector-v2-features.md)
+- [ ] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 

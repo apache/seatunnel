@@ -18,9 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.amazonsqs.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
@@ -38,13 +36,5 @@ public class AmazonSqsSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder().required(URL, REGION).build();
-    }
-
-    @Override
-    public TableSink createSink(TableFactoryContext context) {
-        return () ->
-                new AmazonSqsSink(
-                        context.getOptions(),
-                        context.getCatalogTable().getTableSchema().toPhysicalRowDataType());
     }
 }
