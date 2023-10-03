@@ -89,6 +89,7 @@
 ## Improve
 
 - [Improve][Connector-V2][Jdbc-Source] Support for Decimal types as splict keys (#4634)
+- [Improve][E2E][Log] Set logger level to INFO (#5588)
 
 ### Core
 
