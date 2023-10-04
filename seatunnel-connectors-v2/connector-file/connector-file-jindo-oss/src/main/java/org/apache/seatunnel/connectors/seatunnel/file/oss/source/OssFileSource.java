@@ -107,6 +107,11 @@ public class OssFileSource extends BaseFileSource {
                             "SeaTunnel does not supported this file format");
             }
         } else {
+            if (filePaths.isEmpty()) {
+                // When the directory is empty, distribute default behavior schema
+                rowType = CatalogTableUtil.buildSimpleTextSchema();
+                return;
+            }
             try {
                 rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
             } catch (FileConnectorException e) {
