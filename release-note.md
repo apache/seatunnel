@@ -202,3 +202,4 @@
 - [Docs] Refactor connector-v2 docs using unified format Mysql (#4590)
 - [Docs] Add Value types in Java to Schema features (#5087)
 - [Docs] Replace username by user in the options of FtpFile (#5421)
+- [Docs] Add how to configure logging related parameters of SeaTunnel-E2E Test (#5589)
