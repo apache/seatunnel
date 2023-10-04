@@ -77,6 +77,10 @@ public class OrcReadStrategy extends AbstractReadStrategy {
     public void read(String path, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         if (Boolean.FALSE.equals(checkFileType(path))) {
+            if (ignoreCorruptFiles) {
+                log.warn("This file [{}] is corrupted, it will be ignored", path);
+                return;
+            }
             String errorMsg =
                     String.format(
                             "This file [%s] is not a orc file, please check the format of this file",
