@@ -85,6 +85,7 @@
 - [Container Version] Fix risk of unreproducible test cases #4591
 - [E2e] [Mysql-cdc] Removing the excess MySqlIncrementalSourceIT e2e reduces the CI time (#4738)
 - [E2E] [Common] Update test container version of seatunnel engine (#5323)
+- [E2E] [Jdbc] Fix not remove docker image after test finish on jdbc suite (#5586)
 
 ## Improve
 
