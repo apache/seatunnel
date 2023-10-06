@@ -45,7 +45,10 @@ import org.apache.hudi.exception.HoodieKeyException;
 import org.apache.hudi.index.HoodieIndex;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -118,6 +121,7 @@ public class HudiTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void testWriteData() throws IOException {
         String tablePath = tempDir.toString();
         HoodieTableMetaClient.withPropertyBuilder()
