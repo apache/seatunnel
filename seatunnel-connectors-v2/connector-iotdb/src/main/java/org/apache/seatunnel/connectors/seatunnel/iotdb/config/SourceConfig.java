@@ -31,20 +31,6 @@ public class SourceConfig {
     public static final Option<String> SQL =
             Options.key("sql").stringType().noDefaultValue().withDescription("sql");
 
-    /*---------------------- single node configurations -------------------------*/
-
-    /** The host of the IotDB server. */
-    public static final Option<String> HOST =
-            Options.key("host").stringType().noDefaultValue().withDescription("host");
-
-    /*
-     * The port of the IotDB server.
-     */
-    public static final Option<Integer> PORT =
-            Options.key("port").intType().noDefaultValue().withDescription("port");
-
-    /*---------------------- multiple node configurations -------------------------*/
-
     /** Username for the source. */
     public static final Option<String> USERNAME =
             Options.key("username").stringType().noDefaultValue().withDescription("usernam");
@@ -53,7 +39,7 @@ public class SourceConfig {
     public static final Option<String> PASSWORD =
             Options.key("password").stringType().noDefaultValue().withDescription("password");
 
-    /** multiple nodes */
+    /** node urls */
     public static final Option<String> NODE_URLS =
             Options.key("node_urls").stringType().noDefaultValue().withDescription("node urls");
 

@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportCoordinate;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -76,7 +78,7 @@ import java.util.stream.Stream;
 
 @NoArgsConstructor
 public abstract class IncrementalSource<T, C extends SourceConfig>
-        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
+        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState>, SupportCoordinate {
 
     protected ReadonlyConfig readonlyConfig;
     protected SourceConfig.Factory<C> configFactory;
@@ -87,14 +89,19 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     protected int incrementalParallelism;
     protected StopConfig stopConfig;
+    protected List<CatalogTable> catalogTables;
 
     protected StopMode stopMode;
     protected DebeziumDeserializationSchema<T> deserializationSchema;
 
     protected SeaTunnelDataType<SeaTunnelRow> dataType;
 
-    protected IncrementalSource(ReadonlyConfig options, SeaTunnelDataType<SeaTunnelRow> dataType) {
+    protected IncrementalSource(
+            ReadonlyConfig options,
+            SeaTunnelDataType<SeaTunnelRow> dataType,
+            List<CatalogTable> catalogTables) {
         this.dataType = dataType;
+        this.catalogTables = catalogTables;
         this.readonlyConfig = options;
         this.startupConfig = getStartupConfig(readonlyConfig);
         this.stopConfig = getStopConfig(readonlyConfig);
@@ -134,6 +141,11 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                 config.get(SourceOptions.STOP_SPECIFIC_OFFSET_FILE),
                 config.get(SourceOptions.STOP_SPECIFIC_OFFSET_POS),
                 config.get(SourceOptions.STOP_TIMESTAMP));
+    }
+
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return catalogTables;
     }
 
     public abstract Option<StartupMode> getStartupModeOption();
