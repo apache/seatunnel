@@ -51,6 +51,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -148,6 +149,7 @@ public class HudiTest {
                 new HoodieJavaWriteClient<>(
                         new HoodieJavaEngineContext(new Configuration()), cfg)) {
             SeaTunnelRow expected = new SeaTunnelRow(12);
+            Timestamp timestamp3 = Timestamp.valueOf("1990-10-14 12:12:43.123");
             expected.setField(0, true);
             expected.setField(1, 45536);
             expected.setField(2, 1238123899121L);
@@ -155,7 +157,7 @@ public class HudiTest {
             expected.setField(4, "asdlkjasjkdla998y1122");
             expected.setField(5, LocalDate.parse("1990-10-14"));
             expected.setField(6, LocalTime.parse("12:12:43"));
-            expected.setField(7, Timestamp.valueOf("1990-10-14 12:12:43.123"));
+            expected.setField(7, timestamp3.toLocalDateTime());
             Map<String, Long> map = new HashMap<>();
             map.put("element", 123L);
             expected.setField(9, map);
