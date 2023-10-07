@@ -36,6 +36,7 @@ To run the image with SeaTunnel, first create a `Dockerfile`:
   defaultValue="flink"
   values={[
     {label: 'Flink', value: 'flink'},
+    {label: 'zeta', value: 'zeta'},
   ]}>
 <TabItem value="flink">
 
@@ -64,7 +65,36 @@ minikube image load seatunnel:2.3.0-flink-1.13
 ```
 
 </TabItem>
+
+<TabItem value="zeta">
+
+```Dockerfile
+FROM openjdk:8
+
+ENV SEATUNNEL_VERSION="2.3.3"
+ENV SEATUNNEL_HOME="/opt/seatunnel"
+
+RUN wget https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
+RUN tar -xzvf apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
+RUN mv apache-seatunnel-${SEATUNNEL_VERSION} ${SEATUNNEL_HOME}
+
+RUN cd ${SEATUNNEL_HOME}||sh bin/install-plugin.sh ${SEATUNNEL_VERSION}
+```
+
+Then run the following commands to build the image:
+```bash
+docker build -t seatunnel:2.3.3 -f Dockerfile .
+```
+Image `seatunnel:2.3.3` need to be present in the host (minikube) so that the deployment can take place.
+
+Load image to minikube via:
+```bash
+minikube image load seatunnel:2.3.3
+```
+
+</TabItem>
 </Tabs>
+
 
 ### Deploying the operator
 
@@ -73,6 +103,7 @@ minikube image load seatunnel:2.3.0-flink-1.13
   defaultValue="flink"
   values={[
     {label: 'Flink', value: 'flink'},
+    {label: 'zeta', value: 'zeta'},
   ]}>
 <TabItem value="flink">
 
@@ -105,6 +136,11 @@ flink-kubernetes-operator-5f466b8549-mgchb             1/1     Running   3 (23h 
 ```
 
 </TabItem>
+
+
+<TabItem value="zeta">
+none
+</TabItem>
 </Tabs>
 
 ## Run SeaTunnel Application
@@ -116,6 +152,7 @@ flink-kubernetes-operator-5f466b8549-mgchb             1/1     Running   3 (23h 
   defaultValue="flink"
   values={[
     {label: 'Flink', value: 'flink'},
+    {label: 'zeta', value: 'zeta'},
   ]}>
 <TabItem value="flink">
 
@@ -216,6 +253,91 @@ kubectl apply -f seatunnel-flink.yaml
 ```
 
 </TabItem>
+
+<TabItem value="zeta">
+
+In this guide we are going to use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.0-release/config/v2.streaming.conf.template):
+
+```conf
+env {
+  execution.parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 2000
+}
+
+source {
+    FakeSource {
+      result_table_name = "fake"
+      row.num = 160000
+      schema = {
+        fields {
+          name = "string"
+          age = "int"
+        }
+      }
+    }
+}
+
+transform {
+  FieldMapper {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    field_mapper = {
+      age = age
+      name = new_name
+    }
+  }
+}
+
+sink {
+  Console {
+    source_table_name = "fake1"
+  }
+}
+```
+
+Generate a configmap named seatunnel-config in Kubernetes for the seatunnel.streaming.conf so that we can mount the config content in pod.
+```bash
+kubectl create cm seatunnel-config \
+--from-file=seatunnel.streaming.conf=seatunnel.streaming.conf
+```
+- Create `seatunnel.yaml`:
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: seatunnel
+spec:
+  containers:
+  - name: seatunnel
+    image: seatunnel:2.3.3
+    command: ["/bin/sh","-c","/opt/seatunnel/bin/seatunnel.sh --config /data/seatunnel.streaming.conf -e local"]
+    resources:
+      limits:
+        cpu: "1"
+        memory: 4G
+      requests:
+        cpu: "1"
+        memory: 2G
+    volumeMounts:
+      - name: seatunnel-config
+        mountPath: /data/seatunnel.streaming.conf
+        subPath: seatunnel.streaming.conf
+  volumes:
+        - name: seatunnel-config
+          configMap:
+            name: seatunnel-config
+            items:
+            - key: seatunnel.streaming.conf
+              path: seatunnel.streaming.conf
+```
+
+- Run the example application:
+```bash
+kubectl apply -f seatunnel.yaml
+```
+
+</TabItem>
 </Tabs>
 
 **See The Output**
@@ -225,6 +347,7 @@ kubectl apply -f seatunnel-flink.yaml
   defaultValue="flink"
   values={[
     {label: 'Flink', value: 'flink'},
+    {label: 'zeta', value: 'zeta'},
   ]}>
 <TabItem value="flink">
 
@@ -280,6 +403,51 @@ To stop your job and delete your FlinkDeployment you can simply:
 
 ```bash
 kubectl delete -f seatunnel-flink.yaml
+```
+</TabItem>
+
+<TabItem value="zeta">
+
+You may follow the logs of your job, after a successful startup (which can take on the order of a minute in a fresh environment, seconds afterwards) you can:
+
+```bash
+kubectl logs -f  seatunnel
+```
+looks like the below:
+
+looks like the below (your content may be different since we use `FakeSource` to automatically generate random stream data):
+
+```shell
+...
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25673:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : hRJdE, 1295862507
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25674:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : kXlew, 935460726
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25675:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : FrNOT, 1714358118
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25676:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : kSajX, 126709414
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25677:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : YhpQv, 2020198351
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25678:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : nApin, 691339553
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25679:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : KZNNa, 1720773736
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25680:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : uCUBI, 490868386
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25681:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : oTLmO, 98770781
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25682:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : UECud, 835494636
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25683:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : XNegY, 1602828896
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25684:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : LcFBx, 1400869177
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25685:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : EqSfF, 1933614060
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25686:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : BODIs, 1839533801
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25687:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : doxcI, 970104616
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25688:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : IEVYn, 371893767
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25689:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : YXYfq, 1719257882
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25690:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : LFWEm, 725033360
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25691:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : ypUrY, 1591744616
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25692:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : rlnzJ, 412162913
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25693:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : zWKnt, 976816261
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25694:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : PXrsk, 43554541
+
+```
+
+To stop your job and delete your FlinkDeployment you can simply:
+
+```bash
+kubectl delete -f seatunnel.yaml
 ```
 </TabItem>
 </Tabs>
