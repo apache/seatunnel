@@ -166,11 +166,11 @@ public class PluginUtil {
 
     public static void ensureJobModeMatch(JobContext jobContext, SeaTunnelSource source) {
         if (jobContext.getJobMode() == JobMode.BATCH
-            && source.getBoundedness()
-            == org.apache.seatunnel.api.source.Boundedness.UNBOUNDED) {
+                && source.getBoundedness()
+                        == org.apache.seatunnel.api.source.Boundedness.UNBOUNDED) {
             throw new UnsupportedOperationException(
-                String.format(
-                    "'%s' source don't support off-line job.", source.getPluginName()));
+                    String.format(
+                            "'%s' source don't support off-line job.", source.getPluginName()));
         }
     }
 }
