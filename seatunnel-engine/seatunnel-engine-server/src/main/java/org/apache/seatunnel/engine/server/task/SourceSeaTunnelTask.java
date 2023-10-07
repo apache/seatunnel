@@ -18,8 +18,13 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
@@ -36,7 +41,6 @@ import lombok.NonNull;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-
 import static org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy.getFlowControlStrategy;
 
 public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunnelTask {
@@ -73,13 +77,22 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                     "SourceSeaTunnelTask only support SourceFlowLifeCycle, but get "
                             + startFlowLifeCycle.getClass().getName());
         } else {
+            SeaTunnelDataType sourceProducedType;
+            try {
+                List<CatalogTable> producedCatalogTables =
+                        sourceFlow.getAction().getSource().getProducedCatalogTables();
+                sourceProducedType = CatalogTableUtil.convertToDataType(producedCatalogTables);
+            } catch (UnsupportedOperationException e) {
+                // TODO remove it when all connector use `getProducedCatalogTables`
+                sourceProducedType = sourceFlow.getAction().getSource().getProducedType();
+            }
             this.collector =
                     new SeaTunnelSourceCollector<>(
                             checkpointLock,
                             outputs,
                             this.getMetricsContext(),
-                            getFlowControlStrategy(envOption),
-                            sourceFlow.getAction().getSource().getProducedType());
+                            getFlowControlStrategy(),
+                            sourceProducedType);
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
     }

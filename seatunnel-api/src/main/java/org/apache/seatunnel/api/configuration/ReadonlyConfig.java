@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -64,7 +64,11 @@ public class ReadonlyConfig implements Serializable {
     }
 
     public <T> T get(Option<T> option) {
-        return getOptional(option).orElseGet(option::defaultValue);
+        return get(option, true);
+    }
+
+    public <T> T get(Option<T> option, boolean flatten) {
+        return getOptional(option, flatten).orElseGet(option::defaultValue);
     }
 
     public Map<String, String> toMap() {
@@ -72,7 +76,7 @@ public class ReadonlyConfig implements Serializable {
             return Collections.emptyMap();
         }
 
-        Map<String, String> result = new HashMap<>();
+        Map<String, String> result = new LinkedHashMap<>();
         toMap(result);
         return result;
     }
@@ -87,8 +91,12 @@ public class ReadonlyConfig implements Serializable {
         }
     }
 
-    @SuppressWarnings("unchecked")
     public <T> Optional<T> getOptional(Option<T> option) {
+        return getOptional(option, true);
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> Optional<T> getOptional(Option<T> option, boolean flatten) {
         if (option == null) {
             throw new NullPointerException("Option not be null.");
         }
@@ -108,7 +116,7 @@ public class ReadonlyConfig implements Serializable {
         if (value == null) {
             return Optional.empty();
         }
-        return Optional.of(convertValue(value, option));
+        return Optional.of(convertValue(value, option, flatten));
     }
 
     private Object getValue(String key) {

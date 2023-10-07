@@ -22,9 +22,11 @@ package org.apache.seatunnel.engine.checkpoint.storage;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.ToString;
 
 @Data
 @Builder
+@ToString(exclude = "states")
 public class PipelineState {
 
     private String jobId;
