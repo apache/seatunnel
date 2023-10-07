@@ -42,7 +42,6 @@ import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.types.Row;
 
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -73,7 +72,7 @@ public class SinkExecuteProcessor
                                         factoryDiscovery,
                                         sinkPluginDiscovery,
                                         sinkConfig,
-                                        new ArrayList<>()))
+                                        jarPaths))
                 .distinct()
                 .collect(Collectors.toList());
     }
