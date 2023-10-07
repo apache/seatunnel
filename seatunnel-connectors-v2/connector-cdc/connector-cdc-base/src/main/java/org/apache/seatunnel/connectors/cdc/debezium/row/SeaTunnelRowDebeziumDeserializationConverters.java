@@ -81,11 +81,11 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
         // physical column
         for (int i = 0; i < physicalConverters.length; i++) {
             String fieldName = fieldNames[i];
-            Object fieldValue = struct.get(fieldName);
             Field field = schema.field(fieldName);
             if (field == null) {
                 row.setField(i, null);
             } else {
+                Object fieldValue = struct.get(fieldName);
                 Schema fieldSchema = field.schema();
                 Object convertedField =
                         SeaTunnelRowDebeziumDeserializationConverters.convertField(

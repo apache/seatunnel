@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
-import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import com.hazelcast.collection.IQueue;
 import com.hazelcast.core.HazelcastInstance;
@@ -33,6 +32,7 @@ import lombok.experimental.Tolerate;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -44,7 +44,7 @@ import java.util.stream.Stream;
 @Setter
 @ToString
 public class ShuffleMultipleRowStrategy extends ShuffleStrategy {
-    private MultipleRowType inputRowType;
+    private List<CatalogTable> catalogTables;
     private String targetTableId;
 
     @Tolerate
@@ -54,8 +54,8 @@ public class ShuffleMultipleRowStrategy extends ShuffleStrategy {
     public Map<String, IQueue<Record<?>>> createShuffles(
             HazelcastInstance hazelcast, int pipelineId, int inputIndex) {
         Map<String, IQueue<Record<?>>> shuffleMap = new HashMap<>();
-        for (Map.Entry<String, SeaTunnelRowType> entry : inputRowType) {
-            String tableId = entry.getKey();
+        for (CatalogTable entry : catalogTables) {
+            String tableId = entry.getTableId().toTablePath().toString();
             String queueName = generateQueueName(pipelineId, inputIndex, tableId);
             IQueue<Record<?>> queue = getIQueue(hazelcast, queueName);
             // clear old data when job restore
