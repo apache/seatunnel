@@ -40,7 +40,7 @@ public class RedisParameters implements Serializable {
     private String host;
     private int port;
     private String auth = "";
-    private Integer dbNum;
+    private int dbNum;
     private String user = "";
     private String keysPattern;
     private String keyField;
@@ -120,9 +120,7 @@ public class RedisParameters implements Serializable {
                 if (StringUtils.isNotBlank(user)) {
                     jedis.aclSetUser(user);
                 }
-                if (dbNum != null && dbNum > 0) {
-                    jedis.select(dbNum);
-                }
+                jedis.select(dbNum);
                 return jedis;
             case CLUSTER:
                 HashSet<HostAndPort> nodes = new HashSet<>();
@@ -157,9 +155,7 @@ public class RedisParameters implements Serializable {
                     jedisCluster = new JedisCluster(nodes);
                 }
                 JedisWrapper jedisWrapper = new JedisWrapper(jedisCluster);
-                if (dbNum != null && dbNum > 0) {
-                    jedisWrapper.select(dbNum);
-                }
+                jedisWrapper.select(dbNum);
                 return jedisWrapper;
             default:
                 // do nothing

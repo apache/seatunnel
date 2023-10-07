@@ -25,7 +25,7 @@ Used to read data from Redis.
 | data_type           | string | yes                   | -             |
 | user                | string | no                    | -             |
 | auth                | string | no                    | -             |
-| db_num              | int    | no                    | -             |
+| db_num              | int    | no                    | 0             |
 | mode                | string | no                    | single        |
 | hash_key_parse_mode | string | no                    | all           |
 | nodes               | list   | yes when mode=cluster | -             |

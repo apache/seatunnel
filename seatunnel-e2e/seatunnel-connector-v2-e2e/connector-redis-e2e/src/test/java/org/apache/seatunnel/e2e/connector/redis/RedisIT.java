@@ -95,6 +95,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         JsonSerializationSchema jsonSerializationSchema =
                 new JsonSerializationSchema(TEST_DATASET.getKey());
         List<SeaTunnelRow> rows = TEST_DATASET.getValue();
+        jedis.select(1);
         for (int i = 0; i < rows.size(); i++) {
             jedis.set("key_test" + i, new String(jsonSerializationSchema.serialize(rows.get(i))));
         }
@@ -187,6 +188,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     public void testRedis(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/redis-to-redis.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+        jedis.select(2); // redis.sink.db.db_num
         Assertions.assertEquals(100, jedis.llen("key_list"));
         // Clear data to prevent data duplication in the next TestContainer
         jedis.del("key_list");

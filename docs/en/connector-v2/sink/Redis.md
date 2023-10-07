@@ -20,7 +20,7 @@ Used to write data to Redis.
 | data_type      | string | yes                   | -             |
 | user           | string | no                    | -             |
 | auth           | string | no                    | -             |
-| db_num         | int    | no                    | -             |
+| db_num         | int    | no                    | 0             |
 | mode           | string | no                    | single        |
 | nodes          | list   | yes when mode=cluster | -             |
 | format         | string | no                    | json          |
