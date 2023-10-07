@@ -4447,5 +4447,117 @@
         ]
       }
     }
+  },
+  {
+    "httpRequest": {
+      "method" : "GET",
+      "path": "/query/pages",
+      "queryStringParameters": {
+        "page": "1"
+      }
+    },
+    "httpResponse": {
+      "body":
+      {
+        "status": null,
+        "msg": null,
+        "data": [
+          {
+            "name": "name1",
+            "age": 69
+          },
+          {
+            "name": "name2",
+            "age": 51
+          }
+        ],
+        "currentPageIndex": 1,
+        "totalPage": 2
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method" : "GET",
+      "path": "/query/pages",
+      "queryStringParameters": {
+        "page": "2"
+      }
+    },
+    "httpResponse": {
+      "body":
+      {
+        "status": null,
+        "msg": null,
+        "data": [
+          {
+            "name": "name1",
+            "age": 69
+          },
+          {
+            "name": "name2",
+            "age": 51
+          }
+        ],
+        "currentPageIndex": 1,
+        "totalPage": 2
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method" : "GET",
+      "path": "/query/pagesByExpression",
+      "queryStringParameters": {
+        "page": "1"
+      }
+    },
+    "httpResponse": {
+      "body":
+      {
+        "status": null,
+        "msg": null,
+        "data": [
+          {
+            "name": "name11",
+            "age": 69
+          },
+          {
+            "name": "name22",
+            "age": 51
+          }
+        ],
+        "currentPageIndex": 1,
+        "hasNext": true
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method" : "GET",
+      "path": "/query/pagesByExpression",
+      "queryStringParameters": {
+        "page": "2"
+      }
+    },
+    "httpResponse": {
+      "body":
+      {
+        "status": null,
+        "msg": null,
+        "data": [
+          {
+            "name": "name11",
+            "age": 69
+          },
+          {
+            "name": "name22",
+            "age": 51
+          }
+        ],
+        "currentPageIndex": 2,
+        "hasNext": false
+      }
+    }
   }
 ]
