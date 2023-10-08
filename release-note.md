@@ -49,6 +49,7 @@
 - [Connector-v2] [Jdbc] Fix oracle sql table identifier (#4754)
 - [Connector-v2] [Clickhouse] fix get clickhouse local table name with closing bracket from distributed table engineFull (#4710)
 - [Connector-v2] [CDC] Fix jdbc connection leak for mysql (#5037)
+- [Connector-v2] [File] Fix WriteStrategy parallel writing thread unsafe issue #5546
 
 ### Zeta(ST-Engine)
 
@@ -84,6 +85,7 @@
 - [Container Version] Fix risk of unreproducible test cases #4591
 - [E2e] [Mysql-cdc] Removing the excess MySqlIncrementalSourceIT e2e reduces the CI time (#4738)
 - [E2E] [Common] Update test container version of seatunnel engine (#5323)
+- [E2E] [Jdbc] Fix not remove docker image after test finish on jdbc suite (#5586)
 
 ## Improve
 
@@ -200,3 +202,4 @@
 - [Docs] Refactor connector-v2 docs using unified format Mysql (#4590)
 - [Docs] Add Value types in Java to Schema features (#5087)
 - [Docs] Replace username by user in the options of FtpFile (#5421)
+- [Docs] Add how to configure logging related parameters of SeaTunnel-E2E Test (#5589)

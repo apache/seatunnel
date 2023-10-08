@@ -21,24 +21,33 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.PluginType;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import java.util.Map;
-import java.util.Objects;
 
 @DisabledOnOs(OS.WINDOWS)
 public class AbstractPluginDiscoveryTest {
 
+    private String originSeatunnelHome = null;
+    private DeployMode originMode = null;
+    private static final String seatunnelHome =
+            AbstractPluginDiscoveryTest.class.getResource("/home").getPath();
+
+    @BeforeEach
+    public void before() {
+        originMode = Common.getDeployMode();
+        Common.setDeployMode(DeployMode.CLIENT);
+        originSeatunnelHome = Common.getSeaTunnelHome();
+        Common.setSeaTunnelHome(seatunnelHome);
+    }
+
     @Test
     public void testGetAllPlugins() {
-        Common.setDeployMode(DeployMode.CLIENT);
-        System.setProperty(
-                "SEATUNNEL_HOME",
-                Objects.requireNonNull(AbstractPluginDiscoveryTest.class.getResource("/home"))
-                        .getPath());
         Map<PluginIdentifier, String> sourcePlugins =
                 AbstractPluginDiscovery.getAllSupportedPlugins(PluginType.SOURCE);
         Assertions.assertEquals(27, sourcePlugins.size());
@@ -46,5 +55,11 @@ public class AbstractPluginDiscoveryTest {
         Map<PluginIdentifier, String> sinkPlugins =
                 AbstractPluginDiscovery.getAllSupportedPlugins(PluginType.SINK);
         Assertions.assertEquals(30, sinkPlugins.size());
+    }
+
+    @AfterEach
+    public void after() {
+        Common.setSeaTunnelHome(originSeatunnelHome);
+        Common.setDeployMode(originMode);
     }
 }
