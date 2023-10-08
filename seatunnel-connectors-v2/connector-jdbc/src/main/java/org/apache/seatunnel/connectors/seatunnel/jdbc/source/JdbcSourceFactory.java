@@ -39,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcInputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
@@ -88,7 +89,8 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         config.getJdbcConnectionConfig().getUrl(),
                         config.getJdbcConnectionConfig().getCompatibleMode());
         JdbcConnectionProvider connectionProvider =
-          dialect.getJdbcConnectionProvider((config.getJdbcConnectionConfig()));
+                new SimpleJdbcConnectionProvider(config.getJdbcConnectionConfig());
+
         SeaTunnelRowType rowType;
         Optional<PartitionParameter> partitionParameter = Optional.empty();
         try {
