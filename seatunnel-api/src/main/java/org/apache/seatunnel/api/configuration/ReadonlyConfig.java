@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingExcep
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import lombok.extern.slf4j.Slf4j;
@@ -72,21 +73,50 @@ public class ReadonlyConfig implements Serializable {
     }
 
     public Map<String, String> toMap() {
+        return toMap(true);
+    }
+
+    public Config toConfig() {
+        return toConfig(true);
+    }
+
+    /**
+     * Transform to Config todo: This method should be removed after we remove Config
+     *
+     * @return Config
+     */
+    public Config toConfig(boolean flatten) {
+        if (flatten) {
+            return ConfigFactory.parseMap(flatteningMap(confData));
+        }
+        return ConfigFactory.parseMap(confData);
+    }
+
+    public Map<String, String> toMap(boolean flatten) {
         if (confData.isEmpty()) {
             return Collections.emptyMap();
         }
 
         Map<String, String> result = new LinkedHashMap<>();
-        toMap(result);
+        toMap(result, flatten);
         return result;
     }
 
     public void toMap(Map<String, String> result) {
+        toMap(result, true);
+    }
+
+    public void toMap(Map<String, String> result, boolean flatten) {
         if (confData.isEmpty()) {
             return;
         }
-        Map<String, Object> flatteningMap = flatteningMap(confData);
-        for (Map.Entry<String, Object> entry : flatteningMap.entrySet()) {
+        Map<String, Object> map;
+        if (flatten) {
+            map = flatteningMap(confData);
+        } else {
+            map = confData;
+        }
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
             result.put(entry.getKey(), convertToJsonString(entry.getValue()));
         }
     }
