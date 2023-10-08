@@ -46,7 +46,7 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
     private final JdbcConnectionConfig jdbcConfig;
 
     private transient Driver loadedDriver;
-    private transient Connection connection;
+    protected transient Connection connection;
 
     public SimpleJdbcConnectionProvider(@NonNull JdbcConnectionConfig jdbcConfig) {
         this.jdbcConfig = jdbcConfig;

@@ -26,8 +26,8 @@ import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -148,7 +148,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                                 runningJobState,
                                 runningJobStateTimestamp,
                                 QueueType.BLOCKINGQUEUE,
-                                new CheckpointConfig())
+                                new EngineConfig())
                         .f0();
 
         Assertions.assertEquals(physicalPlan.getPipelineList().size(), 1);
