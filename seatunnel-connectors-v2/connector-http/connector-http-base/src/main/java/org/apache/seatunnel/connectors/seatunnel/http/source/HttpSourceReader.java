@@ -181,29 +181,34 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         if (contentJson != null) {
             data = JsonUtils.stringToJsonNode(getPartOfJson(data)).toString();
         }
-        // Determine whether the task is completed by specifying the presence of the 'total page'
-        // field.
-        if (StringUtils.isNotEmpty(pageInfo.getTotalPageFieldPath())) {
-            JSONArray pageArray =
-                    JsonPath.using(jsonConfiguration)
-                            .parse(originData)
-                            .read(pageInfo.getTotalPageFieldPath());
-            if (!pageArray.isEmpty() && pageArray.get(0) != null) {
-                Long totalPage = Long.valueOf(pageArray.get(0).toString());
-                noMoreElementFlag = pageInfo.getPageIndex() >= totalPage;
-                pageInfo.setTotalPageSize(totalPage);
+        if (pageInfo != null) {
+            // Determine whether the task is completed by specifying the presence of the 'total
+            // page'
+            // field.
+            if (StringUtils.isNotEmpty(pageInfo.getTotalPageFieldPath())) {
+                JSONArray pageArray =
+                        JsonPath.using(jsonConfiguration)
+                                .parse(originData)
+                                .read(pageInfo.getTotalPageFieldPath());
+                if (!pageArray.isEmpty() && pageArray.get(0) != null) {
+                    Long totalPage = Long.valueOf(pageArray.get(0).toString());
+                    noMoreElementFlag = pageInfo.getPageIndex() >= totalPage;
+                    pageInfo.setTotalPageSize(totalPage);
+                }
             }
-        }
-        // Verify task completion status using JSONPath configuration in case the 'total page' field
-        // is absent in the interface.
-        if (StringUtils.isNotEmpty(pageInfo.getJsonVerifyExpression())) {
-            JSONArray verifyArray =
-                    JsonPath.using(jsonConfiguration)
-                            .parse(originData)
-                            .read(pageInfo.getJsonVerifyExpression());
-            if (!verifyArray.isEmpty() && verifyArray.get(0) != null) {
-                noMoreElementFlag =
-                        pageInfo.getJsonVerifyValue().indexOf(verifyArray.get(0).toString()) >= 0;
+            // Verify task completion status using JSONPath configuration in case the 'total page'
+            // field
+            // is absent in the interface.
+            if (StringUtils.isNotEmpty(pageInfo.getJsonVerifyExpression())) {
+                JSONArray verifyArray =
+                        JsonPath.using(jsonConfiguration)
+                                .parse(originData)
+                                .read(pageInfo.getJsonVerifyExpression());
+                if (!verifyArray.isEmpty() && verifyArray.get(0) != null) {
+                    noMoreElementFlag =
+                            pageInfo.getJsonVerifyValue().indexOf(verifyArray.get(0).toString())
+                                    >= 0;
+                }
             }
         }
 
