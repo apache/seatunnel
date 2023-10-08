@@ -35,6 +35,7 @@ public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> ext
     /** init sink aggregated committer */
     default void init() {};
 
+    /** Re-commit message to third party data receiver, The method need to achieve idempotency. */
     default List<AggregatedCommitInfoT> restoreCommit(
             List<AggregatedCommitInfoT> aggregatedCommitInfo) throws IOException {
         return commit(aggregatedCommitInfo);
