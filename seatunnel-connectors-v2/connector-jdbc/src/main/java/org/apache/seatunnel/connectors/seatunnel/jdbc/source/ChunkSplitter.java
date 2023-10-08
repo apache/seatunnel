@@ -161,41 +161,17 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
             throws SQLException {
         String splitQuery = split.getSplitQuery();
         if (StringUtils.isEmpty(splitQuery)) {
-            splitQuery = String.format("SELECT * FROM %s", split.getTablePath());
+            splitQuery =
+                    String.format(
+                            "SELECT * FROM %s", jdbcDialect.tableIdentifier(split.getTablePath()));
         }
         return createPreparedStatement(splitQuery);
-    }
-
-    protected Pair<Object, Object> queryMinMax(JdbcSourceTable table, String columnName)
-            throws SQLException {
-        String sqlQuery;
-        if (StringUtils.isNotBlank(table.getQuery())) {
-            sqlQuery =
-                    String.format(
-                            "SELECT MIN(%s), MAX(%s) FROM (%s) tmp",
-                            columnName, columnName, table.getQuery());
-        } else {
-            sqlQuery =
-                    String.format(
-                            "SELECT MIN(%s), MAX(%s) FROM %s",
-                            columnName, columnName, table.getTablePath());
-        }
-        try (Statement stmt = getOrEstablishConnection().createStatement()) {
-            try (ResultSet resultSet = stmt.executeQuery(sqlQuery)) {
-                if (resultSet.next()) {
-                    Object min = resultSet.getObject(1);
-                    Object max = resultSet.getObject(2);
-                    return Pair.of(min, max);
-                } else {
-                    return Pair.of(null, null);
-                }
-            }
-        }
     }
 
     protected Object queryMin(JdbcSourceTable table, String columnName, Object excludedLowerBound)
             throws SQLException {
         String minQuery;
+        columnName = jdbcDialect.quoteIdentifier(columnName);
         if (StringUtils.isNotBlank(table.getQuery())) {
             minQuery =
                     String.format(
@@ -205,7 +181,9 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
             minQuery =
                     String.format(
                             "SELECT MIN(%s) FROM %s WHERE %s > ?",
-                            columnName, table.getTablePath(), columnName);
+                            columnName,
+                            jdbcDialect.tableIdentifier(table.getTablePath()),
+                            columnName);
         }
 
         try (PreparedStatement ps = getOrEstablishConnection().prepareStatement(minQuery)) {
@@ -217,6 +195,36 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                     // this should never happen
                     throw new SQLException(
                             String.format("No result returned after running query [%s]", minQuery));
+                }
+            }
+        }
+    }
+
+    protected Pair<Object, Object> queryMinMax(JdbcSourceTable table, String columnName)
+            throws SQLException {
+        String sqlQuery;
+        columnName = jdbcDialect.quoteIdentifier(columnName);
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            sqlQuery =
+                    String.format(
+                            "SELECT MIN(%s), MAX(%s) FROM (%s) tmp",
+                            columnName, columnName, table.getQuery());
+        } else {
+            sqlQuery =
+                    String.format(
+                            "SELECT MIN(%s), MAX(%s) FROM %s",
+                            columnName,
+                            columnName,
+                            jdbcDialect.tableIdentifier(table.getTablePath()));
+        }
+        try (Statement stmt = getOrEstablishConnection().createStatement()) {
+            try (ResultSet resultSet = stmt.executeQuery(sqlQuery)) {
+                if (resultSet.next()) {
+                    Object min = resultSet.getObject(1);
+                    Object max = resultSet.getObject(2);
+                    return Pair.of(min, max);
+                } else {
+                    return Pair.of(null, null);
                 }
             }
         }

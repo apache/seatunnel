@@ -352,8 +352,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         return ObjectUtils.compare(obj1, obj2);
     }
 
-    private static String createDynamicSplitQuerySQL(JdbcSourceSplit split) {
-        TablePath tablePath = split.getTablePath();
+    private String createDynamicSplitQuerySQL(JdbcSourceSplit split) {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {split.getSplitKeyName()},
@@ -390,7 +389,9 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         if (StringUtils.isNotBlank(splitQuery)) {
             splitQuery = String.format("SELECT * FROM (%s) tmp", splitQuery);
         } else {
-            splitQuery = String.format("SELECT * FROM %s", tablePath);
+            splitQuery =
+                    String.format(
+                            "SELECT * FROM %s", jdbcDialect.tableIdentifier(split.getTablePath()));
         }
 
         StringBuilder sql = new StringBuilder();

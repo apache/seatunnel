@@ -168,6 +168,11 @@ public class OracleDialect implements JdbcDialect {
     }
 
     @Override
+    public String tableIdentifier(TablePath tablePath) {
+        return tablePath.getSchemaAndTableName();
+    }
+
+    @Override
     public Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
             throws SQLException {
         if (StringUtils.isBlank(table.getQuery())) {
@@ -194,7 +199,7 @@ public class OracleDialect implements JdbcDialect {
                 }
             }
         }
-        return SQLUtils.count(connection, table.getQuery());
+        return SQLUtils.countForSubquery(connection, table.getQuery());
     }
 
     @Override

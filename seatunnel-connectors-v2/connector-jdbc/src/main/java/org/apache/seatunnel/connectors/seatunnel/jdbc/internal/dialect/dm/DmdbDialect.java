@@ -112,4 +112,9 @@ public class DmdbDialect implements JdbcDialect {
     public TablePath parse(String tablePath) {
         return TablePath.of(tablePath, true);
     }
+
+    @Override
+    public String tableIdentifier(TablePath tablePath) {
+        return tablePath.getSchemaAndTableName();
+    }
 }

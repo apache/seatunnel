@@ -155,7 +155,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             throw new TableNotExistException(catalogName, tablePath);
         }
 
-        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
+        String dbUrl = getUrlFromDatabaseName(defaultDatabase);
+        if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
+            dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
+        }
         Connection conn = getConnection(dbUrl);
         try {
             DatabaseMetaData metaData = conn.getMetaData();

@@ -17,11 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
-
-import org.apache.commons.lang3.StringUtils;
-
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -29,14 +24,8 @@ import java.sql.Statement;
 
 public class SQLUtils {
 
-    public static Long count(Connection connection, JdbcSourceTable table) throws SQLException {
-        if (StringUtils.isNotBlank(table.getQuery())) {
-            return count(connection, table.getQuery());
-        }
-        return count(connection, table.getTablePath());
-    }
-
-    public static Long count(Connection connection, String subQuerySQL) throws SQLException {
+    public static Long countForSubquery(Connection connection, String subQuerySQL)
+            throws SQLException {
         String sqlQuery = String.format("SELECT COUNT(*) FROM (%s) T", subQuerySQL);
         try (Statement stmt = connection.createStatement()) {
             try (ResultSet resultSet = stmt.executeQuery(sqlQuery)) {
@@ -49,8 +38,8 @@ public class SQLUtils {
         }
     }
 
-    public static Long count(Connection connection, TablePath tablePath) throws SQLException {
-        String sqlQuery = String.format("SELECT COUNT(*) FROM %s", tablePath.toString());
+    public static Long countForTable(Connection connection, String tablePath) throws SQLException {
+        String sqlQuery = String.format("SELECT COUNT(*) FROM %s", tablePath);
         try (Statement stmt = connection.createStatement()) {
             try (ResultSet resultSet = stmt.executeQuery(sqlQuery)) {
                 if (resultSet.next()) {

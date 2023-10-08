@@ -115,7 +115,7 @@ public class FixedChunkSplitter extends ChunkSplitter {
                 splitQuery =
                         String.format(
                                 "SELECT * FROM %s WHERE %s = ?",
-                                table.getTablePath(),
+                                jdbcDialect.tableIdentifier(table.getTablePath()),
                                 jdbcDialect.hashModForField(
                                         splitKeyName, table.getPartitionNumber()));
             }
@@ -171,18 +171,19 @@ public class FixedChunkSplitter extends ChunkSplitter {
     private PreparedStatement createNumberColumnSplitStatement(JdbcSourceSplit split)
             throws SQLException {
         String splitQuery;
+        String splitKeyName = jdbcDialect.quoteIdentifier(split.getSplitKeyName());
         if (StringUtils.isNotBlank(split.getSplitQuery())) {
             splitQuery =
                     String.format(
                             "SELECT * FROM (%s) st_jdbc_splitter WHERE %s >= ? AND %s <= ?",
-                            split.getSplitQuery(),
-                            split.getSplitKeyName(),
-                            split.getSplitKeyName());
+                            split.getSplitQuery(), splitKeyName, splitKeyName);
         } else {
             splitQuery =
                     String.format(
                             "SELECT * FROM %s WHERE %s >= ? AND %s <= ?",
-                            split.getTablePath(), split.getSplitKeyName(), split.getSplitKeyName());
+                            jdbcDialect.tableIdentifier(split.getTablePath()),
+                            splitKeyName,
+                            splitKeyName);
         }
         PreparedStatement statement = createPreparedStatement(splitQuery);
 

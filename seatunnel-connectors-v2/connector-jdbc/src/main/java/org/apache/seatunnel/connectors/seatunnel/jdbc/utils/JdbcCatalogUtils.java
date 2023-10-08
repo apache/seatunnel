@@ -48,6 +48,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,7 +71,7 @@ public class JdbcCatalogUtils {
     public static Map<TablePath, JdbcSourceTable> getTables(
             JdbcConnectionConfig jdbcConnectionConfig, List<JdbcSourceTableConfig> tablesConfig)
             throws SQLException {
-        Map<TablePath, JdbcSourceTable> tables = new HashMap<>();
+        Map<TablePath, JdbcSourceTable> tables = new LinkedHashMap<>();
 
         JdbcDialect jdbcDialect =
                 JdbcDialectLoader.load(

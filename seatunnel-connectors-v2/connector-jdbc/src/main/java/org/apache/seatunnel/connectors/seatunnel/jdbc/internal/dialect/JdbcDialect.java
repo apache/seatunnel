@@ -248,6 +248,10 @@ public interface JdbcDialect extends Serializable {
         return TablePath.of(tablePath);
     }
 
+    default String tableIdentifier(TablePath tablePath) {
+        return tablePath.getFullName();
+    }
+
     /**
      * Approximate total number of entries in the lookup table.
      *
@@ -257,7 +261,10 @@ public interface JdbcDialect extends Serializable {
      */
     default Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
             throws SQLException {
-        return SQLUtils.count(connection, table);
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            return SQLUtils.countForSubquery(connection, table.getQuery());
+        }
+        return SQLUtils.countForTable(connection, tableIdentifier(table.getTablePath()));
     }
 
     /**
@@ -285,7 +292,7 @@ public interface JdbcDialect extends Serializable {
             sampleQuery =
                     String.format(
                             "SELECT %s FROM %s",
-                            quoteIdentifier(columnName), table.getTablePath().toString());
+                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()));
         }
 
         try (Statement stmt =
@@ -331,7 +338,6 @@ public interface JdbcDialect extends Serializable {
         String quotedColumn = quoteIdentifier(columnName);
         String sqlQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
-
             sqlQuery =
                     String.format(
                             "SELECT MAX(%s) FROM ("
@@ -351,7 +357,7 @@ public interface JdbcDialect extends Serializable {
                                     + ") AS T",
                             quotedColumn,
                             quotedColumn,
-                            table.getTablePath().toString(),
+                            tableIdentifier(table.getTablePath()),
                             quotedColumn,
                             quotedColumn,
                             chunkSize);

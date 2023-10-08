@@ -134,6 +134,6 @@ public class MysqlDialect implements JdbcDialect {
             }
         }
 
-        return SQLUtils.count(connection, table.getQuery());
+        return SQLUtils.countForSubquery(connection, table.getQuery());
     }
 }
