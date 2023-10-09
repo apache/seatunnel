@@ -364,19 +364,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
-        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-                PreparedStatement ps =
-                        conn.prepareStatement(
-                                String.format("DROP DATABASE IF EXISTS [%s];", databaseName))) {
-            ps.execute();
-            return true;
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format(
-                            "Failed dropping database %s in catalog %s",
-                            databaseName, this.catalogName),
-                    e);
-        }
+        return false;
     }
 
     @SuppressWarnings("unchecked")

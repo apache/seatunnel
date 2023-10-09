@@ -415,17 +415,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
-        String sql = "DROP DATABASE IF EXISTS \"" + databaseName + "\"";
-        try (PreparedStatement ps = defaultConnection.prepareStatement(sql)) {
-            ps.execute();
-            return true;
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format(
-                            "Failed dropping database %s in catalog %s",
-                            databaseName, this.catalogName),
-                    e);
-        }
+        return false;
     }
 
     /**

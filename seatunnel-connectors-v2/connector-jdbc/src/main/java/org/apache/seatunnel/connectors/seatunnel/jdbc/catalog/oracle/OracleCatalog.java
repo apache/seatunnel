@@ -220,9 +220,8 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
         try {
-            return databaseExists(tablePath.getDatabaseName())
-                    && listTables(tablePath.getDatabaseName())
-                            .contains(tablePath.getSchemaAndTableName());
+            return listTables(tablePath.getDatabaseName())
+                    .contains(tablePath.getSchemaAndTableName());
         } catch (DatabaseNotExistException e) {
             return false;
         }

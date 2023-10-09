@@ -78,12 +78,20 @@ public class JdbcSqlServerSaveModeCatalogIT extends TestSuiteBase implements Tes
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver-e2e";
     private static final int SQLSERVER_CONTAINER_PORT = 14331;
-    private static final String SQLSERVER_URL = "jdbc:sqlserver://localhost:14331;database=auto";
+    private static final String SQLSERVER_URL = "jdbc:sqlserver://localhost:14331";
     private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
     private static final String SQLSERVER_USERNAME = "testUser";
     private static final String SQLSERVER_PASSWORD = "Abc!@#135_seatunnel";
     private static final String SQLSERVER_DATABASE = "auto";
     private static final String SQLSERVER_SCHEMA = "test";
+
+    private static final String CREATE_DATABASE =
+            "IF NOT EXISTS (\n"
+                    + "   SELECT name \n"
+                    + "   FROM sys.databases \n"
+                    + "   WHERE name = N'auto'\n"
+                    + ")\n"
+                    + "CREATE DATABASE auto;\n";
 
     private static final String CREATE_TABLE_SQL =
             "CREATE TABLE IF NOT EXISTS mysql_auto_create\n"
@@ -193,14 +201,14 @@ public class JdbcSqlServerSaveModeCatalogIT extends TestSuiteBase implements Tes
     @TestTemplate
     public void testCatalog(TestContainer container) throws IOException, InterruptedException {
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
-        TablePath tablePathMySql_Sink = TablePath.of("auto", "test", "mysql_auto_create_sink");
+        TablePath tablePathMySql_Sink = TablePath.of("auto", "dbo", "mysql_auto_create_sink");
         MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo);
         SqlServerCatalog sqlServerCatalog =
                 new SqlServerCatalog(
                         "SqlServer",
                         "sa",
                         SQLSERVER_PASSWORD,
-                        SqlServerURLParser.parse(SQLSERVER_URL),
+                        SqlServerURLParser.parse(SQLSERVER_URL + ";database=auto"),
                         SQLSERVER_SCHEMA);
         mySqlCatalog.open();
         sqlServerCatalog.open();
@@ -256,6 +264,13 @@ public class JdbcSqlServerSaveModeCatalogIT extends TestSuiteBase implements Tes
             statement.execute(getInsertSql);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Mysql table failed!", e);
+        }
+        // create sqlServer database
+        try (Connection connection = getJdbcSqlServerConnection()) {
+            Statement statement = connection.createStatement();
+            statement.execute(CREATE_DATABASE);
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing sqlServer table failed!", e);
         }
     }
 }
