@@ -109,7 +109,9 @@ public class SinkExecuteProcessor
             if (SupportSaveMode.class.isAssignableFrom(seaTunnelSink.getClass())) {
                 SupportSaveMode saveModeSink = (SupportSaveMode) seaTunnelSink;
                 try (SaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler()) {
-                    saveModeHandler.handleSaveMode();
+                    if (saveModeHandler != null) {
+                        saveModeHandler.handleSaveMode();
+                    }
                 } catch (Exception e) {
                     throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
                 }
