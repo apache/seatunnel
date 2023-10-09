@@ -166,6 +166,7 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
                         .withUsername(USERNAME)
                         .withPassword(PASSWORD)
                         .withNetwork(NETWORK)
+                        .withPrivilegedMode(true)
                         .withNetworkAliases(ORACLE_NETWORK_ALIASES)
                         .withExposedPorts(ORACLE_PORT)
                         .withLogConsumer(

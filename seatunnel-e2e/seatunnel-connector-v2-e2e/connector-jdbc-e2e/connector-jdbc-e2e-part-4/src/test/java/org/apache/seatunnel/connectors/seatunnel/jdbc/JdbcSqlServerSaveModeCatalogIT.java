@@ -83,7 +83,7 @@ public class JdbcSqlServerSaveModeCatalogIT extends TestSuiteBase implements Tes
     private static final String SQLSERVER_USERNAME = "testUser";
     private static final String SQLSERVER_PASSWORD = "Abc!@#135_seatunnel";
     private static final String SQLSERVER_DATABASE = "auto";
-    private static final String SQLSERVER_SCHEMA = "test";
+    private static final String SQLSERVER_SCHEMA = "dbo";
 
     private static final String CREATE_DATABASE =
             "IF NOT EXISTS (\n"
