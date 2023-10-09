@@ -38,6 +38,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -138,5 +139,56 @@ public class ConfigUtilTest {
         offsets.put("test_topic_source-0", "50");
         Assertions.assertEquals(
                 ((Map) ((List) value.get("source")).get(0)).get("start_mode"), expect);
+    }
+
+    @Test
+    public void testSamePrefixDifferentSuffixKey() {
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put(
+                "fs.s3a.aws.credentials.provider",
+                "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider");
+        config.put("other", "value");
+        config.put("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn");
+        Map<String, Object> result = ConfigUtil.treeMap(config);
+        Map<String, Object> s3aMap =
+                (Map<String, Object>) ((Map<String, Object>) result.get("fs")).get("s3a");
+        Assertions.assertTrue(s3aMap.containsKey("aws"));
+        Assertions.assertTrue(s3aMap.containsKey("endpoint"));
+        Assertions.assertEquals(2, s3aMap.size());
+    }
+
+    @Test
+    public void testSamePrefixDifferentValueType() {
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("start.mode", "CONSUME_FROM_TIMESTAMP");
+        config.put("other", "value");
+        config.put("start.mode.timestamp", "1667179890315");
+        Map<String, Object> result = ConfigUtil.treeMap(config);
+        Map<String, Object> s3aMap =
+                (Map<String, Object>) ((Map<String, Object>) result.get("start")).get("mode");
+        Assertions.assertTrue(s3aMap.containsKey(""));
+        Assertions.assertTrue(s3aMap.containsKey("timestamp"));
+        Assertions.assertEquals(2, s3aMap.size());
+
+        config.clear();
+        config.put("start.mode", "CONSUME_FROM_TIMESTAMP");
+        config.put("start.mode.timestamp", "1667179890315");
+        Map<String, Object> result2 = ConfigUtil.treeMap(config);
+        Map<String, Object> s3aMap2 =
+                (Map<String, Object>) ((Map<String, Object>) result2.get("start")).get("mode");
+        Assertions.assertTrue(s3aMap2.containsKey(""));
+        Assertions.assertTrue(s3aMap2.containsKey("timestamp"));
+        Assertions.assertEquals(2, s3aMap2.size());
+
+        config.clear();
+        config.put("start.mode", "CONSUME_FROM_TIMESTAMP");
+        config.put("start.mode.timestamp.test1", "1667179890315");
+        config.put("start.mode.timestamp.test2", "1667179890315");
+        Map<String, Object> result3 = ConfigUtil.treeMap(config);
+        Map<String, Object> s3aMap3 =
+                (Map<String, Object>) ((Map<String, Object>) result3.get("start")).get("mode");
+        Assertions.assertTrue(s3aMap3.containsKey(""));
+        Assertions.assertTrue(s3aMap3.containsKey("timestamp"));
+        Assertions.assertEquals(2, s3aMap3.size());
     }
 }

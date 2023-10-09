@@ -25,6 +25,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -40,8 +41,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA;
 
 @Slf4j
 public class ConfigUtil {
@@ -72,8 +71,10 @@ public class ConfigUtil {
             Map<String, Object> result = loadPropertiesStyleMap(properties);
             // Special case, we shouldn't change key in schema config.
             // TODO we should not hard code it, it should be as a config.
-            if (rawMap.containsKey(SCHEMA.key())) {
-                result.put(SCHEMA.key(), rawMap.get(SCHEMA.key()));
+            if (rawMap.containsKey(TableSchemaOptions.SCHEMA.key())) {
+                result.put(
+                        TableSchemaOptions.SCHEMA.key(),
+                        rawMap.get(TableSchemaOptions.SCHEMA.key()));
             }
             return result;
         } catch (JsonProcessingException e) {
@@ -113,12 +114,36 @@ public class ConfigUtil {
                 } else if (propertiesMap.get(tempPrefix) instanceof String) {
                     loadPropertiesStyleMap(temp).put("", propertiesMap.get(tempPrefix));
                 } else {
-                    ((Map) propertiesMap.get(tempPrefix)).putAll(loadPropertiesStyleMap(temp));
+                    mergeTwoMap((Map) propertiesMap.get(tempPrefix), loadPropertiesStyleMap(temp));
                 }
             } else {
                 propertiesMap.put(tempPrefix, loadPropertiesStyleObject(temp));
             }
             temp.clear();
+        }
+    }
+
+    private static void mergeTwoMap(Map<String, Object> base, Map<String, Object> merged) {
+        for (Map.Entry<String, Object> entry : merged.entrySet()) {
+            if (base.containsKey(entry.getKey())) {
+                if (base.get(entry.getKey()) instanceof Map && entry.getValue() instanceof Map) {
+                    mergeTwoMap((Map) base.get(entry.getKey()), (Map) entry.getValue());
+                } else if (base.get(entry.getKey()) instanceof Map) {
+                    ((Map) base.get(entry.getKey())).put("", entry.getValue());
+                } else if (entry.getValue() instanceof Map) {
+                    Map<String, Object> child = new LinkedHashMap<>();
+                    child.put("", base.get(entry.getKey()));
+                    child.putAll((Map) entry.getValue());
+                    base.put(entry.getKey(), child);
+                } else {
+                    throw new IllegalArgumentException(
+                            String.format(
+                                    "Duplicate key '%s' in config file, value '%s' and value '%s'",
+                                    entry.getKey(), base.get(entry.getKey()), entry.getValue()));
+                }
+            } else {
+                base.put(entry.getKey(), entry.getValue());
+            }
         }
     }
 
@@ -148,8 +173,14 @@ public class ConfigUtil {
     }
 
     private static Object loadPropertiesStyleObject(Map<List<String>, String> properties) {
-        if (properties.containsKey(null)) {
+        if (properties.containsKey(null) && properties.size() == 1) {
             return StringEscapeUtils.unescapeJava(properties.get(null));
+        } else if (properties.containsKey(null)) {
+            if (properties.containsKey(null)) {
+                properties.put(Collections.singletonList(""), properties.get(null));
+                properties.remove(null);
+            }
+            return loadPropertiesStyleMap(properties);
         } else if (properties.entrySet().stream().anyMatch(kv -> kv.getKey().get(0).equals("1"))) {
             return loadPropertiesStyleList(properties);
         } else {
