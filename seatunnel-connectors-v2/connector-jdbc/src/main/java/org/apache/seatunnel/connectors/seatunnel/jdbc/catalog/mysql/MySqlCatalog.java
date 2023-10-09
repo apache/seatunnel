@@ -303,7 +303,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         Connection connection = getConnection(dbUrl);
         log.info("create table sql: {}", createTableSql);
         try (PreparedStatement ps = connection.prepareStatement(createTableSql)) {
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed creating table %s", tablePath.getFullName()), e);
@@ -320,7 +321,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                                 "DROP TABLE IF EXISTS %s.%s;",
                                 tablePath.getDatabaseName(), tablePath.getTableName()))) {
             // Will there exist concurrent drop for one table?
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (SQLException e) {
             throw new CatalogException(
                     String.format("Failed dropping table %s", tablePath.getFullName()), e);
@@ -337,7 +339,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                                 "TRUNCATE TABLE %s.%s;",
                                 tablePath.getDatabaseName(), tablePath.getTableName()))) {
             // Will there exist concurrent truncate for one table?
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (SQLException e) {
             throw new CatalogException(
                     String.format("Failed truncating table %s", tablePath.getFullName()), e);
@@ -349,7 +352,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         try (PreparedStatement ps =
                 defaultConnection.prepareStatement(
                         String.format("CREATE DATABASE `%s`;", databaseName))) {
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format(
@@ -364,7 +368,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         try (PreparedStatement ps =
                 defaultConnection.prepareStatement(
                         String.format("DROP DATABASE `%s`;", databaseName))) {
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format(

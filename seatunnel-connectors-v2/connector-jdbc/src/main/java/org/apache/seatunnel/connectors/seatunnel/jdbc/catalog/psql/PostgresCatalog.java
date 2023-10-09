@@ -356,7 +356,8 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         Connection connection = getConnection(dbUrl);
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             // Will there exist concurrent drop for one table?
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (SQLException e) {
             throw new CatalogException(
                     String.format("Failed dropping table %s", tablePath.getFullName()), e);
@@ -378,7 +379,8 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         Connection connection = getConnection(dbUrl);
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             // Will there exist concurrent drop for one table?
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (SQLException e) {
             throw new CatalogException(
                     String.format("Failed truncating table %s", tablePath.getFullName()), e);
@@ -389,7 +391,8 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     protected boolean createDatabaseInternal(String databaseName) throws CatalogException {
         String sql = "CREATE DATABASE \"" + databaseName + "\"";
         try (PreparedStatement ps = defaultConnection.prepareStatement(sql)) {
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format(
@@ -414,7 +417,8 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
         String sql = "DROP DATABASE IF EXISTS \"" + databaseName + "\"";
         try (PreparedStatement ps = defaultConnection.prepareStatement(sql)) {
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format(

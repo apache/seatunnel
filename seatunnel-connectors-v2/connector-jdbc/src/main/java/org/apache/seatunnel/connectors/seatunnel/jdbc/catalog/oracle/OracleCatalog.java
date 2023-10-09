@@ -176,7 +176,8 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                                 "DROP TABLE %s.%s",
                                 tablePath.getSchemaName(), tablePath.getTableName()))) {
             // Will there exist concurrent truncate for one table?
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (SQLException e) {
             throw new CatalogException(
                     String.format("Failed truncating table %s", tablePath.getFullName()), e);
@@ -192,7 +193,8 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                                 "TRUNCATE TABLE %s.%s",
                                 tablePath.getSchemaName(), tablePath.getTableName()))) {
             // Will there exist concurrent truncate for one table?
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (SQLException e) {
             throw new CatalogException(
                     String.format("Failed truncating table %s", tablePath.getFullName()), e);

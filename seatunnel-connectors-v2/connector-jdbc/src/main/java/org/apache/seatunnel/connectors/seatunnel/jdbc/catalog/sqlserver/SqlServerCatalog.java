@@ -297,13 +297,11 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
 
         String createTableSql =
                 SqlServerCreateTableSqlBuilder.builder(tablePath, table).build(tablePath, table);
-        //        createTableSql = CatalogUtils.getFieldIde(createTableSql,
-        // table.getOptions().get("fieldIde"));
         log.info("create table sql: {}", createTableSql);
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
                 PreparedStatement ps = conn.prepareStatement(createTableSql)) {
-            System.out.println(createTableSql);
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed creating table %s", tablePath.getFullName()), e);
@@ -319,7 +317,8 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                                 String.format(
                                         "DROP TABLE IF EXISTS %s", tablePath.getFullName()))) {
             // Will there exist concurrent drop for one table?
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (SQLException e) {
             throw new CatalogException(
                     String.format("Failed dropping table %s", tablePath.getFullName()), e);
@@ -338,7 +337,8 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                         conn.prepareStatement(
                                 String.format("TRUNCATE TABLE  %s", tablePath.getFullName()))) {
             // Will there exist concurrent drop for one table?
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (SQLException e) {
             throw new CatalogException(
                     String.format("Failed truncating table %s", tablePath.getFullName()), e);
@@ -351,7 +351,8 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                 PreparedStatement ps =
                         conn.prepareStatement(
                                 String.format("CREATE DATABASE [%s]", databaseName))) {
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format(
@@ -367,7 +368,8 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                 PreparedStatement ps =
                         conn.prepareStatement(
                                 String.format("DROP DATABASE IF EXISTS [%s];", databaseName))) {
-            return ps.execute();
+            ps.execute();
+            return true;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format(

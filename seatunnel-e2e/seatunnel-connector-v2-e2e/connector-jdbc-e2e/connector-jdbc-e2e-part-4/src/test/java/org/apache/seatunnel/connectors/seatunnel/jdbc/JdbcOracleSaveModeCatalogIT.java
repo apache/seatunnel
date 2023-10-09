@@ -192,7 +192,7 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
         TablePath tablePathOracle_Sink = TablePath.of("TESTUSER", "mysql_auto_create_oracle");
         MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo);
         OracleCatalog oracleCatalog =
-                new OracleCatalog("oracle", "admin", "admin", oracle, "TESTUSER");
+                new OracleCatalog("oracle", USERNAME, PASSWORD, oracle, "TESTUSER");
         oracleCatalog.open();
         mySqlCatalog.open();
         CatalogTable catalogTable = mySqlCatalog.getTable(tablePathMySql);
