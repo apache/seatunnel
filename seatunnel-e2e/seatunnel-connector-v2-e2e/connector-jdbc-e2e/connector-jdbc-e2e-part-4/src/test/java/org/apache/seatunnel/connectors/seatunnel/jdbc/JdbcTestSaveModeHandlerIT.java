@@ -53,7 +53,7 @@ public class JdbcTestSaveModeHandlerIT extends AbstractJdbcIT {
     private static final String SQLSERVER_SCHEMA = "dbo";
     private static final String SQLSERVER_CATALOG_DATABASE = "catalog_test";
 
-    private static final int SQLSERVER_CONTAINER_PORT = 1433;
+    private static final int SQLSERVER_CONTAINER_PORT = 14332;
     private static final String SQLSERVER_URL =
             "jdbc:sqlserver://"
                     + AbstractJdbcIT.HOST
@@ -163,9 +163,7 @@ public class JdbcTestSaveModeHandlerIT extends AbstractJdbcIT {
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
 
         container.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", SQLSERVER_CONTAINER_PORT, SQLSERVER_CONTAINER_PORT)));
+                Lists.newArrayList(String.format("%s:%s", SQLSERVER_CONTAINER_PORT, 1433)));
 
         try {
             Class.forName(container.getDriverClassName());

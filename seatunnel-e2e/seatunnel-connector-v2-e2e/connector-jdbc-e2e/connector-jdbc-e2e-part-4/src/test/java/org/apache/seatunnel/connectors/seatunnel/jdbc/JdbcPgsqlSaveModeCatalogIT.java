@@ -67,10 +67,10 @@ public class JdbcPgsqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
     private static final String MYSQL_DATABASE = "auto";
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 3309;
+    private static final int MYSQL_PORT = 3310;
     private MySQLContainer<?> mysql_container;
     static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3309/auto?useSSL=false");
+            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3310/auto?useSSL=false");
     // pgsql
     private static final String PG_IMAGE = "postgis/postgis";
     private static final String PG_DRIVER_JAR =

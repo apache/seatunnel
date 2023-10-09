@@ -68,16 +68,16 @@ public class JdbcSqlServerSaveModeCatalogIT extends TestSuiteBase implements Tes
     private static final String MYSQL_DATABASE = "auto";
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 3308;
+    private static final int MYSQL_PORT = 3311;
     private MySQLContainer<?> mysql_container;
     static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3308/auto?useSSL=false");
+            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3311/auto?useSSL=false");
     // sqlserver config
     private MSSQLServerContainer<?> sqlserver_container;
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver-e2e";
-    private static final int SQLSERVER_CONTAINER_PORT = 1433;
-    private static final String SQLSERVER_URL = "jdbc:sqlserver://localhost:1433;database=auto";
+    private static final int SQLSERVER_CONTAINER_PORT = 14331;
+    private static final String SQLSERVER_URL = "jdbc:sqlserver://localhost:14331;database=auto";
     private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
     private static final String SQLSERVER_USERNAME = "testUser";
     private static final String SQLSERVER_PASSWORD = "Abc!@#135_seatunnel";
@@ -171,9 +171,7 @@ public class JdbcSqlServerSaveModeCatalogIT extends TestSuiteBase implements Tes
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
         sqlserver_container.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", SQLSERVER_CONTAINER_PORT, SQLSERVER_CONTAINER_PORT)));
+                Lists.newArrayList(String.format("%s:%s", SQLSERVER_CONTAINER_PORT, 1433)));
         try {
             Class.forName(sqlserver_container.getDriverClassName());
         } catch (ClassNotFoundException e) {

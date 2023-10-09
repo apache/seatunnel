@@ -68,10 +68,10 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
     private static final String MYSQL_DATABASE = "auto";
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 3310;
+    private static final int MYSQL_PORT = 3309;
     private MySQLContainer<?> mysql_container;
     static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3310/auto?useSSL=false");
+            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3309/auto?useSSL=false");
     // oracle
     private static final String ORACLE_IMAGE = "gvenzl/oracle-xe:21-slim-faststart";
     private static final String ORACLE_NETWORK_ALIASES = "e2e_oracleDb";
@@ -191,9 +191,11 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
         TablePath tablePathOracle_Sink = TablePath.of("TESTUSER", "mysql_auto_create_oracle");
         MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo);
-        CatalogTable catalogTable = mySqlCatalog.getTable(tablePathMySql);
         OracleCatalog oracleCatalog =
                 new OracleCatalog("oracle", "admin", "admin", oracle, "TESTUSER");
+        oracleCatalog.open();
+        mySqlCatalog.open();
+        CatalogTable catalogTable = mySqlCatalog.getTable(tablePathMySql);
         // sink tableExists ?
         boolean tableExistsBefore = oracleCatalog.tableExists(tablePathOracle_Sink);
         Assertions.assertFalse(tableExistsBefore);
