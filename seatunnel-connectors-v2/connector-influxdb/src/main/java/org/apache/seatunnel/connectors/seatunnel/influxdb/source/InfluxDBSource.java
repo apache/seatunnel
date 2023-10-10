@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -75,7 +76,7 @@ public class InfluxDBSource
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =
-                CheckConfigUtil.checkAllExists(config, SQL.key(), CatalogTableUtil.SCHEMA.key());
+                CheckConfigUtil.checkAllExists(config, SQL.key(), TableSchemaOptions.SCHEMA.key());
         if (!result.isSuccess()) {
             throw new InfluxdbConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

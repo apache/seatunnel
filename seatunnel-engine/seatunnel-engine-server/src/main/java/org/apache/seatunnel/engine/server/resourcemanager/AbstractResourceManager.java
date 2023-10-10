@@ -29,10 +29,8 @@ import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.services.MembershipServiceEvent;
-import com.hazelcast.spi.impl.InternalCompletableFuture;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.Operation;
-import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -75,7 +73,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
                         .map(Member::getAddress)
                         .collect(Collectors.toList());
         log.info("initWorker live nodes: " + aliveWorker);
-        List<InternalCompletableFuture<Void>> futures =
+        List<CompletableFuture<Void>> futures =
                 aliveWorker.stream()
                         .map(
                                 worker ->
@@ -86,7 +84,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
                                                                     worker, (WorkerProfile) p);
                                                         }))
                         .collect(Collectors.toList());
-        futures.forEach(InternalCompletableFuture::join);
+        futures.forEach(CompletableFuture::join);
         log.info("registerWorker: " + registerWorker);
     }
 
@@ -155,7 +153,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
         isRunning = false;
     }
 
-    protected <E> InvocationFuture<E> sendToMember(Operation operation, Address address) {
+    protected <E> CompletableFuture<E> sendToMember(Operation operation, Address address) {
         return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, address);
     }
 

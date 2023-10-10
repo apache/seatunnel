@@ -44,6 +44,10 @@ public class AssertRuleParser {
         return assembleFieldValueRules(rowRuleList);
     }
 
+    public AssertCatalogTableRule parseCatalogTableRule(Config catalogTableRule) {
+        return new AssertCatalogTableRuleParser().parseCatalogTableRule(catalogTableRule);
+    }
+
     public List<AssertFieldRule> parseRules(List<? extends Config> ruleConfigList) {
         return ruleConfigList.stream()
                 .map(
