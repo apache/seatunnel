@@ -77,7 +77,7 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
     private static final String ORACLE_NETWORK_ALIASES = "e2e_oracleDb";
     private static final String ORACLE_DRIVER_CLASS = "oracle.jdbc.OracleDriver";
     private static final int ORACLE_PORT = 15213;
-    private static final String USERNAME = "admin";
+    private static final String USERNAME = "TESTUSER";
     private static final String PASSWORD = "Abc!@#135_seatunnel";
     private static final String DATABASE = "TESTUSER";
     private OracleContainer oracle_container;
@@ -190,7 +190,8 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
     @TestTemplate
     public void testCatalog(TestContainer container) throws IOException, InterruptedException {
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
-        TablePath tablePathOracle_Sink = TablePath.of("TESTUSER", "mysql_auto_create_oracle");
+        TablePath tablePathOracle_Sink =
+                TablePath.of("TESTUSER", "TESTUSER", "mysql_auto_create_oracle");
         MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo);
         OracleCatalog oracleCatalog =
                 new OracleCatalog("oracle", USERNAME, PASSWORD, oracle, "TESTUSER");
