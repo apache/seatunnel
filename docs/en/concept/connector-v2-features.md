@@ -49,6 +49,10 @@ In the **Parallelism Source Connector**, the source will be split into multiple 
 
 User can config the split rule.
 
+### support multiple table reading
+
+Supports reading multiple tables at one time
+
 ## Sink Connector Features
 
 Sink connectors have some common core features, and each sink connector supports them to varying degrees.
