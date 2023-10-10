@@ -21,6 +21,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
+import org.apache.seatunnel.e2e.common.container.EngineType;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -43,6 +45,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason = "Currently SPARK and FLINK do not support save mode")
 public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
 
     private static final String MYSQL_IMAGE = "mysql:latest";
