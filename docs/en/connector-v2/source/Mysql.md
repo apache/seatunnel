@@ -61,7 +61,7 @@ Read external data source data through JDBC.
 
 ## Source Options
 
-| Name                                       | Type       | Required | Default         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+|                    Name                    |    Type    | Required |     Default     |                                                                                                                                                                                                                                                                                                     Description                                                                                                                                                                                                                                                                                                      |
 |--------------------------------------------|------------|----------|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                        | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | driver                                     | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -86,7 +86,7 @@ Read external data source data through JDBC.
 ### Tips
 
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks , When your shard read field is a large number type such as bigint(30) and above and the data is not evenly distributed, it is recommended to set the parallelism level to 1 to ensure that the data skew problem is resolved
-
+>
 > Use `table_path` to replace `query` for single table reading. If you need to read multiple tables, use `table_list`.
 
 ## Task Example
@@ -230,3 +230,4 @@ sink {
   Console {}
 }
 ```
+

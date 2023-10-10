@@ -29,7 +29,7 @@ supports query SQL and can achieve projection effect.
 
 ## Options
 
-| name                                       | type       | required | default value   |
+|                    name                    |    type    | required |  default value  |
 |--------------------------------------------|------------|----------|-----------------|
 | url                                        | String     | Yes      | -               |
 | driver                                     | String     | Yes      | -               |
@@ -116,6 +116,7 @@ examples:
 The list of tables to be read, you can use this configuration instead of `table_path`
 
 example
+
 ```hocon
 table_list = [
   {
