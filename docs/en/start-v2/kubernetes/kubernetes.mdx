@@ -17,8 +17,6 @@ We assume that you have a local installations of the following:
 - [kubernetes](https://kubernetes.io/)
 If you want to use the Flink engine, you need helm
 - [helm](https://helm.sh/docs/intro/quickstart/)
-If you want to use the cluster mode of the Zeta engine, you need HDFS to save Checkpoint
-- [hdfs](https://hadoop.apache.org/)
 So that the `kubectl` and `helm` commands are available on your local system.
 
 For kubernetes [minikube](https://minikube.sigs.k8s.io/docs/start/) is our choice, at the time of writing this we are using version v1.23.3. You can start a cluster with the following command:
@@ -470,7 +468,7 @@ seatunnel:
         plugin-config:
           namespace: /tmp/seatunnel/checkpoint_snapshot
           storage.type: hdfs
-          fs.defaultFS: file:///tmp/ # Change this to your HDFS address
+          fs.defaultFS: file:///tmp/ # Ensure that the directory has written permission
 ```
 
 Create congfigmaps for the configuration file using the following command
