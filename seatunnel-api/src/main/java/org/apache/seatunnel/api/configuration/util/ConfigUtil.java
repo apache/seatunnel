@@ -25,6 +25,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -40,8 +41,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA;
 
 @Slf4j
 public class ConfigUtil {
@@ -72,8 +71,10 @@ public class ConfigUtil {
             Map<String, Object> result = loadPropertiesStyleMap(properties);
             // Special case, we shouldn't change key in schema config.
             // TODO we should not hard code it, it should be as a config.
-            if (rawMap.containsKey(SCHEMA.key())) {
-                result.put(SCHEMA.key(), rawMap.get(SCHEMA.key()));
+            if (rawMap.containsKey(TableSchemaOptions.SCHEMA.key())) {
+                result.put(
+                        TableSchemaOptions.SCHEMA.key(),
+                        rawMap.get(TableSchemaOptions.SCHEMA.key()));
             }
             return result;
         } catch (JsonProcessingException e) {

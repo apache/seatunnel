@@ -46,6 +46,7 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
 
     FlinkGlobalCommitter(SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter) {
         this.aggregatedCommitter = aggregatedCommitter;
+        aggregatedCommitter.init();
     }
 
     @Override
