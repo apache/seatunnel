@@ -40,6 +40,8 @@ source {
   amazonsqs {
     url = "http://127.0.0.1:4566"
     region = "us-east-1"
+    format = text
+    field_delimiter = "#"
     schema = {
       fields {
         artist = string
