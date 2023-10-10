@@ -230,10 +230,6 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     public List<String> listTables(String databaseName)
             throws CatalogException, DatabaseNotExistException {
-        if (!databaseExists(databaseName)) {
-            throw new DatabaseNotExistException(this.catalogName, databaseName);
-        }
-
         try (PreparedStatement ps =
                 defaultConnection.prepareStatement(
                         "SELECT OWNER, TABLE_NAME FROM ALL_TABLES\n"
