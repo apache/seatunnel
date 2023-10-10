@@ -41,6 +41,7 @@ A flink sink plugin which can assert illegal data by user defined rules
 | rules.catalog_table_rule.column_rule.nullable                                                  | boolean    | no       | -             |
 | rules.catalog_table_rule.column_rule.default_value                                             | string     | no       | -             |
 | rules.catalog_table_rule.column_rule.comment                                                   | comment    | no       | -             |
+| rules.table-names                                                                              | list       | no       | -             |
 | common-options                                                                                 |            | no       | -             |
 
 ### rules [ConfigMap]
@@ -81,6 +82,10 @@ the value related to rule type
 ### catalog_table_rule [ConfigMap]
 
 Used to assert the catalog table is same with the user defined table.
+
+### table-names [ConfigList]
+
+Used to assert the table should be in the data.
 
 ### common options
 
