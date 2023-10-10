@@ -33,12 +33,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
@@ -51,42 +49,76 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+import static org.awaitility.Awaitility.given;
+
 public class SimpleJdbcConnectionProviderTest {
-    private MySQLContainer<?> mc;
+    private GenericContainer<?> mc;
     private static final String SQL = "select * from test";
-    private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
 
-    private static final String MYSQL_IMAGE = "mysql:latest";
-    private static final String MYSQL_DATABASE = "seatunnel";
+    private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
 
-    private static final String MYSQL_USERNAME = "root";
-    private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 3306;
+    private static final String NETWORK_ALIASES = "e2e_starRocksdb";
+
+    private static final String URL = "jdbc:mysql://HOST:9030/test";
+
+    private static final String USERNAME = "root";
+    private static final String PASSWORD = "";
+
+    private static final String CREATE_SQL =
+            "create table test.test (\n"
+                    + "  BIGINT_COL     BIGINT,\n"
+                    + "  LARGEINT_COL   LARGEINT,\n"
+                    + "  SMALLINT_COL   SMALLINT,\n"
+                    + "  TINYINT_COL    TINYINT,\n"
+                    + "  BOOLEAN_COL    BOOLEAN,\n"
+                    + "  DECIMAL_COL    DECIMAL,\n"
+                    + "  DOUBLE_COL     DOUBLE,\n"
+                    + "  FLOAT_COL      FLOAT,\n"
+                    + "  INT_COL        INT,\n"
+                    + "  CHAR_COL       CHAR,\n"
+                    + "  VARCHAR_11_COL VARCHAR(11),\n"
+                    + "  STRING_COL     STRING,\n"
+                    + "  DATETIME_COL   DATETIME,\n"
+                    + "  DATE_COL       DATE\n"
+                    + ")ENGINE=OLAP\n"
+                    + "DUPLICATE KEY(`BIGINT_COL`)\n"
+                    + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n"
+                    + "PROPERTIES (\n"
+                    + "\"replication_num\" = \"1\",\n"
+                    + "\"in_memory\" = \"false\","
+                    + "\"storage_format\" = \"DEFAULT\""
+                    + ");";
 
     @BeforeEach
     void before() throws Exception {
-        DockerImageName imageName = DockerImageName.parse(MYSQL_IMAGE);
         mc =
-                new MySQLContainer<>(imageName)
-                        .withUsername(MYSQL_USERNAME)
-                        .withPassword(MYSQL_PASSWORD)
-                        .withDatabaseName(MYSQL_DATABASE)
+                new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(Network.newNetwork())
-                        .withNetworkAliases(MYSQL_CONTAINER_HOST)
-                        .withExposedPorts(MYSQL_PORT)
-                        .waitingFor(Wait.forHealthcheck())
+                        .withNetworkAliases(NETWORK_ALIASES)
                         .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
+        mc.setPortBindings(Lists.newArrayList(String.format("%s:%s", 9030, 9030)));
 
-        mc.setPortBindings(Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3307)));
         Startables.deepStart(Stream.of(mc)).join();
-        create("CREATE TABLE IF NOT EXISTS test (`id` int(11))");
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(() -> this.getJdbcConnection());
+        create(CREATE_SQL);
     }
 
     private Connection getJdbcConnection() throws SQLException {
-        return DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword());
+
+        return DriverManager.getConnection(
+                getUrl() + "?createDatabaseIfNotExist=true", USERNAME, PASSWORD);
+    }
+
+    private String getUrl() {
+        return URL.replace("HOST", mc.getHost());
     }
 
     private void create(String sql) {
@@ -107,7 +139,7 @@ public class SimpleJdbcConnectionProviderTest {
         // case1 url not contains parameters and properties not contains parameters
         JdbcSink jdbcSink1 = new JdbcSink();
         HashMap<String, Object> map1 = getMap();
-        map1.put("url", mc.getJdbcUrl());
+        map1.put("url", getUrl());
         Config config1 = ConfigFactory.parseMap(map1);
         Properties connectionProperties1 = getSinkProperties(jdbcSink1, config1);
         Assertions.assertEquals(connectionProperties1.get("rewriteBatchedStatements"), "true");
@@ -115,7 +147,7 @@ public class SimpleJdbcConnectionProviderTest {
         // case2 url contains parameters and properties not contains parameters
         JdbcSink jdbcSink2 = new JdbcSink();
         HashMap<String, Object> map2 = getMap();
-        map2.put("url", mc.getJdbcUrl() + "?rewriteBatchedStatements=false");
+        map2.put("url", getUrl() + "?rewriteBatchedStatements=false");
         Config config2 = ConfigFactory.parseMap(map2);
         Properties connectionProperties2 = getSinkProperties(jdbcSink2, config2);
         Assertions.assertEquals(connectionProperties2.get("rewriteBatchedStatements"), "true");
@@ -126,7 +158,7 @@ public class SimpleJdbcConnectionProviderTest {
         HashMap<String, String> properties3 = new HashMap<>();
         properties3.put("rewriteBatchedStatements", "false");
         map3.put("properties", properties3);
-        map3.put("url", mc.getJdbcUrl());
+        map3.put("url", getUrl());
         Config config3 = ConfigFactory.parseMap(map3);
         Properties connectionProperties3 = getSinkProperties(jdbcSink3, config3);
         Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
@@ -138,7 +170,7 @@ public class SimpleJdbcConnectionProviderTest {
         properties4.put("useSSL", "true");
         properties4.put("rewriteBatchedStatements", "false");
         map4.put("properties", properties4);
-        map4.put("url", mc.getJdbcUrl() + "?useSSL=false&rewriteBatchedStatements=true");
+        map4.put("url", getUrl() + "?useSSL=false&rewriteBatchedStatements=true");
         Config config4 = ConfigFactory.parseMap(map4);
         Properties connectionProperties4 = getSinkProperties(jdbcSink4, config4);
         Assertions.assertEquals(connectionProperties4.get("useSSL"), "true");
@@ -149,7 +181,7 @@ public class SimpleJdbcConnectionProviderTest {
         // case1 url not contains parameters and properties not contains parameters
         JdbcSource jdbcSource1 = new JdbcSource();
         HashMap<String, Object> map1 = getMap();
-        map1.put("url", mc.getJdbcUrl());
+        map1.put("url", getUrl());
         map1.put("query", SQL);
         Config config1 = ConfigFactory.parseMap(map1);
         Properties connectionProperties1 = getSourceProperties(jdbcSource1, config1);
@@ -158,7 +190,7 @@ public class SimpleJdbcConnectionProviderTest {
         // case2 url contains parameters and properties not contains parameters
         JdbcSource jdbcSource2 = new JdbcSource();
         HashMap<String, Object> map2 = getMap();
-        map2.put("url", mc.getJdbcUrl() + "?rewriteBatchedStatements=false");
+        map2.put("url", getUrl() + "?rewriteBatchedStatements=false");
         map2.put("query", SQL);
         Config config2 = ConfigFactory.parseMap(map2);
         Properties connectionProperties2 = getSourceProperties(jdbcSource2, config2);
@@ -170,7 +202,7 @@ public class SimpleJdbcConnectionProviderTest {
         HashMap<String, String> properties3 = new HashMap<>();
         properties3.put("rewriteBatchedStatements", "false");
         map3.put("properties", properties3);
-        map3.put("url", mc.getJdbcUrl());
+        map3.put("url", getUrl());
         map3.put("query", SQL);
         Config config3 = ConfigFactory.parseMap(map3);
         Properties connectionProperties3 = getSourceProperties(jdbcSource3, config3);
@@ -183,7 +215,7 @@ public class SimpleJdbcConnectionProviderTest {
         properties4.put("useSSL", "true");
         properties4.put("rewriteBatchedStatements", "false");
         map4.put("properties", properties4);
-        map4.put("url", mc.getJdbcUrl() + "?useSSL=false&rewriteBatchedStatements=true");
+        map4.put("url", getUrl() + "?useSSL=false&rewriteBatchedStatements=true");
         map4.put("query", SQL);
         Config config4 = ConfigFactory.parseMap(map4);
         Properties connectionProperties4 = getSourceProperties(jdbcSource4, config4);
@@ -194,8 +226,8 @@ public class SimpleJdbcConnectionProviderTest {
     @NotNull private HashMap<String, Object> getMap() {
         HashMap<String, Object> map = new HashMap<>();
         map.put("driver", "com.mysql.cj.jdbc.Driver");
-        map.put("user", mc.getUsername());
-        map.put("password", mc.getPassword());
+        map.put("user", USERNAME);
+        map.put("password", PASSWORD);
         return map;
     }
 
