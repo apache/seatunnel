@@ -29,28 +29,28 @@ supports query SQL and can achieve projection effect.
 
 ## Options
 
-|                    name                    |    type    | required |  default value  |
-|--------------------------------------------|------------|----------|-----------------|
-| url                                        | String     | Yes      | -               |
-| driver                                     | String     | Yes      | -               |
-| user                                       | String     | No       | -               |
-| password                                   | String     | No       | -               |
-| query                                      | String     | No       | -               |
-| compatible_mode                            | String     | No       | -               |
-| connection_check_timeout_sec               | Int        | No       | 30              |
-| partition_column                           | String     | No       | -               |
-| partition_upper_bound                      | Long       | No       | -               |
-| partition_lower_bound                      | Long       | No       | -               |
-| partition_num                              | Int        | No       | job parallelism |
-| fetch_size                                 | Int        | No       | 0               |
-| table_path                                 | String     | No       | -               |
-| table_list                                 | Array<Map> | No       | -               |
-| split.size                                 | Int        | No       | 8096            |
-| split.even-distribution.factor.lower-bound | Double     | No       | 0.05            |
-| split.even-distribution.factor.upper-bound | Double     | No       | 100             |
-| split.sample-sharding.threshold            | Int        | No       | 1000            |
-| split.inverse-sampling.rate                | Int        | No       | 1000            |
-| common-options                             |            | No       | -               |
+|                    name                    |  type  | required |  default value  |
+|--------------------------------------------|--------|----------|-----------------|
+| url                                        | String | Yes      | -               |
+| driver                                     | String | Yes      | -               |
+| user                                       | String | No       | -               |
+| password                                   | String | No       | -               |
+| query                                      | String | No       | -               |
+| compatible_mode                            | String | No       | -               |
+| connection_check_timeout_sec               | Int    | No       | 30              |
+| partition_column                           | String | No       | -               |
+| partition_upper_bound                      | Long   | No       | -               |
+| partition_lower_bound                      | Long   | No       | -               |
+| partition_num                              | Int    | No       | job parallelism |
+| fetch_size                                 | Int    | No       | 0               |
+| table_path                                 | String | No       | -               |
+| table_list                                 | Array  | No       | -               |
+| split.size                                 | Int    | No       | 8096            |
+| split.even-distribution.factor.lower-bound | Double | No       | 0.05            |
+| split.even-distribution.factor.upper-bound | Double | No       | 100             |
+| split.sample-sharding.threshold            | Int    | No       | 1000            |
+| split.inverse-sampling.rate                | Int    | No       | 1000            |
+| common-options                             |        | No       | -               |
 
 ### driver [string]
 
