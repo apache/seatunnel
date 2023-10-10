@@ -49,6 +49,9 @@ public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
             throws IOException {
         this.sink = sink;
         this.sinkAggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
+        if (sinkAggregatedCommitter != null) {
+            sinkAggregatedCommitter.init();
+        }
     }
 
     @Override
