@@ -40,7 +40,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -106,7 +105,7 @@ public class SimpleJdbcConnectionProviderTest extends TestSuiteBase implements T
     public void startUp() {
         mc =
                 new GenericContainer<>(DOCKER_IMAGE)
-                        .withNetwork(Network.newNetwork())
+                        .withNetwork(NETWORK)
                         .withNetworkAliases(NETWORK_ALIASES)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
