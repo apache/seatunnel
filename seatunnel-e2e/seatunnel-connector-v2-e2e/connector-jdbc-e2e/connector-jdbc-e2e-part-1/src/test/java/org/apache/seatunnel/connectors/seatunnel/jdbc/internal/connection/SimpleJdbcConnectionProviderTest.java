@@ -98,6 +98,11 @@ public class SimpleJdbcConnectionProviderTest {
     }
 
     @Test
+    void parametersTest() throws SQLException, IOException, ClassNotFoundException {
+        defaultSinkParametersTest();
+        defaultSourceParametersTest();
+    }
+
     void defaultSinkParametersTest() throws IOException, SQLException, ClassNotFoundException {
         // case1 url not contains parameters and properties not contains parameters
         JdbcSink jdbcSink1 = new JdbcSink();
@@ -126,7 +131,7 @@ public class SimpleJdbcConnectionProviderTest {
         Properties connectionProperties3 = getSinkProperties(jdbcSink3, config3);
         Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
 
-        // case3 url contains parameters and properties contains parameters
+        // case4 url contains parameters and properties contains parameters
         JdbcSink jdbcSink4 = new JdbcSink();
         HashMap<String, Object> map4 = getMap();
         HashMap<String, String> properties4 = new HashMap<>();
@@ -140,7 +145,6 @@ public class SimpleJdbcConnectionProviderTest {
         Assertions.assertEquals(connectionProperties4.get("rewriteBatchedStatements"), "false");
     }
 
-    @Test
     void defaultSourceParametersTest() throws IOException, SQLException, ClassNotFoundException {
         // case1 url not contains parameters and properties not contains parameters
         JdbcSource jdbcSource1 = new JdbcSource();
@@ -172,7 +176,7 @@ public class SimpleJdbcConnectionProviderTest {
         Properties connectionProperties3 = getSourceProperties(jdbcSource3, config3);
         Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
 
-        // case3 url contains parameters and properties contains parameters
+        // case4 url contains parameters and properties contains parameters
         JdbcSource jdbcSource4 = new JdbcSource();
         HashMap<String, Object> map4 = getMap();
         HashMap<String, String> properties4 = new HashMap<>();
