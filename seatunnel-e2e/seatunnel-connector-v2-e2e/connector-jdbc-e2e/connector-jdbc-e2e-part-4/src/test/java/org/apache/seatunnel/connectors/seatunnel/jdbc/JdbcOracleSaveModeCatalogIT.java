@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
@@ -206,6 +207,7 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
         boolean tableExistsAfter = oracleCatalog.tableExists(tablePathOracle_Sink);
         Assertions.assertTrue(tableExistsAfter);
         // isExistsData ?
+        log.info("table list : {}", JsonUtils.toJsonString(oracleCatalog.listTables("TESTUSER")));
         boolean existsDataBefore = oracleCatalog.isExistsData(tablePathOracle_Sink);
         Assertions.assertFalse(existsDataBefore);
         // insert one data
