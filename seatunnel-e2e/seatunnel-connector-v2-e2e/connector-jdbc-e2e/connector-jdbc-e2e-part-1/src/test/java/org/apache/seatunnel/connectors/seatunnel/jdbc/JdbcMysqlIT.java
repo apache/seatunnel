@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -34,7 +35,9 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
-import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -67,6 +70,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
+                    + "    `id`                bigint(18)                NOT NULL AUTO_INCREMENT,\n"
                     + "    `c_bit_1`                bit(1)                DEFAULT NULL,\n"
                     + "    `c_bit_8`                bit(8)                DEFAULT NULL,\n"
                     + "    `c_bit_16`               bit(16)               DEFAULT NULL,\n"
@@ -110,8 +114,57 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     + "    `c_integer_unsigned`     int(10) unsigned      DEFAULT NULL,\n"
                     + "    `c_bigint_30`            BIGINT(40)  unsigned  DEFAULT NULL,\n"
                     + "    `c_decimal_unsigned_30`  DECIMAL(30) unsigned  DEFAULT NULL,\n"
-                    + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL\n"
+                    + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL,\n"
+                    + "      PRIMARY KEY(`id`)"
                     + ");";
+
+    private static final String[] fieldNames =
+            new String[] {
+                "c_bit_1",
+                "c_bit_8",
+                "c_bit_16",
+                "c_bit_32",
+                "c_bit_64",
+                "c_boolean",
+                "c_tinyint",
+                "c_tinyint_unsigned",
+                "c_smallint",
+                "c_smallint_unsigned",
+                "c_mediumint",
+                "c_mediumint_unsigned",
+                "c_int",
+                "c_integer",
+                "c_year",
+                "c_int_unsigned",
+                "c_integer_unsigned",
+                "c_bigint",
+                "c_bigint_unsigned",
+                "c_decimal",
+                "c_decimal_unsigned",
+                "c_float",
+                "c_float_unsigned",
+                "c_double",
+                "c_double_unsigned",
+                "c_char",
+                "c_tinytext",
+                "c_mediumtext",
+                "c_text",
+                "c_varchar",
+                "c_json",
+                "c_longtext",
+                "c_date",
+                "c_datetime",
+                "c_timestamp",
+                "c_tinyblob",
+                "c_mediumblob",
+                "c_blob",
+                "c_longblob",
+                "c_varbinary",
+                "c_binary",
+                "c_bigint_30",
+                "c_decimal_unsigned_30",
+                "c_decimal_30",
+            };
 
     @Override
     JdbcCase getJdbcCase() {
@@ -147,7 +200,25 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() {}
+    void compareResult() {
+        try (Statement statement = connection.createStatement()) {
+            ResultSet resultSet =
+                    statement.executeQuery(
+                            String.format(
+                                    "select count(1) from %s.%s where c_bit_1 is null and c_bit_8 is null and c_bit_16 is null and c_bit_32"
+                                            + " is null and c_bit_64 is null and c_boolean is null and c_tinyint is null and c_tinyint_unsigned is null and c_smallint is null and c_smallint_unsigned is null "
+                                            + "and c_mediumint is null and c_mediumint_unsigned is null and c_int is null and c_integer is null and c_bigint is null and c_bigint_unsigned is null and c_decimal is null "
+                                            + "and c_decimal_unsigned is null and c_float is null and c_float_unsigned is null and c_double is null and c_double_unsigned is null and c_char is null and c_tinytext is null "
+                                            + "and c_mediumtext is null and c_text is null and c_varchar is null and c_json is null and c_longtext is null and c_date is null and c_datetime is null and c_timestamp is null "
+                                            + "and c_tinyblob is null and c_mediumblob is null and c_blob is null and c_longblob is null and c_varbinary is null and c_binary is null and c_year is null "
+                                            + "and c_int_unsigned is null and c_integer_unsigned is null and c_bigint_30 is null and c_decimal_unsigned_30 is null and c_decimal_30 is null",
+                                    getJdbcCase().getDatabase(), getJdbcCase().getSinkTable()));
+            resultSet.next();
+            Assertions.assertEquals(resultSet.getInt(1), 1);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @Override
     String driverUrl() {
@@ -156,54 +227,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
 
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
-        String[] fieldNames =
-                new String[] {
-                    "c_bit_1",
-                    "c_bit_8",
-                    "c_bit_16",
-                    "c_bit_32",
-                    "c_bit_64",
-                    "c_boolean",
-                    "c_tinyint",
-                    "c_tinyint_unsigned",
-                    "c_smallint",
-                    "c_smallint_unsigned",
-                    "c_mediumint",
-                    "c_mediumint_unsigned",
-                    "c_int",
-                    "c_integer",
-                    "c_year",
-                    "c_int_unsigned",
-                    "c_integer_unsigned",
-                    "c_bigint",
-                    "c_bigint_unsigned",
-                    "c_decimal",
-                    "c_decimal_unsigned",
-                    "c_float",
-                    "c_float_unsigned",
-                    "c_double",
-                    "c_double_unsigned",
-                    "c_char",
-                    "c_tinytext",
-                    "c_mediumtext",
-                    "c_text",
-                    "c_varchar",
-                    "c_json",
-                    "c_longtext",
-                    "c_date",
-                    "c_datetime",
-                    "c_timestamp",
-                    "c_tinyblob",
-                    "c_mediumblob",
-                    "c_blob",
-                    "c_longblob",
-                    "c_varbinary",
-                    "c_binary",
-                    "c_bigint_30",
-                    "c_decimal_unsigned_30",
-                    "c_decimal_30",
-                };
-
         List<SeaTunnelRow> rows = new ArrayList<>();
         BigDecimal bigintValue = new BigDecimal("2844674407371055000");
         BigDecimal decimalValue = new BigDecimal("999999999999999999999999999899");
@@ -247,7 +270,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                                 String.format("f1_%s", i),
                                 String.format("{\"aa\":\"bb_%s\"}", i),
                                 String.format("f1_%s", i),
-                                Date.valueOf(LocalDate.now()),
+                                java.sql.Date.valueOf(LocalDate.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
                                 new Timestamp(System.currentTimeMillis()),
                                 "test".getBytes(),
@@ -262,6 +285,15 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                             });
             rows.add(row);
         }
+        SeaTunnelRow row =
+                new SeaTunnelRow(
+                        new Object[] {
+                            null, null, null, null, null, null, null, null, null, null, null, null,
+                            null, null, null, null, null, null, null, null, null, null, null, null,
+                            null, null, null, null, null, null, null, null, null, null, null, null,
+                            null, null, null, null, null, null, null, null,
+                        });
+        rows.add(row);
 
         return Pair.of(fieldNames, rows);
     }

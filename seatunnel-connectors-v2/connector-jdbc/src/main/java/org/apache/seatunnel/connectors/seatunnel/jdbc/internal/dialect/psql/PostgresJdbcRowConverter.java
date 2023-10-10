@@ -24,6 +24,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -59,47 +60,48 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                                         ? null
                                         : rs.getObject(resultSetIndex).toString();
                     } else {
-                        fields[fieldIndex] = rs.getString(resultSetIndex);
+                        fields[fieldIndex] = rs.getObject(resultSetIndex, String.class);
                     }
                     break;
                 case BOOLEAN:
-                    fields[fieldIndex] = rs.getBoolean(resultSetIndex);
+                    fields[fieldIndex] = rs.getObject(resultSetIndex, Boolean.class);
                     break;
                 case TINYINT:
-                    fields[fieldIndex] = rs.getByte(resultSetIndex);
+                    fields[fieldIndex] = rs.getObject(resultSetIndex, Byte.class);
                     break;
                 case SMALLINT:
-                    fields[fieldIndex] = rs.getShort(resultSetIndex);
+                    fields[fieldIndex] = rs.getObject(resultSetIndex, Short.class);
                     break;
                 case INT:
-                    fields[fieldIndex] = rs.getInt(resultSetIndex);
+                    fields[fieldIndex] = rs.getObject(resultSetIndex, Integer.class);
                     break;
                 case BIGINT:
-                    fields[fieldIndex] = rs.getLong(resultSetIndex);
+                    fields[fieldIndex] = rs.getObject(resultSetIndex, Long.class);
                     break;
                 case FLOAT:
-                    fields[fieldIndex] = rs.getFloat(resultSetIndex);
+                    fields[fieldIndex] = rs.getObject(resultSetIndex, Float.class);
                     break;
                 case DOUBLE:
-                    fields[fieldIndex] = rs.getDouble(resultSetIndex);
+                    fields[fieldIndex] = rs.getObject(resultSetIndex, Double.class);
                     break;
                 case DECIMAL:
-                    fields[fieldIndex] = rs.getBigDecimal(resultSetIndex);
+                    fields[fieldIndex] = rs.getObject(resultSetIndex, BigDecimal.class);
                     break;
                 case DATE:
-                    Date sqlDate = rs.getDate(resultSetIndex);
                     fields[fieldIndex] =
-                            Optional.ofNullable(sqlDate).map(e -> e.toLocalDate()).orElse(null);
+                            Optional.ofNullable(rs.getObject(resultSetIndex, Date.class))
+                                    .map(e -> e.toLocalDate())
+                                    .orElse(null);
                     break;
                 case TIME:
-                    Time sqlTime = rs.getTime(resultSetIndex);
                     fields[fieldIndex] =
-                            Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
+                            Optional.ofNullable(rs.getObject(resultSetIndex, Time.class))
+                                    .map(e -> e.toLocalTime())
+                                    .orElse(null);
                     break;
                 case TIMESTAMP:
-                    Timestamp sqlTimestamp = rs.getTimestamp(resultSetIndex);
                     fields[fieldIndex] =
-                            Optional.ofNullable(sqlTimestamp)
+                            Optional.ofNullable(rs.getObject(resultSetIndex, Timestamp.class))
                                     .map(e -> e.toLocalDateTime())
                                     .orElse(null);
                     break;

@@ -257,10 +257,9 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         for (String configFile : configFiles) {
             Container.ExecResult execResult = container.executeJob(configFile);
             Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            compareResult();
+            clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
         }
-
-        compareResult();
-        clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
     }
 
     protected void initCatalog() {}

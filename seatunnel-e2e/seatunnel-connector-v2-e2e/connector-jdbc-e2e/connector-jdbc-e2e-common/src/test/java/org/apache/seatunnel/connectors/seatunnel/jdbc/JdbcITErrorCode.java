@@ -25,6 +25,7 @@ public enum JdbcITErrorCode implements SeaTunnelErrorCode {
     CREATE_TABLE_FAILED("JDBC-IT-02", "Fail to create table."),
     INSERT_DATA_FAILED("JDBC-IT-03", "Fail to inert data."),
     DRIVER_NOT_FOUND("JDBC-IT-04", "Can not get the driver."),
+    QUERY_TABLE_FAILED("JDBC-IT-05", "Fail to query table."),
     ;
 
     private final String code;

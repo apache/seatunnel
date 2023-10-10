@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLPa
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -34,11 +35,14 @@ import org.testcontainers.utility.MountableFile;
 import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
-import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +63,22 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     private static final String CATALOG_TABLE = "E2E_TABLE_CATALOG";
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_oracle_source_to_sink.conf");
+
+    private static final String[] fieldNames =
+            new String[] {
+                "VARCHAR_10_COL",
+                "CHAR_10_COL",
+                "CLOB_COL",
+                "NUMBER_3_SF_2_DP",
+                "INTEGER_COL",
+                "FLOAT_COL",
+                "REAL_COL",
+                "BINARY_FLOAT_COL",
+                "BINARY_DOUBLE_COL",
+                "DATE_COL",
+                "TIMESTAMP_WITH_3_FRAC_SEC_COL",
+                "TIMESTAMP_WITH_LOCAL_TZ"
+            };
 
     private static final String CREATE_SQL =
             "create table %s\n"
@@ -116,7 +136,23 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() {}
+    void compareResult() {
+        try (Statement statement = connection.createStatement()) {
+            String whereStr =
+                    Arrays.stream(fieldNames)
+                            .map(field -> field + " is null")
+                            .collect(java.util.stream.Collectors.joining(" and "));
+            ResultSet resultSet =
+                    statement.executeQuery(
+                            String.format(
+                                    "select count(1) from %s where %s",
+                                    getJdbcCase().getSinkTable(), whereStr));
+            resultSet.next();
+            Assertions.assertEquals(resultSet.getInt(1), 1);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @Override
     String driverUrl() {
@@ -125,22 +161,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
 
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
-        String[] fieldNames =
-                new String[] {
-                    "VARCHAR_10_COL",
-                    "CHAR_10_COL",
-                    "CLOB_COL",
-                    "NUMBER_3_SF_2_DP",
-                    "INTEGER_COL",
-                    "FLOAT_COL",
-                    "REAL_COL",
-                    "BINARY_FLOAT_COL",
-                    "BINARY_DOUBLE_COL",
-                    "DATE_COL",
-                    "TIMESTAMP_WITH_3_FRAC_SEC_COL",
-                    "TIMESTAMP_WITH_LOCAL_TZ"
-                };
-
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row =
@@ -155,13 +175,17 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                 Float.parseFloat("2.2"),
                                 Float.parseFloat("22.2"),
                                 Double.parseDouble("2.2"),
-                                Date.valueOf(LocalDate.now()),
+                                java.sql.Date.valueOf(LocalDate.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
                                 Timestamp.valueOf(LocalDateTime.now())
                             });
             rows.add(row);
         }
-
+        rows.add(
+                new SeaTunnelRow(
+                        new Object[] {
+                            null, null, null, null, null, null, null, null, null, null, null, null
+                        }));
         return Pair.of(fieldNames, rows);
     }
 
