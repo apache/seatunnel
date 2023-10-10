@@ -27,12 +27,17 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSource;
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -54,7 +59,10 @@ import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
 
-public class SimpleJdbcConnectionProviderTest {
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.FLINK})
+public class SimpleJdbcConnectionProviderTest extends TestSuiteBase implements TestResource {
     private GenericContainer<?> mc;
     private static final String SQL = "select * from test";
 
@@ -92,8 +100,9 @@ public class SimpleJdbcConnectionProviderTest {
                     + "\"storage_format\" = \"DEFAULT\""
                     + ");";
 
-    @BeforeEach
-    void before() throws Exception {
+    @BeforeAll
+    @Override
+    public void startUp() {
         mc =
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(Network.newNetwork())
@@ -129,8 +138,9 @@ public class SimpleJdbcConnectionProviderTest {
         }
     }
 
-    @Test
-    void parametersTest() throws SQLException, IOException, ClassNotFoundException {
+    @TestTemplate
+    void parametersTest(TestContainer container)
+            throws SQLException, IOException, ClassNotFoundException {
         defaultSinkParametersTest();
         defaultSourceParametersTest();
     }
@@ -274,8 +284,9 @@ public class SimpleJdbcConnectionProviderTest {
         return null;
     }
 
-    @AfterEach
-    public void tearDown() {
+    @AfterAll
+    @Override
+    public void tearDown() throws SQLException {
         // close Container
         if (mc != null) {
             mc.close();
