@@ -130,21 +130,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
 
     @Override
     public List<String> listDatabases() throws CatalogException {
-        try (PreparedStatement ps =
-                defaultConnection.prepareStatement("SELECT name FROM v$database")) {
-
-            List<String> databases = new ArrayList<>();
-            ResultSet rs = ps.executeQuery();
-
-            while (rs.next()) {
-                String databaseName = rs.getString(1);
-                databases.add(databaseName);
-            }
-            return databases;
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format("Failed listing database in catalog %s", this.catalogName), e);
-        }
+        return Collections.singletonList(defaultDatabase);
     }
 
     @Override
