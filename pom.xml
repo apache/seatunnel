@@ -141,6 +141,7 @@
         <checker.qual.version>3.10.0</checker.qual.version>
         <awaitility.version>4.2.0</awaitility.version>
         <e2e.dependency.skip>true</e2e.dependency.skip>
+        <skip.spotless>false</skip.spotless>
 
     </properties>
 
@@ -774,6 +775,7 @@
                 <artifactId>spotless-maven-plugin</artifactId>
                 <version>${spotless.version}</version>
                 <configuration>
+                    <skip>${skip.spotless}</skip>
                     <java>
                         <excludes>
                             <exclude>src/main/java/org/apache/seatunnel/antlr4/generated/*.*</exclude>
@@ -838,10 +840,11 @@
                 </configuration>
                 <executions>
                     <execution>
+                        <id>spotless-check</id>
                         <goals>
                             <goal>check</goal>
                         </goals>
-                        <phase>compile</phase>
+                        <phase>validate</phase>
                     </execution>
                 </executions>
             </plugin>
