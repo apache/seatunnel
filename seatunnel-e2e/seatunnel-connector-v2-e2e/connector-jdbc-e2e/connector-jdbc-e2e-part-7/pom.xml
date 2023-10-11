@@ -22,8 +22,8 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>connector-jdbc-e2e-part-4</artifactId>
-    <name>SeaTunnel : E2E : Connector V2 : Jdbc : Part 4</name>
+    <artifactId>connector-jdbc-e2e-part-7</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Jdbc : Part 7</name>
 
     <dependencies>
         <dependency>
