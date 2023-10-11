@@ -177,6 +177,7 @@ public class MysqlCreateTableSqlBuilder {
             Long columnLength = column.getLongColumnLength();
             Long bitLen = column.getBitLen();
             if (isBytes) {
+                bitLen = bitLen == null ? Integer.MAX_VALUE : bitLen;
                 if (bitLen >= 0 && bitLen <= 64) {
                     columnSqls.add(MysqlType.BIT.getName());
                     columnSqls.add("(" + (bitLen == 0 ? 1 : bitLen) + ")");
