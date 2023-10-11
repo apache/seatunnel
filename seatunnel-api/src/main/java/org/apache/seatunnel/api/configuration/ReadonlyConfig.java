@@ -21,13 +21,14 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingExcep
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -64,31 +65,68 @@ public class ReadonlyConfig implements Serializable {
     }
 
     public <T> T get(Option<T> option) {
-        return getOptional(option).orElseGet(option::defaultValue);
+        return get(option, true);
+    }
+
+    public <T> T get(Option<T> option, boolean flatten) {
+        return getOptional(option, flatten).orElseGet(option::defaultValue);
     }
 
     public Map<String, String> toMap() {
+        return toMap(true);
+    }
+
+    public Config toConfig() {
+        return toConfig(true);
+    }
+
+    /**
+     * Transform to Config todo: This method should be removed after we remove Config
+     *
+     * @return Config
+     */
+    public Config toConfig(boolean flatten) {
+        if (flatten) {
+            return ConfigFactory.parseMap(flatteningMap(confData));
+        }
+        return ConfigFactory.parseMap(confData);
+    }
+
+    public Map<String, String> toMap(boolean flatten) {
         if (confData.isEmpty()) {
             return Collections.emptyMap();
         }
 
-        Map<String, String> result = new HashMap<>();
-        toMap(result);
+        Map<String, String> result = new LinkedHashMap<>();
+        toMap(result, flatten);
         return result;
     }
 
     public void toMap(Map<String, String> result) {
+        toMap(result, true);
+    }
+
+    public void toMap(Map<String, String> result, boolean flatten) {
         if (confData.isEmpty()) {
             return;
         }
-        Map<String, Object> flatteningMap = flatteningMap(confData);
-        for (Map.Entry<String, Object> entry : flatteningMap.entrySet()) {
+        Map<String, Object> map;
+        if (flatten) {
+            map = flatteningMap(confData);
+        } else {
+            map = confData;
+        }
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
             result.put(entry.getKey(), convertToJsonString(entry.getValue()));
         }
     }
 
-    @SuppressWarnings("unchecked")
     public <T> Optional<T> getOptional(Option<T> option) {
+        return getOptional(option, true);
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> Optional<T> getOptional(Option<T> option, boolean flatten) {
         if (option == null) {
             throw new NullPointerException("Option not be null.");
         }
@@ -108,7 +146,7 @@ public class ReadonlyConfig implements Serializable {
         if (value == null) {
             return Optional.empty();
         }
-        return Optional.of(convertValue(value, option));
+        return Optional.of(convertValue(value, option, flatten));
     }
 
     private Object getValue(String key) {

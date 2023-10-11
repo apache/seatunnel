@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -61,7 +62,7 @@ public class ElasticsearchSource
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
-        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
+        if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             // todo: We need to remove the schema in ES.
             rowTypeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
             source = Arrays.asList(rowTypeInfo.getFieldNames());

@@ -19,6 +19,8 @@ package org.apache.seatunnel.common.config;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -67,7 +69,7 @@ public class Common {
         return MODE;
     }
 
-    private static String getSeaTunnelHome() {
+    public static String getSeaTunnelHome() {
 
         if (StringUtils.isNotEmpty(SEATUNNEL_HOME)) {
             return SEATUNNEL_HOME;
@@ -81,6 +83,11 @@ public class Common {
         }
         SEATUNNEL_HOME = seatunnelHome;
         return SEATUNNEL_HOME;
+    }
+
+    @VisibleForTesting
+    public static void setSeaTunnelHome(String seatunnelHome) {
+        SEATUNNEL_HOME = seatunnelHome;
     }
 
     /**
@@ -120,11 +127,6 @@ public class Common {
     /** Plugin Root Dir */
     public static Path pluginRootDir() {
         return Paths.get(getSeaTunnelHome(), "plugins");
-    }
-
-    /** Plugin Connector Jar Dir */
-    public static Path connectorJarDir(String engine) {
-        return Paths.get(getSeaTunnelHome(), "connectors", engine.toLowerCase());
     }
 
     /** Plugin Connector Dir */
