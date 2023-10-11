@@ -38,17 +38,20 @@ public class HttpConfig {
             Options.key("json_verify_expression")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("json verify expression ");
+                    .withDescription(
+                            "retrieve and validate target field values using a json_path expression");
     public static final Option<String> JSON_VERIFY_VALUE =
             Options.key("json_verify_value")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("json verify value ");
+                    .withDescription(
+                            "verify if the value of the JSON verify expression matches the expected value.");
     public static final Option<Long> MAX_PAGE_SIZE =
             Options.key("max_page_size")
                     .longType()
                     .defaultValue(10000L)
-                    .withDescription("max page size ");
+                    .withDescription(
+                            "the maximum number of iterations without configuring the 'total_page_size' field");
     public static final Option<String> PAGE_FIELD =
             Options.key("page_field")
                     .stringType()
