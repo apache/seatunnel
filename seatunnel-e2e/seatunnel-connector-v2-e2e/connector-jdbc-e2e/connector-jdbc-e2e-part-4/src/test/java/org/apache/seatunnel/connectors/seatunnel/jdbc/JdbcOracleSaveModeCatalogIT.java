@@ -43,6 +43,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
@@ -165,7 +166,9 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
                         .withUsername(USERNAME)
                         .withPassword(PASSWORD)
                         .withNetwork(NETWORK)
-                        .withPrivilegedMode(true)
+                        .withCopyFileToContainer(
+                                MountableFile.forClasspathResource("sql/oracle_init.sql"),
+                                "/container-entrypoint-startdb.d/init.sql")
                         .withNetworkAliases(ORACLE_NETWORK_ALIASES)
                         .withExposedPorts(ORACLE_PORT)
                         .withLogConsumer(
