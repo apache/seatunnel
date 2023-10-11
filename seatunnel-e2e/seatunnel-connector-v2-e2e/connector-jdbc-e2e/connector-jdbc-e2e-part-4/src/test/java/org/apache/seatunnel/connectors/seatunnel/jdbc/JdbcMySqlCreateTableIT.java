@@ -365,6 +365,10 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         mysql_container.close();
         oracle_container.close();
         POSTGRESQL_CONTAINER.close();
+        dockerClient.removeContainerCmd(sqlserver_container.getContainerId()).exec();
+        dockerClient.removeContainerCmd(mysql_container.getContainerId()).exec();
+        dockerClient.removeContainerCmd(oracle_container.getContainerId()).exec();
+        dockerClient.removeContainerCmd(POSTGRESQL_CONTAINER.getContainerId()).exec();
     }
 
     private Connection getJdbcSqlServerConnection() throws SQLException {
