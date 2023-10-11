@@ -81,10 +81,10 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
     private static final int ORACLE_PORT = 15213;
     private static final String USERNAME = "TESTUSER";
     private static final String PASSWORD = "testPassword";
-    private static final String DATABASE = "TESTUSER";
+    private static final String DATABASE = "XE";
     private OracleContainer oracle_container;
     static JdbcUrlUtil.UrlInfo oracle =
-            OracleURLParser.parse("jdbc:oracle:thin:@localhost:15213/TESTUSER");
+            OracleURLParser.parse("jdbc:oracle:thin:@localhost:15213/XE");
 
     private static final String CREATE_TABLE_SQL =
             "CREATE TABLE IF NOT EXISTS mysql_auto_create\n"
@@ -173,10 +173,6 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
                         .withExposedPorts(ORACLE_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
-        oracle_container.withCommand(
-                "bash",
-                "-c",
-                "echo \"CREATE USER admin IDENTIFIED BY admin; GRANT DBA TO admin;\" | sqlplus / as sysdba");
         oracle_container.setPortBindings(
                 Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, 1521)));
         Startables.deepStart(Stream.of(mysql_container, oracle_container)).join();
@@ -192,8 +188,7 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
     @TestTemplate
     public void testCatalog(TestContainer container) throws IOException, InterruptedException {
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
-        TablePath tablePathOracle_Sink =
-                TablePath.of("TESTUSER", "TESTUSER", "mysql_auto_create_oracle");
+        TablePath tablePathOracle_Sink = TablePath.of("XE", "TESTUSER", "mysql_auto_create_oracle");
         MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo);
         OracleCatalog oracleCatalog =
                 new OracleCatalog("oracle", USERNAME, PASSWORD, oracle, "TESTUSER");
