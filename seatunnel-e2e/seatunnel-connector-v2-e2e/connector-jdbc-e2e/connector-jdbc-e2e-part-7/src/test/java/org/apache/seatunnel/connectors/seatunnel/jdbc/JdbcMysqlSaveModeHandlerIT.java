@@ -60,7 +60,7 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
 
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 3306;
+    private static final int MYSQL_PORT = 33063;
     private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
 
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
