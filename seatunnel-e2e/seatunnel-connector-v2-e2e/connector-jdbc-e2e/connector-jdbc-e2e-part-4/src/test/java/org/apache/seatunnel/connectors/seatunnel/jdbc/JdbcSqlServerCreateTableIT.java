@@ -310,8 +310,7 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
                         Stream.of(
                                 POSTGRESQL_CONTAINER,
                                 sqlserver_container,
-                                mysql_container,
-                                oracle_container))
+                                mysql_container))
                 .join();
 
         log.info(" container is up ");
