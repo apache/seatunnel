@@ -20,8 +20,8 @@ package org.apache.seatunnel.core.starter.flink.execution;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
@@ -97,7 +97,10 @@ public class TransformExecuteProcessor
                 SeaTunnelTransform<SeaTunnelRow> transform = plugins.get(i);
                 Config pluginConfig = pluginConfigs.get(i);
                 DataStream<Row> stream = fromSourceTable(pluginConfig).orElse(input);
-                input = flinkTransform(transform, stream);
+                SeaTunnelRowType sourceType = initSourceType(pluginConfig, stream);
+                transform.setTypeInfo(sourceType);
+                input = flinkTransform(sourceType, transform, stream);
+                stageType(pluginConfig, (SeaTunnelRowType) transform.getProducedType());
                 registerResultTable(pluginConfig, input);
                 result.add(input);
             } catch (Exception e) {
@@ -111,11 +114,10 @@ public class TransformExecuteProcessor
         return result;
     }
 
-    protected DataStream<Row> flinkTransform(SeaTunnelTransform transform, DataStream<Row> stream) {
-        SeaTunnelDataType seaTunnelDataType = TypeConverterUtils.convert(stream.getType());
-        transform.setTypeInfo(seaTunnelDataType);
+    protected DataStream<Row> flinkTransform(
+            SeaTunnelRowType sourceType, SeaTunnelTransform transform, DataStream<Row> stream) {
         TypeInformation rowTypeInfo = TypeConverterUtils.convert(transform.getProducedType());
-        FlinkRowConverter transformInputRowConverter = new FlinkRowConverter(seaTunnelDataType);
+        FlinkRowConverter transformInputRowConverter = new FlinkRowConverter(sourceType);
         FlinkRowConverter transformOutputRowConverter =
                 new FlinkRowConverter(transform.getProducedType());
         DataStream<Row> output =

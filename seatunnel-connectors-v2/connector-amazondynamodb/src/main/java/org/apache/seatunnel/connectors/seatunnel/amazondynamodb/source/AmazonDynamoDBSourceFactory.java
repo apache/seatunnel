@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
@@ -47,7 +47,7 @@ public class AmazonDynamoDBSourceFactory implements TableSourceFactory {
                         ACCESS_KEY_ID,
                         SECRET_ACCESS_KEY,
                         TABLE,
-                        CatalogTableUtil.SCHEMA)
+                        TableSchemaOptions.SCHEMA)
                 .build();
     }
 
