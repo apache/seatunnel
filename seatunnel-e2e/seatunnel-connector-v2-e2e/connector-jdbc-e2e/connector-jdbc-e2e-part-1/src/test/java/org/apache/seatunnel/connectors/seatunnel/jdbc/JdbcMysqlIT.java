@@ -18,12 +18,26 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSource;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -32,9 +46,13 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
+import com.mysql.cj.jdbc.ConnectionImpl;
 
+import java.io.IOException;
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,6 +60,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 public class JdbcMysqlIT extends AbstractJdbcIT {
 
@@ -56,6 +75,9 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 3306;
     private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
+    private static final String URL = "jdbc:mysql://" + HOST + ":3306/seatunnel";
+
+    private static final String SQL = "select * from seatunnel.source";
 
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
 
@@ -298,5 +320,155 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                         JdbcUrlUtil.getUrlInfo(
                                 jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())));
         catalog.open();
+    }
+
+    private String getUrl() {
+        return URL.replace("HOST", dbServer.getHost());
+    }
+
+    @TestTemplate
+    void parametersTest(TestContainer container)
+            throws SQLException, IOException, ClassNotFoundException {
+        defaultSinkParametersTest();
+        defaultSourceParametersTest();
+    }
+
+    void defaultSinkParametersTest() throws IOException, SQLException, ClassNotFoundException {
+        // case1 url not contains parameters and properties not contains parameters
+        JdbcSink jdbcSink1 = new JdbcSink();
+        HashMap<String, Object> map1 = getMap();
+        map1.put("url", getUrl());
+        Config config1 = ConfigFactory.parseMap(map1);
+        Properties connectionProperties1 = getSinkProperties(jdbcSink1, config1);
+        Assertions.assertEquals(connectionProperties1.get("rewriteBatchedStatements"), "true");
+
+        // case2 url contains parameters and properties not contains parameters
+        JdbcSink jdbcSink2 = new JdbcSink();
+        HashMap<String, Object> map2 = getMap();
+        map2.put("url", getUrl() + "?rewriteBatchedStatements=false");
+        Config config2 = ConfigFactory.parseMap(map2);
+        Properties connectionProperties2 = getSinkProperties(jdbcSink2, config2);
+        Assertions.assertEquals(connectionProperties2.get("rewriteBatchedStatements"), "true");
+
+        // case3 url not contains parameters and properties not contains parameters
+        JdbcSink jdbcSink3 = new JdbcSink();
+        HashMap<String, Object> map3 = getMap();
+        HashMap<String, String> properties3 = new HashMap<>();
+        properties3.put("rewriteBatchedStatements", "false");
+        map3.put("properties", properties3);
+        map3.put("url", getUrl());
+        Config config3 = ConfigFactory.parseMap(map3);
+        Properties connectionProperties3 = getSinkProperties(jdbcSink3, config3);
+        Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
+
+        // case4 url contains parameters and properties contains parameters
+        JdbcSink jdbcSink4 = new JdbcSink();
+        HashMap<String, Object> map4 = getMap();
+        HashMap<String, String> properties4 = new HashMap<>();
+        properties4.put("useSSL", "true");
+        properties4.put("rewriteBatchedStatements", "false");
+        map4.put("properties", properties4);
+        map4.put("url", getUrl() + "?useSSL=false&rewriteBatchedStatements=true");
+        Config config4 = ConfigFactory.parseMap(map4);
+        Properties connectionProperties4 = getSinkProperties(jdbcSink4, config4);
+        Assertions.assertEquals(connectionProperties4.get("useSSL"), "true");
+        Assertions.assertEquals(connectionProperties4.get("rewriteBatchedStatements"), "false");
+    }
+
+    void defaultSourceParametersTest() throws IOException, SQLException, ClassNotFoundException {
+        // case1 url not contains parameters and properties not contains parameters
+        JdbcSource jdbcSource1 = new JdbcSource();
+        HashMap<String, Object> map1 = getMap();
+        map1.put("url", getUrl());
+        map1.put("query", SQL);
+        Config config1 = ConfigFactory.parseMap(map1);
+        Properties connectionProperties1 = getSourceProperties(jdbcSource1, config1);
+        Assertions.assertEquals(connectionProperties1.get("rewriteBatchedStatements"), "true");
+
+        // case2 url contains parameters and properties not contains parameters
+        JdbcSource jdbcSource2 = new JdbcSource();
+        HashMap<String, Object> map2 = getMap();
+        map2.put("url", getUrl() + "?rewriteBatchedStatements=false");
+        map2.put("query", SQL);
+        Config config2 = ConfigFactory.parseMap(map2);
+        Properties connectionProperties2 = getSourceProperties(jdbcSource2, config2);
+        Assertions.assertEquals(connectionProperties2.get("rewriteBatchedStatements"), "true");
+
+        // case3 url not contains parameters and properties not contains parameters
+        JdbcSource jdbcSource3 = new JdbcSource();
+        HashMap<String, Object> map3 = getMap();
+        HashMap<String, String> properties3 = new HashMap<>();
+        properties3.put("rewriteBatchedStatements", "false");
+        map3.put("properties", properties3);
+        map3.put("url", getUrl());
+        map3.put("query", SQL);
+        Config config3 = ConfigFactory.parseMap(map3);
+        Properties connectionProperties3 = getSourceProperties(jdbcSource3, config3);
+        Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
+
+        // case4 url contains parameters and properties contains parameters
+        JdbcSource jdbcSource4 = new JdbcSource();
+        HashMap<String, Object> map4 = getMap();
+        HashMap<String, String> properties4 = new HashMap<>();
+        properties4.put("useSSL", "true");
+        properties4.put("rewriteBatchedStatements", "false");
+        map4.put("properties", properties4);
+        map4.put("url", getUrl() + "?useSSL=false&rewriteBatchedStatements=true");
+        map4.put("query", SQL);
+        Config config4 = ConfigFactory.parseMap(map4);
+        Properties connectionProperties4 = getSourceProperties(jdbcSource4, config4);
+        Assertions.assertEquals(connectionProperties4.get("useSSL"), "true");
+        Assertions.assertEquals(connectionProperties4.get("rewriteBatchedStatements"), "false");
+    }
+
+    @NotNull private HashMap<String, Object> getMap() {
+        HashMap<String, Object> map = new HashMap<>();
+        map.put("driver", "com.mysql.cj.jdbc.Driver");
+        map.put("user", MYSQL_USERNAME);
+        map.put("password", MYSQL_PASSWORD);
+        return map;
+    }
+
+    private Properties getSinkProperties(JdbcSink jdbcSink, Config config)
+            throws IOException, SQLException, ClassNotFoundException {
+        jdbcSink.setTypeInfo(
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE}));
+        jdbcSink.prepare(config);
+        JdbcSinkWriter jdbcSinkWriter = (JdbcSinkWriter) jdbcSink.createWriter(null);
+        JdbcConnectionProvider connectionProvider =
+                (JdbcConnectionProvider) getFieldValue(jdbcSinkWriter, "connectionProvider");
+        ConnectionImpl connection = (ConnectionImpl) connectionProvider.getOrEstablishConnection();
+        Properties connectionProperties = connection.getProperties();
+        return connectionProperties;
+    }
+
+    private Properties getSourceProperties(JdbcSource jdbcSource, Config config)
+            throws IOException, SQLException, ClassNotFoundException {
+        jdbcSource.prepare(config);
+        JdbcConnectionProvider connectionProvider =
+                (JdbcConnectionProvider) getFieldValue(jdbcSource, "jdbcConnectionProvider");
+        ConnectionImpl connection = (ConnectionImpl) connectionProvider.getOrEstablishConnection();
+        Properties connectionProperties = connection.getProperties();
+        return connectionProperties;
+    }
+
+    private static Object getFieldValue(Object object, String name) {
+        Class objClass = object.getClass();
+        Field[] fields = objClass.getDeclaredFields();
+        for (Field field : fields) {
+            try {
+                String fieldName = field.getName();
+                if (fieldName.equalsIgnoreCase(name)) {
+                    field.setAccessible(true);
+                    return field.get(object);
+                }
+            } catch (SecurityException e) {
+
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return null;
     }
 }
