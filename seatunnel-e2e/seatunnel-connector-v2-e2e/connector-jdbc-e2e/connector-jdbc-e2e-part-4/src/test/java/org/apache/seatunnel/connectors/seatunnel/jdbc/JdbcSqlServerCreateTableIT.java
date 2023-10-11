@@ -39,7 +39,6 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -146,7 +145,6 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
 
     private MSSQLServerContainer<?> sqlserver_container;
     private MySQLContainer<?> mysql_container;
-    private OracleContainer oracle_container;
 
     private static final String mysqlCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'auto' AND table_name = 'sqlserver_auto_create_mysql') AS table_exists";
@@ -162,15 +160,9 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
                     + "    SELECT 0 AS table_exists;";
     private static final String pgCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sqlserver_auto_create_pg') AS table_exists;\n";
-    private static final String oracleCheck =
-            "SELECT CASE WHEN EXISTS(SELECT 1 FROM user_tables WHERE table_name = 'sqlserver_auto_create_oracle') THEN 1 ELSE 0 END AS table_exists FROM DUAL;\n";
 
     String driverMySqlUrl() {
         return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
-    String driverOracleUrl() {
-        return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
     }
 
     String driverSqlserverUrl() {

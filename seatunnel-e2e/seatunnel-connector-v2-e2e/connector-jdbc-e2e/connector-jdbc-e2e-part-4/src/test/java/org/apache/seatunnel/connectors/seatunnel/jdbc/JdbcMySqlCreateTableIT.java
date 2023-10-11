@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
@@ -83,7 +82,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private static final String PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 33061;
     private static final String MYSQL_DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
-    private static final String ORACLE_DRIVER_CLASS = "oracle.jdbc.OracleDriver";
     private static final String USERNAME = "testUser";
 
     private PostgreSQLContainer<?> POSTGRESQL_CONTAINER;
@@ -105,9 +103,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                     + "    SELECT 0 AS table_exists;";
     private static final String pgCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'mysql_auto_create_pg') AS table_exists;\n";
-    private static final String oracleCheck =
-            "SELECT CASE WHEN EXISTS(SELECT 1 FROM user_tables WHERE table_name = 'mysql_auto_create_oracle') THEN 1 ELSE 0 END AS table_exists FROM DUAL;\n";
-
     String driverSqlServerUrl() {
         return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
     }
@@ -176,8 +171,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                                         + PG_GEOMETRY_JAR
                                         + " && curl -O "
                                         + MYSQL_DRIVER_CLASS
-                                        + " && curl -O "
-                                        + ORACLE_DRIVER_CLASS
                                         + " && curl -O "
                                         + driverSqlserverUrl()
                                         + " && curl -O "
@@ -267,8 +260,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
             JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:33061/auto?useSSL=false");
     static JdbcUrlUtil.UrlInfo pg = JdbcUrlUtil.getUrlInfo("jdbc:postgresql://localhost:54323/pg");
-    static JdbcUrlUtil.UrlInfo oracle =
-            OracleURLParser.parse("jdbc:oracle:thin:@localhost:15211/TESTUSER");
 
     @TestTemplate
     public void testAutoCreateTable(TestContainer container)
@@ -277,7 +268,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         TablePath tablePathMySql_Mysql = TablePath.of("auto", "mysql_auto_create_mysql");
         TablePath tablePathSQL = TablePath.of("testauto", "dbo", "mysql_auto_create_sql");
         TablePath tablePathPG = TablePath.of("pg", "public", "mysql_auto_create_pg");
-        TablePath tablePathOracle = TablePath.of("TESTUSER", "mysql_auto_create_oracle");
 
         SqlServerCatalog sqlServerCatalog =
                 new SqlServerCatalog("sqlserver", "sa", PASSWORD, sqlParse, "dbo");
