@@ -80,7 +80,7 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
     private static final String ORACLE_DRIVER_CLASS = "oracle.jdbc.OracleDriver";
     private static final int ORACLE_PORT = 15213;
     private static final String USERNAME = "TESTUSER";
-    private static final String PASSWORD = "Abc!@#135_seatunnel";
+    private static final String PASSWORD = "testPassword";
     private static final String DATABASE = "TESTUSER";
     private OracleContainer oracle_container;
     static JdbcUrlUtil.UrlInfo oracle =
