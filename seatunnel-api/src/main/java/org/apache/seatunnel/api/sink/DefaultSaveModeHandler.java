@@ -148,7 +148,7 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
     }
 
     protected void executeCustomSql() {
-        catalog.executeSql(customSql);
+        catalog.executeSql(tablePath, customSql);
     }
 
     @Override

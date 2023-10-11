@@ -222,7 +222,7 @@ public class JdbcSqlServerSaveModeCatalogIT extends TestSuiteBase implements Tes
         boolean existsDataBefore = sqlServerCatalog.isExistsData(tablePathMySql_Sink);
         Assertions.assertFalse(existsDataBefore);
         // insert one data
-        sqlServerCatalog.executeSql(customSql);
+        sqlServerCatalog.executeSql(tablePathMySql_Sink, customSql);
         boolean existsDataAfter = sqlServerCatalog.isExistsData(tablePathMySql_Sink);
         Assertions.assertTrue(existsDataAfter);
         // truncateTable

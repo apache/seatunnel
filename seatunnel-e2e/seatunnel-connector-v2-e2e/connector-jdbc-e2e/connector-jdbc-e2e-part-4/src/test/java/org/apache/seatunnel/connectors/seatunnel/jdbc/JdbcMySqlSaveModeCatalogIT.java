@@ -176,7 +176,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
         boolean existsDataBefore = mySqlCatalog.isExistsData(tablePathMySql_Sink);
         Assertions.assertFalse(existsDataBefore);
         // insert one data
-        mySqlCatalog.executeSql(customSql);
+        mySqlCatalog.executeSql(tablePathMySql_Sink, customSql);
         boolean existsDataAfter = mySqlCatalog.isExistsData(tablePathMySql_Sink);
         Assertions.assertTrue(existsDataAfter);
         // truncateTable

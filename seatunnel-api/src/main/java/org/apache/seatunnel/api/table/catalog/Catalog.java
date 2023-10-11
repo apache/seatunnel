@@ -216,7 +216,7 @@ public interface Catalog extends AutoCloseable {
         return false;
     }
 
-    default void executeSql(String sql) {}
+    default void executeSql(TablePath tablePath, String sql) {}
 
     // todo: Support for update table metadata
 

@@ -43,7 +43,6 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
@@ -166,9 +165,10 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
                         .withUsername(USERNAME)
                         .withPassword(PASSWORD)
                         .withNetwork(NETWORK)
-                        .withCopyFileToContainer(
-                                MountableFile.forClasspathResource("sql/oracle_init.sql"),
-                                "/container-entrypoint-startdb.d/init.sql")
+                        .withCommand(
+                                "bash",
+                                "-c",
+                                "echo \"CREATE USER TESTUSER IDENTIFIED BY testPassword; GRANT DBA TO TESTUSER;\" | sqlplus / as sysdba")
                         .withNetworkAliases(ORACLE_NETWORK_ALIASES)
                         .withExposedPorts(ORACLE_PORT)
                         .withLogConsumer(
@@ -195,6 +195,8 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
         oracleCatalog.open();
         mySqlCatalog.open();
         CatalogTable catalogTable = mySqlCatalog.getTable(tablePathMySql);
+        // database
+        Assertions.assertTrue(oracleCatalog.databaseExists(tablePathOracle_Sink.getDatabaseName()));
         // sink tableExists ?
         boolean tableExistsBefore = oracleCatalog.tableExists(tablePathOracle_Sink);
         Assertions.assertFalse(tableExistsBefore);
@@ -207,7 +209,7 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
         boolean existsDataBefore = oracleCatalog.isExistsData(tablePathOracle_Sink);
         Assertions.assertFalse(existsDataBefore);
         // insert one data
-        oracleCatalog.executeSql(customSql);
+        oracleCatalog.executeSql(tablePathOracle_Sink, customSql);
         boolean existsDataAfter = oracleCatalog.isExistsData(tablePathOracle_Sink);
         Assertions.assertTrue(existsDataAfter);
         // truncateTable

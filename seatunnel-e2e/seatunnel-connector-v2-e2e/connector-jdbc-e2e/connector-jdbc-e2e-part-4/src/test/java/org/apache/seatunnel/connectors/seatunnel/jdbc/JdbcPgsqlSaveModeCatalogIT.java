@@ -209,7 +209,7 @@ public class JdbcPgsqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
         boolean existsDataBefore = postgresCatalog.isExistsData(tablePathPgsql_Sink);
         Assertions.assertFalse(existsDataBefore);
         // insert one data
-        postgresCatalog.executeSql(customSql);
+        postgresCatalog.executeSql(tablePathPgsql_Sink, customSql);
         boolean existsDataAfter = postgresCatalog.isExistsData(tablePathPgsql_Sink);
         Assertions.assertTrue(existsDataAfter);
         // truncateTable

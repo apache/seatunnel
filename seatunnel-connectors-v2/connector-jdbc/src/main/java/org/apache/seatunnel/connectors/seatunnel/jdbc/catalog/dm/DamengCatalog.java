@@ -22,9 +22,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
-import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
-import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
@@ -69,56 +66,31 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    public String getCountSql(TablePath tablePath) {
-        return null;
-    }
-
-    @Override
-    protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
-            throws CatalogException {
-        return false;
-    }
-
-    @Override
-    protected boolean dropTableInternal(TablePath tablePath) throws CatalogException {
-        return false;
-    }
-
-    @Override
-    protected boolean truncateTableInternal(TablePath tablePath) throws CatalogException {
-        return false;
-    }
-
-    @Override
-    protected boolean createDatabaseInternal(String databaseName) {
-        return false;
-    }
-
-    @Override
-    protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
-        return false;
-    }
-
     protected String getListDatabaseSql() {
         return "SELECT name FROM v$database";
     }
 
+    @Override
     protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
         throw new UnsupportedOperationException();
     }
 
+    @Override
     protected String getDropTableSql(TablePath tablePath) {
         return String.format("DROP TABLE %s", getTableName(tablePath));
     }
 
+    @Override
     protected String getTableName(TablePath tablePath) {
         return tablePath.getSchemaAndTableName().toUpperCase();
     }
 
+    @Override
     protected String getListTableSql(String databaseName) {
         return "SELECT OWNER, TABLE_NAME FROM ALL_TABLES";
     }
 
+    @Override
     protected String getTableName(ResultSet rs) throws SQLException {
         if (EXCLUDED_SCHEMAS.contains(rs.getString(1))) {
             return null;
@@ -126,11 +98,13 @@ public class DamengCatalog extends AbstractJdbcCatalog {
         return rs.getString(1) + "." + rs.getString(2);
     }
 
+    @Override
     protected String getSelectColumnsSql(TablePath tablePath) {
         return String.format(
                 SELECT_COLUMNS_SQL, tablePath.getSchemaName(), tablePath.getTableName());
     }
 
+    @Override
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
         String columnName = resultSet.getString("COLUMN_NAME");
         String typeName = resultSet.getString("DATA_TYPE");
@@ -165,28 +139,13 @@ public class DamengCatalog extends AbstractJdbcCatalog {
         return DATA_TYPE_CONVERTOR.toSeaTunnelType(typeName, dataTypeProperties);
     }
 
+    @Override
     protected String getUrlFromDatabaseName(String databaseName) {
         return defaultUrl;
     }
 
+    @Override
     protected String getOptionTableName(TablePath tablePath) {
         return tablePath.getSchemaAndTableName();
-    }
-
-    @Override
-    public List<String> listDatabases() throws CatalogException {
-        return null;
-    }
-
-    @Override
-    public List<String> listTables(String databaseName)
-            throws CatalogException, DatabaseNotExistException {
-        return null;
-    }
-
-    @Override
-    public CatalogTable getTable(TablePath tablePath)
-            throws CatalogException, TableNotExistException {
-        return null;
     }
 }
