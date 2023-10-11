@@ -103,6 +103,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                     + "    SELECT 0 AS table_exists;";
     private static final String pgCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'mysql_auto_create_pg') AS table_exists;\n";
+
     String driverSqlServerUrl() {
         return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
     }
