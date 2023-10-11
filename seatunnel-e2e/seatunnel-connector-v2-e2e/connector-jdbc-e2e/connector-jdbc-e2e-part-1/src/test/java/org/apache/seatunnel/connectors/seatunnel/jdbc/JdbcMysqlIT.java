@@ -31,13 +31,12 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcCo
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSource;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -326,9 +325,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         return URL.replace("HOST", dbServer.getHost());
     }
 
-    @TestTemplate
-    void parametersTest(TestContainer container)
-            throws SQLException, IOException, ClassNotFoundException {
+    @Test
+    public void parametersTest() throws SQLException, IOException, ClassNotFoundException {
         defaultSinkParametersTest();
         defaultSourceParametersTest();
     }
