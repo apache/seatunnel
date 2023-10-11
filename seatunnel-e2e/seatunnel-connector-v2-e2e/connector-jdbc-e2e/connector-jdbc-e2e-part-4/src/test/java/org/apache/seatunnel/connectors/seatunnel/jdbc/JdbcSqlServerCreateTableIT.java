@@ -306,11 +306,7 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
                 "echo \"CREATE USER admin IDENTIFIED BY admin; GRANT DBA TO admin;\" | sqlplus / as sysdba");
         oracle_container.setPortBindings(
                 Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
-        Startables.deepStart(
-                        Stream.of(
-                                POSTGRESQL_CONTAINER,
-                                sqlserver_container,
-                                mysql_container))
+        Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER, sqlserver_container, mysql_container))
                 .join();
 
         log.info(" container is up ");
