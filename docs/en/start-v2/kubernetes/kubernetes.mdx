@@ -36,8 +36,8 @@ To run the image with SeaTunnel, first create a `Dockerfile`:
   defaultValue="flink"
   values={[
     {label: 'Flink', value: 'flink'},
-    {label: 'zeta (local-mode)', value: 'zeta (local-mode)'},
-    {label: 'zeta (cluster-mode)', value: 'zeta (cluster-mode)'},
+    {label: 'Zeta (local-mode)', value: 'Zeta (local-mode)'},
+    {label: 'Zeta (cluster-mode)', value: 'Zeta (cluster-mode)'},
   ]}>
 <TabItem value="flink">
 
@@ -67,7 +67,7 @@ minikube image load seatunnel:2.3.0-flink-1.13
 
 </TabItem>
 
-<TabItem value="zeta (local-mode)">
+<TabItem value="Zeta (local-mode)">
 
 ```Dockerfile
 FROM openjdk:8
@@ -95,7 +95,7 @@ minikube image load seatunnel:2.3.3
 
 </TabItem>
 
-<TabItem value="zeta (cluster-mode)">
+<TabItem value="Zeta (cluster-mode)">
 
 ```Dockerfile
 FROM openjdk:8
@@ -132,8 +132,8 @@ minikube image load seatunnel:2.3.3
   defaultValue="flink"
   values={[
     {label: 'Flink', value: 'flink'},
-    {label: 'zeta (local-mode)', value: 'zeta (local-mode)'},
-    {label: 'zeta (cluster-mode)', value: 'zeta (cluster-mode)'},
+    {label: 'Zeta (local-mode)', value: 'Zeta (local-mode)'},
+    {label: 'Zeta (cluster-mode)', value: 'Zeta (cluster-mode)'},
   ]}>
 <TabItem value="flink">
 
@@ -168,11 +168,11 @@ flink-kubernetes-operator-5f466b8549-mgchb             1/1     Running   3 (23h 
 </TabItem>
 
 
-<TabItem value="zeta (local-mode)">
+<TabItem value="Zeta (local-mode)">
 none
 </TabItem>
 
-<TabItem value="zeta (cluster-mode)">
+<TabItem value="Zeta (cluster-mode)">
 none
 </TabItem>
 </Tabs>
@@ -186,8 +186,8 @@ none
   defaultValue="flink"
   values={[
     {label: 'Flink', value: 'flink'},
-    {label: 'zeta (local-mode)', value: 'zeta (local-mode)'},
-    {label: 'zeta (cluster-mode)', value: 'zeta (cluster-mode)'},
+    {label: 'Zeta (local-mode)', value: 'Zeta (local-mode)'},
+    {label: 'Zeta (cluster-mode)', value: 'Zeta (cluster-mode)'},
   ]}>
 <TabItem value="flink">
 
@@ -289,7 +289,7 @@ kubectl apply -f seatunnel-flink.yaml
 
 </TabItem>
 
-<TabItem value="zeta (local-mode)">
+<TabItem value="Zeta (local-mode)">
 
 In this guide we are going to use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.0-release/config/v2.streaming.conf.template):
 
@@ -364,7 +364,7 @@ kubectl apply -f seatunnel.yaml
 </TabItem>
 
 
-<TabItem value="zeta (cluster-mode)">
+<TabItem value="Zeta (cluster-mode)">
 
 In this guide we are going to use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.0-release/config/v2.streaming.conf.template):
 
@@ -626,8 +626,8 @@ kubectl exec -it  seatunnel-0  -- /opt/seatunnel/bin/seatunnel.sh --config /data
   defaultValue="flink"
   values={[
     {label: 'Flink', value: 'flink'},
-    {label: 'zeta (local-mode)', value: 'zeta (local-mode)'},
-    {label: 'zeta (cluster-mode)', value: 'zeta (cluster-mode)'},
+    {label: 'Zeta (local-mode)', value: 'Zeta (local-mode)'},
+    {label: 'Zeta (cluster-mode)', value: 'Zeta (cluster-mode)'},
   ]}>
 <TabItem value="flink">
 
@@ -686,7 +686,7 @@ kubectl delete -f seatunnel-flink.yaml
 ```
 </TabItem>
 
-<TabItem value="zeta (local-mode)">
+<TabItem value="Zeta (local-mode)">
 
 You may follow the logs of your job, after a successful startup (which can take on the order of a minute in a fresh environment, seconds afterwards) you can:
 
@@ -730,7 +730,7 @@ kubectl delete -f seatunnel.yaml
 ```
 </TabItem>
 
-<TabItem value="zeta (cluster-mode)">
+<TabItem value="Zeta (cluster-mode)">
 
 You may follow the logs of your job, after a successful startup (which can take on the order of a minute in a fresh environment, seconds afterwards) you can:
 
