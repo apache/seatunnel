@@ -198,6 +198,9 @@ public class ConfigUtil {
     }
 
     public static String convertToJsonString(Object o) {
+        if (o == null) {
+            return null;
+        }
         if (o instanceof String) {
             return (String) o;
         }
