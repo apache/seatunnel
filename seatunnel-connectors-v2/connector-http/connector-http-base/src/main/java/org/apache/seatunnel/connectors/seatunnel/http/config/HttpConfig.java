@@ -56,7 +56,7 @@ public class HttpConfig {
             Options.key("page_field")
                     .stringType()
                     .defaultValue("page")
-                    .withDescription("page field");
+                    .withDescription("this parameter is used to specify the page field name in the request parameter");
     public static final Option<String> TOTAL_PAGE_FIELD_PATH =
             Options.key("total_page_field_path")
                     .stringType()
