@@ -34,7 +34,7 @@ public interface ConfigAdapter {
      * Converter config file to path_key-value Map in HOCON
      *
      * @param configFilePath config file path.
-     * @return FlattenedMap
+     * @return Map
      */
     Map<String, Object> loadConfig(Path configFilePath);
 }
