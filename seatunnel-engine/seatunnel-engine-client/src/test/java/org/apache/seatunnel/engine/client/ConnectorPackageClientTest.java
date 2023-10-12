@@ -192,7 +192,7 @@ public class ConnectorPackageClientTest {
                                                                 "connector-file"));
                                     }
                                 });
-        if (files.length != 0) {
+        if (files != null) {
             for (File file : files) {
                 ConnectorJarIdentifier connectorJarIdentifier =
                         connectorPackageClient.uploadConnectorPluginJar(
