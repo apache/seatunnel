@@ -52,7 +52,7 @@ import java.util.Map;
 public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
 
     private static final String MYSQL_IMAGE = "mysql:latest";
-    private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
+    private static final String MYSQL_CONTAINER_HOST = "mysql-e2e-2";
     private static final String MYSQL_DATABASE = "seatunnel";
     private static final String MYSQL_SOURCE = "source";
     private static final String MYSQL_SINK = "sink";
