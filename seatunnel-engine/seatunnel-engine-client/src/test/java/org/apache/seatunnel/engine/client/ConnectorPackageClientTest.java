@@ -164,11 +164,13 @@ public class ConnectorPackageClientTest {
         SeaTunnelHazelcastClient seaTunnelHazelcastClient =
                 new SeaTunnelHazelcastClient(clientConfig);
 
+        Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/client_test.conf");
         Config seaTunnelJobConfig = ConfigBuilder.of(Paths.get(filePath));
         ReadonlyConfig envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("testUploadConnectorPluginJars");
+        jobConfig.setJobContext(new JobContext(JOB_ID));
         fillJobConfig(jobConfig, envOptions);
 
         ConnectorPackageClient connectorPackageClient =

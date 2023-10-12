@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.Constant;
@@ -143,12 +144,8 @@ public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
         Assertions.assertTrue(connectorPackageService.isConnectorPackageServiceActive());
 
         Long jobId = instance1.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
-        LogicalDag testLogicalDag =
-                TestUtils.createTestLogicalPlan(
-                        "stream_fakesource_to_file.conf",
-                        "testJobRestoreWhenMasterNodeSwitch",
-                        jobId);
 
+        Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
         Config seaTunnelJobConfig = ConfigBuilder.of(Paths.get(filePath));
         ReadonlyConfig envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
