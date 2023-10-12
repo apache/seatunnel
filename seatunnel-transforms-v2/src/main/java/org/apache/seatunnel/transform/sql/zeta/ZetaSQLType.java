@@ -217,6 +217,7 @@ public class ZetaSQLType {
             case ZetaSQLFunction.DAYNAME:
             case ZetaSQLFunction.MONTHNAME:
             case ZetaSQLFunction.FORMATDATETIME:
+            case ZetaSQLFunction.FROM_UNIXTIME:
                 return BasicType.STRING_TYPE;
             case ZetaSQLFunction.ASCII:
             case ZetaSQLFunction.LOCATE:
@@ -236,8 +237,6 @@ public class ZetaSQLType {
             case ZetaSQLFunction.SECOND:
             case ZetaSQLFunction.WEEK:
             case ZetaSQLFunction.YEAR:
-            case ZetaSQLFunction.FROM_UNIXTIME:
-                return BasicType.STRING_TYPE;
             case ZetaSQLFunction.SIGN:
                 return BasicType.INT_TYPE;
             case ZetaSQLFunction.BIT_LENGTH:
