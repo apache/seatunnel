@@ -147,11 +147,6 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
 
     private static final String MYSQL_DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
 
-    private static final String ORACLE_IMAGE = "gvenzl/oracle-xe:21-slim-faststart";
-    private static final String ORACLE_NETWORK_ALIASES = "e2e_oracleDb";
-    private static final String ORACLE_DRIVER_CLASS = "oracle.jdbc.OracleDriver";
-    private static final int ORACLE_PORT = 1521;
-    //    private static final String ORACLE_URL = "jdbc:oracle:thin:@" + HOST + ":%s/%s";
     private static final String USERNAME = "testUser";
     private static final String PASSWORD = "Abc!@#135_seatunnel";
     private static final String DATABASE = "TESTUSER";
@@ -217,13 +212,9 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
                                         + " && curl -O "
                                         + MYSQL_DRIVER_CLASS
                                         + " && curl -O "
-                                        + ORACLE_DRIVER_CLASS
-                                        + " && curl -O "
                                         + driverSqlserverUrl()
                                         + " && curl -O "
-                                        + driverMySqlUrl()
-                                        + " && curl -O "
-                                        + driverOracleUrl());
+                                        + driverMySqlUrl());
                 //                Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 
@@ -289,29 +280,7 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
         mysql_container.setPortBindings(
                 Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
 
-        DockerImageName oracleImageName = DockerImageName.parse(ORACLE_IMAGE);
-        oracle_container =
-                new OracleContainer(oracleImageName)
-                        .withDatabaseName(DATABASE)
-                        .withUsername(USERNAME)
-                        .withPassword(PASSWORD)
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(ORACLE_NETWORK_ALIASES)
-                        .withExposedPorts(ORACLE_PORT)
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
-        oracle_container.withCommand(
-                "bash",
-                "-c",
-                "echo \"CREATE USER admin IDENTIFIED BY admin; GRANT DBA TO admin;\" | sqlplus / as sysdba");
-        oracle_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
-        Startables.deepStart(
-                        Stream.of(
-                                POSTGRESQL_CONTAINER,
-                                sqlserver_container,
-                                mysql_container,
-                                oracle_container))
+        Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER, sqlserver_container, mysql_container))
                 .join();
 
         log.info(" container is up ");
