@@ -101,10 +101,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                         enumeratorStateSerializer.deserialize(restoredState.get(-1).get(0));
             }
 
-            /*
-             restore Enumerator Add a Split in a Pending State to a Pending split Re-instantiate
-            the SourceSplitEnumerator
-             */
+            /*  Based on the last saved state Add a Split in a Pending State to a Pending split Re-instantiate the SourceSplitEnumerator */
             splitEnumerator =
                     source.restoreEnumerator(coordinatedEnumeratorContext, restoredEnumeratorState);
             restoredState.forEach(
