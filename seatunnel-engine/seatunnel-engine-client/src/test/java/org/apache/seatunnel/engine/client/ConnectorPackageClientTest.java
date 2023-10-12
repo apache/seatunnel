@@ -192,22 +192,25 @@ public class ConnectorPackageClientTest {
                                                                 "connector-file"));
                                     }
                                 });
-        for (File file : files) {
-            ConnectorJarIdentifier connectorJarIdentifier =
-                    connectorPackageClient.uploadConnectorPluginJar(JOB_ID, file.toURI().toURL());
-            await().atMost(60000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> {
-                                Assertions.assertTrue(
-                                        StringUtils.isNotBlank(
-                                                connectorJarIdentifier.getStoragePath()));
-                                Assertions.assertTrue(
-                                        StringUtils.isNotBlank(
-                                                connectorJarIdentifier.getPluginName()));
-                                Assertions.assertTrue(
-                                        connectorJarIdentifier.getType()
-                                                == ConnectorJarType.CONNECTOR_PLUGIN_JAR);
-                            });
+        if (files.length != 0) {
+            for (File file : files) {
+                ConnectorJarIdentifier connectorJarIdentifier =
+                        connectorPackageClient.uploadConnectorPluginJar(
+                                JOB_ID, file.toURI().toURL());
+                await().atMost(60000, TimeUnit.MILLISECONDS)
+                        .untilAsserted(
+                                () -> {
+                                    Assertions.assertTrue(
+                                            StringUtils.isNotBlank(
+                                                    connectorJarIdentifier.getStoragePath()));
+                                    Assertions.assertTrue(
+                                            StringUtils.isNotBlank(
+                                                    connectorJarIdentifier.getPluginName()));
+                                    Assertions.assertTrue(
+                                            connectorJarIdentifier.getType()
+                                                    == ConnectorJarType.CONNECTOR_PLUGIN_JAR);
+                                });
+            }
         }
     }
 
