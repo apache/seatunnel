@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -76,6 +77,7 @@ public class CatalogTableUtilTest {
                 new MapType<>(
                         BasicType.STRING_TYPE,
                         new MapType<>(BasicType.STRING_TYPE, ArrayType.INT_ARRAY_TYPE)));
+        Assertions.assertEquals(seaTunnelRowType.getTotalFields(), 18);
         Assertions.assertEquals(seaTunnelRowType.getFieldType(17).getSqlType(), SqlType.ROW);
         SeaTunnelRowType nestedRowFieldType = (SeaTunnelRowType) seaTunnelRowType.getFieldType(17);
         Assertions.assertEquals(
@@ -85,13 +87,25 @@ public class CatalogTableUtilTest {
     }
 
     @Test
+    public void testSpecialSchemaParse() throws FileNotFoundException, URISyntaxException {
+        String path = getTestConfigFile("/conf/config_special_schema.conf");
+        Config config = ConfigFactory.parseFile(new File(path));
+        SeaTunnelRowType seaTunnelRowType =
+                CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+        Assertions.assertEquals(seaTunnelRowType.getTotalFields(), 12);
+        Assertions.assertEquals(seaTunnelRowType.getFieldType(5).getSqlType(), SqlType.BYTES);
+        Assertions.assertEquals(seaTunnelRowType.getFieldName(6), "t.date");
+    }
+
+    @Test
     public void testCatalogUtilGetCatalogTable() throws FileNotFoundException, URISyntaxException {
         String path = getTestConfigFile("/conf/getCatalogTable.conf");
         Config config = ConfigFactory.parseFile(new File(path));
         Config source = config.getConfigList("source").get(0);
+        ReadonlyConfig sourceReadonlyConfig = ReadonlyConfig.fromConfig(source);
         List<CatalogTable> catalogTables =
                 CatalogTableUtil.getCatalogTablesFromConfig(
-                        source, Thread.currentThread().getContextClassLoader());
+                        sourceReadonlyConfig, Thread.currentThread().getContextClassLoader());
         Assertions.assertEquals(2, catalogTables.size());
         Assertions.assertEquals(
                 TableIdentifier.of("InMemory", TablePath.of("st.public.table1")),
@@ -103,19 +117,23 @@ public class CatalogTableUtilTest {
         Config emptyTableSource =
                 source.withValue(
                         TABLE_NAMES.key(), ConfigValueFactory.fromIterable(new ArrayList<>()));
+        ReadonlyConfig emptyReadonlyConfig = ReadonlyConfig.fromConfig(emptyTableSource);
         Assertions.assertThrows(
                 SeaTunnelException.class,
                 () ->
                         CatalogTableUtil.getCatalogTablesFromConfig(
-                                emptyTableSource, Thread.currentThread().getContextClassLoader()));
+                                emptyReadonlyConfig,
+                                Thread.currentThread().getContextClassLoader()));
         // test unknown catalog
         Config cannotFindCatalogSource =
                 source.withValue(PLUGIN_NAME, ConfigValueFactory.fromAnyRef("unknownCatalog"));
+        ReadonlyConfig cannotFindCatalogReadonlyConfig =
+                ReadonlyConfig.fromConfig(cannotFindCatalogSource);
         Assertions.assertThrows(
                 SeaTunnelException.class,
                 () ->
                         CatalogTableUtil.getCatalogTablesFromConfig(
-                                cannotFindCatalogSource,
+                                cannotFindCatalogReadonlyConfig,
                                 Thread.currentThread().getContextClassLoader()));
     }
 

@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
@@ -52,10 +54,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SeaTunnelSource> {
     private static final String PLUGIN_TYPE = PluginType.SOURCE.getType();
+    private Config envConfigs;
 
-    public SourceExecuteProcessor(
-            List<URL> jarPaths, List<? extends Config> sourceConfigs, JobContext jobContext) {
-        super(jarPaths, sourceConfigs, jobContext);
+    public SourceExecuteProcessor(List<URL> jarPaths, Config ConfigsInfo, JobContext jobContext) {
+        super(jarPaths, ConfigsInfo.getConfigList(Constants.SOURCE), jobContext);
+        this.envConfigs = ConfigsInfo.getConfig("env");
     }
 
     @Override
@@ -68,20 +71,24 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
             Config pluginConfig = pluginConfigs.get(i);
             BaseSeaTunnelSourceFunction sourceFunction;
             if (internalSource instanceof SupportCoordinate) {
-                sourceFunction = new SeaTunnelCoordinatedSource(internalSource);
+                sourceFunction = new SeaTunnelCoordinatedSource(internalSource, envConfigs);
+
                 registerAppendStream(pluginConfig);
             } else {
-                sourceFunction = new SeaTunnelParallelSource(internalSource);
+                sourceFunction = new SeaTunnelParallelSource(internalSource, envConfigs);
             }
             boolean bounded =
                     internalSource.getBoundedness()
                             == org.apache.seatunnel.api.source.Boundedness.BOUNDED;
+
             DataStreamSource<Row> sourceStream =
                     addSource(
                             executionEnvironment,
                             sourceFunction,
                             "SeaTunnel " + internalSource.getClass().getSimpleName(),
                             bounded);
+            stageType(pluginConfig, (SeaTunnelRowType) internalSource.getProducedType());
+
             if (pluginConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 int parallelism = pluginConfig.getInt(CommonOptions.PARALLELISM.key());
                 sourceStream.setParallelism(parallelism);

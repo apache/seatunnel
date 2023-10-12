@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.core.starter.flowcontrol;
 
+import org.apache.seatunnel.api.env.EnvCommonOptions;
+
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.Map;
 
 @Getter
 @Setter
@@ -46,5 +50,43 @@ public class FlowControlStrategy {
 
     public static FlowControlStrategy ofCount(int countPreSecond) {
         return new FlowControlStrategy(Integer.MAX_VALUE, countPreSecond);
+    }
+
+    // Build the FlowControlStrategy object based on your configured speed limiting parameters
+    public static FlowControlStrategy getFlowControlStrategy(Map<String, Object> envOption) {
+        FlowControlStrategy strategy;
+        if (envOption == null || envOption.isEmpty()) {
+            return null;
+        }
+        if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
+                && envOption.containsKey(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())) {
+            strategy =
+                    FlowControlStrategy.of(
+                            Integer.parseInt(
+                                    envOption
+                                            .get(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
+                                            .toString()),
+                            Integer.parseInt(
+                                    envOption
+                                            .get(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())
+                                            .toString()));
+        } else if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())) {
+            strategy =
+                    FlowControlStrategy.ofBytes(
+                            Integer.parseInt(
+                                    envOption
+                                            .get(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
+                                            .toString()));
+        } else if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())) {
+            strategy =
+                    FlowControlStrategy.ofCount(
+                            Integer.parseInt(
+                                    envOption
+                                            .get(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())
+                                            .toString()));
+        } else {
+            strategy = null;
+        }
+        return strategy;
     }
 }

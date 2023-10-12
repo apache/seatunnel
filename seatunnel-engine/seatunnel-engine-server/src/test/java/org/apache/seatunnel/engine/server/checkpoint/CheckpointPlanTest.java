@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
@@ -108,13 +109,13 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
             IdGenerator idGenerator, LogicalDag logicalDag, int parallelism) {
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(JobMode.BATCH);
-        FakeSource fakeSource = new FakeSource();
         Config fakeSourceConfig =
                 ConfigFactory.parseMap(
                         Collections.singletonMap(
                                 "schema",
                                 Collections.singletonMap(
                                         "fields", ImmutableMap.of("id", "int", "name", "string"))));
+        FakeSource fakeSource = new FakeSource(ReadonlyConfig.fromConfig(fakeSourceConfig));
         fakeSource.prepare(fakeSourceConfig);
         fakeSource.setJobContext(jobContext);
 
