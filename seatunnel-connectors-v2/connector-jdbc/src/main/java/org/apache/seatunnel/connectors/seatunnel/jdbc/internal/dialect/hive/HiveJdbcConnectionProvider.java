@@ -21,19 +21,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfi
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
-
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.HiveJdbcUtils;
 
 import lombok.NonNull;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.SQLException;
 import java.util.Properties;
-
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode.KERBEROS_AUTHENTICATION_FAILED;
 
 public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
 
@@ -48,16 +43,7 @@ public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
         }
         JdbcConnectionConfig jdbcConfig = super.jdbcConfig;
         if (jdbcConfig.useKerberos) {
-            System.setProperty("java.security.krb5.conf", jdbcConfig.krb5Path);
-            Configuration configuration = new Configuration();
-            configuration.set("hadoop.security.authentication", "kerberos");
-            UserGroupInformation.setConfiguration(configuration);
-            try {
-                UserGroupInformation.loginUserFromKeytab(
-                        jdbcConfig.kerberosPrincipal, jdbcConfig.kerberosKeytabPath);
-            } catch (IOException e) {
-                throw new JdbcConnectorException(KERBEROS_AUTHENTICATION_FAILED, e);
-            }
+            HiveJdbcUtils.doKerberosAuthentication(jdbcConfig);
         }
         Driver driver = getLoadedDriver();
         Properties info = new Properties();
