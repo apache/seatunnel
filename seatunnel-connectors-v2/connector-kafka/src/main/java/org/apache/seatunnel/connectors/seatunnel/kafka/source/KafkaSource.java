@@ -270,7 +270,7 @@ public class KafkaSource
                                     .setIgnoreParseErrors(true)
                                     .build();
                     break;
-                case OGG_FORMAT:
+                case OGG_JSON:
                     deserializationSchema =
                             OggJsonDeserializationSchema.builder(typeInfo)
                                     .setIgnoreParseErrors(true)

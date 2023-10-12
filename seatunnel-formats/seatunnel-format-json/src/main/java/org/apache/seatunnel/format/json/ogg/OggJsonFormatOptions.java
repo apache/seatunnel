@@ -24,7 +24,7 @@ import org.apache.seatunnel.format.json.JsonFormatOptions;
 
 import java.util.Map;
 
-/** Option utils for ogg-json format. */
+/** Option utils for ogg_json format. */
 public class OggJsonFormatOptions {
 
     public static final Option<Boolean> IGNORE_PARSE_ERRORS = JsonFormatOptions.IGNORE_PARSE_ERRORS;

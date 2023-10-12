@@ -36,7 +36,7 @@ import java.util.Map;
 public class OggJsonFormatFactory
         implements DeserializationFormatFactory, SerializationFormatFactory {
 
-    public static final String IDENTIFIER = "ogg-json";
+    public static final String IDENTIFIER = "ogg_json";
 
     @Override
     public String factoryIdentifier() {
