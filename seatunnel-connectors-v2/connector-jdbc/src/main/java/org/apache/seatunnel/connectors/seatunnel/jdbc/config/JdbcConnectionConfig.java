@@ -51,7 +51,7 @@ public class JdbcConnectionConfig implements Serializable {
 
     public String kerberosKeytabPath;
 
-    public String krb5Path = JdbcOptions.KRB5_PATH.defaultValue();
+    public String krb5Path = JdbcOptions.KERBEROS_KRB5_CONF_PATH.defaultValue();
 
     public static JdbcConnectionConfig of(ReadonlyConfig config) {
         JdbcConnectionConfig.Builder builder = JdbcConnectionConfig.builder();
@@ -72,7 +72,7 @@ public class JdbcConnectionConfig implements Serializable {
             builder.useKerberos(config.get(JdbcOptions.USE_KERBEROS));
             builder.kerberosPrincipal(config.get(JdbcOptions.KERBEROS_PRINCIPAL));
             builder.kerberosKeytabPath(config.get(JdbcOptions.KERBEROS_KEYTAB_PATH));
-            builder.kerberosKeytabPath(config.get(JdbcOptions.KRB5_PATH));
+            builder.kerberosKeytabPath(config.get(JdbcOptions.KERBEROS_KRB5_CONF_PATH));
         }
         config.getOptional(JdbcOptions.USER).ifPresent(builder::username);
         config.getOptional(JdbcOptions.PASSWORD).ifPresent(builder::password);
@@ -149,7 +149,7 @@ public class JdbcConnectionConfig implements Serializable {
         public boolean useKerberos = JdbcOptions.USE_KERBEROS.defaultValue();
         public String kerberosPrincipal;
         public String kerberosKeytabPath;
-        public String krb5Path = JdbcOptions.KRB5_PATH.defaultValue();
+        public String krb5Path = JdbcOptions.KERBEROS_KRB5_CONF_PATH.defaultValue();
 
         private Builder() {}
 

@@ -182,8 +182,8 @@ public interface JdbcOptions {
                     .withDescription(
                             "When use kerberos, we should set kerberos principal file path such as '/home/test/test_user.keytab'. ");
 
-    Option<String> KRB5_PATH =
-            Options.key("krb5_path")
+    Option<String> KERBEROS_KRB5_CONF_PATH =
+            Options.key("kerberos_krb5_conf_path")
                     .stringType()
                     .defaultValue("/etc/krb5.conf")
                     .withDescription(
