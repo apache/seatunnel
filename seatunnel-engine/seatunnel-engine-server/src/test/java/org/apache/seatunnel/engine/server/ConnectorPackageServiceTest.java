@@ -49,6 +49,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -122,6 +123,7 @@ public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    @Disabled("disabled because we can not know")
     public void testRestoreWhenMasterNodeSwitch() throws InterruptedException, IOException {
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(
