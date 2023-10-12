@@ -19,12 +19,16 @@ package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertCatalogTableRule;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertRuleParser;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
@@ -35,9 +39,9 @@ import org.apache.commons.collections4.CollectionUtils;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Throwables;
 
-import java.io.IOException;
 import java.util.List;
 
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.CATALOG_TABLE_RULES;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.FIELD_RULES;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.ROW_RULES;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
@@ -45,8 +49,47 @@ import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertCon
 @AutoService(SeaTunnelSink.class)
 public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private SeaTunnelRowType seaTunnelRowType;
+    private CatalogTable catalogTable;
     private List<AssertFieldRule> assertFieldRules;
     private List<AssertFieldRule.AssertRule> assertRowRules;
+
+    private AssertCatalogTableRule assertCatalogTableRule;
+
+    public AssertSink() {}
+
+    public AssertSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+        this.catalogTable = catalogTable;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+        if (!pluginConfig.getOptional(RULES).isPresent()) {
+            Throwables.propagateIfPossible(new ConfigException.Missing(RULES.key()));
+        }
+        Config ruleConfig = ConfigFactory.parseMap(pluginConfig.get(RULES));
+        List<? extends Config> rowConfigList = null;
+        List<? extends Config> configList = null;
+        if (ruleConfig.hasPath(ROW_RULES)) {
+            rowConfigList = ruleConfig.getConfigList(ROW_RULES);
+            assertRowRules = new AssertRuleParser().parseRowRules(rowConfigList);
+        }
+        if (ruleConfig.hasPath(FIELD_RULES)) {
+            configList = ruleConfig.getConfigList(FIELD_RULES);
+            assertFieldRules = new AssertRuleParser().parseRules(configList);
+        }
+
+        if (ruleConfig.hasPath(CATALOG_TABLE_RULES)) {
+            assertCatalogTableRule =
+                    new AssertRuleParser()
+                            .parseCatalogTableRule(ruleConfig.getConfig(CATALOG_TABLE_RULES));
+            assertCatalogTableRule.checkRule(catalogTable);
+        }
+
+        if (CollectionUtils.isEmpty(configList)
+                && CollectionUtils.isEmpty(rowConfigList)
+                && assertCatalogTableRule == null) {
+            Throwables.propagateIfPossible(
+                    new ConfigException.BadValue(
+                            RULES.key(), "Assert rule config is empty, please add rule config."));
+        }
+    }
 
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
@@ -55,12 +98,11 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return this.seaTunnelRowType;
+        return seaTunnelRowType;
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
         return new AssertSinkWriter(seaTunnelRowType, assertFieldRules, assertRowRules);
     }
 

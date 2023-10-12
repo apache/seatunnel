@@ -21,13 +21,16 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -39,8 +42,10 @@ import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
 
 import com.google.auto.service.AutoService;
+import com.google.common.collect.Lists;
 
 import java.util.Collections;
+import java.util.List;
 
 @AutoService(SeaTunnelSource.class)
 public class FakeSource
@@ -49,8 +54,15 @@ public class FakeSource
                 SupportColumnProjection {
 
     private JobContext jobContext;
-    private SeaTunnelRowType rowType;
+    private CatalogTable catalogTable;
     private FakeConfig fakeConfig;
+
+    public FakeSource() {}
+
+    public FakeSource(ReadonlyConfig readonlyConfig) {
+        this.catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
+        this.fakeConfig = FakeConfig.buildWithConfig(readonlyConfig.toConfig());
+    }
 
     @Override
     public Boundedness getBoundedness() {
@@ -60,8 +72,13 @@ public class FakeSource
     }
 
     @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Lists.newArrayList(catalogTable);
+    }
+
+    @Override
     public SeaTunnelRowType getProducedType() {
-        return rowType;
+        return catalogTable.getSeaTunnelRowType();
     }
 
     @Override
@@ -73,16 +90,15 @@ public class FakeSource
     @Override
     public SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> restoreEnumerator(
             SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext,
-            FakeSourceState checkpointState)
-            throws Exception {
+            FakeSourceState checkpointState) {
         return new FakeSourceSplitEnumerator(
                 enumeratorContext, fakeConfig, checkpointState.getAssignedSplits());
     }
 
     @Override
     public SourceReader<SeaTunnelRow, FakeSourceSplit> createReader(
-            SourceReader.Context readerContext) throws Exception {
-        return new FakeSourceReader(readerContext, rowType, fakeConfig);
+            SourceReader.Context readerContext) {
+        return new FakeSourceReader(readerContext, catalogTable.getSeaTunnelRowType(), fakeConfig);
     }
 
     @Override
@@ -93,7 +109,7 @@ public class FakeSource
     @Override
     public void prepare(Config pluginConfig) {
         CheckResult result =
-                CheckConfigUtil.checkAllExists(pluginConfig, CatalogTableUtil.SCHEMA.key());
+                CheckConfigUtil.checkAllExists(pluginConfig, TableSchemaOptions.SCHEMA.key());
         if (!result.isSuccess()) {
             throw new FakeConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -101,7 +117,7 @@ public class FakeSource
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+        this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
         this.fakeConfig = FakeConfig.buildWithConfig(pluginConfig);
     }
 
