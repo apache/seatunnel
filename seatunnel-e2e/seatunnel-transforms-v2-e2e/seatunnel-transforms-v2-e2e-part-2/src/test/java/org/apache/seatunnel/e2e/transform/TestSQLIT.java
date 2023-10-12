@@ -44,7 +44,7 @@ public class TestSQLIT extends TestSuiteBase {
                 container.executeJob("/sql_transform/func_datetime.conf");
         Assertions.assertEquals(0, sqlFuncDatetime.getExitCode());
         Container.ExecResult sqlFuncSystem =
-            container.executeJob("/sql_transform/func_system.conf");
+                container.executeJob("/sql_transform/func_system.conf");
         Assertions.assertEquals(0, sqlFuncSystem.getExitCode());
         Container.ExecResult sqlCriteriaFilter =
                 container.executeJob("/sql_transform/criteria_filter.conf");
