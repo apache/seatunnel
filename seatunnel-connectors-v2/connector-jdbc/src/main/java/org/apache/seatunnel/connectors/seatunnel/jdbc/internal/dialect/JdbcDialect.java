@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.sql.Connection;
@@ -59,13 +63,21 @@ public interface JdbcDialect extends Serializable {
      */
     JdbcDialectTypeMapper getJdbcDialectTypeMapper();
 
+    default String hashModForField(String fieldName, int mod) {
+        return "ABS(MD5(" + quoteIdentifier(fieldName) + ") % " + mod + ")";
+    }
+
     /** Quotes the identifier for table name or field name */
     default String quoteIdentifier(String identifier) {
         return identifier;
     }
+    /** Quotes the identifier for database name or field name */
+    default String quoteDatabaseIdentifier(String identifier) {
+        return identifier;
+    }
 
     default String tableIdentifier(String database, String tableName) {
-        return quoteIdentifier(database) + "." + quoteIdentifier(tableName);
+        return quoteDatabaseIdentifier(database) + "." + quoteIdentifier(tableName);
     }
 
     /**
@@ -105,7 +117,21 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPDATE} statement.
      */
     default String getUpdateStatement(
-            String database, String tableName, String[] fieldNames, String[] conditionFields) {
+            String database,
+            String tableName,
+            String[] fieldNames,
+            String[] conditionFields,
+            boolean isPrimaryKeyUpdated) {
+
+        fieldNames =
+                Arrays.stream(fieldNames)
+                        .filter(
+                                fieldName ->
+                                        isPrimaryKeyUpdated
+                                                || !Arrays.asList(conditionFields)
+                                                        .contains(fieldName))
+                        .toArray(String[]::new);
+
         String setClause =
                 Arrays.stream(fieldNames)
                         .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
@@ -195,5 +221,23 @@ public interface JdbcDialect extends Serializable {
             Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
         PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
         return ps.getMetaData();
+    }
+
+    default String extractTableName(TablePath tablePath) {
+        return tablePath.getSchemaAndTableName();
+    }
+
+    default String getFieldIde(String identifier, String fieldIde) {
+        if (StringUtils.isEmpty(fieldIde)) {
+            return identifier;
+        }
+        switch (FieldIdeEnum.valueOf(fieldIde.toUpperCase())) {
+            case LOWERCASE:
+                return identifier.toLowerCase();
+            case UPPERCASE:
+                return identifier.toUpperCase();
+            default:
+                return identifier;
+        }
     }
 }

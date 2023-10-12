@@ -18,31 +18,36 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbCollectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentSerializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.DocumentBulk;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommitInfo;
 
 import org.bson.BsonDocument;
 
 import com.mongodb.MongoException;
 import com.mongodb.client.model.BulkWriteOptions;
+import com.mongodb.client.model.InsertOneModel;
+import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.model.WriteModel;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITER_OPERATION_FAILED;
 
 @Slf4j
-public class MongodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class MongodbWriter implements SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> {
 
     private MongodbClientProvider collectionProvider;
 
@@ -60,6 +65,9 @@ public class MongodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private volatile long lastSendTime = 0L;
 
+    private boolean transaction;
+
+    // TODO：Reserve parameters.
     private final SinkWriter.Context context;
 
     public MongodbWriter(
@@ -83,25 +91,66 @@ public class MongodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         .build();
         this.bulkActions = options.getFlushSize();
         this.batchIntervalMs = options.getBatchIntervalMs();
+        this.transaction = options.transaction;
     }
 
     @Override
-    public void write(SeaTunnelRow o) throws IOException {
-        bulkRequests.add(serializer.serializeToWriteModel(o));
-        if (isOverMaxBatchSizeLimit() || isOverMaxBatchIntervalLimit()) {
-            doBulkWrite();
+    public void write(SeaTunnelRow o) {
+        if (o.getRowKind() != RowKind.UPDATE_BEFORE) {
+            bulkRequests.add(serializer.serializeToWriteModel(o));
+            if (!transaction && (isOverMaxBatchSizeLimit() || isOverMaxBatchIntervalLimit())) {
+                doBulkWrite();
+            }
         }
     }
 
-    @Override
-    public Optional<Void> prepareCommit() {
-        doBulkWrite();
-        return Optional.empty();
+    public Optional<MongodbCommitInfo> prepareCommit() {
+        if (!transaction) {
+            doBulkWrite();
+            return Optional.empty();
+        }
+
+        List<DocumentBulk> bsonDocuments = new ArrayList<>();
+        AtomicInteger counter = new AtomicInteger();
+
+        bulkRequests.stream()
+                .map(this::convertModelToBsonDocument)
+                .collect(
+                        Collectors.groupingBy(
+                                it -> counter.getAndIncrement() / DocumentBulk.BUFFER_SIZE))
+                .values()
+                .stream()
+                .map(this::convertBsonDocumentListToDocumentBulk)
+                .forEach(bsonDocuments::add);
+
+        bulkRequests.clear();
+
+        return Optional.of(new MongodbCommitInfo(bsonDocuments));
+    }
+
+    private BsonDocument convertModelToBsonDocument(WriteModel<BsonDocument> model) {
+        if (model instanceof InsertOneModel) {
+            return ((InsertOneModel<BsonDocument>) model).getDocument();
+        } else if (model instanceof UpdateOneModel) {
+            return (BsonDocument) ((UpdateOneModel<BsonDocument>) model).getUpdate();
+        }
+        return null;
+    }
+
+    private DocumentBulk convertBsonDocumentListToDocumentBulk(List<BsonDocument> documentList) {
+        DocumentBulk documentBulk = new DocumentBulk();
+        documentList.forEach(documentBulk::add);
+        return documentBulk;
     }
 
     @Override
-    public void close() throws IOException {
-        doBulkWrite();
+    public void abortPrepare() {}
+
+    @Override
+    public void close() {
+        if (!transaction) {
+            doBulkWrite();
+        }
         if (collectionProvider != null) {
             collectionProvider.close();
         }

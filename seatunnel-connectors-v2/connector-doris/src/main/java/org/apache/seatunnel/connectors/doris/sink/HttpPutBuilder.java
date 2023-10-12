@@ -49,6 +49,7 @@ public class HttpPutBuilder {
 
     public HttpPutBuilder addCommonHeader() {
         header.put(HttpHeaders.EXPECT, "100-continue");
+        header.put("Content-Type", "text/plain");
         return this;
     }
 

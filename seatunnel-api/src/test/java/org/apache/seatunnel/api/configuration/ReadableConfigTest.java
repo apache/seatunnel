@@ -35,7 +35,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@SuppressWarnings("checkstyle:StaticVariableName")
 public class ReadableConfigTest {
     private static final String CONFIG_PATH = "/conf/option-test.conf";
     private static ReadonlyConfig config;
@@ -237,9 +236,10 @@ public class ReadableConfigTest {
                 .values()
                 .forEach(
                         value -> {
-                            Assertions.assertEquals(1, value.size());
                             Assertions.assertEquals(map, value.get(0));
                         });
+        Assertions.assertEquals(complexType.get(0).get("inner.list").size(), 2);
+        Assertions.assertEquals(complexType.get(0).get("inner.list-2").size(), 1);
     }
 
     @Test

@@ -32,11 +32,11 @@ body:
     attributes:
       label: Search before asking
       description: >
-        Please make sure to search in the [issues](https://github.com/apache/incubator-seatunnel/issues?q=is%3Aissue+label%3A%22bug%22)
+        Please make sure to search in the [issues](https://github.com/apache/seatunnel/issues?q=is%3Aissue+label%3A%22bug%22)
         first to see whether the same issue was reported already.
       options:
         - label: >
-            I had searched in the [issues](https://github.com/apache/incubator-seatunnel/issues?q=is%3Aissue+label%3A%22bug%22) and found
+            I had searched in the [issues](https://github.com/apache/seatunnel/issues?q=is%3Aissue+label%3A%22bug%22) and found
             no similar issues.
           required: true
 
@@ -90,10 +90,10 @@ body:
 
   - type: textarea
     attributes:
-      label: Flink or Spark Version
-      description: Provide Flink or Spark Version.
+      label: Zeta or Flink or Spark Version
+      description: Provide Zeta or Flink or Spark Version.
       placeholder: >
-        Please provide the version of Flink or Spark.
+        Please provide the version of Zeta or Flink or Spark.
     validations:
       required: false
 

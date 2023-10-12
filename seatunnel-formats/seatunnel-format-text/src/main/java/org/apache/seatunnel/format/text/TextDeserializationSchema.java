@@ -187,9 +187,13 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 String[] kvs = field.split(separators[level + 1]);
                 for (String kv : kvs) {
                     String[] splits = kv.split(separators[level + 2]);
-                    objectMap.put(
-                            convert(splits[0], keyType, level + 1),
-                            convert(splits[1], valueType, level + 1));
+                    if (splits.length < 2) {
+                        objectMap.put(convert(splits[0], keyType, level + 1), null);
+                    } else {
+                        objectMap.put(
+                                convert(splits[0], keyType, level + 1),
+                                convert(splits[1], valueType, level + 1));
+                    }
                 }
                 return objectMap;
             case STRING:

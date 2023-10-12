@@ -2,11 +2,15 @@
 
 > JDBC Mysql Source Connector
 
+## Support Mysql Version
+
+- 5.5/5.6/5.7/8.0
+
 ## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key Features
 
@@ -36,7 +40,7 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                                          Mysql Data type                                                          |                                                                 Seatunnel Data type                                                                 |
+|                                                          Mysql Data type                                                          |                                                                 SeaTunnel Data type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
@@ -56,24 +60,24 @@ Read external data source data through JDBC.
 
 ## Source Options
 
-|             Name             |  Type  | Required |     Default     |                                                                                                                            Description                                                                                                                            |
-|------------------------------|--------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                          | String | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                                            |
-| driver                       | String | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                                     |
-| user                         | String | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
-| password                     | String | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
-| query                        | String | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
-| connection_check_timeout_sec | Int    | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
-| partition_column             | String | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                     |
-| partition_lower_bound        | Long   | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
-| partition_upper_bound        | Long   | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
-| partition_num                | Int    | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
-| fetch_size                   | Int    | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
-| common-options               |        | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
+|             Name             |    Type    | Required |     Default     |                                                                                                                            Description                                                                                                                            |
+|------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                                            |
+| driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                                     |
+| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
+| password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
+| query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
+| connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
+| partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                     |
+| partition_lower_bound        | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
+| partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
+| partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
+| fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
+| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks , When your shard read field is a large number type such as bigint(30) and above and the data is not evenly distributed, it is recommended to set the parallelism level to 1 to ensure that the data skew problem is resolved
 
 ## Task Example
 
@@ -90,7 +94,7 @@ env {
 }
 source{
     Jdbc {
-        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
         user = "root"
@@ -101,7 +105,7 @@ source{
 
 transform {
     # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform/sql
+    # please go to https://seatunnel.apache.org/docs/transform-v2/sql
 }
 
 sink {
@@ -114,9 +118,13 @@ sink {
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
 
 ```
+env {
+  execution.parallelism = 10
+  job.mode = "BATCH"
+}
 source {
     Jdbc {
-        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
         user = "root"
@@ -129,6 +137,9 @@ source {
         partition_num = 10
     }
 }
+sink {
+  Console {}
+}
 ```
 
 ### Parallel Boundary:
@@ -138,7 +149,7 @@ source {
 ```
 source {
     Jdbc {
-        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
         user = "root"

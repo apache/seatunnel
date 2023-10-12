@@ -37,5 +37,5 @@ hazelcast:
     hazelcast.invocation.max.retry.count: 20
     hazelcast.tcp.join.port.try.count: 30
     hazelcast.logging.type: log4j2
-    hazelcast.operation.generic.thread.count: 100
+    hazelcast.operation.generic.thread.count: 50
 

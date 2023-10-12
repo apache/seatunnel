@@ -69,7 +69,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         this.clientCommandArgs = clientCommandArgs;
     }
 
-    @SuppressWarnings({"checkstyle:RegexpSingleline", "checkstyle:MagicNumber"})
     @Override
     public void execute() throws CommandExecuteException {
         JobMetricsRunner.JobMetricsSummary jobMetricsSummary = null;
@@ -97,6 +96,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             if (clientCommandArgs.isListJob()) {
                 String jobStatus = engineClient.getJobClient().listJobStatus(true);
                 System.out.println(jobStatus);
+            } else if (clientCommandArgs.isGetRunningJobMetrics()) {
+                String runningJobMetrics = engineClient.getJobClient().getRunningJobMetrics();
+                System.out.println(runningJobMetrics);
             } else if (null != clientCommandArgs.getJobId()) {
                 String jobState =
                         engineClient
@@ -237,7 +239,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 new SeaTunnelNodeContext(seaTunnelConfig));
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private String creatRandomClusterName(String namePrefix) {
         Random random = new Random();
         return namePrefix + "-" + random.nextInt(1000000);

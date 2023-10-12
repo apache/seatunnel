@@ -8,6 +8,9 @@ Read data from aliyun oss file system using jindo api.
 
 :::tip
 
+You need to download [jindosdk-4.6.1.tar.gz](https://jindodata-binary.oss-cn-shanghai.aliyuncs.com/release/4.6.1/jindosdk-4.6.1.tar.gz)
+and then unzip it, copy jindo-sdk-4.6.1.jar and jindo-core-4.6.1.jar from lib to ${SEATUNNEL_HOME}/lib.
+
 If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
 
 If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
@@ -56,6 +59,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
 | sheet_name                | string  | no       | -                   |
+| file_filter_pattern       | string  | no       | -                   |
 
 ### path [string]
 
@@ -113,7 +117,7 @@ For example, set like following:
 
 `skip_header_row_number = 2`
 
-then Seatunnel will skip the first 2 lines from source files
+then SeaTunnel will skip the first 2 lines from source files
 
 ### file_format_type [string]
 
@@ -246,13 +250,17 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ### sheet_name [string]
 
-Reader the sheet of the workbook,Only used when file_format is excel.
+Reader the sheet of the workbook,Only used when file_format_type is excel.
+
+### file_filter_pattern [string]
+
+Filter pattern, which used for filtering files.
 
 ## Example
 
 ```hocon
 
-  OssFile {
+OssJindoFile {
     path = "/seatunnel/orc"
     bucket = "oss://tyrantlucifer-image-bed"
     access_key = "xxxxxxxxxxxxxxxxx"
@@ -265,7 +273,7 @@ Reader the sheet of the workbook,Only used when file_format is excel.
 
 ```hocon
 
-  OssFile {
+OssJindoFile {
     path = "/seatunnel/json"
     bucket = "oss://tyrantlucifer-image-bed"
     access_key = "xxxxxxxxxxxxxxxxx"

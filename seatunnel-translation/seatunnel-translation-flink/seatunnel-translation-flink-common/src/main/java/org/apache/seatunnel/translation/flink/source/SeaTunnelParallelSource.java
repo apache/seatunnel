@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.flink.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
@@ -31,9 +33,9 @@ public class SeaTunnelParallelSource extends BaseSeaTunnelSourceFunction
 
     protected static final String PARALLEL_SOURCE_STATE_NAME = "parallel-source-states";
 
-    public SeaTunnelParallelSource(SeaTunnelSource<SeaTunnelRow, ?, ?> source) {
+    public SeaTunnelParallelSource(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Config envConfigs) {
         // TODO: Make sure the source is uncoordinated.
-        super(source);
+        super(source, envConfigs);
     }
 
     @Override

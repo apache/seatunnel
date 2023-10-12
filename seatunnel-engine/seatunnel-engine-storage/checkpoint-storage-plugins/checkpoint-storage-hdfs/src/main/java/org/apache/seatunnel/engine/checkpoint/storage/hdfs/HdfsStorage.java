@@ -88,7 +88,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             datas = serializeCheckPointData(state);
         } catch (IOException e) {
             throw new CheckpointStorageException(
-                    "Failed to serialize checkpoint data,state is :" + state, e);
+                    String.format("Failed to serialize checkpoint data, state: %s", state), e);
         }
         Path filePath =
                 new Path(
@@ -108,7 +108,10 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             out.write(datas);
         } catch (IOException e) {
             throw new CheckpointStorageException(
-                    "Failed to write checkpoint data, state: " + state, e);
+                    String.format(
+                            "Failed to write checkpoint data, file: %s, state: %s",
+                            tmpFilePath, state),
+                    e);
         }
         try {
             boolean success = fs.rename(tmpFilePath, filePath);
@@ -283,7 +286,9 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                     if (pipelineId.equals(getPipelineIdByFileName(fileName))
                             && checkpointId.equals(getCheckpointIdByFileName(fileName))) {
                         try {
-                            fs.delete(new Path(fileName), false);
+                            fs.delete(
+                                    new Path(path + DEFAULT_CHECKPOINT_FILE_PATH_SPLIT + fileName),
+                                    false);
                         } catch (Exception e) {
                             log.error(
                                     "Failed to delete checkpoint {} for job {}, pipeline {}",
@@ -311,7 +316,9 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                     if (pipelineId.equals(getPipelineIdByFileName(fileName))
                             && checkpointIdList.contains(checkpointIdByFileName)) {
                         try {
-                            fs.delete(new Path(fileName), false);
+                            fs.delete(
+                                    new Path(path + DEFAULT_CHECKPOINT_FILE_PATH_SPLIT + fileName),
+                                    false);
                         } catch (Exception e) {
                             log.error(
                                     "Failed to delete checkpoint {} for job {}, pipeline {}",

@@ -28,7 +28,7 @@ Used to read data from Lemlist.
 | body                        | String  | No       | -             |
 | json_field                  | Config  | No       | -             |
 | content_json                | String  | No       | -             |
-| poll_interval_ms            | int     | No       | -             |
+| poll_interval_millis        | int     | No       | -             |
 | retry                       | int     | No       | -             |
 | retry_backoff_multiplier_ms | int     | No       | 100           |
 | retry_backoff_max_ms        | int     | No       | 10000         |
@@ -57,7 +57,7 @@ http params
 
 http body
 
-### poll_interval_ms [int]
+### poll_interval_millis [int]
 
 request http api interval(millis) in stream mode
 
@@ -278,7 +278,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ```hocon
 Lemlist {
     url = "https://api.lemlist.com/api/campaigns"
-    password = "Seatunnel-test"
+    password = "SeaTunnel-test"
     schema {
        fields {
          _id = string
@@ -293,5 +293,5 @@ Lemlist {
 ### next version
 
 - Add Lemlist Source Connector
-- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/incubator-seatunnel/pull/3510))
+- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/seatunnel/pull/3510))
 

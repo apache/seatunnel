@@ -80,6 +80,7 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
             case NTEXT:
             case NVARCHAR:
             case TEXT:
+            case XML:
                 return BasicType.STRING_TYPE;
             case DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
@@ -132,9 +133,9 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
             case DATE:
                 return SqlServerType.DATE;
             case TIME:
-                return SqlServerType.DATETIME;
+                return SqlServerType.TIME;
             case TIMESTAMP:
-                return SqlServerType.TIMESTAMP;
+                return SqlServerType.DATETIME2;
             default:
                 throw new JdbcConnectorException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE,

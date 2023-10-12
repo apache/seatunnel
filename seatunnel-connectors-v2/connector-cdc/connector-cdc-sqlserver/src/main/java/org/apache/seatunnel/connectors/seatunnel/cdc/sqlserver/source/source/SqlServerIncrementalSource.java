@@ -21,9 +21,11 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
@@ -49,6 +51,7 @@ import io.debezium.relational.TableId;
 import lombok.NoArgsConstructor;
 
 import java.time.ZoneId;
+import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerTypeUtils.convertFromTable;
@@ -61,8 +64,10 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
     static final String IDENTIFIER = "SqlServer-CDC";
 
     public SqlServerIncrementalSource(
-            ReadonlyConfig options, SeaTunnelDataType<SeaTunnelRow> dataType) {
-        super(options, dataType);
+            ReadonlyConfig options,
+            SeaTunnelDataType<SeaTunnelRow> dataType,
+            List<CatalogTable> catalogTables) {
+        super(options, dataType, catalogTables);
     }
 
     @Override
@@ -111,12 +116,16 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
                     (SqlServerSourceConfig) this.configFactory.create(0);
             TableId tableId =
                     this.dataSourceDialect.discoverDataCollections(sqlServerSourceConfig).get(0);
-            SqlServerConnection sqlServerConnection =
-                    createSqlServerConnection(sqlServerSourceConfig.getDbzConfiguration());
-            Table table =
-                    ((SqlServerDialect) dataSourceDialect)
-                            .queryTableSchema(sqlServerConnection, tableId)
-                            .getTable();
+            Table table;
+            try (SqlServerConnection sqlServerConnection =
+                    createSqlServerConnection(sqlServerSourceConfig.getDbzConfiguration())) {
+                table =
+                        ((SqlServerDialect) dataSourceDialect)
+                                .queryTableSchema(sqlServerConnection, tableId)
+                                .getTable();
+            } catch (Exception e) {
+                throw new SeaTunnelException(e);
+            }
             physicalRowType = convertFromTable(table);
         } else {
             physicalRowType = dataType;

@@ -1,6 +1,6 @@
 # CDC compatible debezium-json
 
-Seatunnel supports to interpret cdc record as Debezium-JSON messages publish to mq(kafka) system.
+SeaTunnel supports to interpret cdc record as Debezium-JSON messages publish to mq(kafka) system.
 
 This is useful in many cases to leverage this feature, such as compatible with the debezium ecosystem.
 
@@ -19,7 +19,6 @@ source {
   MySQL-CDC {
     result_table_name = "table1"
 
-    hostname = localhost
     base-url="jdbc:mysql://localhost:3306/test"
     "startup.mode"=INITIAL
     catalog {

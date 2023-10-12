@@ -36,7 +36,7 @@ jobs:
       - name: Checkout website repo
         uses: actions/checkout@v3
         with:
-          repository: apache/incubator-seatunnel-website
+          repository: apache/seatunnel-website
           path: seatunnel-website
 
       - name: Sync PR changes to website
@@ -52,3 +52,14 @@ jobs:
           cd seatunnel-website
           npm install
           npm run build
+
+  code-style:
+    name: Code style
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Check code style
+        run: ./mvnw --batch-mode --quiet --no-snapshot-updates clean spotless:check

@@ -30,7 +30,7 @@ Used to read data from Klaviyo.
 | body                        | String  | No       | -             |
 | json_field                  | Config  | No       | -             |
 | content_json                | String  | No       | -             |
-| poll_interval_ms            | int     | No       | -             |
+| poll_interval_millis        | int     | No       | -             |
 | retry                       | int     | No       | -             |
 | retry_backoff_multiplier_ms | int     | No       | 100           |
 | retry_backoff_max_ms        | int     | No       | 10000         |
@@ -63,7 +63,7 @@ http params
 
 http body
 
-### poll_interval_ms [int]
+### poll_interval_millis [int]
 
 request http api interval(millis) in stream mode
 
@@ -282,7 +282,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ```hocon
 Klaviyo {
     url = "https://a.klaviyo.com/api/lists/"
-    private_key = "Seatunnel-test"
+    private_key = "SeaTunnel-test"
     revision = "2020-10-17"
     method = "GET"
     format = "json"
@@ -308,5 +308,5 @@ Klaviyo {
 ### next version
 
 - Add Klaviyo Source Connector
-- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/incubator-seatunnel/pull/3510))
+- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/seatunnel/pull/3510))
 

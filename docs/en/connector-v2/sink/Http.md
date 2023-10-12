@@ -2,6 +2,17 @@
 
 > Http sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
+## Key Features
+
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [cdc](../../concept/connector-v2-features.md)
+
 ## Description
 
 Used to launch web hooks using data.
@@ -10,49 +21,26 @@ Used to launch web hooks using data.
 
 **Tips: Http sink only support `post json` webhook and the data from source will be treated as body content in web hook.**
 
-## Key features
+## Supported DataSource Info
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+In order to use the Http connector, the following dependencies are required.
+They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-## Options
+| Datasource | Supported Versions |                                                 Dependency                                                 |
+|------------|--------------------|------------------------------------------------------------------------------------------------------------|
+| Http       | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-http) |
 
-|            name             |  type  | required | default value |
-|-----------------------------|--------|----------|---------------|
-| url                         | String | Yes      | -             |
-| headers                     | Map    | No       | -             |
-| params                      | Map    | No       | -             |
-| retry                       | int    | No       | -             |
-| retry_backoff_multiplier_ms | int    | No       | 100           |
-| retry_backoff_max_ms        | int    | No       | 10000         |
-| common-options              |        | no       | -             |
+## Sink Options
 
-### url [String]
-
-http request url
-
-### headers [Map]
-
-http headers
-
-### params [Map]
-
-http params
-
-### retry [int]
-
-The max retry times if request http return to `IOException`
-
-### retry_backoff_multiplier_ms [int]
-
-The retry-backoff times(millis) multiplier if request http failed
-
-### retry_backoff_max_ms [int]
-
-The maximum retry-backoff times(millis) if request http failed
-
-### common options
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+|            Name             |  Type  | Required | Default |                                             Description                                             |
+|-----------------------------|--------|----------|---------|-----------------------------------------------------------------------------------------------------|
+| url                         | String | Yes      | -       | Http request url                                                                                    |
+| headers                     | Map    | No       | -       | Http headers                                                                                        |
+| params                      | Map    | No       | -       | Http params                                                                                         |
+| retry                       | Int    | No       | -       | The max retry times if request http return to `IOException`                                         |
+| retry_backoff_multiplier_ms | Int    | No       | 100     | The retry-backoff times(millis) multiplier if request http failed                                   |
+| retry_backoff_max_ms        | Int    | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                      |
+| common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details |
 
 ## Example
 
@@ -60,11 +48,11 @@ simple:
 
 ```hocon
 Http {
-        url = "http://localhost/test/webhook"
-        headers {
-            token = "9e32e859ef044462a257e1fc76730066"
-        }
+    url = "http://localhost/test/webhook"
+    headers {
+        token = "9e32e859ef044462a257e1fc76730066"
     }
+}
 ```
 
 ## Changelog

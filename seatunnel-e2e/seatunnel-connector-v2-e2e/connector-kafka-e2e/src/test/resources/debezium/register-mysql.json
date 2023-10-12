@@ -1,0 +1,16 @@
+{
+  "name": "inventory-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+    "tasks.max": "1",
+    "database.hostname": "mysql",
+    "database.port": "3306",
+    "database.user": "st_user",
+    "database.password": "seatunnel",
+    "database.server.id": "184054",
+    "topic.prefix": "dbserver1",
+    "database.include.list": "debezium",
+    "schema.history.internal.kafka.bootstrap.servers": "kafka_dbz_e2e:9092",
+    "schema.history.internal.kafka.topic": "schema-changes.debezium"
+  }
+}

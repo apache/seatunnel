@@ -63,12 +63,16 @@ import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParse
 public class JobConfigParser {
     private static final ILogger LOGGER = Logger.getLogger(JobConfigParser.class);
     private IdGenerator idGenerator;
-
+    private boolean isStartWithSavePoint;
     private List<URL> commonPluginJars;
 
-    public JobConfigParser(@NonNull IdGenerator idGenerator, @NonNull List<URL> commonPluginJars) {
+    public JobConfigParser(
+            @NonNull IdGenerator idGenerator,
+            @NonNull List<URL> commonPluginJars,
+            boolean isStartWithSavePoint) {
         this.idGenerator = idGenerator;
         this.commonPluginJars = commonPluginJars;
+        this.isStartWithSavePoint = isStartWithSavePoint;
     }
 
     public Tuple2<CatalogTable, Action> parseSource(
@@ -126,6 +130,7 @@ public class JobConfigParser {
     }
 
     public List<SinkAction<?, ?, ?, ?>> parseSinks(
+            int configIndex,
             List<List<Tuple2<CatalogTable, Action>>> inputVertices,
             Config sinkConfig,
             JobConfig jobConfig) {
@@ -141,6 +146,7 @@ public class JobConfigParser {
             checkProducedTypeEquals(inputActions);
             SinkAction<?, ?, ?, ?> sinkAction =
                     parseSink(
+                            configIndex,
                             sinkConfig,
                             jobConfig,
                             spareParallelism,
@@ -160,6 +166,7 @@ public class JobConfigParser {
                 int parallelism = inputAction.getParallelism();
                 SinkAction<?, ?, ?, ?> sinkAction =
                         parseSink(
+                                configIndex,
                                 sinkConfig,
                                 jobConfig,
                                 parallelism,
@@ -172,6 +179,7 @@ public class JobConfigParser {
     }
 
     private SinkAction<?, ?, ?, ?> parseSink(
+            int configIndex,
             Config config,
             JobConfig jobConfig,
             int parallelism,
@@ -190,9 +198,12 @@ public class JobConfigParser {
         sink.prepare(config);
         sink.setJobContext(jobConfig.getJobContext());
         sink.setTypeInfo(rowType);
-        handleSaveMode(sink);
+        if (!isStartWithSavePoint) {
+            handleSaveMode(sink);
+        }
         final String actionName =
-                createSinkActionName(0, tuple.getLeft().getPluginName(), getTableName(config));
+                createSinkActionName(
+                        configIndex, tuple.getLeft().getPluginName(), getTableName(config));
         final SinkAction action =
                 new SinkAction<>(
                         idGenerator.getNextId(),

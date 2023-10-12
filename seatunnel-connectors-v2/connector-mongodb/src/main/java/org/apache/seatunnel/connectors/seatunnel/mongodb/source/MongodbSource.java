@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -46,6 +47,7 @@ import org.bson.BsonDocument;
 import com.google.auto.service.AutoService;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
@@ -86,7 +88,7 @@ public class MongodbSource
                             .collection(collection)
                             .build();
         }
-        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
+        if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
         } else {
             this.rowType = CatalogTableUtil.buildSimpleTextSchema();
@@ -111,6 +113,17 @@ public class MongodbSource
             splitStrategyBuilder.setMatchQuery(
                     BsonDocument.parse(pluginConfig.getString(MongodbConfig.MATCH_QUERY.key())));
         }
+
+        List<String> fallbackKeys = MongodbConfig.MATCH_QUERY.getFallbackKeys();
+        fallbackKeys.forEach(
+                key -> {
+                    if (pluginConfig.hasPath(key)) {
+                        splitStrategyBuilder.setMatchQuery(
+                                BsonDocument.parse(
+                                        pluginConfig.getString(MongodbConfig.MATCH_QUERY.key())));
+                    }
+                });
+
         if (pluginConfig.hasPath(MongodbConfig.SPLIT_KEY.key())) {
             splitStrategyBuilder.setSplitKey(pluginConfig.getString(MongodbConfig.SPLIT_KEY.key()));
         }
@@ -152,22 +165,20 @@ public class MongodbSource
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, MongoSplit> createReader(SourceReader.Context readerContext)
-            throws Exception {
+    public SourceReader<SeaTunnelRow, MongoSplit> createReader(SourceReader.Context readerContext) {
         return new MongodbReader(readerContext, clientProvider, deserializer, mongodbReadOptions);
     }
 
     @Override
     public SourceSplitEnumerator<MongoSplit, ArrayList<MongoSplit>> createEnumerator(
-            SourceSplitEnumerator.Context<MongoSplit> enumeratorContext) throws Exception {
+            SourceSplitEnumerator.Context<MongoSplit> enumeratorContext) {
         return new MongodbSplitEnumerator(enumeratorContext, clientProvider, splitStrategy);
     }
 
     @Override
     public SourceSplitEnumerator<MongoSplit, ArrayList<MongoSplit>> restoreEnumerator(
             SourceSplitEnumerator.Context<MongoSplit> enumeratorContext,
-            ArrayList<MongoSplit> checkpointState)
-            throws Exception {
+            ArrayList<MongoSplit> checkpointState) {
         return new MongodbSplitEnumerator(
                 enumeratorContext, clientProvider, splitStrategy, checkpointState);
     }

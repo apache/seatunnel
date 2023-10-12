@@ -26,10 +26,6 @@ import java.util.Map;
 public class Config {
 
     public static final String CONNECTOR_IDENTITY = "Kafka";
-    public static final String REPLICATION_FACTOR = "replication.factor";
-
-    public static final String OGG_FORMAT = "ogg-json";
-
     /** The default field delimiter is “,” */
     public static final String DEFAULT_FIELD_DELIMITER = ",";
 
@@ -100,6 +96,12 @@ public class Config {
                     .withDescription(
                             "Data format. The default format is json. Optional text format. The default field separator is \", \". "
                                     + "If you customize the delimiter, add the \"field_delimiter\" option.");
+
+    public static final Option<Boolean> DEBEZIUM_RECORD_INCLUDE_SCHEMA =
+            Options.key("debezium_record_include_schema")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("Does the debezium record carry a schema.");
 
     public static final Option<String> FIELD_DELIMITER =
             Options.key("field_delimiter")

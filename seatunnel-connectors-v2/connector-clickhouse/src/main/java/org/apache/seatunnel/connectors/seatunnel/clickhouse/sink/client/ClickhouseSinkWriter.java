@@ -90,6 +90,14 @@ public class ClickhouseSinkWriter
 
     @Override
     public Optional<CKCommitInfo> prepareCommit() throws IOException {
+        for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
+            JdbcBatchStatementExecutor statement = batchStatement.getJdbcBatchStatementExecutor();
+            IntHolder intHolder = batchStatement.getIntHolder();
+            if (intHolder.getValue() > 0) {
+                flush(statement);
+                intHolder.setValue(0);
+            }
+        }
         return Optional.empty();
     }
 
@@ -99,23 +107,7 @@ public class ClickhouseSinkWriter
     @Override
     public void close() throws IOException {
         this.proxy.close();
-        for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
-            try (ClickHouseConnectionImpl needClosedConnection =
-                            batchStatement.getClickHouseConnection();
-                    JdbcBatchStatementExecutor needClosedStatement =
-                            batchStatement.getJdbcBatchStatementExecutor()) {
-                IntHolder intHolder = batchStatement.getIntHolder();
-                if (intHolder.getValue() > 0) {
-                    flush(needClosedStatement);
-                    intHolder.setValue(0);
-                }
-            } catch (SQLException e) {
-                throw new ClickhouseConnectorException(
-                        CommonErrorCode.SQL_OPERATION_FAILED,
-                        "Failed to close prepared statement.",
-                        e);
-            }
-        }
+        flush();
     }
 
     private void addIntoBatch(SeaTunnelRow row, JdbcBatchStatementExecutor clickHouseStatement) {
@@ -135,6 +127,26 @@ public class ClickhouseSinkWriter
                     CommonErrorCode.FLUSH_DATA_FAILED,
                     "Clickhouse execute batch statement error",
                     e);
+        }
+    }
+
+    private void flush() {
+        for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
+            try (ClickHouseConnectionImpl needClosedConnection =
+                            batchStatement.getClickHouseConnection();
+                    JdbcBatchStatementExecutor needClosedStatement =
+                            batchStatement.getJdbcBatchStatementExecutor()) {
+                IntHolder intHolder = batchStatement.getIntHolder();
+                if (intHolder.getValue() > 0) {
+                    flush(needClosedStatement);
+                    intHolder.setValue(0);
+                }
+            } catch (SQLException e) {
+                throw new ClickhouseConnectorException(
+                        CommonErrorCode.SQL_OPERATION_FAILED,
+                        "Failed to close prepared statement.",
+                        e);
+            }
         }
     }
 
@@ -203,7 +215,8 @@ public class ClickhouseSinkWriter
             }
             return false;
         } catch (SQLException e) {
-            throw new ClickhouseConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, e);
+            log.warn("Failed to get clickhouse server config: {}", configKey, e);
+            return false;
         }
     }
 }

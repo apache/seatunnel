@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
@@ -41,14 +41,14 @@ public class MongodbSinkFactory implements TableSinkFactory {
                         MongodbConfig.URI,
                         MongodbConfig.DATABASE,
                         MongodbConfig.COLLECTION,
-                        CatalogTableUtil.SCHEMA)
+                        TableSchemaOptions.SCHEMA)
                 .optional(
                         MongodbConfig.BUFFER_FLUSH_INTERVAL,
                         MongodbConfig.BUFFER_FLUSH_MAX_ROWS,
                         MongodbConfig.RETRY_MAX,
                         MongodbConfig.RETRY_INTERVAL,
                         MongodbConfig.UPSERT_ENABLE,
-                        MongodbConfig.UPSERT_KEY)
+                        MongodbConfig.PRIMARY_KEY)
                 .build();
     }
 }
