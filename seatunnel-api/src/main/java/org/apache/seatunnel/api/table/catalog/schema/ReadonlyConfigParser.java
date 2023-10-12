@@ -86,8 +86,7 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
         @Override
         public List<Column> parse(ReadonlyConfig schemaConfig) {
             JsonNode jsonNode =
-                    JsonUtils.toJsonNode(
-                            schemaConfig.get(TableSchemaOptions.FieldOptions.FIELDS, false));
+                    JsonUtils.toJsonNode(schemaConfig.get(TableSchemaOptions.FieldOptions.FIELDS));
             Map<String, String> fieldsMap = JsonUtils.toStringMap(jsonNode);
             int fieldsNum = fieldsMap.size();
             List<Column> columns = new ArrayList<>(fieldsNum);
@@ -107,7 +106,7 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
 
         @Override
         public List<Column> parse(ReadonlyConfig schemaConfig) {
-            return schemaConfig.get(TableSchemaOptions.ColumnOptions.COLUMNS, false).stream()
+            return schemaConfig.get(TableSchemaOptions.ColumnOptions.COLUMNS).stream()
                     .map(ReadonlyConfig::fromMap)
                     .map(
                             columnConfig -> {
@@ -120,9 +119,7 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                                                         "schema.columns.* config need option [name], please correct your config first"));
                                 SeaTunnelDataType<?> seaTunnelDataType =
                                         columnConfig
-                                                .getOptional(
-                                                        TableSchemaOptions.ColumnOptions.TYPE,
-                                                        false)
+                                                .getOptional(TableSchemaOptions.ColumnOptions.TYPE)
                                                 .map(
                                                         SeaTunnelDataTypeConvertorUtil
                                                                 ::deserializeSeaTunnelDataType)
