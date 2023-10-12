@@ -47,18 +47,24 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
         implements BaseSourceFunction<T> {
     protected static final long SLEEP_TIME_INTERVAL = 5L;
     protected final SeaTunnelSource<T, SplitT, StateT> source;
+    // The subTask in the restored state corresponds to the corresponding List<State>
     protected final Map<Integer, List<byte[]>> restoredState;
     protected final Integer parallelism;
 
     protected final Serializer<SplitT> splitSerializer;
     protected final Serializer<StateT> enumeratorStateSerializer;
 
+    /* The creation environment for the distribution read coordinator is used to control split
+    distribution */
     protected final CoordinatedEnumeratorContext<SplitT> coordinatedEnumeratorContext;
     protected final Map<Integer, CoordinatedReaderContext> readerContextMap;
+    // The task to be recovered and the corresponding split
     protected final Map<Integer, List<SplitT>> restoredSplitStateMap = new HashMap<>();
 
     protected transient volatile SourceSplitEnumerator<SplitT, StateT> splitEnumerator;
+    // task and Reader Map Info
     protected transient Map<Integer, SourceReader<T, SplitT>> readerMap = new ConcurrentHashMap<>();
+    // Control the running status of each Task globally
     protected final Map<Integer, AtomicBoolean> readerRunningMap;
     protected final AtomicInteger completedReader = new AtomicInteger(0);
     protected transient volatile ScheduledThreadPoolExecutor executorService;
@@ -94,6 +100,11 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                 restoredEnumeratorState =
                         enumeratorStateSerializer.deserialize(restoredState.get(-1).get(0));
             }
+
+            /*
+             restore Enumerator Add a Split in a Pending State to a Pending split Re-instantiate
+            the SourceSplitEnumerator
+             */
             splitEnumerator =
                     source.restoreEnumerator(coordinatedEnumeratorContext, restoredEnumeratorState);
             restoredState.forEach(
@@ -109,9 +120,11 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                                 throw new RuntimeException(e);
                             }
                         }
+                        // The information read in the status is added to the Map
                         restoredSplitStateMap.put(subtaskId, restoredSplitState);
                     });
         } else {
+            // Builds Enumerator when the program first runs
             splitEnumerator = source.createEnumerator(coordinatedEnumeratorContext);
         }
     }
@@ -143,7 +156,9 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                 .forEach(
                         entry -> {
                             try {
+                                // Initialize reader
                                 entry.getValue().open();
+                                // Allocates split whose status is pending
                                 splitEnumerator.registerReader(entry.getKey());
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
@@ -174,6 +189,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                                         }
                                     });
                         });
+        // The Enumerator command starts to read the split allocation logic And sent to reader
         splitEnumerator.run();
         while (running) {
             Thread.sleep(SLEEP_TIME_INTERVAL);
@@ -193,8 +209,8 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
             executorService.shutdown();
         }
 
-        try (SourceSplitEnumerator<SplitT, StateT> closed = splitEnumerator) {
-            // just close the resources
+        if (splitEnumerator != null) {
+            splitEnumerator.close();
         }
     }
 
@@ -231,6 +247,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
         StateT enumeratorState = splitEnumerator.snapshotState(checkpointId);
         if (enumeratorState != null) {
             byte[] enumeratorStateBytes = enumeratorStateSerializer.serialize(enumeratorState);
+            // -1 identification that the last status information is read
             allStates.put(-1, Collections.singletonList(enumeratorStateBytes));
         }
         return allStates;
@@ -275,6 +292,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
     protected void handleNoMoreElement(int subtaskId) {
         readerRunningMap.get(subtaskId).set(false);
         readerContextMap.remove(subtaskId);
+        // When I run in parallel, I should close run when I finish reading
         if (completedReader.incrementAndGet() == this.parallelism) {
             this.running = false;
         }

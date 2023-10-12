@@ -47,11 +47,15 @@ public class CoordinatedEnumeratorContext<SplitT extends SourceSplit>
 
     @Override
     public void assignSplit(int subtaskId, List<SplitT> splits) {
+        // The Read that sends the current split to the current Task is used for post-poll
         coordinatedSource.addSplits(subtaskId, splits);
     }
 
     @Override
     public void signalNoMoreSplits(int subtaskId) {
+        /* Notifies the current Task that the reader has not split to close the currently running
+         * Task */
+
         coordinatedSource.handleNoMoreSplits(subtaskId);
     }
 
