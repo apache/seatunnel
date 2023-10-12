@@ -59,6 +59,7 @@ public class SparkTaskExecuteCommand implements Command<SparkCommandArgs> {
             SparkExecution seaTunnelTaskExecution = new SparkExecution(config);
             seaTunnelTaskExecution.execute();
         } catch (Exception e) {
+            e.printStackTrace();
             log.error("Run SeaTunnel on spark failed.", e);
             throw new CommandExecuteException(e.getMessage());
         }
