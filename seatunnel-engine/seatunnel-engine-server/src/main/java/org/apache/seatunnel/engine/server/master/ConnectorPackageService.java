@@ -100,10 +100,7 @@ public class ConnectorPackageService {
                 NodeEngineUtil.sendOperationToMemberNode(
                         nodeEngine,
                         new SendConnectorJarToMemberNodeOperation(
-                                nodeEngine.getSerializationService().toData(connectorJar),
-                                nodeEngine
-                                        .getSerializationService()
-                                        .toData(connectorJarIdentifier)),
+                                connectorJar, connectorJarIdentifier),
                         address);
         invocationFuture.join();
     }
