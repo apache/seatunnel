@@ -297,7 +297,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         if (catalog == null) {
             return;
         }
-
+        log.info("Start test Catalog");
         TablePath sourceTablePath =
                 new TablePath(
                         jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSourceTable());
@@ -308,22 +308,30 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                         jdbcCase.getCatalogTable());
         boolean createdDb = false;
 
+        log.info("Start test createDatabase {} ", targetTablePath.getDatabaseName());
         if (!catalog.databaseExists(targetTablePath.getDatabaseName())) {
             catalog.createDatabase(targetTablePath, false);
             Assertions.assertTrue(catalog.databaseExists(targetTablePath.getDatabaseName()));
             createdDb = true;
         }
+        log.info("End test createDatabase {} ", targetTablePath.getDatabaseName());
 
+        log.info("Start test createTable {} ", targetTablePath.getFullName());
         CatalogTable catalogTable = catalog.getTable(sourceTablePath);
         catalog.createTable(targetTablePath, catalogTable, false);
         Assertions.assertTrue(catalog.tableExists(targetTablePath));
+        log.info("End test createTable {} ", targetTablePath.getFullName());
 
+        log.info("Start test dropTable {} ", targetTablePath.getFullName());
         catalog.dropTable(targetTablePath, false);
         Assertions.assertFalse(catalog.tableExists(targetTablePath));
+        log.info("End test dropTable {} ", targetTablePath.getFullName());
 
         if (createdDb) {
+            log.info("Start test dropDatabase {} ", targetTablePath.getFullName());
             catalog.dropDatabase(targetTablePath, false);
             Assertions.assertFalse(catalog.databaseExists(targetTablePath.getDatabaseName()));
+            log.info("End test dropDatabase {} ", targetTablePath.getFullName());
         }
     }
 }
