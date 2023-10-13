@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -43,6 +44,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
@@ -79,6 +81,7 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
     private static final String ORACLE_DRIVER_CLASS = "oracle.jdbc.OracleDriver";
     private static final int ORACLE_PORT = 15213;
     private static final String USERNAME = "TESTUSER";
+    private static final String SCHEMA = "XE";
     private static final String PASSWORD = "testPassword";
     private static final String DATABASE = "XE";
     private OracleContainer oracle_container;
@@ -159,22 +162,19 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
                 Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3306)));
         // ============= Oracle
         DockerImageName oracleImageName = DockerImageName.parse(ORACLE_IMAGE);
-        oracle_container =
+        GenericContainer<?> container =
                 new OracleContainer(oracleImageName)
                         .withDatabaseName(DATABASE)
-                        .withUsername(USERNAME)
-                        .withPassword(PASSWORD)
+                        .withCopyFileToContainer(
+                                MountableFile.forClasspathResource("sql/oracle_init.sql"),
+                                "/container-entrypoint-startdb.d/init.sql")
                         .withNetwork(NETWORK)
-                        .withCommand(
-                                "bash",
-                                "-c",
-                                "echo \"CREATE USER TESTUSER IDENTIFIED BY testPassword; GRANT DBA TO TESTUSER;\" | sqlplus / as sysdba")
                         .withNetworkAliases(ORACLE_NETWORK_ALIASES)
                         .withExposedPorts(ORACLE_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
-        oracle_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, 1521)));
+
+        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, 1521)));
         Startables.deepStart(Stream.of(mysql_container, oracle_container)).join();
     }
 
