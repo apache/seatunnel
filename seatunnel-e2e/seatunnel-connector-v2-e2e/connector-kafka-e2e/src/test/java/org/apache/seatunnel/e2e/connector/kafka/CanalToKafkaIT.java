@@ -33,6 +33,8 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -49,9 +51,10 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
-import com.google.common.collect.Lists;
-
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -60,9 +63,14 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
@@ -76,17 +84,36 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(CanalToKafkaIT.class);
 
+    // ---------------------------Ogg Format Parameter---------------------------------------
+    private static final String OGG_DATA_PATH = "/ogg/ogg_data.txt";
+    private static final String OGG_KAFKA_SOURCE_TOPIC = "test-ogg-source";
+    private static final String OGG_KAFKA_SINK_TOPIC = "test-ogg-sink";
+
+    // ---------------------------Canal Format Parameter---------------------------------------
+
+    private static final String KAFKA_SINK_TOPIC = "test-canal-sink";
+    private static final String CANAL_MYSQL_DATABASE = "canal";
+
+    // Used to map local data paths to kafa topics that need to be written to kafka
+    private static LinkedHashMap<String, String> LOCAL_DATA_TO_KAFKA_MAPPING;
+
+    static {
+        LOCAL_DATA_TO_KAFKA_MAPPING =
+                new LinkedHashMap<String, String>() {
+                    {
+                        put(OGG_DATA_PATH, OGG_KAFKA_SOURCE_TOPIC);
+                    }
+                };
+    }
+    // ---------------------------Canal Container---------------------------------------
     private static GenericContainer<?> CANAL_CONTAINER;
 
     private static final String CANAL_DOCKER_IMAGE = "chinayin/canal:1.1.6";
 
     private static final String CANAL_HOST = "canal_e2e";
 
-    // ----------------------------------------------------------------------------
-    // kafka
+    // ---------------------------Kafka Container---------------------------------------
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
-
-    private static final String KAFKA_TOPIC = "test-canal-sink";
 
     private static final String KAFKA_HOST = "kafka_e2e";
 
@@ -94,17 +121,16 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     private KafkaConsumer<String, String> kafkaConsumer;
 
-    // ----------------------------------------------------------------------------
-    // mysql
+    // ---------------------------Mysql Container---------------------------------------
     private static final String MYSQL_HOST = "mysql_e2e";
-
+    private static final String MYSQL_USER_NAME = "st_user";
+    private static final String MYSQL_PASSWORD = "seatunnel";
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer();
 
     private final UniqueDatabase inventoryDatabase =
-            new UniqueDatabase(MYSQL_CONTAINER, "canal", "mysqluser", "mysqlpw");
+            new UniqueDatabase(MYSQL_CONTAINER, CANAL_MYSQL_DATABASE, "mysqluser", "mysqlpw");
 
-    // ----------------------------------------------------------------------------
-    // postgres
+    // --------------------------- Postgres Container-------------------------------------
     private static final String PG_IMAGE = "postgres:alpine3.16";
 
     private static final String PG_DRIVER_JAR =
@@ -130,9 +156,9 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                 .withSetupSQL("docker/setup.sql")
                 .withNetwork(NETWORK)
                 .withNetworkAliases(MYSQL_HOST)
-                .withDatabaseName("canal")
-                .withUsername("st_user")
-                .withPassword("seatunnel")
+                .withDatabaseName(CANAL_MYSQL_DATABASE)
+                .withUsername(MYSQL_USER_NAME)
+                .withPassword(MYSQL_PASSWORD)
                 .withLogConsumer(new Slf4jLogConsumer(LOG));
     }
 
@@ -147,7 +173,6 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                                 "/app/server/conf/example/instance.properties")
                         .withNetwork(NETWORK)
                         .withNetworkAliases(CANAL_HOST)
-                        //                        .withCommand()
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CANAL_DOCKER_IMAGE)));
@@ -209,17 +234,28 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initKafkaConsumer);
+        // local file ogg data send kafka
+        given().ignoreExceptions()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(3, TimeUnit.MINUTES)
+                .untilAsserted(this::initOggDataToKafka);
+
         inventoryDatabase.createAndInitialize();
         // ensure canal has handled the data
         Thread.sleep(10 * 1000);
     }
 
     @TestTemplate
-    public void testKafkaSinkCanalFormat(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
+    public void testFormatCheck(TestContainer container) throws IOException, InterruptedException {
+        checkCanalFormat(container);
+        checkOggFormat(container);
+    }
+
+    public void checkCanalFormat(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResultKafka =
                 container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        Assertions.assertEquals(0, execResultKafka.getExitCode(), execResultKafka.getStderr());
         List<String> expectedResult =
                 Arrays.asList(
                         "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"INSERT\"}",
@@ -239,7 +275,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
         ArrayList<String> result = new ArrayList<>();
         ArrayList<String> topics = new ArrayList<>();
-        topics.add(KAFKA_TOPIC);
+        topics.add(KAFKA_SINK_TOPIC);
         kafkaConsumer.subscribe(topics);
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -251,59 +287,121 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                             }
                             Assertions.assertEquals(expectedResult, result);
                         });
-    }
 
-    @TestTemplate
-    public void testCanalFormatKafkaCdcToPgsql(TestContainer container)
-            throws IOException, InterruptedException, SQLException {
+        LOG.info(
+                "============================================start kafka canal format to pg check ============================================");
         Container.ExecResult execResult =
                 container.executeJob("/canalFormatIT/kafka_source_canal_cdc_to_pgsql.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        List<Object> actual = new ArrayList<>();
-        try (Connection connection =
-                DriverManager.getConnection(
-                        POSTGRESQL_CONTAINER.getJdbcUrl(),
-                        POSTGRESQL_CONTAINER.getUsername(),
-                        POSTGRESQL_CONTAINER.getPassword())) {
-            try (Statement statement = connection.createStatement()) {
-                ResultSet resultSet = statement.executeQuery("select * from sink order by id");
-                while (resultSet.next()) {
-                    List<Object> row =
-                            Arrays.asList(
-                                    resultSet.getInt("id"),
-                                    resultSet.getString("name"),
-                                    resultSet.getString("description"),
-                                    resultSet.getString("weight"));
-                    actual.add(row);
-                }
-            }
-        }
-        List<Object> expected =
-                Lists.newArrayList(
-                        Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
-                        Arrays.asList(102, "car battery", "12V car battery", "8.1"),
-                        Arrays.asList(
-                                103,
-                                "12-pack drill bits",
-                                "12-pack of drill bits with sizes ranging from #40 to #3",
-                                "0.8"),
-                        Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
-                        Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
-                        Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1.0"),
-                        Arrays.asList(107, "rocks", "box of assorted rocks", "7.88"),
-                        Arrays.asList(108, "jacket", "water resistent black wind breaker", "0.1"));
-        Assertions.assertIterableEquals(expected, actual);
 
-        try (Connection connection =
-                DriverManager.getConnection(
-                        POSTGRESQL_CONTAINER.getJdbcUrl(),
-                        POSTGRESQL_CONTAINER.getUsername(),
-                        POSTGRESQL_CONTAINER.getPassword())) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("truncate table sink");
-                LOG.info("testCanalFormatKafkaCdcToPgsql truncate table sink");
-            }
-        }
+        Set<List<Object>> postgreSinkTableList = getPostgreSinkTableList();
+
+        Set<List<Object>> expected =
+                Stream.<List<Object>>of(
+                                Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
+                                Arrays.asList(102, "car battery", "12V car battery", "8.1"),
+                                Arrays.asList(
+                                        103,
+                                        "12-pack drill bits",
+                                        "12-pack of drill bits with sizes ranging from #40 to #3",
+                                        "0.8"),
+                                Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
+                                Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
+                                Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1.0"),
+                                Arrays.asList(107, "rocks", "box of assorted rocks", "7.88"),
+                                Arrays.asList(
+                                        108, "jacket", "water resistent black wind breaker", "0.1"))
+                        .collect(Collectors.toSet());
+        Assertions.assertIterableEquals(expected, postgreSinkTableList);
+    }
+
+    public void checkOggFormat(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/oggFormatIT/kafka_source_ogg_to_kafka.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        List<String> kafkaExpectedResult =
+                Arrays.asList(
+                        "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.140000104904175\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":\"8.100000381469727\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":\"0.800000011920929\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":104,\"name\":\"hammer\",\"description\":\"12oz carpenter's hammer\",\"weight\":\"0.75\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":105,\"name\":\"hammer\",\"description\":\"14oz carpenter's hammer\",\"weight\":\"0.875\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":106,\"name\":\"hammer\",\"description\":\"16oz carpenter's hammer\",\"weight\":\"1\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.300000190734863\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":\"0.10000000149011612\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.200000762939453\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":106,\"name\":\"hammer\",\"description\":\"16oz carpenter's hammer\",\"weight\":\"1\"},\"type\":\"DELETE\"}",
+                        "{\"data\":{\"id\":106,\"name\":\"hammer\",\"description\":\"18oz carpenter hammer\",\"weight\":\"1\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.300000190734863\"},\"type\":\"DELETE\"}",
+                        "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.099999904632568\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":110,\"name\":\"jacket\",\"description\":\"water resistent white wind breaker\",\"weight\":\"0.20000000298023224\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":\"5.179999828338623\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":110,\"name\":\"jacket\",\"description\":\"water resistent white wind breaker\",\"weight\":\"0.20000000298023224\"},\"type\":\"DELETE\"}",
+                        "{\"data\":{\"id\":110,\"name\":\"jacket\",\"description\":\"new water resistent white wind breaker\",\"weight\":\"0.5\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":\"5.179999828338623\"},\"type\":\"DELETE\"}",
+                        "{\"data\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":\"5.170000076293945\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":\"5.170000076293945\"},\"type\":\"DELETE\"}");
+
+        ArrayList<String> checkKafkaConsumerResult = new ArrayList<>();
+        ArrayList<String> topics = new ArrayList<>();
+        topics.add(OGG_KAFKA_SINK_TOPIC);
+        kafkaConsumer.subscribe(topics);
+        // check ogg kafka to kafka
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            ConsumerRecords<String, String> consumerRecords =
+                                    kafkaConsumer.poll(Duration.ofMillis(1000));
+                            for (ConsumerRecord<String, String> record : consumerRecords) {
+                                checkKafkaConsumerResult.add(record.value());
+                            }
+                            Assertions.assertEquals(kafkaExpectedResult, checkKafkaConsumerResult);
+                        });
+
+        LOG.info(
+                "============================================start kafka ogg format to pg check ============================================");
+
+        // check ogg kafka to postgresql
+        Container.ExecResult execResultToPg =
+                container.executeJob("/oggFormatIT/kafka_source_ogg_to_postgresql.conf");
+        Assertions.assertEquals(0, execResultToPg.getExitCode(), execResultToPg.getStderr());
+        Set<List<Object>> postgresqlEexpectedResult = getPostgreSinkTableList();
+        Set<List<Object>> checkArraysResult =
+                Stream.<List<Object>>of(
+                                Arrays.asList(
+                                        101,
+                                        "scooter",
+                                        "Small 2-wheel scooter",
+                                        "3.140000104904175"),
+                                Arrays.asList(
+                                        102, "car battery", "12V car battery", "8.100000381469727"),
+                                Arrays.asList(
+                                        103,
+                                        "12-pack drill bits",
+                                        "12-pack of drill bits with sizes ranging from #40 to #3",
+                                        "0.800000011920929"),
+                                Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
+                                Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
+                                Arrays.asList(106, "hammer", "18oz carpenter hammer", "1"),
+                                Arrays.asList(
+                                        107, "rocks", "box of assorted rocks", "5.099999904632568"),
+                                Arrays.asList(
+                                        108,
+                                        "jacket",
+                                        "water resistent black wind breaker",
+                                        "0.10000000149011612"),
+                                Arrays.asList(
+                                        109,
+                                        "spare tire",
+                                        "24 inch spare tire",
+                                        "22.200000762939453"),
+                                Arrays.asList(
+                                        110,
+                                        "jacket",
+                                        "new water resistent white wind breaker",
+                                        "0.5"))
+                        .collect(Collectors.toSet());
+        Assertions.assertIterableEquals(postgresqlEexpectedResult, checkArraysResult);
     }
 
     private void initKafkaConsumer() {
@@ -342,10 +440,86 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    private void initOggDataToKafka() {
+        String bootstrapServers = KAFKA_CONTAINER.getBootstrapServers();
+        Properties props = new Properties();
+        int batchSize = 16;
+
+        props.put("bootstrap.servers", bootstrapServers);
+        props.put("acks", "all");
+        props.put("retries", 0);
+        props.put("batch.size", batchSize);
+        props.put("linger.ms", 1);
+        props.put("buffer.memory", 33554432);
+        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+
+        KafkaProducer<String, String> producer = new KafkaProducer<>(props);
+        for (String localPath : LOCAL_DATA_TO_KAFKA_MAPPING.keySet()) {
+            String kafkaTopic = LOCAL_DATA_TO_KAFKA_MAPPING.get(localPath);
+            InputStream inputStream = CanalToKafkaIT.class.getResourceAsStream(localPath);
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(inputStream))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    ProducerRecord<String, String> record =
+                            new ProducerRecord<>(kafkaTopic, null, line);
+                    producer.send(record).get();
+                }
+            } catch (IOException | InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+        if (producer != null) {
+            producer.close();
+        }
+    }
+
+    public Set<List<Object>> getPostgreSinkTableList() {
+        Set<List<Object>> actual = new HashSet<>();
+        try (Connection connection =
+                DriverManager.getConnection(
+                        POSTGRESQL_CONTAINER.getJdbcUrl(),
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword())) {
+            try (Statement statement = connection.createStatement()) {
+                ResultSet resultSet = statement.executeQuery("select * from sink order by id");
+                while (resultSet.next()) {
+                    List<Object> row =
+                            Arrays.asList(
+                                    resultSet.getInt("id"),
+                                    resultSet.getString("name"),
+                                    resultSet.getString("description"),
+                                    resultSet.getString("weight"));
+                    actual.add(row);
+                }
+            }
+            // truncate e2e sink table
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("truncate table sink");
+                LOG.info("truncate table sink");
+                if (statement != null) {
+                    statement.close();
+                }
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return actual;
+    }
+
     @Override
     public void tearDown() {
-        MYSQL_CONTAINER.close();
-        KAFKA_CONTAINER.close();
-        CANAL_CONTAINER.close();
+        if (MYSQL_CONTAINER != null) {
+            MYSQL_CONTAINER.close();
+        }
+        if (KAFKA_CONTAINER != null) {
+            KAFKA_CONTAINER.close();
+        }
+        if (CANAL_CONTAINER != null) {
+            CANAL_CONTAINER.close();
+        }
     }
 }
