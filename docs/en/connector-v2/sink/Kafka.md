@@ -56,10 +56,10 @@ Currently two formats are supported:
 
    For example, Upstream data is the following:
 
-   | name | age |     data      |
-   |------|-----|---------------|
-   | Jack | 16  | data-example1 |
-   | Mary | 23  | data-example2 |
+| name | age |     data      |
+|------|-----|---------------|
+| Jack | 16  | data-example1 |
+| Mary | 23  | data-example2 |
 
    If `${name}` is set as the topic. So the first row is sent to Jack topic, and the second row is sent to Mary topic.
 
@@ -191,38 +191,4 @@ sink {
   }
 }
 ```
-
-### Assign Partitions
-
-## Task Example
-
-### Simple:
-
-> This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to Kafka Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target topic is test_topic will also be 16 rows of data in the topic. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
->
-> # Defining the runtime environment
->
-> env {
->
-> # You can set flink configuration here
->
-> execution.parallelism = 1
-> job.mode = "BATCH"
-> }
-
-source {
-FakeSource {
-parallelism = 1
-result_table_name = "fake"
-row.num = 16
-schema = {
-fields {
-name = "string"
-age = "int"
-}
-}
-}
-}
-
-        topic = "test_topic"
 

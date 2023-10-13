@@ -105,6 +105,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                     }
                 };
     }
+
     // ---------------------------Canal Container---------------------------------------
     private static GenericContainer<?> CANAL_CONTAINER;
 
@@ -248,14 +249,34 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testFormatCheck(TestContainer container) throws IOException, InterruptedException {
-        checkCanalFormat(container);
-        checkOggFormat(container);
+        LOG.info("=================================Check Canal=================================");
+        Container.ExecResult execCanalResultKafka =
+                container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
+        Assertions.assertEquals(
+                0, execCanalResultKafka.getExitCode(), execCanalResultKafka.getStderr());
+        Container.ExecResult execResult =
+                container.executeJob("/canalFormatIT/kafka_source_canal_cdc_to_pgsql.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        // Check Canal
+        checkCanalFormat();
+
+        LOG.info("=================================Check Ogg=================================");
+        Container.ExecResult execOggResultKafka =
+                container.executeJob("/oggFormatIT/kafka_source_ogg_to_kafka.conf");
+        Assertions.assertEquals(
+                0, execOggResultKafka.getExitCode(), execOggResultKafka.getStderr());
+        // check ogg kafka to postgresql
+        Container.ExecResult execOggResultToPgSql =
+                container.executeJob("/oggFormatIT/kafka_source_ogg_to_pgsql.conf");
+        Assertions.assertEquals(
+                0, execOggResultToPgSql.getExitCode(), execOggResultToPgSql.getStderr());
+
+        // Check Ogg
+        checkOggFormat();
     }
 
-    public void checkCanalFormat(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResultKafka =
-                container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
-        Assertions.assertEquals(0, execResultKafka.getExitCode(), execResultKafka.getStderr());
+    public void checkCanalFormat() {
         List<String> expectedResult =
                 Arrays.asList(
                         "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"INSERT\"}",
@@ -289,10 +310,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                         });
 
         LOG.info(
-                "============================================start kafka canal format to pg check ============================================");
-        Container.ExecResult execResult =
-                container.executeJob("/canalFormatIT/kafka_source_canal_cdc_to_pgsql.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+                "============================ start kafka canal format to pg check ============================");
 
         Set<List<Object>> postgreSinkTableList = getPostgreSinkTableList();
 
@@ -315,10 +333,7 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertIterableEquals(expected, postgreSinkTableList);
     }
 
-    public void checkOggFormat(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob("/oggFormatIT/kafka_source_ogg_to_kafka.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    public void checkOggFormat() {
         List<String> kafkaExpectedResult =
                 Arrays.asList(
                         "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.140000104904175\"},\"type\":\"INSERT\"}",
@@ -359,12 +374,8 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
                         });
 
         LOG.info(
-                "============================================start kafka ogg format to pg check ============================================");
+                "============================ start kafka ogg format to pg check ============================");
 
-        // check ogg kafka to postgresql
-        Container.ExecResult execResultToPg =
-                container.executeJob("/oggFormatIT/kafka_source_ogg_to_postgresql.conf");
-        Assertions.assertEquals(0, execResultToPg.getExitCode(), execResultToPg.getStderr());
         Set<List<Object>> postgresqlEexpectedResult = getPostgreSinkTableList();
         Set<List<Object>> checkArraysResult =
                 Stream.<List<Object>>of(
