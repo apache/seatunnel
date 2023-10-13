@@ -53,7 +53,7 @@ public class RedisConfig {
                     .intType()
                     .defaultValue(0)
                     .withDescription(
-                            "redis  database index id, It is connected to db 0 by default");
+                            "Redis  database index id, it is connected to db 0 by default");
 
     public static final Option<String> USER =
             Options.key("user")
