@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -72,7 +73,7 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         // TODO: use format SPI
         // default use json format
         if (pluginConfig.hasPath(RedisConfig.FORMAT.key())) {
-            if (!pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
+            if (!pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
                 throw new RedisConnectorException(
                         SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                         String.format(

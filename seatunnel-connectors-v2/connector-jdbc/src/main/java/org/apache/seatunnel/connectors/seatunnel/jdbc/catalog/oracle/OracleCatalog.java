@@ -129,12 +129,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getDropTableSql(TablePath tablePath) {
-        return String.format("DROP TABLE %s", getTableName(tablePath));
-    }
-
-    @Override
-    protected String getTableName(TablePath tablePath) {
-        return tablePath.getSchemaAndTableName().toUpperCase();
+        return String.format("DROP TABLE %s", tablePath.getSchemaAndTableName("\""));
     }
 
     @Override

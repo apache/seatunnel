@@ -110,7 +110,13 @@ public class JdbcPhoenixIT extends AbstractJdbcIT {
                     String.format(
                             "delete from %s where 1=1", buildTableInfoWithSchema(schema, table));
             statement.execute(truncate);
+            connection.commit();
         } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException exception) {
+                throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, exception);
+            }
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, e);
         }
     }
