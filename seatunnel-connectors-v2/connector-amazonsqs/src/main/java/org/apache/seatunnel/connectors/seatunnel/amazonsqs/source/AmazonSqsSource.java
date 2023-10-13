@@ -74,7 +74,11 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, URL.key(), REGION.key());
+        CheckResult result = CheckConfigUtil.checkAllExists(
+                pluginConfig,
+                URL.key(),
+                REGION.key(),
+                TableSchemaOptions.SCHEMA.key());
         if (!result.isSuccess()) {
             throw new AmazonSqsConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
