@@ -28,7 +28,14 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.TestTemplate;
 
+import io.airlift.compress.lzo.LzopCodec;
+
+import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
@@ -44,14 +51,19 @@ public class LocalFileIT extends TestSuiteBase {
                         "/json/e2e.json",
                         "/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
                         container);
+
+                Path jsonLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/json/e2e.json"));
                 ContainerUtil.copyFileIntoContainers(
-                        "/json/e2e_lzo.json", "/seatunnel/read/lzo_json/e2e.json", container);
+                        jsonLzo, "/seatunnel/read/lzo_json/e2e.json", container);
+
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e.txt",
                         "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
                         container);
+
+                Path txtLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/text/e2e.txt"));
                 ContainerUtil.copyFileIntoContainers(
-                        "/text/e2e.lzo.txt", "/seatunnel/read/lzo_text/e2e.txt", container);
+                        txtLzo, "/seatunnel/read/lzo_text/e2e.txt", container);
                 ContainerUtil.copyFileIntoContainers(
                         "/excel/e2e.xlsx",
                         "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
@@ -114,5 +126,14 @@ public class LocalFileIT extends TestSuiteBase {
         // test read empty directory
         helper.execute("/json/local_file_to_console.conf");
         helper.execute("/parquet/local_file_to_console.conf");
+    }
+
+    private Path convertToLzoFile(File file) throws IOException {
+        LzopCodec lzo = new LzopCodec();
+        Path path = Paths.get(file.getAbsolutePath() + ".lzo");
+        OutputStream outputStream = lzo.createOutputStream(Files.newOutputStream(path));
+        outputStream.write(Files.readAllBytes(file.toPath()));
+        outputStream.close();
+        return path;
     }
 }

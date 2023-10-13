@@ -37,6 +37,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -239,7 +240,7 @@ public final class ContainerUtil {
             ServiceLoader.load(TestContainer.class, Thread.currentThread().getContextClassLoader())
                     .iterator()
                     .forEachRemaining(result::add);
-            return result;
+            return Collections.singletonList(result.get(4));
         } catch (ServiceConfigurationError e) {
             log.error("Could not load service provider for containers.", e);
             throw new FactoryException("Could not load service provider for containers.", e);
@@ -249,6 +250,11 @@ public final class ContainerUtil {
     public static void copyFileIntoContainers(
             String fileName, String targetPath, GenericContainer<?> container) {
         Path path = getResourcesFile(fileName).toPath();
+        copyFileIntoContainers(path, targetPath, container);
+    }
+
+    public static void copyFileIntoContainers(
+            Path path, String targetPath, GenericContainer<?> container) {
         container.copyFileToContainer(MountableFile.forHostPath(path), targetPath);
     }
 }
