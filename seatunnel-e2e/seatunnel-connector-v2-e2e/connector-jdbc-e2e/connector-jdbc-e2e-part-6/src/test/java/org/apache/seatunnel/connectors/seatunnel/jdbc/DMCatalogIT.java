@@ -59,7 +59,7 @@ public class DMCatalogIT extends AbstractJdbcIT {
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_dm_source_and_sink.conf");
     private static final String CREATE_SQL =
-            "create table if not exists \"%s\""
+            "create table if not exists %s"
                     + "    \"dm_bit\"              BIT,\n"
                     + "    \"dm_int\"              INT,\n"
                     + "    \"dm_integer\"          INTEGER,\n"
