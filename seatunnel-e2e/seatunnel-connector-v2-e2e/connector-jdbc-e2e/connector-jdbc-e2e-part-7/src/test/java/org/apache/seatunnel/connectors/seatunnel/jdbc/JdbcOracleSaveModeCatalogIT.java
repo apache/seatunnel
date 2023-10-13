@@ -17,30 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.common.utils.JdbcUrlUtil;
-import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
-import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.MySQLContainer;
+import org.apache.commons.lang3.tuple.Pair;
+
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
@@ -48,122 +35,150 @@ import org.testcontainers.utility.MountableFile;
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.stream.Stream;
+import java.math.BigDecimal;
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
         disabledReason = "Currently SPARK and FLINK do not support cdc")
-public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestResource {
+public class JdbcOracleSaveModeCatalogIT extends AbstractJdbcIT {
 
-    // mysql config
-    private static final String MYSQL_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    private static final String MYSQL_IMAGE = "mysql:latest";
-    private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
-    private static final String MYSQL_DATABASE = "auto";
-    private static final String MYSQL_USERNAME = "root";
-    private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 3309;
-    private MySQLContainer<?> mysql_container;
-    static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3309/auto?useSSL=false");
-    // oracle
     private static final String ORACLE_IMAGE = "gvenzl/oracle-xe:21-slim-faststart";
     private static final String ORACLE_NETWORK_ALIASES = "e2e_oracleDb";
-    private static final String ORACLE_DRIVER_CLASS = "oracle.jdbc.OracleDriver";
-    private static final int ORACLE_PORT = 15213;
+    private static final String DRIVER_CLASS = "oracle.jdbc.OracleDriver";
+    private static final int ORACLE_PORT = 1521;
+    private static final String ORACLE_URL = "jdbc:oracle:thin:@" + HOST + ":%s/%s";
     private static final String USERNAME = "TESTUSER";
-    private static final String SCHEMA = "XE";
     private static final String PASSWORD = "testPassword";
     private static final String DATABASE = "XE";
-    private OracleContainer oracle_container;
-    static JdbcUrlUtil.UrlInfo oracle =
-            OracleURLParser.parse("jdbc:oracle:thin:@localhost:15213/XE");
+    private static final String SCHEMA = USERNAME;
+    private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
+    private static final String SINK_TABLE = "E2E_TABLE_SINK";
+    private static final String CATALOG_TABLE = "E2E_TABLE_CATALOG";
+    private static final List<String> CONFIG_FILE =
+            Lists.newArrayList("/jdbc_oracle_source_to_sink.conf");
 
-    private static final String CREATE_TABLE_SQL =
-            "CREATE TABLE IF NOT EXISTS mysql_auto_create\n"
-                    + "(\n  "
-                    + "`id` int(11) NOT NULL AUTO_INCREMENT,\n"
-                    + "  `f_binary` binary(64) DEFAULT NULL,\n"
-                    + "  `f_smallint` smallint(6) DEFAULT NULL,\n"
-                    + "  `f_smallint_unsigned` smallint(5) unsigned DEFAULT NULL,\n"
-                    + "  `f_mediumint` mediumint(9) DEFAULT NULL,\n"
-                    + "  `f_mediumint_unsigned` mediumint(8) unsigned DEFAULT NULL,\n"
-                    + "  `f_int` int(11) DEFAULT NULL,\n"
-                    + "  `f_int_unsigned` int(10) unsigned DEFAULT NULL,\n"
-                    + "  `f_integer` int(11) DEFAULT NULL,\n"
-                    + "  `f_integer_unsigned` int(10) unsigned DEFAULT NULL,\n"
-                    + "  `f_bigint` bigint(20) DEFAULT NULL,\n"
-                    + "  `f_bigint_unsigned` bigint(20) unsigned DEFAULT NULL,\n"
-                    + "  `f_numeric` decimal(10,0) DEFAULT NULL,\n"
-                    + "  `f_decimal` decimal(10,0) DEFAULT NULL,\n"
-                    + "  `f_float` float DEFAULT NULL,\n"
-                    + "  `f_double` double DEFAULT NULL,\n"
-                    + "  `f_double_precision` double DEFAULT NULL,\n"
-                    + "  `f_tinytext` tinytext COLLATE utf8mb4_unicode_ci,\n"
-                    + "  `f_varchar` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n"
-                    + "  `f_datetime` datetime DEFAULT NULL,\n"
-                    + "  `f_timestamp` timestamp NULL DEFAULT NULL,\n"
-                    + "  `f_bit1` bit(1) DEFAULT NULL,\n"
-                    + "  `f_bit64` bit(64) DEFAULT NULL,\n"
-                    + "  `f_char` char(1) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n"
-                    + "  `f_enum` enum('enum1','enum2','enum3') COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n"
-                    + "  `f_real` double DEFAULT NULL,\n"
-                    + "  `f_tinyint` tinyint(4) DEFAULT NULL,\n"
-                    + "  `f_bigint8` bigint(8) DEFAULT NULL,\n"
-                    + "  `f_bigint1` bigint(1) DEFAULT NULL,\n"
-                    + "  `f_data` date DEFAULT NULL,\n"
-                    + "  PRIMARY KEY (`id`)\n"
-                    + ");";
+    private static final String CREATE_SQL =
+            "create table %s\n"
+                    + "(\n"
+                    + "    VARCHAR_10_COL                varchar2(10),\n"
+                    + "    CHAR_10_COL                   char(10),\n"
+                    + "    CLOB_COL                      clob,\n"
+                    + "    NUMBER_3_SF_2_DP              number(3, 2),\n"
+                    + "    INTEGER_COL                   integer,\n"
+                    + "    FLOAT_COL                     float(10),\n"
+                    + "    REAL_COL                      real,\n"
+                    + "    BINARY_FLOAT_COL              binary_float,\n"
+                    + "    BINARY_DOUBLE_COL             binary_double,\n"
+                    + "    DATE_COL                      date,\n"
+                    + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
+                    + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone\n"
+                    + ")";
 
-    private String getInsertSql =
-            "INSERT INTO mysql_auto_create"
-                    + "(id, f_binary, f_smallint, f_smallint_unsigned, f_mediumint, f_mediumint_unsigned, f_int, f_int_unsigned, f_integer, f_integer_unsigned, f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double, f_double_precision, f_tinytext, f_varchar, f_datetime, f_timestamp, f_bit1, f_bit64, f_char, f_enum, f_real, f_tinyint, f_bigint8, f_bigint1, f_data)\n"
-                    + "VALUES(575, 0x654458436C70336B7357000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, 194, 549, 633, 835, 719, 253, 742, 265, 806, 736, 474, 254, 120.8, 476.42, 264.95, 'In other words, Navicat provides the ability for data in different databases and/or schemas to be kept up-to-date so that each repository contains the same information.', 'jF9X70ZqH4', '2011-10-20 23:10:08', '2017-09-10 19:33:51', 1, b'0001001101100000001010010100010111000010010110110101110011111100', 'u', 'enum2', 876.55, 25, 503, 1, '2011-03-06');\n";
+    @Override
+    JdbcCase getJdbcCase() {
+        Map<String, String> containerEnv = new HashMap<>();
+        containerEnv.put("ORACLE_PASSWORD", PASSWORD);
+        containerEnv.put("APP_USER", USERNAME);
+        containerEnv.put("APP_USER_PASSWORD", PASSWORD);
+        String jdbcUrl = String.format(ORACLE_URL, ORACLE_PORT, SCHEMA);
+        Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
+        String[] fieldNames = testDataSet.getKey();
 
-    private String customSql =
-            "INSERT INTO TESTUSER.mysql_auto_create_oracle" + "(id)\n" + "VALUES(575);\n";
+        String insertSql = insertTable(SCHEMA, SOURCE_TABLE, fieldNames);
 
-    @TestContainerExtension
-    protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + MYSQL_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+        return JdbcCase.builder()
+                .dockerImage(ORACLE_IMAGE)
+                .networkAliases(ORACLE_NETWORK_ALIASES)
+                .containerEnv(containerEnv)
+                .driverClass(DRIVER_CLASS)
+                .host(HOST)
+                .port(ORACLE_PORT)
+                .localPort(ORACLE_PORT)
+                .jdbcTemplate(ORACLE_URL)
+                .jdbcUrl(jdbcUrl)
+                .userName(USERNAME)
+                .password(PASSWORD)
+                .database(DATABASE)
+                .schema(SCHEMA)
+                .sourceTable(SOURCE_TABLE)
+                .sinkTable(SINK_TABLE)
+                .catalogDatabase(DATABASE)
+                .catalogSchema(SCHEMA)
+                .catalogTable(CATALOG_TABLE)
+                .createSql(CREATE_SQL)
+                .configFile(CONFIG_FILE)
+                .insertSql(insertSql)
+                .testData(testDataSet)
+                .build();
+    }
 
-    void initContainer() throws ClassNotFoundException {
-        // ============= mysql
-        DockerImageName imageName = DockerImageName.parse(MYSQL_IMAGE);
-        mysql_container =
-                new MySQLContainer<>(imageName)
-                        .withUsername(MYSQL_USERNAME)
-                        .withPassword(MYSQL_PASSWORD)
-                        .withDatabaseName(MYSQL_DATABASE)
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(MYSQL_CONTAINER_HOST)
-                        .withExposedPorts(MYSQL_PORT)
-                        .waitingFor(Wait.forHealthcheck())
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
-        mysql_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3306)));
-        // ============= Oracle
-        DockerImageName oracleImageName = DockerImageName.parse(ORACLE_IMAGE);
-        oracle_container =
-                new OracleContainer(oracleImageName)
-                        .withDatabaseName(DATABASE)
+    @Override
+    void compareResult() {}
+
+    @Override
+    String driverUrl() {
+        return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
+    }
+
+    @Override
+    Pair<String[], List<SeaTunnelRow>> initTestData() {
+        String[] fieldNames =
+                new String[] {
+                    "VARCHAR_10_COL",
+                    "CHAR_10_COL",
+                    "CLOB_COL",
+                    "NUMBER_3_SF_2_DP",
+                    "INTEGER_COL",
+                    "FLOAT_COL",
+                    "REAL_COL",
+                    "BINARY_FLOAT_COL",
+                    "BINARY_DOUBLE_COL",
+                    "DATE_COL",
+                    "TIMESTAMP_WITH_3_FRAC_SEC_COL",
+                    "TIMESTAMP_WITH_LOCAL_TZ"
+                };
+
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            SeaTunnelRow row =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                String.format("f%s", i),
+                                String.format("f%s", i),
+                                String.format("f%s", i),
+                                BigDecimal.valueOf(1.1),
+                                i,
+                                Float.parseFloat("2.2"),
+                                Float.parseFloat("2.2"),
+                                Float.parseFloat("22.2"),
+                                Double.parseDouble("2.2"),
+                                Date.valueOf(LocalDate.now()),
+                                Timestamp.valueOf(LocalDateTime.now()),
+                                Timestamp.valueOf(LocalDateTime.now())
+                            });
+            rows.add(row);
+        }
+
+        return Pair.of(fieldNames, rows);
+    }
+
+    @Override
+    GenericContainer<?> initContainer() {
+        DockerImageName imageName = DockerImageName.parse(ORACLE_IMAGE);
+
+        GenericContainer<?> container =
+                new OracleContainer(imageName)
+                        .withDatabaseName(SCHEMA)
                         .withCopyFileToContainer(
                                 MountableFile.forClasspathResource("sql/oracle_init.sql"),
                                 "/container-entrypoint-startdb.d/init.sql")
@@ -173,75 +188,37 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
 
-        oracle_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, 1521)));
-        Startables.deepStart(Stream.of(mysql_container, oracle_container)).join();
+        container.setPortBindings(
+                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
+
+        return container;
     }
 
     @Override
-    @BeforeAll
-    public void startUp() throws Exception {
-        initContainer();
-        initializeJdbcTable();
-    }
-
-    @TestTemplate
-    public void testCatalog(TestContainer container) throws IOException, InterruptedException {
-        TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
-        TablePath tablePathOracle_Sink = TablePath.of("XE", "TESTUSER", "mysql_auto_create_oracle");
-        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo);
-        OracleCatalog oracleCatalog =
-                new OracleCatalog("oracle", USERNAME, PASSWORD, oracle, "TESTUSER");
-        oracleCatalog.open();
-        mySqlCatalog.open();
-        CatalogTable catalogTable = mySqlCatalog.getTable(tablePathMySql);
-        // database
-        Assertions.assertTrue(oracleCatalog.databaseExists(tablePathOracle_Sink.getDatabaseName()));
-        // sink tableExists ?
-        boolean tableExistsBefore = oracleCatalog.tableExists(tablePathOracle_Sink);
-        Assertions.assertFalse(tableExistsBefore);
-        // create table
-        oracleCatalog.createTable(tablePathOracle_Sink, catalogTable, true);
-        boolean tableExistsAfter = oracleCatalog.tableExists(tablePathOracle_Sink);
-        Assertions.assertTrue(tableExistsAfter);
-        // isExistsData ?
-        log.warn("table list : {}", JsonUtils.toJsonString(oracleCatalog.listTables("TESTUSER")));
-        boolean existsDataBefore = oracleCatalog.isExistsData(tablePathOracle_Sink);
-        Assertions.assertFalse(existsDataBefore);
-        // insert one data
-        oracleCatalog.executeSql(tablePathOracle_Sink, customSql);
-        boolean existsDataAfter = oracleCatalog.isExistsData(tablePathOracle_Sink);
-        Assertions.assertTrue(existsDataAfter);
-        // truncateTable
-        oracleCatalog.truncateTable(tablePathOracle_Sink, true);
-        Assertions.assertFalse(oracleCatalog.isExistsData(tablePathOracle_Sink));
-        // drop table
-        oracleCatalog.dropTable(tablePathOracle_Sink, true);
-        Assertions.assertFalse(oracleCatalog.tableExists(tablePathOracle_Sink));
-        mySqlCatalog.close();
-        oracleCatalog.close();
+    public String quoteIdentifier(String field) {
+        return "\"" + field + "\"";
     }
 
     @Override
-    public void tearDown() throws Exception {
-        mysql_container.close();
-        oracle_container.close();
+    protected void clearTable(String database, String schema, String table) {
+        clearTable(schema, table);
     }
 
-    private Connection getJdbcMySqlConnection() throws SQLException {
-        return DriverManager.getConnection(
-                mysql_container.getJdbcUrl(),
-                mysql_container.getUsername(),
-                mysql_container.getPassword());
+    @Override
+    protected String buildTableInfoWithSchema(String database, String schema, String table) {
+        return buildTableInfoWithSchema(schema, table);
     }
 
-    private void initializeJdbcTable() {
-        try (Connection connection = getJdbcMySqlConnection()) {
-            Statement statement = connection.createStatement();
-            statement.execute(CREATE_TABLE_SQL);
-            statement.execute(getInsertSql);
-        } catch (SQLException e) {
-            throw new RuntimeException("Initializing Mysql table failed!", e);
-        }
+    @Override
+    protected void initCatalog() {
+        String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
+        catalog =
+                new OracleCatalog(
+                        "oracle",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        OracleURLParser.parse(jdbcUrl),
+                        SCHEMA);
+        catalog.open();
     }
 }
