@@ -152,6 +152,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                     jdbcCase.getDatabase(),
                                     jdbcCase.getSchema(),
                                     jdbcCase.getSourceTable()));
+            log.info("createSource is : {} ", createSource);
             String createSink =
                     String.format(
                             createTemplate,
@@ -159,7 +160,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                     jdbcCase.getDatabase(),
                                     jdbcCase.getSchema(),
                                     jdbcCase.getSinkTable()));
-
+            log.info("createSink is : {} ", createSink);
             statement.execute(createSource);
             statement.execute(createSink);
 
