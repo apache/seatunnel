@@ -22,8 +22,6 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
@@ -41,7 +39,6 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -70,9 +67,6 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver-e2e";
     private static final int SQLSERVER_CONTAINER_PORT = 1433;
-    private static final String SQLSERVER_URL =
-            "jdbc:sqlserver://" + AbstractJdbcIT.HOST + ":%s;encrypt=false;";
-    private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
 
     private static final String CREATE_DATABASE =
             "IF NOT EXISTS (\n"
@@ -143,21 +137,14 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 3306;
-    //    private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
-
     private static final String MYSQL_DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
-
     private static final String USERNAME = "testUser";
     private static final String PASSWORD = "Abc!@#135_seatunnel";
-    private static final String DATABASE = "TESTUSER";
-    private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
-    private static final String SINK_TABLE = "E2E_TABLE_SINK";
 
     private PostgreSQLContainer<?> POSTGRESQL_CONTAINER;
 
     private MSSQLServerContainer<?> sqlserver_container;
     private MySQLContainer<?> mysql_container;
-    private OracleContainer oracle_container;
 
     private static final String mysqlCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'auto' AND table_name = 'sqlserver_auto_create_mysql') AS table_exists";
@@ -173,15 +160,9 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
                     + "    SELECT 0 AS table_exists;";
     private static final String pgCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sqlserver_auto_create_pg') AS table_exists;\n";
-    private static final String oracleCheck =
-            "SELECT CASE WHEN EXISTS(SELECT 1 FROM user_tables WHERE table_name = 'sqlserver_auto_create_oracle') THEN 1 ELSE 0 END AS table_exists FROM DUAL;\n";
 
     String driverMySqlUrl() {
         return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
-    String driverOracleUrl() {
-        return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
     }
 
     String driverSqlserverUrl() {
@@ -193,8 +174,6 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
             JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3306/auto?useSSL=false");
     static JdbcUrlUtil.UrlInfo pg = JdbcUrlUtil.getUrlInfo("jdbc:postgresql://localhost:5432/pg");
-    static JdbcUrlUtil.UrlInfo oracle =
-            OracleURLParser.parse("jdbc:oracle:thin:@localhost:1521/TESTUSER");
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedSqlServerFactory =
@@ -302,29 +281,24 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
         TablePath tablePathSQL_Sql = TablePath.of("testauto", "dbo", "sqlserver_auto_create_sql");
         TablePath tablePathMySql = TablePath.of("auto", "sqlserver_auto_create_mysql");
         TablePath tablePathPG = TablePath.of("pg", "public", "sqlserver_auto_create_pg");
-        TablePath tablePathOracle = TablePath.of("TESTUSER", "sqlserver_auto_create_oracle");
 
         SqlServerCatalog sqlServerCatalog =
                 new SqlServerCatalog("sqlserver", "sa", password, sqlParse, "dbo");
         MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo);
         PostgresCatalog postgresCatalog =
                 new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public");
-        OracleCatalog oracleCatalog =
-                new OracleCatalog("oracle", "admin", "admin", oracle, "TESTUSER");
+
         mySqlCatalog.open();
         sqlServerCatalog.open();
         postgresCatalog.open();
-        //        oracleCatalog.open();
 
         CatalogTable sqlServerCatalogTable = sqlServerCatalog.getTable(tablePathSQL);
 
         sqlServerCatalog.createTable(tablePathSQL_Sql, sqlServerCatalogTable, true);
         postgresCatalog.createTable(tablePathPG, sqlServerCatalogTable, true);
-        //        oracleCatalog.createTable(tablePathOracle, sqlServerCatalogTable, true);
         mySqlCatalog.createTable(tablePathMySql, sqlServerCatalogTable, true);
 
         Assertions.assertTrue(checkMysql(mysqlCheck));
-        //        Assertions.assertTrue(checkOracle(oracleCheck));
         Assertions.assertTrue(checkSqlServer(sqlserverCheck));
         Assertions.assertTrue(checkPG(pgCheck));
 
@@ -333,7 +307,6 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
         sqlServerCatalog.dropTable(tablePathSQL_Sql, true);
         sqlServerCatalog.dropTable(tablePathSQL, true);
         postgresCatalog.dropTable(tablePathPG, true);
-        //        oracleCatalog.dropTable(tablePathOracle, true);
         mySqlCatalog.dropTable(tablePathMySql, true);
 
         sqlServerCatalog.close();
@@ -345,15 +318,15 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     public void tearDown() throws Exception {
         if (sqlserver_container != null) {
             sqlserver_container.close();
+            dockerClient.removeContainerCmd(sqlserver_container.getContainerId()).exec();
         }
         if (mysql_container != null) {
             mysql_container.close();
-        }
-        if (oracle_container != null) {
-            oracle_container.close();
+            dockerClient.removeContainerCmd(mysql_container.getContainerId()).exec();
         }
         if (POSTGRESQL_CONTAINER != null) {
             POSTGRESQL_CONTAINER.close();
+            dockerClient.removeContainerCmd(POSTGRESQL_CONTAINER.getContainerId()).exec();
         }
     }
 
@@ -376,13 +349,6 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
                 POSTGRESQL_CONTAINER.getJdbcUrl(),
                 POSTGRESQL_CONTAINER.getUsername(),
                 POSTGRESQL_CONTAINER.getPassword());
-    }
-
-    private Connection getJdbcOracleConnection() throws SQLException {
-        return DriverManager.getConnection(
-                oracle_container.getJdbcUrl(),
-                oracle_container.getUsername(),
-                oracle_container.getPassword());
     }
 
     private void initializeJdbcTable() {
@@ -425,19 +391,6 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
 
     private boolean checkSqlServer(String sql) {
         try (Connection connection = getJdbcSqlServerConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
-            boolean tableExists = false;
-            if (resultSet.next()) {
-                tableExists = resultSet.getInt(1) == 1;
-            }
-            return tableExists;
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private boolean checkOracle(String sql) {
-        try (Connection connection = getJdbcOracleConnection()) {
             ResultSet resultSet = connection.createStatement().executeQuery(sql);
             boolean tableExists = false;
             if (resultSet.next()) {

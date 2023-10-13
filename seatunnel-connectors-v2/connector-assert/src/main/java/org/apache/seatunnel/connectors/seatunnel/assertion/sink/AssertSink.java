@@ -63,7 +63,7 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
         if (!pluginConfig.getOptional(RULES).isPresent()) {
             Throwables.propagateIfPossible(new ConfigException.Missing(RULES.key()));
         }
-        Config ruleConfig = ConfigFactory.parseMap(pluginConfig.get(RULES, false));
+        Config ruleConfig = ConfigFactory.parseMap(pluginConfig.get(RULES));
         List<? extends Config> rowConfigList = null;
         List<? extends Config> configList = null;
         if (ruleConfig.hasPath(ROW_RULES)) {
