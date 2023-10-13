@@ -80,9 +80,9 @@ import static org.awaitility.Awaitility.given;
         value = {},
         type = {EngineType.SPARK},
         disabledReason = "Spark engine will lose the row kind of record")
-public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
+public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CanalToKafkaIT.class);
+    private static final Logger LOG = LoggerFactory.getLogger(FormatToKafkaIT.class);
 
     // ---------------------------Ogg Format Parameter---------------------------------------
     private static final String OGG_DATA_PATH = "/ogg/ogg_data.txt";
@@ -468,21 +468,21 @@ public class CanalToKafkaIT extends TestSuiteBase implements TestResource {
         KafkaProducer<String, String> producer = new KafkaProducer<>(props);
         for (String localPath : LOCAL_DATA_TO_KAFKA_MAPPING.keySet()) {
             String kafkaTopic = LOCAL_DATA_TO_KAFKA_MAPPING.get(localPath);
-            InputStream inputStream = CanalToKafkaIT.class.getResourceAsStream(localPath);
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(inputStream))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    ProducerRecord<String, String> record =
-                            new ProducerRecord<>(kafkaTopic, null, line);
-                    producer.send(record).get();
+            InputStream inputStream = FormatToKafkaIT.class.getResourceAsStream(localPath);
+            if (inputStream != null) {
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(inputStream))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        ProducerRecord<String, String> record =
+                                new ProducerRecord<>(kafkaTopic, null, line);
+                        producer.send(record).get();
+                    }
+                } catch (IOException | InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
                 }
-            } catch (IOException | InterruptedException | ExecutionException e) {
-                e.printStackTrace();
             }
         }
-        if (producer != null) {
-            producer.close();
-        }
+        producer.close();
     }
 
     public Set<List<Object>> getPostgreSinkTableList() {
