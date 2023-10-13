@@ -46,6 +46,7 @@ import com.google.common.collect.Lists;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @AutoService(SeaTunnelSource.class)
 public class FakeSource
@@ -73,7 +74,20 @@ public class FakeSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Lists.newArrayList(catalogTable);
+        if (fakeConfig.getTableIdentifiers().isEmpty()) {
+            return Lists.newArrayList(catalogTable);
+        } else {
+            return fakeConfig.getTableIdentifiers().stream()
+                    .map(
+                            tableIdentifier ->
+                                    CatalogTable.of(
+                                            tableIdentifier,
+                                            catalogTable.getTableSchema(),
+                                            catalogTable.getOptions(),
+                                            catalogTable.getPartitionKeys(),
+                                            catalogTable.getComment()))
+                    .collect(Collectors.toList());
+        }
     }
 
     @Override
