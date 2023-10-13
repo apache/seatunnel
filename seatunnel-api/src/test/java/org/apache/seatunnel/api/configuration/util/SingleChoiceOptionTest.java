@@ -55,7 +55,7 @@ public class SingleChoiceOptionTest {
 
         option = optionalOptions.get(1);
         singleChoiceOption = (SingleChoiceOption) option;
-        Assertions.assertEquals(2, singleChoiceOption.getOptionValues().size());
+        Assertions.assertEquals(1, singleChoiceOption.getOptionValues().size());
         Assertions.assertEquals(
                 DataSaveMode.KEEP_SCHEMA_DROP_DATA, singleChoiceOption.defaultValue());
     }
