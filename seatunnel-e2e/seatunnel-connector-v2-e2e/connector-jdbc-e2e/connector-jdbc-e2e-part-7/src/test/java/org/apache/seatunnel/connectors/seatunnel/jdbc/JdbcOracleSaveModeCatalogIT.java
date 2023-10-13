@@ -36,7 +36,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -162,7 +161,7 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
                 Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3306)));
         // ============= Oracle
         DockerImageName oracleImageName = DockerImageName.parse(ORACLE_IMAGE);
-        GenericContainer<?> container =
+        oracle_container =
                 new OracleContainer(oracleImageName)
                         .withDatabaseName(DATABASE)
                         .withCopyFileToContainer(
@@ -174,7 +173,8 @@ public class JdbcOracleSaveModeCatalogIT extends TestSuiteBase implements TestRe
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
 
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, 1521)));
+        oracle_container.setPortBindings(
+                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, 1521)));
         Startables.deepStart(Stream.of(mysql_container, oracle_container)).join();
     }
 
