@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.amazonsqs.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -40,6 +42,8 @@ public class AmazonSqsSourceOptions implements Serializable {
 
     private boolean deleteMessage;
 
+    private Config schema;
+
     public AmazonSqsSourceOptions(Config config) {
         this.url = config.getString(AmazonSqsConfig.URL.key());
         this.region = config.getString(AmazonSqsConfig.REGION.key());
@@ -54,6 +58,9 @@ public class AmazonSqsSourceOptions implements Serializable {
         }
         if (config.hasPath(AmazonSqsConfig.DELETE_MESSAGE.key())) {
             this.deleteMessage = config.getBoolean(AmazonSqsConfig.DELETE_MESSAGE.key());
+        }
+        if (config.hasPath(TableSchemaOptions.SCHEMA.key())) {
+            this.schema = config.getConfig(TableSchemaOptions.SCHEMA.key());
         }
     }
 }

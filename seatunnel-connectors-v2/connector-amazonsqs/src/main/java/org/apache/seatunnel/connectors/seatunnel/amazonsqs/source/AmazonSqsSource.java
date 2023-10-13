@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -55,7 +56,6 @@ import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonS
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.REGION;
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.URL;
 
 @Slf4j
@@ -106,7 +106,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
     }
 
     private void setDeserialization(Config config) {
-        if (config.hasPath(SCHEMA.key())) {
+        if (config.hasPath(TableSchemaOptions.SCHEMA.key())) {
             typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
             MessageFormat format = ReadonlyConfig.fromConfig(config).get(FORMAT);
             switch (format) {

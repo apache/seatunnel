@@ -52,12 +52,6 @@ public class AmazonSqsConfig implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The message group id of Amazon SQS Service");
-    public static final Option<String> SCHEMA =
-            Options.key("schema")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The structure of the data, including field names and field types.");
     public static final Option<MessageFormat> FORMAT =
             Options.key("format")
                     .enumType(MessageFormat.class)
