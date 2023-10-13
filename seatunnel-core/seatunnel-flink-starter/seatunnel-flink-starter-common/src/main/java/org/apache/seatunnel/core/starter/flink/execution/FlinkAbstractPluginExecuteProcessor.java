@@ -42,7 +42,7 @@ import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
 
 public abstract class FlinkAbstractPluginExecuteProcessor<T>
         implements PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> {
-    protected static final String ENGINE_TYPE = "seatunnel";
+    protected static final String ENGINE_TYPE = "flink";
     protected static final String PLUGIN_NAME = "plugin_name";
     protected static final String SOURCE_TABLE_NAME = "source_table_name";
     protected static HashMap<String, Boolean> isAppendMap = new HashMap<>();
