@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import com.hazelcast.internal.util.StringUtil;
 
@@ -40,9 +41,9 @@ public class RestUtil {
     }
 
     public static void buildRequestParams(Map<String, String> requestParams, String uri) {
-        requestParams.put("jobId", null);
-        requestParams.put("jobName", Constants.LOGO);
-        requestParams.put("isStartWithSavePoint", String.valueOf(false));
+        requestParams.put(RestConstant.JOB_ID, null);
+        requestParams.put(RestConstant.JOB_NAME, Constants.LOGO);
+        requestParams.put(RestConstant.IS_START_WITH_SAVE_POINT, String.valueOf(false));
         uri = StringUtil.stripTrailingSlash(uri);
         if (!uri.contains("?")) {
             return;

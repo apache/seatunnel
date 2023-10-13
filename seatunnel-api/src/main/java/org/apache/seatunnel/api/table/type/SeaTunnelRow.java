@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.api.table.type;
 
-import org.apache.seatunnel.api.table.factory.SupportMultipleTable;
-
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Map;
@@ -27,7 +25,7 @@ import java.util.Objects;
 /** SeaTunnel row type. */
 public final class SeaTunnelRow implements Serializable {
     private static final long serialVersionUID = -1L;
-    /** Table identifier, used for the source connector that {@link SupportMultipleTable}. */
+    /** Table identifier. */
     private String tableId = "";
     /** The kind of change that a row describes in a changelog. */
     private RowKind kind = RowKind.INSERT;

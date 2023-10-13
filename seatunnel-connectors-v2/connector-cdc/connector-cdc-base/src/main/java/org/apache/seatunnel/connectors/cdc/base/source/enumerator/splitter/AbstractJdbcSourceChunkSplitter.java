@@ -309,6 +309,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
     }
 
     // ------------------------------------------------------------------------------------------
+
     /** Returns the distribution factor of the given table. */
     @SuppressWarnings("MagicNumber")
     protected double calculateDistributionFactor(
@@ -356,6 +357,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
             throws SQLException {
         Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
+        Column splitColumn = null;
         if (primaryKey.isPresent()) {
             List<String> pkColumns = primaryKey.get().getColumnNames();
 
@@ -363,7 +365,10 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             for (String pkColumn : pkColumns) {
                 Column column = table.columnWithName(pkColumn);
                 if (isEvenlySplitColumn(column)) {
-                    return column;
+                    splitColumn = columnComparable(splitColumn, column);
+                    if (sqlTypePriority(splitColumn) == 1) {
+                        return splitColumn;
+                    }
                 }
             }
         }
@@ -377,10 +382,16 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 for (ConstraintKey.ConstraintKeyColumn uniqueKeyColumn : uniqueKeyColumns) {
                     Column column = table.columnWithName(uniqueKeyColumn.getColumnName());
                     if (isEvenlySplitColumn(column)) {
-                        return column;
+                        splitColumn = columnComparable(splitColumn, column);
+                        if (sqlTypePriority(splitColumn) == 1) {
+                            return splitColumn;
+                        }
                     }
                 }
             }
+        }
+        if (splitColumn != null) {
+            return splitColumn;
         }
 
         throw new UnsupportedOperationException(
@@ -409,5 +420,34 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             }
             log.info("JdbcSourceChunkSplitter has split {} chunks for table {}", count, tableId);
         }
+    }
+
+    private int sqlTypePriority(Column splitColumn) {
+        switch (fromDbzColumn(splitColumn).getSqlType()) {
+            case TINYINT:
+                return 1;
+            case SMALLINT:
+                return 2;
+            case INT:
+                return 3;
+            case BIGINT:
+                return 4;
+            case DECIMAL:
+                return 5;
+            case STRING:
+                return 6;
+            default:
+                return Integer.MAX_VALUE;
+        }
+    }
+
+    private Column columnComparable(Column then, Column other) {
+        if (then == null) {
+            return other;
+        }
+        if (sqlTypePriority(then) > sqlTypePriority(other)) {
+            return other;
+        }
+        return then;
     }
 }

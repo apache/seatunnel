@@ -80,6 +80,7 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
             case NTEXT:
             case NVARCHAR:
             case TEXT:
+            case XML:
                 return BasicType.STRING_TYPE;
             case DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;

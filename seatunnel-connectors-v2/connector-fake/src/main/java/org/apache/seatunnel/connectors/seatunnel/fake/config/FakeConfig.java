@@ -146,6 +146,7 @@ public class FakeConfig implements Serializable {
 
     private List<RowData> fakeRows;
 
+    // todo: use ReadonlyConfig
     public static FakeConfig buildWithConfig(Config config) {
         FakeConfigBuilder builder = FakeConfig.builder();
         if (config.hasPath(ROW_NUM.key())) {
