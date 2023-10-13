@@ -252,11 +252,11 @@ public class JdbcOracleSaveModeCatalogIT extends AbstractJdbcIT {
         catalog.createTable(targetTablePath, catalogTable, false);
         Assertions.assertTrue(catalog.tableExists(targetTablePath));
 
-        catalog.dropTable(targetTablePath, false);
-        Assertions.assertFalse(catalog.tableExists(targetTablePath));
-
         Assertions.assertFalse(catalog.isExistsData(targetTablePath));
         catalog.executeSql(targetTablePath, "select 1 FROM E2E_TABLE_SOURCE ");
         catalog.truncateTable(targetTablePath, true);
+
+        catalog.dropTable(targetTablePath, false);
+        Assertions.assertFalse(catalog.tableExists(targetTablePath));
     }
 }
