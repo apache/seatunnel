@@ -93,7 +93,7 @@ public class SeaTunnelRowTest {
     void testWithLinkHashMap() {
         Map<String, String> map = new LinkedHashMap<>();
         map.put("key", "value");
-        SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {map});
-        Assertions.assertEquals(8, row3.getBytesSize());
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {map});
+        Assertions.assertEquals(8, row.getBytesSize());
     }
 }
