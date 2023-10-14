@@ -102,6 +102,10 @@ public class MySqlContainer extends JdbcDatabaseContainer<MySqlContainer> {
                 + additionalUrlParams;
     }
 
+    public void setDatabaseName(String databaseName) {
+        this.databaseName = databaseName;
+    }
+
     @Override
     public String getJdbcUrl() {
         return getJdbcUrl(databaseName);

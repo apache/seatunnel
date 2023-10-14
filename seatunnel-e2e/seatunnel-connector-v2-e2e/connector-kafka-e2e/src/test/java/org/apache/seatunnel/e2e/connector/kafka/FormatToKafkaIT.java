@@ -46,15 +46,23 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
+
+import com.google.common.collect.Lists;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -63,6 +71,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -91,7 +100,7 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
 
     // ---------------------------Canal Format Parameter---------------------------------------
 
-    private static final String KAFKA_SINK_TOPIC = "test-canal-sink";
+    private static final String CANAL_KAFKA_SINK_TOPIC = "test-canal-sink";
     private static final String CANAL_MYSQL_DATABASE = "canal";
 
     // Used to map local data paths to kafa topics that need to be written to kafka
@@ -113,6 +122,18 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String CANAL_HOST = "canal_e2e";
 
+    // ---------------------------Debezium Container---------------------------------------
+
+    private static GenericContainer<?> DEBEZIUM_CONTAINER;
+
+    private static final String DEBEZIUM_DOCKER_IMAGE = "quay.io/debezium/connect:2.3.0.Final";
+
+    private static final String DEBEZIUM_HOST = "debezium_e2e";
+
+    private static final int DEBEZIUM_PORT = 8083;
+    private static final String DEBEZIUM_KAFKA_TOPIC = "test-debezium-sink";
+    private static final String DEBEZIUM_MYSQL_DATABASE = "debezium";
+
     // ---------------------------Kafka Container---------------------------------------
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
@@ -129,7 +150,12 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer();
 
     private final UniqueDatabase inventoryDatabase =
-            new UniqueDatabase(MYSQL_CONTAINER, CANAL_MYSQL_DATABASE, "mysqluser", "mysqlpw");
+            new UniqueDatabase(
+                    MYSQL_CONTAINER,
+                    CANAL_MYSQL_DATABASE,
+                    "mysqluser",
+                    "mysqlpw",
+                    "initialize_format");
 
     // --------------------------- Postgres Container-------------------------------------
     private static final String PG_IMAGE = "postgres:alpine3.16";
@@ -158,6 +184,7 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
                 .withNetwork(NETWORK)
                 .withNetworkAliases(MYSQL_HOST)
                 .withDatabaseName(CANAL_MYSQL_DATABASE)
+                .withDatabaseName(DEBEZIUM_MYSQL_DATABASE)
                 .withUsername(MYSQL_USER_NAME)
                 .withPassword(MYSQL_PASSWORD)
                 .withLogConsumer(new Slf4jLogConsumer(LOG));
@@ -177,6 +204,34 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CANAL_DOCKER_IMAGE)));
+    }
+
+    private void createDebeziumContainer() {
+        DEBEZIUM_CONTAINER =
+                new GenericContainer<>(DEBEZIUM_DOCKER_IMAGE)
+                        .withCopyFileToContainer(
+                                MountableFile.forClasspathResource("/debezium/register-mysql.json"),
+                                "/tmp/seatunnel/plugins/Jdbc/register-mysql.json")
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(DEBEZIUM_HOST)
+                        .withExposedPorts(DEBEZIUM_PORT)
+                        .withEnv("GROUP_ID", "1")
+                        .withEnv("CONFIG_STORAGE_TOPIC", "my-connect-configs")
+                        .withEnv("OFFSET_STORAGE_TOPIC", "my-connect-offsets")
+                        .withEnv("STATUS_STORAGE_TOPIC", "my-connect-status")
+                        .withEnv("BOOTSTRAP_SERVERS", KAFKA_HOST + ":9092")
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(DEBEZIUM_DOCKER_IMAGE)))
+                        .dependsOn(KAFKA_CONTAINER, MYSQL_CONTAINER);
+        DEBEZIUM_CONTAINER.setWaitStrategy(
+                (new HttpWaitStrategy())
+                        .forPath("/connectors")
+                        .forPort(DEBEZIUM_PORT)
+                        .withStartupTimeout(Duration.ofSeconds(120)));
+        DEBEZIUM_CONTAINER.setPortBindings(
+                com.google.common.collect.Lists.newArrayList(
+                        String.format("%s:%s", DEBEZIUM_PORT, DEBEZIUM_PORT)));
     }
 
     private void createKafkaContainer() {
@@ -201,7 +256,7 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
 
     @BeforeAll
     @Override
-    public void startUp() throws ClassNotFoundException, InterruptedException {
+    public void startUp() throws ClassNotFoundException, InterruptedException, IOException {
 
         LOG.info("The first stage: Starting Kafka containers...");
         createKafkaContainer();
@@ -211,6 +266,11 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
         LOG.info("The second stage: Starting Mysql containers...");
         Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
         LOG.info("Mysql Containers are started");
+
+        LOG.info("The third stage: Starting Debezium Connector containers...");
+        createDebeziumContainer();
+        Startables.deepStart(Stream.of(DEBEZIUM_CONTAINER)).join();
+        LOG.info("Debezium Containers are started");
 
         LOG.info("The third stage: Starting Canal containers...");
         createCanalContainer();
@@ -235,6 +295,21 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initKafkaConsumer);
+
+        LOG.info("start init Mysql DDl...");
+        inventoryDatabase.createAndInitialize();
+        LOG.info("end init Mysql DDl...");
+
+        // debezium configuration information
+        Container.ExecResult extraCommand =
+                DEBEZIUM_CONTAINER.execInContainer(
+                        "bash",
+                        "-c",
+                        "cd /tmp/seatunnel/plugins/Jdbc && curl -i -X POST -H \"Accept:application/json\" -H  \"Content-Type:application/json\" http://"
+                                + getLinuxLocalIp()
+                                + ":8083/connectors/ -d @register-mysql.json");
+        Assertions.assertEquals(0, extraCommand.getExitCode());
+
         // local file ogg data send kafka
         given().ignoreExceptions()
                 .atLeast(100, TimeUnit.MILLISECONDS)
@@ -242,14 +317,19 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
                 .atMost(3, TimeUnit.MINUTES)
                 .untilAsserted(this::initOggDataToKafka);
 
-        inventoryDatabase.createAndInitialize();
-        // ensure canal has handled the data
-        Thread.sleep(10 * 1000);
+        // ensure debezium has handled the data
+        Awaitility.given()
+                .ignoreExceptions()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(3, TimeUnit.MINUTES)
+                .untilAsserted(this::updateDebeziumSourceTableData);
+        Thread.sleep(30 * 1000);
     }
 
     @TestTemplate
     public void testFormatCheck(TestContainer container) throws IOException, InterruptedException {
-        LOG.info("=================================Check Canal=================================");
+        LOG.info("====================== Check Canal======================");
         Container.ExecResult execCanalResultKafka =
                 container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
         Assertions.assertEquals(
@@ -257,11 +337,10 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/canalFormatIT/kafka_source_canal_cdc_to_pgsql.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-
         // Check Canal
         checkCanalFormat();
 
-        LOG.info("=================================Check Ogg=================================");
+        LOG.info("====================== Check Ogg======================");
         Container.ExecResult execOggResultKafka =
                 container.executeJob("/oggFormatIT/kafka_source_ogg_to_kafka.conf");
         Assertions.assertEquals(
@@ -274,6 +353,55 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
 
         // Check Ogg
         checkOggFormat();
+
+        LOG.info("======================  Check debezium ====================== ");
+        Container.ExecResult execDebeziumResultKafka =
+                container.executeJob("/kafkasource_debezium_to_kafka.conf");
+        Assertions.assertEquals(
+                0, execDebeziumResultKafka.getExitCode(), execDebeziumResultKafka.getStderr());
+
+        Container.ExecResult execDebeziumResultToPgSql =
+                container.executeJob("/kafkasource_debezium_cdc_to_pgsql.conf");
+        Assertions.assertEquals(
+                0, execDebeziumResultToPgSql.getExitCode(), execDebeziumResultToPgSql.getStderr());
+
+        checkDebeziumFormat();
+    }
+
+    private void checkDebeziumFormat() {
+        ArrayList<String> result = new ArrayList<>();
+        kafkaConsumer.subscribe(Lists.newArrayList(DEBEZIUM_KAFKA_TOPIC));
+        Awaitility.await()
+                .atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            ConsumerRecords<String, String> consumerRecords =
+                                    kafkaConsumer.poll(Duration.ofMillis(1000));
+                            for (ConsumerRecord<String, String> record : consumerRecords) {
+                                result.add(record.value());
+                            }
+                            Assertions.assertEquals(12, result.size());
+                        });
+        LOG.info(
+                "==================== start kafka debezium format to pg check ====================");
+        Set<List<Object>> actual = getPostgreSinkTableList();
+        Set<List<Object>> expected =
+                Stream.<List<Object>>of(
+                                Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
+                                Arrays.asList(102, "car battery", "12V car battery", "8.1"),
+                                Arrays.asList(
+                                        103,
+                                        "12-pack drill bits",
+                                        "12-pack of drill bits with sizes ranging from #40 to #3",
+                                        "0.8"),
+                                Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
+                                Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
+                                Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1"),
+                                Arrays.asList(107, "rocks", "box of assorted rocks", "5.3"),
+                                Arrays.asList(
+                                        108, "jacket", "water resistent black wind breaker", "0.1"))
+                        .collect(Collectors.toSet());
+        Assertions.assertIterableEquals(expected, actual);
     }
 
     public void checkCanalFormat() {
@@ -296,7 +424,7 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
 
         ArrayList<String> result = new ArrayList<>();
         ArrayList<String> topics = new ArrayList<>();
-        topics.add(KAFKA_SINK_TOPIC);
+        topics.add(CANAL_KAFKA_SINK_TOPIC);
         kafkaConsumer.subscribe(topics);
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -309,8 +437,7 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
                             Assertions.assertEquals(expectedResult, result);
                         });
 
-        LOG.info(
-                "============================ start kafka canal format to pg check ============================");
+        LOG.info("==================== start kafka canal format to pg check ====================");
 
         Set<List<Object>> postgreSinkTableList = getPostgreSinkTableList();
 
@@ -373,8 +500,7 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
                             Assertions.assertEquals(kafkaExpectedResult, checkKafkaConsumerResult);
                         });
 
-        LOG.info(
-                "============================ start kafka ogg format to pg check ============================");
+        LOG.info("==================== start kafka ogg format to pg check ====================");
 
         Set<List<Object>> postgresqlEexpectedResult = getPostgreSinkTableList();
         Set<List<Object>> checkArraysResult =
@@ -415,6 +541,7 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertIterableEquals(postgresqlEexpectedResult, checkArraysResult);
     }
 
+    // Initialize the kafka Consumer
     private void initKafkaConsumer() {
         Properties prop = new Properties();
         String bootstrapServers = KAFKA_CONTAINER.getBootstrapServers();
@@ -431,6 +558,7 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
         kafkaConsumer = new KafkaConsumer<>(prop);
     }
 
+    // Example Initialize the pg sink table
     private void initializeJdbcTable() {
         try (Connection connection =
                 DriverManager.getConnection(
@@ -451,6 +579,7 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    // Initialize ogg data to kafka
     private void initOggDataToKafka() {
         String bootstrapServers = KAFKA_CONTAINER.getBootstrapServers();
         Properties props = new Properties();
@@ -485,6 +614,7 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
         producer.close();
     }
 
+    // Get result data
     public Set<List<Object>> getPostgreSinkTableList() {
         Set<List<Object>> actual = new HashSet<>();
         try (Connection connection =
@@ -520,6 +650,41 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
         }
         return actual;
     }
+    // Modify debezium data
+    public void updateDebeziumSourceTableData() throws Exception {
+        MYSQL_CONTAINER.setDatabaseName(DEBEZIUM_MYSQL_DATABASE);
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                MYSQL_CONTAINER.getJdbcUrl(),
+                                MYSQL_CONTAINER.getUsername(),
+                                MYSQL_CONTAINER.getPassword());
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "UPDATE debezium.products SET weight = '4.56' WHERE name = 'scooter'");
+            statement.execute("DELETE FROM debezium.products WHERE name  = \"spare tire\"");
+        }
+    }
+
+    public String getLinuxLocalIp() {
+        String ip = "";
+        try {
+            Enumeration<NetworkInterface> networkInterfaces =
+                    NetworkInterface.getNetworkInterfaces();
+            while (networkInterfaces.hasMoreElements()) {
+                NetworkInterface networkInterface = networkInterfaces.nextElement();
+                Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
+                while (inetAddresses.hasMoreElements()) {
+                    InetAddress inetAddress = inetAddresses.nextElement();
+                    if (!inetAddress.isLoopbackAddress() && inetAddress instanceof Inet4Address) {
+                        ip = inetAddress.getHostAddress();
+                    }
+                }
+            }
+        } catch (SocketException ex) {
+            LOG.warn("Failed to get linux local ip, it will return [\"\"] ", ex);
+        }
+        return ip;
+    }
 
     @Override
     public void tearDown() {
@@ -531,6 +696,9 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
         }
         if (CANAL_CONTAINER != null) {
             CANAL_CONTAINER.close();
+        }
+        if (DEBEZIUM_CONTAINER != null) {
+            DEBEZIUM_CONTAINER.close();
         }
     }
 }
