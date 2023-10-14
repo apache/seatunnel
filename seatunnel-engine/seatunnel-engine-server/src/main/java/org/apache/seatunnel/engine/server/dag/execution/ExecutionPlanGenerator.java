@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag.execution;
 
-import org.apache.seatunnel.api.table.type.MultipleRowType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
@@ -54,7 +52,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
 public class ExecutionPlanGenerator {
@@ -216,8 +214,12 @@ public class ExecutionPlanGenerator {
         }
         ExecutionVertex sourceExecutionVertex = sourceExecutionVertices.stream().findFirst().get();
         SourceAction sourceAction = (SourceAction) sourceExecutionVertex.getAction();
-        SeaTunnelDataType sourceProducedType = sourceAction.getSource().getProducedType();
-        if (!SqlType.MULTIPLE_ROW.equals(sourceProducedType.getSqlType())) {
+        List<CatalogTable> producedCatalogTables = new ArrayList<>();
+        try {
+            producedCatalogTables = sourceAction.getSource().getProducedCatalogTables();
+        } catch (UnsupportedOperationException e) {
+        }
+        if (producedCatalogTables.size() <= 1) {
             return executionEdges;
         }
 
@@ -234,7 +236,7 @@ public class ExecutionPlanGenerator {
                 ShuffleMultipleRowStrategy.builder()
                         .jobId(jobImmutableInformation.getJobId())
                         .inputPartitions(sourceAction.getParallelism())
-                        .inputRowType(MultipleRowType.class.cast(sourceProducedType))
+                        .catalogTables(producedCatalogTables)
                         .queueEmptyQueueTtl((int) (checkpointConfig.getCheckpointInterval() * 3))
                         .build();
         ShuffleConfig shuffleConfig =

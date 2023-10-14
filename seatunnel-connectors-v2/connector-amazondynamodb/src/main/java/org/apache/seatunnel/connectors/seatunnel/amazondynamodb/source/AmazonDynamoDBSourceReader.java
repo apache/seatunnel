@@ -31,11 +31,13 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Map;
 
 @Slf4j
 public class AmazonDynamoDBSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
@@ -78,18 +80,25 @@ public class AmazonDynamoDBSourceReader extends AbstractSingleSplitReader<SeaTun
     @Override
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        ScanResponse scan =
-                dynamoDbClient.scan(
-                        ScanRequest.builder()
-                                .tableName(amazondynamodbSourceOptions.getTable())
-                                .build());
-        if (scan.hasItems()) {
-            scan.items()
-                    .forEach(
-                            item -> {
-                                output.collect(seaTunnelRowDeserializer.deserialize(item));
-                            });
-        }
+        Map<String, AttributeValue> lastKeyEvaluated = null;
+
+        ScanResponse scan;
+        do {
+            scan =
+                    dynamoDbClient.scan(
+                            ScanRequest.builder()
+                                    .tableName(amazondynamodbSourceOptions.getTable())
+                                    .exclusiveStartKey(lastKeyEvaluated)
+                                    .build());
+            if (scan.hasItems()) {
+                scan.items()
+                        .forEach(
+                                item -> {
+                                    output.collect(seaTunnelRowDeserializer.deserialize(item));
+                                });
+            }
+            lastKeyEvaluated = scan.lastEvaluatedKey();
+        } while (lastKeyEvaluated != null && !lastKeyEvaluated.isEmpty());
         context.signalNoMoreElement();
     }
 }

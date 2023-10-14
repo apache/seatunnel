@@ -57,15 +57,13 @@ import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public class ParquetWriteStrategy extends AbstractWriteStrategy {
-    private final Map<String, ParquetWriter<GenericRecord>> beingWrittenWriter;
+    private final LinkedHashMap<String, ParquetWriter<GenericRecord>> beingWrittenWriter;
     private AvroSchemaConverter schemaConverter;
     private Schema schema;
     public static final int[] PRECISION_TO_BYTE_COUNT = new int[38];
@@ -80,7 +78,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
 
     public ParquetWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
-        this.beingWrittenWriter = new HashMap<>();
+        this.beingWrittenWriter = new LinkedHashMap<>();
     }
 
     @Override
@@ -164,7 +162,6 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         return writer;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private Object resolveObject(Object data, SeaTunnelDataType<?> seaTunnelDataType) {
         if (data == null) {
             return null;
@@ -223,7 +220,6 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static Type seaTunnelDataType2ParquetDataType(
             String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {

@@ -113,7 +113,6 @@ public class PulsarSource
         return PulsarConfigUtil.IDENTIFIER;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =

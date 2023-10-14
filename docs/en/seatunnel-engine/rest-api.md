@@ -180,3 +180,85 @@ network:
 
 ------------------------------------------------------------------------------------------
 
+### Submit Job.
+
+<details>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-job</b></code> <code>(Returns jobId and jobName if job submitted successfully.)</code></summary>
+
+#### Parameters
+
+> |         name         |   type   | data type |            description            |
+> |----------------------|----------|-----------|-----------------------------------|
+> | jobId                | optional | string    | job id                            |
+> | jobName              | optional | string    | job name                          |
+> | isStartWithSavePoint | optional | string    | if job is started with save point |
+
+#### Body
+
+```json
+{
+    "env": {
+        "job.mode": "batch"
+    },
+    "source": [
+        {
+            "plugin_name": "FakeSource",
+            "result_table_name": "fake",
+            "row.num": 100,
+            "schema": {
+                "fields": {
+                    "name": "string",
+                    "age": "int",
+                    "card": "int"
+                }
+            }
+        }
+    ],
+    "transform": [
+    ],
+    "sink": [
+        {
+            "plugin_name": "Console",
+            "source_table_name": ["fake"]
+        }
+    ]
+}
+```
+
+#### Responses
+
+```json
+{
+    "jobId": 733584788375666689,
+    "jobName": "rest_api_test"
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Stop Job.
+
+<details>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
+
+#### Body
+
+```json
+{
+    "jobId": 733584788375666689,
+    "isStopWithSavePoint": false # if job is stopped with save point
+}
+```
+
+#### Responses
+
+```json
+{
+"jobId": 733584788375666689
+}
+```
+
+</details>
+

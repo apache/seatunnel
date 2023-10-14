@@ -129,7 +129,6 @@ public class ParquetReadStrategyTest {
             return rows;
         }
 
-        @SuppressWarnings("checkstyle:RegexpSingleline")
         @Override
         public void collect(SeaTunnelRow record) {
             System.out.println(record);

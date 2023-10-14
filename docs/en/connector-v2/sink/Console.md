@@ -2,6 +2,16 @@
 
 > Console sink connector
 
+## Support Connector Version
+
+- All versions
+
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Used to send data to Console. Both support streaming and batch mode.
@@ -14,59 +24,91 @@ Used to send data to Console. Both support streaming and batch mode.
 
 ## Options
 
-|      name      | type | required | default value |
-|----------------|------|----------|---------------|
-| common-options |      | no       | -             |
+|        Name        |  Type   | Required | Default |                                             Description                                             |
+|--------------------|---------|----------|---------|-----------------------------------------------------------------------------------------------------|
+| common-options     |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details |
+| log.print.data     | boolean | No       | -       | Flag to determine whether data should be printed in the logs. The default value is `true`           |
+| log.print.delay.ms | int     | No       | -       | Delay in milliseconds between printing each data item to the logs. The default value is `0`.        |
 
-### common options
+## Task Example
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+### Simple:
 
-## Example
+> This is a randomly generated data, written to the console, with a degree of parallelism of 1
 
-simple:
-
-```hocon
-Console {
-
-    }
 ```
-
-test:
-
-* Configuring the SeaTunnel config file
-
-```hocon
 env {
   execution.parallelism = 1
   job.mode = "STREAMING"
 }
 
 source {
-    FakeSource {
-      result_table_name = "fake"
-      schema = {
-        fields {
-          name = "string"
-          age = "int"
-        }
+  FakeSource {
+    result_table_name = "fake"
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
       }
     }
+  }
 }
 
 sink {
-    Console {
-
-    }
+  Console {
+    source_table_name = "fake"
+  }
 }
-
 ```
 
-* Start a SeaTunnel task
+### Multiple Sources Simple:
 
-* Console print data
+> This is a multiple source and you can specify a data source to write to the specified end
 
-```text
+```
+env {
+  execution.parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  FakeSource {
+    result_table_name = "fake1"
+    schema = {
+      fields {
+        id = "int"
+        name = "string"
+        age = "int"
+        sex = "string"
+      }
+    }
+  }
+   FakeSource {
+    result_table_name = "fake2"
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    source_table_name = "fake1"
+  }
+  Console {
+    source_table_name = "fake2"
+  }
+}
+```
+
+## Console Sample Data
+
+This is a printout from our console
+
+```
 2022-12-19 11:01:45,417 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - output rowType: name<STRING>, age<INT>
 2022-12-19 11:01:46,489 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=1: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: CpiOd, 8520946
 2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=2: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: eQqTs, 1256802974
@@ -79,14 +121,4 @@ sink {
 2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=9: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: AkWIO, 1961723427
 2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=10: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: hBoib, 929089763
 ```
-
-## Changelog
-
-### 2.2.0-beta 2022-09-26
-
-- Add Console Sink Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [Improve] Console sink support print subtask index ([3000](https://github.com/apache/seatunnel/pull/3000))
 

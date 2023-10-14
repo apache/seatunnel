@@ -131,6 +131,11 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
             } else if (ServerConfigOptions.CHECKPOINT.key().equals(name)) {
                 engineConfig.setCheckpointConfig(parseCheckpointConfig(node));
+            } else if (ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.key().equals(name)) {
+                engineConfig.setHistoryJobExpireMinutes(
+                        getIntegerValue(
+                                ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.key(),
+                                getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
@@ -151,15 +156,10 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue(
                                 ServerConfigOptions.CHECKPOINT_TIMEOUT.key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.CHECKPOINT_MAX_CONCURRENT.key().equals(name)) {
-                checkpointConfig.setMaxConcurrentCheckpoints(
+            } else if (ServerConfigOptions.SCHEMA_CHANGE_CHECKPOINT_TIMEOUT.key().equals(name)) {
+                checkpointConfig.setSchemaChangeCheckpointTimeout(
                         getIntegerValue(
-                                ServerConfigOptions.CHECKPOINT_MAX_CONCURRENT.key(),
-                                getTextContent(node)));
-            } else if (ServerConfigOptions.CHECKPOINT_TOLERABLE_FAILURE.key().equals(name)) {
-                checkpointConfig.setTolerableFailureCheckpoints(
-                        getIntegerValue(
-                                ServerConfigOptions.CHECKPOINT_TOLERABLE_FAILURE.key(),
+                                ServerConfigOptions.SCHEMA_CHANGE_CHECKPOINT_TIMEOUT.key(),
                                 getTextContent(node)));
             } else if (ServerConfigOptions.CHECKPOINT_STORAGE.key().equals(name)) {
                 checkpointConfig.setStorage(parseCheckpointStorageConfig(node));

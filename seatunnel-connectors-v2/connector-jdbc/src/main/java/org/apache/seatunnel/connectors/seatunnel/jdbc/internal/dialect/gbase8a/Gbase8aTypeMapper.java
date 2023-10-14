@@ -61,7 +61,6 @@ public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
     private static final String GBASE8A_BLOB = "BLOB";
     private static final String GBASE8A_TEXT = "TEXT";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {

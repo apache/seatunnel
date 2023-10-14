@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.translation.flink.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
+
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
@@ -47,6 +50,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy.getFlowControlStrategy;
+
 /**
  * The abstract implementation of {@link RichSourceFunction}, the entrypoint of flink source
  * translation
@@ -63,12 +68,25 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
 
     protected final AtomicLong latestCompletedCheckpointId = new AtomicLong(0);
     protected final AtomicLong latestTriggerCheckpointId = new AtomicLong(0);
+    // Env Conf Info
+    private Config envConfigs;
+    // Store env for external Settings
+    private Map<String, Object> envOption = new HashMap<>();
 
     /** Flag indicating whether the consumer is still running. */
     private volatile boolean running = true;
 
-    public BaseSeaTunnelSourceFunction(SeaTunnelSource<SeaTunnelRow, ?, ?> source) {
+    public BaseSeaTunnelSourceFunction(
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source, Config envConfigs) {
         this.source = source;
+        this.envConfigs = envConfigs;
+        for (Map.Entry<String, ConfigValue> entry : this.envConfigs.entrySet()) {
+            String envKey = entry.getKey();
+            String envValue = entry.getValue().render();
+            if (envKey != null && envValue != null) {
+                envOption.put(envKey, envValue);
+            }
+        }
     }
 
     @Override
@@ -80,14 +98,14 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
 
     protected abstract BaseSourceFunction<SeaTunnelRow> createInternalSource();
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void run(SourceFunction.SourceContext<Row> sourceContext) throws Exception {
         internalSource.run(
                 new RowCollector(
                         sourceContext,
                         sourceContext.getCheckpointLock(),
-                        source.getProducedType()));
+                        source.getProducedType(),
+                        getFlowControlStrategy(envOption)));
         // Wait for a checkpoint to complete:
         // In the current version(version < 1.14.0), when the operator state of the source changes
         // to FINISHED, jobs cannot be checkpoint executed.

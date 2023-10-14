@@ -22,21 +22,24 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import io.restassured.response.Response;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.TimeUnit;
@@ -54,8 +57,8 @@ public class RestApiIT {
 
     private static HazelcastInstanceImpl hazelcastInstance;
 
-    @BeforeAll
-    static void beforeClass() throws Exception {
+    @BeforeEach
+    void beforeClass() throws Exception {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
@@ -131,10 +134,167 @@ public class RestApiIT {
                 .statusCode(200);
     }
 
-    @AfterAll
-    static void afterClass() {
+    @Test
+    public void testSubmitJob() {
+        String jobId = submitJob("BATCH").getBody().jsonPath().getString("jobId");
+        SeaTunnelServer seaTunnelServer =
+                (SeaTunnelServer)
+                        hazelcastInstance
+                                .node
+                                .getNodeExtension()
+                                .createExtensionServices()
+                                .get(Constant.SEATUNNEL_SERVICE_NAME);
+        JobStatus jobStatus =
+                seaTunnelServer.getCoordinatorService().getJobStatus(Long.parseLong(jobId));
+        Assertions.assertEquals(JobStatus.RUNNING, jobStatus);
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId))));
+    }
+
+    @Test
+    public void testStopJob() {
+        String jobId = submitJob("STREAMING").getBody().jsonPath().getString("jobId");
+        SeaTunnelServer seaTunnelServer =
+                (SeaTunnelServer)
+                        hazelcastInstance
+                                .node
+                                .getNodeExtension()
+                                .createExtensionServices()
+                                .get(Constant.SEATUNNEL_SERVICE_NAME);
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId))));
+
+        String parameters = "{" + "\"jobId\":" + jobId + "," + "\"isStopWithSavePoint\":true}";
+
+        given().body(parameters)
+                .post(
+                        HOST
+                                + hazelcastInstance
+                                        .getCluster()
+                                        .getLocalMember()
+                                        .getAddress()
+                                        .getPort()
+                                + RestConstant.STOP_JOB_URL)
+                .then()
+                .statusCode(200)
+                .body("jobId", equalTo(jobId));
+
+        Awaitility.await()
+                .atMost(6, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId))));
+
+        String jobId2 = submitJob("STREAMING").getBody().jsonPath().getString("jobId");
+
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId2))));
+        parameters = "{" + "\"jobId\":" + jobId2 + "," + "\"isStopWithSavePoint\":false}";
+
+        given().body(parameters)
+                .post(
+                        HOST
+                                + hazelcastInstance
+                                        .getCluster()
+                                        .getLocalMember()
+                                        .getAddress()
+                                        .getPort()
+                                + RestConstant.STOP_JOB_URL)
+                .then()
+                .statusCode(200)
+                .body("jobId", equalTo(jobId2));
+
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId2))));
+    }
+
+    @AfterEach
+    void afterClass() {
         if (hazelcastInstance != null) {
             hazelcastInstance.shutdown();
         }
+    }
+
+    private Response submitJob(String jobMode) {
+        String requestBody =
+                "{\n"
+                        + "    \"env\": {\n"
+                        + "        \"job.mode\": \""
+                        + jobMode
+                        + "\"\n"
+                        + "    },\n"
+                        + "    \"source\": [\n"
+                        + "        {\n"
+                        + "            \"plugin_name\": \"FakeSource\",\n"
+                        + "            \"result_table_name\": \"fake\",\n"
+                        + "            \"row.num\": 100,\n"
+                        + "            \"schema\": {\n"
+                        + "                \"fields\": {\n"
+                        + "                    \"name\": \"string\",\n"
+                        + "                    \"age\": \"int\",\n"
+                        + "                    \"card\": \"int\"\n"
+                        + "                }\n"
+                        + "            }\n"
+                        + "        }\n"
+                        + "    ],\n"
+                        + "    \"transform\": [\n"
+                        + "    ],\n"
+                        + "    \"sink\": [\n"
+                        + "        {\n"
+                        + "            \"plugin_name\": \"Console\",\n"
+                        + "            \"source_table_name\": [\"fake\"]\n"
+                        + "        }\n"
+                        + "    ]\n"
+                        + "}";
+        String parameters = "jobId=1&jobName=test&isStartWithSavePoint=false";
+        // Only jobName is compared because jobId is randomly generated if isStartWithSavePoint is
+        // false
+        Response response =
+                given().body(requestBody)
+                        .post(
+                                HOST
+                                        + hazelcastInstance
+                                                .getCluster()
+                                                .getLocalMember()
+                                                .getAddress()
+                                                .getPort()
+                                        + RestConstant.SUBMIT_JOB_URL
+                                        + "?"
+                                        + parameters);
+
+        response.then().statusCode(200).body("jobName", equalTo("test"));
+        return response;
     }
 }

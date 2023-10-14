@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -43,7 +43,6 @@ public class AmazonDynamoDBSourceOptions implements Serializable {
     private Config schema;
 
     public int batchSize = AmazonDynamoDBConfig.BATCH_SIZE.defaultValue();
-    public int batchIntervalMs = AmazonDynamoDBConfig.BATCH_INTERVAL_MS.defaultValue();
 
     public AmazonDynamoDBSourceOptions(Config config) {
         this.url = config.getString(AmazonDynamoDBConfig.URL.key());
@@ -51,14 +50,11 @@ public class AmazonDynamoDBSourceOptions implements Serializable {
         this.accessKeyId = config.getString(AmazonDynamoDBConfig.ACCESS_KEY_ID.key());
         this.secretAccessKey = config.getString(AmazonDynamoDBConfig.SECRET_ACCESS_KEY.key());
         this.table = config.getString(AmazonDynamoDBConfig.TABLE.key());
-        if (config.hasPath(CatalogTableUtil.SCHEMA.key())) {
-            this.schema = config.getConfig(CatalogTableUtil.SCHEMA.key());
+        if (config.hasPath(TableSchemaOptions.SCHEMA.key())) {
+            this.schema = config.getConfig(TableSchemaOptions.SCHEMA.key());
         }
         if (config.hasPath(AmazonDynamoDBConfig.BATCH_SIZE.key())) {
             this.batchSize = config.getInt(AmazonDynamoDBConfig.BATCH_SIZE.key());
-        }
-        if (config.hasPath(AmazonDynamoDBConfig.BATCH_INTERVAL_MS.key())) {
-            this.batchIntervalMs = config.getInt(AmazonDynamoDBConfig.BATCH_INTERVAL_MS.key());
         }
     }
 }

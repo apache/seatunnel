@@ -162,7 +162,6 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     boolean checkFileType(String path) {
         try {
