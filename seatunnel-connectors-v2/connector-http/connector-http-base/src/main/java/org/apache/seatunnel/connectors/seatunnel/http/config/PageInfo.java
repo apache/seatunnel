@@ -30,8 +30,6 @@ public class PageInfo implements Serializable {
     private Long totalPageSize;
 
     private Integer batchSize;
-    private Long maxPageSize;
     private String pageField;
     private Long pageIndex;
-    private String totalPageFieldPath;
 }

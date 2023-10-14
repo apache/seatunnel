@@ -32,8 +32,6 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 
-import org.apache.commons.lang3.StringUtils;
-
 import com.google.common.base.Strings;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
@@ -41,7 +39,6 @@ import com.jayway.jsonpath.Option;
 import com.jayway.jsonpath.ReadContext;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import net.minidev.json.JSONArray;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -153,10 +150,6 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     updateRequestParam(pageInfo);
                     pollAndCollectData(output);
                     pageIndex += 1;
-                    if (pageInfo.getTotalPageSize() > 0
-                            && pageIndex > pageInfo.getTotalPageSize()) {
-                        noMoreElementFlag = true;
-                    }
                 }
             } else {
                 pollAndCollectData(output);
@@ -190,16 +183,9 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             // Determine whether the task is completed by specifying the presence of the 'total
             // page'
             // field.
-            if (StringUtils.isNotEmpty(pageInfo.getTotalPageFieldPath())) {
-                JSONArray pageArray =
-                        JsonPath.using(jsonConfiguration)
-                                .parse(originData)
-                                .read(pageInfo.getTotalPageFieldPath());
-                if (!pageArray.isEmpty() && pageArray.get(0) != null) {
-                    Long totalPage = Long.valueOf(pageArray.get(0).toString());
-                    noMoreElementFlag = pageInfo.getPageIndex() >= totalPage;
-                    pageInfo.setTotalPageSize(totalPage);
-                }
+            if (pageInfo.getTotalPageSize() > 0) {
+                noMoreElementFlag =
+                        pageInfo.getPageIndex() >= pageInfo.getTotalPageSize() ? true : false;
             } else {
                 // no 'total page' configured
                 int readSize = JsonUtils.stringToJsonNode(data).size();
