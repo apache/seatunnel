@@ -46,11 +46,6 @@ public class HttpConfig {
                     .defaultValue("page")
                     .withDescription(
                             "this parameter is used to specify the page field name in the request parameter");
-    public static final Option<String> TOTAL_PAGE_FIELD_PATH =
-            Options.key("total_page_field_path")
-                    .stringType()
-                    .defaultValue("$.pages")
-                    .withDescription("total page field json path");
     public static final Option<Map<String, String>> PAGEING =
             Options.key("pageing").mapType().noDefaultValue().withDescription("pageing");
     public static final Option<HttpRequestMethod> METHOD =
