@@ -28,8 +28,8 @@ import java.io.Serializable;
 public class PageInfo implements Serializable {
 
     private Long totalPageSize;
-    private String jsonVerifyExpression;
-    private String jsonVerifyValue;
+
+    private Integer batchSize;
     private Long maxPageSize;
     private String pageField;
     private Long pageIndex;

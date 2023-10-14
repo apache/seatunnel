@@ -34,24 +34,12 @@ public class HttpConfig {
                     .longType()
                     .defaultValue(0L)
                     .withDescription("total page size");
-    public static final Option<String> JSON_VERIFY_EXPRESSION =
-            Options.key("json_verify_expression")
-                    .stringType()
-                    .noDefaultValue()
+    public static final Option<Integer> BATCH_SIZE =
+            Options.key("batch_size")
+                    .intType()
+                    .defaultValue(100)
                     .withDescription(
-                            "retrieve and validate target field values using a json_path expression");
-    public static final Option<String> JSON_VERIFY_VALUE =
-            Options.key("json_verify_value")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "verify if the value of the JSON verify expression matches the expected value.");
-    public static final Option<Long> MAX_PAGE_SIZE =
-            Options.key("max_page_size")
-                    .longType()
-                    .defaultValue(10000L)
-                    .withDescription(
-                            "the maximum number of iterations without configuring the 'total_page_size' field");
+                            "the batch size returned per request is used to determine whether to continue when the total number of pages is unknown");
     public static final Option<String> PAGE_FIELD =
             Options.key("page_field")
                     .stringType()

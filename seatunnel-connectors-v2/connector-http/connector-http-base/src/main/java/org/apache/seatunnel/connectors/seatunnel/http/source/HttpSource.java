@@ -99,18 +99,11 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             } else {
                 pageInfo.setTotalPageSize(HttpConfig.TOTAL_PAGE_SIZE.defaultValue());
             }
-            if (pageConfig.hasPath(HttpConfig.JSON_VERIFY_EXPRESSION.key())) {
-                pageInfo.setJsonVerifyExpression(
-                        pageConfig.getString(HttpConfig.JSON_VERIFY_EXPRESSION.key()));
-            }
-            if (pageConfig.hasPath(HttpConfig.JSON_VERIFY_VALUE.key())) {
-                pageInfo.setJsonVerifyValue(
-                        pageConfig.getString(HttpConfig.JSON_VERIFY_VALUE.key()));
-            }
-            if (pageConfig.hasPath(HttpConfig.MAX_PAGE_SIZE.key())) {
-                pageInfo.setMaxPageSize(pageConfig.getLong(HttpConfig.MAX_PAGE_SIZE.key()));
+
+            if (pageConfig.hasPath(HttpConfig.BATCH_SIZE.key())) {
+                pageInfo.setBatchSize(pageConfig.getInt(HttpConfig.BATCH_SIZE.key()));
             } else {
-                pageInfo.setMaxPageSize(HttpConfig.MAX_PAGE_SIZE.defaultValue());
+                pageInfo.setBatchSize(HttpConfig.BATCH_SIZE.defaultValue());
             }
             if (pageConfig.hasPath(HttpConfig.PAGE_FIELD.key())) {
                 pageInfo.setPageField(pageConfig.getString(HttpConfig.PAGE_FIELD.key()));

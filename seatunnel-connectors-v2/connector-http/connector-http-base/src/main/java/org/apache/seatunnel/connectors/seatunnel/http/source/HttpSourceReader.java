@@ -153,8 +153,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     updateRequestParam(pageInfo);
                     pollAndCollectData(output);
                     pageIndex += 1;
-                    if ((pageInfo.getTotalPageSize() > 0 && pageIndex > pageInfo.getTotalPageSize())
-                            | pageIndex > pageInfo.getMaxPageSize()) {
+                    if (pageInfo.getTotalPageSize() > 0
+                            && pageIndex > pageInfo.getTotalPageSize()) {
                         noMoreElementFlag = true;
                     }
                 }
@@ -181,6 +181,11 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         if (contentJson != null) {
             data = JsonUtils.stringToJsonNode(getPartOfJson(data)).toString();
         }
+        if (jsonField != null) {
+            this.initJsonPath(jsonField);
+            data = JsonUtils.toJsonNode(parseToMap(decodeJSON(data), jsonField)).toString();
+        }
+        // page increase
         if (pageInfo != null) {
             // Determine whether the task is completed by specifying the presence of the 'total
             // page'
@@ -195,26 +200,13 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     noMoreElementFlag = pageInfo.getPageIndex() >= totalPage;
                     pageInfo.setTotalPageSize(totalPage);
                 }
+            } else {
+                // no 'total page' configured
+                int readSize = JsonUtils.stringToJsonNode(data).size();
+                // if read size < 100 : read fininsh.
+                // if read size = 100 : read next page.
+                noMoreElementFlag = readSize < pageInfo.getBatchSize() ? true : false;
             }
-            // Verify task completion status using JSONPath configuration in case the 'total page'
-            // field
-            // is absent in the interface.
-            if (StringUtils.isNotEmpty(pageInfo.getJsonVerifyExpression())) {
-                JSONArray verifyArray =
-                        JsonPath.using(jsonConfiguration)
-                                .parse(originData)
-                                .read(pageInfo.getJsonVerifyExpression());
-                if (!verifyArray.isEmpty() && verifyArray.get(0) != null) {
-                    noMoreElementFlag =
-                            pageInfo.getJsonVerifyValue().indexOf(verifyArray.get(0).toString())
-                                    >= 0;
-                }
-            }
-        }
-
-        if (jsonField != null) {
-            this.initJsonPath(jsonField);
-            data = JsonUtils.toJsonNode(parseToMap(decodeJSON(data), jsonField)).toString();
         }
         deserializationCollector.collect(data.getBytes(), output);
     }

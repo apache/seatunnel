@@ -139,7 +139,7 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/http_page_increase_page_num.conf");
         Assertions.assertEquals(0, execResult13.getExitCode());
         Container.ExecResult execResult14 =
-                container.executeJob("/http_page_increase_by_expression.conf");
+                container.executeJob("/http_page_increase_no_page_num.conf");
         Assertions.assertEquals(0, execResult14.getExitCode());
     }
 
