@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm.DamengCatalog;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -248,7 +248,7 @@ public class DMCatalogIT extends AbstractJdbcIT {
     protected void initCatalog() {
         String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
         catalog =
-                new OracleCatalog(
+                new DamengCatalog(
                         "dameng",
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
