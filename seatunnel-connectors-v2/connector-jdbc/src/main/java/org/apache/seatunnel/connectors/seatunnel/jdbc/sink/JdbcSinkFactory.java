@@ -152,6 +152,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                             catalogTable.getTableSchema(),
                             catalogTable.getOptions(),
                             catalogTable.getPartitionKeys(),
+                            catalogTable.getComment(),
                             catalogTable.getCatalogName());
             Map<String, String> map = config.toMap();
             if (catalogTable.getTableId().getSchemaName() != null) {
@@ -167,6 +168,21 @@ public class JdbcSinkFactory implements TableSinkFactory {
             PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
             if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
                 map.put(PRIMARY_KEYS.key(), String.join(",", primaryKey.getColumnNames()));
+            } else {
+                Optional<ConstraintKey> keyOptional =
+                        catalogTable.getTableSchema().getConstraintKeys().stream()
+                                .filter(
+                                        key ->
+                                                ConstraintKey.ConstraintType.UNIQUE_KEY.equals(
+                                                        key.getConstraintType()))
+                                .findFirst();
+                if (keyOptional.isPresent()) {
+                    map.put(
+                            PRIMARY_KEYS.key(),
+                            keyOptional.get().getColumnNames().stream()
+                                    .map(key -> key.getColumnName())
+                                    .collect(Collectors.joining(",")));
+                }
             }
             config = ReadonlyConfig.fromMap(new HashMap<>(map));
         }
@@ -193,7 +209,6 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         finalCatalogTable);
     }
 
-    // todo
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
