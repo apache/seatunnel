@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 import org.apache.seatunnel.core.starter.flink.utils.TableUtil;
 import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
@@ -41,9 +42,9 @@ import java.util.function.BiConsumer;
 import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
 
 public abstract class FlinkAbstractPluginExecuteProcessor<T>
-        implements PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> {
+        implements PluginExecuteProcessor<DataStreamTableInfo, FlinkRuntimeEnvironment> {
     protected static final String ENGINE_TYPE = "seatunnel";
-    protected static final String PLUGIN_NAME = "plugin_name";
+    protected static final String PLUGIN_NAME_KEY = "plugin_name";
     protected static final String SOURCE_TABLE_NAME = "source_table_name";
     protected static HashMap<String, Boolean> isAppendMap = new HashMap<>();
 
@@ -78,15 +79,30 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
         this.flinkRuntimeEnvironment = flinkRuntimeEnvironment;
     }
 
-    protected Optional<DataStream<Row>> fromSourceTable(Config pluginConfig) {
+    protected Optional<DataStreamTableInfo> fromSourceTable(
+            Config pluginConfig, List<DataStreamTableInfo> upstreamDataStreams) {
         if (pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
             StreamTableEnvironment tableEnvironment =
                     flinkRuntimeEnvironment.getStreamTableEnvironment();
             String tableName = pluginConfig.getString(SOURCE_TABLE_NAME);
             Table table = tableEnvironment.from(tableName);
-            return Optional.ofNullable(
-                    TableUtil.tableToDataStream(
-                            tableEnvironment, table, isAppendMap.getOrDefault(tableName, true)));
+            DataStreamTableInfo dataStreamTableInfo =
+                    upstreamDataStreams.stream()
+                            .filter(info -> tableName.equals(info.getTableName()))
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            new SeaTunnelException(
+                                                    String.format(
+                                                            "table %s not found", tableName)));
+            return Optional.of(
+                    new DataStreamTableInfo(
+                            TableUtil.tableToDataStream(
+                                    tableEnvironment,
+                                    table,
+                                    isAppendMap.getOrDefault(tableName, true)),
+                            dataStreamTableInfo.getCatalogTable(),
+                            tableName));
         }
         return Optional.empty();
     }
