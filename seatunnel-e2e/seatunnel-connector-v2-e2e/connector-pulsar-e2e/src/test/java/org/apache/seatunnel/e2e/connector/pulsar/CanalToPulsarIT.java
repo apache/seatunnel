@@ -90,7 +90,7 @@ public class CanalToPulsarIT extends TestSuiteBase implements TestResource {
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V5_7);
 
     private final UniqueDatabase inventoryDatabase =
-            new UniqueDatabase(MYSQL_CONTAINER, "canal", "mysqluser", "mysqlpw");
+            new UniqueDatabase(MYSQL_CONTAINER, "canal", "mysqluser", "mysqlpw", "canal");
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         MySqlContainer mySqlContainer =
