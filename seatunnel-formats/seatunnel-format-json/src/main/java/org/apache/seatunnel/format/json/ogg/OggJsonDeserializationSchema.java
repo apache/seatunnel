@@ -66,7 +66,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
     /** Names of fields. */
     private final String[] fieldNames;
 
-    /** Number of fields. */
+    /** Field number. */
     private final int fieldCount;
 
     private boolean ignoreParseErrors;
