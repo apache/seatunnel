@@ -258,4 +258,12 @@ public class DMCatalogIT extends AbstractJdbcIT {
                         "DAMENG");
         catalog.open();
     }
+
+    protected String buildTableInfoWithSchema(String database, String schema, String table) {
+        return buildTableInfoWithSchema(schema, table);
+    }
+
+    protected void clearTable(String database, String schema, String table) {
+        clearTable(schema, table);
+    }
 }
