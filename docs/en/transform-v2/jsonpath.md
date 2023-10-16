@@ -18,7 +18,7 @@ Transform plugin common parameters, please refer to [Transform Plugin](common-op
 
 ### fields[array]
 
-**option**
+#### option
 
 |    name    |  type  | required | default value |
 |------------|--------|----------|---------------|
@@ -26,15 +26,24 @@ Transform plugin common parameters, please refer to [Transform Plugin](common-op
 | dest_field | String | Yes      |               |
 | path       | String | Yes      |               |
 
-**src_field**
+#### src_field
 
 > the json source field you want to parse
 
-**dest_field**
+Support SeatunnelDateType
 
-> after use jsonpath output field
+* STRING
+* BYTES
+* ARRAY
+* MAP
+* ROW
+* MULTIPLE_ROW
 
-**path**
+#### dest_field
+
+> after use jsonpath output field,dest_field type is always STRING
+
+#### path
 
 > Jsonpath
 
