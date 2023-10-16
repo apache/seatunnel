@@ -35,7 +35,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -278,7 +277,6 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     }
 
     @TestTemplate
-    @Order(1)
     public void testJdbcDb(TestContainer container)
             throws IOException, InterruptedException, SQLException {
         List<String> configFiles = jdbcCase.getConfigFile();
@@ -294,7 +292,6 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected void initCatalog() {}
 
     @Test
-    @Order(2)
     public void testCatalog() {
         if (catalog == null) {
             return;

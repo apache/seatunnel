@@ -27,6 +27,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
 import com.google.common.collect.Lists;
 
@@ -45,19 +46,19 @@ public class DMCatalogIT extends AbstractJdbcIT {
     private static final String DM_IMAGE = "laglangyue/dmdb8";
     private static final String DM_CONTAINER_HOST = "e2e_dmdb";
 
-    private static final String DM_DATABASE = "SYSDBA";
+    private static final String DM_DATABASE = "TESTUSER";
     private static final String DM_SOURCE = "e2e_table_source";
     private static final String DM_SINK = "e2e_table_sink";
     private static final String CATALOG_TABLE = "e2e_table_source_catalog";
-    private static final String DM_USERNAME = "SYSDBA";
-    private static final String DM_PASSWORD = "SYSDBA";
+    private static final String DM_USERNAME = "TESTUSER";
+    private static final String DM_PASSWORD = "testPassword";
     private static final int DM_PORT = 5236;
     private static final String DM_URL = "jdbc:dm://" + HOST + ":%s";
 
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_dm_source_and_sink.conf");
+            Lists.newArrayList("/jdbc_dm_source_and_sink_lower.conf");
     private static final String CREATE_SQL =
             "create table if not exists %s"
                     + "(\n"
@@ -233,6 +234,9 @@ public class DMCatalogIT extends AbstractJdbcIT {
         GenericContainer<?> container =
                 new GenericContainer<>(DM_IMAGE)
                         .withNetwork(NETWORK)
+                        .withCopyFileToContainer(
+                                MountableFile.forClasspathResource("sql/dm_init.sql"),
+                                "/container-entrypoint-startdb.d/init.sql")
                         .withNetworkAliases(DM_CONTAINER_HOST)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
