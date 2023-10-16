@@ -73,8 +73,8 @@ import static org.awaitility.Awaitility.given;
  */
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK},
-        disabledReason = "spark would ignore delete type")
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason = "Currently SPARK and FLINK do not support save mode")
 public class CanalToPulsarIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(CanalToPulsarIT.class);
