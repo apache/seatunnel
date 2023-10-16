@@ -25,7 +25,6 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.factory.Factory;
 
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
@@ -125,17 +124,14 @@ public interface Catalog extends AutoCloseable {
     default List<CatalogTable> getTables(ReadonlyConfig config) throws CatalogException {
         // Get the list of specified tables
         List<String> tableNames = config.get(CatalogOptions.TABLE_NAMES);
-        List<CatalogTable> catalogTables = Collections.synchronizedList(new ArrayList<>());
-        if (CollectionUtils.isNotEmpty(tableNames)) {
-            tableNames
-                    .parallelStream()
-                    .forEach(
-                            tableName -> {
-                                TablePath tablePath = TablePath.of(tableName);
-                                if (this.tableExists(tablePath)) {
-                                    catalogTables.add(this.getTable(tablePath));
-                                }
-                            });
+        List<CatalogTable> catalogTables = new ArrayList<>();
+        if (tableNames != null && !tableNames.isEmpty()) {
+            for (String tableName : tableNames) {
+                TablePath tablePath = TablePath.of(tableName);
+                if (this.tableExists(tablePath)) {
+                    catalogTables.add(this.getTable(tablePath));
+                }
+            }
             return catalogTables;
         }
 
@@ -150,17 +146,11 @@ public interface Catalog extends AutoCloseable {
         allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
         for (String databaseName : allDatabase) {
             tableNames = this.listTables(databaseName);
-            tableNames
-                    .parallelStream()
-                    .forEach(
-                            tableName -> {
-                                if (tablePattern
-                                        .matcher(databaseName + "." + tableName)
-                                        .matches()) {
-                                    catalogTables.add(
-                                            this.getTable(TablePath.of(databaseName, tableName)));
-                                }
-                            });
+            for (String tableName : tableNames) {
+                if (tablePattern.matcher(databaseName + "." + tableName).matches()) {
+                    catalogTables.add(this.getTable(TablePath.of(databaseName, tableName)));
+                }
+            }
         }
         return catalogTables;
     }
