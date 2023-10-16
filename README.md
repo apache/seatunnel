@@ -7,11 +7,6 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/ASFSeaTunnel.svg?label=Follow&logo=twitter)](https://twitter.com/ASFSeaTunnel)
 
 ---
-[![EN doc](https://img.shields.io/badge/document-English-blue.svg)](README.md)
-
-SeaTunnel was formerly named Waterdrop , and renamed SeaTunnel since October 12, 2021.
-
----
 
 SeaTunnel is a next-generation super high-performance, distributed, massive data integration tool. It can synchronize tens of billions of data stably and efficiently every day, and has been used in the production of many companies.
 
@@ -60,6 +55,10 @@ The default engine use by SeaTunnel is [SeaTunnel Engine](seatunnel-engine/READM
 
 ### Here's a list of our connectors with their health status.[connector status](docs/en/Connector-v2-release-state.md)
 
+## Apache SeaTunnel Web Project
+
+SeaTunnel Web is a web project that provides visual management of jobs, scheduling, running and monitoring capabilities. It is developed based on the SeaTunnel Connector API and the SeaTunnel Zeta Engine. It is a web project that can be deployed independently. It is also a sub-project of SeaTunnel.
+For more information, please refer to [SeaTunnel Web](https://github.com/apache/seatunnel-web)
 
 ## Downloads
 
