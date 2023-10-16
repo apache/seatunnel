@@ -275,6 +275,7 @@ The text of each license is the standard Apache 2.0 license.
      (Apache-2.0) listenablefuture (com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava https://mvnrepository.com/artifact/com.google.guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava)
      (Apache-2.0) accessors-smart (com.google.guava:accessors-smart:2.4.7 - https://mvnrepository.com/artifact/net.minidev/accessors-smart)
      (Apache-2.0) json-smart (net.minidev:json-smart:2.4.7 - https://mvnrepository.com/artifact/net.minidev/json-smart)
+     (Apache-2.0) json-path (com.jayway.jsonpath:json-path:2.7.0 - https://mvnrepository.com/artifact/com.jayway.jsonpath/json-path)
 
 ========================================================================
 MOZILLA PUBLIC LICENSE License
