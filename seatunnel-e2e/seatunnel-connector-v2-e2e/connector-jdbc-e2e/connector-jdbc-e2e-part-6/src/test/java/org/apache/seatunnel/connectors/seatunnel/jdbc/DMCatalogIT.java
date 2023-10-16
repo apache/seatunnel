@@ -130,7 +130,7 @@ public class DMCatalogIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
-                .catalogDatabase(DM_DATABASE)
+                .catalogDatabase("DAMENG")
                 .catalogSchema(DM_DATABASE)
                 .catalogTable(CATALOG_TABLE)
                 .build();
@@ -255,7 +255,7 @@ public class DMCatalogIT extends AbstractJdbcIT {
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(jdbcUrl),
-                        DM_USERNAME);
+                        "DAMENG");
         catalog.open();
     }
 }
