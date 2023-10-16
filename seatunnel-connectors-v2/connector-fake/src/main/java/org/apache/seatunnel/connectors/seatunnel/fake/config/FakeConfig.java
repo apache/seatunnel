@@ -20,6 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.fake.config;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
+import org.apache.seatunnel.api.table.catalog.CatalogOptions;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
 
@@ -145,6 +148,8 @@ public class FakeConfig implements Serializable {
     private List<Integer> timeSecondTemplate;
 
     private List<RowData> fakeRows;
+
+    @Builder.Default private List<TableIdentifier> tableIdentifiers = new ArrayList<>();
 
     // todo: use ReadonlyConfig
     public static FakeConfig buildWithConfig(Config config) {
@@ -406,6 +411,14 @@ public class FakeConfig implements Serializable {
         if (config.hasPath(DOUBLE_FAKE_MODE.key())) {
             builder.doubleFakeMode(
                     FakeOption.FakeMode.parse(config.getString(DOUBLE_FAKE_MODE.key())));
+        }
+        if (config.hasPath(CatalogOptions.TABLE_NAMES.key())) {
+            List<String> tableNames = config.getStringList(CatalogOptions.TABLE_NAMES.key());
+            List<TableIdentifier> tableIdentifiers = new ArrayList<>(tableNames.size());
+            for (String tableName : tableNames) {
+                tableIdentifiers.add(TableIdentifier.of("fake", TablePath.of(tableName)));
+            }
+            builder.tableIdentifiers(tableIdentifiers);
         }
         return builder.build();
     }

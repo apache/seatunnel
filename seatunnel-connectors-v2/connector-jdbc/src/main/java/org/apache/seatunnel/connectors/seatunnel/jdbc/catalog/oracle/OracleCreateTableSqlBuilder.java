@@ -91,7 +91,7 @@ public class OracleCreateTableSqlBuilder {
         columnSql.append("\"").append(column.getName()).append("\" ");
 
         String columnType =
-                sourceCatalogName.equals("oracle")
+                StringUtils.equalsIgnoreCase("oracle", sourceCatalogName)
                         ? column.getSourceType()
                         : buildColumnType(column);
         columnSql.append(columnType);

@@ -54,6 +54,7 @@ just for some test cases such as type conversion or connector new feature testin
 | double.min          | double   | no       | 0                       |
 | double.max          | double   | no       | 0x1.fffffffffffffP+1023 |
 | double.template     | list     | no       | -                       |
+| table-names         | list     | no       | -                       |
 | common-options      |          | no       | -                       |
 
 ### schema [config]
@@ -262,6 +263,10 @@ The max value of double data that connector generated
 
 The template list of double type that connector generated, if user configured it, connector will randomly select an item from the template list
 
+### table-names
+
+The table list that connector generated, used to simulate multi-table scenarios
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
@@ -407,6 +412,25 @@ FakeSource {
   float.max = 43.0
   double.min = 44.0
   double.max = 47.0
+  schema {
+    fields {
+      c_string = string
+      c_tinyint = tinyint
+      c_smallint = smallint
+      c_int = int
+      c_bigint = bigint
+      c_float = float
+      c_double = double
+    }
+  }
+}
+```
+
+Use table-names
+
+```hocon
+FakeSource {
+  table-names = ["test.table1", "test.table2"]
   schema {
     fields {
       c_string = string
