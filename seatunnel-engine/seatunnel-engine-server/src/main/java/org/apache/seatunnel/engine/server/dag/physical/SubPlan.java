@@ -609,11 +609,6 @@ public class SubPlan {
                 updatePipelineState(PipelineStatus.RUNNING);
                 break;
             case RUNNING:
-                try {
-                    Thread.sleep(200);
-                } catch (InterruptedException e) {
-                    makePipelineFailing(e);
-                }
                 break;
             case FAILING:
             case CANCELING:

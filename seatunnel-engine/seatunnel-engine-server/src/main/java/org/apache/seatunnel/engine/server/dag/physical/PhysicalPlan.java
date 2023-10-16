@@ -300,11 +300,6 @@ public class PhysicalPlan {
                 updateJobState(JobStatus.RUNNING);
                 break;
             case RUNNING:
-                try {
-                    Thread.sleep(200);
-                } catch (InterruptedException e) {
-                    makeJobFailing(e);
-                }
                 break;
             case FAILING:
             case CANCELING:

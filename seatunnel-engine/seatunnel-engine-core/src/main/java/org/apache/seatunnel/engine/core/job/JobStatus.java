@@ -29,7 +29,10 @@ public enum JobStatus {
     /** Job is newly created, no task has started to run. */
     CREATED(EndState.NOT_END),
 
-    /** Job will scheduler every pipeline */
+    /**
+     * Job will scheduler every pipeline, each PhysicalVertex in the pipeline will be scheduler and
+     * deploying
+     */
     SCHEDULED(EndState.NOT_END),
 
     /** The job is already running, and each pipeline is already running. */
