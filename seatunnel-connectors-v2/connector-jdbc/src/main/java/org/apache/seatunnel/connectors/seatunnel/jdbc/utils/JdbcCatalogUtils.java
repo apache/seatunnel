@@ -203,7 +203,17 @@ public class JdbcCatalogUtils {
                                                     .getDataType()
                                                     .equals(columnsOfQuery.get(key).getDataType()));
             if (schemaEquals) {
-                return tableOfPath;
+                return CatalogTable.of(
+                        tableOfPath.getTableId(),
+                        TableSchema.builder()
+                                .primaryKey(tableSchemaOfPath.getPrimaryKey())
+                                .constraintKey(tableSchemaOfPath.getConstraintKeys())
+                                .columns(tableSchemaOfQuery.getColumns())
+                                .build(),
+                        tableOfPath.getOptions(),
+                        tableOfPath.getPartitionKeys(),
+                        tableOfPath.getComment(),
+                        tableOfPath.getCatalogName());
             }
         }
 
