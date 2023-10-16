@@ -118,7 +118,7 @@ public class JdbcSink
                         config.get(JdbcOptions.FIELD_IDE) == null
                                 ? null
                                 : config.get(JdbcOptions.FIELD_IDE).getValue());
-        this.dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
+        this.dataSaveMode = DataSaveMode.AND_DATA;
     }
 
     @Override

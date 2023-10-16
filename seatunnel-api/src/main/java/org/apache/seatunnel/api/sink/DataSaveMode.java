@@ -23,10 +23,10 @@ package org.apache.seatunnel.api.sink;
 public enum DataSaveMode {
 
     // Preserve database structure and delete data
-    KEEP_SCHEMA_DROP_DATA,
+    DROP_DATA,
 
     // Preserve database structure, preserve data
-    KEEP_SCHEMA_AND_DATA,
+    AND_DATA,
 
     // User defined processing
     CUSTOM_PROCESSING,

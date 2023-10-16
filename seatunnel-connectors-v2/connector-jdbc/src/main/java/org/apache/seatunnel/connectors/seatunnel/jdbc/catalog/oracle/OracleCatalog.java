@@ -164,7 +164,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getSelectColumnsSql(TablePath tablePath) {
         return String.format(
-                SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(), tablePath.getTableName());
+                SELECT_COLUMNS_SQL, tablePath.getSchemaName(), tablePath.getTableName());
     }
 
     @Override

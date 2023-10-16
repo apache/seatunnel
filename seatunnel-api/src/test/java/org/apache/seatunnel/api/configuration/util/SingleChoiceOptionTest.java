@@ -39,10 +39,8 @@ public class SingleChoiceOptionTest {
 
         Option<DataSaveMode> saveModeOption =
                 Options.key("save_mode")
-                        .singleChoice(
-                                DataSaveMode.class,
-                                Arrays.asList(DataSaveMode.KEEP_SCHEMA_DROP_DATA))
-                        .defaultValue(DataSaveMode.KEEP_SCHEMA_DROP_DATA)
+                        .singleChoice(DataSaveMode.class, Arrays.asList(DataSaveMode.DROP_DATA))
+                        .defaultValue(DataSaveMode.DROP_DATA)
                         .withDescription("save mode test");
 
         OptionRule build = OptionRule.builder().optional(stringOption, saveModeOption).build();
@@ -56,7 +54,6 @@ public class SingleChoiceOptionTest {
         option = optionalOptions.get(1);
         singleChoiceOption = (SingleChoiceOption) option;
         Assertions.assertEquals(1, singleChoiceOption.getOptionValues().size());
-        Assertions.assertEquals(
-                DataSaveMode.KEEP_SCHEMA_DROP_DATA, singleChoiceOption.defaultValue());
+        Assertions.assertEquals(DataSaveMode.DROP_DATA, singleChoiceOption.defaultValue());
     }
 }
