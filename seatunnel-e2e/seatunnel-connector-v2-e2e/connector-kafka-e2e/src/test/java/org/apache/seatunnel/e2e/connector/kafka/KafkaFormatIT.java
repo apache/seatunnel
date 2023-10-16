@@ -89,9 +89,9 @@ import static org.awaitility.Awaitility.given;
         value = {},
         type = {EngineType.SPARK},
         disabledReason = "Spark engine will lose the row kind of record")
-public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
+public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
-    private static final Logger LOG = LoggerFactory.getLogger(FormatToKafkaIT.class);
+    private static final Logger LOG = LoggerFactory.getLogger(KafkaFormatIT.class);
 
     // ---------------------------Ogg Format Parameter---------------------------------------
     private static final String OGG_DATA_PATH = "/ogg/ogg_data.txt";
@@ -624,7 +624,7 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
         KafkaProducer<String, String> producer = new KafkaProducer<>(props);
         for (String localPath : LOCAL_DATA_TO_KAFKA_MAPPING.keySet()) {
             String kafkaTopic = LOCAL_DATA_TO_KAFKA_MAPPING.get(localPath);
-            InputStream inputStream = FormatToKafkaIT.class.getResourceAsStream(localPath);
+            InputStream inputStream = KafkaFormatIT.class.getResourceAsStream(localPath);
             if (inputStream != null) {
                 try (BufferedReader br = new BufferedReader(new InputStreamReader(inputStream))) {
                     String line;
