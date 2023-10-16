@@ -33,7 +33,6 @@
         <httpclient.version>4.5.13</httpclient.version>
         <httpcore.version>4.4.4</httpcore.version>
         <guava-retrying.version>2.0.0</guava-retrying.version>
-        <json-path.version>2.7.0</json-path.version>
     </properties>
 
     <dependencies>

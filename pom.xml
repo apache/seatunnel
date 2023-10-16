@@ -128,7 +128,7 @@
         <testcontainer.version>1.17.6</testcontainer.version>
         <spotless.version>2.29.0</spotless.version>
         <jsqlparser.version>4.5</jsqlparser.version>
-        <jsonpath.version>2.8.0</jsonpath.version>
+        <json-path.version>2.7.0</json-path.version>
         <!-- Option args -->
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
