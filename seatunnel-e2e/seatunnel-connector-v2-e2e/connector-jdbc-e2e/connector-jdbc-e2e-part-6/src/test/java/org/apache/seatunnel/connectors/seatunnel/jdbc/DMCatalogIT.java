@@ -238,6 +238,7 @@ public class DMCatalogIT extends AbstractJdbcIT {
                                 MountableFile.forClasspathResource("sql/dm_init.sql"),
                                 "/container-entrypoint-startdb.d/init.sql")
                         .withNetworkAliases(DM_CONTAINER_HOST)
+                        .withExposedPorts(DM_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 5236, 5236)));

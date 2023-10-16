@@ -15,9 +15,6 @@
 -- limitations under the License.
 --
 
--- Alter session set container
-ALTER SESSION SET CONTAINER = TESTUSER;
-
 -- Create user
 CREATE USER TESTUSER IDENTIFIED BY testPassword;
 
