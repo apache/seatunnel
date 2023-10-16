@@ -130,7 +130,6 @@ public class DMCatalogIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
-                .catalogTable(CATALOG_TABLE)
                 .catalogDatabase(DM_DATABASE)
                 .catalogSchema(DM_DATABASE)
                 .catalogTable(CATALOG_TABLE)
