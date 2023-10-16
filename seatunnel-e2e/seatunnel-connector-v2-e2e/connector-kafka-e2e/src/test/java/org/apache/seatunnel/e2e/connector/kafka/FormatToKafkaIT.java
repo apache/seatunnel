@@ -103,6 +103,10 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
     private static final String CANAL_KAFKA_SINK_TOPIC = "test-canal-sink";
     private static final String CANAL_MYSQL_DATABASE = "canal";
 
+    // ---------------------------Compatible Format Parameter---------------------------------------
+    private static final String COMPATIBLE_DATA_PATH = "/compatible/compatible_data.txt";
+    private static final String COMPATIBLE_KAFKA_SINK_TOPIC = "jdbc_source_record";
+
     // Used to map local data paths to kafa topics that need to be written to kafka
     private static LinkedHashMap<String, String> LOCAL_DATA_TO_KAFKA_MAPPING;
 
@@ -111,6 +115,7 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
                 new LinkedHashMap<String, String>() {
                     {
                         put(OGG_DATA_PATH, OGG_KAFKA_SOURCE_TOPIC);
+                        put(COMPATIBLE_DATA_PATH, COMPATIBLE_KAFKA_SINK_TOPIC);
                     }
                 };
     }
@@ -333,9 +338,10 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
         Assertions.assertEquals(
                 0, execCanalResultKafka.getExitCode(), execCanalResultKafka.getStderr());
-        Container.ExecResult execResult =
+        Container.ExecResult execCanalResultToPgSql =
                 container.executeJob("/canalFormatIT/kafka_source_canal_cdc_to_pgsql.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        Assertions.assertEquals(
+                0, execCanalResultToPgSql.getExitCode(), execCanalResultToPgSql.getStderr());
         // Check Canal
         checkCanalFormat();
 
@@ -355,52 +361,27 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
 
         LOG.info("======================  Check debezium ====================== ");
         Container.ExecResult execDebeziumResultKafka =
-                container.executeJob("/kafkasource_debezium_to_kafka.conf");
+                container.executeJob("/debeziumFormatIT/kafkasource_debezium_to_kafka.conf");
         Assertions.assertEquals(
                 0, execDebeziumResultKafka.getExitCode(), execDebeziumResultKafka.getStderr());
 
         Container.ExecResult execDebeziumResultToPgSql =
-                container.executeJob("/kafkasource_debezium_cdc_to_pgsql.conf");
+                container.executeJob("/debeziumFormatIT/kafkasource_debezium_cdc_to_pgsql.conf");
         Assertions.assertEquals(
                 0, execDebeziumResultToPgSql.getExitCode(), execDebeziumResultToPgSql.getStderr());
-
+        // Check debezium
         checkDebeziumFormat();
-    }
 
-    private void checkDebeziumFormat() {
-        ArrayList<String> result = new ArrayList<>();
-        kafkaConsumer.subscribe(Lists.newArrayList(DEBEZIUM_KAFKA_TOPIC));
-        Awaitility.await()
-                .atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            ConsumerRecords<String, String> consumerRecords =
-                                    kafkaConsumer.poll(Duration.ofMillis(1000));
-                            for (ConsumerRecord<String, String> record : consumerRecords) {
-                                result.add(record.value());
-                            }
-                            Assertions.assertEquals(12, result.size());
-                        });
-        LOG.info(
-                "==================== start kafka debezium format to pg check ====================");
-        Set<List<Object>> actual = getPostgreSinkTableList();
-        Set<List<Object>> expected =
-                Stream.<List<Object>>of(
-                                Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
-                                Arrays.asList(102, "car battery", "12V car battery", "8.1"),
-                                Arrays.asList(
-                                        103,
-                                        "12-pack drill bits",
-                                        "12-pack of drill bits with sizes ranging from #40 to #3",
-                                        "0.8"),
-                                Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
-                                Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
-                                Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1"),
-                                Arrays.asList(107, "rocks", "box of assorted rocks", "5.3"),
-                                Arrays.asList(
-                                        108, "jacket", "water resistent black wind breaker", "0.1"))
-                        .collect(Collectors.toSet());
-        Assertions.assertIterableEquals(expected, actual);
+        LOG.info("======================  Check Compatible ====================== ");
+        Container.ExecResult execCompatibleResultToPgSql =
+                container.executeJob("/compatibleFormatIT/kafkasource_jdbc_record_to_pgsql.conf");
+        Assertions.assertEquals(
+                0,
+                execCompatibleResultToPgSql.getExitCode(),
+                execCompatibleResultToPgSql.getStderr());
+
+        // Check Compatible
+        checkCompatibleFormat();
     }
 
     public void checkCanalFormat() {
@@ -540,6 +521,55 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertIterableEquals(postgresqlEexpectedResult, checkArraysResult);
     }
 
+    private void checkDebeziumFormat() {
+        ArrayList<String> result = new ArrayList<>();
+        kafkaConsumer.subscribe(Lists.newArrayList(DEBEZIUM_KAFKA_TOPIC));
+        Awaitility.await()
+                .atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            ConsumerRecords<String, String> consumerRecords =
+                                    kafkaConsumer.poll(Duration.ofMillis(1000));
+                            for (ConsumerRecord<String, String> record : consumerRecords) {
+                                result.add(record.value());
+                            }
+                            Assertions.assertEquals(12, result.size());
+                        });
+        LOG.info(
+                "==================== start kafka debezium format to pg check ====================");
+        Set<List<Object>> actual = getPostgreSinkTableList();
+        Set<List<Object>> expected =
+                Stream.<List<Object>>of(
+                                Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
+                                Arrays.asList(102, "car battery", "12V car battery", "8.1"),
+                                Arrays.asList(
+                                        103,
+                                        "12-pack drill bits",
+                                        "12-pack of drill bits with sizes ranging from #40 to #3",
+                                        "0.8"),
+                                Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
+                                Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
+                                Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1"),
+                                Arrays.asList(107, "rocks", "box of assorted rocks", "5.3"),
+                                Arrays.asList(
+                                        108, "jacket", "water resistent black wind breaker", "0.1"))
+                        .collect(Collectors.toSet());
+        Assertions.assertIterableEquals(expected, actual);
+    }
+
+    private void checkCompatibleFormat() {
+        LOG.info(
+                "==================== start kafka Compatible format to pg check ====================");
+        Set<List<Object>> actual = getPostgreSinkTableList();
+        Set<List<Object>> expected =
+                Stream.<List<Object>>of(
+                                Arrays.asList(15, "test", "test", "20"),
+                                Arrays.asList(16, "test-001", "test", "30"),
+                                Arrays.asList(18, "sdc", "sdc", "sdc"))
+                        .collect(Collectors.toSet());
+        Assertions.assertIterableEquals(expected, actual);
+    }
+
     // Initialize the kafka Consumer
     private void initKafkaConsumer() {
         Properties prop = new Properties();
@@ -582,12 +612,10 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
     private void initOggDataToKafka() {
         String bootstrapServers = KAFKA_CONTAINER.getBootstrapServers();
         Properties props = new Properties();
-        int batchSize = 16;
 
         props.put("bootstrap.servers", bootstrapServers);
         props.put("acks", "all");
         props.put("retries", 0);
-        props.put("batch.size", batchSize);
         props.put("linger.ms", 1);
         props.put("buffer.memory", 33554432);
         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
