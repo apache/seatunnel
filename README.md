@@ -53,12 +53,7 @@ The default engine use by SeaTunnel is [SeaTunnel Engine](seatunnel-engine/READM
 
 - Transform supported [check out](docs/en/transform-v2)
 
-### Here's a list of our connectors with their health status.[connector status](docs/en/Connector-v2-release-state.md)
-
-## Apache SeaTunnel Web Project
-
-SeaTunnel Web is a web project that provides visual management of jobs, scheduling, running and monitoring capabilities. It is developed based on the SeaTunnel Connector API and the SeaTunnel Zeta Engine. It is a web project that can be deployed independently. It is also a sub-project of SeaTunnel.
-For more information, please refer to [SeaTunnel Web](https://github.com/apache/seatunnel-web)
+### Here's a list of our connectors with their health status.[Connector status](docs/en/Connector-v2-release-state.md)
 
 ## Downloads
 
@@ -102,6 +97,11 @@ SeaTunnel provides real-time streaming and offline SQL computing of e-commerce u
 new retail brand of Yonghui Yunchuang Technology.
 
 For more use cases, please refer to: https://seatunnel.apache.org/blog
+
+## Apache SeaTunnel Web Project
+
+SeaTunnel Web is a web project that provides visual management of jobs, scheduling, running and monitoring capabilities. It is developed based on the SeaTunnel Connector API and the SeaTunnel Zeta Engine. It is a web project that can be deployed independently. It is also a sub-project of SeaTunnel.
+For more information, please refer to [SeaTunnel Web](https://github.com/apache/seatunnel-web)
 
 ## Code of conduct
 
