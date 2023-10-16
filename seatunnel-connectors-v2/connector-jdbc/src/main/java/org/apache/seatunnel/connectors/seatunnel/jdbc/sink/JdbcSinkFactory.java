@@ -150,8 +150,10 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         sinkConfig.getJdbcConnectionConfig().getUrl(),
                         sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
                         fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
-        dialect.defaultParameter()
-                .forEach(sinkConfig.getJdbcConnectionConfig().getInfo()::putIfAbsent);
+        dialect.connectionUrlParse(
+                sinkConfig.getJdbcConnectionConfig().getUrl(),
+                sinkConfig.getJdbcConnectionConfig().getInfo(),
+                dialect.defaultParameter());
         CatalogTable finalCatalogTable = catalogTable;
         return () ->
                 new JdbcSink(

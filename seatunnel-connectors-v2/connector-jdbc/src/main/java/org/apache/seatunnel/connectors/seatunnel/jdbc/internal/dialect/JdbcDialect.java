@@ -246,4 +246,14 @@ public interface JdbcDialect extends Serializable {
     default Map<String, String> defaultParameter() {
         return new HashMap<>();
     }
+
+    default void connectionUrlParse(
+            String url, Map<String, String> info, Map<String, String> defaultParameter) {
+        defaultParameter.forEach(
+                (key, value) -> {
+                    if (!url.contains(key) && !info.containsKey(key)) {
+                        info.put(key, value);
+                    }
+                });
+    }
 }

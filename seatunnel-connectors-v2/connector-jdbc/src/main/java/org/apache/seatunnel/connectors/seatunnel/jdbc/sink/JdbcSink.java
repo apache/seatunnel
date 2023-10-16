@@ -114,9 +114,10 @@ public class JdbcSink
                         config.get(JdbcOptions.FIELD_IDE) == null
                                 ? null
                                 : config.get(JdbcOptions.FIELD_IDE).getValue());
-        this.dialect
-                .defaultParameter()
-                .forEach(this.jdbcSinkConfig.getJdbcConnectionConfig().getInfo()::putIfAbsent);
+        this.dialect.connectionUrlParse(
+                jdbcSinkConfig.getJdbcConnectionConfig().getUrl(),
+                jdbcSinkConfig.getJdbcConnectionConfig().getInfo(),
+                this.dialect.defaultParameter());
         this.dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
     }
 

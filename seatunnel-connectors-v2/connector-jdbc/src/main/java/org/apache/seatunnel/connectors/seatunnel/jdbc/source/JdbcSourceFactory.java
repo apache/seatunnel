@@ -89,6 +89,10 @@ public class JdbcSourceFactory implements TableSourceFactory {
                 JdbcDialectLoader.load(
                         config.getJdbcConnectionConfig().getUrl(),
                         config.getJdbcConnectionConfig().getCompatibleMode());
+        dialect.connectionUrlParse(
+                config.getJdbcConnectionConfig().getUrl(),
+                config.getJdbcConnectionConfig().getInfo(),
+                dialect.defaultParameter());
         JdbcConnectionProvider connectionProvider =
                 new SimpleJdbcConnectionProvider(config.getJdbcConnectionConfig());
 

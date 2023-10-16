@@ -101,9 +101,10 @@ public class JdbcSource
                 JdbcDialectLoader.load(
                         jdbcSourceConfig.getJdbcConnectionConfig().getUrl(),
                         jdbcSourceConfig.getJdbcConnectionConfig().getCompatibleMode());
-        this.jdbcDialect
-                .defaultParameter()
-                .forEach(this.jdbcSourceConfig.getJdbcConnectionConfig().getInfo()::putIfAbsent);
+        this.jdbcDialect.connectionUrlParse(
+                jdbcSourceConfig.getJdbcConnectionConfig().getUrl(),
+                jdbcSourceConfig.getJdbcConnectionConfig().getInfo(),
+                this.jdbcDialect.defaultParameter());
         this.jdbcConnectionProvider =
                 new SimpleJdbcConnectionProvider(jdbcSourceConfig.getJdbcConnectionConfig());
         this.query = jdbcSourceConfig.getQuery();
