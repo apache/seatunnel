@@ -300,6 +300,13 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
         inventoryDatabase.createAndInitialize();
         LOG.info("end init Mysql DDl...");
 
+        // local file ogg data send kafka
+        given().ignoreExceptions()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(3, TimeUnit.MINUTES)
+                .untilAsserted(this::initOggDataToKafka);
+
         // debezium configuration information
         Container.ExecResult extraCommand =
                 DEBEZIUM_CONTAINER.execInContainer(
@@ -309,22 +316,14 @@ public class FormatToKafkaIT extends TestSuiteBase implements TestResource {
                                 + getLinuxLocalIp()
                                 + ":8083/connectors/ -d @register-mysql.json");
         Assertions.assertEquals(0, extraCommand.getExitCode());
-
-        // local file ogg data send kafka
-        given().ignoreExceptions()
-                .atLeast(100, TimeUnit.MILLISECONDS)
-                .pollInterval(500, TimeUnit.MILLISECONDS)
-                .atMost(3, TimeUnit.MINUTES)
-                .untilAsserted(this::initOggDataToKafka);
-
         // ensure debezium has handled the data
+        Thread.sleep(40 * 1000);
         Awaitility.given()
                 .ignoreExceptions()
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(3, TimeUnit.MINUTES)
                 .untilAsserted(this::updateDebeziumSourceTableData);
-        Thread.sleep(30 * 1000);
     }
 
     @TestTemplate
