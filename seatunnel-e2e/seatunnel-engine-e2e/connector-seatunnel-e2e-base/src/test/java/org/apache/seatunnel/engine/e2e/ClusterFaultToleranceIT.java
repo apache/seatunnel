@@ -459,8 +459,8 @@ public class ClusterFaultToleranceIT {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
                                 log.warn(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()) + "");
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                + "");
                                 Assertions.assertTrue(
                                         JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
                                                 && testRowNumber * testParallelism
