@@ -142,7 +142,7 @@ public class JdbcConnectionConfig implements Serializable {
         private String xaDataSourceClassName;
         private int maxCommitAttempts = JdbcOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
         private int transactionTimeoutSec = JdbcOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
-        private Map<String, String> info;
+        private Map<String, String> properties;
 
         private Builder() {}
 
@@ -211,8 +211,8 @@ public class JdbcConnectionConfig implements Serializable {
             return this;
         }
 
-        public Builder properties(Map<String, String> info) {
-            this.info = info;
+        public Builder properties(Map<String, String> properties) {
+            this.properties = properties;
             return this;
         }
 
@@ -230,7 +230,8 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.transactionTimeoutSec = this.transactionTimeoutSec;
             jdbcConnectionConfig.maxCommitAttempts = this.maxCommitAttempts;
             jdbcConnectionConfig.xaDataSourceClassName = this.xaDataSourceClassName;
-            jdbcConnectionConfig.properties = this.info == null ? new HashMap<>() : this.info;
+            jdbcConnectionConfig.properties =
+                    this.properties == null ? new HashMap<>() : this.properties;
             return jdbcConnectionConfig;
         }
     }
