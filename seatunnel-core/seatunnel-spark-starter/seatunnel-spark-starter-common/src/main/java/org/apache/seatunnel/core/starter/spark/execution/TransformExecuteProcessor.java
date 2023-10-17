@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
@@ -43,13 +44,13 @@ import org.apache.spark.sql.types.StructType;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
@@ -127,33 +128,25 @@ public class TransformExecuteProcessor
         return upstreamDataStreams;
     }
 
-    private Dataset<Row> sparkTransform(SeaTunnelTransform transform, Dataset<Row> stream)
-            throws IOException {
+    private Dataset<Row> sparkTransform(SeaTunnelTransform transform, Dataset<Row> stream) {
         SeaTunnelDataType<?> seaTunnelDataType = TypeConverterUtils.convert(stream.schema());
-        transform.setTypeInfo(seaTunnelDataType);
-        StructType structType =
-                (StructType) TypeConverterUtils.convert(transform.getProducedType());
+        SeaTunnelRowType transformRowType =
+                transform.getProducedCatalogTable().getSeaTunnelRowType();
+        StructType structType = (StructType) TypeConverterUtils.convert(transformRowType);
         SeaTunnelRowConverter inputRowConverter = new SeaTunnelRowConverter(seaTunnelDataType);
-        SeaTunnelRowConverter outputRowConverter =
-                new SeaTunnelRowConverter(transform.getProducedType());
+        SeaTunnelRowConverter outputRowConverter = new SeaTunnelRowConverter(transformRowType);
         ExpressionEncoder<Row> encoder = RowEncoder.apply(structType);
         return stream.mapPartitions(
                         (MapPartitionsFunction<Row, Row>)
-                                (Iterator<Row> rowIterator) -> {
-                                    TransformIterator iterator =
-                                            new TransformIterator(
-                                                    rowIterator,
-                                                    transform,
-                                                    structType,
-                                                    inputRowConverter,
-                                                    outputRowConverter);
-                                    return iterator;
-                                },
+                                (Iterator<Row> rowIterator) ->
+                                        new TransformIterator(
+                                                rowIterator,
+                                                transform,
+                                                structType,
+                                                inputRowConverter,
+                                                outputRowConverter),
                         encoder)
-                .filter(
-                        (Row row) -> {
-                            return row != null;
-                        });
+                .filter(Objects::nonNull);
     }
 
     private static class TransformIterator implements Iterator<Row>, Serializable {
