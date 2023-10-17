@@ -133,6 +133,7 @@ public class DMCatalogIT extends AbstractJdbcIT {
                 .userName(DM_USERNAME)
                 .password(DM_PASSWORD)
                 .database(DM_DATABASE)
+                .schema(DM_DATABASE)
                 .sourceTable(DM_SOURCE)
                 .sinkTable(DM_SINK)
                 .createSql(CREATE_SQL)
