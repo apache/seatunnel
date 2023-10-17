@@ -37,3 +37,5 @@ jsr305-3.0.2.jar
 listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar
 json-path-2.7.0.jar
 json-smart-2.4.7.jar
+accessors-smart-2.4.7.jar
+asm-9.1.jar
