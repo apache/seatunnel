@@ -66,47 +66,6 @@ public class CatalogTableUtil implements Serializable {
                 "It is converted from RowType and only has column information.");
     }
 
-    // TODO remove this method after https://github.com/apache/seatunnel/issues/5483 done.
-    @Deprecated
-    public static List<CatalogTable> getCatalogTables(Config config, ClassLoader classLoader) {
-        // Highest priority: specified schema
-        if (config.hasPath(TableSchemaOptions.SCHEMA.key())) {
-            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
-            return Collections.singletonList(catalogTable);
-        }
-
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
-        Map<String, String> catalogOptions =
-                readonlyConfig.getOptional(CatalogOptions.CATALOG_OPTIONS).orElse(new HashMap<>());
-
-        Map<String, Object> catalogAllOptions = new HashMap<>();
-        catalogAllOptions.putAll(readonlyConfig.toMap());
-        catalogAllOptions.putAll(catalogOptions);
-        ReadonlyConfig catalogConfig = ReadonlyConfig.fromMap(catalogAllOptions);
-
-        Optional<Catalog> optionalCatalog =
-                FactoryUtil.createOptionalCatalog(
-                        catalogConfig.get(CatalogOptions.NAME),
-                        catalogConfig,
-                        classLoader,
-                        catalogConfig.get(CommonOptions.FACTORY_ID));
-        return optionalCatalog
-                .map(
-                        c -> {
-                            long startTime = System.currentTimeMillis();
-                            try (Catalog catalog = c) {
-                                catalog.open();
-                                List<CatalogTable> catalogTables = catalog.getTables(catalogConfig);
-                                log.info(
-                                        String.format(
-                                                "Get catalog tables, cost time: %d ms",
-                                                System.currentTimeMillis() - startTime));
-                                return catalogTables;
-                            }
-                        })
-                .orElse(Collections.emptyList());
-    }
-
     /**
      * Get catalog table from config, if schema is specified, return a catalog table with specified
      * schema, otherwise, return a catalog table with schema from catalog.
@@ -118,16 +77,16 @@ public class CatalogTableUtil implements Serializable {
      *     </a>
      */
     @Deprecated
-    public static List<CatalogTable> getCatalogTablesFromConfig(
+    public static List<CatalogTable> getCatalogTables(
             ReadonlyConfig readonlyConfig, ClassLoader classLoader) {
 
         // We use plugin_name as factoryId, so MySQL-CDC should be MySQL
         String factoryId = readonlyConfig.get(CommonOptions.PLUGIN_NAME).replace("-CDC", "");
-        return getCatalogTablesFromConfig(factoryId, readonlyConfig, classLoader);
+        return getCatalogTables(factoryId, readonlyConfig, classLoader);
     }
 
     @Deprecated
-    public static List<CatalogTable> getCatalogTablesFromConfig(
+    public static List<CatalogTable> getCatalogTables(
             String factoryId, ReadonlyConfig readonlyConfig, ClassLoader classLoader) {
         // Highest priority: specified schema
         Map<String, Object> schemaMap = readonlyConfig.get(TableSchemaOptions.SCHEMA);

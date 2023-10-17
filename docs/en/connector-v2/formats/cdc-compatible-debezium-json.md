@@ -21,9 +21,6 @@ source {
 
     base-url="jdbc:mysql://localhost:3306/test"
     "startup.mode"=INITIAL
-    catalog {
-        factory=MySQL
-    }
     table-names=[
         "database1.t1",
         "database1.t2",
