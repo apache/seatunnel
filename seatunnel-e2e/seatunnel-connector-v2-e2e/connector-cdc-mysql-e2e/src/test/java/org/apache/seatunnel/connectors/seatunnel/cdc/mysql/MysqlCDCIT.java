@@ -90,7 +90,7 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String SOURCE_TABLE_1 = "mysql_cdc_e2e_source_table";
     private static final String SOURCE_TABLE_2 = "mysql_cdc_e2e_source_table2";
-    private static final String SINK_TABLE = "truncate table mysql_cdc_e2e_sink_table";
+    private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table";
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         return new MySqlContainer(version)
