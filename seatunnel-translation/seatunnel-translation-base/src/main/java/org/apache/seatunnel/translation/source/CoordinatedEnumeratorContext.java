@@ -53,7 +53,7 @@ public class CoordinatedEnumeratorContext<SplitT extends SourceSplit>
 
     @Override
     public void signalNoMoreSplits(int subtaskId) {
-        /* Notifies the current Task that the reader has not split to close the currently running Task */
+        /* Notify the reader that there are no unassigned splits left */
         coordinatedSource.handleNoMoreSplits(subtaskId);
     }
 
