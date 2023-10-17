@@ -24,11 +24,13 @@ import com.hazelcast.config.YamlConfigBuilder;
 import com.hazelcast.internal.config.YamlConfigLocator;
 import lombok.NonNull;
 
+import java.io.ByteArrayInputStream;
 import java.util.Properties;
 
 import static com.hazelcast.internal.config.DeclarativeConfigUtil.SYSPROP_CLIENT_CONFIG;
 import static com.hazelcast.internal.config.DeclarativeConfigUtil.SYSPROP_MEMBER_CONFIG;
 import static com.hazelcast.internal.config.DeclarativeConfigUtil.validateSuffixInSystemProperty;
+import static com.hazelcast.internal.util.StringUtil.isNullOrEmptyAfterTrim;
 
 /**
  * Locates and loads SeaTunnel or SeaTunnel Client configurations from various locations.
@@ -69,6 +71,27 @@ public final class ConfigProvider {
                             .setProperties(properties)
                             .build();
         }
+        return config;
+    }
+
+    public static SeaTunnelConfig locateAndGetSeaTunnelConfigFromString(String source) {
+        return locateAndGetSeaTunnelConfigFromString(source, null);
+    }
+
+    @NonNull public static SeaTunnelConfig locateAndGetSeaTunnelConfigFromString(
+            String source, Properties properties) {
+        SeaTunnelConfig config;
+        if (isNullOrEmptyAfterTrim(source)) {
+            throw new IllegalArgumentException(
+                    "provided string configuration is null or empty! "
+                            + "Please use a well-structured content.");
+        }
+        byte[] bytes = source.getBytes();
+        // Try loading YAML config from the source Text String
+        config =
+                new YamlSeaTunnelConfigBuilder(new ByteArrayInputStream(bytes))
+                        .setProperties(properties)
+                        .build();
         return config;
     }
 
