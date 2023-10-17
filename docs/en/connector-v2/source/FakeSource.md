@@ -2,14 +2,10 @@
 
 > FakeSource connector
 
-## Support Connector Version
-
-- All versions
-
 ## Description
 
-The FakeSource is a virtual data source, which randomly generates the number of rows according to the data structure of
-the user-defined schema, just for some test cases such as type conversion or connector new feature testing
+The FakeSource is a virtual data source, which randomly generates the number of rows according to the data structure of the user-defined schema,
+just for some test cases such as type conversion or connector new feature testing
 
 ## Key features
 
@@ -296,6 +292,25 @@ FakeSource {
   float.max = 43.0
   double.min = 44.0
   double.max = 47.0
+  schema {
+    fields {
+      c_string = string
+      c_tinyint = tinyint
+      c_smallint = smallint
+      c_int = int
+      c_bigint = bigint
+      c_float = float
+      c_double = double
+    }
+  }
+}
+```
+
+### Use table-names
+
+```hocon
+FakeSource {
+  table-names = ["test.table1", "test.table2"]
   schema {
     fields {
       c_string = string

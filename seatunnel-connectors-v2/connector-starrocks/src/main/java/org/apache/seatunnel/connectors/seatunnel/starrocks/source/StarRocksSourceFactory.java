@@ -19,13 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
 
 import com.google.auto.service.AutoService;
-
-import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA;
 
 @AutoService(Factory.class)
 public class StarRocksSourceFactory implements TableSourceFactory {
@@ -43,7 +42,7 @@ public class StarRocksSourceFactory implements TableSourceFactory {
                         SourceConfig.PASSWORD,
                         SourceConfig.DATABASE,
                         SourceConfig.TABLE,
-                        SCHEMA)
+                        TableSchemaOptions.SCHEMA)
                 .optional(
                         SourceConfig.MAX_RETRIES,
                         SourceConfig.QUERY_TABLET_SIZE,
