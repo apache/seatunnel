@@ -238,13 +238,11 @@ public class OracleCatalog extends AbstractJdbcCatalog {
 
     public String getCountSql(TablePath tablePath) {
         return String.format(
-                "select * from %s.%s WHERE ROWNUM=1 ",
-                tablePath.getSchemaName(), tablePath.getTableName());
+                "select * from %s WHERE ROWNUM=1 ", tablePath.getSchemaAndTableName("\""));
     }
 
     @Override
     protected String getTruncateTableSql(TablePath tablePath) throws CatalogException {
-        return String.format(
-                "TRUNCATE TABLE %s.%s", tablePath.getSchemaName(), tablePath.getTableName());
+        return String.format("TRUNCATE TABLE %s", tablePath.getSchemaAndTableName("\""));
     }
 }
