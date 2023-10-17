@@ -491,7 +491,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     }
 
     @NotNull private Map<String, Object> getMap() {
-        HashMap<String, Object> map = new HashMap<>();
+        Map<String, Object> map = new HashMap<>();
         map.put("driver", "com.mysql.cj.jdbc.Driver");
         map.put("user", MYSQL_USERNAME);
         map.put("password", MYSQL_PASSWORD);

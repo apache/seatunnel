@@ -47,7 +47,7 @@ public class JdbcConnectionConfig implements Serializable {
 
     public int transactionTimeoutSec = JdbcOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
 
-    private Map<String, String> info;
+    private Map<String, String> properties;
 
     public static JdbcConnectionConfig of(ReadonlyConfig config) {
         JdbcConnectionConfig.Builder builder = JdbcConnectionConfig.builder();
@@ -119,8 +119,8 @@ public class JdbcConnectionConfig implements Serializable {
         return transactionTimeoutSec < 0 ? Optional.empty() : Optional.of(transactionTimeoutSec);
     }
 
-    public Map<String, String> getInfo() {
-        return info;
+    public Map<String, String> getProperties() {
+        return properties;
     }
 
     public static JdbcConnectionConfig.Builder builder() {
@@ -230,7 +230,7 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.transactionTimeoutSec = this.transactionTimeoutSec;
             jdbcConnectionConfig.maxCommitAttempts = this.maxCommitAttempts;
             jdbcConnectionConfig.xaDataSourceClassName = this.xaDataSourceClassName;
-            jdbcConnectionConfig.info = this.info == null ? new HashMap<>() : this.info;
+            jdbcConnectionConfig.properties = this.info == null ? new HashMap<>() : this.info;
             return jdbcConnectionConfig;
         }
     }

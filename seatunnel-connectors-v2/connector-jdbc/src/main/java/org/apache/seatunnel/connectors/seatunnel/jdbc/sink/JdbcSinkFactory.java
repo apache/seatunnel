@@ -152,7 +152,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
         dialect.connectionUrlParse(
                 sinkConfig.getJdbcConnectionConfig().getUrl(),
-                sinkConfig.getJdbcConnectionConfig().getInfo(),
+                sinkConfig.getJdbcConnectionConfig().getProperties(),
                 dialect.defaultParameter());
         CatalogTable finalCatalogTable = catalogTable;
         return () ->

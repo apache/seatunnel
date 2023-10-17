@@ -103,7 +103,7 @@ public class JdbcSource
                         jdbcSourceConfig.getJdbcConnectionConfig().getCompatibleMode());
         this.jdbcDialect.connectionUrlParse(
                 jdbcSourceConfig.getJdbcConnectionConfig().getUrl(),
-                jdbcSourceConfig.getJdbcConnectionConfig().getInfo(),
+                jdbcSourceConfig.getJdbcConnectionConfig().getProperties(),
                 this.jdbcDialect.defaultParameter());
         this.jdbcConnectionProvider =
                 new SimpleJdbcConnectionProvider(jdbcSourceConfig.getJdbcConnectionConfig());
