@@ -159,6 +159,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                     jdbcCase.getDatabase(),
                                     jdbcCase.getSchema(),
                                     jdbcCase.getSinkTable()));
+
             statement.execute(createSource);
             statement.execute(createSink);
 
@@ -231,6 +232,9 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         jdbcCase = getJdbcCase();
 
         Startables.deepStart(Stream.of(dbServer)).join();
+
+        jdbcCase = getJdbcCase();
+
         beforeStartUP();
         given().ignoreExceptions()
                 .await()
