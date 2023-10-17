@@ -5,7 +5,6 @@
 |       Name        |  Type  | Required | Default |                                                                                                                                     Description                                                                                                                                      |
 |-------------------|--------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | source_table_name | String | No       | -       | When `source_table_name` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file <br/> When `source_table_name` is specified, the current plug-in is processing the data set corresponding to this parameter. |
-| parallelism       | Int    | No       | -       | When `parallelism` is not specified, the `parallelism` in env is used by default. <br/>When parallelism is specified, it will override the parallelism in env.                                                                                                                       |
 
 ## Task Example
 
