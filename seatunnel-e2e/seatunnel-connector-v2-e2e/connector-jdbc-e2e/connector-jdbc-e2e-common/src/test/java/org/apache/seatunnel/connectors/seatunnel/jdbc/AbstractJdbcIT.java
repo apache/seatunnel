@@ -231,7 +231,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         jdbcCase = getJdbcCase();
 
         Startables.deepStart(Stream.of(dbServer)).join();
-
+        beforeStartUP();
         given().ignoreExceptions()
                 .await()
                 .atMost(360, TimeUnit.SECONDS)
@@ -242,6 +242,9 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         insertTestData();
         initCatalog();
     }
+
+    // before startUp For example, create a user
+    protected abstract void beforeStartUP();
 
     @AfterAll
     @Override

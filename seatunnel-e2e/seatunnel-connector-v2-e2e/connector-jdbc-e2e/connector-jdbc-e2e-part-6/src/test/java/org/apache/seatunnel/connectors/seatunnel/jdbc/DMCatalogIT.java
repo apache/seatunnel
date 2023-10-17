@@ -19,9 +19,11 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm.DamengCatalog;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import org.testcontainers.containers.GenericContainer;
@@ -32,7 +34,12 @@ import org.testcontainers.utility.MountableFile;
 import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.sql.Connection;
 import java.sql.Date;
+import java.sql.Driver;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -40,18 +47,22 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 public class DMCatalogIT extends AbstractJdbcIT {
 
     private static final String DM_IMAGE = "laglangyue/dmdb8";
     private static final String DM_CONTAINER_HOST = "e2e_dmdb";
 
-    private static final String DM_DATABASE = "TESTUSER";
+    private static final String DM_DATABASE = "SYSDBA";
+    private static final String DM_DATABASE_TESTUSER = "TESTUSER";
     private static final String DM_SOURCE = "e2e_table_source";
     private static final String DM_SINK = "e2e_table_sink";
     private static final String CATALOG_TABLE = "e2e_table_source_catalog";
-    private static final String DM_USERNAME = "TESTUSER";
-    private static final String DM_PASSWORD = "testPassword";
+    private static final String DM_USERNAME = "SYSDBA";
+    private static final String DM_USERNAME_TESTUSER = "TESTUSER";
+    private static final String DM_PASSWORD = "SYSDBA";
+    private static final String DM_PASSWORD_TESTUSER = "testPassword";
     private static final int DM_PORT = 5236;
     private static final String DM_URL = "jdbc:dm://" + HOST + ":%s";
 
@@ -132,7 +143,7 @@ public class DMCatalogIT extends AbstractJdbcIT {
                 .insertSql(insertSql)
                 .testData(testDataSet)
                 .catalogDatabase("DAMENG")
-                .catalogSchema(DM_DATABASE)
+                .catalogSchema(DM_DATABASE_TESTUSER)
                 .catalogTable(CATALOG_TABLE)
                 .build();
     }
@@ -270,5 +281,53 @@ public class DMCatalogIT extends AbstractJdbcIT {
 
     protected void clearTable(String database, String schema, String table) {
         clearTable(schema, table);
+    }
+
+    @Override
+    protected void beforeStartUP() {
+        try {
+            URLClassLoader urlClassLoader =
+                    new URLClassLoader(
+                            new URL[] {new URL(driverUrl())},
+                            AbstractJdbcIT.class.getClassLoader());
+            Thread.currentThread().setContextClassLoader(urlClassLoader);
+            Driver driver =
+                    (Driver) urlClassLoader.loadClass(jdbcCase.getDriverClass()).newInstance();
+            Properties props = new Properties();
+
+            if (StringUtils.isNotBlank(jdbcCase.getUserName())) {
+                props.put("user", jdbcCase.getUserName());
+            }
+
+            if (StringUtils.isNotBlank(jdbcCase.getPassword())) {
+                props.put("password", jdbcCase.getPassword());
+            }
+
+            Connection dmCon =
+                    driver.connect(jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost()), props);
+            dmCon.setAutoCommit(false);
+
+            createDBAUser(dmCon);
+        } catch (Exception e) {
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, e);
+        }
+    }
+
+    protected void createDBAUser(Connection dnCon) {
+        try (Statement statement = dnCon.createStatement()) {
+
+            String createUser = "CREATE USER TESTUSER IDENTIFIED BY testPassword;";
+            String updateUserDBA = "GRANT DBA TO TESTUSER;";
+            statement.execute(createUser);
+            statement.execute(updateUserDBA);
+
+            dnCon.commit();
+
+            jdbcCase.setDatabase(DM_DATABASE_TESTUSER);
+            jdbcCase.setPassword(DM_PASSWORD_TESTUSER);
+            jdbcCase.setUserName(DM_USERNAME_TESTUSER);
+        } catch (Exception exception) {
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
+        }
     }
 }
