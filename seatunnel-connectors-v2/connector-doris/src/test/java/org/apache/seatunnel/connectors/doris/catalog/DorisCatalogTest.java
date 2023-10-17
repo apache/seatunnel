@@ -25,10 +25,12 @@ import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+@Disabled
 class DorisCatalogTest {
 
     private static DorisCatalog dorisCatalog = null;

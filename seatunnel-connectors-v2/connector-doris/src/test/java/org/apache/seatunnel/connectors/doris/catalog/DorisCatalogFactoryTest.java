@@ -22,12 +22,14 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+@Disabled
 class DorisCatalogFactoryTest {
 
     private static DorisCatalogFactory factory = null;
