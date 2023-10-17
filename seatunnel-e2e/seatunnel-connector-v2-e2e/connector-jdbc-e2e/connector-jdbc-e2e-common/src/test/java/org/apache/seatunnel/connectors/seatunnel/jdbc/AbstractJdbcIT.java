@@ -244,7 +244,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     }
 
     // before startUp For example, create a user
-    protected abstract void beforeStartUP();
+    protected void beforeStartUP() {}
 
     @AfterAll
     @Override
