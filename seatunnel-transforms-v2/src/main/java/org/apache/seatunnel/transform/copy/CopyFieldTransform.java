@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.transform.copy;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -34,7 +30,6 @@ import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 
 import com.google.auto.service.AutoService;
-import lombok.NoArgsConstructor;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
@@ -44,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@NoArgsConstructor
 @AutoService(SeaTunnelTransform.class)
 public class CopyFieldTransform extends MultipleFieldOutputTransform {
     public static final String PLUGIN_NAME = "Copy";
@@ -66,18 +60,6 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
         return PLUGIN_NAME;
     }
 
-    @Override
-    protected void setConfig(Config pluginConfig) {
-        ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
-                .validate(new CopyFieldTransformFactory().optionRule());
-        this.config = CopyTransformConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
-    }
-
-    @Override
-    protected void setInputRowType(SeaTunnelRowType inputRowType) {
-        initOutputFields(inputRowType, config.getFields());
-    }
-
     private void initOutputFields(
             SeaTunnelRowType inputRowType, LinkedHashMap<String, String> fields) {
         List<String> fieldNames = new ArrayList<>();
@@ -97,16 +79,6 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
         this.fieldNames = fieldNames;
         this.fieldOriginalIndexs = fieldOriginalIndexs;
         this.fieldTypes = fieldsType;
-    }
-
-    @Override
-    protected String[] getOutputFieldNames() {
-        return fieldNames.toArray(new String[0]);
-    }
-
-    @Override
-    protected SeaTunnelDataType[] getOutputFieldDataTypes() {
-        return fieldTypes.toArray(new SeaTunnelDataType[0]);
     }
 
     @Override
