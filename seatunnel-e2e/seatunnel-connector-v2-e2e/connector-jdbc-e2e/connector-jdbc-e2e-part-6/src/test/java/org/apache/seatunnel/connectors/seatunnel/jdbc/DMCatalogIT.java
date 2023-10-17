@@ -54,15 +54,12 @@ public class DMCatalogIT extends AbstractJdbcIT {
     private static final String DM_IMAGE = "laglangyue/dmdb8";
     private static final String DM_CONTAINER_HOST = "e2e_dmdb";
 
-    private static final String DM_DATABASE = "SYSDBA";
-    private static final String DM_DATABASE_TESTUSER = "TESTUSER";
+    private static final String DM_DATABASE = "TESTUSER";
     private static final String DM_SOURCE = "e2e_table_source";
     private static final String DM_SINK = "e2e_table_sink";
     private static final String CATALOG_TABLE = "e2e_table_source_catalog";
-    private static final String DM_USERNAME = "SYSDBA";
-    private static final String DM_USERNAME_TESTUSER = "TESTUSER";
-    private static final String DM_PASSWORD = "SYSDBA";
-    private static final String DM_PASSWORD_TESTUSER = "testPassword";
+    private static final String DM_USERNAME = "TESTUSER";
+    private static final String DM_PASSWORD = "testPassword";
     private static final int DM_PORT = 5236;
     private static final String DM_URL = "jdbc:dm://" + HOST + ":%s";
 
@@ -134,7 +131,6 @@ public class DMCatalogIT extends AbstractJdbcIT {
                 .jdbcTemplate(DM_URL)
                 .jdbcUrl(jdbcUrl)
                 .userName(DM_USERNAME)
-                .schema(DM_USERNAME)
                 .password(DM_PASSWORD)
                 .database(DM_DATABASE)
                 .sourceTable(DM_SOURCE)
@@ -144,7 +140,7 @@ public class DMCatalogIT extends AbstractJdbcIT {
                 .insertSql(insertSql)
                 .testData(testDataSet)
                 .catalogDatabase("DAMENG")
-                .catalogSchema(DM_DATABASE_TESTUSER)
+                .catalogSchema(DM_DATABASE)
                 .catalogTable(CATALOG_TABLE)
                 .build();
     }
@@ -297,11 +293,11 @@ public class DMCatalogIT extends AbstractJdbcIT {
             Properties props = new Properties();
 
             if (StringUtils.isNotBlank(jdbcCase.getUserName())) {
-                props.put("user", jdbcCase.getUserName());
+                props.put("user", "SYSDBA");
             }
 
             if (StringUtils.isNotBlank(jdbcCase.getPassword())) {
-                props.put("password", jdbcCase.getPassword());
+                props.put("password", "SYSDBA");
             }
 
             Connection dmCon =
@@ -323,11 +319,6 @@ public class DMCatalogIT extends AbstractJdbcIT {
             statement.execute(updateUserDBA);
 
             dnCon.commit();
-
-            jdbcCase.setDatabase(DM_DATABASE_TESTUSER);
-            jdbcCase.setSchema(DM_DATABASE_TESTUSER);
-            jdbcCase.setPassword(DM_PASSWORD_TESTUSER);
-            jdbcCase.setUserName(DM_USERNAME_TESTUSER);
         } catch (Exception exception) {
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
         }
