@@ -134,6 +134,7 @@ public class DMCatalogIT extends AbstractJdbcIT {
                 .jdbcTemplate(DM_URL)
                 .jdbcUrl(jdbcUrl)
                 .userName(DM_USERNAME)
+                .schema(DM_USERNAME)
                 .password(DM_PASSWORD)
                 .database(DM_DATABASE)
                 .sourceTable(DM_SOURCE)
@@ -324,6 +325,7 @@ public class DMCatalogIT extends AbstractJdbcIT {
             dnCon.commit();
 
             jdbcCase.setDatabase(DM_DATABASE_TESTUSER);
+            jdbcCase.setSchema(DM_DATABASE_TESTUSER);
             jdbcCase.setPassword(DM_PASSWORD_TESTUSER);
             jdbcCase.setUserName(DM_USERNAME_TESTUSER);
         } catch (Exception exception) {
