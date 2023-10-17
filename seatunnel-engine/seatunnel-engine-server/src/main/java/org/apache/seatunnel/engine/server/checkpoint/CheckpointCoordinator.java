@@ -425,7 +425,7 @@ public class CheckpointCoordinator {
             startTriggerPendingCheckpoint(pendingCheckpoint);
             pendingCounter.incrementAndGet();
             // if checkpoint type are final type, we don't need to trigger next checkpoint
-            if (checkpointType.notFinalCheckpoint()) {
+            if (checkpointType.notFinalCheckpoint() && checkpointType.notSchemaChangeCheckpoint()) {
                 scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
             }
         }
