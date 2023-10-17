@@ -360,7 +360,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                         "User table");
 
         // case1 url not contains parameters and properties not contains parameters
-        Map<String, Object> map1 = getMap();
+        Map<String, Object> map1 = getDefaultConfigMap();
         map1.put("url", getUrl());
         ReadonlyConfig config1 = ReadonlyConfig.fromMap(map1);
         TableSinkFactoryContext context1 =
@@ -371,7 +371,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         Assertions.assertEquals(connectionProperties1.get("rewriteBatchedStatements"), "true");
 
         // case2 url contains parameters and properties not contains parameters
-        Map<String, Object> map2 = getMap();
+        Map<String, Object> map2 = getDefaultConfigMap();
         map2.put("url", getUrl() + "?rewriteBatchedStatements=false");
         ReadonlyConfig config2 = ReadonlyConfig.fromMap(map2);
         TableSinkFactoryContext context2 =
@@ -382,7 +382,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         Assertions.assertEquals(connectionProperties2.get("rewriteBatchedStatements"), "false");
 
         // case3 url not contains parameters and properties not contains parameters
-        Map<String, Object> map3 = getMap();
+        Map<String, Object> map3 = getDefaultConfigMap();
         Map<String, String> properties3 = new HashMap<>();
         properties3.put("rewriteBatchedStatements", "false");
         map3.put("properties", properties3);
@@ -396,7 +396,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
 
         // case4 url contains parameters and properties contains parameters
-        Map<String, Object> map4 = getMap();
+        Map<String, Object> map4 = getDefaultConfigMap();
         Map<String, String> properties4 = new HashMap<>();
         properties4.put("useSSL", "true");
         properties4.put("rewriteBatchedStatements", "false");
@@ -414,7 +414,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
 
     void defaultSourceParametersTest() throws IOException, SQLException, ClassNotFoundException {
         // case1 url not contains parameters and properties not contains parameters
-        Map<String, Object> map1 = getMap();
+        Map<String, Object> map1 = getDefaultConfigMap();
         map1.put("url", getUrl());
         map1.put("query", SQL);
         ReadonlyConfig config1 = ReadonlyConfig.fromMap(map1);
@@ -431,7 +431,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         Assertions.assertEquals(connectionProperties1.get("rewriteBatchedStatements"), "true");
 
         // case2 url contains parameters and properties not contains parameters
-        Map<String, Object> map2 = getMap();
+        Map<String, Object> map2 = getDefaultConfigMap();
         map2.put("url", getUrl() + "?rewriteBatchedStatements=false");
         map2.put("query", SQL);
         ReadonlyConfig config2 = ReadonlyConfig.fromMap(map2);
@@ -448,7 +448,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         Assertions.assertEquals(connectionProperties2.get("rewriteBatchedStatements"), "false");
 
         // case3 url not contains parameters and properties not contains parameters
-        Map<String, Object> map3 = getMap();
+        Map<String, Object> map3 = getDefaultConfigMap();
         Map<String, String> properties3 = new HashMap<>();
         properties3.put("rewriteBatchedStatements", "false");
         map3.put("properties", properties3);
@@ -468,7 +468,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
 
         // case4 url contains parameters and properties contains parameters
-        Map<String, Object> map4 = getMap();
+        Map<String, Object> map4 = getDefaultConfigMap();
         Map<String, String> properties4 = new HashMap<>();
         properties4.put("useSSL", "true");
         properties4.put("rewriteBatchedStatements", "false");
@@ -490,7 +490,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         Assertions.assertEquals(connectionProperties4.get("rewriteBatchedStatements"), "false");
     }
 
-    @NotNull private Map<String, Object> getMap() {
+    @NotNull private Map<String, Object> getDefaultConfigMap() {
         Map<String, Object> map = new HashMap<>();
         map.put("driver", "com.mysql.cj.jdbc.Driver");
         map.put("user", MYSQL_USERNAME);
