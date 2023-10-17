@@ -28,6 +28,27 @@ import java.util.Map;
 
 public class TableSchemaOptions {
 
+    public static class TableIdentifierOptions {
+
+        public static final Option<Boolean> SCHEMA_FIRST =
+                Options.key("schema_first")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription("Parse Schema First from table");
+
+        public static final Option<String> TABLE =
+                Options.key("table")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("SeaTunnel Schema Full Table Name");
+
+        public static final Option<String> COMMENT =
+                Options.key("comment")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("SeaTunnel Schema Table Comment");
+    }
+
     public static final Option<Map<String, Object>> SCHEMA =
             Options.key("schema")
                     .type(new TypeReference<Map<String, Object>>() {})
