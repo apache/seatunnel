@@ -239,8 +239,6 @@ public final class ContainerUtil {
             ServiceLoader.load(TestContainer.class, Thread.currentThread().getContextClassLoader())
                     .iterator()
                     .forEachRemaining(result::add);
-            List<TestContainer> list = new ArrayList<>();
-            list.add(result.get(4));
             return result;
         } catch (ServiceConfigurationError e) {
             log.error("Could not load service provider for containers.", e);
