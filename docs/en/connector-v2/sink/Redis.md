@@ -20,6 +20,7 @@ Used to write data to Redis.
 | data_type      | string | yes                   | -             |
 | user           | string | no                    | -             |
 | auth           | string | no                    | -             |
+| db_num         | int    | no                    | 0             |
 | mode           | string | no                    | single        |
 | nodes          | list   | yes when mode=cluster | -             |
 | format         | string | no                    | json          |
@@ -90,6 +91,10 @@ redis authentication user, you need it when you connect to an encrypted cluster
 ### auth [string]
 
 Redis authentication password, you need it when you connect to an encrypted cluster
+
+### db_num [int]
+
+Redis database index ID. It is connected to db 0 by default
 
 ### mode [string]
 

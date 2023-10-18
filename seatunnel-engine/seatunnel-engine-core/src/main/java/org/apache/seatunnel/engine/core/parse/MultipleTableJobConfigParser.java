@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.core.parse;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.CommonOptions;
-import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
@@ -40,7 +39,7 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
-import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
@@ -58,8 +57,6 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.logging.Logger;
 import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
 
@@ -82,16 +79,13 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
 import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getFactoryId;
 import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getFactoryUrls;
 import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getInputIds;
 
 @Slf4j
 public class MultipleTableJobConfigParser {
-
-    private static final ILogger LOGGER = Logger.getLogger(MultipleTableJobConfigParser.class);
-
-    static final String DEFAULT_ID = "default-identifier";
 
     private final IdGenerator idGenerator;
     private final JobConfig jobConfig;
@@ -320,7 +314,7 @@ public class MultipleTableJobConfigParser {
                     JobConfigParser.createSourceActionName(configIndex, factoryId, tableId);
             SeaTunnelSource<Object, SourceSplit, Serializable> source = tuple2._1();
             source.setJobContext(jobConfig.getJobContext());
-            ensureJobModeMatch(jobConfig.getJobContext(), source);
+            PluginUtil.ensureJobModeMatch(jobConfig.getJobContext(), source);
             SourceAction<Object, SourceSplit, Serializable> action =
                     new SourceAction<>(id, actionName, tuple2._1(), factoryUrls);
             action.setParallelism(parallelism);
@@ -329,16 +323,6 @@ public class MultipleTableJobConfigParser {
             }
         }
         return new Tuple2<>(tableId, actions);
-    }
-
-    public static void ensureJobModeMatch(JobContext jobContext, SeaTunnelSource source) {
-        if (jobContext.getJobMode() == JobMode.BATCH
-                && source.getBoundedness()
-                        == org.apache.seatunnel.api.source.Boundedness.UNBOUNDED) {
-            throw new JobDefineCheckException(
-                    String.format(
-                            "'%s' source don't support off-line job.", source.getPluginName()));
-        }
     }
 
     public void parseTransforms(

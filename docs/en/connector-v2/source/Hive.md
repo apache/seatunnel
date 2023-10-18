@@ -44,6 +44,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | read_partitions               | list    | no       | -             |
 | read_columns                  | list    | no       | -             |
 | abort_drop_partition_metadata | boolean | no       | true          |
+| compress_codec                | string  | no       | none          |
 | common-options                |         | no       | -             |
 
 ### table_name [string]
@@ -84,6 +85,16 @@ The read column list of the data source, user can use it to implement field proj
 ### abort_drop_partition_metadata [list]
 
 Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).
+
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc/parquet:  
+  automatically recognizes the compression type, no additional settings required.
 
 ### common options
 

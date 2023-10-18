@@ -31,6 +31,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
@@ -135,7 +137,7 @@ public class CatalogTableUtil implements Serializable {
             if (schemaMap.isEmpty()) {
                 throw new SeaTunnelException("Schema config can not be empty");
             }
-            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
+            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(factoryId, readonlyConfig);
             return Collections.singletonList(catalogTable);
         }
 
@@ -190,19 +192,65 @@ public class CatalogTableUtil implements Serializable {
         }
     }
 
+    // We need to use buildWithConfig(String catalogName, ReadonlyConfig readonlyConfig);
+    // Since this method will not inject the correct catalogName into CatalogTable
+    @Deprecated
+    public static List<CatalogTable> convertDataTypeToCatalogTables(
+            SeaTunnelDataType<?> seaTunnelDataType, String tableId) {
+        List<CatalogTable> catalogTables;
+        if (seaTunnelDataType instanceof MultipleRowType) {
+            catalogTables = new ArrayList<>();
+            for (String id : ((MultipleRowType) seaTunnelDataType).getTableIds()) {
+                catalogTables.add(
+                        CatalogTableUtil.getCatalogTable(
+                                id, ((MultipleRowType) seaTunnelDataType).getRowType(id)));
+            }
+        } else {
+            catalogTables =
+                    Collections.singletonList(
+                            CatalogTableUtil.getCatalogTable(
+                                    tableId, (SeaTunnelRowType) seaTunnelDataType));
+        }
+        return catalogTables;
+    }
+
     public static CatalogTable buildWithConfig(ReadonlyConfig readonlyConfig) {
+        return buildWithConfig("", readonlyConfig);
+    }
+
+    public static CatalogTable buildWithConfig(String catalogName, ReadonlyConfig readonlyConfig) {
         if (readonlyConfig.get(TableSchemaOptions.SCHEMA) == null) {
             throw new RuntimeException(
                     "Schema config need option [schema], please correct your config first");
         }
         TableSchema tableSchema = new ReadonlyConfigParser().parse(readonlyConfig);
+
+        ReadonlyConfig schemaConfig =
+                readonlyConfig
+                        .getOptional(TableSchemaOptions.SCHEMA)
+                        .map(ReadonlyConfig::fromMap)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("Schema config can't be null"));
+
+        TablePath tablePath;
+        if (StringUtils.isNotEmpty(
+                schemaConfig.get(TableSchemaOptions.TableIdentifierOptions.TABLE))) {
+            tablePath =
+                    TablePath.of(
+                            schemaConfig.get(TableSchemaOptions.TableIdentifierOptions.TABLE),
+                            schemaConfig.get(
+                                    TableSchemaOptions.TableIdentifierOptions.SCHEMA_FIRST));
+        } else {
+            tablePath = TablePath.EMPTY;
+        }
+
         return CatalogTable.of(
-                // TODO: other table info
-                TableIdentifier.of("", "", ""),
+                TableIdentifier.of(catalogName, tablePath),
                 tableSchema,
                 new HashMap<>(),
+                // todo: add partitionKeys?
                 new ArrayList<>(),
-                "");
+                readonlyConfig.get(TableSchemaOptions.TableIdentifierOptions.COMMENT));
     }
 
     public static SeaTunnelRowType buildSimpleTextSchema() {

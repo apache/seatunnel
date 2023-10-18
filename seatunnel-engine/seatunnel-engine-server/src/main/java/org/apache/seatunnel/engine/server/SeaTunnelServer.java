@@ -45,6 +45,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.hazelcast.spi.properties.ClusterProperty.INVOCATION_MAX_RETRY_COUNT;
+import static com.hazelcast.spi.properties.ClusterProperty.INVOCATION_RETRY_PAUSE;
+
 public class SeaTunnelServer
         implements ManagedService, MembershipAwareService, LiveOperationsTracker {
 
@@ -166,7 +169,7 @@ public class SeaTunnelServer
             String hazelcastInvocationMaxRetry =
                     seaTunnelConfig
                             .getHazelcastConfig()
-                            .getProperty("hazelcast.invocation.max.retry.count");
+                            .getProperty(INVOCATION_MAX_RETRY_COUNT.getName());
             int maxRetry =
                     hazelcastInvocationMaxRetry == null
                             ? 250 * 2
@@ -175,7 +178,7 @@ public class SeaTunnelServer
             String hazelcastRetryPause =
                     seaTunnelConfig
                             .getHazelcastConfig()
-                            .getProperty("hazelcast.invocation.retry.pause.millis");
+                            .getProperty(INVOCATION_RETRY_PAUSE.getName());
 
             int retryPause =
                     hazelcastRetryPause == null ? 500 : Integer.parseInt(hazelcastRetryPause);
