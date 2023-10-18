@@ -108,7 +108,7 @@ public class TransformExecuteProcessor
                 ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
                 SeaTunnelTransform transform = factory.createTransform(context).createTransform();
 
-                Dataset<Row> inputDataset = sparkTransform(transform, dataset.getDataset());
+                Dataset<Row> inputDataset = sparkTransform(transform, dataset);
                 registerInputTempView(pluginConfig, inputDataset);
                 upstreamDataStreams.add(
                         new DatasetTableInfo(
@@ -129,20 +129,22 @@ public class TransformExecuteProcessor
     }
 
     private Dataset<Row> sparkTransform(SeaTunnelTransform transform, Dataset<Row> stream) {
-        SeaTunnelDataType<?> seaTunnelDataType = TypeConverterUtils.convert(stream.schema());
-        SeaTunnelRowType transformRowType =
-                transform.getProducedCatalogTable().getSeaTunnelRowType();
-        StructType structType = (StructType) TypeConverterUtils.convert(transformRowType);
+        Dataset<Row> stream = tableInfo.getDataset();
+        SeaTunnelDataType<?> seaTunnelDataType = tableInfo.getCatalogTable().getSeaTunnelRowType();
+        transform.setTypeInfo(seaTunnelDataType);
+        StructType outputSchema =
+                (StructType) TypeConverterUtils.convert(transform.getProducedType());
         SeaTunnelRowConverter inputRowConverter = new SeaTunnelRowConverter(seaTunnelDataType);
-        SeaTunnelRowConverter outputRowConverter = new SeaTunnelRowConverter(transformRowType);
-        ExpressionEncoder<Row> encoder = RowEncoder.apply(structType);
+        SeaTunnelRowConverter outputRowConverter =
+                new SeaTunnelRowConverter(transform.getProducedType());
+        ExpressionEncoder<Row> encoder = RowEncoder.apply(outputSchema);
         return stream.mapPartitions(
                         (MapPartitionsFunction<Row, Row>)
                                 (Iterator<Row> rowIterator) ->
                                         new TransformIterator(
                                                 rowIterator,
                                                 transform,
-                                                structType,
+                                                outputSchema,
                                                 inputRowConverter,
                                                 outputRowConverter),
                         encoder)
