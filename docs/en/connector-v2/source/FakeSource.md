@@ -306,7 +306,7 @@ FakeSource {
 }
 ```
 
-### Configure Multiple FakeSource
+### Generate Multiple tables
 
 > This is a case of generating a multi-data source test.table1 and test.table2
 
