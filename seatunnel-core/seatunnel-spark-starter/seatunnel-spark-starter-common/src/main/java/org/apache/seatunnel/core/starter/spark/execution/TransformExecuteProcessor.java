@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
@@ -128,7 +127,7 @@ public class TransformExecuteProcessor
         return upstreamDataStreams;
     }
 
-    private Dataset<Row> sparkTransform(SeaTunnelTransform transform, Dataset<Row> stream) {
+    private Dataset<Row> sparkTransform(SeaTunnelTransform transform, DatasetTableInfo tableInfo) {
         Dataset<Row> stream = tableInfo.getDataset();
         SeaTunnelDataType<?> seaTunnelDataType = tableInfo.getCatalogTable().getSeaTunnelRowType();
         transform.setTypeInfo(seaTunnelDataType);
