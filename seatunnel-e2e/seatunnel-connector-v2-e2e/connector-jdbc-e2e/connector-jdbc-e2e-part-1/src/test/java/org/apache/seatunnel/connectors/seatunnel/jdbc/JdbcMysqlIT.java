@@ -60,9 +60,11 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -127,6 +129,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     + "    `c_longtext`             longtext,\n"
                     + "    `c_date`                 date                  DEFAULT NULL,\n"
                     + "    `c_datetime`             datetime              DEFAULT NULL,\n"
+                    + "    `c_time`                 time                  DEFAULT NULL,\n"
                     + "    `c_timestamp`            timestamp NULL        DEFAULT NULL,\n"
                     + "    `c_tinyblob`             tinyblob,\n"
                     + "    `c_mediumblob`           mediumblob,\n"
@@ -221,6 +224,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_longtext",
                     "c_date",
                     "c_datetime",
+                    "c_time",
                     "c_timestamp",
                     "c_tinyblob",
                     "c_mediumblob",
@@ -278,6 +282,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                                 String.format("f1_%s", i),
                                 Date.valueOf(LocalDate.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
+                                Time.valueOf(LocalTime.now()),
                                 new Timestamp(System.currentTimeMillis()),
                                 "test".getBytes(),
                                 "test".getBytes(),
