@@ -136,7 +136,7 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/http_multilinejson_to_assert.conf");
         Assertions.assertEquals(0, execResult12.getExitCode());
 
-        // http httpFormrequestbody
+        // http httpFormRequestbody
         Container.ExecResult execResult13 =
                 container.executeJob("/http_formrequestbody_to_assert.conf");
         Assertions.assertEquals(0, execResult13.getExitCode());
