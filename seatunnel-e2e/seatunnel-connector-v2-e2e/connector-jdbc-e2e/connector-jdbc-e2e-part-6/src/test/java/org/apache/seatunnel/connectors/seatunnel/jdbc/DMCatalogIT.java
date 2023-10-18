@@ -269,7 +269,7 @@ public class DMCatalogIT extends AbstractJdbcIT {
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(jdbcUrl),
-                        "DAMENG");
+                        null);
         catalog.open();
     }
 
