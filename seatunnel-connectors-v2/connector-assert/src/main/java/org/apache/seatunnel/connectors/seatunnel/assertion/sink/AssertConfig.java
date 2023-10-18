@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.List;
 import java.util.Map;
 
 public class AssertConfig {
@@ -61,7 +62,7 @@ public class AssertConfig {
     public static final String COLUMN_TYPE = "type";
     public static final String COLUMN_LENGTH = "column_length";
     public static final String COLUMN_NULLABLE = "nullable";
-    public static final String COLUMN_DEFAULT_VALUE = "default_value";
+    public static final String COLUMN_DEFAULT_VALUE = "defaultValue";
     public static final String COLUMN_COMMENT = "comment";
 
     public static class TableIdentifierRule {
@@ -70,6 +71,15 @@ public class AssertConfig {
         public static final String TABLE_IDENTIFIER_CATALOG_NAME = "catalog_name";
         public static final String TABLE_IDENTIFIER_TABLE_NAME = "table";
     }
+
+    public static final Option<List<Map<String, Object>>> TABLES =
+            Options.key("tables")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription("");
+
+    public static final Option<String> TABLE_PATH =
+            Options.key("table_path").stringType().noDefaultValue().withDescription("");
 
     public static final Option<String> COMMENT =
             Options.key("comment")

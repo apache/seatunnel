@@ -60,28 +60,29 @@ If it's a multi-table scenario, then the configuration example is as follows:
 
 ```
 transform {
-    FieldMapper {
-        source_table_name = "fake"
-        result_table_name = "fake1"
-
-        table_transform = [
-             {
-                tablePath = "liuliTest.transform_1"
-                fieldMapper  {
-                    id_1 = id111
-                    name_1 = name111
-                }
-             }
-             ,
-              {
-                 tablePath = "liuliTest.transform_2"
-                 fieldMapper  {
-                    "id_2" = "id222"
-                    "age_2" = "age222"
+  FieldMapper {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    table_transform = [
+                 {
+                    tablePath = "test.table1"
+                    fieldMapper  {
+                        id = id
+                        name = name_as
+                        age = age
+                    }
                  }
-              }
-        ]
-    }
+                 ,
+                  {
+                     tablePath = "test.table2"
+                     fieldMapper  {
+                        id = id
+                        name = name
+                        age = age_as
+                     }
+                  }
+            ]
+  }
 }
 ```
 

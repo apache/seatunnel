@@ -117,26 +117,25 @@ If it's a multi-table scenario, then the configuration example is as follows:
 
 ```
 transform {
-    Replace {
-        source_table_name = "fake"
-        result_table_name = "fake1"
-
+  Replace {
+    source_table_name = "fake"
+    result_table_name = "fake1"
         table_transform = [
              {
-                tablePath = "liuliTest.transform_1"
-                replace_field = "name_1"
+                tablePath = "test.table1"
+                replace_field = "name"
                 pattern = "_"
                 replacement = "."
              }
              ,
              {
-                tablePath = "liuliTest.transform_2"
-                replace_field = "name_2"
+                tablePath = "test.table2"
+                replace_field = "name"
                 pattern = "_"
-                replacement = "."
+                replacement = "-"
              }
         ]
-    }
+  }
 }
 ```
 

@@ -68,26 +68,25 @@ If it's a multi-table scenario, then the configuration example is as follows:
 
 ```
 transform {
-    Split {
-        source_table_name = "fake"
-        result_table_name = "fake1"
-
+  Split {
+    source_table_name = "fake"
+    result_table_name = "fake1"
         table_transform = [
              {
-                tablePath = "liuliTest.transform_1"
+                tablePath = "test.table1"
                 separator = "_"
-                split_field = "name_1"
-                output_fields = ["f1", "f2"]
+                split_field = "name"
+                output_fields = ["table1_name1", "table1_name2"]
              }
              ,
              {
-                tablePath = "liuliTest.transform_2"
+                tablePath = "test.table2"
                 separator = "_"
-                split_field = "name_2"
-                output_fields = ["f1", "f2"]
+                split_field = "name"
+                output_fields = ["table2_name1", "table2_name2"]
              }
         ]
-    }
+  }
 }
 ```
 

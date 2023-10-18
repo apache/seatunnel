@@ -43,6 +43,8 @@ A flink sink plugin which can assert illegal data by user defined rules
 | rules.catalog_table_rule.column_rule.comment                                                   | comment    | no       | -             |
 | rules.table-names                                                                              | list       | no       | -             |
 | common-options                                                                                 |            | no       | -             |
+| tables                                                                                         | list       | no       | -             |
+| table_path                                                                                     | string     | no       | -             |
 
 ### rules [ConfigMap]
 
@@ -90,6 +92,14 @@ Used to assert the table should be in the data.
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+
+### tables [ConfigList]
+
+In a multi-table scenario, you can use tables to configure rules for multiple tables, and use table_path to specify rules for the table.
+
+### table_path [string]
+
+The path of the tables, which is used to specify the rules of the table.
 
 ## Example
 
@@ -177,6 +187,24 @@ Assert {
         }
       }
 
+  }
+
+```
+
+If you need rules for each table under multiple tables, you can use the following configuration:
+
+```hocon
+  Assert {
+    source_table_name = "fake1"
+    tables = [
+      {
+        table_path = "test.table1"
+        rules = { ...}
+      ,
+       {
+         table_path = "test.table2"
+         rules = { ...}
+    ]
   }
 
 ```

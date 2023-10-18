@@ -88,25 +88,25 @@ public class AssertCatalogTableRuleParser {
                                     String name = config.getString(COLUMN_NAME);
                                     String type = config.getString(COLUMN_TYPE);
                                     Integer columnLength =
-                                            TypesafeConfigUtils.getConfig(
+                                            TypesafeConfigUtils.getInt(
                                                     config,
                                                     COLUMN_LENGTH,
                                                     TableSchemaOptions.ColumnOptions.COLUMN_LENGTH
                                                             .defaultValue());
                                     Boolean nullable =
-                                            TypesafeConfigUtils.getConfig(
+                                            TypesafeConfigUtils.getBoolean(
                                                     config,
                                                     COLUMN_NULLABLE,
                                                     TableSchemaOptions.ColumnOptions.NULLABLE
                                                             .defaultValue());
                                     Object object =
-                                            TypesafeConfigUtils.getConfig(
+                                            TypesafeConfigUtils.getObject(
                                                     config,
                                                     COLUMN_DEFAULT_VALUE,
                                                     TableSchemaOptions.ColumnOptions.DEFAULT_VALUE
                                                             .defaultValue());
                                     String comment =
-                                            TypesafeConfigUtils.getConfig(
+                                            TypesafeConfigUtils.getString(
                                                     config,
                                                     COLUMN_COMMENT,
                                                     TableSchemaOptions.ColumnOptions.COMMENT

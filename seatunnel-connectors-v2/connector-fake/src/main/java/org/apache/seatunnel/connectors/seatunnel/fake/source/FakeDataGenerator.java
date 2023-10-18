@@ -32,8 +32,6 @@ import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.fake.utils.FakeDataRandomUtils;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import org.apache.commons.lang3.RandomUtils;
-
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
@@ -69,7 +67,7 @@ public class FakeDataGenerator {
         }
     }
 
-    private SeaTunnelRow randomRow() {
+    private SeaTunnelRow randomRow(int index) {
         String[] fieldNames = rowType.getFieldNames();
         SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
         List<Object> randomRow = new ArrayList<>(fieldNames.length);
@@ -81,7 +79,7 @@ public class FakeDataGenerator {
             row.setTableId(
                     fakeConfig
                             .getTableIdentifiers()
-                            .get(RandomUtils.nextInt(0, fakeConfig.getTableIdentifiers().size()))
+                            .get((index % fakeConfig.getTableIdentifiers().size()))
                             .toTablePath()
                             .toString());
         }
@@ -100,7 +98,7 @@ public class FakeDataGenerator {
             }
         } else {
             for (int i = 0; i < rowNum; i++) {
-                output.collect(randomRow());
+                output.collect(randomRow(i));
             }
         }
     }

@@ -60,25 +60,25 @@ If it's a multi-table scenario, then the configuration example is as follows:
 
 ```
 transform {
-   Copy {
-     source_table_name = "Table10924071198848"
-     result_table_name = "Table10924071198849"
-     table_transform = [
-     {
-        tablePath = "liuliTest.transform_1"
-        fields  {
-            "name111" = "name_1"
-        }
-     }
-     ,
-      {
-         tablePath = "liuliTest.transform_2"
-         fields  {
-             "id222" = "id_2"
+  Copy {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    table_transform = [
+         {
+            tablePath = "test.table1"
+            fields  {
+                "id_1" = "id"
+            }
          }
-      }
-     ]
-   }
+         ,
+          {
+             tablePath = "test.table2"
+             fields  {
+                 "name_2" = "name"
+             }
+          }
+         ]
+  }
 }
 ```
 

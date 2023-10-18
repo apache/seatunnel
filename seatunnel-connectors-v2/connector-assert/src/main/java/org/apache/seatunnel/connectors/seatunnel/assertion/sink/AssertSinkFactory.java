@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -26,6 +28,8 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import com.google.auto.service.AutoService;
 
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.TABLES;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.TABLE_PATH;
 
 @AutoService(Factory.class)
 public class AssertSinkFactory implements TableSinkFactory {
@@ -37,11 +41,26 @@ public class AssertSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(RULES).build();
+        return OptionRule.builder().optional(RULES).build();
     }
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return () -> new AssertSink(context.getOptions(), context.getCatalogTable());
+        return () ->
+                new AssertSink(
+                        extractConfig(context.getOptions(), context.getCatalogTable()),
+                        context.getCatalogTable());
+    }
+
+    private ReadonlyConfig extractConfig(ReadonlyConfig options, CatalogTable catalogTable) {
+        String tablePath = catalogTable.getTableId().toTablePath().getFullName();
+        if (null != options.get(TABLES)) {
+            return options.get(TABLES).stream()
+                    .map(ReadonlyConfig::fromMap)
+                    .filter(conf -> tablePath.equals(conf.get(TABLE_PATH)))
+                    .findFirst()
+                    .orElse(options);
+        }
+        return options;
     }
 }

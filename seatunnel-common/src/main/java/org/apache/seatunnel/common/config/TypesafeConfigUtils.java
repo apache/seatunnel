@@ -86,31 +86,29 @@ public final class TypesafeConfigUtils {
         return hasConfig;
     }
 
-    @SuppressWarnings("unchecked")
-    public static <T> T getConfig(
-            final Config config, final String configKey, final T defaultValue) {
-        if (!config.hasPath(configKey) && defaultValue == null) {
-            return defaultValue;
-        }
-        if (defaultValue.getClass().equals(Long.class)) {
-            return config.hasPath(configKey)
-                    ? (T) Long.valueOf(config.getString(configKey))
-                    : defaultValue;
-        }
-        if (defaultValue.getClass().equals(Integer.class)) {
-            return config.hasPath(configKey)
-                    ? (T) Integer.valueOf(config.getString(configKey))
-                    : defaultValue;
-        }
-        if (defaultValue.getClass().equals(String.class)) {
-            return config.hasPath(configKey) ? (T) config.getString(configKey) : defaultValue;
-        }
-        if (defaultValue.getClass().equals(Boolean.class)) {
-            return config.hasPath(configKey)
-                    ? (T) Boolean.valueOf(config.getString(configKey))
-                    : defaultValue;
-        }
-        throw new RuntimeException("Unsupported config type, configKey: " + configKey);
+    public static String getString(
+            final Config config, final String configKey, final String defaultValue) {
+        return config.hasPath(configKey) ? config.getString(configKey) : defaultValue;
+    }
+
+    public static Integer getInt(
+            final Config config, final String configKey, final Integer defaultValue) {
+        return config.hasPath(configKey) ? config.getInt(configKey) : defaultValue;
+    }
+
+    public static Long getLong(
+            final Config config, final String configKey, final Long defaultValue) {
+        return config.hasPath(configKey) ? config.getLong(configKey) : defaultValue;
+    }
+
+    public static Boolean getBoolean(
+            final Config config, final String configKey, final Boolean defaultValue) {
+        return config.hasPath(configKey) ? config.getBoolean(configKey) : defaultValue;
+    }
+
+    public static Object getObject(
+            final Config config, final String configKey, final Object defaultValue) {
+        return config.hasPath(configKey) ? config.getAnyRef(configKey) : defaultValue;
     }
 
     public static List<? extends Config> getConfigList(
