@@ -151,6 +151,7 @@
 - [Core] [API] Add copy method to Catalog codes (#4414)
 - [Core] [API] Add options check before create source and sink and transform in FactoryUtil (#4424)
 - [Core] [Shade] Add guava shade module (#4358)
+- [Core] [Spark] Support SeaTunnel Time Type (#5188)
 - [Core] [Flink] Support Decimal Type with configurable precision and scale (#5419)
 
 ### Connector-V2

@@ -108,6 +108,7 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
         if (jdbcConfig.getPassword().isPresent()) {
             info.setProperty("password", jdbcConfig.getPassword().get());
         }
+        info.putAll(jdbcConfig.getProperties());
         connection = driver.connect(jdbcConfig.getUrl(), info);
         if (connection == null) {
             // Throw same exception as DriverManager.getConnection when no driver found to match

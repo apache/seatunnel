@@ -25,6 +25,7 @@ Used to read data from Redis.
 | data_type           | string | yes                   | -             |
 | user                | string | no                    | -             |
 | auth                | string | no                    | -             |
+| db_num              | int    | no                    | 0             |
 | mode                | string | no                    | single        |
 | hash_key_parse_mode | string | no                    | all           |
 | nodes               | list   | yes when mode=cluster | -             |
@@ -150,6 +151,10 @@ redis authentication user, you need it when you connect to an encrypted cluster
 ### auth [string]
 
 redis authentication password, you need it when you connect to an encrypted cluster
+
+### db_num [int]
+
+Redis database index ID. It is connected to db 0 by default
 
 ### mode [string]
 
