@@ -42,6 +42,7 @@ supports query SQL and can achieve projection effect.
 | partition_lower_bound        | Long   | No       | -               |
 | partition_num                | Int    | No       | job parallelism |
 | fetch_size                   | Int    | No       | 0               |
+| properties                   | Map    | No       | -               |
 | common-options               |        | No       | -               |
 
 ### driver [string]
@@ -93,6 +94,10 @@ The number of partition count, only support positive integer. default value is j
 For queries that return a large number of objects, you can configure the row fetch size used in the query to
 improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.
 
+### properties
+
+Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
@@ -125,6 +130,7 @@ there are some reference value for params above.
 | Snowflake  | net.snowflake.client.jdbc.SnowflakeDriver           | jdbc:snowflake://<account_name>.snowflakecomputing.com                 | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                             |
 | Redshift   | com.amazon.redshift.jdbc42.Driver                   | jdbc:redshift://localhost:5439/testdb?defaultRowFetchSize=1000         | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                      |
 | Vertica    | com.vertica.jdbc.Driver                             | jdbc:vertica://localhost:5433                                          | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar             |
+| Kingbase   | com.kingbase8.Driver                                | jdbc:kingbase8://localhost:54321/db_test                               | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                          |
 | OceanBase  | com.oceanbase.jdbc.Driver                           | jdbc:oceanbase://localhost:2881                                        | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar              |
 
 ## Example
@@ -145,15 +151,25 @@ Jdbc {
 parallel:
 
 ```
-Jdbc {
-    url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
-    driver = "com.mysql.cj.jdbc.Driver"
-    connection_check_timeout_sec = 100
-    user = "root"
-    password = "123456"
-    query = "select * from type_bin"
-    partition_column = "id"
-    partition_num = 10
+env {
+  execution.parallelism = 10
+  job.mode = "BATCH"
+}
+source {
+    Jdbc {
+        url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+        driver = "com.mysql.cj.jdbc.Driver"
+        connection_check_timeout_sec = 100
+        user = "root"
+        password = "123456"
+        query = "select * from type_bin"
+        partition_column = "id"
+        partition_num = 10
+    }
+}
+
+sink {
+  Console {}
 }
 ```
 

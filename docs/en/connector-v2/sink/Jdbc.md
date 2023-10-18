@@ -47,6 +47,8 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | max_commit_attempts                       | Int     | No       | 3             |
 | transaction_timeout_sec                   | Int     | No       | -1            |
 | auto_commit                               | Boolean | No       | true          |
+| field_ide                                 | String  | No       | -             |
+| properties                                | Map     | No       | -             |
 | common-options                            |         | no       | -             |
 
 ### driver [string]
@@ -136,6 +138,16 @@ exactly-once semantics
 
 Automatic transaction commit is enabled by default
 
+### field_ide [String]
+
+The field "field_ide" is used to identify whether the field needs to be converted to uppercase or lowercase when
+synchronizing from the source to the sink. "ORIGINAL" indicates no conversion is needed, "UPPERCASE" indicates
+conversion to uppercase, and "LOWERCASE" indicates conversion to lowercase.
+
+### properties
+
+Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
@@ -169,6 +181,7 @@ there are some reference value for params above.
 | Redshift   | com.amazon.redshift.jdbc42.Driver            | jdbc:redshift://localhost:5439/testdb                              | com.amazon.redshift.xa.RedshiftXADataSource        | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                      |
 | Snowflake  | net.snowflake.client.jdbc.SnowflakeDriver    | jdbc:snowflake://<account_name>.snowflakecomputing.com             | /                                                  | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                             |
 | Vertica    | com.vertica.jdbc.Driver                      | jdbc:vertica://localhost:5433                                      | /                                                  | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar             |
+| Kingbase   | com.kingbase8.Driver                         | jdbc:kingbase8://localhost:54321/db_test                           | /                                                  | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                          |
 | OceanBase  | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                    | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar              |
 
 ## Example

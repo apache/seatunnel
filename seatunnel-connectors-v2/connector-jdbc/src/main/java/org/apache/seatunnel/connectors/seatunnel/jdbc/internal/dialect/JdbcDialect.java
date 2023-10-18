@@ -20,6 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.sql.Connection;
@@ -28,6 +31,8 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -68,9 +73,13 @@ public interface JdbcDialect extends Serializable {
     default String quoteIdentifier(String identifier) {
         return identifier;
     }
+    /** Quotes the identifier for database name or field name */
+    default String quoteDatabaseIdentifier(String identifier) {
+        return identifier;
+    }
 
     default String tableIdentifier(String database, String tableName) {
-        return quoteIdentifier(database) + "." + quoteIdentifier(tableName);
+        return quoteDatabaseIdentifier(database) + "." + quoteIdentifier(tableName);
     }
 
     /**
@@ -218,5 +227,33 @@ public interface JdbcDialect extends Serializable {
 
     default String extractTableName(TablePath tablePath) {
         return tablePath.getSchemaAndTableName();
+    }
+
+    default String getFieldIde(String identifier, String fieldIde) {
+        if (StringUtils.isEmpty(fieldIde)) {
+            return identifier;
+        }
+        switch (FieldIdeEnum.valueOf(fieldIde.toUpperCase())) {
+            case LOWERCASE:
+                return identifier.toLowerCase();
+            case UPPERCASE:
+                return identifier.toUpperCase();
+            default:
+                return identifier;
+        }
+    }
+
+    default Map<String, String> defaultParameter() {
+        return new HashMap<>();
+    }
+
+    default void connectionUrlParse(
+            String url, Map<String, String> info, Map<String, String> defaultParameter) {
+        defaultParameter.forEach(
+                (key, value) -> {
+                    if (!url.contains(key) && !info.containsKey(key)) {
+                        info.put(key, value);
+                    }
+                });
     }
 }

@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -55,6 +56,8 @@ public class SqlServerCreateTableSqlBuilder {
 
     private SqlServerDataTypeConvertor sqlServerDataTypeConvertor;
 
+    private String fieldIde;
+
     private SqlServerCreateTableSqlBuilder(String tableName) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
@@ -76,7 +79,8 @@ public class SqlServerCreateTableSqlBuilder {
                 .charset(null)
                 .primaryKey(tableSchema.getPrimaryKey())
                 .constraintKeys(tableSchema.getConstraintKeys())
-                .addColumn(tableSchema.getColumns());
+                .addColumn(tableSchema.getColumns())
+                .fieldIde(catalogTable.getOptions().get("fieldIde"));
     }
 
     public SqlServerCreateTableSqlBuilder addColumn(List<Column> columns) {
@@ -87,6 +91,11 @@ public class SqlServerCreateTableSqlBuilder {
 
     public SqlServerCreateTableSqlBuilder primaryKey(PrimaryKey primaryKey) {
         this.primaryKey = primaryKey;
+        return this;
+    }
+
+    public SqlServerCreateTableSqlBuilder fieldIde(String fieldIde) {
+        this.fieldIde = fieldIde;
         return this;
     }
 
@@ -117,7 +126,7 @@ public class SqlServerCreateTableSqlBuilder {
 
     public String build(TablePath tablePath, CatalogTable catalogTable) {
         List<String> sqls = new ArrayList<>();
-        String sqlTableName = tablePath.getFullName();
+        String sqlTableName = tablePath.getFullNameWithQuoted("[", "]");
         Map<String, String> columnComments = new HashMap<>();
         sqls.add(
                 String.format(
@@ -137,6 +146,7 @@ public class SqlServerCreateTableSqlBuilder {
             sqls.add("COLLATE = " + collate);
         }
         String sqlTableSql = String.join(" ", sqls) + ";";
+        sqlTableSql = CatalogUtils.quoteIdentifier(sqlTableSql, fieldIde);
         StringBuilder tableAndColumnComment = new StringBuilder();
         if (comment != null) {
             sqls.add("COMMENT = '" + comment + "'");
@@ -185,7 +195,7 @@ public class SqlServerCreateTableSqlBuilder {
     private String buildColumnIdentifySql(
             Column column, String catalogName, Map<String, String> columnComments) {
         final List<String> columnSqls = new ArrayList<>();
-        columnSqls.add(column.getName());
+        columnSqls.add("[" + column.getName() + "]");
         String tyNameDef = "";
         if (StringUtils.equals(catalogName, "sqlserver")) {
             columnSqls.add(column.getSourceType());
@@ -244,19 +254,7 @@ public class SqlServerCreateTableSqlBuilder {
         } else {
             columnSqls.add("NOT NULL");
         }
-        // default value
-        //        if (column.getDefaultValue() != null) {
-        //            String defaultValue = "'" + column.getDefaultValue().toString() + "'";
-        //            if (StringUtils.equals(SqlServerType.BINARY.getName(), tyNameDef)
-        //                    && defaultValue.contains("b'")) {
-        //                String rep = defaultValue.replace("b", "").replace("'", "");
-        //                defaultValue = "0x" + Integer.toHexString(Integer.parseInt(rep));
-        //            } else if (StringUtils.equals(SqlServerType.BIT.getName(), tyNameDef)
-        //                    && defaultValue.contains("b'")) {
-        //                defaultValue = defaultValue.replace("b", "").replace("'", "");
-        //            }
-        //            columnSqls.add("DEFAULT " + defaultValue);
-        //        }
+
         // comment
         if (column.getComment() != null) {
             columnComments.put(column.getName(), column.getComment());
@@ -267,7 +265,10 @@ public class SqlServerCreateTableSqlBuilder {
 
     private String buildPrimaryKeySql() {
         //                        .map(columnName -> "`" + columnName + "`")
-        String key = String.join(", ", primaryKey.getColumnNames());
+        String key =
+                primaryKey.getColumnNames().stream()
+                        .map(columnName -> "[" + columnName + "]")
+                        .collect(Collectors.joining(", "));
         // add sort type
         return String.format("PRIMARY KEY (%s)", key);
     }
@@ -290,7 +291,7 @@ public class SqlServerCreateTableSqlBuilder {
                         .collect(Collectors.joining(", "));
         String keyName = null;
         switch (constraintType) {
-            case KEY:
+            case INDEX_KEY:
                 keyName = "KEY";
                 break;
             case UNIQUE_KEY:

@@ -19,9 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 public interface JdbcOptions {
 
@@ -154,4 +156,16 @@ public interface JdbcOptions {
                     .intType()
                     .noDefaultValue()
                     .withDescription("partition num");
+
+    Option<FieldIdeEnum> FIELD_IDE =
+            Options.key("field_ide")
+                    .enumType(FieldIdeEnum.class)
+                    .noDefaultValue()
+                    .withDescription("Whether case conversion is required");
+
+    Option<Map<String, String>> PROPERTIES =
+            Options.key("properties")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription("additional connection configuration parameters");
 }

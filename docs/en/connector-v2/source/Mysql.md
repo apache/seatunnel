@@ -73,6 +73,7 @@ Read external data source data through JDBC.
 | partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
 | partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
 | fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
+| properties                   | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                    |
 | common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
 
 ### Tips
@@ -94,7 +95,7 @@ env {
 }
 source{
     Jdbc {
-        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
         user = "root"
@@ -118,9 +119,13 @@ sink {
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
 
 ```
+env {
+  execution.parallelism = 10
+  job.mode = "BATCH"
+}
 source {
     Jdbc {
-        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
         user = "root"
@@ -131,7 +136,13 @@ source {
         partition_column = "id"
         # Number of fragments
         partition_num = 10
+        properties {
+         useSSL=false
+        }
     }
+}
+sink {
+  Console {}
 }
 ```
 
@@ -142,7 +153,7 @@ source {
 ```
 source {
     Jdbc {
-        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
         user = "root"
@@ -155,6 +166,9 @@ source {
         # Read end boundary
         partition_upper_bound = 500
         partition_num = 10
+        properties {
+         useSSL=false
+        }
     }
 }
 ```
