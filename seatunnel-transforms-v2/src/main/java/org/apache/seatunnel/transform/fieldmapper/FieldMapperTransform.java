@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportTransform;
 import org.apache.seatunnel.transform.exception.FieldMapperTransformErrorCode;
 import org.apache.seatunnel.transform.exception.FieldMapperTransformException;
@@ -34,7 +33,6 @@ import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.apache.commons.collections4.CollectionUtils;
 
-import com.google.auto.service.AutoService;
 import com.google.common.collect.Lists;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +43,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
-@AutoService(SeaTunnelTransform.class)
 public class FieldMapperTransform extends AbstractCatalogSupportTransform {
     public static String PLUGIN_NAME = "FieldMapper";
     private FieldMapperTransformConfig config;

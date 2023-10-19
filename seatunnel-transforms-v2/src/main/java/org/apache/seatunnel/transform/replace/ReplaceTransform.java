@@ -21,19 +21,16 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.common.SingleFieldOutputTransform;
 
 import org.apache.commons.collections4.CollectionUtils;
 
-import com.google.auto.service.AutoService;
 import lombok.NonNull;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-@AutoService(SeaTunnelTransform.class)
 public class ReplaceTransform extends SingleFieldOutputTransform {
     private ReadonlyConfig config;
     private int inputFieldIndex;

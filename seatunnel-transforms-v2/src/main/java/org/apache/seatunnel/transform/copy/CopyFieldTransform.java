@@ -25,11 +25,8 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
-
-import com.google.auto.service.AutoService;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
@@ -39,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@AutoService(SeaTunnelTransform.class)
 public class CopyFieldTransform extends MultipleFieldOutputTransform {
     public static final String PLUGIN_NAME = "Copy";
 

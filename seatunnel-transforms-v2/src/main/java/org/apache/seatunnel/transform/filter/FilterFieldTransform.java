@@ -26,14 +26,12 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportTransform;
 import org.apache.seatunnel.transform.exception.FilterFieldTransformErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.apache.commons.collections4.CollectionUtils;
 
-import com.google.auto.service.AutoService;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,7 +41,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
-@AutoService(SeaTunnelTransform.class)
 public class FilterFieldTransform extends AbstractCatalogSupportTransform {
     public static final String PLUGIN_NAME = "Filter";
     private int[] inputValueIndex;

@@ -21,12 +21,10 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.FilterRowTransform;
 
-import com.google.auto.service.AutoService;
 import lombok.NonNull;
 import lombok.ToString;
 
@@ -35,7 +33,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 @ToString(of = {"includeKinds", "excludeKinds"})
-@AutoService(SeaTunnelTransform.class)
 public class FilterRowKindTransform extends FilterRowTransform {
     public static String PLUGIN_NAME = "FilterRowKind";
 

@@ -31,11 +31,9 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportTransform;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType;
 
-import com.google.auto.service.AutoService;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,7 +43,6 @@ import java.util.List;
 import static org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType.ZETA;
 
 @Slf4j
-@AutoService(SeaTunnelTransform.class)
 public class SQLTransform extends AbstractCatalogSupportTransform {
     public static final String PLUGIN_NAME = "Sql";
 
