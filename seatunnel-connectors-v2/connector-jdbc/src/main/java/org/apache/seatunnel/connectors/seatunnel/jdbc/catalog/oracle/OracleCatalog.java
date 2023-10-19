@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
@@ -253,6 +254,18 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
-        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new OracleTypeMapper());
+        CatalogTable tableOfQuery =
+                CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new OracleTypeMapper());
+        return CatalogTable.of(
+                TableIdentifier.of(
+                        catalogName,
+                        tableOfQuery.getTableId().getDatabaseName(),
+                        tableOfQuery.getTableId().getSchemaName(),
+                        tableOfQuery.getTableId().getTableName()),
+                tableOfQuery.getTableSchema(),
+                tableOfQuery.getOptions(),
+                tableOfQuery.getPartitionKeys(),
+                tableOfQuery.getComment(),
+                catalogName);
     }
 }
