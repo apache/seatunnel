@@ -23,9 +23,10 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -45,7 +46,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AutoService(SeaTunnelSink.class)
 public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
-        implements SupportDataSaveMode {
+        implements SupportSaveMode {
 
     private SeaTunnelRowType seaTunnelRowType;
     private SinkConfig sinkConfig;
@@ -113,6 +114,11 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
+    public SaveModeHandler getSaveModeHandler() {
+        return null;
+    }
+
+    /*@Override
     public DataSaveMode getUserConfigSaveMode() {
         return dataSaveMode;
     }
@@ -122,5 +128,5 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         if (catalogTable != null) {
             autoCreateTable(sinkConfig.getSaveModeCreateTemplate());
         }
-    }
+    }*/
 }

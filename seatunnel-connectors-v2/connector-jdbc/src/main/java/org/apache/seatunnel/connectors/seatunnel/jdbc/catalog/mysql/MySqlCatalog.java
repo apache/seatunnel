@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
@@ -180,7 +181,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getDropTableSql(TablePath tablePath) {
-        return String.format("DROP TABLE %s;", tablePath.getFullName());
+        return String.format(
+                "DROP TABLE `%s`.`%s`;", tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
     @Override
@@ -199,5 +201,17 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         dataTypeProperties.put(MysqlDataTypeConvertor.PRECISION, precision);
         dataTypeProperties.put(MysqlDataTypeConvertor.SCALE, scale);
         return DATA_TYPE_CONVERTOR.toSeaTunnelType(mysqlType, dataTypeProperties);
+    }
+
+    @Override
+    protected String getTruncateTableSql(TablePath tablePath) throws CatalogException {
+        return String.format(
+                "TRUNCATE TABLE `%s`.`%s`;", tablePath.getDatabaseName(), tablePath.getTableName());
+    }
+
+    public String getCountSql(TablePath tablePath) {
+        return String.format(
+                "select * from `%s`.`%s` limit 1;",
+                tablePath.getDatabaseName(), tablePath.getTableName());
     }
 }

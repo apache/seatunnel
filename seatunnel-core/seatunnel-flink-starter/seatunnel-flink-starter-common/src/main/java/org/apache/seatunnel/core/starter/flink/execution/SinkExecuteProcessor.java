@@ -23,13 +23,14 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
-import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
@@ -48,6 +49,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
+import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
 
 public class SinkExecuteProcessor
         extends FlinkAbstractPluginExecuteProcessor<Optional<? extends Factory>> {
@@ -114,10 +116,15 @@ public class SinkExecuteProcessor
                 sink = ((TableSinkFactory) factory.get()).createSink(context).createSink();
                 sink.setJobContext(jobContext);
             }
-            if (SupportDataSaveMode.class.isAssignableFrom(sink.getClass())) {
-                SupportDataSaveMode saveModeSink = (SupportDataSaveMode) sink;
-                DataSaveMode dataSaveMode = saveModeSink.getUserConfigSaveMode();
-                saveModeSink.handleSaveMode(dataSaveMode);
+            if (SupportSaveMode.class.isAssignableFrom(sink.getClass())) {
+                SupportSaveMode saveModeSink = (SupportSaveMode) sink;
+                try (SaveModeHandler saveModeHandler = saveModeSink.getSaveModeHandler()) {
+                    if (saveModeHandler != null) {
+                        saveModeHandler.handleSaveMode();
+                    }
+                } catch (Exception e) {
+                    throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
+                }
             }
             DataStreamSink<Row> dataStreamSink =
                     stream.getDataStream()
