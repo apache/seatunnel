@@ -343,7 +343,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     public boolean tableExists(TablePath tablePath) throws CatalogException {
         try {
             return databaseExists(tablePath.getDatabaseName())
-                    && listTables(tablePath.getDatabaseName()).contains(tablePath.getTableName());
+                    && listTables(tablePath.getDatabaseName()).contains(getTableName(tablePath));
         } catch (DatabaseNotExistException e) {
             return false;
         }
