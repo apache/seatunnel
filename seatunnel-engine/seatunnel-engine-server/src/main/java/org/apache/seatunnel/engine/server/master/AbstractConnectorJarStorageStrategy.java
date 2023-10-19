@@ -86,6 +86,11 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
     }
 
     @Override
+    public ConnectorJarIdentifier getConnectorJarIdentifier(long jobId, ConnectorJar connectorJar) {
+        return ConnectorJarIdentifier.of(connectorJar, getStorageLocationPath(jobId, connectorJar));
+    }
+
+    @Override
     public Path storageConnectorJarFileInternal(ConnectorJar connectorJar, File storageFile) {
         boolean success = false;
         try {

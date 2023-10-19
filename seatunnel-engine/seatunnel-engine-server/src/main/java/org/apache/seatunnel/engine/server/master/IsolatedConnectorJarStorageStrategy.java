@@ -49,6 +49,15 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
     }
 
     @Override
+    public boolean checkConnectorJarExisted(long jobId, ConnectorJar connectorJar) {
+        File storageFile = getStorageLocation(jobId, connectorJar);
+        if (storageFile.exists()) {
+            return true;
+        }
+        return false;
+    }
+
+    @Override
     public void cleanUpWhenJobFinished(
             long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList) {
         connectorJarIdentifierList.forEach(
@@ -68,14 +77,7 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
         checkNotNull(jobId);
         if (connectorJar.getType() == ConnectorJarType.COMMON_PLUGIN_JAR) {
             CommonPluginJar commonPluginJar = (CommonPluginJar) connectorJar;
-            return String.format(
-                    "%s/%s/%s/%s/%s/%s",
-                    storageDir,
-                    COMMON_PLUGIN_JAR_STORAGE_PATH,
-                    jobId,
-                    commonPluginJar.getPluginName(),
-                    "lib",
-                    connectorJar.getFileName());
+            return String.format("%s/%s/%s", storageDir, "lib", connectorJar.getFileName());
         } else {
             return String.format(
                     "%s/%s/%s/%s",

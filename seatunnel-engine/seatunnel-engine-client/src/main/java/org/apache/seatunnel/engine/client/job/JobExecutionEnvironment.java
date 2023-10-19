@@ -94,18 +94,13 @@ public class JobExecutionEnvironment extends AbstractJobEnvironment {
         // packages.
         boolean enableUploadConnectorJarPackage =
                 seaTunnelConfig.getEngineConfig().getConnectorJarStorageConfig().getEnable();
-        if (enableUploadConnectorJarPackage == true) {
-            /**
-             * TODO: Before uploading the Jar package file the server, first determine whether the
-             * server holds the current Jar. If the server holds the same Jar package file, there is
-             * no need for additional uploads.
-             */
+        if (enableUploadConnectorJarPackage) {
             Set<ConnectorJarIdentifier> commonJarIdentifiers =
                     connectorPackageClient.uploadCommonPluginJars(
                             Long.parseLong(jobConfig.getJobContext().getJobId()), commonPluginJars);
             Set<URL> commonPluginJarUrls = getJarUrlsFromIdentifiers(commonJarIdentifiers);
             Set<ConnectorJarIdentifier> pluginJarIdentifiers = new HashSet<>();
-            transformActionPluginJarUrls(actions, pluginJarIdentifiers);
+            uploadActionPluginJar(actions, pluginJarIdentifiers);
             Set<URL> connectorPluginJarUrls = getJarUrlsFromIdentifiers(pluginJarIdentifiers);
             connectorJarIdentifiers.addAll(commonJarIdentifiers);
             connectorJarIdentifiers.addAll(pluginJarIdentifiers);
@@ -133,15 +128,10 @@ public class JobExecutionEnvironment extends AbstractJobEnvironment {
         return getLogicalDagGenerator().generate();
     }
 
-    protected Set<ConnectorJarIdentifier> uploadPluginJarUrls(Set<URL> pluginJarUrls) {
+    protected Set<ConnectorJarIdentifier> uploadPluginJars(Set<URL> pluginJarUrls) {
         Set<ConnectorJarIdentifier> pluginJarIdentifiers = new HashSet<>();
         pluginJarUrls.forEach(
                 pluginJarUrl -> {
-                    /**
-                     * TODO: Before uploading the Jar package file the server, first determine
-                     * whether the server holds the current Jar. If the server holds the same Jar
-                     * package file, there is no need for additional uploads.
-                     */
                     ConnectorJarIdentifier connectorJarIdentifier =
                             connectorPackageClient.uploadConnectorPluginJar(
                                     Long.parseLong(jobConfig.getJobContext().getJobId()),
@@ -151,12 +141,11 @@ public class JobExecutionEnvironment extends AbstractJobEnvironment {
         return pluginJarIdentifiers;
     }
 
-    private void transformActionPluginJarUrls(
-            List<Action> actions, Set<ConnectorJarIdentifier> result) {
+    private void uploadActionPluginJar(List<Action> actions, Set<ConnectorJarIdentifier> result) {
         actions.forEach(
                 action -> {
                     Set<URL> jarUrls = action.getJarUrls();
-                    Set<ConnectorJarIdentifier> jarIdentifiers = uploadPluginJarUrls(jarUrls);
+                    Set<ConnectorJarIdentifier> jarIdentifiers = uploadPluginJars(jarUrls);
                     result.addAll(jarIdentifiers);
                     // Reset the client URL of the jar package in Set
                     // add the URLs from remote master node
@@ -164,7 +153,7 @@ public class JobExecutionEnvironment extends AbstractJobEnvironment {
                     jarUrls.addAll(getJarUrlsFromIdentifiers(jarIdentifiers));
                     action.getConnectorJarIdentifiers().addAll(jarIdentifiers);
                     if (!action.getUpstream().isEmpty()) {
-                        transformActionPluginJarUrls(action.getUpstream(), result);
+                        uploadActionPluginJar(action.getUpstream(), result);
                     }
                 });
     }

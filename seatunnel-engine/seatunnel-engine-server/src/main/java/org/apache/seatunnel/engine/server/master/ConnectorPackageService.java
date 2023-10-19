@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
@@ -78,6 +79,27 @@ public class ConnectorPackageService {
     public ConnectorJarIdentifier storageConnectorJarFile(long jobId, Data connectorJarData) {
         // deserialize connector jar package data
         ConnectorJar connectorJar = nodeEngine.getSerializationService().toObject(connectorJarData);
+        /**
+         * If the server holds the same Jar package file, there is no need for additional storaged.
+         * When the Connector Jar storage strategy is SharedConnectorJarStorageStrategy, the
+         * reference count in the connectorJarRefCounters needs to be increased. When the Connector
+         * Jar storage strategy is IsolatedConnectorJarStorageStrategy, we don't need to do any
+         * processing, just return the identifier of connector jar.
+         */
+        boolean connectorJarExisted =
+                connectorJarStorageStrategy.checkConnectorJarExisted(jobId, connectorJar);
+        if (connectorJarExisted) {
+            ConnectorJarIdentifier connectorJarIdentifier =
+                    connectorJarStorageStrategy.getConnectorJarIdentifier(jobId, connectorJar);
+            ConnectorJarStorageMode storageMode = connectorJarStorageConfig.getStorageMode();
+            if (storageMode.equals(ConnectorJarStorageMode.SHARED)) {
+                SharedConnectorJarStorageStrategy sharedConnectorJarStorageStrategy =
+                        (SharedConnectorJarStorageStrategy) connectorJarStorageStrategy;
+                sharedConnectorJarStorageStrategy.increaseRefCountForConnectorJar(
+                        connectorJarIdentifier);
+            }
+            return connectorJarStorageStrategy.getConnectorJarIdentifier(jobId, connectorJar);
+        }
         ConnectorJarIdentifier connectorJarIdentifier =
                 connectorJarStorageStrategy.storageConnectorJarFile(jobId, connectorJar);
         Address masterNodeAddress = nodeEngine.getClusterService().getMasterAddress();

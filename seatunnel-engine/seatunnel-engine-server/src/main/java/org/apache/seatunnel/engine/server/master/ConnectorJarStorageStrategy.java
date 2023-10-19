@@ -46,7 +46,7 @@ public interface ConnectorJarStorageStrategy extends Serializable {
     File getStorageLocation(long jobId, ConnectorJar connectorJar);
 
     /**
-     * storage the connector jar package file.
+     * Storage the connector jar package file.
      *
      * @param jobId ID of the job for the connector jar
      * @param connectorJar connector jar
@@ -54,18 +54,82 @@ public interface ConnectorJarStorageStrategy extends Serializable {
      */
     ConnectorJarIdentifier storageConnectorJarFile(long jobId, ConnectorJar connectorJar);
 
+    /**
+     * Storage the connector jar package file in the local file system.
+     *
+     * @param connectorJar connector jar
+     * @param storageLocation the storage location of the connector jar in the local file system
+     * @return
+     */
     Path storageConnectorJarFileInternal(ConnectorJar connectorJar, File storageLocation);
 
+    /**
+     * Check whether the same connector Jar package exists in the zeta engine.
+     *
+     * @param jobId ID of the job for the connector jar
+     * @param connectorJar connector jar
+     * @return
+     */
+    boolean checkConnectorJarExisted(long jobId, ConnectorJar connectorJar);
+
+    /**
+     * Obtain the unique identifier of the connector jar.
+     *
+     * @param jobId ID of the job for the connector jar
+     * @param connectorJar connector jar
+     * @return
+     */
+    ConnectorJarIdentifier getConnectorJarIdentifier(long jobId, ConnectorJar connectorJar);
+
+    /**
+     * Delete the connector jar package by connectorJarIdentifier.
+     *
+     * @param connectorJarIdentifier the unique identifier of the connector jar.
+     */
     void deleteConnectorJar(ConnectorJarIdentifier connectorJarIdentifier);
 
+    /**
+     * Delete the connector jar package in execution node by connectorJarIdentifier
+     *
+     * @param connectorJarIdentifier the unique identifier of the connector jar.
+     */
     void deleteConnectorJarInExecutionNode(ConnectorJarIdentifier connectorJarIdentifier);
 
+    /**
+     * Delete the connector jar package by connectorJarIdentifier
+     *
+     * @param connectorJarIdentifier the unique identifier of the connector jar.
+     */
+    /**
+     * Delete the connector jar package in the local file system by connectorJarIdentifier.
+     *
+     * @param storageLocation the storage location of the connector jar
+     */
     void deleteConnectorJarInternal(File storageLocation);
 
+    /**
+     * Read connector Jar package from file to byte array.
+     *
+     * @param connectorJarFile the connector jar file
+     * @return the byte array of the connector jar file
+     */
     byte[] readConnectorJarByteDataInternal(File connectorJarFile);
 
+    /**
+     * Read connector Jar package from file to byte array.
+     *
+     * @param connectorJarFile the connector jar file
+     * @return the byte array of the connector jar file
+     */
     byte[] readConnectorJarByteData(File connectorJarFile);
 
+    /**
+     * Carry out the cleaning work after the task is finished.
+     *
+     * @param jobId ID of the job for the connector jar
+     * @param connectorJarIdentifierList List of all Jar package identifiers referenced by the
+     *     current task
+     */
     void cleanUpWhenJobFinished(
             long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList);
 }

@@ -90,6 +90,28 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
     }
 
     @Override
+    public boolean checkConnectorJarExisted(long jobId, ConnectorJar connectorJar) {
+        ConnectorJarIdentifier connectorJarIdentifier =
+                ConnectorJarIdentifier.of(
+                        connectorJar, getStorageLocationPath(jobId, connectorJar));
+        RefCount refCount = connectorJarRefCounters.get(connectorJarIdentifier);
+        if (refCount != null) {
+            return true;
+        }
+        return false;
+    }
+
+    public void increaseRefCountForConnectorJar(ConnectorJarIdentifier connectorJarIdentifier) {
+        RefCount refCount = connectorJarRefCounters.get(connectorJarIdentifier);
+        if (refCount != null) {
+            // increment reference counts for connector jar
+            Long references = refCount.getReferences();
+            refCount.setReferences(++references);
+            connectorJarRefCounters.put(connectorJarIdentifier, refCount);
+        }
+    }
+
+    @Override
     public void deleteConnectorJar(ConnectorJarIdentifier connectorJarIdentifier) {
         RefCount refCount = connectorJarRefCounters.get(connectorJarIdentifier);
         if (refCount != null) {
@@ -110,13 +132,7 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
         checkNotNull(jobId);
         if (connectorJar.getType() == ConnectorJarType.COMMON_PLUGIN_JAR) {
             CommonPluginJar commonPluginJar = (CommonPluginJar) connectorJar;
-            return String.format(
-                    "%s/%s/%s/%s/%s",
-                    storageDir,
-                    COMMON_PLUGIN_JAR_STORAGE_PATH,
-                    commonPluginJar.getPluginName(),
-                    "lib",
-                    connectorJar.getFileName());
+            return String.format("%s/%s/%s", storageDir, "lib", connectorJar.getFileName());
         } else {
             return String.format(
                     "%s/%s/%s",
