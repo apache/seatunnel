@@ -128,18 +128,22 @@ public class MultiTableSinkWriter
         subSinkErrorCheck();
         Optional<Integer> primaryKey = sinkPrimaryKeys.get(element.getTableId());
         try {
-            if (primaryKey.isPresent()) {
+            if ((primaryKey == null && sinkPrimaryKeys.size() == 1)
+                    || (primaryKey != null && !primaryKey.isPresent())) {
+                int index = random.nextInt(blockingQueues.size());
+                BlockingQueue<SeaTunnelRow> queue = blockingQueues.get(index);
+                while (!queue.offer(element, 500, TimeUnit.MILLISECONDS)) {
+                    subSinkErrorCheck();
+                }
+            } else if (primaryKey == null) {
+                throw new RuntimeException(
+                        "multi table sink can not write table: " + element.getTableId());
+            } else {
                 Object object = element.getField(primaryKey.get());
                 int index = 0;
                 if (object != null) {
                     index = Math.abs(object.hashCode()) % blockingQueues.size();
                 }
-                BlockingQueue<SeaTunnelRow> queue = blockingQueues.get(index);
-                while (!queue.offer(element, 500, TimeUnit.MILLISECONDS)) {
-                    subSinkErrorCheck();
-                }
-            } else {
-                int index = random.nextInt(blockingQueues.size());
                 BlockingQueue<SeaTunnelRow> queue = blockingQueues.get(index);
                 while (!queue.offer(element, 500, TimeUnit.MILLISECONDS)) {
                     subSinkErrorCheck();
