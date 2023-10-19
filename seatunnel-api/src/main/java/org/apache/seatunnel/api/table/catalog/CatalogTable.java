@@ -61,7 +61,8 @@ public final class CatalogTable implements Serializable {
             Map<String, String> options,
             List<String> partitionKeys,
             String comment) {
-        return new CatalogTable(tableId, tableSchema, options, partitionKeys, comment);
+        return new CatalogTable(
+                tableId, tableSchema, options, partitionKeys, comment, tableId.getCatalogName());
     }
 
     public static CatalogTable of(
@@ -80,7 +81,7 @@ public final class CatalogTable implements Serializable {
             Map<String, String> options,
             List<String> partitionKeys,
             String comment) {
-        this(tableId, tableSchema, options, partitionKeys, comment, "");
+        this(tableId, tableSchema, options, partitionKeys, comment, tableId.getCatalogName());
     }
 
     private CatalogTable(
@@ -149,6 +150,9 @@ public final class CatalogTable implements Serializable {
                 + partitionKeys
                 + ", comment='"
                 + comment
+                + '\''
+                + ", catalogName='"
+                + catalogName
                 + '\''
                 + '}';
     }

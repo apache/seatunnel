@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +42,7 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PARTITION_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PARTITION_UPPER_BOUND;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PROPERTIES;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.QUERY;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.URL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.USER;
@@ -63,6 +66,14 @@ public class JdbcSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         JdbcSourceConfig config = JdbcSourceConfig.of(context.getOptions());
+        JdbcDialect jdbcDialect =
+                JdbcDialectLoader.load(
+                        config.getJdbcConnectionConfig().getUrl(),
+                        config.getJdbcConnectionConfig().getCompatibleMode());
+        jdbcDialect.connectionUrlParse(
+                config.getJdbcConnectionConfig().getUrl(),
+                config.getJdbcConnectionConfig().getProperties(),
+                jdbcDialect.defaultParameter());
         return () -> (SeaTunnelSource<T, SplitT, StateT>) new JdbcSource(config);
     }
 
@@ -80,6 +91,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         PARTITION_LOWER_BOUND,
                         PARTITION_NUM,
                         COMPATIBLE_MODE,
+                        PROPERTIES,
                         QUERY,
                         TABLE_PATH,
                         TABLE_LIST,

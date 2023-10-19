@@ -33,6 +33,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -102,6 +104,13 @@ public class MysqlDialect implements JdbcDialect {
     @Override
     public String extractTableName(TablePath tablePath) {
         return tablePath.getTableName();
+    }
+
+    @Override
+    public Map<String, String> defaultParameter() {
+        HashMap<String, String> map = new HashMap<>();
+        map.put("rewriteBatchedStatements", "true");
+        return map;
     }
 
     @Override

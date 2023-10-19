@@ -26,10 +26,9 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.factory.CatalogFactory;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogFactorySelector;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
@@ -76,7 +75,7 @@ public class JdbcCatalogUtils {
         JdbcDialect jdbcDialect =
                 JdbcDialectLoader.load(
                         jdbcConnectionConfig.getUrl(), jdbcConnectionConfig.getCompatibleMode());
-        Optional<Catalog> catalog = findCatalog(jdbcConnectionConfig);
+        Optional<Catalog> catalog = findCatalog(jdbcConnectionConfig, jdbcDialect);
         if (catalog.isPresent()) {
             try (AbstractJdbcCatalog jdbcCatalog = (AbstractJdbcCatalog) catalog.get()) {
                 log.info("Loading catalog tables for catalog : {}", jdbcCatalog.getClass());
@@ -310,28 +309,6 @@ public class JdbcCatalogUtils {
         return CatalogUtils.getCatalogTable(resultSetMetaData);
     }
 
-    private static Optional<Catalog> findCatalog(JdbcConnectionConfig config) {
-        Optional<CatalogFactory> catalogFactory = CatalogFactorySelector.select(config.getUrl());
-        if (catalogFactory.isPresent()) {
-            ReadonlyConfig catalogConfig = extractCatalogConfig(config);
-            Catalog catalog = catalogFactory.get().createCatalog(DEFAULT_CATALOG, catalogConfig);
-            return Optional.of(catalog);
-        }
-
-        log.debug("No catalog  found for jdbc url: {}", config.getUrl());
-        return Optional.empty();
-    }
-
-    private static ReadonlyConfig extractCatalogConfig(JdbcConnectionConfig config) {
-        Map<String, Object> catalogConfig = new HashMap<>();
-        catalogConfig.put(JdbcCatalogOptions.BASE_URL.key(), config.getUrl());
-        config.getUsername()
-                .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.USERNAME.key(), val));
-        config.getPassword()
-                .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.PASSWORD.key(), val));
-        return ReadonlyConfig.fromMap(catalogConfig);
-    }
-
     private static TableIdentifier convert(TablePath tablePath) {
         return convert(DEFAULT_CATALOG, tablePath);
     }
@@ -350,5 +327,24 @@ public class JdbcCatalogUtils {
                     config.getUrl(), config.getUsername().get(), config.getPassword().get());
         }
         return DriverManager.getConnection(config.getUrl());
+    }
+
+    public static Optional<Catalog> findCatalog(JdbcConnectionConfig config, JdbcDialect dialect) {
+        ReadonlyConfig catalogConfig = extractCatalogConfig(config);
+        return FactoryUtil.createOptionalCatalog(
+                dialect.dialectName(),
+                catalogConfig,
+                JdbcCatalogUtils.class.getClassLoader(),
+                dialect.dialectName());
+    }
+
+    private static ReadonlyConfig extractCatalogConfig(JdbcConnectionConfig config) {
+        Map<String, Object> catalogConfig = new HashMap<>();
+        catalogConfig.put(JdbcCatalogOptions.BASE_URL.key(), config.getUrl());
+        config.getUsername()
+                .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.USERNAME.key(), val));
+        config.getPassword()
+                .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.PASSWORD.key(), val));
+        return ReadonlyConfig.fromMap(catalogConfig);
     }
 }

@@ -416,7 +416,7 @@ public class FakeConfig implements Serializable {
             List<String> tableNames = config.getStringList(CatalogOptions.TABLE_NAMES.key());
             List<TableIdentifier> tableIdentifiers = new ArrayList<>(tableNames.size());
             for (String tableName : tableNames) {
-                tableIdentifiers.add(TableIdentifier.of("fake", TablePath.of(tableName)));
+                tableIdentifiers.add(TableIdentifier.of("FakeSource", TablePath.of(tableName)));
             }
             builder.tableIdentifiers(tableIdentifiers);
         }

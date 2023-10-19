@@ -79,7 +79,6 @@ public class JdbcSource
     public void prepare(Config pluginConfig) throws PrepareFailException {
         ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
         ConfigValidator.of(config).validate(new JdbcSourceFactory().optionRule());
-
         this.jdbcSourceConfig = JdbcSourceConfig.of(config);
         this.jdbcSourceTables =
                 JdbcCatalogUtils.getTables(

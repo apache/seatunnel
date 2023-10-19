@@ -33,7 +33,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -242,6 +244,20 @@ public interface JdbcDialect extends Serializable {
             default:
                 return identifier;
         }
+    }
+
+    default Map<String, String> defaultParameter() {
+        return new HashMap<>();
+    }
+
+    default void connectionUrlParse(
+            String url, Map<String, String> info, Map<String, String> defaultParameter) {
+        defaultParameter.forEach(
+                (key, value) -> {
+                    if (!url.contains(key) && !info.containsKey(key)) {
+                        info.put(key, value);
+                    }
+                });
     }
 
     default TablePath parse(String tablePath) {

@@ -11,6 +11,9 @@ We can use SchemaOptions to define schema, the SchemaOptions contains some confi
 
 ```
 schema = {
+    table = "database.schema.table"
+    schema_first = false
+    comment = "comment"
     columns = [
     ...
     ]
@@ -23,6 +26,20 @@ schema = {
     }
 }
 ```
+
+### table
+
+The table full name of the table identifier which the schema belongs to, it contains database, schema, table name. e.g. `database.schema.table`, `database.table`, `table`.
+
+### schema_first
+
+Default is false.
+
+If the schema_first is true, the schema will be used first, this means if we set `table = "a.b"`, `a` will be parsed as schema rather than database, then we can support write `table = "schema.table"`.
+
+### comment
+
+The comment of the CatalogTable which the schema belongs to.
 
 ### Columns
 
@@ -131,6 +148,7 @@ source {
     result_table_name = "fake"
     row.num = 16
     schema {
+        table = "FakeDatabase.FakeTable"
         columns = [
            {
               name = id
