@@ -102,7 +102,9 @@ The number of partition count, only support positive integer. default value is j
 For queries that return a large number of objects, you can configure the row fetch size used in the query to
 improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.
 
-<<<<<<< HEAD
+### properties
+
+Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.
 
 ### table_path
 
@@ -151,13 +153,6 @@ This configuration specifies the threshold of estimated shard count to trigger t
 ### split.inverse-sampling.rate
 
 The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.
-=======================================================================================================================================================================================================================================================================================================================================================================================================================================================
-
-### properties
-
-Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.
-
->>>>>>> dev
 
 ### common options
 
