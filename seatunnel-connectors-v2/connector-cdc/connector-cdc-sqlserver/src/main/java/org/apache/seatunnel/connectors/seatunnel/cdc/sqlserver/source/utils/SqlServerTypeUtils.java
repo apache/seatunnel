@@ -122,6 +122,22 @@ public class SqlServerTypeUtils {
             case SQLSERVER_TIME:
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case SQLSERVER_BIT:
+            case SQLSERVER_BIGINT:
+            case SQLSERVER_REAL:
+            case SQLSERVER_DOUBLE:
+            case SQLSERVER_FLOAT:
+            case SQLSERVER_NUMERIC:
+            case SQLSERVER_DECIMAL:
+            case SQLSERVER_SMALLMONEY:
+            case SQLSERVER_MONEY:
+            case SQLSERVER_TIMESTAMP:
+            case SQLSERVER_DATETIMEOFFSET:
+            case SQLSERVER_DATETIME2:
+            case SQLSERVER_DATETIME:
+            case SQLSERVER_SMALLDATETIME:
+            case SQLSERVER_DATE:
+            case SQLSERVER_TIME:
+            case SQLSERVER_BIT:
                 return BasicType.BOOLEAN_TYPE;
             default:
                 throw new UnsupportedOperationException(

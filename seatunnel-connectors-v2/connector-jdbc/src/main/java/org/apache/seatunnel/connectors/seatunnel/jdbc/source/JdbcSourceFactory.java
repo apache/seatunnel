@@ -100,7 +100,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
         Optional<PartitionParameter> partitionParameter = Optional.empty();
         try {
             CatalogTable catalogTable =
-                    CatalogTableUtil.getCatalogTablesFromConfig(
+                    CatalogTableUtil.getCatalogTables(
                                     dialect.dialectName(),
                                     context.getOptions(),
                                     context.getClassLoader())
