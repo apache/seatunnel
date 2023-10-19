@@ -184,7 +184,10 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
 
     @Override
     public void tearDown() throws Exception {
-        mysql_container.close();
+        if (mysql_container != null) {
+            mysql_container.close();
+            dockerClient.removeContainerCmd(mysql_container.getContainerId()).exec();
+        }
     }
 
     private Connection getJdbcMySqlConnection() throws SQLException {
