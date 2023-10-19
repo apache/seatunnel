@@ -87,6 +87,7 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
                                         CommonOptions.PARALLELISM.key(),
                                         CommonOptions.PARALLELISM.defaultValue());
             }
+            StructType schema = (StructType) TypeConverterUtils.convert(source.getProducedType());
             Dataset<Row> dataset =
                     sparkRuntimeEnvironment
                             .getSparkSession()
@@ -97,9 +98,7 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
                                     Constants.SOURCE_SERIALIZATION,
                                     SerializationUtils.objectToString(source))
                             .options(envOption)
-                            .schema(
-                                    (StructType)
-                                            TypeConverterUtils.convert(source.getProducedType()))
+                            .schema(schema)
                             .load();
             sources.add(
                     new DatasetTableInfo(
