@@ -95,6 +95,11 @@ public class JobExecutionEnvironment extends AbstractJobEnvironment {
         boolean enableUploadConnectorJarPackage =
                 seaTunnelConfig.getEngineConfig().getConnectorJarStorageConfig().getEnable();
         if (enableUploadConnectorJarPackage == true) {
+            /**
+             * TODO: Before uploading the Jar package file the server, first determine whether the
+             * server holds the current Jar. If the server holds the same Jar package file, there is
+             * no need for additional uploads.
+             */
             Set<ConnectorJarIdentifier> commonJarIdentifiers =
                     connectorPackageClient.uploadCommonPluginJars(
                             Long.parseLong(jobConfig.getJobContext().getJobId()), commonPluginJars);
@@ -132,6 +137,11 @@ public class JobExecutionEnvironment extends AbstractJobEnvironment {
         Set<ConnectorJarIdentifier> pluginJarIdentifiers = new HashSet<>();
         pluginJarUrls.forEach(
                 pluginJarUrl -> {
+                    /**
+                     * TODO: Before uploading the Jar package file the server, first determine
+                     * whether the server holds the current Jar. If the server holds the same Jar
+                     * package file, there is no need for additional uploads.
+                     */
                     ConnectorJarIdentifier connectorJarIdentifier =
                             connectorPackageClient.uploadConnectorPluginJar(
                                     Long.parseLong(jobConfig.getJobContext().getJobId()),
