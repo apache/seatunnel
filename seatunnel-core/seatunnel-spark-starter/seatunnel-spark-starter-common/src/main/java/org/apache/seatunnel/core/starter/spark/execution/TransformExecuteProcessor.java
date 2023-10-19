@@ -129,13 +129,12 @@ public class TransformExecuteProcessor
 
     private Dataset<Row> sparkTransform(SeaTunnelTransform transform, DatasetTableInfo tableInfo) {
         Dataset<Row> stream = tableInfo.getDataset();
-        SeaTunnelDataType<?> seaTunnelDataType = tableInfo.getCatalogTable().getSeaTunnelRowType();
-        transform.setTypeInfo(seaTunnelDataType);
-        StructType outputSchema =
-                (StructType) TypeConverterUtils.convert(transform.getProducedType());
-        SeaTunnelRowConverter inputRowConverter = new SeaTunnelRowConverter(seaTunnelDataType);
-        SeaTunnelRowConverter outputRowConverter =
-                new SeaTunnelRowConverter(transform.getProducedType());
+        SeaTunnelDataType<?> inputDataType = tableInfo.getCatalogTable().getSeaTunnelRowType();
+        SeaTunnelDataType<?> outputDataTYpe =
+                transform.getProducedCatalogTable().getSeaTunnelRowType();
+        StructType outputSchema = (StructType) TypeConverterUtils.convert(outputDataTYpe);
+        SeaTunnelRowConverter inputRowConverter = new SeaTunnelRowConverter(inputDataType);
+        SeaTunnelRowConverter outputRowConverter = new SeaTunnelRowConverter(outputDataTYpe);
         ExpressionEncoder<Row> encoder = RowEncoder.apply(outputSchema);
         return stream.mapPartitions(
                         (MapPartitionsFunction<Row, Row>)
