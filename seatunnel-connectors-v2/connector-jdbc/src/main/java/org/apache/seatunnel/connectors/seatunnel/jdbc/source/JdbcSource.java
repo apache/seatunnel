@@ -74,18 +74,6 @@ public class JdbcSource
         return "Jdbc";
     }
 
-    @SneakyThrows
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
-        ConfigValidator.of(config).validate(new JdbcSourceFactory().optionRule());
-        this.jdbcSourceConfig = JdbcSourceConfig.of(config);
-        this.jdbcSourceTables =
-                JdbcCatalogUtils.getTables(
-                        jdbcSourceConfig.getJdbcConnectionConfig(),
-                        jdbcSourceConfig.getTableConfigList());
-    }
-
     @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
