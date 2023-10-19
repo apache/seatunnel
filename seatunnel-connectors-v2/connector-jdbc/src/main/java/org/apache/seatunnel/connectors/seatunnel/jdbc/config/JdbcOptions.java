@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialecten
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 public interface JdbcOptions {
 
@@ -161,4 +162,10 @@ public interface JdbcOptions {
                     .enumType(FieldIdeEnum.class)
                     .noDefaultValue()
                     .withDescription("Whether case conversion is required");
+
+    Option<Map<String, String>> PROPERTIES =
+            Options.key("properties")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription("additional connection configuration parameters");
 }
