@@ -23,6 +23,10 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.junit.jupiter.api.Assertions;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -74,6 +78,18 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                     + "    numeric_column          NUMERIC(10, 2)"
                     + ")";
 
+    @TestContainerExtension
+    protected final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
+                                        + driverUrl()
+                                        + "&& wget https://repo1.maven.org/maven2/org/apache/hive/hive-service/3.1.3/hive-service-3.1.3.jar");
+                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+            };
     @Override
     JdbcCase getJdbcCase() {
         Map<String, String> containerEnv = new HashMap<>();
@@ -145,7 +161,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
 
     @Override
     String driverUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hive/hive-jdbc/3.1.2/hive-jdbc-3.1.2.jar";
+        return "https://repo1.maven.org/maven2/org/apache/hive/hive-jdbc/3.1.2/hive-jdbc-3.1.3.jar";
     }
 
     @Override

@@ -76,8 +76,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                 "bash",
                                 "-c",
                                 "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl()
-                                        + "&& wget https://repo1.maven.org/maven2/org/apache/hive/hive-service/3.1.3/hive-service-3.1.3.jar");
+                                        + driverUrl());
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
