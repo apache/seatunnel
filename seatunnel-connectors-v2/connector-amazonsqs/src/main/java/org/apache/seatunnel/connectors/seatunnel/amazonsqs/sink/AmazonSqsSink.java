@@ -58,6 +58,7 @@ public class AmazonSqsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     public AmazonSqsSink(ReadonlyConfig pluginConfig, SeaTunnelRowType typeInfo) {
         this.typeInfo = typeInfo;
         this.pluginConfig = pluginConfig;
+        this.amazonSqsSourceOptions = new AmazonSqsSourceOptions((Config) pluginConfig);
     }
 
     @Override
