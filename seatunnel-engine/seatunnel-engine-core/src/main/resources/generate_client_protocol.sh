@@ -18,7 +18,7 @@
 #
 
 SCRIPT_DIR="$(dirname "$0")"
-SEATUNNEL_ENGINE_HOME="$(cd "$SCRIPT_DIR/"; pwd)"
+SEATUNNEL_ENGINE_HOME="$(cd "$SCRIPT_DIR/../../../../"; pwd)"
 
 PYTHON="$(which python3 2>/dev/null)"
 PIP3="$(which pip3 2>/dev/null)"
@@ -51,8 +51,8 @@ cd $PROTOCOL_DIRECTORY
 
 $PIP3 install -r requirements.txt
 
-$PYTHON generator.py -r $SEATUNNEL_ENGINE_HOME -p $SEATUNNEL_ENGINE_HOME/seatunnel-engine/seatunnel-engine-core/src/main/resources/client-protocol-definition \
--o /tmp/seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/protocol/codec \
+$PYTHON generator.py -r $SEATUNNEL_ENGINE_HOME -p $SEATUNNEL_ENGINE_HOME/seatunnel-engine-core/src/main/resources/client-protocol-definition \
+-o $SEATUNNEL_ENGINE_HOME/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/protocol/codec \
 -n org.apache.seatunnel.engine.core.protocol.codec --no-binary --no-id-check
 
 rm -rf $PROTOCOL_DIRECTORY
