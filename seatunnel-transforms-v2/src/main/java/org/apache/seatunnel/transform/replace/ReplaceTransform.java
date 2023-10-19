@@ -17,30 +17,20 @@
 
 package org.apache.seatunnel.transform.replace;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.common.SingleFieldOutputTransform;
 
 import org.apache.commons.collections4.CollectionUtils;
 
-import com.google.auto.service.AutoService;
-import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-@AutoService(SeaTunnelTransform.class)
-@NoArgsConstructor
 public class ReplaceTransform extends SingleFieldOutputTransform {
     public static String PLUGIN_NAME = "Replace";
     private ReplaceTransformConfig config;
@@ -60,34 +50,12 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
         return "Replace";
     }
 
-    @Override
-    protected void setConfig(Config pluginConfig) {
-        ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
-                .validate(new ReplaceTransformFactory().optionRule());
-        this.config = ReplaceTransformConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
-    }
-
-    @Override
-    protected void setInputRowType(SeaTunnelRowType rowType) {
-        initOutputFields(rowType, config.getReplaceField());
-    }
-
     private void initOutputFields(SeaTunnelRowType inputRowType, String replaceField) {
         inputFieldIndex = inputRowType.indexOf(replaceField);
         if (inputFieldIndex == -1) {
             throw new IllegalArgumentException(
                     "Cannot find [" + replaceField + "] field in input row type");
         }
-    }
-
-    @Override
-    protected String getOutputFieldName() {
-        return config.getReplaceField();
-    }
-
-    @Override
-    protected SeaTunnelDataType getOutputFieldDataType() {
-        return BasicType.STRING_TYPE;
     }
 
     @Override

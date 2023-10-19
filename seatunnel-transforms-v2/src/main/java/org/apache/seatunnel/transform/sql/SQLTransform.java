@@ -17,11 +17,8 @@
 
 package org.apache.seatunnel.transform.sql;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -32,12 +29,9 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportTransform;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType;
 
-import com.google.auto.service.AutoService;
-import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -49,8 +43,6 @@ import static org.apache.seatunnel.transform.sql.SQLTransformConfig.KEY_ENGINE;
 import static org.apache.seatunnel.transform.sql.SQLTransformConfig.KEY_QUERY;
 
 @Slf4j
-@NoArgsConstructor
-@AutoService(SeaTunnelTransform.class)
 public class SQLTransform extends AbstractCatalogSupportTransform {
     public static final String PLUGIN_NAME = "Sql";
 
@@ -91,18 +83,6 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
     }
 
     @Override
-    protected void setConfig(Config pluginConfig) {
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
-        ConfigValidator.of(readonlyConfig).validate(new SQLTransformFactory().optionRule());
-        this.query = readonlyConfig.get(KEY_QUERY);
-        if (readonlyConfig.getOptional(KEY_ENGINE).isPresent()) {
-            this.engineType = EngineType.valueOf(readonlyConfig.get(KEY_ENGINE).toUpperCase());
-        } else {
-            this.engineType = ZETA;
-        }
-    }
-
-    @Override
     public void open() {
         sqlEngine = SQLEngineFactory.getSQLEngine(engineType);
         sqlEngine.init(
@@ -116,12 +96,6 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
         if (sqlEngine == null) {
             open();
         }
-    }
-
-    @Override
-    protected SeaTunnelRowType transformRowType(SeaTunnelRowType inputRowType) {
-        tryOpen();
-        return sqlEngine.typeMapping(null);
     }
 
     @Override
