@@ -318,12 +318,15 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     public void tearDown() throws Exception {
         if (sqlserver_container != null) {
             sqlserver_container.close();
+            dockerClient.removeContainerCmd(sqlserver_container.getContainerId()).exec();
         }
         if (mysql_container != null) {
             mysql_container.close();
+            dockerClient.removeContainerCmd(mysql_container.getContainerId()).exec();
         }
         if (POSTGRESQL_CONTAINER != null) {
             POSTGRESQL_CONTAINER.close();
+            dockerClient.removeContainerCmd(POSTGRESQL_CONTAINER.getContainerId()).exec();
         }
     }
 
