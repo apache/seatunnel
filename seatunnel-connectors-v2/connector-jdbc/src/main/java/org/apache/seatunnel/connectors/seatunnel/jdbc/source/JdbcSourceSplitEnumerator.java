@@ -104,8 +104,15 @@ public class JdbcSourceSplitEnumerator
     public void addSplitsBack(List<JdbcSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
             synchronized (stateLock) {
-                addPendingSplit(splits);
-                assignSplit(Collections.singletonList(subtaskId));
+                addPendingSplit(splits, subtaskId);
+                if (context.registeredReaders().contains(subtaskId)) {
+                    assignSplit(Collections.singletonList(subtaskId));
+                } else {
+                    LOG.warn(
+                            "Reader {} is not registered. Pending splits {} are not assigned.",
+                            subtaskId,
+                            splits);
+                }
             }
         }
         LOG.info("Add back splits {} to JdbcSourceSplitEnumerator.", splits.size());
@@ -163,6 +170,10 @@ public class JdbcSourceSplitEnumerator
 
             pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
+    }
+
+    private void addPendingSplit(Collection<JdbcSourceSplit> splits, int ownerReader) {
+        pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
     }
 
     private static int getSplitOwner(String tp, int numReaders) {
