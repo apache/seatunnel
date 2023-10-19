@@ -223,7 +223,7 @@ source {
     table_list = [
       {
         table_path = "testdb.table1"
-      }
+      },
       {
         table_path = "testdb.table2"
         # Use query filetr rows & columns

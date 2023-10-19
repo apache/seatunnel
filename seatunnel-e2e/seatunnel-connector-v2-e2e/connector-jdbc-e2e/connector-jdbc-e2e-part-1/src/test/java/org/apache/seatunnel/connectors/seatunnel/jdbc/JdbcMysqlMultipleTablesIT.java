@@ -31,6 +31,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.function.Executable;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -45,6 +46,7 @@ import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
@@ -53,6 +55,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -62,22 +65,20 @@ import java.util.stream.Stream;
         type = {EngineType.SPARK, EngineType.FLINK},
         disabledReason = "Currently SPARK and FLINK do not support multiple tables")
 public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestResource {
-    private static final String DRIVER_URL =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
     private static final String MYSQL_IMAGE = "mysql:latest";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "seatunnel";
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 3306;
-    private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final Pair<String[], List<SeaTunnelRow>> TEST_DATASET = generateTestDataset();
     private static final String SOURCE_DATABASE = "source";
     private static final String SINK_DATABASE = "sink";
+    private static final List<String> TABLES = Arrays.asList("table1", "table2");
     private static final List<String> SOURCE_TABLES =
-            Arrays.asList(SOURCE_DATABASE + ".source_table_1", SOURCE_DATABASE + ".source_table_2");
-    private static final List<String> SINK_TABLES =
-            Arrays.asList(SINK_DATABASE + ".sink_table_1", SINK_DATABASE + ".sink_table_2");
+            TABLES.stream()
+                    .map(table -> SOURCE_DATABASE + "." + table)
+                    .collect(Collectors.toList());
     private static final String CREATE_TABLE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
@@ -137,8 +138,8 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + DRIVER_URL);
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
+                                        + "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
@@ -146,16 +147,37 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
     public void startUp() throws Exception {
         mysqlContainer = startMySqlContainer();
         connection = mysqlContainer.createConnection("");
-        createSourceTables();
-        createSinkTables();
+        createTables(SOURCE_DATABASE, TABLES);
+        createTables(SINK_DATABASE, TABLES);
         initSourceTablesData();
     }
 
     @TestTemplate
-    public void testReadingMultipleTables(TestContainer container)
+    public void testMysqlJdbcMultipleTableE2e(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("configFile");
+        Container.ExecResult execResult =
+                container.executeJob("/jdbc_mysql_source_and_sink_with_multiple_tables.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        List<Executable> asserts =
+                TABLES.stream()
+                        .map(
+                                (Function<String, Executable>)
+                                        table ->
+                                                () ->
+                                                        Assertions.assertIterableEquals(
+                                                                query(
+                                                                        String.format(
+                                                                                "SELECT * FROM %s.%s",
+                                                                                SOURCE_DATABASE,
+                                                                                table)),
+                                                                query(
+                                                                        String.format(
+                                                                                "SELECT * FROM %s.%s",
+                                                                                SINK_DATABASE,
+                                                                                table))))
+                        .collect(Collectors.toList());
+        Assertions.assertAll(asserts);
     }
 
     @Override
@@ -185,27 +207,14 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
         return container;
     }
 
-    private void createSourceTables() throws SQLException {
+    private void createTables(String database, List<String> tables) throws SQLException {
         try (Statement statement = connection.createStatement()) {
-            statement.execute("create database if not exists " + SOURCE_DATABASE);
-            SOURCE_TABLES.forEach(
+            statement.execute("create database if not exists " + database);
+            tables.forEach(
                     tableName -> {
                         try {
-                            statement.execute(String.format(CREATE_TABLE_SQL, tableName));
-                        } catch (SQLException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-        }
-    }
-
-    private void createSinkTables() throws SQLException {
-        try (Statement statement = connection.createStatement()) {
-            statement.execute("create database if not exists " + SINK_DATABASE);
-            SINK_TABLES.forEach(
-                    tableName -> {
-                        try {
-                            statement.execute(String.format(CREATE_TABLE_SQL, tableName));
+                            statement.execute(
+                                    String.format(CREATE_TABLE_SQL, database + "." + tableName));
                         } catch (SQLException e) {
                             throw new RuntimeException(e);
                         }
@@ -231,6 +240,25 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                 }
                 statement.executeBatch();
             }
+        }
+    }
+
+    private List<List<Object>> query(String sql) {
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+            List<List<Object>> result = new ArrayList<>();
+            int columnCount = resultSet.getMetaData().getColumnCount();
+            while (resultSet.next()) {
+                ArrayList<Object> objects = new ArrayList<>();
+                for (int i = 1; i <= columnCount; i++) {
+                    objects.add(resultSet.getObject(i));
+                }
+                result.add(objects);
+                log.debug(String.format("Print query, sql: %s, data: %s", sql, objects));
+            }
+            return result;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 

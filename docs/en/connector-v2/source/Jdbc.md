@@ -258,7 +258,7 @@ Jdbc {
         {
           # e.g. table_path = "testdb.table1"、table_path = "test_schema.table1"、table_path = "testdb.test_schema.table1"
           table_path = "testdb.table1"
-        }
+        },
         {
           table_path = "testdb.table2"
           # Use query filetr rows & columns
