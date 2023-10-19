@@ -20,11 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -90,6 +90,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                                         + "&& wget https://repo1.maven.org/maven2/org/apache/hive/hive-service/3.1.3/hive-service-3.1.3.jar");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
+
     @Override
     JdbcCase getJdbcCase() {
         Map<String, String> containerEnv = new HashMap<>();
