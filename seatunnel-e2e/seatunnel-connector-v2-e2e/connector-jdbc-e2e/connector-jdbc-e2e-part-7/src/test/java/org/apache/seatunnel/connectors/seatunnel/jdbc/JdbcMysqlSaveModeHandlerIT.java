@@ -29,6 +29,7 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
@@ -37,10 +38,13 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.github.dockerjava.api.model.Image;
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -48,7 +52,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+@Slf4j
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
@@ -314,5 +320,37 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
                         JdbcUrlUtil.getUrlInfo(
                                 jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())));
         catalog.open();
+    }
+
+    @AfterAll
+    @Override
+    public void tearDown() throws SQLException {
+        if (catalog != null) {
+            catalog.close();
+        }
+
+        if (connection != null) {
+            connection.close();
+        }
+
+        if (dbServer != null) {
+            dbServer.close();
+            String images =
+                    dockerClient.listImagesCmd().exec().stream()
+                            .map(Image::getId)
+                            .collect(Collectors.joining(","));
+            log.info(
+                    "before remove image {}, list images: {}",
+                    dbServer.getDockerImageName(),
+                    images);
+            images =
+                    dockerClient.listImagesCmd().exec().stream()
+                            .map(Image::getId)
+                            .collect(Collectors.joining(","));
+            log.info(
+                    "after remove image {}, list images: {}",
+                    dbServer.getDockerImageName(),
+                    images);
+        }
     }
 }
