@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.config.Common;
@@ -37,7 +36,6 @@ import org.junit.jupiter.api.Test;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -121,25 +119,7 @@ public class MultipleTableJobConfigParserTest {
                 new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig);
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();
-        Assertions.assertEquals(3, actions.size());
-        Assertions.assertEquals("Sink[0]-console-test.table1", actions.get(0).getName());
-        Assertions.assertEquals("Sink[0]-console-test.table2", actions.get(1).getName());
-        Assertions.assertEquals("Sink[0]-console-test.table3", actions.get(2).getName());
-
-        // add dag-parsing.mode = "MULTIPLEX"
-        Config source =
-                config.getConfigList("source")
-                        .get(0)
-                        .withValue("dag-parsing.mode", ConfigValueFactory.fromAnyRef("MULTIPLEX"));
-        Config multiConfig =
-                config.withValue(
-                        "source",
-                        ConfigValueFactory.fromIterable(Collections.singletonList(source.root())));
-        MultipleTableJobConfigParser jobConfigParser2 =
-                new MultipleTableJobConfigParser(multiConfig, new IdGenerator(), jobConfig);
-        ImmutablePair<List<Action>, Set<URL>> parse2 = jobConfigParser2.parse();
-        List<Action> actions2 = parse2.getLeft();
-        Assertions.assertEquals(1, actions2.size());
-        Assertions.assertEquals("MultiTableSink-Console", actions2.get(0).getName());
+        Assertions.assertEquals(1, actions.size());
+        Assertions.assertEquals("MultiTableSink-Console", actions.get(0).getName());
     }
 }

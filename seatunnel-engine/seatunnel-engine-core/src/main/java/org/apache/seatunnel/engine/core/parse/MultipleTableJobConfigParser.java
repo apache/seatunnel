@@ -22,13 +22,11 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
-import org.apache.seatunnel.api.env.ParsingMode;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceOptions;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -172,12 +170,8 @@ public class MultipleTableJobConfigParser {
         LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap =
                 new LinkedHashMap<>();
 
-        boolean isMultipleTableJob = false;
         log.info("start generating all sources.");
         for (Config sourceConfig : sourceConfigs) {
-            ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sourceConfig);
-            isMultipleTableJob |=
-                    readonlyConfig.get(SourceOptions.DAG_PARSING_MODE) != ParsingMode.SINGLENESS;
             Tuple2<String, List<Tuple2<CatalogTable, Action>>> tuple2 =
                     parseSource(sourceConfig, classLoader);
             tableWithActionMap.put(tuple2._1(), tuple2._2());
@@ -190,13 +184,7 @@ public class MultipleTableJobConfigParser {
         List<Action> sinkActions = new ArrayList<>();
         for (int configIndex = 0; configIndex < sinkConfigs.size(); configIndex++) {
             Config sinkConfig = sinkConfigs.get(configIndex);
-            sinkActions.addAll(
-                    parseSink(
-                            configIndex,
-                            sinkConfig,
-                            classLoader,
-                            tableWithActionMap,
-                            isMultipleTableJob));
+            sinkActions.addAll(parseSink(configIndex, sinkConfig, classLoader, tableWithActionMap));
         }
         Set<URL> factoryUrls = getUsedFactoryUrls(sinkActions);
         factoryUrls.addAll(commonPluginJars);
@@ -501,8 +489,7 @@ public class MultipleTableJobConfigParser {
             int configIndex,
             Config sinkConfig,
             ClassLoader classLoader,
-            LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap,
-            boolean isMultipleTableJob) {
+            LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap) {
 
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sinkConfig);
         String factoryId = getFactoryId(readonlyConfig);
@@ -577,9 +564,6 @@ public class MultipleTableJobConfigParser {
                             tuple._2().getParallelism(),
                             configIndex);
             sinkActions.add(sinkAction);
-        }
-        if (!isMultipleTableJob) {
-            return sinkActions;
         }
         Optional<SinkAction<?, ?, ?, ?>> multiTableSink =
                 tryGenerateMultiTableSink(sinkActions, readonlyConfig, classLoader);
