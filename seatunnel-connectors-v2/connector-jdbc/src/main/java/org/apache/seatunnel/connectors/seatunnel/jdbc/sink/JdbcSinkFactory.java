@@ -211,7 +211,8 @@ public class JdbcSinkFactory implements TableSinkFactory {
         dialect.connectionUrlParse(
                 sinkConfig.getJdbcConnectionConfig().getUrl(),
                 sinkConfig.getJdbcConnectionConfig().getProperties(),
-                dialect.defaultParameter());CatalogTable finalCatalogTable = catalogTable;
+                dialect.defaultParameter());
+        CatalogTable finalCatalogTable = catalogTable;
         // get saveMode
         DataSaveMode dataSaveMode = config.get(DATA_SAVE_MODE);
         SchemaSaveMode schemaSaveMode = config.get(SCHEMA_SAVE_MODE);
