@@ -43,7 +43,6 @@ import org.apache.spark.sql.types.StructType;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.net.URL;
 import java.util.ArrayList;
@@ -128,33 +127,26 @@ public class TransformExecuteProcessor
         return upstreamDataStreams;
     }
 
-    private Dataset<Row> sparkTransform(SeaTunnelTransform transform, DatasetTableInfo tableInfo)
-            throws IOException {
+    private Dataset<Row> sparkTransform(SeaTunnelTransform transform, DatasetTableInfo tableInfo) {
         Dataset<Row> stream = tableInfo.getDataset();
-        SeaTunnelDataType<?> seaTunnelDataType = tableInfo.getCatalogTable().getSeaTunnelRowType();
-        transform.setTypeInfo(seaTunnelDataType);
-        StructType outputSchema =
-                (StructType) TypeConverterUtils.convert(transform.getProducedType());
-        SeaTunnelRowConverter inputRowConverter = new SeaTunnelRowConverter(seaTunnelDataType);
-        SeaTunnelRowConverter outputRowConverter =
-                new SeaTunnelRowConverter(transform.getProducedType());
+        SeaTunnelDataType<?> inputDataType = tableInfo.getCatalogTable().getSeaTunnelRowType();
+        SeaTunnelDataType<?> outputDataTYpe =
+                transform.getProducedCatalogTable().getSeaTunnelRowType();
+        StructType outputSchema = (StructType) TypeConverterUtils.convert(outputDataTYpe);
+        SeaTunnelRowConverter inputRowConverter = new SeaTunnelRowConverter(inputDataType);
+        SeaTunnelRowConverter outputRowConverter = new SeaTunnelRowConverter(outputDataTYpe);
         ExpressionEncoder<Row> encoder = RowEncoder.apply(outputSchema);
-        Dataset<Row> result =
-                stream.mapPartitions(
-                                (MapPartitionsFunction<Row, Row>)
-                                        (Iterator<Row> rowIterator) -> {
-                                            TransformIterator iterator =
-                                                    new TransformIterator(
-                                                            rowIterator,
-                                                            transform,
-                                                            outputSchema,
-                                                            inputRowConverter,
-                                                            outputRowConverter);
-                                            return iterator;
-                                        },
-                                encoder)
-                        .filter(Objects::nonNull);
-        return result;
+        return stream.mapPartitions(
+                        (MapPartitionsFunction<Row, Row>)
+                                (Iterator<Row> rowIterator) ->
+                                        new TransformIterator(
+                                                rowIterator,
+                                                transform,
+                                                outputSchema,
+                                                inputRowConverter,
+                                                outputRowConverter),
+                        encoder)
+                .filter(Objects::nonNull);
     }
 
     private static class TransformIterator implements Iterator<Row>, Serializable {
