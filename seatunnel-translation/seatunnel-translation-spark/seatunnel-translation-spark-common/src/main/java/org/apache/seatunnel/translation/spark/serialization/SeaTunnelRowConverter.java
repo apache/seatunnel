@@ -36,7 +36,6 @@ import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
 import java.sql.Date;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -51,6 +50,7 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         super(dataType);
     }
 
+    // SeaTunnelRow To GenericRow
     @Override
     public SeaTunnelRow convert(SeaTunnelRow seaTunnelRow) throws IOException {
         validate(seaTunnelRow);
@@ -75,7 +75,12 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
             case TIMESTAMP:
                 return Timestamp.valueOf((LocalDateTime) field);
             case TIME:
-                return Time.valueOf((LocalTime) field);
+                if (field instanceof LocalTime) {
+                    return ((LocalTime) field).toNanoOfDay();
+                }
+                if (field instanceof Long) {
+                    return field;
+                }
             case STRING:
                 return field.toString();
             case MAP:
@@ -145,6 +150,7 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         return new WrappedArray.ofRef<>(arrayData);
     }
 
+    // GenericRow To SeaTunnel
     @Override
     public SeaTunnelRow reconvert(SeaTunnelRow engineRow) throws IOException {
         return (SeaTunnelRow) reconvert(engineRow, dataType);
@@ -166,7 +172,10 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
             case TIMESTAMP:
                 return ((Timestamp) field).toLocalDateTime();
             case TIME:
-                return ((Time) field).toLocalTime();
+                if (field instanceof Timestamp) {
+                    return ((Timestamp) field).toLocalDateTime().toLocalTime();
+                }
+                return LocalTime.ofNanoOfDay((Long) field);
             case STRING:
                 return field.toString();
             case MAP:

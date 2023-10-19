@@ -80,6 +80,17 @@ public class JdbcSinkFactory implements TableSinkFactory {
         return "Jdbc";
     }
 
+    private ReadonlyConfig getCatalogOptions(TableSinkFactoryContext context) {
+        ReadonlyConfig config = context.getOptions();
+        // TODO Remove obsolete code
+        Optional<Map<String, String>> catalogOptions =
+                config.getOptional(CatalogOptions.CATALOG_OPTIONS);
+        if (catalogOptions.isPresent()) {
+            return ReadonlyConfig.fromMap(new HashMap<>(catalogOptions.get()));
+        }
+        return config;
+    }
+
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
@@ -197,7 +208,10 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         sinkConfig.getJdbcConnectionConfig().getUrl(),
                         sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
                         fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
-        CatalogTable finalCatalogTable = catalogTable;
+        dialect.connectionUrlParse(
+                sinkConfig.getJdbcConnectionConfig().getUrl(),
+                sinkConfig.getJdbcConnectionConfig().getProperties(),
+                dialect.defaultParameter());CatalogTable finalCatalogTable = catalogTable;
         // get saveMode
         DataSaveMode dataSaveMode = config.get(DATA_SAVE_MODE);
         SchemaSaveMode schemaSaveMode = config.get(SCHEMA_SAVE_MODE);

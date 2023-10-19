@@ -104,7 +104,7 @@ public class CatalogTableUtilTest {
         Config source = config.getConfigList("source").get(0);
         ReadonlyConfig sourceReadonlyConfig = ReadonlyConfig.fromConfig(source);
         List<CatalogTable> catalogTables =
-                CatalogTableUtil.getCatalogTablesFromConfig(
+                CatalogTableUtil.getCatalogTables(
                         sourceReadonlyConfig, Thread.currentThread().getContextClassLoader());
         Assertions.assertEquals(2, catalogTables.size());
         Assertions.assertEquals(
@@ -121,7 +121,7 @@ public class CatalogTableUtilTest {
         Assertions.assertThrows(
                 SeaTunnelException.class,
                 () ->
-                        CatalogTableUtil.getCatalogTablesFromConfig(
+                        CatalogTableUtil.getCatalogTables(
                                 emptyReadonlyConfig,
                                 Thread.currentThread().getContextClassLoader()));
         // test unknown catalog
@@ -132,7 +132,7 @@ public class CatalogTableUtilTest {
         Assertions.assertThrows(
                 SeaTunnelException.class,
                 () ->
-                        CatalogTableUtil.getCatalogTablesFromConfig(
+                        CatalogTableUtil.getCatalogTables(
                                 cannotFindCatalogReadonlyConfig,
                                 Thread.currentThread().getContextClassLoader()));
     }

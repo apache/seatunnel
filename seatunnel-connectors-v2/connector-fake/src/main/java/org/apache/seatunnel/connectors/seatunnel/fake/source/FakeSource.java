@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -40,6 +41,8 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
+
+import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.Lists;
@@ -61,7 +64,7 @@ public class FakeSource
     public FakeSource() {}
 
     public FakeSource(ReadonlyConfig readonlyConfig) {
-        this.catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
+        this.catalogTable = CatalogTableUtil.buildWithConfig(getPluginName(), readonlyConfig);
         this.fakeConfig = FakeConfig.buildWithConfig(readonlyConfig.toConfig());
     }
 
@@ -74,20 +77,23 @@ public class FakeSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        if (fakeConfig.getTableIdentifiers().isEmpty()) {
+        // If tableNames is empty, means this is only one catalogTable, return the original
+        // catalogTable
+        if (CollectionUtils.isEmpty(fakeConfig.getTableIdentifiers())) {
             return Lists.newArrayList(catalogTable);
-        } else {
-            return fakeConfig.getTableIdentifiers().stream()
-                    .map(
-                            tableIdentifier ->
-                                    CatalogTable.of(
-                                            tableIdentifier,
-                                            catalogTable.getTableSchema(),
-                                            catalogTable.getOptions(),
-                                            catalogTable.getPartitionKeys(),
-                                            catalogTable.getComment()))
-                    .collect(Collectors.toList());
         }
+        // Otherwise, return the catalogTables with the tableNames
+        return fakeConfig.getTableIdentifiers().stream()
+                .map(
+                        tableIdentifier ->
+                                CatalogTable.of(
+                                        TableIdentifier.of(
+                                                getPluginName(), tableIdentifier.toTablePath()),
+                                        catalogTable.getTableSchema(),
+                                        catalogTable.getOptions(),
+                                        catalogTable.getPartitionKeys(),
+                                        catalogTable.getComment()))
+                .collect(Collectors.toList());
     }
 
     @Override

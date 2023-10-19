@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.api.common.CommonOptions;
+import org.apache.seatunnel.api.table.catalog.CatalogOptions;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -33,10 +36,9 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.Catalog;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.factory.CatalogFactory;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -49,6 +51,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialecten
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -61,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
 @AutoService(SeaTunnelSink.class)
@@ -118,6 +122,10 @@ public class JdbcSink
                         config.get(JdbcOptions.FIELD_IDE) == null
                                 ? null
                                 : config.get(JdbcOptions.FIELD_IDE).getValue());
+        this.dialect.connectionUrlParse(
+                jdbcSinkConfig.getJdbcConnectionConfig().getUrl(),
+                jdbcSinkConfig.getJdbcConnectionConfig().getProperties(),
+                this.dialect.defaultParameter());
         this.dataSaveMode = DataSaveMode.AND_DATA;
     }
 
@@ -193,45 +201,48 @@ public class JdbcSink
 
     @Override
     public DefaultSaveModeHandler getSaveModeHandler() {
-        if (catalogTable == null) {
-            return null;
+        if (catalogTable != null) {
+            if (StringUtils.isBlank(jdbcSinkConfig.getDatabase())) {
+                return null;
+            }
+            Optional<Catalog> catalogOptional =
+                    JdbcCatalogUtils.findCatalog(jdbcSinkConfig.getJdbcConnectionConfig(), dialect);
+            if (catalogOptional.isPresent()) {
+                try (Catalog catalog = catalogOptional.get()) {
+                    catalog.open();
+                    FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcOptions.FIELD_IDE);
+                    String fieldIde =
+                            fieldIdeEnumEnum == null
+                                    ? FieldIdeEnum.ORIGINAL.getValue()
+                                    : fieldIdeEnumEnum.getValue();
+                    TablePath tablePath =
+                            TablePath.of(
+                                    jdbcSinkConfig.getDatabase()
+                                            + "."
+                                            + CatalogUtils.quoteTableIdentifier(
+                                            jdbcSinkConfig.getTable(), fieldIde));
+                    if (!catalog.databaseExists(jdbcSinkConfig.getDatabase())) {
+                        catalog.createDatabase(tablePath, true);
+                    }
+                    catalogTable.getOptions().put("fieldIde", fieldIde);
+                    if (!catalog.tableExists(tablePath)) {
+                        catalog.createTable(tablePath, catalogTable, true);
+                    }
+                    return new DefaultSaveModeHandler(
+                            schemaSaveMode,
+                            dataSaveMode,
+                            catalog,
+                            tablePath,
+                            catalogTable,
+                            config.get(JdbcOptions.CUSTOM_SQL));
+                } catch (UnsupportedOperationException | CatalogException e) {
+                    // TODO Temporary fix, this feature has been changed in this pr
+                    // https://github.com/apache/seatunnel/pull/5645
+                } catch (Exception e) {
+                    throw new JdbcConnectorException(HANDLE_SAVE_MODE_FAILED, e);
+                }
+            }
         }
-        Map<String, String> catalogOptions = config.get(CatalogOptions.CATALOG_OPTIONS);
-        if (catalogOptions == null) {
-            return null;
-        }
-        String factoryId = catalogOptions.get(CommonOptions.FACTORY_ID.key());
-        if (StringUtils.isBlank(jdbcSinkConfig.getDatabase())) {
-            return null;
-        }
-        CatalogFactory catalogFactory =
-                discoverFactory(
-                        Thread.currentThread().getContextClassLoader(),
-                        CatalogFactory.class,
-                        factoryId);
-        if (catalogFactory == null) {
-            return null;
-        }
-        FieldIdeEnum fieldIdeEnum = config.get(JdbcOptions.FIELD_IDE);
-        String fieldIde =
-                fieldIdeEnum == null ? FieldIdeEnum.ORIGINAL.getValue() : fieldIdeEnum.getValue();
-        TablePath tablePath =
-                TablePath.of(
-                        catalogTable.getTableId().getDatabaseName(),
-                        catalogTable.getTableId().getSchemaName(),
-                        CatalogUtils.quoteTableIdentifier(
-                                catalogTable.getTableId().getTableName(), fieldIde));
-        Catalog catalog =
-                catalogFactory.createCatalog(
-                        catalogFactory.factoryIdentifier(),
-                        ReadonlyConfig.fromMap(new HashMap<>(catalogOptions)));
-        catalog.open();
-        return new DefaultSaveModeHandler(
-                schemaSaveMode,
-                dataSaveMode,
-                catalog,
-                tablePath,
-                catalogTable,
-                config.get(JdbcOptions.CUSTOM_SQL));
+        return null;
     }
 }
