@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.exception.AmazonSqsConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
@@ -50,6 +51,8 @@ public class AmazonSqsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private SeaTunnelRowType typeInfo;
     private ReadonlyConfig pluginConfig;
 
+    private AmazonSqsSinkConfig amazonSqsSinkConfig;
+
     @Override
     public String getPluginName() {
         return "amazonsqs";
@@ -58,7 +61,7 @@ public class AmazonSqsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     public AmazonSqsSink(ReadonlyConfig pluginConfig, SeaTunnelRowType typeInfo) {
         this.typeInfo = typeInfo;
         this.pluginConfig = pluginConfig;
-        this.amazonSqsSourceOptions = new AmazonSqsSourceOptions((Config) pluginConfig);
+        this.amazonSqsSinkConfig = AmazonSqsSinkConfig.of(pluginConfig);
     }
 
     @Override
@@ -71,7 +74,6 @@ public class AmazonSqsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        amazonSqsSourceOptions = new AmazonSqsSourceOptions(pluginConfig);
         this.pluginConfig = ReadonlyConfig.fromConfig(pluginConfig);
     }
 
@@ -88,6 +90,6 @@ public class AmazonSqsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new AmazonSqsSinkWriter(amazonSqsSourceOptions, typeInfo, pluginConfig);
+        return new AmazonSqsSinkWriter(typeInfo, pluginConfig, amazonSqsSinkConfig);
     }
 }

@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
@@ -50,37 +50,37 @@ public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
     protected SqsClient sqsClient;
 
-    private final AmazonSqsSourceOptions amazonSqsSourceOptions;
+    private final AmazonSqsSinkConfig amazonSqsSinkConfig;
 
     private final SerializationSchema serializationSchema;
 
     public AmazonSqsSinkWriter(
-            AmazonSqsSourceOptions amazonSqsSourceOptions,
             SeaTunnelRowType seaTunnelRowType,
-            ReadonlyConfig pluginConfig) {
-        if (amazonSqsSourceOptions.getAccessKeyId() != null
-                & amazonSqsSourceOptions.getSecretAccessKey() != null) {
+            ReadonlyConfig pluginConfig,
+            AmazonSqsSinkConfig amazonSqsSinkConfig) {
+        if (amazonSqsSinkConfig.getAccessKeyId() != null
+                & amazonSqsSinkConfig.getSecretAccessKey() != null) {
             sqsClient =
                     SqsClient.builder()
-                            .endpointOverride(URI.create(amazonSqsSourceOptions.getUrl()))
+                            .endpointOverride(URI.create(amazonSqsSinkConfig.getUrl()))
                             // The region is meaningless for local Sqs but required for client
                             // builder validation
-                            .region(Region.of(amazonSqsSourceOptions.getRegion()))
+                            .region(Region.of(amazonSqsSinkConfig.getRegion()))
                             .credentialsProvider(
                                     StaticCredentialsProvider.create(
                                             AwsBasicCredentials.create(
-                                                    amazonSqsSourceOptions.getAccessKeyId(),
-                                                    amazonSqsSourceOptions.getSecretAccessKey())))
+                                                    amazonSqsSinkConfig.getAccessKeyId(),
+                                                    amazonSqsSinkConfig.getSecretAccessKey())))
                             .build();
         } else {
             sqsClient =
                     SqsClient.builder()
-                            .endpointOverride(URI.create(amazonSqsSourceOptions.getUrl()))
-                            .region(Region.of(amazonSqsSourceOptions.getRegion()))
+                            .endpointOverride(URI.create(amazonSqsSinkConfig.getUrl()))
+                            .region(Region.of(amazonSqsSinkConfig.getRegion()))
                             .credentialsProvider(DefaultCredentialsProvider.create())
                             .build();
         }
-        this.amazonSqsSourceOptions = amazonSqsSourceOptions;
+        this.amazonSqsSinkConfig = amazonSqsSinkConfig;
         this.serializationSchema = createSerializationSchema(seaTunnelRowType, pluginConfig);
     }
 
@@ -92,7 +92,7 @@ public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
         SendMessageRequest sendMessageRequest =
                 SendMessageRequest.builder()
-                        .queueUrl(amazonSqsSourceOptions.getUrl())
+                        .queueUrl(amazonSqsSinkConfig.getUrl())
                         .messageBody(messageBody)
                         .build();
 
