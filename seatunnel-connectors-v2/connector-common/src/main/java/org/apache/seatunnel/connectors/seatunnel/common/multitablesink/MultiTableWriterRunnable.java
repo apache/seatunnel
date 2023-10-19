@@ -49,6 +49,15 @@ public class MultiTableWriterRunnable implements Runnable {
                     continue;
                 }
                 SinkWriter<SeaTunnelRow, ?, ?> writer = tableIdWriterMap.get(row.getTableId());
+                if (writer == null) {
+                    if (tableIdWriterMap.size() == 1) {
+                        writer = tableIdWriterMap.values().stream().findFirst().get();
+                    } else {
+                        throw new RuntimeException(
+                                "MultiTableWriterRunnable can't find writer for tableId: "
+                                        + row.getTableId());
+                    }
+                }
                 synchronized (this) {
                     writer.write(row);
                 }
