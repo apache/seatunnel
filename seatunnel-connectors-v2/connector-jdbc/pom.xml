@@ -161,6 +161,7 @@
                 <groupId>org.apache.hive</groupId>
                 <artifactId>hive-service</artifactId>
                 <version>${hive.jdbc.version}</version>
+                <scope>provided</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
