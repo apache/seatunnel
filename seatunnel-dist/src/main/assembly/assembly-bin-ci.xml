@@ -205,6 +205,7 @@
                 <include>net.snowflake.snowflake-jdbc:jar</include>
                 <include>org.apache.hive:hive-jdbc:jar</include>
                 <include>org.apache.hive:hive-exec:jar</include>
+                <include>org.apache.hive:hive-service:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>
