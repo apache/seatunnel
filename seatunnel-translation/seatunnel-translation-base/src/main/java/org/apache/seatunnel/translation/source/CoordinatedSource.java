@@ -206,8 +206,8 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
             executorService.shutdown();
         }
 
-        if (splitEnumerator != null) {
-            splitEnumerator.close();
+        try (SourceSplitEnumerator<SplitT, StateT> closed = splitEnumerator) {
+            // just close the resources
         }
     }
 
