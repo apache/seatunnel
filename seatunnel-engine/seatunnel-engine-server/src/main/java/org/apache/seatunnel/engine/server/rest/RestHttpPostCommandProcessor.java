@@ -27,7 +27,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.job.JobImmutableInformationEnv;
+import org.apache.seatunnel.engine.server.job.RestJobExecutionEnvironment;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpPostCommandProcessor;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
@@ -96,15 +96,15 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         Config config = RestUtil.buildConfig(requestHandle(httpPostCommand));
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(requestParams.get(RestConstant.JOB_NAME));
-        JobImmutableInformationEnv jobImmutableInformationEnv =
-                new JobImmutableInformationEnv(
+        RestJobExecutionEnvironment restJobExecutionEnvironment =
+                new RestJobExecutionEnvironment(
                         jobConfig,
                         config,
                         textCommandService.getNode(),
                         Boolean.parseBoolean(
                                 requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT)),
                         Long.parseLong(requestParams.get(RestConstant.JOB_ID)));
-        JobImmutableInformation jobImmutableInformation = jobImmutableInformationEnv.build();
+        JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
         CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
         Data data =
                 textCommandService
@@ -117,7 +117,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                         Long.parseLong(jobConfig.getJobContext().getJobId()), data);
         voidPassiveCompletableFuture.join();
 
-        Long jobId = jobImmutableInformationEnv.getJobId();
+        Long jobId = restJobExecutionEnvironment.getJobId();
         this.prepareResponse(
                 httpPostCommand,
                 new JsonObject()

@@ -31,14 +31,14 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.util.ArrayList;
 
-public class JobImmutableInformationEnv extends AbstractJobEnvironment {
+public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
     private final Config seaTunnelJobConfig;
 
     private final NodeEngineImpl nodeEngine;
 
     private final Long jobId;
 
-    public JobImmutableInformationEnv(
+    public RestJobExecutionEnvironment(
             JobConfig jobConfig,
             Config seaTunnelJobConfig,
             Node node,
