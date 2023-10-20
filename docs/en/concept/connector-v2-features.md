@@ -49,7 +49,7 @@ In the **Parallelism Source Connector**, the source will be split into multiple 
 
 User can config the split rule.
 
-### support multiple table reading
+### support multiple table read
 
 Supports reading multiple tables at one time
 
