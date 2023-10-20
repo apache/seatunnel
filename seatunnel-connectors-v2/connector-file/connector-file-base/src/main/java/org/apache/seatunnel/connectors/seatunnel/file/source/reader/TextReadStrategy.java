@@ -53,7 +53,7 @@ import java.util.Map;
 @Slf4j
 public class TextReadStrategy extends AbstractReadStrategy {
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private String fieldDelimiter = BaseSourceConfig.DELIMITER.defaultValue();
+    private String fieldDelimiter = BaseSourceConfig.FIELD_DELIMITER.defaultValue();
     private DateUtils.Formatter dateFormat = BaseSourceConfig.DATE_FORMAT.defaultValue();
     private DateTimeUtils.Formatter datetimeFormat =
             BaseSourceConfig.DATETIME_FORMAT.defaultValue();
@@ -162,8 +162,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         SeaTunnelRowType userDefinedRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
-        if (pluginConfig.hasPath(BaseSourceConfig.DELIMITER.key())) {
-            fieldDelimiter = pluginConfig.getString(BaseSourceConfig.DELIMITER.key());
+        if (pluginConfig.hasPath(BaseSourceConfig.FIELD_DELIMITER.key())) {
+            fieldDelimiter = pluginConfig.getString(BaseSourceConfig.FIELD_DELIMITER.key());
         } else {
             FileFormat fileFormat =
                     FileFormat.valueOf(

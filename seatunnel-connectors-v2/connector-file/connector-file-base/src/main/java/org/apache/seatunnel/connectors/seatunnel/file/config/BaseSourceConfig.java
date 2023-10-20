@@ -40,8 +40,8 @@ public class BaseSourceConfig {
                     .noDefaultValue()
                     .withDescription("The file path of source files");
 
-    public static final Option<String> DELIMITER =
-            Options.key("delimiter")
+    public static final Option<String> FIELD_DELIMITER =
+            Options.key("field_delimiter")
                     .stringType()
                     .defaultValue(TextFormatConstant.SEPARATOR[0])
                     .withDescription(

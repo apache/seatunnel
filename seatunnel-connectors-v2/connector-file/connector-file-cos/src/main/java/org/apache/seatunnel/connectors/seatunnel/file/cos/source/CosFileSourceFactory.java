@@ -50,7 +50,7 @@ public class CosFileSourceFactory implements TableSourceFactory {
                 .conditional(
                         BaseSourceConfig.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
-                        BaseSourceConfig.DELIMITER)
+                        BaseSourceConfig.FIELD_DELIMITER)
                 .conditional(
                         BaseSourceConfig.FILE_FORMAT_TYPE,
                         Arrays.asList(
