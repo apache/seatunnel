@@ -170,7 +170,7 @@ public class CheckpointCoordinator {
                 new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
         this.scheduler =
                 Executors.newScheduledThreadPool(
-                        1,
+                        2,
                         runnable -> {
                             Thread thread = new Thread(runnable);
                             thread.setDaemon(true);
