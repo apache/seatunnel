@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
@@ -95,7 +94,6 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
                             sourceFunction,
                             "SeaTunnel " + internalSource.getClass().getSimpleName(),
                             bounded);
-            stageType(pluginConfig, (SeaTunnelRowType) internalSource.getProducedType());
 
             if (pluginConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 int parallelism = pluginConfig.getInt(CommonOptions.PARALLELISM.key());

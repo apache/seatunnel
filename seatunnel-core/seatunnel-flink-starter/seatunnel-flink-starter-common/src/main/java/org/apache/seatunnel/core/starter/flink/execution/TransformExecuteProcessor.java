@@ -91,11 +91,10 @@ public class TransformExecuteProcessor
                 ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
                 SeaTunnelTransform transform = factory.createTransform(context).createTransform();
 
-                SeaTunnelRowType sourceType = initSourceType(pluginConfig, stream.getDataStream());
+                SeaTunnelRowType sourceType = stream.getCatalogTable().getSeaTunnelRowType();
                 transform.setJobContext(jobContext);
                 DataStream<Row> inputStream =
                         flinkTransform(sourceType, transform, stream.getDataStream());
-                stageType(pluginConfig, transform.getProducedCatalogTable().getSeaTunnelRowType());
                 registerResultTable(pluginConfig, inputStream);
                 upstreamDataStreams.add(
                         new DataStreamTableInfo(
