@@ -206,6 +206,7 @@
                 <include>org.apache.hive:hive-jdbc:jar</include>
                 <include>org.apache.hive:hive-exec:jar</include>
                 <include>org.apache.hive:hive-service:jar</include>
+                <include>org.apache.httpcomponents:httpclient:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>
