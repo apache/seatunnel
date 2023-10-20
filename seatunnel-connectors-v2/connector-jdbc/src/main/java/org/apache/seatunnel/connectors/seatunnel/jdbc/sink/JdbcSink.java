@@ -215,13 +215,7 @@ public class JdbcSink
                                             + "."
                                             + CatalogUtils.quoteTableIdentifier(
                                                     jdbcSinkConfig.getTable(), fieldIde));
-                    if (!catalog.databaseExists(jdbcSinkConfig.getDatabase())) {
-                        catalog.createDatabase(tablePath, true);
-                    }
                     catalogTable.getOptions().put("fieldIde", fieldIde);
-                    if (!catalog.tableExists(tablePath)) {
-                        catalog.createTable(tablePath, catalogTable, true);
-                    }
                     return new DefaultSaveModeHandler(
                             schemaSaveMode,
                             dataSaveMode,
