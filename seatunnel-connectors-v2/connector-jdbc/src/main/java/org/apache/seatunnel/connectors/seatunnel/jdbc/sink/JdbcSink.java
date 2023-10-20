@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -64,7 +65,8 @@ import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_
 @AutoService(SeaTunnelSink.class)
 public class JdbcSink
         implements SeaTunnelSink<SeaTunnelRow, JdbcSinkState, XidInfo, JdbcAggregatedCommitInfo>,
-                SupportSaveMode {
+                SupportSaveMode,
+                SupportMultiTableSink {
 
     private SeaTunnelRowType seaTunnelRowType;
 
@@ -124,8 +126,8 @@ public class JdbcSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> createWriter(SinkWriter.Context context)
-            throws IOException {
+    public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> createWriter(
+            SinkWriter.Context context) {
         SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> sinkWriter;
         if (jdbcSinkConfig.isExactlyOnce()) {
             sinkWriter =
@@ -137,9 +139,18 @@ public class JdbcSink
                             seaTunnelRowType,
                             new ArrayList<>());
         } else {
-            sinkWriter = new JdbcSinkWriter(context, dialect, jdbcSinkConfig, seaTunnelRowType);
+            if (catalogTable != null && catalogTable.getTableSchema().getPrimaryKey() != null) {
+                String keyName =
+                        catalogTable.getTableSchema().getPrimaryKey().getColumnNames().get(0);
+                int index = seaTunnelRowType.indexOf(keyName);
+                if (index > -1) {
+                    return new JdbcSinkWriter(
+                            context, dialect, jdbcSinkConfig, seaTunnelRowType, index);
+                }
+            }
+            sinkWriter =
+                    new JdbcSinkWriter(context, dialect, jdbcSinkConfig, seaTunnelRowType, null);
         }
-
         return sinkWriter;
     }
 
@@ -202,7 +213,8 @@ public class JdbcSink
             Optional<Catalog> catalogOptional =
                     JdbcCatalogUtils.findCatalog(jdbcSinkConfig.getJdbcConnectionConfig(), dialect);
             if (catalogOptional.isPresent()) {
-                try (Catalog catalog = catalogOptional.get()) {
+                try {
+                    Catalog catalog = catalogOptional.get();
                     catalog.open();
                     FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcOptions.FIELD_IDE);
                     String fieldIde =
@@ -223,9 +235,6 @@ public class JdbcSink
                             tablePath,
                             catalogTable,
                             config.get(JdbcOptions.CUSTOM_SQL));
-                } catch (UnsupportedOperationException | CatalogException e) {
-                    // TODO Temporary fix, this feature has been changed in this pr
-                    // https://github.com/apache/seatunnel/pull/5645
                 } catch (Exception e) {
                     throw new JdbcConnectorException(HANDLE_SAVE_MODE_FAILED, e);
                 }

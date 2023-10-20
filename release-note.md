@@ -97,6 +97,7 @@
 - [Core] [Starter] Optimize code structure & remove redundant code (#4525)
 - [Core] [Translation] [Flink] Optimize code structure & remove redundant code (#4527)
 - [Core] [Starter] Add check of sink and source config to avoid null pointer exception. (#4734)
+- [Core] [Flink] Remove useless stage type related codes. (#5650)
 
 ### Connector-V2
 

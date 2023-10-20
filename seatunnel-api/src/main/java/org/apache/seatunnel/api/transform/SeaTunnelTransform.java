@@ -41,7 +41,9 @@ public interface SeaTunnelTransform<T>
      * @param inputDataType The data type info of upstream input.
      */
     @Deprecated
-    void setTypeInfo(SeaTunnelDataType<T> inputDataType);
+    default void setTypeInfo(SeaTunnelDataType<T> inputDataType) {
+        throw new UnsupportedOperationException("setTypeInfo method is not supported");
+    }
 
     /**
      * Get the data type of the records produced by this transform.
