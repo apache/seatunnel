@@ -62,7 +62,6 @@ public class HiveTypeMapper implements JdbcDialectTypeMapper {
     // Complex Types
     private static final String HIVE_ARRAY = "ARRAY";
     private static final String HIVE_MAP = "MAP";
-    // float
     private static final String HIVE_STRUCT = "STRUCT";
     private static final String HIVE_UNIONTYPE = "UNIONTYPE";
 
