@@ -44,7 +44,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | password                  | string  | yes      | -                   |
 | path                      | string  | yes      | -                   |
 | file_format_type          | string  | yes      | -                   |
-| field_delimiter           | string  | no       | \001                |
+| delimiter/field_delimiter | string  | no       | \001                |
 | read_columns              | list    | no       | -                   |
 | parse_partition_from_path | boolean | no       | true                |
 | date_format               | string  | no       | yyyy-MM-dd          |
@@ -131,13 +131,13 @@ If you do not assign data schema connector will treat the upstream data as the f
 |-----------------------|
 | tyrantlucifer#26#male |
 
-If you assign data schema, you should also assign the option `delimiter` too except CSV file type
+If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
 
 you should assign schema and delimiter as the following:
 
 ```hocon
 
-delimiter = "#"
+field_delimiter = "#"
 schema {
     fields {
         name = string
@@ -154,7 +154,9 @@ connector will generate data as the following:
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
-### field_delimiter [string]
+### delimiter/field_delimiter [string]
+
+**delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead.
 
 Only need to be configured when file_format is text.
 
@@ -253,7 +255,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
       name = string
       age = int
     }
-    delimiter = "#"
+    field_delimiter = "#"
   }
 
 ```

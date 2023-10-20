@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -49,6 +50,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 public class TextReadStrategy extends AbstractReadStrategy {
@@ -162,8 +164,11 @@ public class TextReadStrategy extends AbstractReadStrategy {
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         SeaTunnelRowType userDefinedRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
-        if (pluginConfig.hasPath(BaseSourceConfig.FIELD_DELIMITER.key())) {
-            fieldDelimiter = pluginConfig.getString(BaseSourceConfig.FIELD_DELIMITER.key());
+        Optional<String> fieldDelimiterOptional =
+                ReadonlyConfig.fromConfig(pluginConfig)
+                        .getOptional(BaseSourceConfig.FIELD_DELIMITER);
+        if (fieldDelimiterOptional.isPresent()) {
+            fieldDelimiter = fieldDelimiterOptional.get();
         } else {
             FileFormat fileFormat =
                     FileFormat.valueOf(

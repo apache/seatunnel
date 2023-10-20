@@ -44,6 +44,7 @@ public class BaseSourceConfig {
             Options.key("field_delimiter")
                     .stringType()
                     .defaultValue(TextFormatConstant.SEPARATOR[0])
+                    .withFallbackKeys("delimiter")
                     .withDescription(
                             "The separator between columns in a row of data. Only needed by `text` file format");
 
