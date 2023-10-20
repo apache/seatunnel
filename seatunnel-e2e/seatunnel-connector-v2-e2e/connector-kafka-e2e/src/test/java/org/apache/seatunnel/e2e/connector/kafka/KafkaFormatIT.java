@@ -102,10 +102,12 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
     private static final String CANAL_KAFKA_SINK_TOPIC = "test-canal-sink";
     private static final String CANAL_MYSQL_DATABASE = "canal";
+    private static final String CANAL_DATA_PATH = "/canal/canal_data.txt";
+    private static final String CANAL_KAFKA_SOURCE_TOPIC = "test-cdc_mds";
 
     // ---------------------------Compatible Format Parameter---------------------------------------
     private static final String COMPATIBLE_DATA_PATH = "/compatible/compatible_data.txt";
-    private static final String COMPATIBLE_KAFKA_SINK_TOPIC = "jdbc_source_record";
+    private static final String COMPATIBLE_KAFKA_SOURCE_TOPIC = "jdbc_source_record";
 
     // Used to map local data paths to kafa topics that need to be written to kafka
     private static LinkedHashMap<String, String> LOCAL_DATA_TO_KAFKA_MAPPING;
@@ -114,18 +116,12 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         LOCAL_DATA_TO_KAFKA_MAPPING =
                 new LinkedHashMap<String, String>() {
                     {
+                        put(CANAL_DATA_PATH, CANAL_KAFKA_SOURCE_TOPIC);
                         put(OGG_DATA_PATH, OGG_KAFKA_SOURCE_TOPIC);
-                        put(COMPATIBLE_DATA_PATH, COMPATIBLE_KAFKA_SINK_TOPIC);
+                        put(COMPATIBLE_DATA_PATH, COMPATIBLE_KAFKA_SOURCE_TOPIC);
                     }
                 };
     }
-
-    // ---------------------------Canal Container---------------------------------------
-    private static GenericContainer<?> CANAL_CONTAINER;
-
-    private static final String CANAL_DOCKER_IMAGE = "chinayin/canal:1.1.6";
-
-    private static final String CANAL_HOST = "canal_e2e";
 
     // ---------------------------Debezium Container---------------------------------------
 
@@ -195,22 +191,6 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 .withLogConsumer(new Slf4jLogConsumer(LOG));
     }
 
-    private void createCanalContainer() {
-        CANAL_CONTAINER =
-                new GenericContainer<>(CANAL_DOCKER_IMAGE)
-                        .withCopyFileToContainer(
-                                MountableFile.forClasspathResource("canal/canal.properties"),
-                                "/app/server/conf/canal.properties")
-                        .withCopyFileToContainer(
-                                MountableFile.forClasspathResource("canal/instance.properties"),
-                                "/app/server/conf/example/instance.properties")
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(CANAL_HOST)
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger(CANAL_DOCKER_IMAGE)));
-    }
-
     private void createDebeziumContainer() {
         DEBEZIUM_CONTAINER =
                 new GenericContainer<>(DEBEZIUM_DOCKER_IMAGE)
@@ -277,11 +257,6 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         Startables.deepStart(Stream.of(DEBEZIUM_CONTAINER)).join();
         LOG.info("Debezium Containers are started");
 
-        LOG.info("The third stage: Starting Canal containers...");
-        createCanalContainer();
-        Startables.deepStart(Stream.of(CANAL_CONTAINER)).join();
-        LOG.info("Canal Containers are started");
-
         LOG.info("The fourth stage: Starting PostgreSQL container...");
         createPostgreSQLContainer();
         Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER)).join();
@@ -305,12 +280,12 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         inventoryDatabase.createAndInitialize();
         LOG.info("end init Mysql DDl...");
 
-        // local file ogg data send kafka
+        // local file local data send kafka
         given().ignoreExceptions()
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(3, TimeUnit.MINUTES)
-                .untilAsserted(this::initOggDataToKafka);
+                .untilAsserted(this::initLocalDataToKafka);
 
         // debezium configuration information
         Container.ExecResult extraCommand =
@@ -609,7 +584,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     }
 
     // Initialize ogg data to kafka
-    private void initOggDataToKafka() {
+    private void initLocalDataToKafka() {
         String bootstrapServers = KAFKA_CONTAINER.getBootstrapServers();
         Properties props = new Properties();
 
@@ -720,9 +695,6 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         }
         if (KAFKA_CONTAINER != null) {
             KAFKA_CONTAINER.close();
-        }
-        if (CANAL_CONTAINER != null) {
-            CANAL_CONTAINER.close();
         }
         if (DEBEZIUM_CONTAINER != null) {
             DEBEZIUM_CONTAINER.close();
