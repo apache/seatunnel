@@ -24,12 +24,56 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSou
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import net.jpountz.xxhash.XXHash64;
+import net.jpountz.xxhash.XXHashFactory;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 public class ClickhouseFactoryTest {
+    private static final XXHash64 HASH_INSTANCE = XXHashFactory.fastestInstance().hash64();
 
     @Test
     public void testOptionRule() {
         Assertions.assertNotNull((new ClickhouseSourceFactory()).optionRule());
         Assertions.assertNotNull((new ClickhouseSinkFactory()).optionRule());
         Assertions.assertNotNull((new ClickhouseFileSinkFactory()).optionRule());
+    }
+
+    @Test
+    public void testShared() {
+        // Create an instance of the XXHash64 algorithm
+        XXHashFactory factory = XXHashFactory.fastestInstance();
+        XXHash64 hash64 = factory.hash64();
+
+        // Define your input data
+        byte[] input;
+        ArrayList<String> strings = new ArrayList<>();
+
+        Map<Long, Long> resultCount = new HashMap<>();
+        for (int i = 1; i <= 1000000; i++) {
+            input = UUID.randomUUID().toString().getBytes();
+            // Calculate the hash value
+            long hashValue = hash64.hash(input, 0, input.length, 0);
+
+            // Apply modulo operation to get a non-negative result
+            int modulo = 10;
+            long nonNegativeResult = (hashValue & Long.MAX_VALUE) % modulo;
+            Long keyValue = resultCount.get(nonNegativeResult);
+
+            if (keyValue != null) {
+                resultCount.put(nonNegativeResult, keyValue + 1L);
+
+            } else {
+                resultCount.put(nonNegativeResult, 1L);
+            }
+        }
+        Long totalResult = 0L;
+        for (Long key : resultCount.keySet()) {
+            totalResult += resultCount.get(key);
+        }
+        Assertions.assertEquals(1000000, totalResult);
     }
 }
