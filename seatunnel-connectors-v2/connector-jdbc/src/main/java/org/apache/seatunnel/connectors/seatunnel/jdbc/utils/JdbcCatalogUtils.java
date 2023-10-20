@@ -312,7 +312,8 @@ public class JdbcCatalogUtils {
             Connection connection, String sqlQuery, JdbcDialect jdbcDialect) throws SQLException {
         ResultSetMetaData resultSetMetaData =
                 jdbcDialect.getResultSetMetaData(connection, sqlQuery);
-        return CatalogUtils.getCatalogTable(resultSetMetaData);
+        return CatalogUtils.getCatalogTable(
+                resultSetMetaData, jdbcDialect.getJdbcDialectTypeMapper());
     }
 
     private static Connection getConnection(JdbcConnectionConfig config) throws SQLException {
