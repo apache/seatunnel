@@ -42,6 +42,7 @@ supports query SQL and can achieve projection effect.
 | partition_lower_bound        | Long   | No       | -               |
 | partition_num                | Int    | No       | job parallelism |
 | fetch_size                   | Int    | No       | 0               |
+| properties                   | Map    | No       | -               |
 | common-options               |        | No       | -               |
 
 ### driver [string]
@@ -92,6 +93,10 @@ The number of partition count, only support positive integer. default value is j
 
 For queries that return a large number of objects, you can configure the row fetch size used in the query to
 improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.
+
+### properties
+
+Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.
 
 ### common options
 

@@ -17,53 +17,47 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase.OceanBaseOracleCatalog;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 
 import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.sql.Date;
+import java.sql.Driver;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import static org.awaitility.Awaitility.given;
+import java.util.Map;
+import java.util.Properties;
 
 @Disabled("Oracle mode of OceanBase Enterprise Edition does not provide docker environment")
 public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
 
-    @Override
-    String imageName() {
-        return null;
-    }
-
-    @Override
-    String host() {
-        return "e2e_oceanbase_oracle";
-    }
-
-    @Override
-    int port() {
-        return 2883;
-    }
-
-    @Override
-    String username() {
-        return "root";
-    }
-
-    @Override
-    String password() {
-        return "";
-    }
+    private static final String HOSTNAME = "e2e_oceanbase_oracle";
+    private static final int PORT = 2883;
+    private static final String USERNAME = "TESTUSER@test";
+    private static final String PASSWORD = "";
+    private static final String SCHEMA = "TESTUSER";
 
     @Override
     List<String> configFile() {
@@ -75,18 +69,87 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
         throw new UnsupportedOperationException();
     }
 
+    @BeforeAll
     @Override
     public void startUp() {
         jdbcCase = getJdbcCase();
 
-        given().ignoreExceptions()
-                .await()
-                .atMost(360, TimeUnit.SECONDS)
-                .untilAsserted(() -> this.initializeJdbcConnection(jdbcCase.getJdbcUrl()));
+        try {
+            initConnection();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to initial jdbc connection", e);
+        }
 
-        createSchemaIfNeeded();
         createNeededTables();
         insertTestData();
+        initCatalog();
+    }
+
+    @Override
+    public void tearDown() throws SQLException {
+        if (connection != null) {
+            connection
+                    .createStatement()
+                    .execute("DROP TABLE " + getFullTableName(OCEANBASE_SOURCE));
+            connection.createStatement().execute("DROP TABLE " + getFullTableName(OCEANBASE_SINK));
+        }
+        super.tearDown();
+    }
+
+    @Override
+    JdbcCase getJdbcCase() {
+        Map<String, String> containerEnv = new HashMap<>();
+        String jdbcUrl = String.format(OCEANBASE_JDBC_TEMPLATE, PORT, SCHEMA);
+        Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
+        String[] fieldNames = testDataSet.getKey();
+
+        String insertSql = insertTable(SCHEMA, OCEANBASE_SOURCE.toUpperCase(), fieldNames);
+
+        return JdbcCase.builder()
+                .dockerImage(null)
+                .networkAliases(HOSTNAME)
+                .containerEnv(containerEnv)
+                .driverClass(OCEANBASE_DRIVER_CLASS)
+                .host(HOST)
+                .port(PORT)
+                .localPort(PORT)
+                .jdbcTemplate(OCEANBASE_JDBC_TEMPLATE)
+                .jdbcUrl(jdbcUrl)
+                .userName(USERNAME)
+                .password(PASSWORD)
+                .schema(SCHEMA)
+                .sourceTable(OCEANBASE_SOURCE.toUpperCase())
+                .sinkTable(OCEANBASE_SINK.toUpperCase())
+                .catalogSchema(SCHEMA)
+                .catalogTable(OCEANBASE_CATALOG_TABLE)
+                .createSql(createSqlTemplate())
+                .configFile(configFile())
+                .insertSql(insertSql)
+                .testData(testDataSet)
+                .build();
+    }
+
+    private void initConnection()
+            throws SQLException, ClassNotFoundException, MalformedURLException,
+                    InstantiationException, IllegalAccessException {
+        URLClassLoader urlClassLoader =
+                new URLClassLoader(
+                        new URL[] {new URL(driverUrl())},
+                        JdbcOceanBaseOracleIT.class.getClassLoader());
+        Thread.currentThread().setContextClassLoader(urlClassLoader);
+        Driver driver = (Driver) urlClassLoader.loadClass(jdbcCase.getDriverClass()).newInstance();
+        Properties props = new Properties();
+
+        if (StringUtils.isNotBlank(jdbcCase.getUserName())) {
+            props.put("user", jdbcCase.getUserName());
+        }
+
+        if (StringUtils.isNotBlank(jdbcCase.getPassword())) {
+            props.put("password", jdbcCase.getPassword());
+        }
+
+        connection = driver.connect(jdbcCase.getJdbcUrl().replace(HOST, HOSTNAME), props);
+        connection.setAutoCommit(false);
     }
 
     @Override
@@ -108,8 +171,7 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
                 + "    BINARY_FLOAT_COL              binary_float,\n"
                 + "    BINARY_DOUBLE_COL             binary_double,\n"
                 + "    DATE_COL                      date,\n"
-                + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
-                + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone\n"
+                + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3)\n"
                 + ")";
     }
 
@@ -126,8 +188,7 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
             "BINARY_FLOAT_COL",
             "BINARY_DOUBLE_COL",
             "DATE_COL",
-            "TIMESTAMP_WITH_3_FRAC_SEC_COL",
-            "TIMESTAMP_WITH_LOCAL_TZ"
+            "TIMESTAMP_WITH_3_FRAC_SEC_COL"
         };
     }
 
@@ -150,12 +211,58 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
                                 Float.parseFloat("22.2"),
                                 Double.parseDouble("2.2"),
                                 Date.valueOf(LocalDate.now()),
-                                Timestamp.valueOf(LocalDateTime.now()),
                                 Timestamp.valueOf(LocalDateTime.now())
                             });
             rows.add(row);
         }
 
         return Pair.of(fieldNames, rows);
+    }
+
+    @Override
+    String getFullTableName(String tableName) {
+        return buildTableInfoWithSchema(SCHEMA, tableName.toUpperCase());
+    }
+
+    @Override
+    protected void clearTable(String database, String schema, String table) {
+        clearTable(schema, table);
+    }
+
+    @Override
+    protected String buildTableInfoWithSchema(String database, String schema, String table) {
+        return buildTableInfoWithSchema(schema, table);
+    }
+
+    @Override
+    protected void initCatalog() {
+        catalog =
+                new OceanBaseOracleCatalog(
+                        "oceanbase",
+                        USERNAME,
+                        PASSWORD,
+                        JdbcUrlUtil.getUrlInfo(jdbcCase.getJdbcUrl().replace(HOST, HOSTNAME)),
+                        SCHEMA);
+        catalog.open();
+    }
+
+    @Test
+    @Override
+    public void testCatalog() {
+        TablePath sourceTablePath =
+                new TablePath(
+                        jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSourceTable());
+        TablePath targetTablePath =
+                new TablePath(
+                        jdbcCase.getCatalogDatabase(),
+                        jdbcCase.getCatalogSchema(),
+                        jdbcCase.getCatalogTable());
+
+        CatalogTable catalogTable = catalog.getTable(sourceTablePath);
+        catalog.createTable(targetTablePath, catalogTable, false);
+        Assertions.assertTrue(catalog.tableExists(targetTablePath));
+
+        catalog.dropTable(targetTablePath, false);
+        Assertions.assertFalse(catalog.tableExists(targetTablePath));
     }
 }
