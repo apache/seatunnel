@@ -187,16 +187,18 @@ public class CatalogUtils {
             throws SQLException {
         DatabaseMetaData metadata = connection.getMetaData();
         TableSchema tableSchema = getTableSchema(metadata, tablePath);
+        String catalogName = "jdbc_catalog";
         return CatalogTable.of(
                 TableIdentifier.of(
-                        "default",
+                        catalogName,
                         tablePath.getDatabaseName(),
                         tablePath.getSchemaName(),
                         tablePath.getTableName()),
                 tableSchema,
                 new HashMap<>(),
                 new ArrayList<>(),
-                "");
+                "",
+                catalogName);
     }
 
     public static CatalogTable getCatalogTable(ResultSetMetaData resultSetMetaData)
@@ -236,12 +238,14 @@ public class CatalogUtils {
             Column column = columnConverter.apply(metadata, index);
             schemaBuilder.column(column);
         }
+        String catalogName = "jdbc_catalog";
         return CatalogTable.of(
-                TableIdentifier.of("default", "default", "default", "default"),
+                TableIdentifier.of(catalogName, "default", "default", "default"),
                 schemaBuilder.build(),
                 new HashMap<>(),
                 new ArrayList<>(),
-                "");
+                "",
+                catalogName);
     }
 
     public static CatalogTable getCatalogTable(

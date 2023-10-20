@@ -221,6 +221,10 @@ source {
         query = "select * from type_bin"
         partition_column = "id"
         partition_num = 10
+        # Read start boundary
+        #partition_lower_bound = ...
+        # Read end boundary
+        #partition_upper_bound = ...
     }
 }
 
@@ -229,7 +233,9 @@ sink {
 }
 ```
 
-Using `table_path` reading:
+Using `table_path` read:
+
+***Configuring `table_path` will turn on auto split, you can configure `split.*` to adjust the split strategy***
 
 ```hocon
 Jdbc {
@@ -241,10 +247,17 @@ Jdbc {
   
     # e.g. table_path = "testdb.table1"、table_path = "test_schema.table1"、table_path = "testdb.test_schema.table1"
     table_path = "testdb.table1"
+    #split.size = 8096
+    #split.even-distribution.factor.upper-bound = 100
+    #split.even-distribution.factor.lower-bound = 0.05
+    #split.sample-sharding.threshold = 1000
+    #split.inverse-sampling.rate = 1000
 }
 ```
 
-multiple table reading:
+multiple table read:
+
+***Configuring `table_list` will turn on auto split, you can configure `split.*` to adjust the split strategy***
 
 ```hocon
 Jdbc {
@@ -265,6 +278,11 @@ Jdbc {
           query = "select id, name from testdb.table2 where id > 100"
         }
     ]
+    #split.size = 8096
+    #split.even-distribution.factor.upper-bound = 100
+    #split.even-distribution.factor.lower-bound = 0.05
+    #split.sample-sharding.threshold = 1000
+    #split.inverse-sampling.rate = 1000
 }
 ```
 

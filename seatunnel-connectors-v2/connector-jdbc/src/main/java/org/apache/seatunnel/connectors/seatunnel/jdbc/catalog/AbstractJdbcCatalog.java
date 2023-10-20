@@ -39,8 +39,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import lombok.Getter;
-
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -65,7 +63,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected static final Set<String> SYS_DATABASES = new HashSet<>();
 
-    @Getter protected final String catalogName;
+    protected final String catalogName;
     protected final String defaultDatabase;
     protected final String username;
     protected final String pwd;
@@ -491,17 +489,6 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
-        CatalogTable tableOfQuery = CatalogUtils.getCatalogTable(defaultConnection, sqlQuery);
-        return CatalogTable.of(
-                TableIdentifier.of(
-                        catalogName,
-                        tableOfQuery.getTableId().getDatabaseName(),
-                        tableOfQuery.getTableId().getSchemaName(),
-                        tableOfQuery.getTableId().getTableName()),
-                tableOfQuery.getTableSchema(),
-                tableOfQuery.getOptions(),
-                tableOfQuery.getPartitionKeys(),
-                tableOfQuery.getComment(),
-                catalogName);
+        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery);
     }
 }

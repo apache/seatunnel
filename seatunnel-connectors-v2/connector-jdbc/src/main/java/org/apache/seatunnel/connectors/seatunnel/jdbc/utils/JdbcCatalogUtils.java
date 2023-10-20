@@ -57,8 +57,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class JdbcCatalogUtils {
-    private static final TablePath DEFAULT_TABLE_PATH =
-            TablePath.of("default", "default", "default");
+    private static final String DEFAULT_CATALOG_NAME = "jdbc_catalog";
 
     public static Map<TablePath, JdbcSourceTable> getTables(
             JdbcConnectionConfig jdbcConnectionConfig, List<JdbcSourceTableConfig> tablesConfig)
@@ -152,13 +151,16 @@ public class JdbcCatalogUtils {
             }
             CatalogTable tableOfQuery = jdbcCatalog.getTable(tableConfig.getQuery());
             if (tableOfPath == null) {
-                TableIdentifier tableIdentifier;
-                if (tableOfQuery.getTableId() != null) {
-                    tableIdentifier =
-                            convert(tableOfQuery.getTableId().getCatalogName(), tablePath);
-                } else {
-                    tableIdentifier = convert(jdbcCatalog.getCatalogName(), tablePath);
-                }
+                String catalogName =
+                        tableOfQuery.getTableId() == null
+                                ? DEFAULT_CATALOG_NAME
+                                : tableOfQuery.getTableId().getCatalogName();
+                TableIdentifier tableIdentifier =
+                        TableIdentifier.of(
+                                catalogName,
+                                tablePath.getDatabaseName(),
+                                tablePath.getSchemaName(),
+                                tablePath.getTableName());
                 return CatalogTable.of(tableIdentifier, tableOfQuery);
             }
             return mergeCatalogTable(tableOfPath, tableOfQuery);
@@ -168,13 +170,22 @@ public class JdbcCatalogUtils {
             return jdbcCatalog.getTable(tablePath);
         }
 
-        CatalogTable catalogTable = jdbcCatalog.getTable(tableConfig.getQuery());
-        return CatalogTable.of(
-                convert(catalogTable.getCatalogName(), DEFAULT_TABLE_PATH), catalogTable);
+        return jdbcCatalog.getTable(tableConfig.getQuery());
     }
 
     private static CatalogTable mergeCatalogTable(
             CatalogTable tableOfPath, CatalogTable tableOfQuery) {
+        String catalogName =
+                tableOfQuery.getTableId() == null
+                        ? DEFAULT_CATALOG_NAME
+                        : tableOfQuery.getTableId().getCatalogName();
+        TableIdentifier tableIdentifier =
+                TableIdentifier.of(
+                        catalogName,
+                        tableOfPath.getTableId().getDatabaseName(),
+                        tableOfPath.getTableId().getSchemaName(),
+                        tableOfPath.getTableId().getTableName());
+
         TableSchema tableSchemaOfPath = tableOfPath.getTableSchema();
         Map<String, Column> columnsOfPath =
                 tableSchemaOfPath.getColumns().stream()
@@ -197,7 +208,7 @@ public class JdbcCatalogUtils {
                                                     .equals(columnsOfQuery.get(key).getDataType()));
             if (schemaEquals) {
                 return CatalogTable.of(
-                        tableOfPath.getTableId(),
+                        tableIdentifier,
                         TableSchema.builder()
                                 .primaryKey(tableSchemaOfPath.getPrimaryKey())
                                 .constraintKey(tableSchemaOfPath.getConstraintKeys())
@@ -206,7 +217,7 @@ public class JdbcCatalogUtils {
                         tableOfPath.getOptions(),
                         tableOfPath.getPartitionKeys(),
                         tableOfPath.getComment(),
-                        tableOfPath.getCatalogName());
+                        tableIdentifier.getCatalogName());
             }
         }
 
@@ -238,7 +249,7 @@ public class JdbcCatalogUtils {
 
         CatalogTable mergedCatalogTable =
                 CatalogTable.of(
-                        tableOfPath.getTableId(),
+                        tableIdentifier,
                         TableSchema.builder()
                                 .primaryKey(primaryKeyOfQuery)
                                 .constraintKey(constraintKeysOfQuery)
@@ -247,7 +258,7 @@ public class JdbcCatalogUtils {
                         tableOfPath.getOptions(),
                         partitionKeysOfQuery,
                         tableOfPath.getComment(),
-                        tableOfPath.getCatalogName());
+                        tableIdentifier.getCatalogName());
 
         log.info("Merged catalog table of path {}", tableOfPath.getTableId().toTablePath());
         return mergedCatalogTable;
@@ -275,13 +286,16 @@ public class JdbcCatalogUtils {
             CatalogTable tableOfQuery =
                     getCatalogTable(connection, tableConfig.getQuery(), jdbcDialect);
             if (tableOfPath == null) {
-                TableIdentifier tableIdentifier;
-                if (tableOfQuery.getTableId() != null) {
-                    tableIdentifier =
-                            convert(tableOfQuery.getTableId().getCatalogName(), tablePath);
-                } else {
-                    tableIdentifier = convert(jdbcDialect.dialectName(), tablePath);
-                }
+                String catalogName =
+                        tableOfQuery.getTableId() == null
+                                ? DEFAULT_CATALOG_NAME
+                                : tableOfQuery.getTableId().getCatalogName();
+                TableIdentifier tableIdentifier =
+                        TableIdentifier.of(
+                                catalogName,
+                                tablePath.getDatabaseName(),
+                                tablePath.getSchemaName(),
+                                tablePath.getTableName());
                 return CatalogTable.of(tableIdentifier, tableOfQuery);
             }
             return mergeCatalogTable(tableOfPath, tableOfQuery);
@@ -291,37 +305,14 @@ public class JdbcCatalogUtils {
             return CatalogUtils.getCatalogTable(connection, tablePath);
         }
 
-        CatalogTable tableOfQuery =
-                getCatalogTable(connection, tableConfig.getQuery(), jdbcDialect);
-        return CatalogTable.of(
-                convert(tableOfQuery.getCatalogName(), DEFAULT_TABLE_PATH), tableOfQuery);
+        return getCatalogTable(connection, tableConfig.getQuery(), jdbcDialect);
     }
 
     private static CatalogTable getCatalogTable(
             Connection connection, String sqlQuery, JdbcDialect jdbcDialect) throws SQLException {
         ResultSetMetaData resultSetMetaData =
                 jdbcDialect.getResultSetMetaData(connection, sqlQuery);
-        CatalogTable tableOfQuery = CatalogUtils.getCatalogTable(resultSetMetaData);
-        String catalogName = jdbcDialect.dialectName();
-        return CatalogTable.of(
-                TableIdentifier.of(
-                        catalogName,
-                        tableOfQuery.getTableId().getDatabaseName(),
-                        tableOfQuery.getTableId().getSchemaName(),
-                        tableOfQuery.getTableId().getTableName()),
-                tableOfQuery.getTableSchema(),
-                tableOfQuery.getOptions(),
-                tableOfQuery.getPartitionKeys(),
-                tableOfQuery.getComment(),
-                catalogName);
-    }
-
-    private static TableIdentifier convert(String catalogName, TablePath tablePath) {
-        return TableIdentifier.of(
-                catalogName,
-                tablePath.getDatabaseName(),
-                tablePath.getSchemaName(),
-                tablePath.getTableName());
+        return CatalogUtils.getCatalogTable(resultSetMetaData);
     }
 
     private static Connection getConnection(JdbcConnectionConfig config) throws SQLException {

@@ -162,6 +162,8 @@ public class JdbcColumnConverter {
             case CLOB:
             case NCLOB:
                 seaTunnelType = BasicType.STRING_TYPE;
+                columnLength = precision * 3;
+                longColumnLength = precision * 3;
                 break;
             case DATE:
                 seaTunnelType = LocalTimeType.LOCAL_DATE_TYPE;

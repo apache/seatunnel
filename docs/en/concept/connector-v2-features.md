@@ -51,7 +51,7 @@ User can config the split rule.
 
 ### support multiple table read
 
-Supports reading multiple tables at one time
+Supports reading multiple tables in one SeaTunnel job
 
 ## Sink Connector Features
 

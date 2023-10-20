@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -26,6 +31,7 @@ import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
@@ -69,9 +75,26 @@ public class JdbcSource
         return "Jdbc";
     }
 
+    @SneakyThrows
+    @Override
+    public void prepare(Config pluginConfig) throws PrepareFailException {
+        ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
+        ConfigValidator.of(config).validate(new JdbcSourceFactory().optionRule());
+        this.jdbcSourceConfig = JdbcSourceConfig.of(config);
+        this.jdbcSourceTables =
+                JdbcCatalogUtils.getTables(
+                        jdbcSourceConfig.getJdbcConnectionConfig(),
+                        jdbcSourceConfig.getTableConfigList());
+    }
+
     @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
+    }
+
+    @Override
+    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
+        return getProducedCatalogTables().get(0).getSeaTunnelRowType();
     }
 
     @Override

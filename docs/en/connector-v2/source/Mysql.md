@@ -183,7 +183,9 @@ source {
 }
 ```
 
-### Using `table_path` reading:
+### Using `table_path` read:
+
+***Configuring `table_path` will turn on auto split, you can configure `split.*` to adjust the split strategy***
 
 ```hocon
 env {
@@ -198,6 +200,11 @@ source {
     password = "123456"
 
     table_path = "testdb.table1"
+    #split.size = 8096
+    #split.even-distribution.factor.upper-bound = 100
+    #split.even-distribution.factor.lower-bound = 0.05
+    #split.sample-sharding.threshold = 1000
+    #split.inverse-sampling.rate = 1000
   }
 }
 
@@ -206,7 +213,9 @@ sink {
 }
 ```
 
-### Multiple table reading:
+### Multiple table read:
+
+***Configuring `table_list` will turn on auto split, you can configure `split.*` to adjust the split strategy***
 
 ```hocon
 env {
@@ -230,6 +239,11 @@ source {
         query = "select id, name from testdb.table2 where id > 100"
       }
     ]
+    #split.size = 8096
+    #split.even-distribution.factor.upper-bound = 100
+    #split.even-distribution.factor.lower-bound = 0.05
+    #split.sample-sharding.threshold = 1000
+    #split.inverse-sampling.rate = 1000
   }
 }
 
