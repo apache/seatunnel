@@ -86,7 +86,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                                 "bash",
                                 "-c",
                                 "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl());
+                                        + driverUrl() + "&& mkdir -p /lib && cd /lib && wget "+ driverUrl());
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
