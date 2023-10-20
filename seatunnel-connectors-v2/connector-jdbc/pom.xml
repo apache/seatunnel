@@ -248,7 +248,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.hive</groupId>
-            <artifactId>hive-service</artifactId>
+            <artifactId>hive-exec</artifactId>
         </dependency>
     </dependencies>
 </project>

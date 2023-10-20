@@ -98,7 +98,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.hive</groupId>
-            <artifactId>hive-service</artifactId>
+            <artifactId>hive-exec</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
