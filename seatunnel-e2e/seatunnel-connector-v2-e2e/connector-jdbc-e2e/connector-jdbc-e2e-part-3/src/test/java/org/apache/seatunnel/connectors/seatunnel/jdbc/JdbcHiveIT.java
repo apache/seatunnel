@@ -162,7 +162,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
 
     @Override
     String driverUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hive/hive-jdbc/3.1.2/hive-jdbc-3.1.3.jar";
+        return "https://repo1.maven.org/maven2/org/apache/hive/hive-jdbc/3.1.3/hive-jdbc-3.1.3.jar";
     }
 
     @Override
