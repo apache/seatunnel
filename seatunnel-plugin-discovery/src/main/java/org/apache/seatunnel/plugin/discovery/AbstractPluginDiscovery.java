@@ -166,22 +166,24 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         return pluginIdentifiers;
     }
 
-    public Path getPluginDir() {
-        return pluginDir;
-    }
-
     @Override
     public T createPluginInstance(PluginIdentifier pluginIdentifier) {
         return (T) createPluginInstance(pluginIdentifier, Collections.EMPTY_LIST);
     }
 
     @Override
-    public T createPluginInstance(PluginIdentifier pluginIdentifier, Collection<URL> pluginJars) {
+    public Optional<T> createOptionalPluginInstance(PluginIdentifier pluginIdentifier) {
+        return createOptionalPluginInstance(pluginIdentifier, Collections.EMPTY_LIST);
+    }
+
+    @Override
+    public Optional<T> createOptionalPluginInstance(
+            PluginIdentifier pluginIdentifier, Collection<URL> pluginJars) {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         T pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
         if (pluginInstance != null) {
             log.info("Load plugin: {} from classpath", pluginIdentifier);
-            return pluginInstance;
+            return Optional.of(pluginInstance);
         }
         Optional<URL> pluginJarPath = getPluginJarPath(pluginIdentifier);
         // if the plugin jar not exist in classpath, will load from plugin dir.
@@ -214,8 +216,17 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                         pluginIdentifier,
                         pluginJarPath.get(),
                         classLoader.getClass().getName());
-                return pluginInstance;
+                return Optional.of(pluginInstance);
             }
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public T createPluginInstance(PluginIdentifier pluginIdentifier, Collection<URL> pluginJars) {
+        Optional<T> instance = createOptionalPluginInstance(pluginIdentifier, pluginJars);
+        if (instance.isPresent()) {
+            return instance.get();
         }
         throw new RuntimeException("Plugin " + pluginIdentifier + " not found.");
     }
@@ -286,7 +297,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         return plugins;
     }
 
-    private T loadPluginInstance(PluginIdentifier pluginIdentifier, ClassLoader classLoader) {
+    protected T loadPluginInstance(PluginIdentifier pluginIdentifier, ClassLoader classLoader) {
         ServiceLoader<T> serviceLoader = ServiceLoader.load(getPluginBaseClass(), classLoader);
         for (T t : serviceLoader) {
             if (t instanceof PluginIdentifierInterface) {

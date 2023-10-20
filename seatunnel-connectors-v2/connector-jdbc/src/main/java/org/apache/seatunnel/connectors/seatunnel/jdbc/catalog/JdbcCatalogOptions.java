@@ -50,6 +50,14 @@ public interface JdbcCatalogOptions {
                     .withDescription(
                             "for databases that support the schema parameter, give it priority.");
 
+    Option<String> COMPATIBLE_MODE =
+            Options.key("compatibleMode")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The compatible mode of database, required when the database supports multiple compatible modes. "
+                                    + "For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.");
+
     OptionRule.Builder BASE_RULE =
             OptionRule.builder().required(BASE_URL).required(USERNAME, PASSWORD).optional(SCHEMA);
 

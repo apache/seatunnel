@@ -15,6 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.transform;
+package org.apache.seatunnel.connectors.seatunnel.assertion.rule;
 
-public interface Transformation {}
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+import java.io.Serializable;
+import java.util.List;
+
+@Data
+@AllArgsConstructor
+public class AssertTableRule implements Serializable {
+    private List<String> tableNames;
+}

@@ -15,13 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.transform;
+package org.apache.seatunnel.core.starter.spark.execution;
 
-import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
-public interface PartitionSeaTunnelTransform extends SeaTunnelTransform<Record<?>> {
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
 
-    int getPartitionCount();
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-    int getTargetCount();
+@Data
+@AllArgsConstructor
+public class DatasetTableInfo {
+
+    private Dataset<Row> dataset;
+
+    private CatalogTable catalogTable;
+
+    private String tableName;
 }
