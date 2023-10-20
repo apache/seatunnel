@@ -125,9 +125,37 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         config.getFetchSize(),
                         config.getJdbcConnectionConfig().isAutoCommit());
         Optional<PartitionParameter> finalPartitionParameter = partitionParameter;
+        SeaTunnelRowType finalRowType = rowType;
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
-                        new JdbcSource(config, inputFormat, finalPartitionParameter.orElse(null));
+                        new JdbcSource(
+                                config,
+                                finalRowType,
+                                dialect,
+                                inputFormat,
+                                finalPartitionParameter.orElse(null),
+                                connectionProvider,
+                                finalPartitionParameter.isPresent()
+                                        ? obtainPartitionSql(
+                                                dialect, finalPartitionParameter.get(), querySql)
+                                        : querySql);
+    }
+
+    static String obtainPartitionSql(
+            JdbcDialect dialect, PartitionParameter partitionParameter, String nativeSql) {
+        if (isStringType(partitionParameter.getDataType())) {
+            return String.format(
+                    "SELECT * FROM (%s) tt where %s = ?",
+                    nativeSql,
+                    dialect.hashModForField(
+                            partitionParameter.getPartitionColumnName(),
+                            partitionParameter.getPartitionNumber()));
+        }
+        return String.format(
+                "SELECT * FROM (%s) tt where %s >= ? AND %s <= ?",
+                nativeSql,
+                partitionParameter.getPartitionColumnName(),
+                partitionParameter.getPartitionColumnName());
     }
 
     private SeaTunnelRowType initTableField(
