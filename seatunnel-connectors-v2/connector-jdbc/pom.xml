@@ -159,7 +159,7 @@
             </dependency>
             <dependency>
                 <groupId>org.apache.hive</groupId>
-                <artifactId>hive-service</artifactId>
+                <artifactId>hive-exec</artifactId>
                 <version>${hive.jdbc.version}</version>
                 <scope>provided</scope>
             </dependency>
