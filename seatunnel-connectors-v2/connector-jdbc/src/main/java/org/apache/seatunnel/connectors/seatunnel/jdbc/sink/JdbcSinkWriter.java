@@ -81,8 +81,12 @@ public class JdbcSinkWriter
         ds.setIdleTimeout(30 * 1000);
         ds.setMaximumPoolSize(queueSize);
         ds.setJdbcUrl(jdbcSinkConfig.getJdbcConnectionConfig().getUrl());
-        ds.setUsername(jdbcSinkConfig.getJdbcConnectionConfig().getUsername().get());
-        ds.setPassword(jdbcSinkConfig.getJdbcConnectionConfig().getPassword().get());
+        if (jdbcSinkConfig.getJdbcConnectionConfig().getUsername().isPresent()) {
+            ds.setUsername(jdbcSinkConfig.getJdbcConnectionConfig().getUsername().get());
+        }
+        if (jdbcSinkConfig.getJdbcConnectionConfig().getPassword().isPresent()) {
+            ds.setPassword(jdbcSinkConfig.getJdbcConnectionConfig().getPassword().get());
+        }
         ds.setAutoCommit(jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit());
         return Optional.of(new JdbcMultiTableResourceManager(new ConnectionPoolManager(ds)));
     }
