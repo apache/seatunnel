@@ -34,12 +34,26 @@ public final class TablePath implements Serializable {
     private final String schemaName;
     private final String tableName;
 
+    public static final TablePath EMPTY = TablePath.of(null, null, null);
+
     public static TablePath of(String fullName) {
+        return of(fullName, false);
+    }
+
+    public static TablePath of(String fullName, boolean schemaFirst) {
         String[] paths = fullName.split("\\.");
 
-        if (paths.length == 2) {
-            return of(paths[0], paths[1]);
+        if (paths.length == 1) {
+            return of(null, paths[0]);
         }
+
+        if (paths.length == 2) {
+            if (schemaFirst) {
+                return of(null, paths[0], paths[1]);
+            }
+            return of(paths[0], null, paths[1]);
+        }
+
         if (paths.length == 3) {
             return of(paths[0], paths[1], paths[2]);
         }

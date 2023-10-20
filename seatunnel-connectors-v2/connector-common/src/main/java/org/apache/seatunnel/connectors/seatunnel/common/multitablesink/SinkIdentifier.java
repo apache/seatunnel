@@ -15,13 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.transform;
+package org.apache.seatunnel.connectors.seatunnel.common.multitablesink;
 
-import org.apache.seatunnel.api.table.type.Record;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 
-public interface PartitionSeaTunnelTransform extends SeaTunnelTransform<Record<?>> {
+import java.io.Serializable;
 
-    int getPartitionCount();
+@Getter
+@EqualsAndHashCode
+public class SinkIdentifier implements Serializable {
 
-    int getTargetCount();
+    private final String tableIdentifier;
+
+    private final int index;
+
+    private SinkIdentifier(String tableIdentifier, int index) {
+        this.tableIdentifier = tableIdentifier;
+        this.index = index;
+    }
+
+    public static SinkIdentifier of(String tableIdentifier, int index) {
+        return new SinkIdentifier(tableIdentifier, index);
+    }
 }
