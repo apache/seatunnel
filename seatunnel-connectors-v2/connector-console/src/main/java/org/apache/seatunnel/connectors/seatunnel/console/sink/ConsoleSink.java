@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -36,7 +37,8 @@ import static org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink
 
 @NoArgsConstructor
 @AutoService(SeaTunnelSink.class)
-public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
     private SeaTunnelRowType seaTunnelRowType;
     private boolean isPrintData = true;
     private int delayMs = 0;
