@@ -18,9 +18,6 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -42,16 +39,13 @@ import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
 import com.google.common.collect.Lists;
 
@@ -59,10 +53,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -71,7 +61,6 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -92,7 +81,6 @@ import static org.awaitility.Awaitility.given;
 public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaFormatIT.class);
-
     // ---------------------------Ogg Format Parameter---------------------------------------
     private static final String OGG_DATA_PATH = "/ogg/ogg_data.txt";
     private static final String OGG_KAFKA_SOURCE_TOPIC = "test-ogg-source";
@@ -109,6 +97,11 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     private static final String COMPATIBLE_DATA_PATH = "/compatible/compatible_data.txt";
     private static final String COMPATIBLE_KAFKA_SOURCE_TOPIC = "jdbc_source_record";
 
+    // ---------------------------Debezium Format Parameter  ---------------------------------------
+    private static final String DEBEZIUM_KAFKA_SINK_TOPIC = "test-debezium-sink";
+    private static final String DEBEZIUM_DATA_PATH = "/debezium/debezium_data.txt";
+    private static final String DEBEZIUM_KAFKA_SOURCE_TOPIC = "dbserver1.debezium.products";
+
     // Used to map local data paths to kafa topics that need to be written to kafka
     private static LinkedHashMap<String, String> LOCAL_DATA_TO_KAFKA_MAPPING;
 
@@ -119,21 +112,10 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                         put(CANAL_DATA_PATH, CANAL_KAFKA_SOURCE_TOPIC);
                         put(OGG_DATA_PATH, OGG_KAFKA_SOURCE_TOPIC);
                         put(COMPATIBLE_DATA_PATH, COMPATIBLE_KAFKA_SOURCE_TOPIC);
+                        put(DEBEZIUM_DATA_PATH, DEBEZIUM_KAFKA_SOURCE_TOPIC);
                     }
                 };
     }
-
-    // ---------------------------Debezium Container---------------------------------------
-
-    private static GenericContainer<?> DEBEZIUM_CONTAINER;
-
-    private static final String DEBEZIUM_DOCKER_IMAGE = "quay.io/debezium/connect:2.3.0.Final";
-
-    private static final String DEBEZIUM_HOST = "debezium_e2e";
-
-    private static final int DEBEZIUM_PORT = 8083;
-    private static final String DEBEZIUM_KAFKA_TOPIC = "test-debezium-sink";
-    private static final String DEBEZIUM_MYSQL_DATABASE = "debezium";
 
     // ---------------------------Kafka Container---------------------------------------
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
@@ -143,20 +125,6 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     private static KafkaContainer KAFKA_CONTAINER;
 
     private KafkaConsumer<String, String> kafkaConsumer;
-
-    // ---------------------------Mysql Container---------------------------------------
-    private static final String MYSQL_HOST = "mysql_e2e";
-    private static final String MYSQL_USER_NAME = "st_user";
-    private static final String MYSQL_PASSWORD = "seatunnel";
-    private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer();
-
-    private final UniqueDatabase inventoryDatabase =
-            new UniqueDatabase(
-                    MYSQL_CONTAINER,
-                    CANAL_MYSQL_DATABASE,
-                    "mysqluser",
-                    "mysqlpw",
-                    "initialize_format");
 
     // --------------------------- Postgres Container-------------------------------------
     private static final String PG_IMAGE = "postgres:alpine3.16";
@@ -177,47 +145,6 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                                         + PG_DRIVER_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
-
-    private static MySqlContainer createMySqlContainer() {
-        return new MySqlContainer(MySqlVersion.V8_0)
-                .withConfigurationOverride("docker/server-gtids/my.cnf")
-                .withSetupSQL("docker/setup.sql")
-                .withNetwork(NETWORK)
-                .withNetworkAliases(MYSQL_HOST)
-                .withDatabaseName(CANAL_MYSQL_DATABASE)
-                .withDatabaseName(DEBEZIUM_MYSQL_DATABASE)
-                .withUsername(MYSQL_USER_NAME)
-                .withPassword(MYSQL_PASSWORD)
-                .withLogConsumer(new Slf4jLogConsumer(LOG));
-    }
-
-    private void createDebeziumContainer() {
-        DEBEZIUM_CONTAINER =
-                new GenericContainer<>(DEBEZIUM_DOCKER_IMAGE)
-                        .withCopyFileToContainer(
-                                MountableFile.forClasspathResource("/debezium/register-mysql.json"),
-                                "/tmp/seatunnel/plugins/Jdbc/register-mysql.json")
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(DEBEZIUM_HOST)
-                        .withExposedPorts(DEBEZIUM_PORT)
-                        .withEnv("GROUP_ID", "1")
-                        .withEnv("CONFIG_STORAGE_TOPIC", "my-connect-configs")
-                        .withEnv("OFFSET_STORAGE_TOPIC", "my-connect-offsets")
-                        .withEnv("STATUS_STORAGE_TOPIC", "my-connect-status")
-                        .withEnv("BOOTSTRAP_SERVERS", KAFKA_HOST + ":9092")
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger(DEBEZIUM_DOCKER_IMAGE)))
-                        .dependsOn(KAFKA_CONTAINER, MYSQL_CONTAINER);
-        DEBEZIUM_CONTAINER.setWaitStrategy(
-                (new HttpWaitStrategy())
-                        .forPath("/connectors")
-                        .forPort(DEBEZIUM_PORT)
-                        .withStartupTimeout(Duration.ofSeconds(120)));
-        DEBEZIUM_CONTAINER.setPortBindings(
-                com.google.common.collect.Lists.newArrayList(
-                        String.format("%s:%s", DEBEZIUM_PORT, DEBEZIUM_PORT)));
-    }
 
     private void createKafkaContainer() {
         KAFKA_CONTAINER =
@@ -248,15 +175,6 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         Startables.deepStart(Stream.of(KAFKA_CONTAINER)).join();
         LOG.info("Kafka Containers are started");
 
-        LOG.info("The second stage: Starting Mysql containers...");
-        Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
-        LOG.info("Mysql Containers are started");
-
-        LOG.info("The third stage: Starting Debezium Connector containers...");
-        createDebeziumContainer();
-        Startables.deepStart(Stream.of(DEBEZIUM_CONTAINER)).join();
-        LOG.info("Debezium Containers are started");
-
         LOG.info("The fourth stage: Starting PostgreSQL container...");
         createPostgreSQLContainer();
         Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER)).join();
@@ -276,34 +194,13 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initKafkaConsumer);
 
-        LOG.info("start init Mysql DDl...");
-        inventoryDatabase.createAndInitialize();
-        LOG.info("end init Mysql DDl...");
-
         // local file local data send kafka
         given().ignoreExceptions()
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(3, TimeUnit.MINUTES)
                 .untilAsserted(this::initLocalDataToKafka);
-
-        // debezium configuration information
-        Container.ExecResult extraCommand =
-                DEBEZIUM_CONTAINER.execInContainer(
-                        "bash",
-                        "-c",
-                        "cd /tmp/seatunnel/plugins/Jdbc && curl -i -X POST -H \"Accept:application/json\" -H  \"Content-Type:application/json\" http://"
-                                + getLinuxLocalIp()
-                                + ":8083/connectors/ -d @register-mysql.json");
-        Assertions.assertEquals(0, extraCommand.getExitCode());
-        // ensure debezium has handled the data
-        Thread.sleep(40 * 1000);
-        Awaitility.given()
-                .ignoreExceptions()
-                .atLeast(100, TimeUnit.MILLISECONDS)
-                .pollInterval(500, TimeUnit.MILLISECONDS)
-                .atMost(3, TimeUnit.MINUTES)
-                .untilAsserted(this::updateDebeziumSourceTableData);
+        Thread.sleep(20 * 1000);
     }
 
     @TestTemplate
@@ -359,7 +256,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         checkCompatibleFormat();
     }
 
-    public void checkCanalFormat() {
+    private void checkCanalFormat() {
         List<String> expectedResult =
                 Arrays.asList(
                         "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"INSERT\"}",
@@ -415,7 +312,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         Assertions.assertIterableEquals(expected, postgreSinkTableList);
     }
 
-    public void checkOggFormat() {
+    private void checkOggFormat() {
         List<String> kafkaExpectedResult =
                 Arrays.asList(
                         "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.140000104904175\"},\"type\":\"INSERT\"}",
@@ -498,7 +395,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
     private void checkDebeziumFormat() {
         ArrayList<String> result = new ArrayList<>();
-        kafkaConsumer.subscribe(Lists.newArrayList(DEBEZIUM_KAFKA_TOPIC));
+        kafkaConsumer.subscribe(Lists.newArrayList(DEBEZIUM_KAFKA_SINK_TOPIC));
         Awaitility.await()
                 .atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -617,7 +514,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     }
 
     // Get result data
-    public Set<List<Object>> getPostgreSinkTableList() {
+    private Set<List<Object>> getPostgreSinkTableList() {
         Set<List<Object>> actual = new HashSet<>();
         try (Connection connection =
                 DriverManager.getConnection(
@@ -652,52 +549,14 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         }
         return actual;
     }
-    // Modify debezium data
-    public void updateDebeziumSourceTableData() throws Exception {
-        MYSQL_CONTAINER.setDatabaseName(DEBEZIUM_MYSQL_DATABASE);
-        try (Connection connection =
-                        DriverManager.getConnection(
-                                MYSQL_CONTAINER.getJdbcUrl(),
-                                MYSQL_CONTAINER.getUsername(),
-                                MYSQL_CONTAINER.getPassword());
-                Statement statement = connection.createStatement()) {
-            statement.execute(
-                    "UPDATE debezium.products SET weight = '4.56' WHERE name = 'scooter'");
-            statement.execute("DELETE FROM debezium.products WHERE name  = \"spare tire\"");
-        }
-    }
-
-    public String getLinuxLocalIp() {
-        String ip = "";
-        try {
-            Enumeration<NetworkInterface> networkInterfaces =
-                    NetworkInterface.getNetworkInterfaces();
-            while (networkInterfaces.hasMoreElements()) {
-                NetworkInterface networkInterface = networkInterfaces.nextElement();
-                Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
-                while (inetAddresses.hasMoreElements()) {
-                    InetAddress inetAddress = inetAddresses.nextElement();
-                    if (!inetAddress.isLoopbackAddress() && inetAddress instanceof Inet4Address) {
-                        ip = inetAddress.getHostAddress();
-                    }
-                }
-            }
-        } catch (SocketException ex) {
-            LOG.warn("Failed to get linux local ip, it will return [\"\"] ", ex);
-        }
-        return ip;
-    }
 
     @Override
     public void tearDown() {
-        if (MYSQL_CONTAINER != null) {
-            MYSQL_CONTAINER.close();
-        }
         if (KAFKA_CONTAINER != null) {
             KAFKA_CONTAINER.close();
         }
-        if (DEBEZIUM_CONTAINER != null) {
-            DEBEZIUM_CONTAINER.close();
+        if (POSTGRESQL_CONTAINER != null) {
+            POSTGRESQL_CONTAINER.close();
         }
     }
 }
