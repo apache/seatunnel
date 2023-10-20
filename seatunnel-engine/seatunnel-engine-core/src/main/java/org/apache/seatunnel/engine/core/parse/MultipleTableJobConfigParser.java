@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -66,11 +67,13 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
@@ -101,6 +104,11 @@ public class MultipleTableJobConfigParser {
     public MultipleTableJobConfigParser(
             String jobDefineFilePath, IdGenerator idGenerator, JobConfig jobConfig) {
         this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList(), false);
+    }
+
+    public MultipleTableJobConfigParser(
+            Config seaTunnelJobConfig, IdGenerator idGenerator, JobConfig jobConfig) {
+        this(seaTunnelJobConfig, idGenerator, jobConfig, Collections.emptyList(), false);
     }
 
     public MultipleTableJobConfigParser(
@@ -542,6 +550,7 @@ public class MultipleTableJobConfigParser {
             return sinkActions;
         }
 
+        // TODO move it into tryGenerateMultiTableSink when we don't support sink template
         // sink template
         for (Tuple2<CatalogTable, Action> tuple : inputVertices.get(0)) {
             SinkAction<?, ?, ?, ?> sinkAction =
@@ -556,7 +565,44 @@ public class MultipleTableJobConfigParser {
                             configIndex);
             sinkActions.add(sinkAction);
         }
-        return sinkActions;
+        Optional<SinkAction<?, ?, ?, ?>> multiTableSink =
+                tryGenerateMultiTableSink(sinkActions, readonlyConfig, classLoader);
+        return multiTableSink
+                .<List<SinkAction<?, ?, ?, ?>>>map(Collections::singletonList)
+                .orElse(sinkActions);
+    }
+
+    private Optional<SinkAction<?, ?, ?, ?>> tryGenerateMultiTableSink(
+            List<SinkAction<?, ?, ?, ?>> sinkActions,
+            ReadonlyConfig options,
+            ClassLoader classLoader) {
+        if (sinkActions.stream()
+                .anyMatch(action -> !(action.getSink() instanceof SupportMultiTableSink))) {
+            log.info("Unsupported multi table sink api, rollback to sink template");
+            return Optional.empty();
+        }
+        Map<String, SeaTunnelSink> sinks = new HashMap<>();
+        Set<URL> jars =
+                sinkActions.stream()
+                        .flatMap(a -> a.getJarUrls().stream())
+                        .collect(Collectors.toSet());
+        sinkActions.forEach(
+                action -> {
+                    SeaTunnelSink sink = action.getSink();
+                    String tableId = action.getConfig().getMultipleRowTableId();
+                    sinks.put(tableId, sink);
+                });
+        SeaTunnelSink<?, ?, ?, ?> sink =
+                FactoryUtil.createMultiTableSink(sinks, options, classLoader);
+        SinkAction<?, ?, ?, ?> multiTableAction =
+                new SinkAction<>(
+                        idGenerator.getNextId(),
+                        "MultiTableSink-" + sinkActions.get(0).getSink().getPluginName(),
+                        sinkActions.get(0).getUpstream(),
+                        sink,
+                        jars);
+        multiTableAction.setParallelism(sinkActions.get(0).getParallelism());
+        return Optional.of(multiTableAction);
     }
 
     private SinkAction<?, ?, ?, ?> createSinkAction(

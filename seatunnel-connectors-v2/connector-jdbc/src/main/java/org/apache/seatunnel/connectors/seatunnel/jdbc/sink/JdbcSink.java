@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -62,7 +63,8 @@ import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_
 @AutoService(SeaTunnelSink.class)
 public class JdbcSink
         implements SeaTunnelSink<SeaTunnelRow, JdbcSinkState, XidInfo, JdbcAggregatedCommitInfo>,
-                SupportDataSaveMode {
+                SupportDataSaveMode,
+                SupportMultiTableSink {
 
     private SeaTunnelRowType seaTunnelRowType;
 
@@ -118,8 +120,8 @@ public class JdbcSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> createWriter(SinkWriter.Context context)
-            throws IOException {
+    public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> createWriter(
+            SinkWriter.Context context) {
         SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> sinkWriter;
         if (jdbcSinkConfig.isExactlyOnce()) {
             sinkWriter =
@@ -131,9 +133,18 @@ public class JdbcSink
                             seaTunnelRowType,
                             new ArrayList<>());
         } else {
-            sinkWriter = new JdbcSinkWriter(context, dialect, jdbcSinkConfig, seaTunnelRowType);
+            if (catalogTable != null && catalogTable.getTableSchema().getPrimaryKey() != null) {
+                String keyName =
+                        catalogTable.getTableSchema().getPrimaryKey().getColumnNames().get(0);
+                int index = seaTunnelRowType.indexOf(keyName);
+                if (index > -1) {
+                    return new JdbcSinkWriter(
+                            context, dialect, jdbcSinkConfig, seaTunnelRowType, index);
+                }
+            }
+            sinkWriter =
+                    new JdbcSinkWriter(context, dialect, jdbcSinkConfig, seaTunnelRowType, null);
         }
-
         return sinkWriter;
     }
 
