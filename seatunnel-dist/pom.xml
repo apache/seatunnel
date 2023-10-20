@@ -105,7 +105,6 @@
                 <hadoop-aws.version>3.1.4</hadoop-aws.version>
                 <aws-java-sdk.version>1.11.271</aws-java-sdk.version>
                 <netty-buffer.version>4.1.89.Final</netty-buffer.version>
-                <hive.jdbc.version>3.1.3</hive.jdbc.version>
             </properties>
             <dependencies>
                 <!-- starters -->
@@ -604,34 +603,6 @@
                     <version>${snowflake.version}</version>
                     <scope>provided</scope>
                 </dependency>
-
-                <dependency>
-                    <groupId>org.apache.hive</groupId>
-                    <artifactId>hive-jdbc</artifactId>
-                    <version>${hive.jdbc.version}</version>
-                    <scope>provided</scope>
-                </dependency>
-
-                <dependency>
-                    <groupId>org.apache.hive</groupId>
-                    <artifactId>hive-exec</artifactId>
-                    <version>${hive.jdbc.version}</version>
-                    <scope>provided</scope>
-                </dependency>
-
-                <dependency>
-                    <groupId>org.apache.hive</groupId>
-                    <artifactId>hive-service</artifactId>
-                    <version>${hive.jdbc.version}</version>
-                    <scope>provided</scope>
-                </dependency>
-
-                <dependency>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpclient</artifactId>
-                    <version>4.5.14</version>
-                    <scope>provided</scope>
-                </dependency>
                 <!-- jdbc driver end -->
 
                 <dependency>
@@ -663,7 +634,6 @@
                     <classifier>optional</classifier>
                     <scope>provided</scope>
                 </dependency>
-
                 <!-- hadoop jar end -->
             </dependencies>
             <repositories>
