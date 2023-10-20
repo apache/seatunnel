@@ -15,6 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.transform;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase;
 
-public interface Transformation {}
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
+
+public class OceanBaseMySqlCatalog extends MySqlCatalog {
+
+    static {
+        SYS_DATABASES.clear();
+        SYS_DATABASES.add("information_schema");
+        SYS_DATABASES.add("mysql");
+        SYS_DATABASES.add("oceanbase");
+        SYS_DATABASES.add("LBACSYS");
+        SYS_DATABASES.add("ORAAUDITOR");
+        SYS_DATABASES.add("SYS");
+    }
+
+    public OceanBaseMySqlCatalog(
+            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
+        super(catalogName, username, pwd, urlInfo);
+    }
+}
