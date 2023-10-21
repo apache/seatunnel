@@ -38,6 +38,8 @@ public class FakeWithMultiTableTT extends TestSuiteBase {
             throws IOException, InterruptedException {
         Container.ExecResult fakeWithTableNames =
                 container.executeJob("/fake_to_console_with_multitable_mode.conf");
+        Assertions.assertFalse(
+                container.getServerLogs().contains("MultiTableWriterRunnable error"));
         Assertions.assertEquals(0, fakeWithTableNames.getExitCode());
     }
 }
