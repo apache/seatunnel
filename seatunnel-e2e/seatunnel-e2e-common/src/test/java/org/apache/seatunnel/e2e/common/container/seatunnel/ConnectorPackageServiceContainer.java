@@ -77,7 +77,7 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
         server1.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/connector-package-service-test-resources"),
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/connector-package-service-test-server1-resources"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
         server1.withCopyFileToContainer(
                 MountableFile.forHostPath(
@@ -103,7 +103,7 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
         server2.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/connector-package-service-test-resources"),
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/connector-package-service-server2-test-resources"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
         server2.withCopyFileToContainer(
                 MountableFile.forHostPath(
@@ -129,7 +129,7 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
         server3.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/connector-package-service-test-resources"),
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/connector-package-service-server3-test-resources"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
         server3.withCopyFileToContainer(
                 MountableFile.forHostPath(

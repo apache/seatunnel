@@ -14,37 +14,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-######
-###### This config file is a demonstration of streaming processing in seatunnel config
-######
 
-env {
-  job.mode = "BATCH"
-}
-
-source {
-  # This is a example source plugin **only for test and demonstrate the feature source plugin**
-  FakeSource {
-    result_table_name = "fake"
-    schema {
-      fields {
-        id = "int"
-        name = "string"
-        age = "int"
-      }
-    }
-  }
-}
-transform {
-  sql {
-    source_table_name = "fake"
-    result_table_name = "fake1"
-    query ="select cast(name as int) as name, id,age from fake"
-  }
-}
-sink {
-  console {
-    source_table_name = "fake1"
-  }
-
-}
+seatunnel:
+  engine:
+    history-job-expire-minutes: 1
+    backup-count: 2
+    queue-type: blockingqueue
+    print-execution-info-interval: 10
+    slot-service:
+      dynamic-slot: true
+    checkpoint:
+      interval: 300000
+      timeout: 100000
+      storage:
+        type: localfile
+        max-retained: 3
+        plugin-config:
+          namespace: /tmp/seatunnel/checkpoint_snapshot/
+    jar-storage:
+      enable: true
+      connector-jar-storage-mode: SHARED
+      connector-jar-storage-path: ""
+      connector-jar-cleanup-task-interval: 3600
+      connector-jar-expiry-time: 600

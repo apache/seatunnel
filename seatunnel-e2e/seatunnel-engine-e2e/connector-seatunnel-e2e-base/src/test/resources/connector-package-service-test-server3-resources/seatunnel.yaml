@@ -14,36 +14,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-######
-###### This config file is a demonstration of streaming processing in seatunnel config
-######
 
-env {
-  execution.parallelism = 1
-  job.mode = "BATCH"
-}
-
-# Create a source to connect to Mongodb
-source {
-  # This is a example source plugin **only for test and demonstrate the feature source plugin**
-  FakeSource {
-    parallelism = 1
-    result_table_name = "fake"
-    row.num = 1
-    schema = {
-      fields {
-        name = "string"
-        age = "int"
-      }
-    }
-  }
-}
-
-sink {
-
-LocalFile {
-    path = "/tmp/text"
-	file_format_type="${file_format_type}"
-	enable_header_write="${enable_header_write}"
-}
-}
+seatunnel:
+  engine:
+    history-job-expire-minutes: 1
+    backup-count: 2
+    queue-type: blockingqueue
+    print-execution-info-interval: 10
+    slot-service:
+      dynamic-slot: true
+    checkpoint:
+      interval: 300000
+      timeout: 100000
+      storage:
+        type: localfile
+        max-retained: 3
+        plugin-config:
+          namespace: /tmp/seatunnel/checkpoint_snapshot/
+    jar-storage:
+      enable: true
+      connector-jar-storage-mode: SHARED
+      connector-jar-storage-path: ""
+      connector-jar-cleanup-task-interval: 3600
+      connector-jar-expiry-time: 600
