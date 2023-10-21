@@ -17,16 +17,37 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Container;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
-public class ConnectorPackageServiceIT extends ConnectorPackageServiceContainer {
-    @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelJob("/fakesource_to_console.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+@Slf4j
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public abstract class ConnectorPackageServiceContainer
+        extends org.apache.seatunnel.e2e.common.container.seatunnel
+                .ConnectorPackageServiceContainer {
+
+    @Override
+    @BeforeAll
+    public void startUp() throws Exception {
+        super.startUp();
+        log.info("The TestContainer[{}] is running.", identifier());
+    }
+
+    @Override
+    @AfterAll
+    public void tearDown() throws Exception {
+        super.tearDown();
+        log.info("The TestContainer[{}] is closed.", identifier());
+    }
+
+    public Container.ExecResult executeSeaTunnelJob(String confFile)
+            throws IOException, InterruptedException {
+        return executeJob(confFile);
     }
 }
