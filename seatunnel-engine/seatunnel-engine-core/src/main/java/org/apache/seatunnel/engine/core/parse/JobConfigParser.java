@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.constants.CollectionConstants;
+import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -54,9 +55,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser.DEFAULT_ID;
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
 import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser.checkProducedTypeEquals;
-import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser.ensureJobModeMatch;
 import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser.handleSaveMode;
 
 @Data
@@ -84,7 +84,7 @@ public class JobConfigParser {
         // old logic: prepare(initialization) -> set job context
         source.prepare(config);
         source.setJobContext(jobConfig.getJobContext());
-        ensureJobModeMatch(jobConfig.getJobContext(), source);
+        PluginUtil.ensureJobModeMatch(jobConfig.getJobContext(), source);
         String actionName =
                 createSourceActionName(
                         0, config.getString(CollectionConstants.PLUGIN_NAME), getTableName(config));
@@ -130,6 +130,7 @@ public class JobConfigParser {
     }
 
     public List<SinkAction<?, ?, ?, ?>> parseSinks(
+            int configIndex,
             List<List<Tuple2<CatalogTable, Action>>> inputVertices,
             Config sinkConfig,
             JobConfig jobConfig) {
@@ -145,6 +146,7 @@ public class JobConfigParser {
             checkProducedTypeEquals(inputActions);
             SinkAction<?, ?, ?, ?> sinkAction =
                     parseSink(
+                            configIndex,
                             sinkConfig,
                             jobConfig,
                             spareParallelism,
@@ -164,6 +166,7 @@ public class JobConfigParser {
                 int parallelism = inputAction.getParallelism();
                 SinkAction<?, ?, ?, ?> sinkAction =
                         parseSink(
+                                configIndex,
                                 sinkConfig,
                                 jobConfig,
                                 parallelism,
@@ -176,6 +179,7 @@ public class JobConfigParser {
     }
 
     private SinkAction<?, ?, ?, ?> parseSink(
+            int configIndex,
             Config config,
             JobConfig jobConfig,
             int parallelism,
@@ -198,7 +202,8 @@ public class JobConfigParser {
             handleSaveMode(sink);
         }
         final String actionName =
-                createSinkActionName(0, tuple.getLeft().getPluginName(), getTableName(config));
+                createSinkActionName(
+                        configIndex, tuple.getLeft().getPluginName(), getTableName(config));
         final SinkAction action =
                 new SinkAction<>(
                         idGenerator.getNextId(),

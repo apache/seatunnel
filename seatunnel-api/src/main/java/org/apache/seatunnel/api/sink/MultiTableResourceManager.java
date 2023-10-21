@@ -15,6 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.transform;
+package org.apache.seatunnel.api.sink;
 
-public interface Transformation {}
+import java.util.Optional;
+
+/** The multi table resource manager */
+public interface MultiTableResourceManager<T> {
+
+    default Optional<T> getSharedResource() {
+        return Optional.empty();
+    }
+
+    default void close() {}
+}

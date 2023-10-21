@@ -89,7 +89,7 @@ public class PostgresCreateTableSqlBuilder {
 
         // For simplicity, assume the column type in SeaTunnelDataType is the same as in PostgreSQL
         String columnType =
-                sourceCatalogName.equals("postgres")
+                StringUtils.equalsIgnoreCase("postgres", sourceCatalogName)
                         ? column.getSourceType()
                         : buildColumnType(column);
         columnSql.append(columnType);

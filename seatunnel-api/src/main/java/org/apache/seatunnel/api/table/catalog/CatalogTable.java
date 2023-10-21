@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +48,8 @@ public final class CatalogTable implements Serializable {
             Map<String, String> options,
             List<String> partitionKeys,
             String comment) {
-        return new CatalogTable(tableId, tableSchema, options, partitionKeys, comment);
+        return new CatalogTable(
+                tableId, tableSchema, options, partitionKeys, comment, tableId.getCatalogName());
     }
 
     public static CatalogTable of(
@@ -65,7 +68,7 @@ public final class CatalogTable implements Serializable {
             Map<String, String> options,
             List<String> partitionKeys,
             String comment) {
-        this(tableId, tableSchema, options, partitionKeys, comment, "");
+        this(tableId, tableSchema, options, partitionKeys, comment, tableId.getCatalogName());
     }
 
     private CatalogTable(
@@ -89,6 +92,10 @@ public final class CatalogTable implements Serializable {
 
     public TableSchema getTableSchema() {
         return tableSchema;
+    }
+
+    public SeaTunnelRowType getSeaTunnelRowType() {
+        return tableSchema.toPhysicalRowDataType();
     }
 
     public Map<String, String> getOptions() {
@@ -120,6 +127,9 @@ public final class CatalogTable implements Serializable {
                 + partitionKeys
                 + ", comment='"
                 + comment
+                + '\''
+                + ", catalogName='"
+                + catalogName
                 + '\''
                 + '}';
     }

@@ -125,7 +125,7 @@ public interface Catalog extends AutoCloseable {
         // Get the list of specified tables
         List<String> tableNames = config.get(CatalogOptions.TABLE_NAMES);
         List<CatalogTable> catalogTables = new ArrayList<>();
-        if (tableNames != null && tableNames.size() >= 1) {
+        if (tableNames != null && !tableNames.isEmpty()) {
             for (String tableName : tableNames) {
                 TablePath tablePath = TablePath.of(tableName);
                 if (this.tableExists(tablePath)) {
