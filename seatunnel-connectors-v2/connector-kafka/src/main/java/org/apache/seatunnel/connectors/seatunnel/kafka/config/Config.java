@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
@@ -106,7 +108,7 @@ public class Config {
     public static final Option<String> FIELD_DELIMITER =
             Options.key("field_delimiter")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue(DEFAULT_FIELD_DELIMITER)
                     .withDescription("Customize the field delimiter for data format.");
 
     public static final Option<Integer> PARTITION =
@@ -145,9 +147,9 @@ public class Config {
                     .noDefaultValue()
                     .withDescription("The time required for consumption mode to be timestamp.");
 
-    public static final Option<Config> START_MODE_OFFSETS =
+    public static final Option<Map<String, Long>> START_MODE_OFFSETS =
             Options.key("start_mode.offsets")
-                    .objectType(Config.class)
+                    .type(new TypeReference<Map<String, Long>>() {})
                     .noDefaultValue()
                     .withDescription(
                             "The offset required for consumption mode to be specific_offsets.");
