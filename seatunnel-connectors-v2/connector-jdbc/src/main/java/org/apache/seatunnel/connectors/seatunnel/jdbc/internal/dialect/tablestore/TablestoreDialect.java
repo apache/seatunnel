@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.tablestore;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
@@ -30,7 +31,7 @@ import java.util.Optional;
 public class TablestoreDialect implements JdbcDialect {
     @Override
     public String dialectName() {
-        return "Tablestore";
+        return DatabaseIdentifier.TABLE_STORE;
     }
 
     @Override
