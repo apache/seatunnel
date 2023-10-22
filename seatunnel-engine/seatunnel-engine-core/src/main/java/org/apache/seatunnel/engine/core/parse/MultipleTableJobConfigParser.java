@@ -608,7 +608,8 @@ public class MultipleTableJobConfigParser {
                         "MultiTableSink-" + sinkActions.get(0).getSink().getPluginName(),
                         sinkActions.get(0).getUpstream(),
                         sink,
-                        jars);
+                        jars,
+                        new HashSet<>());
         multiTableAction.setParallelism(sinkActions.get(0).getParallelism());
         return Optional.of(multiTableAction);
     }

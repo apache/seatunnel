@@ -94,7 +94,6 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
                                 ContainerUtil.adaptPathForWin(
                                         Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
                         .withNetworkAliases("server2")
-                        .dependsOn(server1)
                         .withExposedPorts()
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -106,7 +105,7 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
         server2.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/connector-package-service-server2-test-resources"),
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/connector-package-service-test-server2-resources"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
         server2.withCopyFileToContainer(
                 MountableFile.forHostPath(
@@ -121,7 +120,6 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
                                 ContainerUtil.adaptPathForWin(
                                         Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
                         .withNetworkAliases("server3")
-                        .dependsOn(server2)
                         .withExposedPorts()
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -133,7 +131,7 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
         server3.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/connector-package-service-server3-test-resources"),
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/connector-package-service-test-server3-resources"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
         server3.withCopyFileToContainer(
                 MountableFile.forHostPath(

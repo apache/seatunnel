@@ -29,7 +29,9 @@ hazelcast:
       tcp-ip:
         enabled: true
         member-list:
-          - localhost
+          - localhost:5801
+          - localhost:5802
+          - localhost:5803
     port:
       auto-increment: false
       port: 5803
