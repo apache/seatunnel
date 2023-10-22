@@ -49,6 +49,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -252,7 +254,11 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         for (String CONFIG_FILE : PG_CONFIG_FILE_LIST) {
             Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
             Assertions.assertEquals(0, execResult.getExitCode());
-            Assertions.assertIterableEquals(querySql(SOURCE_SQL), querySql(SINK_SQL));
+            Assertions.assertTimeout(
+                    Duration.of(10, ChronoUnit.SECONDS),
+                    () ->
+                            Assertions.assertIterableEquals(
+                                    querySql(SOURCE_SQL), querySql(SINK_SQL)));
             executeSQL("truncate table pg_e2e_sink_table");
             log.info(CONFIG_FILE + " e2e test completed");
         }
