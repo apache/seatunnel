@@ -35,6 +35,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
@@ -81,6 +83,14 @@ public class JdbcSource
         ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
         ConfigValidator.of(config).validate(new JdbcSourceFactory().optionRule());
         this.jdbcSourceConfig = JdbcSourceConfig.of(config);
+        JdbcDialect jdbcDialect =
+                JdbcDialectLoader.load(
+                        jdbcSourceConfig.getJdbcConnectionConfig().getUrl(),
+                        jdbcSourceConfig.getJdbcConnectionConfig().getCompatibleMode());
+        jdbcDialect.connectionUrlParse(
+                jdbcSourceConfig.getJdbcConnectionConfig().getUrl(),
+                jdbcSourceConfig.getJdbcConnectionConfig().getProperties(),
+                jdbcDialect.defaultParameter());
         this.jdbcSourceTables =
                 JdbcCatalogUtils.getTables(
                         jdbcSourceConfig.getJdbcConnectionConfig(),
