@@ -48,7 +48,7 @@ public class ReflectionUtils {
             while (!Object.class.equals(searchType) && searchType != null) {
                 Field[] fields = searchType.getDeclaredFields();
                 for (Field field : fields) {
-                    if ((fieldName == null || fieldName.equals(field.getName()))) {
+                    if (fieldName.equals(field.getName())) {
                         field.setAccessible(true);
                         return Optional.of(field.get(object));
                     }
