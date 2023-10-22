@@ -26,6 +26,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
@@ -37,6 +38,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
@@ -92,6 +94,7 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
                                 ContainerUtil.adaptPathForWin(
                                         Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
                         .withNetworkAliases("server2")
+                        .dependsOn(server1)
                         .withExposedPorts()
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -118,6 +121,7 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
                                 ContainerUtil.adaptPathForWin(
                                         Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
                         .withNetworkAliases("server3")
+                        .dependsOn(server2)
                         .withExposedPorts()
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -137,9 +141,9 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
                                 + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
                 Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
 
-        server1.start();
-        server2.start();
-        server3.start();
+        Startables.deepStart(Stream.of(server1)).join();
+        Startables.deepStart(Stream.of(server2)).join();
+        Startables.deepStart(Stream.of(server3)).join();
         // execute extra commands
         executeExtraCommands(server1);
     }
