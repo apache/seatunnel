@@ -16,8 +16,6 @@
  */
 package org.apache.seatunnel.transform.jsonpath;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -59,7 +57,7 @@ public class JsonPathTransformConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription("supports configuring multiple fields.");
 
-    private List<FiledConfig> filedConfigs;
+    private final List<FiledConfig> filedConfigs;
 
     public List<FiledConfig> getFiledConfigs() {
         return filedConfigs;
@@ -70,8 +68,6 @@ public class JsonPathTransformConfig implements Serializable {
     }
 
     public static JsonPathTransformConfig of(ReadonlyConfig config) {
-        Config toConfig = config.toConfig();
-        System.out.println(toConfig);
         Optional<List<Map>> optional = config.getOptional(FIELDS);
         List<Map> fields =
                 optional.orElseThrow(
@@ -95,7 +91,6 @@ public class JsonPathTransformConfig implements Serializable {
     }
 
     private static FiledConfig checkOneField(Map config) {
-        FiledConfig filedConfig = new FiledConfig();
         String path = (String) config.getOrDefault(PATH.key(), "");
         if (path == null || "".equals(path)) {
             throw new TransformException(
@@ -111,9 +106,6 @@ public class JsonPathTransformConfig implements Serializable {
             throw new TransformException(
                     DEST_FIELD_MUST_NOT_EMPTY, DEST_FIELD_MUST_NOT_EMPTY.getErrorMessage());
         }
-        filedConfig.setPath(path);
-        filedConfig.setSrcField(srcField);
-        filedConfig.setDestField(destField);
-        return filedConfig;
+        return new FiledConfig(path, srcField, destField);
     }
 }

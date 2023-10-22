@@ -19,13 +19,11 @@ package org.apache.seatunnel.transform.jsonpath;
 import java.io.Serializable;
 
 public class FiledConfig implements Serializable {
-    private String path;
+    private final String path;
 
-    private String srcField;
+    private final String srcField;
 
-    private String destField;
-
-    public FiledConfig() {}
+    private final String destField;
 
     public FiledConfig(String path, String srcField, String destField) {
         this.path = path;
@@ -37,23 +35,11 @@ public class FiledConfig implements Serializable {
         return path;
     }
 
-    public void setPath(String path) {
-        this.path = path;
-    }
-
     public String getSrcField() {
         return srcField;
     }
 
-    public void setSrcField(String srcField) {
-        this.srcField = srcField;
-    }
-
     public String getDestField() {
         return destField;
-    }
-
-    public void setDestField(String destField) {
-        this.destField = destField;
     }
 }

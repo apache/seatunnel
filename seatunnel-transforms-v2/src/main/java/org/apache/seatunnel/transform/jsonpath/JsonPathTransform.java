@@ -16,10 +16,6 @@
  */
 package org.apache.seatunnel.transform.jsonpath;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -51,7 +47,6 @@ import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCod
 import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode.JSON_PATH_COMPILE_ERROR;
 
 @Slf4j
-@AutoService(JsonPathTransform.class)
 public class JsonPathTransform extends MultipleFieldOutputTransform {
 
     public static final String PLUGIN_NAME = "JsonPath";
@@ -78,21 +73,6 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
     @Override
     public String getPluginName() {
         return PLUGIN_NAME;
-    }
-
-    @Override
-    protected void setConfig(Config pluginConfig) {
-        ReadonlyConfig fromConfig = ReadonlyConfig.fromConfig(pluginConfig);
-        ConfigValidator.of(fromConfig).validate(new JsonPathTransformFactory().optionRule());
-        if (config == null) {
-            this.config = JsonPathTransformConfig.of(fromConfig);
-        }
-    }
-
-    @Override
-    protected void setInputRowType(SeaTunnelRowType inputRowType) {
-        this.seaTunnelRowType = inputRowType;
-        initOutputFields();
     }
 
     private void initOutputFields() {
@@ -125,16 +105,6 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
                 IntStream.range(0, filedConfigs.size())
                         .mapToObj((IntFunction<SeaTunnelDataType>) value -> BasicType.STRING_TYPE)
                         .toArray(value -> new SeaTunnelDataType[value]);
-    }
-
-    @Override
-    protected String[] getOutputFieldNames() {
-        return outputFieldNames;
-    }
-
-    @Override
-    protected SeaTunnelDataType[] getOutputFieldDataTypes() {
-        return this.dataTypes;
     }
 
     @Override
