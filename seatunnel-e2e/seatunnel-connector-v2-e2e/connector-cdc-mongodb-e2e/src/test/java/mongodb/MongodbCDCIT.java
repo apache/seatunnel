@@ -327,7 +327,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private void upsertDeleteSourceTable(String collectionName) {
-        String command = " --eval \"var collectionName='" + collectionName + "'\" inventoryDDL";
+        String command = "\"var collectionName='" + collectionName + "'\" inventoryDDL";
         mongodbContainer.executeCommandFileInDatabase(command, MONGODB_DATABASE);
     }
 
