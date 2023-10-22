@@ -74,6 +74,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
     protected static final String MONGODB_DATABASE = "inventory";
 
     protected static final String MONGODB_COLLECTION = "products";
+    protected static final String MONGODB_COLLECTION2 = "products2";
     protected MongoDBContainer mongodbContainer;
 
     protected MongoClient client;
@@ -91,7 +92,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer();
 
     // mysql sink table query sql
-    private static final String SINK_SQL = "select name,description,weight from products";
+    private static final String SINK_SQL = "select name,description,weight from %s";
 
     private static final String MYSQL_DRIVER_JAR =
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
@@ -163,7 +164,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
-                                    readMongodbData().stream()
+                                    readMongodbData(MongodbCDCIT.MONGODB_COLLECTION).stream()
                                             .peek(e -> e.remove("_id"))
                                             .map(Document::entrySet)
                                             .map(Set::stream)
@@ -176,17 +177,17 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                                                                                     ArrayList
                                                                                             ::new)))
                                             .collect(Collectors.toList()),
-                                    querySql());
+                                    querySql(MongodbCDCIT.MONGODB_COLLECTION));
                         });
 
         // insert update delete
-        upsertDeleteSourceTable();
+        upsertDeleteSourceTable(MongodbCDCIT.MONGODB_COLLECTION);
 
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
-                                    readMongodbData().stream()
+                                    readMongodbData(MongodbCDCIT.MONGODB_COLLECTION).stream()
                                             .peek(e -> e.remove("_id"))
                                             .map(Document::entrySet)
                                             .map(Set::stream)
@@ -199,7 +200,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                                                                                     ArrayList
                                                                                             ::new)))
                                             .collect(Collectors.toList()),
-                                    querySql());
+                                    querySql(MongodbCDCIT.MONGODB_COLLECTION));
                         });
 
         cleanSourceTable();
@@ -208,7 +209,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
-                                    readMongodbData().stream()
+                                    readMongodbData(MongodbCDCIT.MONGODB_COLLECTION).stream()
                                             .peek(e -> e.remove("_id"))
                                             .map(Document::entrySet)
                                             .map(Set::stream)
@@ -221,8 +222,79 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                                                                                     ArrayList
                                                                                             ::new)))
                                             .collect(Collectors.toList()),
-                                    querySql());
+                                    querySql(MongodbCDCIT.MONGODB_COLLECTION));
                         });
+    }
+
+    @TestTemplate
+    public void testMongodbCdcToMysqlCheckDataMultiTableE2e(TestContainer container) {
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/mongodbcdc_to_mysql_with_multi_table.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException();
+                    }
+                    return null;
+                });
+
+        // insert update delete
+        upsertDeleteSourceTable(MongodbCDCIT.MONGODB_COLLECTION);
+        upsertDeleteSourceTable(MongodbCDCIT.MONGODB_COLLECTION2);
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        readMongodbData(
+                                                                        MongodbCDCIT
+                                                                                .MONGODB_COLLECTION)
+                                                                .stream()
+                                                                .peek(e -> e.remove("_id"))
+                                                                .map(Document::entrySet)
+                                                                .map(Set::stream)
+                                                                .map(
+                                                                        entryStream ->
+                                                                                entryStream
+                                                                                        .map(
+                                                                                                Map
+                                                                                                                .Entry
+                                                                                                        ::getValue)
+                                                                                        .collect(
+                                                                                                Collectors
+                                                                                                        .toCollection(
+                                                                                                                ArrayList
+                                                                                                                        ::new)))
+                                                                .collect(Collectors.toList()),
+                                                        querySql(MongodbCDCIT.MONGODB_COLLECTION)),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        readMongodbData(
+                                                                        MongodbCDCIT
+                                                                                .MONGODB_COLLECTION2)
+                                                                .stream()
+                                                                .peek(e -> e.remove("_id"))
+                                                                .map(Document::entrySet)
+                                                                .map(Set::stream)
+                                                                .map(
+                                                                        entryStream ->
+                                                                                entryStream
+                                                                                        .map(
+                                                                                                Map
+                                                                                                                .Entry
+                                                                                                        ::getValue)
+                                                                                        .collect(
+                                                                                                Collectors
+                                                                                                        .toCollection(
+                                                                                                                ArrayList
+                                                                                                                        ::new)))
+                                                                .collect(Collectors.toList()),
+                                                        querySql(
+                                                                MongodbCDCIT
+                                                                        .MONGODB_COLLECTION2))));
     }
 
     private Connection getJdbcConnection() throws SQLException {
@@ -232,9 +304,12 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                 MYSQL_CONTAINER.getPassword());
     }
 
-    private List<List<Object>> querySql() {
+    private List<List<Object>> querySql(String collection) {
         try (Connection connection = getJdbcConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(MongodbCDCIT.SINK_SQL);
+            ResultSet resultSet =
+                    connection
+                            .createStatement()
+                            .executeQuery(String.format(MongodbCDCIT.SINK_SQL, collection));
             List<List<Object>> result = new ArrayList<>();
             int columnCount = resultSet.getMetaData().getColumnCount();
             while (resultSet.next()) {
@@ -251,8 +326,9 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void upsertDeleteSourceTable() {
-        mongodbContainer.executeCommandFileInDatabase("inventoryDDL", MONGODB_DATABASE);
+    private void upsertDeleteSourceTable(String collectionName) {
+        String command = " --eval \"var collectionName='" + collectionName + "'\" inventoryDDL";
+        mongodbContainer.executeCommandFileInDatabase(command, MONGODB_DATABASE);
     }
 
     private void cleanSourceTable() {
@@ -273,9 +349,9 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         client = MongoClients.create(url);
     }
 
-    protected List<Document> readMongodbData() {
+    protected List<Document> readMongodbData(String collection) {
         MongoCollection<Document> sinkTable =
-                client.getDatabase(MONGODB_DATABASE).getCollection(MongodbCDCIT.MONGODB_COLLECTION);
+                client.getDatabase(MONGODB_DATABASE).getCollection(collection);
         // If the cursor has been traversed, it will automatically close without explicitly closing.
         MongoCursor<Document> cursor = sinkTable.find().sort(Sorts.ascending("_id")).cursor();
         List<Document> documents = new ArrayList<>();

@@ -13,20 +13,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-db.getCollection('products').insertOne({"_id": ObjectId("100000000000000000000109"), "name": "bicycle", "description": "Mountain bike with 21 gears", "weight": "1200"});
-db.getCollection('products').insertOne({"_id": ObjectId("100000000000000000000110"), "name": "headphones", "description": "Wireless headphones with noise cancellation", "weight": "200"});
-db.getCollection('products').insertOne({"_id": ObjectId("100000000000000000000111"), "name": "laptop", "description": "13-inch ultrabook with 16GB RAM and SSD storage", "weight": "1100"});
-db.getCollection('products').insertOne({"_id": ObjectId("100000000000000000000112"), "name": "blender", "description": "High-powered blender for smoothies and shakes", "weight": "400"});
-db.getCollection('products').insertOne({"_id": ObjectId("100000000000000000000113"), "name": "notebook", "description": "Spiral-bound notebook with ruled pages", "weight": "300"});
+db.getCollection(collectionName).insertOne({"_id": ObjectId("100000000000000000000109"), "name": "bicycle", "description": "Mountain bike with 21 gears", "weight": "1200"});
+db.getCollection(collectionName).insertOne({"_id": ObjectId("100000000000000000000110"), "name": "headphones", "description": "Wireless headphones with noise cancellation", "weight": "200"});
+db.getCollection(collectionName).insertOne({"_id": ObjectId("100000000000000000000111"), "name": "laptop", "description": "13-inch ultrabook with 16GB RAM and SSD storage", "weight": "1100"});
+db.getCollection(collectionName).insertOne({"_id": ObjectId("100000000000000000000112"), "name": "blender", "description": "High-powered blender for smoothies and shakes", "weight": "400"});
+db.getCollection(collectionName).insertOne({"_id": ObjectId("100000000000000000000113"), "name": "notebook", "description": "Spiral-bound notebook with ruled pages", "weight": "300"});
 
-db.getCollection('products').updateOne({"name": "scooter"}, {$set: {"weight": "350"}});
-db.getCollection('products').updateOne({"name": "car battery"}, {$set: {"description": "High-performance car battery"}});
-db.getCollection('products').updateOne({"name": "12-pack drill bits"}, {$set: {"description": "Set of 12 professional-grade drill bits"}});
-db.getCollection('products').updateOne({"name": "hammer"}, {$set: {"weight": "100"}});
-db.getCollection('products').updateOne({"name": "rocks"}, {$set: {"weight": "1000"}});
+db.getCollection(collectionName).updateOne({"name": "scooter"}, {$set: {"weight": "350"}});
+db.getCollection(collectionName).updateOne({"name": "car battery"}, {$set: {"description": "High-performance car battery"}});
+db.getCollection(collectionName).updateOne({"name": "12-pack drill bits"}, {$set: {"description": "Set of 12 professional-grade drill bits"}});
+db.getCollection(collectionName).updateOne({"name": "hammer"}, {$set: {"weight": "100"}});
+db.getCollection(collectionName).updateOne({"name": "rocks"}, {$set: {"weight": "1000"}});
 
-db.getCollection('products').deleteOne({"_id": ObjectId("100000000000000000000101")});
-db.getCollection('products').deleteOne({"name": "car battery"});
-db.getCollection('products').deleteOne({"name": "12-pack drill bits"});
-db.getCollection('products').deleteOne({"name": "hammer", "weight": "875"});
-db.getCollection('products').deleteOne({"name": "jacket"});
+db.getCollection(collectionName).deleteOne({"_id": ObjectId("100000000000000000000101")});
+db.getCollection(collectionName).deleteOne({"name": "car battery"});
+db.getCollection(collectionName).deleteOne({"name": "12-pack drill bits"});
+db.getCollection(collectionName).deleteOne({"name": "hammer", "weight": "875"});
+db.getCollection(collectionName).deleteOne({"name": "jacket"});

@@ -30,3 +30,9 @@ CREATE TABLE products (
   weight VARCHAR(255)
 );
 
+CREATE TABLE product2 (
+  _id VARCHAR(512) NOT NULL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description VARCHAR(512),
+  weight VARCHAR(255)
+);

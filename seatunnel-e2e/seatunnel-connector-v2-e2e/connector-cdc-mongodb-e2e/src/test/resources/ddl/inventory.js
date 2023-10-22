@@ -22,3 +22,11 @@ db.getCollection('products').insertOne({"_id": ObjectId("10000000000000000000010
 db.getCollection('products').insertOne({"_id": ObjectId("100000000000000000000107"), "name": "rocks", "description": "box of assorted rocks", "weight": "53"});
 db.getCollection('products').insertOne({"_id": ObjectId("100000000000000000000108"), "name": "jacket", "description": "water resistent black wind breaker", "weight": "1"});
 
+db.getCollection('products2').insertOne({"_id": ObjectId("100000000000000000000101"), "name": "scooter", "description": "Small 2-wheel scooter", "weight": "314"});
+db.getCollection('products2').insertOne({"_id": ObjectId("100000000000000000000102"), "name": "car battery", "description": "12V car battery", "weight": "81"});
+db.getCollection('products2').insertOne({"_id": ObjectId("100000000000000000000103"), "name": "12-pack drill bits", "description": "12-pack of drill bits with sizes ranging from #40 to #3", "weight": "8"});
+db.getCollection('products2').insertOne({"_id": ObjectId("100000000000000000000104"), "name": "hammer", "description": "12oz carpenter''s hammer", "weight": "75"});
+db.getCollection('products2').insertOne({"_id": ObjectId("100000000000000000000105"), "name": "hammer", "description": "12oz carpenter''s hammer", "weight": "875"});
+db.getCollection('products2').insertOne({"_id": ObjectId("100000000000000000000106"), "name": "hammer", "description": "12oz carpenter''s hammer", "weight": "10"});
+db.getCollection('products2').insertOne({"_id": ObjectId("100000000000000000000107"), "name": "rocks", "description": "box of assorted rocks", "weight": "53"});
+db.getCollection('products2').insertOne({"_id": ObjectId("100000000000000000000108"), "name": "jacket", "description": "water resistent black wind breaker", "weight": "1"});
