@@ -39,5 +39,7 @@ public interface SeaTunnelPluginLifeCycle {
      *     org.apache.seatunnel.api.table.factory.Factory}
      */
     @Deprecated
-    void prepare(Config pluginConfig) throws PrepareFailException;
+    default void prepare(Config pluginConfig) throws PrepareFailException {
+        throw new UnsupportedOperationException("prepare method is not supported");
+    }
 }

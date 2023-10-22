@@ -20,6 +20,8 @@ package org.apache.seatunnel.api.table.catalog;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -80,8 +82,9 @@ public final class CatalogTable implements Serializable {
             String catalogName) {
         this.tableId = tableId;
         this.tableSchema = tableSchema;
-        this.options = options;
-        this.partitionKeys = partitionKeys;
+        // Make sure the options and partitionKeys are mutable
+        this.options = new HashMap<>(options);
+        this.partitionKeys = new ArrayList<>(partitionKeys);
         this.comment = comment;
         this.catalogName = catalogName;
     }

@@ -30,7 +30,6 @@
 
     <properties>
         <hikaricp.version>4.0.3</hikaricp.version>
-        <junit.vserion>4.13.2</junit.vserion>
     </properties>
 
     <dependencyManagement>
@@ -101,7 +100,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>${junit.vserion}</version>
+            <version>${junit4.version}</version>
             <scope>test</scope>
         </dependency>
 

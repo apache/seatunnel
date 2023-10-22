@@ -228,7 +228,7 @@ public class JobMaster {
                         runningJobStateIMap,
                         runningJobStateTimestampsIMap,
                         engineConfig.getQueueType(),
-                        jobCheckpointConfig);
+                        engineConfig);
         this.physicalPlan = planTuple.f0();
         this.physicalPlan.setJobMaster(this);
         this.checkpointPlanMap = planTuple.f1();
@@ -396,10 +396,7 @@ public class JobMaster {
         if (jobDAGInfo == null) {
             jobDAGInfo =
                     DAGUtils.getJobDAGInfo(
-                            logicalDag,
-                            jobImmutableInformation,
-                            engineConfig.getCheckpointConfig(),
-                            isPhysicalDAGIInfo);
+                            logicalDag, jobImmutableInformation, engineConfig, isPhysicalDAGIInfo);
         }
         return jobDAGInfo;
     }

@@ -21,8 +21,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
-import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
@@ -38,7 +36,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static org.apache.seatunnel.api.common.CommonOptions.FACTORY_ID;
@@ -61,20 +58,7 @@ public final class ConfigParserUtil {
                 FactoryUtil.getFactoryUrl(
                         FactoryUtil.discoverFactory(classLoader, factoryClass, factoryId));
         factoryUrls.add(factoryUrl);
-        getCatalogFactoryUrl(readonlyConfig, classLoader).ifPresent(factoryUrls::add);
         return factoryUrls;
-    }
-
-    private static Optional<URL> getCatalogFactoryUrl(
-            ReadonlyConfig readonlyConfig, ClassLoader classLoader) {
-        Map<String, String> catalogOptions =
-                readonlyConfig.getOptional(CatalogOptions.CATALOG_OPTIONS).orElse(new HashMap<>());
-        // TODO: fallback key
-        String factoryId =
-                catalogOptions.getOrDefault(FACTORY_ID.key(), readonlyConfig.get(PLUGIN_NAME));
-        Optional<CatalogFactory> optionalFactory =
-                FactoryUtil.discoverOptionalFactory(classLoader, CatalogFactory.class, factoryId);
-        return optionalFactory.map(FactoryUtil::getFactoryUrl);
     }
 
     public static void checkGraph(
