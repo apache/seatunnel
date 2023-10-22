@@ -29,7 +29,6 @@ import org.apache.seatunnel.transform.exception.TransformException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.auto.service.AutoService;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.JsonPathException;
 import lombok.extern.slf4j.Slf4j;
