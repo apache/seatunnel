@@ -38,10 +38,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType.ZETA;
-import static org.apache.seatunnel.transform.sql.SQLTransformConfig.KEY_ENGINE;
-import static org.apache.seatunnel.transform.sql.SQLTransformConfig.KEY_QUERY;
-
 @Slf4j
 public class SQLTransform extends AbstractCatalogSupportTransform {
     public static final String PLUGIN_NAME = "Sql";
