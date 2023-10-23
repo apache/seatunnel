@@ -41,7 +41,6 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.github.dockerjava.api.model.Image;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -211,23 +210,6 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
         }
         if (mysqlContainer != null) {
             mysqlContainer.close();
-            String images =
-                    dockerClient.listImagesCmd().exec().stream()
-                            .map(Image::getId)
-                            .collect(Collectors.joining(","));
-            log.info(
-                    "before remove image {}, list images: {}",
-                    mysqlContainer.getDockerImageName(),
-                    images);
-            dockerClient.removeImageCmd(mysqlContainer.getDockerImageName()).exec();
-            images =
-                    dockerClient.listImagesCmd().exec().stream()
-                            .map(Image::getId)
-                            .collect(Collectors.joining(","));
-            log.info(
-                    "after remove image {}, list images: {}",
-                    mysqlContainer.getDockerImageName(),
-                    images);
         }
     }
 
