@@ -4502,5 +4502,29 @@
         "Content-Type": "application/json"
       }
     }
+  },
+  {
+    "httpRequest": {
+      "path": "/example/webhook",
+      "method": "POST",
+      "headers": {
+        "token": ["9e32e859ef044462a257e1fc76730066"]
+      }
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl",
+          "age": 18
+        },
+        {
+          "name": "pizz",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
   }
 ]
