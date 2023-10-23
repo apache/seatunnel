@@ -29,7 +29,9 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.function.Executable;
 import org.testcontainers.containers.Container;
@@ -39,6 +41,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.github.dockerjava.api.model.Image;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -60,13 +63,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK do not support multiple tables")
 public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestResource {
     private static final String MYSQL_IMAGE = "mysql:latest";
-    private static final String MYSQL_CONTAINER_HOST = "mysql-e2e-multiple-tables";
+    private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "seatunnel";
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
@@ -79,6 +78,9 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
             TABLES.stream()
                     .map(table -> SOURCE_DATABASE + "." + table)
                     .collect(Collectors.toList());
+
+    private static final List<String> SINK_TABLES =
+            TABLES.stream().map(table -> SINK_DATABASE + "." + table).collect(Collectors.toList());
     private static final String CREATE_TABLE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
@@ -143,6 +145,7 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
+    @BeforeAll
     @Override
     public void startUp() throws Exception {
         mysqlContainer = startMySqlContainer();
@@ -153,8 +156,28 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
     }
 
     @TestTemplate
+    public void testMysqlJdbcSingleTableE2e(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        clearSinkTables();
+
+        Container.ExecResult execResult =
+                container.executeJob("/jdbc_mysql_source_using_table_path.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        Assertions.assertIterableEquals(
+                query(String.format("SELECT * FROM %s.%s", SOURCE_DATABASE, "table1")),
+                query(String.format("SELECT * FROM %s.%s", SINK_DATABASE, "table1")));
+    }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support multiple tables")
+    @TestTemplate
     public void testMysqlJdbcMultipleTableE2e(TestContainer container)
-            throws IOException, InterruptedException {
+            throws IOException, InterruptedException, SQLException {
+        clearSinkTables();
+
         Container.ExecResult execResult =
                 container.executeJob("/jdbc_mysql_source_and_sink_with_multiple_tables.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -180,6 +203,7 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
         Assertions.assertAll(asserts);
     }
 
+    @AfterAll
     @Override
     public void tearDown() throws Exception {
         if (connection != null) {
@@ -187,6 +211,23 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
         }
         if (mysqlContainer != null) {
             mysqlContainer.close();
+            String images =
+                    dockerClient.listImagesCmd().exec().stream()
+                            .map(Image::getId)
+                            .collect(Collectors.joining(","));
+            log.info(
+                    "before remove image {}, list images: {}",
+                    mysqlContainer.getDockerImageName(),
+                    images);
+            dockerClient.removeImageCmd(mysqlContainer.getDockerImageName()).exec();
+            images =
+                    dockerClient.listImagesCmd().exec().stream()
+                            .map(Image::getId)
+                            .collect(Collectors.joining(","));
+            log.info(
+                    "after remove image {}, list images: {}",
+                    mysqlContainer.getDockerImageName(),
+                    images);
         }
     }
 
@@ -251,7 +292,7 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
             while (resultSet.next()) {
                 ArrayList<Object> objects = new ArrayList<>();
                 for (int i = 1; i <= columnCount; i++) {
-                    objects.add(resultSet.getObject(i));
+                    objects.add(resultSet.getString(i));
                 }
                 result.add(objects);
                 log.debug(String.format("Print query, sql: %s, data: %s", sql, objects));
@@ -259,6 +300,15 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
             return result;
         } catch (SQLException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private void clearSinkTables() throws SQLException {
+        for (String table : SINK_TABLES) {
+            String sql = "truncate table " + table;
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(sql);
+            }
         }
     }
 
