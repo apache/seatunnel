@@ -23,10 +23,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -36,6 +39,7 @@ import java.time.LocalTime;
 import java.util.Optional;
 
 /** Base class for all converters that convert between JDBC object and SeaTunnel internal object. */
+@Slf4j
 public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
 
     public abstract String converterName();
@@ -77,7 +81,27 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     fields[fieldIndex] = rs.getBigDecimal(resultSetIndex);
                     break;
                 case DATE:
-                    Date sqlDate = rs.getDate(resultSetIndex);
+                    Date sqlDate;
+                    try {
+                        // todo test
+                        sqlDate = rs.getDate(resultSetIndex);
+                    } catch (SQLException e) {
+                        log.warn("resultSetIndex:{}", resultSetIndex);
+                        log.warn("ResultSet:{}", rs);
+                        ResultSetMetaData metadata = rs.getMetaData();
+                        log.warn("ResultSetMetaData:{}", metadata);
+                        for (int i = 0; i < metadata.getColumnCount(); i++) {
+                            log.warn(
+                                    "columnIndex:{},columnName:{},columnLabel:{},columnTypeName:{}",
+                                    i,
+                                    metadata.getColumnName(i),
+                                    metadata.getColumnLabel(i),
+                                    metadata.getColumnTypeName(i));
+                        }
+                        log.warn("typeInfo:{}", typeInfo);
+                        log.warn("get date error", e);
+                        throw e;
+                    }
                     fields[fieldIndex] =
                             Optional.ofNullable(sqlDate).map(e -> e.toLocalDate()).orElse(null);
                     break;
