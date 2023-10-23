@@ -246,10 +246,10 @@ public interface JdbcDialect extends Serializable {
         }
     }
 
-
     default JdbcConnectionProvider getJdbcConnectionProvider(
             JdbcConnectionConfig jdbcConnectionConfig) {
         return new SimpleJdbcConnectionProvider(jdbcConnectionConfig);
+    }
 
     default Map<String, String> defaultParameter() {
         return new HashMap<>();
@@ -263,6 +263,5 @@ public interface JdbcDialect extends Serializable {
                         info.put(key, value);
                     }
                 });
-
     }
 }

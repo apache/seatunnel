@@ -163,7 +163,6 @@ public interface JdbcOptions {
                     .noDefaultValue()
                     .withDescription("Whether case conversion is required");
 
-
     Option<Boolean> USE_KERBEROS =
             Options.key("use_kerberos")
                     .booleanType()
@@ -196,5 +195,4 @@ public interface JdbcOptions {
                     .mapType()
                     .noDefaultValue()
                     .withDescription("additional connection configuration parameters");
-
 }
