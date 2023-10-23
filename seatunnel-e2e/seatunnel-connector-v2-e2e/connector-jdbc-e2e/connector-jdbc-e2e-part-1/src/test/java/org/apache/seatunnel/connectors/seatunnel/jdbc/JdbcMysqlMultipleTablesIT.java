@@ -63,7 +63,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestResource {
-    private static final String MYSQL_IMAGE = "mysql:latest";
+    private static final String MYSQL_IMAGE = "mysql:8.0";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "seatunnel";
     private static final String MYSQL_USERNAME = "root";
