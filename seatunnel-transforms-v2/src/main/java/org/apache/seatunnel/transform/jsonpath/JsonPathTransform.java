@@ -34,11 +34,11 @@ import com.jayway.jsonpath.JsonPathException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 
@@ -58,7 +58,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
 
     private int[] srcFieldIndexArr;
 
-    private static final Map<String, JsonPath> JSON_PATH_CACHE = new HashMap<>();
+    private static final Map<String, JsonPath> JSON_PATH_CACHE = new ConcurrentHashMap<>();
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
