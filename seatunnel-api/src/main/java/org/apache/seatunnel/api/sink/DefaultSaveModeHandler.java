@@ -75,7 +75,7 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
             case DROP_DATA:
                 keepSchemaDropData();
                 break;
-            case AND_DATA:
+            case APPEND_DATA:
                 keepSchemaAndData();
                 break;
             case CUSTOM_PROCESSING:

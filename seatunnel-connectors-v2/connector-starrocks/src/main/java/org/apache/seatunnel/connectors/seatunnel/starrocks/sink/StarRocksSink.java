@@ -43,6 +43,8 @@ import org.apache.commons.lang3.StringUtils;
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
 
+import java.util.Optional;
+
 @NoArgsConstructor
 @AutoService(SeaTunnelSink.class)
 public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
@@ -114,8 +116,8 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public SaveModeHandler getSaveModeHandler() {
-        return null;
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        return Optional.empty();
     }
 
     /*@Override

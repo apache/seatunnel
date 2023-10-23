@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
@@ -121,7 +122,7 @@ public class JdbcSink
                 jdbcSinkConfig.getJdbcConnectionConfig().getUrl(),
                 jdbcSinkConfig.getJdbcConnectionConfig().getProperties(),
                 this.dialect.defaultParameter());
-        this.dataSaveMode = DataSaveMode.AND_DATA;
+        this.dataSaveMode = DataSaveMode.APPEND_DATA;
     }
 
     @Override
@@ -204,10 +205,10 @@ public class JdbcSink
     }
 
     @Override
-    public DefaultSaveModeHandler getSaveModeHandler() {
+    public Optional<SaveModeHandler> getSaveModeHandler() {
         if (catalogTable != null) {
             if (StringUtils.isBlank(jdbcSinkConfig.getDatabase())) {
-                return null;
+                return Optional.empty();
             }
             Optional<Catalog> catalogOptional =
                     JdbcCatalogUtils.findCatalog(jdbcSinkConfig.getJdbcConnectionConfig(), dialect);
@@ -227,18 +228,19 @@ public class JdbcSink
                                             + CatalogUtils.quoteTableIdentifier(
                                                     jdbcSinkConfig.getTable(), fieldIde));
                     catalogTable.getOptions().put("fieldIde", fieldIde);
-                    return new DefaultSaveModeHandler(
-                            schemaSaveMode,
-                            dataSaveMode,
-                            catalog,
-                            tablePath,
-                            catalogTable,
-                            config.get(JdbcOptions.CUSTOM_SQL));
+                    return Optional.of(
+                            new DefaultSaveModeHandler(
+                                    schemaSaveMode,
+                                    dataSaveMode,
+                                    catalog,
+                                    tablePath,
+                                    catalogTable,
+                                    config.get(JdbcOptions.CUSTOM_SQL)));
                 } catch (Exception e) {
                     throw new JdbcConnectorException(HANDLE_SAVE_MODE_FAILED, e);
                 }
             }
         }
-        return null;
+        return Optional.empty();
     }
 }

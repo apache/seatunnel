@@ -26,11 +26,11 @@ public enum DataSaveMode {
     DROP_DATA,
 
     // Preserve database structure, preserve data
-    AND_DATA,
+    APPEND_DATA,
 
     // User defined processing
     CUSTOM_PROCESSING,
 
-    // When there is data, an error is reported
+    // When there exist data, an error will be reported
     ERROR_WHEN_DATA_EXISTS
 }

@@ -31,7 +31,6 @@ public enum SeaTunnelAPIErrorCode implements SeaTunnelErrorCode {
     HANDLE_SAVE_MODE_FAILED("API-09", "Handle save mode failed"),
     SOURCE_ALREADY_HAS_DATA("API-10", "The target data source already has data"),
     SINK_TABLE_NOT_EXIST("API-11", "The sink table not exist");
-    ;
 
     private final String code;
     private final String description;
