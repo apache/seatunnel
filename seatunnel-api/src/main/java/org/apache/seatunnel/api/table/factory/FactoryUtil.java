@@ -47,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
@@ -136,6 +137,24 @@ public final class FactoryUtil {
                     String.format(
                             "Unable to create a sink for identifier '%s'.", factoryIdentifier),
                     t);
+        }
+    }
+
+    public static <IN, StateT, CommitInfoT, AggregatedCommitInfoT>
+            SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createMultiTableSink(
+                    Map<String, SeaTunnelSink> sinks,
+                    ReadonlyConfig options,
+                    ClassLoader classLoader) {
+        try {
+            TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> factory =
+                    discoverFactory(classLoader, TableSinkFactory.class, "MultiTableSink");
+            MultiTableFactoryContext context =
+                    new MultiTableFactoryContext(options, classLoader, sinks);
+            ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
+            return factory.createSink(context).createSink();
+        } catch (Throwable t) {
+            throw new FactoryException(
+                    "Unable to create a sink for identifier 'MultiTableSink'.", t);
         }
     }
 

@@ -53,6 +53,15 @@ public class CatalogTableUtil implements Serializable {
 
     @Deprecated
     public static CatalogTable getCatalogTable(String tableName, SeaTunnelRowType rowType) {
+        return getCatalogTable("schema", "default", null, tableName, rowType);
+    }
+
+    public static CatalogTable getCatalogTable(
+            String catalog,
+            String database,
+            String schema,
+            String tableName,
+            SeaTunnelRowType rowType) {
         TableSchema.Builder schemaBuilder = TableSchema.builder();
         for (int i = 0; i < rowType.getTotalFields(); i++) {
             PhysicalColumn column =
@@ -61,7 +70,7 @@ public class CatalogTableUtil implements Serializable {
             schemaBuilder.column(column);
         }
         return CatalogTable.of(
-                TableIdentifier.of("schema", "default", tableName),
+                TableIdentifier.of(catalog, database, schema, tableName),
                 schemaBuilder.build(),
                 new HashMap<>(),
                 new ArrayList<>(),
