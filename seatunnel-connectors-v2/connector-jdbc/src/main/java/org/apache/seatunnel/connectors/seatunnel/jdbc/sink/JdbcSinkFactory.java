@@ -104,100 +104,111 @@ public class JdbcSinkFactory implements TableSinkFactory {
         Optional<String> optionalDatabase = config.getOptional(DATABASE);
         if (!optionalTable.isPresent()) {
             optionalTable = Optional.of(REPLACE_TABLE_NAME_KEY);
-        }
-        if (!optionalDatabase.isPresent()) {
-            optionalDatabase = Optional.of(REPLACE_DATABASE_NAME_KEY);
-        }
-        // get source table relevant information
-        TableIdentifier tableId = catalogTable.getTableId();
-        String sourceDatabaseName = tableId.getDatabaseName();
-        String sourceSchemaName = tableId.getSchemaName();
-        String sourceTableName = tableId.getTableName();
-        // get sink table relevant information
-        String sinkDatabaseName = optionalDatabase.get();
-        String sinkTableNameBefore = optionalTable.get();
-        String[] sinkTableSplitArray = sinkTableNameBefore.split("\\.");
-        String sinkTableName = sinkTableSplitArray[sinkTableSplitArray.length - 1];
-        String sinkSchemaName;
-        if (sinkTableSplitArray.length > 1) {
-            sinkSchemaName = sinkTableSplitArray[sinkTableSplitArray.length - 2];
-        } else {
-            sinkSchemaName = null;
-        }
-        if (StringUtils.isNotBlank(catalogOptions.get(JdbcCatalogOptions.SCHEMA.key()))) {
-            sinkSchemaName = catalogOptions.get(JdbcCatalogOptions.SCHEMA.key());
-        }
-        // to add tablePrefix and tableSuffix
-        String tempTableName;
-        String prefix = catalogOptions.get(JdbcCatalogOptions.TABLE_PREFIX.key());
-        String suffix = catalogOptions.get(JdbcCatalogOptions.TABLE_SUFFIX.key());
-        if (StringUtils.isNotEmpty(prefix) || StringUtils.isNotEmpty(suffix)) {
-            tempTableName = StringUtils.isNotEmpty(prefix) ? prefix + sinkTableName : sinkTableName;
-            tempTableName = StringUtils.isNotEmpty(suffix) ? tempTableName + suffix : tempTableName;
-
-        } else {
-            tempTableName = sinkTableName;
-        }
-        // to replace
-        String finalDatabaseName =
-                sinkDatabaseName.replace(REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
-        String finalSchemaName;
-        if (sinkSchemaName != null) {
-            if (sourceSchemaName == null) {
-                finalSchemaName = sinkSchemaName;
+            if (!optionalDatabase.isPresent()) {
+                optionalDatabase = Optional.of(REPLACE_DATABASE_NAME_KEY);
+            }
+            // get source table relevant information
+            TableIdentifier tableId = catalogTable.getTableId();
+            String sourceDatabaseName = tableId.getDatabaseName();
+            String sourceSchemaName = tableId.getSchemaName();
+            String sourceTableName = tableId.getTableName();
+            // get sink table relevant information
+            String sinkDatabaseName = optionalDatabase.get();
+            String sinkTableNameBefore = optionalTable.get();
+            String[] sinkTableSplitArray = sinkTableNameBefore.split("\\.");
+            String sinkTableName = sinkTableSplitArray[sinkTableSplitArray.length - 1];
+            String sinkSchemaName;
+            if (sinkTableSplitArray.length > 1) {
+                sinkSchemaName = sinkTableSplitArray[sinkTableSplitArray.length - 2];
             } else {
-                finalSchemaName = sinkSchemaName.replace(REPLACE_SCHEMA_NAME_KEY, sourceSchemaName);
+                sinkSchemaName = null;
             }
-        } else {
-            finalSchemaName = null;
-        }
-        String finalTableName = tempTableName.replace(REPLACE_TABLE_NAME_KEY, sourceTableName);
-        // rebuild TableIdentifier and catalogTable
-        TableIdentifier newTableId =
-                TableIdentifier.of(
-                        tableId.getCatalogName(),
-                        finalDatabaseName,
-                        finalSchemaName,
-                        finalTableName);
-        catalogTable =
-                CatalogTable.of(
-                        newTableId,
-                        catalogTable.getTableSchema(),
-                        catalogTable.getOptions(),
-                        catalogTable.getPartitionKeys(),
-                        catalogTable.getComment(),
-                        catalogTable.getCatalogName());
-        Map<String, String> map = config.toMap();
-        if (catalogTable.getTableId().getSchemaName() != null) {
-            map.put(
-                    TABLE.key(),
-                    catalogTable.getTableId().getSchemaName()
-                            + "."
-                            + catalogTable.getTableId().getTableName());
-        } else {
-            map.put(TABLE.key(), catalogTable.getTableId().getTableName());
-        }
-        map.put(DATABASE.key(), catalogTable.getTableId().getDatabaseName());
-        PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
-        if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
-            map.put(PRIMARY_KEYS.key(), String.join(",", primaryKey.getColumnNames()));
-        } else {
-            Optional<ConstraintKey> keyOptional =
-                    catalogTable.getTableSchema().getConstraintKeys().stream()
-                            .filter(
-                                    key ->
-                                            ConstraintKey.ConstraintType.UNIQUE_KEY.equals(
-                                                    key.getConstraintType()))
-                            .findFirst();
-            if (keyOptional.isPresent()) {
+            if (StringUtils.isNotBlank(catalogOptions.get(JdbcCatalogOptions.SCHEMA.key()))) {
+                sinkSchemaName = catalogOptions.get(JdbcCatalogOptions.SCHEMA.key());
+            }
+            // to add tablePrefix and tableSuffix
+            String tempTableName;
+            String prefix = catalogOptions.get(JdbcCatalogOptions.TABLE_PREFIX.key());
+            String suffix = catalogOptions.get(JdbcCatalogOptions.TABLE_SUFFIX.key());
+            if (StringUtils.isNotEmpty(prefix) || StringUtils.isNotEmpty(suffix)) {
+                tempTableName =
+                        StringUtils.isNotEmpty(prefix) ? prefix + sinkTableName : sinkTableName;
+                tempTableName =
+                        StringUtils.isNotEmpty(suffix) ? tempTableName + suffix : tempTableName;
+
+            } else {
+                tempTableName = sinkTableName;
+            }
+            // to replace
+            String finalDatabaseName = sinkDatabaseName;
+            if (StringUtils.isNotEmpty(sourceDatabaseName)) {
+                finalDatabaseName =
+                        sinkDatabaseName.replace(REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
+            }
+
+            String finalSchemaName;
+            if (sinkSchemaName != null) {
+                if (sourceSchemaName == null) {
+                    finalSchemaName = sinkSchemaName;
+                } else {
+                    finalSchemaName =
+                            sinkSchemaName.replace(REPLACE_SCHEMA_NAME_KEY, sourceSchemaName);
+                }
+            } else {
+                finalSchemaName = null;
+            }
+            String finalTableName = sinkTableName;
+            if (StringUtils.isNotEmpty(sourceTableName)) {
+                finalTableName = tempTableName.replace(REPLACE_TABLE_NAME_KEY, sourceTableName);
+            }
+
+            // rebuild TableIdentifier and catalogTable
+            TableIdentifier newTableId =
+                    TableIdentifier.of(
+                            tableId.getCatalogName(),
+                            finalDatabaseName,
+                            finalSchemaName,
+                            finalTableName);
+            catalogTable =
+                    CatalogTable.of(
+                            newTableId,
+                            catalogTable.getTableSchema(),
+                            catalogTable.getOptions(),
+                            catalogTable.getPartitionKeys(),
+                            catalogTable.getComment(),
+                            catalogTable.getCatalogName());
+            Map<String, String> map = config.toMap();
+            if (catalogTable.getTableId().getSchemaName() != null) {
                 map.put(
-                        PRIMARY_KEYS.key(),
-                        keyOptional.get().getColumnNames().stream()
-                                .map(key -> key.getColumnName())
-                                .collect(Collectors.joining(",")));
+                        TABLE.key(),
+                        catalogTable.getTableId().getSchemaName()
+                                + "."
+                                + catalogTable.getTableId().getTableName());
+            } else {
+                map.put(TABLE.key(), catalogTable.getTableId().getTableName());
             }
+            map.put(DATABASE.key(), catalogTable.getTableId().getDatabaseName());
+            PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+            if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
+                map.put(PRIMARY_KEYS.key(), String.join(",", primaryKey.getColumnNames()));
+            } else {
+                Optional<ConstraintKey> keyOptional =
+                        catalogTable.getTableSchema().getConstraintKeys().stream()
+                                .filter(
+                                        key ->
+                                                ConstraintKey.ConstraintType.UNIQUE_KEY.equals(
+                                                        key.getConstraintType()))
+                                .findFirst();
+                if (keyOptional.isPresent()) {
+                    map.put(
+                            PRIMARY_KEYS.key(),
+                            keyOptional.get().getColumnNames().stream()
+                                    .map(key -> key.getColumnName())
+                                    .collect(Collectors.joining(",")));
+                }
+            }
+            config = ReadonlyConfig.fromMap(new HashMap<>(map));
         }
-        config = ReadonlyConfig.fromMap(new HashMap<>(map));
         // always execute
         final ReadonlyConfig options = config;
         JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
