@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 
 public interface CatalogOptions {
+
+    @Deprecated
     Option<Map<String, String>> CATALOG_OPTIONS =
             Options.key("catalog")
                     .mapType()

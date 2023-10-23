@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.transform;
+package org.apache.seatunnel.connectors.seatunnel.assertion.rule;
 
-import org.apache.seatunnel.api.table.type.Record;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-public interface PartitionSeaTunnelTransform extends SeaTunnelTransform<Record<?>> {
+import java.io.Serializable;
+import java.util.List;
 
-    int getPartitionCount();
-
-    int getTargetCount();
+@Data
+@AllArgsConstructor
+public class AssertTableRule implements Serializable {
+    private List<String> tableNames;
 }

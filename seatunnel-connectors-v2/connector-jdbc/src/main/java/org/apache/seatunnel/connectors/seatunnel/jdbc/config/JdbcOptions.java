@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialecten
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 public interface JdbcOptions {
 
@@ -162,6 +163,7 @@ public interface JdbcOptions {
                     .noDefaultValue()
                     .withDescription("Whether case conversion is required");
 
+
     Option<Boolean> USE_KERBEROS =
             Options.key("use_kerberos")
                     .booleanType()
@@ -188,4 +190,11 @@ public interface JdbcOptions {
                     .defaultValue("/etc/krb5.conf")
                     .withDescription(
                             "When use kerberos, we should set krb5 path file path such as '/etc/krb5.conf'. ");
+
+    Option<Map<String, String>> PROPERTIES =
+            Options.key("properties")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription("additional connection configuration parameters");
+
 }

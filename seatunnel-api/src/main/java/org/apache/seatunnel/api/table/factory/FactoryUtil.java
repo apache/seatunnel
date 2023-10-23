@@ -32,9 +32,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSource;
-import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
 import org.slf4j.Logger;
@@ -49,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
@@ -62,7 +61,7 @@ public final class FactoryUtil {
 
     private static final Logger LOG = LoggerFactory.getLogger(FactoryUtil.class);
 
-    static final String DEFAULT_ID = "default-identifier";
+    public static final String DEFAULT_ID = "default-identifier";
 
     public static <T, SplitT extends SourceSplit, StateT extends Serializable>
             List<Tuple2<SeaTunnelSource<T, SplitT, StateT>, List<CatalogTable>>>
@@ -86,19 +85,8 @@ public final class FactoryUtil {
                 SeaTunnelDataType<T> seaTunnelDataType = source.getProducedType();
                 final String tableId =
                         options.getOptional(CommonOptions.RESULT_TABLE_NAME).orElse(DEFAULT_ID);
-                if (seaTunnelDataType instanceof MultipleRowType) {
-                    catalogTables = new ArrayList<>();
-                    for (String id : ((MultipleRowType) seaTunnelDataType).getTableIds()) {
-                        catalogTables.add(
-                                CatalogTableUtil.getCatalogTable(
-                                        id, ((MultipleRowType) seaTunnelDataType).getRowType(id)));
-                    }
-                } else {
-                    catalogTables =
-                            Collections.singletonList(
-                                    CatalogTableUtil.getCatalogTable(
-                                            tableId, (SeaTunnelRowType) seaTunnelDataType));
-                }
+                catalogTables =
+                        CatalogTableUtil.convertDataTypeToCatalogTables(seaTunnelDataType, tableId);
             }
             LOG.info(
                     "get the CatalogTable from source {}: {}",
@@ -149,6 +137,24 @@ public final class FactoryUtil {
                     String.format(
                             "Unable to create a sink for identifier '%s'.", factoryIdentifier),
                     t);
+        }
+    }
+
+    public static <IN, StateT, CommitInfoT, AggregatedCommitInfoT>
+            SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createMultiTableSink(
+                    Map<String, SeaTunnelSink> sinks,
+                    ReadonlyConfig options,
+                    ClassLoader classLoader) {
+        try {
+            TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> factory =
+                    discoverFactory(classLoader, TableSinkFactory.class, "MultiTableSink");
+            MultiTableFactoryContext context =
+                    new MultiTableFactoryContext(options, classLoader, sinks);
+            ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
+            return factory.createSink(context).createSink();
+        } catch (Throwable t) {
+            throw new FactoryException(
+                    "Unable to create a sink for identifier 'MultiTableSink'.", t);
         }
     }
 

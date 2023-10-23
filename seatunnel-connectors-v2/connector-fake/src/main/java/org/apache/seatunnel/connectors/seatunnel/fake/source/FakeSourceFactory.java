@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -97,7 +98,8 @@ public class FakeSourceFactory implements TableSourceFactory {
                         DATE_DAY_TEMPLATE,
                         TIME_HOUR_TEMPLATE,
                         TIME_MINUTE_TEMPLATE,
-                        TIME_SECOND_TEMPLATE)
+                        TIME_SECOND_TEMPLATE,
+                        CatalogOptions.TABLE_NAMES)
                 .build();
     }
 

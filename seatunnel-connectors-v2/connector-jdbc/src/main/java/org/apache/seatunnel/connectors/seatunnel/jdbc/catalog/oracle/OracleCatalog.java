@@ -54,7 +54,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     private static final OracleDataTypeConvertor DATA_TYPE_CONVERTOR =
             new OracleDataTypeConvertor();
 
-    private static final List<String> EXCLUDED_SCHEMAS =
+    protected static List<String> EXCLUDED_SCHEMAS =
             Collections.unmodifiableList(
                     Arrays.asList(
                             "APPQOSSYS",
@@ -129,12 +129,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getDropTableSql(TablePath tablePath) {
-        return String.format("DROP TABLE %s", getTableName(tablePath));
-    }
-
-    @Override
-    protected String getTableName(TablePath tablePath) {
-        return tablePath.getSchemaAndTableName().toUpperCase();
+        return String.format("DROP TABLE %s", tablePath.getSchemaAndTableName("\""));
     }
 
     @Override

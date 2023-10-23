@@ -48,6 +48,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | transaction_timeout_sec                   | Int     | No       | -1            |
 | auto_commit                               | Boolean | No       | true          |
 | field_ide                                 | String  | No       | -             |
+| properties                                | Map     | No       | -             |
 | common-options                            |         | no       | -             |
 
 ### driver [string]
@@ -142,6 +143,10 @@ Automatic transaction commit is enabled by default
 The field "field_ide" is used to identify whether the field needs to be converted to uppercase or lowercase when
 synchronizing from the source to the sink. "ORIGINAL" indicates no conversion is needed, "UPPERCASE" indicates
 conversion to uppercase, and "LOWERCASE" indicates conversion to lowercase.
+
+### properties
+
+Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.
 
 ### common options
 

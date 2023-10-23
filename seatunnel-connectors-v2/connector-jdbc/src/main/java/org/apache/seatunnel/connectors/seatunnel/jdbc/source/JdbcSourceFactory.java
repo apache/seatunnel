@@ -66,6 +66,7 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PARTITION_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PARTITION_UPPER_BOUND;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PROPERTIES;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.QUERY;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.URL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.USER;
@@ -87,13 +88,17 @@ public class JdbcSourceFactory implements TableSourceFactory {
                 JdbcDialectLoader.load(
                         config.getJdbcConnectionConfig().getUrl(),
                         config.getJdbcConnectionConfig().getCompatibleMode());
+        dialect.connectionUrlParse(
+                config.getJdbcConnectionConfig().getUrl(),
+                config.getJdbcConnectionConfig().getProperties(),
+                dialect.defaultParameter());
         JdbcConnectionProvider connectionProvider =
                 dialect.getJdbcConnectionProvider(config.getJdbcConnectionConfig());
         SeaTunnelRowType rowType;
         Optional<PartitionParameter> partitionParameter = Optional.empty();
         try {
             CatalogTable catalogTable =
-                    CatalogTableUtil.getCatalogTablesFromConfig(
+                    CatalogTableUtil.getCatalogTables(
                                     dialect.dialectName(),
                                     context.getOptions(),
                                     context.getClassLoader())
@@ -300,7 +305,8 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         PARTITION_UPPER_BOUND,
                         PARTITION_LOWER_BOUND,
                         PARTITION_NUM,
-                        COMPATIBLE_MODE)
+                        COMPATIBLE_MODE,
+                        PROPERTIES)
                 .build();
     }
 
