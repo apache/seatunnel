@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSinkConfig;
 
 import com.google.auto.service.AutoService;
 
@@ -41,8 +42,10 @@ public class AmazonSqsSinkFactory implements TableSinkFactory {
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
+        AmazonSqsSinkConfig sinkConfig = AmazonSqsSinkConfig.of(config);
         return () ->
-                new AmazonSqsSink(config, catalogTable.getTableSchema().toPhysicalRowDataType());
+                new AmazonSqsSink(
+                        config, catalogTable.getTableSchema().toPhysicalRowDataType(), sinkConfig);
     }
 
     @Override
