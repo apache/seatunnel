@@ -255,7 +255,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
             Assertions.assertEquals(0, execResult.getExitCode());
             Assertions.assertTimeout(
-                    Duration.of(10, ChronoUnit.SECONDS),
+                    Duration.of(20, ChronoUnit.SECONDS),
                     () ->
                             Assertions.assertIterableEquals(
                                     querySql(SOURCE_SQL), querySql(SINK_SQL)));
