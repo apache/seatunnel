@@ -102,18 +102,16 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         : config.get(CatalogOptions.CATALOG_OPTIONS);
         Optional<String> optionalTable = config.getOptional(TABLE);
         Optional<String> optionalDatabase = config.getOptional(DATABASE);
-        if (!optionalTable.isPresent()) {
+        Optional<String> queryOptional = config.getOptional(QUERY);
+        if (!optionalTable.isPresent() && !queryOptional.isPresent()) {
             optionalTable = Optional.of(REPLACE_TABLE_NAME_KEY);
-            if (!optionalDatabase.isPresent()) {
-                optionalDatabase = Optional.of(REPLACE_DATABASE_NAME_KEY);
-            }
             // get source table relevant information
             TableIdentifier tableId = catalogTable.getTableId();
             String sourceDatabaseName = tableId.getDatabaseName();
             String sourceSchemaName = tableId.getSchemaName();
             String sourceTableName = tableId.getTableName();
             // get sink table relevant information
-            String sinkDatabaseName = optionalDatabase.get();
+            String sinkDatabaseName = optionalDatabase.orElse(REPLACE_DATABASE_NAME_KEY);
             String sinkTableNameBefore = optionalTable.get();
             String[] sinkTableSplitArray = sinkTableNameBefore.split("\\.");
             String sinkTableName = sinkTableSplitArray[sinkTableSplitArray.length - 1];

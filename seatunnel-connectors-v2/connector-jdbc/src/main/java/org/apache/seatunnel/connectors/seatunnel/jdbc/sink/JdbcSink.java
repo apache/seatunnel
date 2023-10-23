@@ -210,6 +210,9 @@ public class JdbcSink
             if (StringUtils.isBlank(jdbcSinkConfig.getDatabase())) {
                 return Optional.empty();
             }
+            if (StringUtils.isBlank(jdbcSinkConfig.getTable())) {
+                return Optional.empty();
+            }
             Optional<Catalog> catalogOptional =
                     JdbcCatalogUtils.findCatalog(jdbcSinkConfig.getJdbcConnectionConfig(), dialect);
             if (catalogOptional.isPresent()) {
