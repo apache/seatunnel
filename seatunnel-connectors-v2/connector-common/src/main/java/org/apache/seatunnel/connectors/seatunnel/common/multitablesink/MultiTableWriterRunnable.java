@@ -62,17 +62,12 @@ public class MultiTableWriterRunnable implements Runnable {
                     writer.write(row);
                 }
             } catch (InterruptedException e) {
-                 // When the job finished, the thread will be interrupted, so we ignore this exception.
-                 throwable = e;
-                 break;
+                // When the job finished, the thread will be interrupted, so we ignore this
+                // exception.
+                throwable = e;
+                break;
             } catch (Exception e) {
-                 log.error("MultiTableWriterRunnable error", e);
-                 throwable = e;
-                 break;
-            }
-                if (!(e instanceof InterruptedException)) {
-                    log.error("MultiTableWriterRunnable error", e);
-                }
+                log.error("MultiTableWriterRunnable error", e);
                 throwable = e;
                 break;
             }
