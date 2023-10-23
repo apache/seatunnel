@@ -88,3 +88,10 @@ transform {
 }
 ```
 
+## Changelog
+
+### new version
+
+- Add FilterRowKind Transform plugin
+- Support multi-table
+

@@ -90,5 +90,6 @@ transform {
 
 ### new version
 
-- Add Copy Transform Connector
+- Add FieldMapper Transform plugin
+- Support multi-table
 

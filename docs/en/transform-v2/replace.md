@@ -143,5 +143,6 @@ transform {
 
 ### new version
 
-- Add Replace Transform Connector
+- Add Replace Transform plugin
+- Support multi-table
 

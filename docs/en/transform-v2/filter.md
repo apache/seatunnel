@@ -79,5 +79,6 @@ transform {
 
 ### new version
 
-- Add Filter Transform Connector
+- Add Filter Transform plugin
+- Support multi-table
 

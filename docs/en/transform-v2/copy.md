@@ -86,6 +86,7 @@ transform {
 
 ### new version
 
-- Add Copy Transform Connector
+- Add Copy Transform plugin
 - Support copy fields to a new fields
+- Support multi-table
 

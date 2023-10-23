@@ -94,5 +94,6 @@ transform {
 
 ### new version
 
-- Add Split Transform Connector
+- Add Split Transform plugin
+- Support multi-table
 

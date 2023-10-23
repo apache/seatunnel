@@ -118,5 +118,6 @@ transform {
 
 ### new version
 
-- Add SQL Transform Connector
+- Add SQL Transform plugin
+- Support multi-table
 
