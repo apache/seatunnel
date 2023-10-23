@@ -32,6 +32,7 @@ public class JdbcSourceConfig implements Serializable {
 
     private JdbcConnectionConfig jdbcConnectionConfig;
     private List<JdbcSourceTableConfig> tableConfigList;
+    private String whereConditionClause;
     public String compatibleMode;
     private int fetchSize;
 
@@ -63,6 +64,18 @@ public class JdbcSourceConfig implements Serializable {
         builder.splitSampleShardingThreshold(
                 config.get(JdbcSourceOptions.SPLIT_SAMPLE_SHARDING_THRESHOLD));
         builder.splitInverseSamplingRate(config.get(JdbcSourceOptions.SPLIT_INVERSE_SAMPLING_RATE));
+
+        config.getOptional(JdbcSourceOptions.WHERE_CONDITION)
+                .ifPresent(
+                        whereConditionClause -> {
+                            if (!whereConditionClause.toLowerCase().startsWith("where")) {
+                                throw new IllegalArgumentException(
+                                        "The where condition clause must start with 'where'. value: "
+                                                + whereConditionClause);
+                            }
+                            builder.whereConditionClause(whereConditionClause);
+                        });
+
         return builder.build();
     }
 }

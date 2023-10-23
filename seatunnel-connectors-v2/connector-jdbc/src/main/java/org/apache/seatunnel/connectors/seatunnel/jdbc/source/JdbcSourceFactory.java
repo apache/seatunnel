@@ -53,6 +53,7 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOp
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions.SPLIT_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions.TABLE_LIST;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions.TABLE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions.WHERE_CONDITION;
 
 @Slf4j
 @AutoService(Factory.class)
@@ -94,6 +95,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         PROPERTIES,
                         QUERY,
                         TABLE_PATH,
+                        WHERE_CONDITION,
                         TABLE_LIST,
                         SPLIT_SIZE,
                         SPLIT_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,

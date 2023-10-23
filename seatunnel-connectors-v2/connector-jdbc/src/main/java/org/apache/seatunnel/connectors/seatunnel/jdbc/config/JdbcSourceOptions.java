@@ -31,6 +31,13 @@ public interface JdbcSourceOptions {
                     .noDefaultValue()
                     .withDescription("table full path");
 
+    Option<String> WHERE_CONDITION =
+            Options.key("where_condition")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`");
+
     Option<List<JdbcSourceTableConfig>> TABLE_LIST =
             Options.key("table_list")
                     .listType(JdbcSourceTableConfig.class)

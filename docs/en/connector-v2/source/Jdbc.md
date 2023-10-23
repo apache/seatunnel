@@ -46,6 +46,7 @@ supports query SQL and can achieve projection effect.
 | properties                                 | Map    | No       | -               |
 | table_path                                 | String | No       | -               |
 | table_list                                 | Array  | No       | -               |
+| where_condition                            | String | No       | -               |
 | split.size                                 | Int    | No       | 8096            |
 | split.even-distribution.factor.lower-bound | Double | No       | 0.05            |
 | split.even-distribution.factor.upper-bound | Double | No       | 100             |
@@ -133,6 +134,10 @@ table_list = [
   }
 ]
 ```
+
+### where_condition
+
+Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`
 
 ### split.size
 
@@ -278,6 +283,7 @@ Jdbc {
           query = "select id, name from testdb.table2 where id > 100"
         }
     ]
+    #where_condition= "where id > 100"
     #split.size = 8096
     #split.even-distribution.factor.upper-bound = 100
     #split.even-distribution.factor.lower-bound = 0.05
