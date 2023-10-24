@@ -62,8 +62,9 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
             Integer checkpointInterval,
             String checkpointPath,
             String hdfsRoot,
-            String hdfsUser) {
-        super(source, parallelism, subtaskId);
+            String hdfsUser,
+            Map<String, String> envOptions) {
+        super(source, parallelism, subtaskId, envOptions);
         this.checkpointId = checkpointId;
         this.checkpointInterval = checkpointInterval;
         this.checkpointPath = checkpointPath;
