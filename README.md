@@ -126,7 +126,7 @@ Follow the [installation guide](https://seatunnel.apache.org/docs/2.1.0/flink/in
 
 ### 2. How can I contribute to SeaTunnel?
 
-We welcome contributions! Please refer to our [Contribution Guidelines](https://github.com/apache/seatunnel/blob/master/CONTRIBUTING.md) for details.
+We welcome contributions! Please refer to our [Contribution Guidelines](https://github.com/apache/seatunnel/blob/dev/docs/en/contribution/coding-guide.md) for details.
 
 ### 3. How do I report issues or request features?
 
