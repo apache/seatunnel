@@ -48,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 @Slf4j
 @Setter
@@ -55,8 +56,6 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     protected final SingleSplitReaderContext context;
     protected final HttpParameter httpParameter;
     protected HttpClientProvider httpClient;
-    private final Configuration jsonConfiguration =
-            Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
     private final DeserializationCollector deserializationCollector;
     private static final Option[] DEFAULT_OPTIONS = {
         Option.SUPPRESS_EXCEPTIONS, Option.ALWAYS_RETURN_LIST, Option.DEFAULT_PATH_LEAF_TO_NULL
@@ -64,8 +63,10 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private JsonPath[] jsonPaths;
     private final JsonField jsonField;
     private final String contentJson;
-    private Boolean noMoreElementFlag = true;
-    private PageInfo pageInfo;
+    private final Configuration jsonConfiguration =
+            Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
+    private boolean noMoreElementFlag;
+    private Optional<PageInfo> pageInfoOptional;
 
     public HttpSourceReader(
             HttpParameter httpParameter,
@@ -78,6 +79,21 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         this.deserializationCollector = new DeserializationCollector(deserializationSchema);
         this.jsonField = jsonField;
         this.contentJson = contentJson;
+    }
+
+    public HttpSourceReader(
+            HttpParameter httpParameter,
+            SingleSplitReaderContext context,
+            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            JsonField jsonField,
+            String contentJson,
+            PageInfo pageInfo) {
+        this.context = context;
+        this.httpParameter = httpParameter;
+        this.deserializationCollector = new DeserializationCollector(deserializationSchema);
+        this.jsonField = jsonField;
+        this.contentJson = contentJson;
+        this.pageInfoOptional = Optional.ofNullable(pageInfo);
     }
 
     @Override
@@ -140,14 +156,15 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
-            if (pageInfo != null) {
+            if (pageInfoOptional.isPresent()) {
                 noMoreElementFlag = false;
                 Long pageIndex = 1L;
                 while (!noMoreElementFlag) {
+                    PageInfo info = pageInfoOptional.get();
                     // increment page
-                    pageInfo.setPageIndex(pageIndex);
+                    info.setPageIndex(pageIndex);
                     // set request param
-                    updateRequestParam(pageInfo);
+                    updateRequestParam(info);
                     pollAndCollectData(output);
                     pageIndex += 1;
                 }
@@ -170,7 +187,6 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     private void collect(Collector<SeaTunnelRow> output, String data) throws IOException {
-        String originData = data;
         if (contentJson != null) {
             data = JsonUtils.stringToJsonNode(getPartOfJson(data)).toString();
         }
@@ -179,19 +195,19 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             data = JsonUtils.toJsonNode(parseToMap(decodeJSON(data), jsonField)).toString();
         }
         // page increase
-        if (pageInfo != null) {
+        if (pageInfoOptional.isPresent()) {
             // Determine whether the task is completed by specifying the presence of the 'total
             // page'
             // field.
+            PageInfo pageInfo = pageInfoOptional.get();
             if (pageInfo.getTotalPageSize() > 0) {
-                noMoreElementFlag =
-                        pageInfo.getPageIndex() >= pageInfo.getTotalPageSize() ? true : false;
+                noMoreElementFlag = pageInfo.getPageIndex() >= pageInfo.getTotalPageSize();
             } else {
                 // no 'total page' configured
                 int readSize = JsonUtils.stringToJsonNode(data).size();
-                // if read size < 100 : read fininsh.
-                // if read size = 100 : read next page.
-                noMoreElementFlag = readSize < pageInfo.getBatchSize() ? true : false;
+                // if read size < BatchSize : read finish
+                // if read size = BatchSize : read next page.
+                noMoreElementFlag = readSize < pageInfo.getBatchSize();
             }
         }
         deserializationCollector.collect(data.getBytes(), output);

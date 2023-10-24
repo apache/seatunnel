@@ -316,7 +316,7 @@ source {
 
   ### pageing
 
-  ```json
+  ```hocon
   source {
       Http {
         url = "http://localhost:8080/mock/queryData"
@@ -329,8 +329,8 @@ source {
         pageing={
          total_page_size=20
          page_field=page
-         # the batch size returned per request is used to determine whether to continue when the total number of pages is unknown
-         #batch_size=10 #if read size<batch_size next page else job finish
+         #when don't know the total_page_size use batch_size if read size<batch_size finish ,otherwise continue
+         #batch_size=10
         }
         schema = {
           fields {

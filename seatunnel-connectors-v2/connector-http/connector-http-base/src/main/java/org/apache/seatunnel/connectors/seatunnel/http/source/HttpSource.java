@@ -162,15 +162,13 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
             SingleSplitReaderContext readerContext) throws Exception {
-        HttpSourceReader httpSourceReader =
-                new HttpSourceReader(
-                        this.httpParameter,
-                        readerContext,
-                        this.deserializationSchema,
-                        jsonField,
-                        contentField);
-        httpSourceReader.setPageInfo(pageInfo);
-        return httpSourceReader;
+        return new HttpSourceReader(
+                this.httpParameter,
+                readerContext,
+                this.deserializationSchema,
+                jsonField,
+                contentField,
+                pageInfo);
     }
 
     private JsonField getJsonField(Config jsonFieldConf) {
