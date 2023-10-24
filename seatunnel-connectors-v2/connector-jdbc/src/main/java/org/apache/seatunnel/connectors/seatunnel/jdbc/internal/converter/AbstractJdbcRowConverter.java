@@ -29,7 +29,6 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -81,27 +80,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     fields[fieldIndex] = rs.getBigDecimal(resultSetIndex);
                     break;
                 case DATE:
-                    Date sqlDate;
-                    try {
-                        // todo test
-                        sqlDate = rs.getDate(resultSetIndex);
-                    } catch (SQLException e) {
-                        log.warn("resultSetIndex:{}", resultSetIndex);
-                        log.warn("ResultSet:{}", rs);
-                        log.warn("typeInfo:{}", typeInfo);
-                        ResultSetMetaData metadata = rs.getMetaData();
-                        log.warn("ResultSetMetaData:{}", metadata);
-                        for (int i = 1; i <= metadata.getColumnCount(); i++) {
-                            log.warn(
-                                    "columnIndex:{},columnName:{},columnLabel:{},columnTypeName:{}",
-                                    i,
-                                    metadata.getColumnName(i),
-                                    metadata.getColumnLabel(i),
-                                    metadata.getColumnTypeName(i));
-                        }
-                        log.warn("get date error", e);
-                        throw e;
-                    }
+                    Date sqlDate = rs.getDate(resultSetIndex);
                     fields[fieldIndex] =
                             Optional.ofNullable(sqlDate).map(e -> e.toLocalDate()).orElse(null);
                     break;

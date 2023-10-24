@@ -126,11 +126,6 @@ public class JdbcSource
                             .getTableSchema()
                             .toPhysicalRowDataType();
             tables.put(tablePath, rowType);
-            LOG.warn(
-                    "tablePath: {}, table: {}",
-                    tablePath,
-                    jdbcSourceTables.get(tablePath).getCatalogTable());
-            LOG.warn("tablePath: {}, rowType: {}", tablePath, rowType);
         }
         return new JdbcSourceReader(readerContext, jdbcSourceConfig, tables);
     }

@@ -50,7 +50,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     private static final MysqlDataTypeConvertor DATA_TYPE_CONVERTOR = new MysqlDataTypeConvertor();
 
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
-            "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME ='%s'";
+            "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME ='%s' ORDER BY ORDINAL_POSITION ASC";
 
     static {
         SYS_DATABASES.add("information_schema");
@@ -118,14 +118,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
-        int columnPosition = resultSet.getInt("ORDINAL_POSITION");
         String columnName = resultSet.getString("COLUMN_NAME");
         String sourceType = resultSet.getString("COLUMN_TYPE");
-        log.warn(
-                "columnName: {}, columnPosition:{}, sourceType: {}",
-                columnName,
-                columnPosition,
-                sourceType);
         String typeName = resultSet.getString("DATA_TYPE").toUpperCase();
         int precision = resultSet.getInt("NUMERIC_PRECISION");
         int scale = resultSet.getInt("NUMERIC_SCALE");
