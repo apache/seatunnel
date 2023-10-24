@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : Rabbitmq</name>
 
     <properties>
-        <rabbitmq.version>5.9.0</rabbitmq.version>
+        <rabbitmq.version>5.18.0</rabbitmq.version>
     </properties>
     <dependencies>
         <dependency>
