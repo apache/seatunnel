@@ -122,25 +122,21 @@ Companies and organizations worldwide use SeaTunnel for research, production, an
 
 ### 1. How do I install SeaTunnel?
 
-Follow the [installation guide](https://seatunnel.apache.org/docs/installation) on our website to get started.
+Follow the [installation guide](https://seatunnel.apache.org/docs/2.1.0/flink/installation/) on our website to get started.
 
-### 2. What are the system requirements for SeaTunnel?
-
-The system requirements are listed in the [documentation](https://seatunnel.apache.org/docs/requirements).
-
-### 3. How can I contribute to SeaTunnel?
+### 2. How can I contribute to SeaTunnel?
 
 We welcome contributions! Please refer to our [Contribution Guidelines](https://github.com/apache/seatunnel/blob/master/CONTRIBUTING.md) for details.
 
-### 4. How do I report issues or request features?
+### 3. How do I report issues or request features?
 
 You can report issues or request features on our [GitHub repository](https://github.com/apache/seatunnel/issues).
 
-### 5. Can I use SeaTunnel for commercial purposes?
+### 4. Can I use SeaTunnel for commercial purposes?
 
 Yes, SeaTunnel is available under the Apache 2.0 License, allowing commercial use.
 
-### 6. Where can I find documentation and tutorials?
+### 5. Where can I find documentation and tutorials?
 
 Our [official documentation](https://seatunnel.apache.org/docs) includes detailed guides and tutorials to help you get started.
 
