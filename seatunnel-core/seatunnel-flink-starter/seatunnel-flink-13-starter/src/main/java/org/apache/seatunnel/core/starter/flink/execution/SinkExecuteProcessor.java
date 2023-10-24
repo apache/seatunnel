@@ -101,7 +101,7 @@ public class SinkExecuteProcessor
                                         sinkConfig.getString(PLUGIN_NAME.key())),
                                 sinkConfig);
                 sink.setJobContext(jobContext);
-                SeaTunnelRowType sourceType = initSourceType(sinkConfig, stream.getDataStream());
+                SeaTunnelRowType sourceType = stream.getCatalogTable().getSeaTunnelRowType();
                 sink.setTypeInfo(sourceType);
             } else {
                 TableSinkFactoryContext context =
@@ -138,7 +138,6 @@ public class SinkExecuteProcessor
                             .equals(e.getMessage())) {
                 return true;
             }
-            return true;
         }
         return false;
     }
