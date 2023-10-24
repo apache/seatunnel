@@ -118,8 +118,14 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
+        int columnPosition = resultSet.getInt("ORDINAL_POSITION");
         String columnName = resultSet.getString("COLUMN_NAME");
         String sourceType = resultSet.getString("COLUMN_TYPE");
+        log.warn(
+                "columnName: {}, columnPosition:{}, sourceType: {}",
+                columnName,
+                columnPosition,
+                sourceType);
         String typeName = resultSet.getString("DATA_TYPE").toUpperCase();
         int precision = resultSet.getInt("NUMERIC_PRECISION");
         int scale = resultSet.getInt("NUMERIC_SCALE");

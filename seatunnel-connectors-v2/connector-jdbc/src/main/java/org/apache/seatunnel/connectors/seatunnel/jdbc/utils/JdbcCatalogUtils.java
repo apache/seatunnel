@@ -88,7 +88,7 @@ public class JdbcCatalogUtils {
                                     .catalogTable(catalogTable)
                                     .build();
                     tables.put(tablePath, jdbcSourceTable);
-                    log.info("Loaded catalog table : {}", tablePath);
+                    log.info("Loaded catalog table : {}, {}", tablePath, jdbcSourceTable);
                 }
                 log.info(
                         "Loaded {} catalog tables for catalog : {}",
@@ -118,7 +118,7 @@ public class JdbcCatalogUtils {
                                 .build();
 
                 tables.put(tablePath, jdbcSourceTable);
-                log.info("Loaded catalog table : {}", tablePath);
+                log.info("Loaded catalog table : {}, {}", tablePath, jdbcSourceTable);
             }
             log.info(
                     "Loaded {} catalog tables for jdbc : {}",
