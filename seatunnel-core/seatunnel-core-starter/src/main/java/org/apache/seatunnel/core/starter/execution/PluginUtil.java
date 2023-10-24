@@ -117,7 +117,6 @@ public class PluginUtil {
                             .equals(e.getMessage())) {
                 return true;
             }
-            return true;
         }
         return false;
     }
