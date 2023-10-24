@@ -28,7 +28,6 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -253,12 +252,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         for (String CONFIG_FILE : PG_CONFIG_FILE_LIST) {
             Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
             Assertions.assertEquals(0, execResult.getExitCode());
-            Awaitility.await()
-                    .atMost(10, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertIterableEquals(
-                                            querySql(SOURCE_SQL), querySql(SINK_SQL)));
+            Assertions.assertIterableEquals(querySql(SOURCE_SQL), querySql(SINK_SQL));
             executeSQL("truncate table pg_e2e_sink_table");
             log.info(CONFIG_FILE + " e2e test completed");
         }
