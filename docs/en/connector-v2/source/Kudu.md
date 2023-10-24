@@ -4,7 +4,7 @@
 
 ## Support Kudu Version
 
-- 1.1/1.2/1.3/1.4/1.5
+- 1.11.1/1.12.0/1.13.0/1.14.0/1.15.0
 
 ## Support Those Engines
 
