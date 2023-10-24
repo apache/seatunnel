@@ -30,8 +30,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.exception.AmazonSqsConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -47,11 +45,8 @@ import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonS
 @AutoService(SeaTunnelSink.class)
 @NoArgsConstructor
 public class AmazonSqsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
-    private AmazonSqsSourceOptions amazonSqsSourceOptions;
     private SeaTunnelRowType typeInfo;
     private ReadonlyConfig pluginConfig;
-
-    private AmazonSqsSinkConfig amazonSqsSinkConfig;
 
     @Override
     public String getPluginName() {
