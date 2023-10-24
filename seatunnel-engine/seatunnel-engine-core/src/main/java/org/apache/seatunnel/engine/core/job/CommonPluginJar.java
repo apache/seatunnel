@@ -27,10 +27,6 @@ import java.io.InvalidObjectException;
 
 public class CommonPluginJar extends ConnectorJar {
 
-    private static final String DEFAULT_PLUGIN_NAME = "defaultPluginName";
-
-    private String pluginName = DEFAULT_PLUGIN_NAME;
-
     public CommonPluginJar() {
         super();
     }
@@ -41,21 +37,6 @@ public class CommonPluginJar extends ConnectorJar {
 
     protected CommonPluginJar(byte[] connectorJarID, byte[] data, String fileName) {
         super(connectorJarID, ConnectorJarType.COMMON_PLUGIN_JAR, data, fileName);
-    }
-
-    protected CommonPluginJar(byte[] data, String pluginName, String fileName) {
-        super(ConnectorJarType.COMMON_PLUGIN_JAR, data, fileName);
-        this.pluginName = pluginName;
-    }
-
-    protected CommonPluginJar(
-            byte[] connectorJarID, byte[] data, String pluginName, String fileName) {
-        super(connectorJarID, ConnectorJarType.COMMON_PLUGIN_JAR, data, fileName);
-        this.pluginName = pluginName;
-    }
-
-    public String getPluginName() {
-        return pluginName;
     }
 
     @Override
@@ -73,7 +54,6 @@ public class CommonPluginJar extends ConnectorJar {
         out.writeByteArray(connectorJarID);
         out.writeInt(ConnectorJarType.COMMON_PLUGIN_JAR.ordinal());
         out.writeByteArray(data);
-        out.writeString(pluginName);
         out.writeString(fileName);
     }
 
@@ -89,7 +69,6 @@ public class CommonPluginJar extends ConnectorJar {
             throw new InvalidObjectException("Invalid ordinal for ConnectorJarType");
         }
         this.data = in.readByteArray();
-        this.pluginName = in.readString();
         this.fileName = in.readString();
     }
 }

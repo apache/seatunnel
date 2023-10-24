@@ -96,7 +96,6 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         Config config = RestUtil.buildConfig(requestHandle(httpPostCommand));
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(requestParams.get(RestConstant.JOB_NAME));
-        CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
         JobImmutableInformationEnv jobImmutableInformationEnv =
                 new JobImmutableInformationEnv(
                         jobConfig,
@@ -106,7 +105,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                                 requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT)),
                         Long.parseLong(requestParams.get(RestConstant.JOB_ID)));
         JobImmutableInformation jobImmutableInformation = jobImmutableInformationEnv.build();
-
+        CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
         Data data =
                 textCommandService
                         .getNode()

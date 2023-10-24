@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 public interface ConnectorJarStorageStrategy extends Serializable {
 
@@ -61,7 +62,7 @@ public interface ConnectorJarStorageStrategy extends Serializable {
      * @param storageLocation the storage location of the connector jar in the local file system
      * @return
      */
-    Path storageConnectorJarFileInternal(ConnectorJar connectorJar, File storageLocation);
+    Optional<Path> storageConnectorJarFileInternal(ConnectorJar connectorJar, File storageLocation);
 
     /**
      * Check whether the same connector Jar package exists in the zeta engine.

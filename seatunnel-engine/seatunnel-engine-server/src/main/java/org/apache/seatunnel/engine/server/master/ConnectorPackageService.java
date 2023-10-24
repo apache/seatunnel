@@ -17,19 +17,15 @@
 
 package org.apache.seatunnel.engine.server.master;
 
-import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMemberNodeOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
-import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.serialization.Data;
@@ -41,9 +37,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class ConnectorPackageService {
@@ -60,20 +53,17 @@ public class ConnectorPackageService {
 
     private ConnectorJarStorageStrategy connectorJarStorageStrategy;
 
-    private final ScheduledExecutorService masterActiveListener;
-
-    /** If this node is a master node */
-    private volatile boolean isActive = false;
-
     public ConnectorPackageService(SeaTunnelServer seaTunnelServer) {
         this.seaTunnelServer = seaTunnelServer;
         this.seaTunnelConfig = seaTunnelServer.getSeaTunnelConfig();
         this.connectorJarStorageConfig =
                 seaTunnelConfig.getEngineConfig().getConnectorJarStorageConfig();
         this.nodeEngine = seaTunnelServer.getNodeEngine();
-        masterActiveListener = Executors.newSingleThreadScheduledExecutor();
-        masterActiveListener.scheduleAtFixedRate(
-                this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
+        this.connectorJarStorageStrategy =
+                StorageStrategyFactory.of(
+                        connectorJarStorageConfig.getStorageMode(),
+                        connectorJarStorageConfig,
+                        seaTunnelServer);
     }
 
     public ConnectorJarIdentifier storageConnectorJarFile(long jobId, Data connectorJarData) {
@@ -130,49 +120,5 @@ public class ConnectorPackageService {
     public void cleanUpWhenJobFinished(
             long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList) {
         connectorJarStorageStrategy.cleanUpWhenJobFinished(jobId, connectorJarIdentifierList);
-    }
-
-    private void initConnectorPackageService() {
-        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        this.connectorJarStorageStrategy =
-                StorageStrategyFactory.of(
-                        connectorJarStorageConfig.getStorageMode(),
-                        connectorJarStorageConfig,
-                        seaTunnelServer);
-    }
-
-    private void clearConnectorPackageService() {
-        this.connectorJarStorageStrategy = null;
-    }
-
-    private void checkNewActiveMaster() {
-        // Only when the current node is the master node will the connector jar service be provided,
-        // which is used to maintain the jar package files from all currently executing jobs
-        // and provide download services for the task execution nodes.
-        try {
-            if (!isActive && this.seaTunnelServer.isMasterNode()) {
-                LOGGER.info(
-                        "This node become a new active master node, begin init connector package service");
-                initConnectorPackageService();
-                isActive = true;
-            } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
-                isActive = false;
-                LOGGER.info(
-                        "This node become leave active master node, begin clear connector package service");
-                clearConnectorPackageService();
-            }
-        } catch (Exception e) {
-            isActive = false;
-            LOGGER.severe(ExceptionUtils.getMessage(e));
-            throw new SeaTunnelEngineException("check new active master error, stop loop", e);
-        }
-    }
-
-    /**
-     * return true if this node is a master node and the connector jar package service init
-     * finished.
-     */
-    public boolean isConnectorPackageServiceActive() {
-        return isActive;
     }
 }

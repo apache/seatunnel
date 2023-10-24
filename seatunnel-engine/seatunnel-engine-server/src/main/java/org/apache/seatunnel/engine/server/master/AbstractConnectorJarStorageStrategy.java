@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.Optional;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
@@ -91,7 +92,8 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
     }
 
     @Override
-    public Path storageConnectorJarFileInternal(ConnectorJar connectorJar, File storageFile) {
+    public Optional<Path> storageConnectorJarFileInternal(
+            ConnectorJar connectorJar, File storageFile) {
         boolean success = false;
         try {
             if (!storageFile.exists()) {
@@ -120,7 +122,7 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
                 }
             }
         }
-        return success ? storageFile.toPath() : null;
+        return success ? Optional.of(storageFile.toPath()) : Optional.empty();
     }
 
     private String getConnectorJarStorageDir() {

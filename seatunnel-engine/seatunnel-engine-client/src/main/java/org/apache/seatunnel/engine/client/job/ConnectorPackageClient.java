@@ -61,21 +61,13 @@ public class ConnectorPackageClient {
             // origin path : /${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar ->
             // handled path : ${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar
             Path path = Paths.get(commonPluginJar.getPath().substring(1));
-            // Obtain the directory name of the relative location of the file path.
-            // for example, The path is
-            // ${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar, so the name
-            // obtained here is the connector plugin name : JDBC
-            int directoryIndex = path.getNameCount() - 3;
-            String pluginName = path.getName(directoryIndex).toString();
-            ConnectorJarIdentifier connectorJarIdentifier =
-                    uploadCommonPluginJar(jobId, path, pluginName);
+            ConnectorJarIdentifier connectorJarIdentifier = uploadCommonPluginJar(jobId, path);
             connectorJarIdentifiers.add(connectorJarIdentifier);
         }
         return connectorJarIdentifiers;
     }
 
-    private ConnectorJarIdentifier uploadCommonPluginJar(
-            long jobId, Path commonPluginJar, String pluginName) {
+    private ConnectorJarIdentifier uploadCommonPluginJar(long jobId, Path commonPluginJar) {
         byte[] data = readFileData(commonPluginJar);
         String fileName = commonPluginJar.getFileName().toString();
 
@@ -85,7 +77,7 @@ public class ConnectorPackageClient {
 
         ConnectorJar connectorJar =
                 ConnectorJar.createConnectorJar(
-                        digest, ConnectorJarType.COMMON_PLUGIN_JAR, data, pluginName, fileName);
+                        digest, ConnectorJarType.COMMON_PLUGIN_JAR, data, fileName);
         ConnectorJarIdentifier connectorJarIdentifier =
                 hazelcastClient
                         .getSerializationService()

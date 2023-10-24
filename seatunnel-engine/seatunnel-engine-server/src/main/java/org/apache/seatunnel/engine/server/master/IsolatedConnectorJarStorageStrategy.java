@@ -25,7 +25,9 @@ import org.apache.seatunnel.engine.core.job.ConnectorJarType;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
@@ -42,9 +44,11 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
         if (storageFile.exists()) {
             return ConnectorJarIdentifier.of(connectorJar, storageFile.toString());
         }
-        String storagePath = storageConnectorJarFileInternal(connectorJar, storageFile).toString();
+        Optional<Path> optional = storageConnectorJarFileInternal(connectorJar, storageFile);
         ConnectorJarIdentifier connectorJarIdentifier =
-                ConnectorJarIdentifier.of(connectorJar, storagePath);
+                optional.isPresent()
+                        ? ConnectorJarIdentifier.of(connectorJar, optional.get().toString())
+                        : ConnectorJarIdentifier.of(connectorJar, "");
         return connectorJarIdentifier;
     }
 
@@ -77,7 +81,12 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
         checkNotNull(jobId);
         if (connectorJar.getType() == ConnectorJarType.COMMON_PLUGIN_JAR) {
             CommonPluginJar commonPluginJar = (CommonPluginJar) connectorJar;
-            return String.format("%s/%s/%s", storageDir, "lib", connectorJar.getFileName());
+            return String.format(
+                    "%s/%s/%s/%s",
+                    storageDir,
+                    jobId,
+                    COMMON_PLUGIN_JAR_STORAGE_PATH,
+                    commonPluginJar.getFileName());
         } else {
             return String.format(
                     "%s/%s/%s/%s",

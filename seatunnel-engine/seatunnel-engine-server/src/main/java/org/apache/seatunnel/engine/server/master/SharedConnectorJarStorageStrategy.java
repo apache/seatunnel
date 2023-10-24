@@ -132,7 +132,9 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
         checkNotNull(jobId);
         if (connectorJar.getType() == ConnectorJarType.COMMON_PLUGIN_JAR) {
             CommonPluginJar commonPluginJar = (CommonPluginJar) connectorJar;
-            return String.format("%s/%s/%s", storageDir, "lib", connectorJar.getFileName());
+            return String.format(
+                    "%s/%s/%s",
+                    storageDir, COMMON_PLUGIN_JAR_STORAGE_PATH, commonPluginJar.getFileName());
         } else {
             return String.format(
                     "%s/%s/%s",

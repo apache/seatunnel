@@ -68,8 +68,6 @@ public class SeaTunnelServer
 
     private final SeaTunnelConfig seaTunnelConfig;
 
-    private ConnectorPackageService connectorPackageService;
-
     private volatile boolean isRunning = true;
 
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
@@ -115,7 +113,6 @@ public class SeaTunnelServer
                 TimeUnit.SECONDS);
 
         seaTunnelHealthMonitor = new SeaTunnelHealthMonitor(((NodeEngineImpl) engine).getNode());
-        connectorPackageService = new ConnectorPackageService(this);
     }
 
     @Override
@@ -267,53 +264,6 @@ public class SeaTunnelServer
     }
 
     public ConnectorPackageService getConnectorPackageService() {
-        int retryCount = 0;
-        if (isMasterNode()) {
-            // The hazelcast operator request invocation will retry, We must wait enough time to
-            // wait the invocation return.
-            String hazelcastInvocationMaxRetry =
-                    seaTunnelConfig
-                            .getHazelcastConfig()
-                            .getProperty("hazelcast.invocation.max.retry.count");
-            int maxRetry =
-                    hazelcastInvocationMaxRetry == null
-                            ? 250 * 2
-                            : Integer.parseInt(hazelcastInvocationMaxRetry) * 2;
-
-            String hazelcastRetryPause =
-                    seaTunnelConfig
-                            .getHazelcastConfig()
-                            .getProperty("hazelcast.invocation.retry.pause.millis");
-
-            int retryPause =
-                    hazelcastRetryPause == null ? 500 : Integer.parseInt(hazelcastRetryPause);
-
-            while (isMasterNode()
-                    && !connectorPackageService.isConnectorPackageServiceActive()
-                    && retryCount < maxRetry
-                    && isRunning) {
-                try {
-                    LOGGER.warning(
-                            "This is master node, waiting the coordinator service init finished");
-                    Thread.sleep(retryPause);
-                    retryCount++;
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            if (connectorPackageService.isConnectorPackageServiceActive()) {
-                return connectorPackageService;
-            }
-
-            if (!isMasterNode()) {
-                throw new SeaTunnelEngineException("This is not a master node now.");
-            }
-
-            throw new SeaTunnelEngineException(
-                    "Can not get connector jar package service from an active master node.");
-        } else {
-            throw new SeaTunnelEngineException(
-                    "Please don't get connector jar package service from an inactive master node");
-        }
+        return getCoordinatorService().getConnectorPackageService();
     }
 }

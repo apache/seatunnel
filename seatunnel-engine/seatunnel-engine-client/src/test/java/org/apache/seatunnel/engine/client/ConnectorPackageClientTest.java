@@ -27,7 +27,9 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.ConnectorPackageClient;
+import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -35,6 +37,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
+import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import org.apache.commons.lang3.StringUtils;
@@ -64,6 +67,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -74,6 +78,7 @@ public class ConnectorPackageClientTest {
 
     protected static ILogger LOGGER;
 
+    private static String testClusterName = "ConnectorPackageClientTest";
     private static SeaTunnelConfig SEATUNNEL_CONFIG;
     private static HazelcastInstance INSTANCE;
     private static Long JOB_ID;
@@ -81,15 +86,40 @@ public class ConnectorPackageClientTest {
     @BeforeAll
     public static void beforeClass() throws Exception {
         LOGGER = Logger.getLogger(ConnectorPackageClientTest.class);
-        SEATUNNEL_CONFIG = ConfigProvider.locateAndGetSeaTunnelConfig();
+        String yaml =
+                "seatunnel:\n"
+                        + "    engine:\n"
+                        + "        backup-count: 1\n"
+                        + "        queue-type: blockingqueue\n"
+                        + "        print-execution-info-interval: 60\n"
+                        + "        slot-service:\n"
+                        + "            dynamic-slot: true\n"
+                        + "        checkpoint:\n"
+                        + "            interval: 300000\n"
+                        + "            timeout: 10000\n"
+                        + "            storage:\n"
+                        + "                type: hdfs\n"
+                        + "                max-retained: 3\n"
+                        + "                plugin-config:\n"
+                        + "                    namespace: /tmp/seatunnel/checkpoint_snapshot/\n"
+                        + "                    storage.type: hdfs\n"
+                        + "                    fs.defaultFS: file:///tmp/\n"
+                        + "        jar-storage:\n"
+                        + "            enable: true\n"
+                        + "            connector-jar-storage-mode: SHARED\n"
+                        + "            connector-jar-storage-path: \"\"\n"
+                        + "            connector-jar-cleanup-task-interval: 3600\n"
+                        + "            connector-jar-expiry-time: 600";
+
+        SEATUNNEL_CONFIG = ConfigProvider.locateAndGetSeaTunnelConfigFromString(yaml);
         SEATUNNEL_CONFIG
                 .getHazelcastConfig()
-                .setClusterName(TestUtils.getClusterName("ConnectorPackageClientTest"));
+                .setClusterName(TestUtils.getClusterName(testClusterName));
         INSTANCE =
                 HazelcastInstanceFactory.newHazelcastInstance(
                         SEATUNNEL_CONFIG.getHazelcastConfig(),
                         Thread.currentThread().getName(),
-                        new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
+                        new SeaTunnelNodeContext(SEATUNNEL_CONFIG));
         JOB_ID = INSTANCE.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
     }
 
@@ -97,7 +127,7 @@ public class ConnectorPackageClientTest {
     @Test
     public void testUploadCommonPluginJars() throws MalformedURLException {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(TestUtils.getClusterName("ConnectorPackageClientTest"));
+        clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
         SeaTunnelHazelcastClient seaTunnelHazelcastClient =
                 new SeaTunnelHazelcastClient(clientConfig);
 
@@ -145,9 +175,6 @@ public class ConnectorPackageClientTest {
                                             Assertions.assertTrue(
                                                     StringUtils.isNotBlank(
                                                             jarIdentifier.getStoragePath()));
-                                            Assertions.assertTrue(
-                                                    StringUtils.isNotBlank(
-                                                            jarIdentifier.getPluginName()));
                                             Assertions.assertTrue(
                                                     jarIdentifier.getType()
                                                             == ConnectorJarType.COMMON_PLUGIN_JAR);
@@ -204,14 +231,68 @@ public class ConnectorPackageClientTest {
                                             StringUtils.isNotBlank(
                                                     connectorJarIdentifier.getStoragePath()));
                                     Assertions.assertTrue(
-                                            StringUtils.isNotBlank(
-                                                    connectorJarIdentifier.getPluginName()));
-                                    Assertions.assertTrue(
                                             connectorJarIdentifier.getType()
                                                     == ConnectorJarType.CONNECTOR_PLUGIN_JAR);
                                 });
             }
         }
+    }
+
+    @Test
+    public void testExecuteJob() throws Exception {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("fake_to_file");
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        JobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
+
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+        CompletableFuture<JobStatus> objectCompletableFuture =
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+
+        await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        objectCompletableFuture.isDone()
+                                                && JobStatus.FINISHED.equals(
+                                                        objectCompletableFuture.get())));
+    }
+
+    @Test
+    public void cancelJobTest() throws Exception {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("fake_to_file");
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        JobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
+
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+        JobStatus jobStatus1 = clientJobProxy.getJobStatus();
+        Assertions.assertFalse(jobStatus1.isEndState());
+        CompletableFuture<JobStatus> objectCompletableFuture =
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+        Thread.sleep(1000);
+        clientJobProxy.cancelJob();
+
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        objectCompletableFuture.isDone()
+                                                && JobStatus.CANCELED.equals(
+                                                        objectCompletableFuture.get())));
     }
 
     private Set<URL> searchPluginJars() {

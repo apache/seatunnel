@@ -79,28 +79,6 @@ public abstract class ConnectorJar implements IdentifiedDataSerializable {
         }
     }
 
-    public static ConnectorJar createConnectorJar(
-            ConnectorJarType type, byte[] data, String pluginName, String fileName) {
-        if (type == ConnectorJarType.COMMON_PLUGIN_JAR) {
-            return new CommonPluginJar(data, pluginName, fileName);
-        } else {
-            return new ConnectorPluginJar(data, fileName);
-        }
-    }
-
-    public static ConnectorJar createConnectorJar(
-            byte[] connectorJarID,
-            ConnectorJarType type,
-            byte[] data,
-            String pluginName,
-            String fileName) {
-        if (type == ConnectorJarType.COMMON_PLUGIN_JAR) {
-            return new CommonPluginJar(connectorJarID, data, pluginName, fileName);
-        } else {
-            return new ConnectorPluginJar(connectorJarID, data, fileName);
-        }
-    }
-
     public byte[] getConnectorJarID() {
         return connectorJarID;
     }

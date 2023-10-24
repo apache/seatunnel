@@ -265,8 +265,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
             if (!CollectionUtils.isEmpty(connectorJarIdentifiers)) {
                 // Prioritize obtaining the jar package file required for the current task execution
-                // from the local,
-                // if it does not exist locally, it will be downloaded from the master node.
+                // from the local, if it does not exist locally, it will be downloaded from the
+                // master node.
                 Set<URL> connectorJarPath =
                         serverConnectorPackageClient.getConnectorJarFromLocal(
                                 connectorJarIdentifiers);

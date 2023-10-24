@@ -28,8 +28,6 @@ import java.io.Serializable;
 @EqualsAndHashCode
 public class ConnectorJarIdentifier implements Serializable {
 
-    private static final String DEFAULT_PLUGIN_NAME = "defaultPluginName";
-
     private byte[] connectorJarID;
 
     private ConnectorJarType type;
@@ -37,8 +35,6 @@ public class ConnectorJarIdentifier implements Serializable {
     private String fileName;
 
     private String storagePath;
-
-    private String pluginName = DEFAULT_PLUGIN_NAME;
 
     public ConnectorJarIdentifier() {}
 
@@ -50,32 +46,10 @@ public class ConnectorJarIdentifier implements Serializable {
     }
 
     public ConnectorJarIdentifier(
-            ConnectorJarType type, String fileName, String pluginName, String storagePath) {
-        this.connectorJarID = new byte[0];
-        this.type = type;
-        this.fileName = fileName;
-        this.pluginName = pluginName;
-        this.storagePath = storagePath;
-    }
-
-    public ConnectorJarIdentifier(
             byte[] connectorJarID, ConnectorJarType type, String fileName, String storagePath) {
         this.connectorJarID = connectorJarID;
         this.type = type;
         this.fileName = fileName;
-        this.storagePath = storagePath;
-    }
-
-    public ConnectorJarIdentifier(
-            byte[] connectorJarID,
-            ConnectorJarType type,
-            String fileName,
-            String pluginName,
-            String storagePath) {
-        this.connectorJarID = connectorJarID;
-        this.type = type;
-        this.fileName = fileName;
-        this.pluginName = pluginName;
         this.storagePath = storagePath;
     }
 
@@ -86,10 +60,6 @@ public class ConnectorJarIdentifier implements Serializable {
                         connectorJar.getType(),
                         connectorJar.getFileName(),
                         storagePath);
-        if (connectorJar.getType() == ConnectorJarType.COMMON_PLUGIN_JAR) {
-            CommonPluginJar commonPluginJar = (CommonPluginJar) connectorJar;
-            connectorJarIdentifier.setPluginName(commonPluginJar.getPluginName());
-        }
         return connectorJarIdentifier;
     }
 
@@ -99,21 +69,7 @@ public class ConnectorJarIdentifier implements Serializable {
     }
 
     public static ConnectorJarIdentifier of(
-            ConnectorJarType type, String fileName, String pluginName, String storagePath) {
-        return new ConnectorJarIdentifier(type, fileName, pluginName, storagePath);
-    }
-
-    public static ConnectorJarIdentifier of(
             byte[] connectorJarID, ConnectorJarType type, String fileName, String storagePath) {
         return new ConnectorJarIdentifier(connectorJarID, type, fileName, storagePath);
-    }
-
-    public static ConnectorJarIdentifier of(
-            byte[] connectorJarID,
-            ConnectorJarType type,
-            String fileName,
-            String pluginName,
-            String storagePath) {
-        return new ConnectorJarIdentifier(connectorJarID, type, fileName, pluginName, storagePath);
     }
 }

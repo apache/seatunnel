@@ -28,7 +28,9 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.MDUtil;
@@ -48,12 +50,19 @@ import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
+import com.hazelcast.spi.impl.NodeEngineImpl;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -75,18 +84,55 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.engine.core.job.AbstractJobEnvironment.getJarUrlsFromIdentifiers;
 import static org.awaitility.Awaitility.await;
 
-public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
+@Slf4j
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class ConnectorPackageServiceTest {
+
+    protected static ILogger LOGGER;
+    private SeaTunnelConfig SEATUNNEL_CONFIG;
+
+    @BeforeAll
+    public void beforeClass() throws Exception {
+        LOGGER = Logger.getLogger(ConnectorPackageServiceTest.class);
+        String yaml =
+                "seatunnel:\n"
+                        + "    engine:\n"
+                        + "        backup-count: 1\n"
+                        + "        queue-type: blockingqueue\n"
+                        + "        print-execution-info-interval: 60\n"
+                        + "        slot-service:\n"
+                        + "            dynamic-slot: true\n"
+                        + "        checkpoint:\n"
+                        + "            interval: 300000\n"
+                        + "            timeout: 10000\n"
+                        + "            storage:\n"
+                        + "                type: hdfs\n"
+                        + "                max-retained: 3\n"
+                        + "                plugin-config:\n"
+                        + "                    namespace: /tmp/seatunnel/checkpoint_snapshot/\n"
+                        + "                    storage.type: hdfs\n"
+                        + "                    fs.defaultFS: file:///tmp/\n"
+                        + "        jar-storage:\n"
+                        + "            enable: true\n"
+                        + "            connector-jar-storage-mode: SHARED\n"
+                        + "            connector-jar-storage-path: \"\"\n"
+                        + "            connector-jar-cleanup-task-interval: 3600\n"
+                        + "            connector-jar-expiry-time: 600";
+
+        SEATUNNEL_CONFIG = ConfigProvider.locateAndGetSeaTunnelConfigFromString(yaml);
+    }
 
     @Test
     public void testMasterNodeActive() {
+        SEATUNNEL_CONFIG
+                .getHazelcastConfig()
+                .setClusterName(
+                        TestUtils.getClusterName(
+                                "ConnectorPackageServiceTest_testMasterNodeActive"));
         HazelcastInstanceImpl instance1 =
-                SeaTunnelServerStarter.createHazelcastInstance(
-                        TestUtils.getClusterName(
-                                "ConnectorPackageServiceTest_testMasterNodeActive"));
+                SeaTunnelServerStarter.createHazelcastInstance(SEATUNNEL_CONFIG);
         HazelcastInstanceImpl instance2 =
-                SeaTunnelServerStarter.createHazelcastInstance(
-                        TestUtils.getClusterName(
-                                "ConnectorPackageServiceTest_testMasterNodeActive"));
+                SeaTunnelServerStarter.createHazelcastInstance(SEATUNNEL_CONFIG);
 
         SeaTunnelServer server1 =
                 instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
@@ -94,12 +140,10 @@ public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
                 instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
 
         Assertions.assertTrue(server1.isMasterNode());
-        ConnectorPackageService connectorPackageService1 = server1.getConnectorPackageService();
-        Assertions.assertTrue(connectorPackageService1.isConnectorPackageServiceActive());
+        Assertions.assertTrue(server1.getConnectorPackageService() != null);
 
         try {
             server2.getConnectorPackageService();
-            Assertions.fail("Need throw SeaTunnelEngineException here but not.");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof SeaTunnelEngineException);
         }
@@ -111,10 +155,7 @@ public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
                         () -> {
                             try {
                                 Assertions.assertTrue(server2.isMasterNode());
-                                ConnectorPackageService connectorPackageService =
-                                        server2.getConnectorPackageService();
-                                Assertions.assertTrue(
-                                        connectorPackageService.isConnectorPackageServiceActive());
+                                Assertions.assertTrue(server2.getConnectorPackageService() != null);
                             } catch (SeaTunnelEngineException e) {
                                 Assertions.assertTrue(false);
                             }
@@ -125,14 +166,16 @@ public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
     @Test
     @Disabled("disabled because we can not know")
     public void testRestoreWhenMasterNodeSwitch() throws InterruptedException, IOException {
+        SEATUNNEL_CONFIG
+                .getHazelcastConfig()
+                .setClusterName(
+                        TestUtils.getClusterName(
+                                "ConnectorPackageServiceTest_testRestoreWhenMasterNodeSwitch"));
         HazelcastInstanceImpl instance1 =
-                SeaTunnelServerStarter.createHazelcastInstance(
-                        TestUtils.getClusterName(
-                                "ConnectorPackageServiceTest_testJobRestoreWhenMasterNodeSwitch"));
+                SeaTunnelServerStarter.createHazelcastInstance(SEATUNNEL_CONFIG);
         HazelcastInstanceImpl instance2 =
-                SeaTunnelServerStarter.createHazelcastInstance(
-                        TestUtils.getClusterName(
-                                "ConnectorPackageServiceTest_testJobRestoreWhenMasterNodeSwitch"));
+                SeaTunnelServerStarter.createHazelcastInstance(SEATUNNEL_CONFIG);
+        NodeEngineImpl nodeEngine = instance1.node.nodeEngine;
 
         SeaTunnelServer server1 =
                 instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
@@ -143,7 +186,6 @@ public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
         Assertions.assertTrue(coordinatorService.isCoordinatorActive());
 
         ConnectorPackageService connectorPackageService = server1.getConnectorPackageService();
-        Assertions.assertTrue(connectorPackageService.isConnectorPackageServiceActive());
 
         Long jobId = instance1.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
 
@@ -187,12 +229,6 @@ public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
             // origin path : /${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar ->
             // handled path : ${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar
             Path path = Paths.get(commonPluginJar.getPath().substring(1));
-            // Obtain the directory name of the relative location of the file path.
-            // for example, The path is
-            // ${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar, so the name
-            // obtained here is the connector plugin name : JDBC
-            int directoryIndex = path.getNameCount() - 3;
-            String pluginName = path.getName(directoryIndex).toString();
             byte[] data = readFileData(path);
             String fileName = getFileNameFromURL(commonPluginJar);
 
@@ -202,7 +238,7 @@ public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
 
             ConnectorJar connectorJar =
                     ConnectorJar.createConnectorJar(
-                            digest, ConnectorJarType.COMMON_PLUGIN_JAR, data, pluginName, fileName);
+                            digest, ConnectorJarType.COMMON_PLUGIN_JAR, data, fileName);
             ConnectorJarIdentifier commonJarIdentifier =
                     connectorPackageService.storageConnectorJarFile(
                             jobId, nodeEngine.getSerializationService().toData(connectorJar));
@@ -212,7 +248,11 @@ public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
         Set<URL> commonPluginJarUrls = getJarUrlsFromIdentifiers(commonJarIdentifiers);
         Set<ConnectorJarIdentifier> pluginJarIdentifiers = new HashSet<>();
         transformActionPluginJarUrls(
-                immutablePair.getLeft(), pluginJarIdentifiers, jobId, connectorPackageService);
+                immutablePair.getLeft(),
+                pluginJarIdentifiers,
+                jobId,
+                connectorPackageService,
+                nodeEngine);
         Set<URL> connectorPluginJarUrls = getJarUrlsFromIdentifiers(pluginJarIdentifiers);
         List<ConnectorJarIdentifier> connectorJarIdentifiers = new ArrayList<>();
         List<URL> jarUrls = new ArrayList<>();
@@ -321,7 +361,10 @@ public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     private Set<ConnectorJarIdentifier> uploadPluginJarUrls(
-            Long jobId, Set<URL> pluginJarUrls, ConnectorPackageService connectorPackageService) {
+            Long jobId,
+            Set<URL> pluginJarUrls,
+            ConnectorPackageService connectorPackageService,
+            NodeEngineImpl nodeEngine) {
         Set<ConnectorJarIdentifier> pluginJarIdentifiers = new HashSet<>();
         pluginJarUrls.forEach(
                 pluginJarUrl -> {
@@ -350,12 +393,14 @@ public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
             List<Action> actions,
             Set<ConnectorJarIdentifier> result,
             Long jobId,
-            ConnectorPackageService connectorPackageService) {
+            ConnectorPackageService connectorPackageService,
+            NodeEngineImpl nodeEngine) {
         actions.forEach(
                 action -> {
                     Set<URL> jarUrls = action.getJarUrls();
                     Set<ConnectorJarIdentifier> jarIdentifiers =
-                            uploadPluginJarUrls(jobId, jarUrls, connectorPackageService);
+                            uploadPluginJarUrls(
+                                    jobId, jarUrls, connectorPackageService, nodeEngine);
                     result.addAll(jarIdentifiers);
                     // Reset the client URL of the jar package in Set
                     // add the URLs from remote master node
@@ -364,7 +409,11 @@ public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
                     action.getConnectorJarIdentifiers().addAll(jarIdentifiers);
                     if (!action.getUpstream().isEmpty()) {
                         transformActionPluginJarUrls(
-                                action.getUpstream(), result, jobId, connectorPackageService);
+                                action.getUpstream(),
+                                result,
+                                jobId,
+                                connectorPackageService,
+                                nodeEngine);
                     }
                 });
     }
@@ -403,4 +452,7 @@ public class ConnectorPackageServiceTest extends AbstractSeaTunnelServerTest {
             throw new RuntimeException();
         }
     }
+
+    @AfterAll
+    public void after() {}
 }

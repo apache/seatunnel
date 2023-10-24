@@ -24,6 +24,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
@@ -40,6 +41,7 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
@@ -152,6 +154,8 @@ public class CoordinatorService {
 
     private final EngineConfig engineConfig;
 
+    private ConnectorPackageService connectorPackageService;
+
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
             @NonNull SeaTunnelServer seaTunnelServer,
@@ -221,6 +225,13 @@ public class CoordinatorService {
                                 .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
                         engineConfig.getHistoryJobExpireMinutes());
 
+        // If the user has configured the connector package service, create it  on the master node.
+        ConnectorJarStorageConfig connectorJarStorageConfig =
+                engineConfig.getConnectorJarStorageConfig();
+        if (connectorJarStorageConfig.getEnable()) {
+            connectorPackageService = new ConnectorPackageService(seaTunnelServer);
+        }
+
         List<CompletableFuture<Void>> collect =
                 runningJobInfoIMap.entrySet().stream()
                         .map(
@@ -259,20 +270,6 @@ public class CoordinatorService {
             runningJobInfoIMap.remove(jobId);
             return;
         }
-        //        Data jobImmutableInformationData = jobInfo.getJobImmutableInformation();
-        //        JobImmutableInformation jobImmutableInformation =
-        //
-        // nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
-        //        List<ConnectorJarIdentifier> pluginJarIdentifiers =
-        //                jobImmutableInformation.getPluginJarIdentifiers();
-        //        pluginJarIdentifiers.forEach(
-        //                pluginJarIdentifier -> {
-        //                    String storagePath = pluginJarIdentifier.getStoragePath();
-        //                    if (!new File(storagePath).exists()) {
-        //                        connectorPackageHAStorage.downloadConnectorJar(jobId,
-        // pluginJarIdentifier);
-        //                    }
-        //                });
 
         JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
         JobMaster jobMaster =
@@ -836,5 +833,13 @@ public class CoordinatorService {
                         suspendedJobCount,
                         "reconcilingJobCount",
                         reconcilingJobCount));
+    }
+
+    public ConnectorPackageService getConnectorPackageService() {
+        if (connectorPackageService == null) {
+            throw new SeaTunnelEngineException(
+                    "The user is not configured to enable connector package service, can not get connector package service service from master node.");
+        }
+        return connectorPackageService;
     }
 }
