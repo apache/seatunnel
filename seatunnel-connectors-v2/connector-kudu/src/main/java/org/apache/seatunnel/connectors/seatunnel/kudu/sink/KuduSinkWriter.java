@@ -38,7 +38,7 @@ public class KuduSinkWriter implements SinkWriter<SeaTunnelRow, KuduCommitInfo, 
     private KuduOutputFormat fileWriter;
 
     public KuduSinkWriter(
-            @NonNull SeaTunnelRowType seaTunnelRowType, KuduSinkConfig kuduSinkConfig) {
+            @NonNull SeaTunnelRowType seaTunnelRowType, @NonNull KuduSinkConfig kuduSinkConfig) {
         this.seaTunnelRowType = seaTunnelRowType;
         fileWriter = new KuduOutputFormat(kuduSinkConfig, seaTunnelRowType);
     }

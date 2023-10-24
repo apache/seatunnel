@@ -29,5 +29,6 @@ import java.util.Map;
 @AllArgsConstructor
 @Getter
 public class KuduSourceState implements Serializable {
+    private boolean shouldEnumerate;
     private Map<Integer, List<KuduSourceSplit>> pendingSplits;
 }

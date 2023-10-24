@@ -40,13 +40,17 @@ public class KuduSinkFactory implements TableSinkFactory {
                 .optional(KuduSinkConfig.ADMIN_OPERATION_TIMEOUT)
                 .optional(KuduSinkConfig.SAVE_MODE)
                 .optional(KuduSinkConfig.FLUSH_MODE)
-                .optional(KuduSinkConfig.MUTATION_BUFFER_SPACE)
                 .optional(KuduSinkConfig.BATCH_SIZE)
                 .optional(KuduSinkConfig.BUFFER_FLUSH_INTERVAL)
                 .optional(KuduSinkConfig.IGNORE_NOT_FOUND)
                 .optional(KuduSinkConfig.IGNORE_DUPLICATE)
+                .optional(KuduSinkConfig.ENABLE_KERBEROS)
                 .optional(KuduSinkConfig.KERBEROS_KRB5_CONF)
-                .bundled(KuduSinkConfig.KERBEROS_PRINCIPAL, KuduSinkConfig.KERBEROS_KEYTAB)
+                .conditional(
+                        KuduSinkConfig.ENABLE_KERBEROS,
+                        true,
+                        KuduSinkConfig.KERBEROS_PRINCIPAL,
+                        KuduSinkConfig.KERBEROS_KEYTAB)
                 .build();
     }
 }

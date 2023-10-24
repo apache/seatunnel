@@ -2,6 +2,10 @@
 
 > Kudu sink connector
 
+## Support Kudu Version
+
+- 1.2/1.3/1.4/1.5
+
 ## Support Those Engines
 
 > Spark<br/>
@@ -10,12 +14,8 @@
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [x] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
 
 ## Data Type Mapping
 
@@ -34,18 +34,18 @@
 ## Sink Options
 
 |                   Name                    |  Type  | Required |                    Default                     |                                                                 Description                                                                 |
-|-------------------------------------------|--------|----------|------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|---|
+|-------------------------------------------|--------|----------|------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
 | kudu_masters                              | String | Yes      | -                                              | Kudu master address. Separated by ',',such as '192.168.88.110:7051'.                                                                        |
-| table_name                                | String | Yes      | -                                              | The name of kudu table.                                                                                                                     |   |
+| table_name                                | String | Yes      | -                                              | The name of kudu table.                                                                                                                     |
 | client_worker_count                       | Int    | No       | 2 * Runtime.getRuntime().availableProcessors() | Kudu worker count. Default value is twice the current number of cpu cores.                                                                  |
 | client_default_operation_timeout_ms       | Long   | No       | 30000                                          | Kudu normal operation time out.                                                                                                             |
 | client_default_admin_operation_timeout_ms | Long   | No       | 30000                                          | Kudu admin operation time out.                                                                                                              |
-| kerberos_principal                        | String | No       | -                                              | Kerberos principal.                                                                                                                         |
-| kerberos_keytab                           | String | No       | -                                              | Kerberos keytab.                                                                                                                            |
-| kerberos_krb5conf                         | String | No       | -                                              | Kerberos krb5 conf.                                                                                                                         |
+| enable_kerberos                           | Bool   | No       | false                                          | Kerberos principal enable.                                                                                                                  |
+| kerberos_principal                        | String | No       | -                                              | Kerberos principal. Note that all zeta nodes require have this file.                                                                        |
+| kerberos_keytab                           | String | No       | -                                              | Kerberos keytab. Note that all zeta nodes require have this file.                                                                           |
+| kerberos_krb5conf                         | String | No       | -                                              | Kerberos krb5 conf. Note that all zeta nodes require have this file.                                                                        |
 | save_mode                                 | String | No       | -                                              | Storage mode, support `overwrite` and `append`.                                                                                             |
 | session_flush_mode                        | String | No       | AUTO_FLUSH_SYNC                                | Kudu flush mode. Default AUTO_FLUSH_SYNC.                                                                                                   |
-| session_mutation_buffer_space             | Int    | No       | 1024                                           | The max size of Kudu buffer which buffed data.                                                                                              |
 | batch_size                                | Int    | No       | 1024                                           | The flush max size (includes all append, upsert and delete records), over this number of records, will flush data. The default value is 100 |
 | buffer_flush_interval                     | Int    | No       | 10000                                          | The flush interval mills, over this time, asynchronous threads will flush data.                                                             |
 | ignore_not_found                          | Bool   | No       | false                                          | If true, ignore all not found rows.                                                                                                         |
@@ -116,6 +116,9 @@ sink {
     source_table_name = "kudu"
     kudu_masters = "kudu-master-cdc:7051"
     table_name = "kudu_sink_table"
+    enable_kerberos = true
+    kerberos_principal = "xx@xx.COM"
+    kerberos_keytab = "xx.keytab"
  }
 }
 ```

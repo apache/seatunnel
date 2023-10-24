@@ -44,12 +44,6 @@ public class KuduSinkConfig extends CommonConfig {
                     .defaultValue(SessionConfiguration.FlushMode.AUTO_FLUSH_SYNC.name())
                     .withDescription("Kudu flush mode. Default AUTO_FLUSH_SYNC");
 
-    public static final Option<Integer> MUTATION_BUFFER_SPACE =
-            Options.key("session_mutation_buffer_space")
-                    .intType()
-                    .defaultValue(1024)
-                    .withDescription("The max size of Kudu buffer which buffed data.");
-
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size")
                     .intType()
@@ -84,8 +78,6 @@ public class KuduSinkConfig extends CommonConfig {
 
     private int maxBufferSize;
 
-    private int bathSize;
-
     private int flushInterval;
 
     private boolean ignoreNotFound;
@@ -109,8 +101,7 @@ public class KuduSinkConfig extends CommonConfig {
         super(config);
         this.saveMode = config.get(SAVE_MODE);
         this.flushMode = fromStrFlushMode(config.get(FLUSH_MODE));
-        this.bathSize = config.get(BATCH_SIZE);
-        this.maxBufferSize = config.get(MUTATION_BUFFER_SPACE);
+        this.maxBufferSize = config.get(BATCH_SIZE);
         this.flushInterval = config.get(BUFFER_FLUSH_INTERVAL);
         this.ignoreNotFound = config.get(IGNORE_NOT_FOUND);
         this.ignoreDuplicate = config.get(IGNORE_DUPLICATE);

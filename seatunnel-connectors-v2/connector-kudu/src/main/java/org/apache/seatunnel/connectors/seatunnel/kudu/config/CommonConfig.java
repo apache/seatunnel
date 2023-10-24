@@ -28,8 +28,6 @@ import lombok.ToString;
 
 import java.io.Serializable;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
-
 @Getter
 @ToString
 public class CommonConfig implements Serializable {
@@ -65,23 +63,31 @@ public class CommonConfig implements Serializable {
                     .defaultValue(AsyncKuduClient.DEFAULT_OPERATION_TIMEOUT_MS)
                     .withDescription("Kudu admin operation time out");
 
+    public static final Option<Boolean> ENABLE_KERBEROS =
+            Options.key("enable_kerberos")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Kerberos principal enable.");
     public static final Option<String> KERBEROS_PRINCIPAL =
             Options.key("kerberos_principal")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Kerberos principal");
+                    .withDescription(
+                            "Kerberos principal. Note that all zeta nodes require have this file.");
 
     public static final Option<String> KERBEROS_KEYTAB =
             Options.key("kerberos_keytab")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Kerberos keytab");
+                    .withDescription(
+                            "Kerberos keytab. Note that all zeta nodes require have this file.");
 
     public static final Option<String> KERBEROS_KRB5_CONF =
             Options.key("kerberos_krb5conf")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Kerberos krb5 conf");
+                    .withDescription(
+                            "Kerberos krb5 conf. Note that all zeta nodes require have this file.");
 
     protected String masters;
 
@@ -92,23 +98,21 @@ public class CommonConfig implements Serializable {
     protected Long operationTimeout;
 
     protected Long adminOperationTimeout;
+
+    protected Boolean enableKerberos;
     protected String principal;
     protected String keytab;
     protected String krb5conf;
 
     public CommonConfig(ReadonlyConfig config) {
-        this.masters = checkArgumentNotNull(config.get(MASTER));
-        this.table = checkArgumentNotNull(config.get(TABLE_NAME));
+        this.masters = config.get(MASTER);
+        this.table = config.get(TABLE_NAME);
         this.workerCount = config.get(WORKER_COUNT);
         this.operationTimeout = config.get(OPERATION_TIMEOUT);
         this.adminOperationTimeout = config.get(ADMIN_OPERATION_TIMEOUT);
+        this.enableKerberos = config.get(ENABLE_KERBEROS);
         this.principal = config.get(KERBEROS_PRINCIPAL);
         this.keytab = config.get(KERBEROS_KEYTAB);
         this.krb5conf = config.get(KERBEROS_KEYTAB);
-    }
-
-    protected <T> T checkArgumentNotNull(T argument) {
-        checkNotNull(argument);
-        return argument;
     }
 }

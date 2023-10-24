@@ -67,7 +67,10 @@ public class KuduSourceSplitEnumerator
         this.pendingSplits = new HashMap<>();
         this.kuduInputFormat = kuduInputFormat;
         this.shouldEnumerate = checkpointState == null;
-        this.checkpointState = checkpointState;
+        if (checkpointState != null) {
+            this.shouldEnumerate = checkpointState.isShouldEnumerate();
+            this.pendingSplits.putAll(checkpointState.getPendingSplits());
+        }
     }
 
     @Override
@@ -106,9 +109,11 @@ public class KuduSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<KuduSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to KuduSourceSplitEnumerator.", splits);
-        if (!splits.isEmpty()) {
-            addPendingSplit(splits);
-            assignSplit(Collections.singletonList(subtaskId));
+        synchronized (stateLock) {
+            if (!splits.isEmpty()) {
+                addPendingSplit(splits);
+                assignSplit(Collections.singletonList(subtaskId));
+            }
         }
     }
 
@@ -161,15 +166,17 @@ public class KuduSourceSplitEnumerator
     @Override
     public void registerReader(int subtaskId) {
         log.debug("Register reader {} to KuduSourceSplitEnumerator.", subtaskId);
-        if (!pendingSplits.isEmpty()) {
-            assignSplit(Collections.singletonList(subtaskId));
+        synchronized (stateLock) {
+            if (!pendingSplits.isEmpty()) {
+                assignSplit(Collections.singletonList(subtaskId));
+            }
         }
     }
 
     @Override
     public KuduSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new KuduSourceState(pendingSplits);
+            return new KuduSourceState(shouldEnumerate, new HashMap<>(pendingSplits));
         }
     }
 

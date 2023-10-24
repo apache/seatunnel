@@ -56,14 +56,14 @@ public class KuduUtil {
 
     public static KuduClient getKuduClient(CommonConfig config) {
         try {
-            if (config.getKeytab() != null && config.getPrincipal() != null) {
-
-                UserGroupInformation ugi = loginAndReturnUgi(config);
-                return ugi.doAs(
-                        (PrivilegedExceptionAction<KuduClient>)
-                                () -> getKuduClientInternal(config));
+            if (config.getEnableKerberos()) {
+                synchronized (UserGroupInformation.class) {
+                    UserGroupInformation ugi = loginAndReturnUgi(config);
+                    return ugi.doAs(
+                            (PrivilegedExceptionAction<KuduClient>)
+                                    () -> getKuduClientInternal(config));
+                }
             }
-
             return getKuduClientInternal(config);
 
         } catch (IOException | InterruptedException e) {

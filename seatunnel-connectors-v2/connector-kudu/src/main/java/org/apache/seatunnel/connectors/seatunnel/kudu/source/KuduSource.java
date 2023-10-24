@@ -21,12 +21,14 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -44,20 +46,18 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.util.KuduUtil;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.client.KuduClient;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @AutoService(SeaTunnelSource.class)
 public class KuduSource
         implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit, KuduSourceState>,
                 SupportParallelism {
 
-    private static final Logger log = LoggerFactory.getLogger(SeaTunnelSource.class);
     private SeaTunnelRowType rowTypeInfo;
     private KuduInputFormat kuduInputFormat;
     private KuduSourceConfig kuduSourceConfig;
@@ -100,6 +100,7 @@ public class KuduSource
     @Override
     public void prepare(Config pluginConfig) {
         ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
+        ConfigValidator.of(config).validate(new KuduSourceFactory().optionRule());
         try {
             kuduSourceConfig = new KuduSourceConfig(config);
         } catch (Exception e) {
@@ -107,10 +108,10 @@ public class KuduSource
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, e.getMessage()));
+                            getPluginName(), PluginType.SINK, ExceptionUtils.getMessage(e)));
         }
 
-        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
+        if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             rowTypeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
         } else {
             try (KuduClient kuduClient = KuduUtil.getKuduClient(kuduSourceConfig)) {

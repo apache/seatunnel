@@ -32,6 +32,7 @@ import org.apache.kudu.client.KuduScanToken;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.RowResult;
 
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -55,7 +56,8 @@ public class KuduInputFormat implements Serializable {
     /** Declare the global variable KuduClient and use it to manipulate the Kudu table */
     public KuduClient kuduClient;
 
-    public KuduInputFormat(KuduSourceConfig kuduSourceConfig, SeaTunnelRowType rowTypeInfo) {
+    public KuduInputFormat(
+            @NonNull KuduSourceConfig kuduSourceConfig, SeaTunnelRowType rowTypeInfo) {
         this.kuduSourceConfig = kuduSourceConfig;
         this.rowTypeInfo = rowTypeInfo;
     }

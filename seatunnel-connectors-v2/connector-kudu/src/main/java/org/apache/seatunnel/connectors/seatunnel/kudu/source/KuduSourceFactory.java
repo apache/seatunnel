@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
@@ -42,15 +42,20 @@ public class KuduSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(MASTER, TABLE_NAME)
-                .optional(CatalogTableUtil.SCHEMA)
+                .optional(TableSchemaOptions.SCHEMA)
                 .optional(KuduSourceConfig.WORKER_COUNT)
                 .optional(KuduSourceConfig.OPERATION_TIMEOUT)
                 .optional(KuduSourceConfig.ADMIN_OPERATION_TIMEOUT)
                 .optional(KuduSourceConfig.QUERY_TIMEOUT)
                 .optional(KuduSourceConfig.SCAN_BATCH_SIZE_BYTES)
                 .optional(KuduSourceConfig.FILTER)
+                .optional(KuduSinkConfig.ENABLE_KERBEROS)
                 .optional(KuduSinkConfig.KERBEROS_KRB5_CONF)
-                .bundled(KuduSinkConfig.KERBEROS_PRINCIPAL, KuduSinkConfig.KERBEROS_KEYTAB)
+                .conditional(
+                        KuduSinkConfig.ENABLE_KERBEROS,
+                        true,
+                        KuduSinkConfig.KERBEROS_PRINCIPAL,
+                        KuduSinkConfig.KERBEROS_KEYTAB)
                 .build();
     }
 

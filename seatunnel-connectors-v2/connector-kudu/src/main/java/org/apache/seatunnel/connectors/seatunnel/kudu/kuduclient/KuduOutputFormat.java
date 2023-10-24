@@ -34,6 +34,7 @@ import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.Operation;
 import org.apache.kudu.client.OperationResponse;
 
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -59,7 +60,8 @@ public class KuduOutputFormat implements Serializable {
 
     private transient AtomicInteger numPendingRequests;
 
-    public KuduOutputFormat(KuduSinkConfig kuduSinkConfig, SeaTunnelRowType seaTunnelRowType) {
+    public KuduOutputFormat(
+            @NonNull KuduSinkConfig kuduSinkConfig, SeaTunnelRowType seaTunnelRowType) {
         this.kuduTableName = kuduSinkConfig.getTable();
         this.saveMode = kuduSinkConfig.getSaveMode();
         this.kuduSinkConfig = kuduSinkConfig;

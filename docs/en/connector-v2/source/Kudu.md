@@ -11,7 +11,6 @@
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
-- [x] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
@@ -40,15 +39,16 @@ The tested kudu version is 1.11.1.
 ## Source Options
 
 |                   Name                    |  Type  | Required |                    Default                     |                                               Description                                                |
-|-------------------------------------------|--------|----------|------------------------------------------------|----------------------------------------------------------------------------------------------------------|---|
+|-------------------------------------------|--------|----------|------------------------------------------------|----------------------------------------------------------------------------------------------------------|
 | kudu_masters                              | String | Yes      | -                                              | Kudu master address. Separated by ',',such as '192.168.88.110:7051'.                                     |
-| table_name                                | String | Yes      | -                                              | The name of kudu table.                                                                                  |   |
+| table_name                                | String | Yes      | -                                              | The name of kudu table.                                                                                  |
 | client_worker_count                       | Int    | No       | 2 * Runtime.getRuntime().availableProcessors() | Kudu worker count. Default value is twice the current number of cpu cores.                               |
 | client_default_operation_timeout_ms       | Long   | No       | 30000                                          | Kudu normal operation time out.                                                                          |
 | client_default_admin_operation_timeout_ms | Long   | No       | 30000                                          | Kudu admin operation time out.                                                                           |
-| kerberos_principal                        | String | No       | -                                              | Kerberos principal.                                                                                      |
-| kerberos_keytab                           | String | No       | -                                              | Kerberos keytab.                                                                                         |
-| kerberos_krb5conf                         | String | No       | -                                              | Kerberos krb5 conf.                                                                                      |
+| enable_kerberos                           | Bool   | No       | false                                          | Kerberos principal enable.                                                                               |
+| kerberos_principal                        | String | No       | -                                              | Kerberos principal. Note that all zeta nodes require have this file.                                     |
+| kerberos_keytab                           | String | No       | -                                              | Kerberos keytab. Note that all zeta nodes require have this file.                                        |
+| kerberos_krb5conf                         | String | No       | -                                              | Kerberos krb5 conf. Note that all zeta nodes require have this file.                                     |
 | scan_token_query_timeout                  | Long   | No       | 30000                                          | The timeout for connecting scan token. If not set, it will be the same as operationTimeout.              |
 | scan_token_batch_size_bytes               | Int    | No       | 1024 * 1024                                    | Kudu scan bytes. The maximum number of bytes read at a time, the default is 1MB.                         |
 | filter                                    | Int    | No       | 1024 * 1024                                    | Kudu scan filter expressions,Not supported yet.                                                          |
@@ -75,6 +75,9 @@ source {
    kudu_masters = "kudu-master:7051"
    table_name = "kudu_source_table"
    result_table_name = "kudu"
+   enable_kerberos = true
+   kerberos_principal = "xx@xx.COM"
+   kerberos_keytab = "xx.keytab"
 }
 }
 
@@ -90,6 +93,9 @@ sink {
     source_table_name = "kudu"
     kudu_masters = "kudu-master:7051"
     table_name = "kudu_sink_table"
+    enable_kerberos = true
+    kerberos_principal = "xx@xx.COM"
+    kerberos_keytab = "xx.keytab"
  }
 ```
 
