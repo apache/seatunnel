@@ -88,9 +88,10 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     } catch (SQLException e) {
                         log.warn("resultSetIndex:{}", resultSetIndex);
                         log.warn("ResultSet:{}", rs);
+                        log.warn("typeInfo:{}", typeInfo);
                         ResultSetMetaData metadata = rs.getMetaData();
                         log.warn("ResultSetMetaData:{}", metadata);
-                        for (int i = 0; i < metadata.getColumnCount(); i++) {
+                        for (int i = 1; i <= metadata.getColumnCount(); i++) {
                             log.warn(
                                     "columnIndex:{},columnName:{},columnLabel:{},columnTypeName:{}",
                                     i,
@@ -98,7 +99,6 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                                     metadata.getColumnLabel(i),
                                     metadata.getColumnTypeName(i));
                         }
-                        log.warn("typeInfo:{}", typeInfo);
                         log.warn("get date error", e);
                         throw e;
                     }
