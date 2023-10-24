@@ -60,11 +60,9 @@ public class AmazonSqsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     public AmazonSqsSink(
             ReadonlyConfig pluginConfig,
-            SeaTunnelRowType typeInfo,
-            AmazonSqsSinkConfig amazonSqsSinkConfig) {
+            SeaTunnelRowType typeInfo) {
         this.typeInfo = typeInfo;
         this.pluginConfig = pluginConfig;
-        this.amazonSqsSinkConfig = amazonSqsSinkConfig;
     }
 
     @Override
@@ -93,6 +91,6 @@ public class AmazonSqsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new AmazonSqsSinkWriter(typeInfo, pluginConfig, amazonSqsSinkConfig);
+        return new AmazonSqsSinkWriter(typeInfo, pluginConfig);
     }
 }

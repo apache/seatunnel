@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
@@ -42,45 +41,47 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 
+import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.ACCESS_KEY_ID;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.DEFAULT_FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.REGION;
+import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.SECRET_ACCESS_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.URL;
 
 public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
+    private final ReadonlyConfig pluginConfig;
     protected SqsClient sqsClient;
-
-    private final AmazonSqsSinkConfig amazonSqsSinkConfig;
 
     private final SerializationSchema serializationSchema;
 
     public AmazonSqsSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
-            ReadonlyConfig pluginConfig,
-            AmazonSqsSinkConfig amazonSqsSinkConfig) {
-        if (amazonSqsSinkConfig.getAccessKeyId() != null
-                & amazonSqsSinkConfig.getSecretAccessKey() != null) {
+            ReadonlyConfig pluginConfig) {
+        if (pluginConfig.get(ACCESS_KEY_ID) != null
+                & pluginConfig.get(SECRET_ACCESS_KEY) != null) {
             sqsClient =
                     SqsClient.builder()
-                            .endpointOverride(URI.create(amazonSqsSinkConfig.getUrl()))
+                            .endpointOverride(URI.create(pluginConfig.get(URL)))
                             // The region is meaningless for local Sqs but required for client
                             // builder validation
-                            .region(Region.of(amazonSqsSinkConfig.getRegion()))
+                            .region(Region.of(pluginConfig.get(REGION)))
                             .credentialsProvider(
                                     StaticCredentialsProvider.create(
                                             AwsBasicCredentials.create(
-                                                    amazonSqsSinkConfig.getAccessKeyId(),
-                                                    amazonSqsSinkConfig.getSecretAccessKey())))
+                                                    pluginConfig.get(ACCESS_KEY_ID),
+                                                    pluginConfig.get(SECRET_ACCESS_KEY))))
                             .build();
         } else {
             sqsClient =
                     SqsClient.builder()
-                            .endpointOverride(URI.create(amazonSqsSinkConfig.getUrl()))
-                            .region(Region.of(amazonSqsSinkConfig.getRegion()))
+                            .endpointOverride(URI.create(pluginConfig.get(URL)))
+                            .region(Region.of(pluginConfig.get(REGION)))
                             .credentialsProvider(DefaultCredentialsProvider.create())
                             .build();
         }
-        this.amazonSqsSinkConfig = amazonSqsSinkConfig;
+        this.pluginConfig = pluginConfig;
         this.serializationSchema = createSerializationSchema(seaTunnelRowType, pluginConfig);
     }
 
@@ -92,7 +93,7 @@ public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
         SendMessageRequest sendMessageRequest =
                 SendMessageRequest.builder()
-                        .queueUrl(amazonSqsSinkConfig.getUrl())
+                        .queueUrl(pluginConfig.get(URL))
                         .messageBody(messageBody)
                         .build();
 
