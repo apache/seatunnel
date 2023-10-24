@@ -56,11 +56,8 @@ public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
     private final SerializationSchema serializationSchema;
 
-    public AmazonSqsSinkWriter(
-            SeaTunnelRowType seaTunnelRowType,
-            ReadonlyConfig pluginConfig) {
-        if (pluginConfig.get(ACCESS_KEY_ID) != null
-                & pluginConfig.get(SECRET_ACCESS_KEY) != null) {
+    public AmazonSqsSinkWriter(SeaTunnelRowType seaTunnelRowType, ReadonlyConfig pluginConfig) {
+        if (pluginConfig.get(ACCESS_KEY_ID) != null & pluginConfig.get(SECRET_ACCESS_KEY) != null) {
             sqsClient =
                     SqsClient.builder()
                             .endpointOverride(URI.create(pluginConfig.get(URL)))
