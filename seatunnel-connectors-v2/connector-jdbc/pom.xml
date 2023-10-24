@@ -48,6 +48,7 @@
         <hikari.version>4.0.3</hikari.version>
         <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
         <kingbase8.version>8.6.0</kingbase8.version>
+        <oceanbase.jdbc.version>2.4.3</oceanbase.jdbc.version>
     </properties>
 
     <dependencyManagement>
@@ -156,6 +157,12 @@
                 <version>${kingbase8.version}</version>
                 <scope>provided</scope>
             </dependency>
+            <dependency>
+                <groupId>com.oceanbase</groupId>
+                <artifactId>oceanbase-client</artifactId>
+                <version>${oceanbase.jdbc.version}</version>
+                <scope>provided</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -242,6 +249,9 @@
             <groupId>cn.com.kingbase</groupId>
             <artifactId>kingbase8</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>com.oceanbase</groupId>
+            <artifactId>oceanbase-client</artifactId>
+        </dependency>
     </dependencies>
 </project>
