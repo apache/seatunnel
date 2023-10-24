@@ -197,8 +197,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         // page increase
         if (pageInfoOptional.isPresent()) {
             // Determine whether the task is completed by specifying the presence of the 'total
-            // page'
-            // field.
+            // page' field
             PageInfo pageInfo = pageInfoOptional.get();
             if (pageInfo.getTotalPageSize() > 0) {
                 noMoreElementFlag = pageInfo.getPageIndex() >= pageInfo.getTotalPageSize();
