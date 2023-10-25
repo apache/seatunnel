@@ -85,6 +85,7 @@
 - [Container Version] Fix risk of unreproducible test cases #4591
 - [E2e] [Mysql-cdc] Removing the excess MySqlIncrementalSourceIT e2e reduces the CI time (#4738)
 - [E2E] [Common] Update test container version of seatunnel engine (#5323)
+- [E2E] [Jdbc] Fix not remove docker image after test finish on jdbc suite (#5586)
 
 ## Improve
 
@@ -96,6 +97,7 @@
 - [Core] [Starter] Optimize code structure & remove redundant code (#4525)
 - [Core] [Translation] [Flink] Optimize code structure & remove redundant code (#4527)
 - [Core] [Starter] Add check of sink and source config to avoid null pointer exception. (#4734)
+- [Core] [Flink] Remove useless stage type related codes. (#5650)
 
 ### Connector-V2
 
@@ -150,6 +152,7 @@
 - [Core] [API] Add copy method to Catalog codes (#4414)
 - [Core] [API] Add options check before create source and sink and transform in FactoryUtil (#4424)
 - [Core] [Shade] Add guava shade module (#4358)
+- [Core] [Spark] Support SeaTunnel Time Type (#5188)
 - [Core] [Flink] Support Decimal Type with configurable precision and scale (#5419)
 
 ### Connector-V2
@@ -201,3 +204,4 @@
 - [Docs] Refactor connector-v2 docs using unified format Mysql (#4590)
 - [Docs] Add Value types in Java to Schema features (#5087)
 - [Docs] Replace username by user in the options of FtpFile (#5421)
+- [Docs] Add how to configure logging related parameters of SeaTunnel-E2E Test (#5589)

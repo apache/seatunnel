@@ -32,14 +32,17 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 
+import com.github.dockerjava.api.model.Image;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -193,7 +196,13 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     public void clearTable(String schema, String table) {
         try (Statement statement = connection.createStatement()) {
             statement.execute("TRUNCATE TABLE " + buildTableInfoWithSchema(schema, table));
+            connection.commit();
         } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException exception) {
+                throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, exception);
+            }
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, e);
         }
     }
@@ -219,10 +228,11 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     @BeforeAll
     @Override
     public void startUp() {
-        dbServer = initContainer();
-        jdbcCase = getJdbcCase();
+        dbServer = initContainer().withImagePullPolicy(PullPolicy.alwaysPull());
 
         Startables.deepStart(Stream.of(dbServer)).join();
+
+        jdbcCase = getJdbcCase();
 
         given().ignoreExceptions()
                 .await()
@@ -235,18 +245,36 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         initCatalog();
     }
 
+    @AfterAll
     @Override
     public void tearDown() throws SQLException {
-        if (dbServer != null) {
-            dbServer.close();
+        if (catalog != null) {
+            catalog.close();
         }
 
         if (connection != null) {
             connection.close();
         }
 
-        if (catalog != null) {
-            catalog.close();
+        if (dbServer != null) {
+            dbServer.close();
+            String images =
+                    dockerClient.listImagesCmd().exec().stream()
+                            .map(Image::getId)
+                            .collect(Collectors.joining(","));
+            log.info(
+                    "before remove image {}, list images: {}",
+                    dbServer.getDockerImageName(),
+                    images);
+            dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
+            images =
+                    dockerClient.listImagesCmd().exec().stream()
+                            .map(Image::getId)
+                            .collect(Collectors.joining(","));
+            log.info(
+                    "after remove image {}, list images: {}",
+                    dbServer.getDockerImageName(),
+                    images);
         }
     }
 

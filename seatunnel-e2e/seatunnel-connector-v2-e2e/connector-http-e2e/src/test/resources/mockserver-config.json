@@ -4447,5 +4447,84 @@
         ]
       }
     }
+  },
+  {
+    "httpRequest": {
+      "method" : "POST",
+      "path": "/example/jsonBody",
+      "body": {
+        "type": "JSON",
+        "json": {
+          "id": 1
+        },
+        "matchType": "STRICT"
+      }
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl",
+          "age": 18
+        },
+        {
+          "name": "pizz",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "path": "/example/formBody",
+      "method": "POST",
+      "body": {
+        "type": "PARAMETERS",
+        "parameters": {
+          "id": "1"
+        }
+      }
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl",
+          "age": 18
+        },
+        {
+          "name": "pizz",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "path": "/example/webhook",
+      "method": "POST",
+      "headers": {
+        "token": ["9e32e859ef044462a257e1fc76730066"]
+      }
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl",
+          "age": 18
+        },
+        {
+          "name": "pizz",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
   }
 ]

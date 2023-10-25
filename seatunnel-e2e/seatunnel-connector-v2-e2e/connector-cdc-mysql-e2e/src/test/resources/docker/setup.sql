@@ -22,7 +22,7 @@
 -- 1) 'st_user' - all privileges required by the snapshot reader AND binlog reader (used for testing)
 -- 2) 'mysqluser' - all privileges
 --
-GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT, LOCK TABLES  ON *.* TO 'st_user'@'%';
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT, DROP, LOCK TABLES  ON *.* TO 'st_user'@'%';
 CREATE USER 'mysqluser' IDENTIFIED BY 'mysqlpw';
 GRANT ALL PRIVILEGES ON *.* TO 'mysqluser'@'%';
 

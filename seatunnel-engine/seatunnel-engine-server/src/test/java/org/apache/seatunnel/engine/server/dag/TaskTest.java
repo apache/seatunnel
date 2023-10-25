@@ -21,12 +21,13 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -147,7 +148,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                                 runningJobState,
                                 runningJobStateTimestamp,
                                 QueueType.BLOCKINGQUEUE,
-                                new CheckpointConfig())
+                                new EngineConfig())
                         .f0();
 
         Assertions.assertEquals(physicalPlan.getPipelineList().size(), 1);
@@ -158,14 +159,12 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
     }
 
     private static FakeSource createFakeSource() {
-        FakeSource fakeSource = new FakeSource();
         Config fakeSourceConfig =
                 ConfigFactory.parseMap(
                         Collections.singletonMap(
                                 "schema",
                                 Collections.singletonMap(
                                         "fields", ImmutableMap.of("id", "int", "name", "string"))));
-        fakeSource.prepare(fakeSourceConfig);
-        return fakeSource;
+        return new FakeSource(ReadonlyConfig.fromConfig(fakeSourceConfig));
     }
 }
