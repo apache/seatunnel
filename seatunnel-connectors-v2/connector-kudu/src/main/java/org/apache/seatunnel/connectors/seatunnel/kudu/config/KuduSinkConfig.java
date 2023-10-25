@@ -51,12 +51,35 @@ public class KuduSinkConfig {
                     .noDefaultValue()
                     .withDescription("kudu table name");
 
+    public static final Option<Boolean> USE_KERBEROS =
+            Options.key("use.kerberos")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("kudu use.kerberos");
+
+    public static final Option<String> CONF_FILES =
+            Options.key("conf.files").stringType().noDefaultValue().withDescription("conf files ");
+
+    public static final Option<String> KERBEROS_PRINCIPAL =
+            Options.key("kerberos_principal")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Kudu kerberos principal");
+
+    public static final Option<String> KERBEROS_KEYTAB_PATH =
+            Options.key("kerberos_keytab_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Kudu kerberos keytab file path");
+
     private SaveMode saveMode;
 
     private String kuduMaster;
 
     /** Specifies the name of the table */
     private String kuduTableName;
+
+    private boolean useKerberos;
 
     public enum SaveMode {
         APPEND(),
@@ -81,6 +104,7 @@ public class KuduSinkConfig {
                             : SaveMode.fromStr(pluginConfig.getString(KUDU_SAVE_MODE.key()));
             this.kuduMaster = pluginConfig.getString(KUDU_MASTER.key());
             this.kuduTableName = pluginConfig.getString(KUDU_TABLE_NAME.key());
+            this.useKerberos = pluginConfig.getBoolean(USE_KERBEROS.key());
         } else {
             throw new KuduConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

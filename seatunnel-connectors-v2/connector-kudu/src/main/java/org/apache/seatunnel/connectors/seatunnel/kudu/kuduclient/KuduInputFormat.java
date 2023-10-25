@@ -49,10 +49,12 @@ import java.util.List;
 @Slf4j
 public class KuduInputFormat implements Serializable {
 
-    public KuduInputFormat(String kuduMaster, String tableName, String columnsList) {
+    public KuduInputFormat(
+            String kuduMaster, String tableName, String columnsList, boolean useKerberos) {
         this.kuduMaster = kuduMaster;
         this.columnsList = Arrays.asList(columnsList.split(","));
         this.tableName = tableName;
+        this.useKerberos = useKerberos;
     }
 
     /** Declare the global variable KuduClient and use it to manipulate the Kudu table */
@@ -68,6 +70,8 @@ public class KuduInputFormat implements Serializable {
 
     /** Specifies the name of the table */
     public String tableName;
+
+    public boolean useKerberos;
 
     public List<ColumnSchema> getColumnsSchemas() {
         List<ColumnSchema> columns = null;
@@ -146,12 +150,7 @@ public class KuduInputFormat implements Serializable {
     }
 
     public void openInputFormat() {
-        KuduClient.KuduClientBuilder kuduClientBuilder =
-                new KuduClient.KuduClientBuilder(kuduMaster);
-        kuduClientBuilder.defaultOperationTimeoutMs(TIMEOUTMS);
-
-        kuduClient = kuduClientBuilder.build();
-
+        this.kuduClient = KuduClientUtil.getKuduClient(kuduMaster, useKerberos, TIMEOUTMS);
         log.info("The Kudu client is successfully initialized", kuduMaster, kuduClient);
     }
 

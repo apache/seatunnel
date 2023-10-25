@@ -25,8 +25,15 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import com.google.auto.service.AutoService;
 
@@ -59,6 +66,25 @@ public class KuduSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
+        boolean useKerberos = pluginConfig.getBoolean(KuduSourceConfig.USE_KERBEROS.key());
+        if (useKerberos) {
+            CheckConfigUtil.checkAllExists(
+                    pluginConfig,
+                    KuduSourceConfig.KERBEROS_PRINCIPAL.key(),
+                    KuduSourceConfig.KERBEROS_KEYTAB_PATH.key());
+            Configuration configuration = new Configuration();
+            UserGroupInformation.setConfiguration(configuration);
+            String kerberosPrincipal =
+                    pluginConfig.getString(KuduSourceConfig.KERBEROS_PRINCIPAL.key());
+            String kerberosKeytabPath =
+                    pluginConfig.getString(KuduSourceConfig.KERBEROS_KEYTAB_PATH.key());
+            try {
+                UserGroupInformation.loginUserFromKeytab(kerberosPrincipal, kerberosKeytabPath);
+            } catch (IOException e) {
+                throw new KuduConnectorException(
+                        KuduConnectorErrorCode.KUDU_KERBEROS_AUTH_FAILED, e);
+            }
+        }
         this.config = pluginConfig;
     }
 

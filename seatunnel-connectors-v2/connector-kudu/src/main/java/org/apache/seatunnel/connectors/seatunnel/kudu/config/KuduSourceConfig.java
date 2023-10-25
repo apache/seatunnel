@@ -41,4 +41,22 @@ public class KuduSourceConfig implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Specifies the column names of the table");
+
+    public static final Option<Boolean> USE_KERBEROS =
+            Options.key("use.kerberos")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("kudu use.kerberos");
+
+    public static final Option<String> KERBEROS_PRINCIPAL =
+            Options.key("kerberos_principal")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Kudu kerberos principal");
+
+    public static final Option<String> KERBEROS_KEYTAB_PATH =
+            Options.key("kerberos_keytab_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Kudu kerberos keytab file path");
 }
