@@ -38,6 +38,7 @@ public class InternalRowCollector implements Collector<SeaTunnelRow> {
     private final AtomicLong collectTotalCount;
     private Map<String, Object> envOptions;
     private FlowControlGate flowControlGate;
+    private volatile boolean emptyThisPollNext;
 
     public InternalRowCollector(
             Handover<InternalRow> handover,
@@ -65,6 +66,7 @@ public class InternalRowCollector implements Collector<SeaTunnelRow> {
                 handover.produce(rowSerialization.convert(record));
             }
             collectTotalCount.incrementAndGet();
+            emptyThisPollNext = false;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -77,5 +79,15 @@ public class InternalRowCollector implements Collector<SeaTunnelRow> {
     @Override
     public Object getCheckpointLock() {
         return this.checkpointLock;
+    }
+
+    @Override
+    public boolean isEmptyThisPollNext() {
+        return emptyThisPollNext;
+    }
+
+    @Override
+    public void resetEmptyThisPollNext() {
+        this.emptyThisPollNext = true;
     }
 }

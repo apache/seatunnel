@@ -192,10 +192,12 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         return checkpointLock;
     }
 
+    @Override
     public boolean isEmptyThisPollNext() {
         return emptyThisPollNext;
     }
 
+    @Override
     public void resetEmptyThisPollNext() {
         this.emptyThisPollNext = true;
     }
