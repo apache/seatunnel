@@ -66,7 +66,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final Configuration jsonConfiguration =
             Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
     private boolean noMoreElementFlag = true;
-    private Optional<PageInfo> pageInfoOptional;
+    private Optional<PageInfo> pageInfoOptional = Optional.empty();
 
     public HttpSourceReader(
             HttpParameter httpParameter,
