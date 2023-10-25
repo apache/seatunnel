@@ -15,16 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.scheduler;
+package org.apache.seatunnel.engine.common.exception;
 
-import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import com.hazelcast.client.impl.protocol.ClientExceptionFactory;
+import com.hazelcast.core.HazelcastException;
 
-import lombok.NonNull;
+public class TaskGroupDeployException extends HazelcastException
+        implements ClientExceptionFactory.ExceptionFactory {
+    public TaskGroupDeployException() {}
 
-import java.util.concurrent.CompletableFuture;
+    public TaskGroupDeployException(String message) {
+        super(message);
+    }
 
-public interface JobScheduler {
-    CompletableFuture<Void> reSchedulerPipeline(@NonNull SubPlan subPlan);
+    public TaskGroupDeployException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
-    void startScheduling();
+    public TaskGroupDeployException(Throwable cause) {
+        super(cause);
+    }
+
+    @Override
+    public Throwable createException(String s, Throwable throwable) {
+        return new TaskGroupDeployException(s, throwable);
+    }
 }
