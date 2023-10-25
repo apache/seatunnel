@@ -18,10 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventDispatcher;
+import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import org.apache.commons.lang3.StringUtils;
@@ -34,20 +39,38 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
-public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+        implements SupportMultiTableSinkWriter<Void> {
 
-    private final SeaTunnelRowType seaTunnelRowType;
-    public final AtomicLong rowCounter = new AtomicLong(0);
-    public SinkWriter.Context context;
+    private SeaTunnelRowType seaTunnelRowType;
+    private final AtomicLong rowCounter = new AtomicLong(0);
+    private final SinkWriter.Context context;
+    private final DataTypeChangeEventHandler dataTypeChangeEventHandler;
 
-    public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType, SinkWriter.Context context) {
+    boolean isPrintData = true;
+    int delayMs = 0;
+
+    public ConsoleSinkWriter(
+            SeaTunnelRowType seaTunnelRowType,
+            SinkWriter.Context context,
+            boolean isPrintData,
+            int delayMs) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
+        this.isPrintData = isPrintData;
+        this.delayMs = delayMs;
+        this.dataTypeChangeEventHandler = new DataTypeChangeEventDispatcher();
         log.info("output rowType: {}", fieldsInfo(seaTunnelRowType));
     }
 
     @Override
-    @SuppressWarnings("checkstyle:RegexpSingleline")
+    public void applySchemaChange(SchemaChangeEvent event) {
+        log.info("changed rowType before: {}", fieldsInfo(seaTunnelRowType));
+        seaTunnelRowType = dataTypeChangeEventHandler.reset(seaTunnelRowType).apply(event);
+        log.info("changed rowType after: {}", fieldsInfo(seaTunnelRowType));
+    }
+
+    @Override
     public void write(SeaTunnelRow element) {
         String[] arr = new String[seaTunnelRowType.getTotalFields()];
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
@@ -55,13 +78,23 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         for (int i = 0; i < fieldTypes.length; i++) {
             arr[i] = fieldToString(fieldTypes[i], fields[i]);
         }
-        log.info(
-                "subtaskIndex={}  rowIndex={}:  SeaTunnelRow#tableId={} SeaTunnelRow#kind={} : {}",
-                context.getIndexOfSubtask(),
-                rowCounter.incrementAndGet(),
-                element.getTableId(),
-                element.getRowKind(),
-                StringUtils.join(arr, ", "));
+        if (isPrintData) {
+            log.info(
+                    "subtaskIndex={}  rowIndex={}:  SeaTunnelRow#tableId={} SeaTunnelRow#kind={} : {}",
+                    context.getIndexOfSubtask(),
+                    rowCounter.incrementAndGet(),
+                    element.getTableId(),
+                    element.getRowKind(),
+                    StringUtils.join(arr, ", "));
+        }
+        if (delayMs > 0) {
+            try {
+                Thread.sleep(delayMs);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new SeaTunnelException(e);
+            }
+        }
     }
 
     @Override

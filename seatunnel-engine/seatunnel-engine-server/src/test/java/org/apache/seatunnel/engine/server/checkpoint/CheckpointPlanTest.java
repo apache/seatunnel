@@ -21,12 +21,13 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -85,7 +86,7 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                                 runningJobState,
                                 runningJobStateTimestamp,
                                 QueueType.BLOCKINGQUEUE,
-                                new CheckpointConfig())
+                                new EngineConfig())
                         .f1();
         Assertions.assertNotNull(checkpointPlans);
         Assertions.assertEquals(2, checkpointPlans.size());
@@ -107,14 +108,13 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
             IdGenerator idGenerator, LogicalDag logicalDag, int parallelism) {
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(JobMode.BATCH);
-        FakeSource fakeSource = new FakeSource();
         Config fakeSourceConfig =
                 ConfigFactory.parseMap(
                         Collections.singletonMap(
                                 "schema",
                                 Collections.singletonMap(
                                         "fields", ImmutableMap.of("id", "int", "name", "string"))));
-        fakeSource.prepare(fakeSourceConfig);
+        FakeSource fakeSource = new FakeSource(ReadonlyConfig.fromConfig(fakeSourceConfig));
         fakeSource.setJobContext(jobContext);
 
         Action fake =

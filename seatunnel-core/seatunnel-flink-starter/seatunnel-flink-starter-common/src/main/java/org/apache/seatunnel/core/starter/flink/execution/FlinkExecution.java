@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
@@ -33,8 +34,7 @@ import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
 import org.apache.seatunnel.core.starter.execution.TaskExecution;
 import org.apache.seatunnel.core.starter.flink.FlinkStarter;
 
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.types.Row;
+import org.apache.flink.api.common.RuntimeExecutionMode;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,11 +54,11 @@ import java.util.stream.Stream;
 @Slf4j
 public class FlinkExecution implements TaskExecution {
     private final FlinkRuntimeEnvironment flinkRuntimeEnvironment;
-    private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment>
+    private final PluginExecuteProcessor<DataStreamTableInfo, FlinkRuntimeEnvironment>
             sourcePluginExecuteProcessor;
-    private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment>
+    private final PluginExecuteProcessor<DataStreamTableInfo, FlinkRuntimeEnvironment>
             transformPluginExecuteProcessor;
-    private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment>
+    private final PluginExecuteProcessor<DataStreamTableInfo, FlinkRuntimeEnvironment>
             sinkPluginExecuteProcessor;
     private final List<URL> jarPaths;
 
@@ -81,8 +81,7 @@ public class FlinkExecution implements TaskExecution {
         jobContext.setJobMode(RuntimeEnvironment.getJobMode(config));
 
         this.sourcePluginExecuteProcessor =
-                new SourceExecuteProcessor(
-                        jarPaths, config.getConfigList(Constants.SOURCE), jobContext);
+                new SourceExecuteProcessor(jarPaths, config, jobContext);
         this.transformPluginExecuteProcessor =
                 new TransformExecuteProcessor(
                         jarPaths,
@@ -103,7 +102,7 @@ public class FlinkExecution implements TaskExecution {
 
     @Override
     public void execute() throws TaskExecuteException {
-        List<DataStream<Row>> dataStreams = new ArrayList<>();
+        List<DataStreamTableInfo> dataStreams = new ArrayList<>();
         dataStreams = sourcePluginExecuteProcessor.execute(dataStreams);
         dataStreams = transformPluginExecuteProcessor.execute(dataStreams);
         sinkPluginExecuteProcessor.execute(dataStreams);
@@ -111,6 +110,12 @@ public class FlinkExecution implements TaskExecution {
                 "Flink Execution Plan: {}",
                 flinkRuntimeEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
         log.info("Flink job name: {}", flinkRuntimeEnvironment.getJobName());
+        if (!flinkRuntimeEnvironment.isStreaming()) {
+            flinkRuntimeEnvironment
+                    .getStreamExecutionEnvironment()
+                    .setRuntimeMode(RuntimeExecutionMode.BATCH);
+            log.info("Flink job Mode: {}", JobMode.BATCH);
+        }
         try {
             flinkRuntimeEnvironment
                     .getStreamExecutionEnvironment()

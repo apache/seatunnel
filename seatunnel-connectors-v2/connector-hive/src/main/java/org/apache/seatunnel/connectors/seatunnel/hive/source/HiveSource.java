@@ -26,6 +26,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
@@ -52,7 +53,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
-import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig.FILE_FORMAT_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig.FILE_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_INPUT_FORMAT_CLASSNAME;
@@ -83,7 +83,7 @@ public class HiveSource extends BaseHdfsFileSource {
         result =
                 CheckConfigUtil.checkAtLeastOneExists(
                         pluginConfig,
-                        SCHEMA.key(),
+                        TableSchemaOptions.SCHEMA.key(),
                         FILE_FORMAT_TYPE.key(),
                         FILE_PATH.key(),
                         FS_DEFAULT_NAME_KEY);
@@ -94,7 +94,7 @@ public class HiveSource extends BaseHdfsFileSource {
                             "Hive source connector does not support these setting [%s]",
                             String.join(
                                     ",",
-                                    SCHEMA.key(),
+                                    TableSchemaOptions.SCHEMA.key(),
                                     FILE_FORMAT_TYPE.key(),
                                     FILE_PATH.key(),
                                     FS_DEFAULT_NAME_KEY)));
@@ -135,7 +135,7 @@ public class HiveSource extends BaseHdfsFileSource {
             ConfigRenderOptions options = ConfigRenderOptions.concise();
             String render = pluginConfig.root().render(options);
             ObjectNode jsonNodes = JsonUtils.parseObject(render);
-            jsonNodes.putPOJO(SCHEMA.key(), schema);
+            jsonNodes.putPOJO(TableSchemaOptions.SCHEMA.key(), schema);
             pluginConfig = ConfigFactory.parseString(jsonNodes.toString());
         } else if (PARQUET_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
             pluginConfig =

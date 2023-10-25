@@ -29,6 +29,8 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
 
+import java.util.Map;
+
 public class MicroBatchPartition implements InputPartition<InternalRow> {
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
@@ -38,6 +40,7 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
     protected final String checkpointPath;
     protected final String hdfsRoot;
     protected final String hdfsUser;
+    private Map<String, String> envOptions;
 
     public MicroBatchPartition(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
@@ -47,7 +50,8 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
             Integer checkpointInterval,
             String checkpointPath,
             String hdfsRoot,
-            String hdfsUser) {
+            String hdfsUser,
+            Map<String, String> envOptions) {
         this.source = source;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
@@ -56,6 +60,7 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
         this.checkpointPath = checkpointPath;
         this.hdfsRoot = hdfsRoot;
         this.hdfsUser = hdfsUser;
+        this.envOptions = envOptions;
     }
 
     @Override
@@ -71,7 +76,8 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
                             checkpointInterval,
                             checkpointPath,
                             hdfsRoot,
-                            hdfsUser);
+                            hdfsUser,
+                            envOptions);
         } else {
             partitionReader =
                     new ParallelMicroBatchPartitionReader(
@@ -82,7 +88,8 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
                             checkpointInterval,
                             checkpointPath,
                             hdfsRoot,
-                            hdfsUser);
+                            hdfsUser,
+                            envOptions);
         }
         return new SeaTunnelInputPartitionReader(partitionReader);
     }

@@ -31,6 +31,10 @@ public enum DataSaveMode {
     // path and files in the path, create new files in the path.
     KEEP_SCHEMA_AND_DATA,
 
+    // The connector provides custom processing methods, such as running user provided SQL or shell
+    // scripts, etc
+    CUSTOM_PROCESSING,
+
     // Throw error when table is exists for MySQL. Throw error when path is exists.
     ERROR_WHEN_EXISTS
 }

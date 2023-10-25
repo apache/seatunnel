@@ -64,7 +64,6 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
     private StreamExecutionEnvironment environment;
 
     private StreamTableEnvironment tableEnvironment;
-
     private JobMode jobMode;
 
     private String jobName = Constants.LOGO;
@@ -265,7 +264,10 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                 }
             }
 
-            if (config.hasPath(ConfigKeyName.CHECKPOINT_TIMEOUT)) {
+            if (config.hasPath(EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
+                long timeout = config.getLong(EnvCommonOptions.CHECKPOINT_TIMEOUT.key());
+                checkpointConfig.setCheckpointTimeout(timeout);
+            } else if (config.hasPath(ConfigKeyName.CHECKPOINT_TIMEOUT)) {
                 long timeout = config.getLong(ConfigKeyName.CHECKPOINT_TIMEOUT);
                 checkpointConfig.setCheckpointTimeout(timeout);
             }
@@ -313,19 +315,22 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
         }
     }
 
-    public void registerResultTable(Config config, DataStream<Row> dataStream) {
-        if (config.hasPath(RESULT_TABLE_NAME)) {
-            String name = config.getString(RESULT_TABLE_NAME);
-            StreamTableEnvironment tableEnvironment = this.getStreamTableEnvironment();
-            if (!TableUtil.tableExists(tableEnvironment, name)) {
+    public void registerResultTable(
+            Config config, DataStream<Row> dataStream, String name, Boolean isAppend) {
+        StreamTableEnvironment tableEnvironment = this.getStreamTableEnvironment();
+        if (!TableUtil.tableExists(tableEnvironment, name)) {
+            if (isAppend) {
                 if (config.hasPath("field_name")) {
                     String fieldName = config.getString("field_name");
                     tableEnvironment.registerDataStream(name, dataStream, fieldName);
-                } else {
-                    tableEnvironment.registerDataStream(name, dataStream);
+                    return;
                 }
+                tableEnvironment.registerDataStream(name, dataStream);
+                return;
             }
         }
+        tableEnvironment.createTemporaryView(
+                name, tableEnvironment.fromChangelogStream(dataStream));
     }
 
     public static FlinkRuntimeEnvironment getInstance(Config config) {

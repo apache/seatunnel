@@ -176,7 +176,13 @@ public class BinlogOffset extends Offset {
             // compared ...
             long timestamp = this.getTimestamp();
             long targetTimestamp = that.getTimestamp();
-            return Long.compare(timestamp, targetTimestamp);
+            // Timestamps are presupposes that they exist,
+            // because timestamps do not exist for low watermark and high watermark.
+            // If not judging here results in the really binlog offset comparison to watermark
+            // always being true.
+            if (timestamp != 0 && targetTimestamp != 0) {
+                return Long.compare(timestamp, targetTimestamp);
+            }
         }
 
         // First compare the MySQL binlog filenames
@@ -198,7 +204,6 @@ public class BinlogOffset extends Offset {
         return Long.compare(this.getRestartSkipRows(), that.getRestartSkipRows());
     }
 
-    @SuppressWarnings("checkstyle:EqualsHashCode")
     @Override
     public boolean equals(Object o) {
         if (this == o) {

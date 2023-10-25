@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.collections4.MapUtils;
 
@@ -168,7 +169,9 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
         SqlType sqlType = seaTunnelDataType.getSqlType();
         // todo: verify
         switch (sqlType) {
-            case ARRAY:
+                // from pg array not support
+                //            case ARRAY:
+                //                return MysqlType.ENUM;
             case MAP:
             case ROW:
             case STRING:
@@ -196,9 +199,9 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
             case DATE:
                 return MysqlType.DATE;
             case TIME:
-                return MysqlType.DATETIME;
+                return MysqlType.TIME;
             case TIMESTAMP:
-                return MysqlType.TIMESTAMP;
+                return MysqlType.DATETIME;
             default:
                 throw new JdbcConnectorException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE,
@@ -208,6 +211,6 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
 
     @Override
     public String getIdentity() {
-        return "Mysql";
+        return DatabaseIdentifier.MYSQL;
     }
 }

@@ -18,10 +18,36 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.ChunkSplitter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSource;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -30,16 +56,22 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
+import com.mysql.cj.jdbc.ConnectionImpl;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.SQLException;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 public class JdbcMysqlIT extends AbstractJdbcIT {
 
@@ -48,11 +80,15 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     private static final String MYSQL_DATABASE = "seatunnel";
     private static final String MYSQL_SOURCE = "source";
     private static final String MYSQL_SINK = "sink";
+    private static final String CATALOG_DATABASE = "catalog_database";
 
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 3306;
     private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
+    private static final String URL = "jdbc:mysql://" + HOST + ":3306/seatunnel";
+
+    private static final String SQL = "select * from seatunnel.source";
 
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
 
@@ -95,6 +131,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     + "    `c_longtext`             longtext,\n"
                     + "    `c_date`                 date                  DEFAULT NULL,\n"
                     + "    `c_datetime`             datetime              DEFAULT NULL,\n"
+                    + "    `c_time`                 time                  DEFAULT NULL,\n"
                     + "    `c_timestamp`            timestamp NULL        DEFAULT NULL,\n"
                     + "    `c_tinyblob`             tinyblob,\n"
                     + "    `c_mediumblob`           mediumblob,\n"
@@ -138,6 +175,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                .catalogDatabase(CATALOG_DATABASE)
+                .catalogTable(MYSQL_SINK)
                 .build();
     }
 
@@ -187,6 +226,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_longtext",
                     "c_date",
                     "c_datetime",
+                    "c_time",
                     "c_timestamp",
                     "c_tinyblob",
                     "c_mediumblob",
@@ -244,6 +284,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                                 String.format("f1_%s", i),
                                 Date.valueOf(LocalDate.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
+                                Time.valueOf(LocalTime.now()),
                                 new Timestamp(System.currentTimeMillis()),
                                 "test".getBytes(),
                                 "test".getBytes(),
@@ -281,5 +322,213 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
 
         return container;
+    }
+
+    @Override
+    protected void initCatalog() {
+        catalog =
+                new MySqlCatalog(
+                        "mysql",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())));
+        catalog.open();
+    }
+
+    private String getUrl() {
+        return URL.replace("HOST", dbServer.getHost());
+    }
+
+    @Test
+    public void parametersTest() throws Exception {
+        defaultSinkParametersTest();
+        defaultSourceParametersTest();
+    }
+
+    void defaultSinkParametersTest() throws IOException, SQLException, ClassNotFoundException {
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "c_bigint",
+                                        BasicType.LONG_TYPE,
+                                        22,
+                                        false,
+                                        null,
+                                        "c_bigint"))
+                        .build();
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", "seatunnel", "source"),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "User table");
+
+        // case1 url not contains parameters and properties not contains parameters
+        Map<String, Object> map1 = getDefaultConfigMap();
+        map1.put("url", getUrl());
+        ReadonlyConfig config1 = ReadonlyConfig.fromMap(map1);
+        TableSinkFactoryContext context1 =
+                new TableSinkFactoryContext(
+                        catalogTable, config1, Thread.currentThread().getContextClassLoader());
+        JdbcSink jdbcSink1 = (JdbcSink) new JdbcSinkFactory().createSink(context1).createSink();
+        Properties connectionProperties1 = getSinkProperties(jdbcSink1);
+        Assertions.assertEquals(connectionProperties1.get("rewriteBatchedStatements"), "true");
+
+        // case2 url contains parameters and properties not contains parameters
+        Map<String, Object> map2 = getDefaultConfigMap();
+        map2.put("url", getUrl() + "?rewriteBatchedStatements=false");
+        ReadonlyConfig config2 = ReadonlyConfig.fromMap(map2);
+        TableSinkFactoryContext context2 =
+                new TableSinkFactoryContext(
+                        catalogTable, config2, Thread.currentThread().getContextClassLoader());
+        JdbcSink jdbcSink2 = (JdbcSink) new JdbcSinkFactory().createSink(context2).createSink();
+        Properties connectionProperties2 = getSinkProperties(jdbcSink2);
+        Assertions.assertEquals(connectionProperties2.get("rewriteBatchedStatements"), "false");
+
+        // case3 url not contains parameters and properties not contains parameters
+        Map<String, Object> map3 = getDefaultConfigMap();
+        Map<String, String> properties3 = new HashMap<>();
+        properties3.put("rewriteBatchedStatements", "false");
+        map3.put("properties", properties3);
+        map3.put("url", getUrl());
+        ReadonlyConfig config3 = ReadonlyConfig.fromMap(map3);
+        TableSinkFactoryContext context3 =
+                new TableSinkFactoryContext(
+                        catalogTable, config3, Thread.currentThread().getContextClassLoader());
+        JdbcSink jdbcSink3 = (JdbcSink) new JdbcSinkFactory().createSink(context3).createSink();
+        Properties connectionProperties3 = getSinkProperties(jdbcSink3);
+        Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
+
+        // case4 url contains parameters and properties contains parameters
+        Map<String, Object> map4 = getDefaultConfigMap();
+        Map<String, String> properties4 = new HashMap<>();
+        properties4.put("useSSL", "true");
+        properties4.put("rewriteBatchedStatements", "false");
+        map4.put("properties", properties4);
+        map4.put("url", getUrl() + "?useSSL=false&rewriteBatchedStatements=true");
+        ReadonlyConfig config4 = ReadonlyConfig.fromMap(map4);
+        TableSinkFactoryContext context4 =
+                new TableSinkFactoryContext(
+                        catalogTable, config4, Thread.currentThread().getContextClassLoader());
+        JdbcSink jdbcSink4 = (JdbcSink) new JdbcSinkFactory().createSink(context4).createSink();
+        Properties connectionProperties4 = getSinkProperties(jdbcSink4);
+        Assertions.assertEquals(connectionProperties4.get("useSSL"), "true");
+        Assertions.assertEquals(connectionProperties4.get("rewriteBatchedStatements"), "false");
+    }
+
+    void defaultSourceParametersTest() throws Exception {
+        // case1 url not contains parameters and properties not contains parameters
+        Map<String, Object> map1 = getDefaultConfigMap();
+        map1.put("url", getUrl());
+        map1.put("query", SQL);
+        ReadonlyConfig config1 = ReadonlyConfig.fromMap(map1);
+        TableSourceFactoryContext context1 =
+                new TableSourceFactoryContext(
+                        config1, Thread.currentThread().getContextClassLoader());
+        JdbcSource jdbcSource1 =
+                (JdbcSource)
+                        new JdbcSourceFactory()
+                                .<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState>createSource(
+                                        context1)
+                                .createSource();
+        Properties connectionProperties1 = getSourceProperties(jdbcSource1);
+        Assertions.assertEquals(connectionProperties1.get("rewriteBatchedStatements"), "true");
+
+        // case2 url contains parameters and properties not contains parameters
+        Map<String, Object> map2 = getDefaultConfigMap();
+        map2.put("url", getUrl() + "?rewriteBatchedStatements=false");
+        map2.put("query", SQL);
+        ReadonlyConfig config2 = ReadonlyConfig.fromMap(map2);
+        TableSourceFactoryContext context2 =
+                new TableSourceFactoryContext(
+                        config2, Thread.currentThread().getContextClassLoader());
+        JdbcSource jdbcSource2 =
+                (JdbcSource)
+                        new JdbcSourceFactory()
+                                .<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState>createSource(
+                                        context2)
+                                .createSource();
+        Properties connectionProperties2 = getSourceProperties(jdbcSource2);
+        Assertions.assertEquals(connectionProperties2.get("rewriteBatchedStatements"), "false");
+
+        // case3 url not contains parameters and properties not contains parameters
+        Map<String, Object> map3 = getDefaultConfigMap();
+        Map<String, String> properties3 = new HashMap<>();
+        properties3.put("rewriteBatchedStatements", "false");
+        map3.put("properties", properties3);
+        map3.put("url", getUrl());
+        map3.put("query", SQL);
+        ReadonlyConfig config3 = ReadonlyConfig.fromMap(map3);
+        TableSourceFactoryContext context3 =
+                new TableSourceFactoryContext(
+                        config3, Thread.currentThread().getContextClassLoader());
+        JdbcSource jdbcSource3 =
+                (JdbcSource)
+                        new JdbcSourceFactory()
+                                .<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState>createSource(
+                                        context3)
+                                .createSource();
+        Properties connectionProperties3 = getSourceProperties(jdbcSource3);
+        Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
+
+        // case4 url contains parameters and properties contains parameters
+        Map<String, Object> map4 = getDefaultConfigMap();
+        Map<String, String> properties4 = new HashMap<>();
+        properties4.put("useSSL", "true");
+        properties4.put("rewriteBatchedStatements", "false");
+        map4.put("properties", properties4);
+        map4.put("url", getUrl() + "?useSSL=false&rewriteBatchedStatements=true");
+        map4.put("query", SQL);
+        ReadonlyConfig config4 = ReadonlyConfig.fromMap(map4);
+        TableSourceFactoryContext context4 =
+                new TableSourceFactoryContext(
+                        config4, Thread.currentThread().getContextClassLoader());
+        JdbcSource jdbcSource4 =
+                (JdbcSource)
+                        new JdbcSourceFactory()
+                                .<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState>createSource(
+                                        context4)
+                                .createSource();
+        Properties connectionProperties4 = getSourceProperties(jdbcSource4);
+        Assertions.assertEquals(connectionProperties4.get("useSSL"), "true");
+        Assertions.assertEquals(connectionProperties4.get("rewriteBatchedStatements"), "false");
+    }
+
+    @NotNull private Map<String, Object> getDefaultConfigMap() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("driver", "com.mysql.cj.jdbc.Driver");
+        map.put("user", MYSQL_USERNAME);
+        map.put("password", MYSQL_PASSWORD);
+        return map;
+    }
+
+    private Properties getSinkProperties(JdbcSink jdbcSink)
+            throws IOException, SQLException, ClassNotFoundException {
+        jdbcSink.setTypeInfo(
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE}));
+        JdbcSinkWriter jdbcSinkWriter = (JdbcSinkWriter) jdbcSink.createWriter(null);
+        JdbcConnectionProvider connectionProvider =
+                (JdbcConnectionProvider)
+                        ReflectionUtils.getField(jdbcSinkWriter, "connectionProvider").get();
+        ConnectionImpl connection = (ConnectionImpl) connectionProvider.getOrEstablishConnection();
+        Properties connectionProperties = connection.getProperties();
+        return connectionProperties;
+    }
+
+    private Properties getSourceProperties(JdbcSource jdbcSource) throws Exception {
+        JdbcSourceSplitEnumerator enumerator =
+                ((JdbcSourceSplitEnumerator) jdbcSource.createEnumerator(null));
+        ChunkSplitter splitter =
+                ((ChunkSplitter) ReflectionUtils.getField(enumerator, "splitter").get());
+        JdbcConnectionProvider connectionProvider =
+                (JdbcConnectionProvider)
+                        ReflectionUtils.getField(splitter, "connectionProvider").get();
+        ConnectionImpl connection = (ConnectionImpl) connectionProvider.getOrEstablishConnection();
+        Properties connectionProperties = connection.getProperties();
+        return connectionProperties;
     }
 }

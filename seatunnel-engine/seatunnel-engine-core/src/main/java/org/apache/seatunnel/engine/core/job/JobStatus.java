@@ -29,10 +29,13 @@ public enum JobStatus {
     /** Job is newly created, no task has started to run. */
     CREATED(EndState.NOT_END),
 
-    /** Job is begin schedule but some task not deploy complete. */
+    /**
+     * Job will scheduler every pipeline, each PhysicalVertex in the pipeline will be scheduler and
+     * deploying
+     */
     SCHEDULED(EndState.NOT_END),
 
-    /** Some tasks are scheduled or running, some may be pending, some may be finished. */
+    /** The job is already running, and each pipeline is already running. */
     RUNNING(EndState.NOT_END),
 
     /** The job has failed and is currently waiting for the cleanup to complete. */
@@ -42,7 +45,7 @@ public enum JobStatus {
     FAILED(EndState.GLOBALLY),
 
     /** Job is being cancelled. */
-    CANCELLING(EndState.NOT_END),
+    CANCELING(EndState.NOT_END),
 
     /** Job has been cancelled. */
     CANCELED(EndState.GLOBALLY),
@@ -50,17 +53,8 @@ public enum JobStatus {
     /** All of the job's tasks have successfully finished. */
     FINISHED(EndState.GLOBALLY),
 
-    /** The job is currently undergoing a reset and total restart. */
-    RESTARTING(EndState.NOT_END),
-
-    /**
-     * The job has been suspended which means that it has been stopped but not been removed from a
-     * potential HA job store.
-     */
-    SUSPENDED(EndState.LOCALLY),
-
-    /** The job is currently reconciling and waits for task execution report to recover state. */
-    RECONCILING(EndState.NOT_END);
+    /** Cannot find the JobID or the job status has already been cleared. */
+    UNKNOWABLE(EndState.GLOBALLY);
 
     // --------------------------------------------------------------------------------------------
 
@@ -76,30 +70,6 @@ public enum JobStatus {
         this.endState = endState;
     }
 
-    /**
-     * Checks whether this state is <i>globally terminal</i>. A globally terminal job is complete
-     * and cannot fail any more and will not be restarted or recovered by another standby master
-     * node.
-     *
-     * <p>When a globally terminal state has been reached, all recovery data for the job is dropped
-     * from the high-availability services.
-     *
-     * @return True, if this job status is globally terminal, false otherwise.
-     */
-    public boolean isGloballyEndState() {
-        return endState == EndState.GLOBALLY;
-    }
-
-    /**
-     * Checks whether this state is <i>locally terminal</i>. Locally terminal refers to the state of
-     * a job's execution graph within an executing JobManager. If the execution graph is locally
-     * terminal, the JobManager will not continue executing or recovering the job.
-     *
-     * <p>The only state that is locally terminal, but not globally terminal is {@link #SUSPENDED},
-     * which is typically entered when the executing JobManager loses its leader status.
-     *
-     * @return True, if this job status is terminal, false otherwise.
-     */
     public boolean isEndState() {
         return endState != EndState.NOT_END;
     }

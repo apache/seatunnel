@@ -140,4 +140,65 @@ public class MongodbIT extends AbstractMongodbIT {
                         .collect(Collectors.toList()));
         clearDate(MONGODB_SPLIT_RESULT_TABLE);
     }
+
+    @TestTemplate
+    public void testCompatibleParameters(TestContainer container)
+            throws IOException, InterruptedException {
+        // `upsert-key` compatible test
+        Container.ExecResult insertResult =
+                container.executeJob("/updateIT/fake_source_to_updateMode_insert_mongodb.conf");
+        Assertions.assertEquals(0, insertResult.getExitCode(), insertResult.getStderr());
+
+        Container.ExecResult updateResult =
+                container.executeJob("/compatibleParametersIT/fake_source_to_update_mongodb.conf");
+        Assertions.assertEquals(0, updateResult.getExitCode(), updateResult.getStderr());
+
+        Container.ExecResult assertResult =
+                container.executeJob("/updateIT/update_mongodb_to_assert.conf");
+        Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
+
+        clearDate(MONGODB_UPDATE_TABLE);
+
+        // `matchQuery` compatible test
+        Container.ExecResult queryResult =
+                container.executeJob("/matchIT/mongodb_matchQuery_source_to_assert.conf");
+        Assertions.assertEquals(0, queryResult.getExitCode(), queryResult.getStderr());
+
+        Assertions.assertIterableEquals(
+                TEST_MATCH_DATASET.stream()
+                        .filter(x -> x.get("c_int").equals(2))
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()),
+                readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_MATCH_RESULT_TABLE);
+    }
+
+    @TestTemplate
+    public void testTransactionSinkAndUpsert(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult insertResult =
+                container.executeJob("/transactionIT/fake_source_to_transaction_sink_mongodb.conf");
+        Assertions.assertEquals(0, insertResult.getExitCode(), insertResult.getStderr());
+
+        Container.ExecResult assertSinkResult =
+                container.executeJob(
+                        "/transactionIT/mongodb_source_transaction_sink_to_assert.conf");
+        Assertions.assertEquals(0, assertSinkResult.getExitCode(), assertSinkResult.getStderr());
+
+        Container.ExecResult upsertResult =
+                container.executeJob(
+                        "/transactionIT/fake_source_to_transaction_upsert_mongodb.conf");
+        Assertions.assertEquals(0, upsertResult.getExitCode(), upsertResult.getStderr());
+
+        Container.ExecResult assertUpsertResult =
+                container.executeJob(
+                        "/transactionIT/mongodb_source_transaction_upsert_to_assert.conf");
+        Assertions.assertEquals(
+                0, assertUpsertResult.getExitCode(), assertUpsertResult.getStderr());
+
+        clearDate(MONGODB_TRANSACTION_SINK_TABLE);
+        clearDate(MONGODB_TRANSACTION_UPSERT_TABLE);
+    }
 }

@@ -19,12 +19,8 @@ source {
   MySQL-CDC {
     result_table_name = "table1"
 
-    hostname = localhost
     base-url="jdbc:mysql://localhost:3306/test"
     "startup.mode"=INITIAL
-    catalog {
-        factory=MySQL
-    }
     table-names=[
         "database1.t1",
         "database1.t2",
@@ -41,14 +37,6 @@ source {
         include.schema.changes = true
         # topic prefix
         database.server.name =  "mysql_cdc_1"
-    }
-    # compatible_debezium_json fixed schema
-    schema = {
-        fields = {
-            topic = string
-            key = string
-            value = string
-        }
     }
   }
 }

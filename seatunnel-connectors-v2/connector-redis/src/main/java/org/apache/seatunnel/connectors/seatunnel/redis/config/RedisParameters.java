@@ -40,6 +40,7 @@ public class RedisParameters implements Serializable {
     private String host;
     private int port;
     private String auth = "";
+    private int dbNum;
     private String user = "";
     private String keysPattern;
     private String keyField;
@@ -47,6 +48,7 @@ public class RedisParameters implements Serializable {
     private RedisConfig.RedisMode mode;
     private RedisConfig.HashKeyParseMode hashKeyParseMode;
     private List<String> redisNodes = Collections.emptyList();
+    private long expire = RedisConfig.EXPIRE.defaultValue();
 
     public void buildWithConfig(Config config) {
         // set host
@@ -56,6 +58,10 @@ public class RedisParameters implements Serializable {
         // set auth
         if (config.hasPath(RedisConfig.AUTH.key())) {
             this.auth = config.getString(RedisConfig.AUTH.key());
+        }
+        // set db_num
+        if (config.hasPath(RedisConfig.DB_NUM.key())) {
+            this.dbNum = config.getInt(RedisConfig.DB_NUM.key());
         }
         // set user
         if (config.hasPath(RedisConfig.USER.key())) {
@@ -89,6 +95,9 @@ public class RedisParameters implements Serializable {
         if (config.hasPath(RedisConfig.KEY_PATTERN.key())) {
             this.keysPattern = config.getString(RedisConfig.KEY_PATTERN.key());
         }
+        if (config.hasPath(RedisConfig.EXPIRE.key())) {
+            this.expire = config.getLong(RedisConfig.EXPIRE.key());
+        }
         // set redis data type
         try {
             String dataType = config.getString(RedisConfig.DATA_TYPE.key());
@@ -111,6 +120,7 @@ public class RedisParameters implements Serializable {
                 if (StringUtils.isNotBlank(user)) {
                     jedis.aclSetUser(user);
                 }
+                jedis.select(dbNum);
                 return jedis;
             case CLUSTER:
                 HashSet<HostAndPort> nodes = new HashSet<>();
@@ -144,7 +154,9 @@ public class RedisParameters implements Serializable {
                 } else {
                     jedisCluster = new JedisCluster(nodes);
                 }
-                return new JedisWrapper(jedisCluster);
+                JedisWrapper jedisWrapper = new JedisWrapper(jedisCluster);
+                jedisWrapper.select(dbNum);
+                return jedisWrapper;
             default:
                 // do nothing
                 throw new RedisConnectorException(
