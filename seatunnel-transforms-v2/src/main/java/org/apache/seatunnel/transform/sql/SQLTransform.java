@@ -25,7 +25,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -38,7 +37,9 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType.ZETA;
 
@@ -119,54 +120,31 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
         tryOpen();
         List<String> inputColumnsMapping = new ArrayList<>();
         SeaTunnelRowType outRowType = sqlEngine.typeMapping(inputColumnsMapping);
+        List<String> outputColumns = Arrays.asList(outRowType.getFieldNames());
 
         TableSchema.Builder builder = TableSchema.builder();
-        if (inputCatalogTable.getTableSchema().getPrimaryKey() != null) {
-            List<String> outPkColumnNames = new ArrayList<>();
-            for (String pkColumnName :
-                    inputCatalogTable.getTableSchema().getPrimaryKey().getColumnNames()) {
-                for (int i = 0; i < inputColumnsMapping.size(); i++) {
-                    if (pkColumnName.equals(inputColumnsMapping.get(i))) {
-                        outPkColumnNames.add(outRowType.getFieldName(i));
-                    }
-                }
-            }
-            if (!outPkColumnNames.isEmpty()) {
-                builder.primaryKey(
-                        PrimaryKey.of(
-                                inputCatalogTable.getTableSchema().getPrimaryKey().getPrimaryKey(),
-                                outPkColumnNames));
-            }
+        if (inputCatalogTable.getTableSchema().getPrimaryKey() != null
+                && outputColumns.containsAll(
+                        inputCatalogTable.getTableSchema().getPrimaryKey().getColumnNames())) {
+            builder = builder.primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey().copy());
         }
-        if (inputCatalogTable.getTableSchema().getConstraintKeys() != null) {
-            List<ConstraintKey> outConstraintKey = new ArrayList<>();
-            for (ConstraintKey constraintKey :
-                    inputCatalogTable.getTableSchema().getConstraintKeys()) {
-                List<ConstraintKey.ConstraintKeyColumn> outConstraintColumnKeys = new ArrayList<>();
-                for (ConstraintKey.ConstraintKeyColumn constraintKeyColumn :
-                        constraintKey.getColumnNames()) {
-                    String constraintColumnName = constraintKeyColumn.getColumnName();
-                    for (int i = 0; i < inputColumnsMapping.size(); i++) {
-                        if (constraintColumnName.equals(inputColumnsMapping.get(i))) {
-                            outConstraintColumnKeys.add(
-                                    ConstraintKey.ConstraintKeyColumn.of(
-                                            outRowType.getFieldName(i),
-                                            constraintKeyColumn.getSortType()));
-                        }
-                    }
-                }
-                if (!outConstraintColumnKeys.isEmpty()) {
-                    outConstraintKey.add(
-                            ConstraintKey.of(
-                                    constraintKey.getConstraintType(),
-                                    constraintKey.getConstraintName(),
-                                    outConstraintColumnKeys));
-                }
-            }
-            if (!outConstraintKey.isEmpty()) {
-                builder.constraintKey(outConstraintKey);
-            }
-        }
+
+        List<ConstraintKey> outputConstraintKeys =
+                inputCatalogTable.getTableSchema().getConstraintKeys().stream()
+                        .filter(
+                                key -> {
+                                    List<String> constraintColumnNames =
+                                            key.getColumnNames().stream()
+                                                    .map(
+                                                            ConstraintKey.ConstraintKeyColumn
+                                                                    ::getColumnName)
+                                                    .collect(Collectors.toList());
+                                    return outputColumns.containsAll(constraintColumnNames);
+                                })
+                        .map(ConstraintKey::copy)
+                        .collect(Collectors.toList());
+
+        builder = builder.constraintKey(outputConstraintKeys);
 
         String[] fieldNames = outRowType.getFieldNames();
         SeaTunnelDataType<?>[] fieldTypes = outRowType.getFieldTypes();
