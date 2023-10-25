@@ -60,6 +60,7 @@ import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.lang.String.format;
@@ -68,8 +69,8 @@ import static org.awaitility.Awaitility.await;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.FLINK, EngineType.SPARK},
-        disabledReason = "Currently SPARK and FLINK do not support cdc")
+        type = {EngineType.SPARK},
+        disabledReason = "Currently SPARK do not support cdc")
 public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
 
     private static final String IMAGE = "apache/kudu:1.15.0";
@@ -139,8 +140,6 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::getKuduClient);
-
-        this.initializeKuduTable();
     }
 
     private void initializeKuduTable() throws KuduException {
@@ -215,27 +214,60 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testKudu(TestContainer container) throws IOException, InterruptedException {
+        this.initializeKuduTable();
         Container.ExecResult execResult = container.executeJob("/write-cdc-changelog-to-kudu.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            System.out.println(readData(KUDU_SINK_TABLE).size());
-                            Assertions.assertEquals(readData(KUDU_SINK_TABLE).size(), 2);
+                            Assertions.assertIterableEquals(
+                                    Stream.<List<Object>>of(
+                                                    Arrays.asList(
+                                                            "3",
+                                                            "true",
+                                                            "1",
+                                                            "2",
+                                                            "3",
+                                                            "4",
+                                                            "4.3",
+                                                            "5.3",
+                                                            "6.30000",
+                                                            "NEW",
+                                                            "2020-02-02 10:02:02.0"),
+                                                    Arrays.asList(
+                                                            "1",
+                                                            "true",
+                                                            "2",
+                                                            "2",
+                                                            "3",
+                                                            "4",
+                                                            "4.3",
+                                                            "5.3",
+                                                            "6.30000",
+                                                            "NEW",
+                                                            "2020-02-02 10:02:02.0"))
+                                            .collect(Collectors.toList()),
+                                    readData(KUDU_SINK_TABLE));
                         });
+
+        kuduClient.deleteTable(KUDU_SINK_TABLE);
     }
 
-    public List<String> readData(String tableName) throws KuduException {
-        List<String> result = new ArrayList<>();
+    public List<List<Object>> readData(String tableName) throws KuduException {
+        List<List<Object>> result = new ArrayList<>();
         KuduTable kuduTable = kuduClient.openTable(tableName);
         KuduScanner scanner = kuduClient.newScannerBuilder(kuduTable).build();
         while (scanner.hasMoreRows()) {
             RowResultIterator rowResults = scanner.nextRows();
+            List<Object> row = new ArrayList<>();
             while (rowResults.hasNext()) {
                 RowResult rowResult = rowResults.next();
-                result.add(rowResult.rowToString());
+                for (int i = 0; i < rowResult.getSchema().getColumns().size(); i++) {
+                    row.add(rowResult.getObject(i).toString());
+                }
             }
+            result.add(row);
         }
         return result;
     }
