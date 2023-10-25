@@ -38,7 +38,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
 import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
+import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -51,7 +51,6 @@ import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.extern.slf4j.Slf4j;
@@ -119,11 +118,7 @@ public class ConnectorPackageClientTest {
         SEATUNNEL_CONFIG
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
-        INSTANCE =
-                HazelcastInstanceFactory.newHazelcastInstance(
-                        SEATUNNEL_CONFIG.getHazelcastConfig(),
-                        Thread.currentThread().getName(),
-                        new SeaTunnelNodeContext(SEATUNNEL_CONFIG));
+        INSTANCE = SeaTunnelServerStarter.createHazelcastInstance(SEATUNNEL_CONFIG);
         JOB_ID = INSTANCE.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
     }
 
@@ -337,8 +332,7 @@ public class ConnectorPackageClientTest {
 
     private SeaTunnelClient createSeaTunnelClient() {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(
-                TestUtils.getClusterName(TestUtils.getClusterName(testClusterName)));
+        clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
         return new SeaTunnelClient(clientConfig);
     }
 
