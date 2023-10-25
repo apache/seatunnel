@@ -66,9 +66,9 @@ public enum PipelineStatus {
 
     CANCELED,
 
-    FAILED,
+    FAILING,
 
-    RECONCILING,
+    FAILED,
 
     /** Restoring last possible valid state of the pipeline if it has it. */
     INITIALIZING;
