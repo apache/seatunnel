@@ -20,8 +20,8 @@ package org.apache.seatunnel.engine.e2e;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -32,9 +32,9 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
@@ -57,8 +57,8 @@ public class RestApiIT {
 
     private static HazelcastInstanceImpl hazelcastInstance;
 
-    @BeforeAll
-    static void beforeClass() throws Exception {
+    @BeforeEach
+    void beforeClass() throws Exception {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
@@ -71,7 +71,7 @@ public class RestApiIT {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(testClusterName);
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv =
+        ClientJobExecutionEnvironment jobExecutionEnv =
                 engineClient.createExecutionContext(filePath, jobConfig);
 
         clientJobProxy = jobExecutionEnv.execute();
@@ -136,10 +136,130 @@ public class RestApiIT {
 
     @Test
     public void testSubmitJob() {
+        String jobId = submitJob("BATCH").getBody().jsonPath().getString("jobId");
+        SeaTunnelServer seaTunnelServer =
+                (SeaTunnelServer)
+                        hazelcastInstance
+                                .node
+                                .getNodeExtension()
+                                .createExtensionServices()
+                                .get(Constant.SEATUNNEL_SERVICE_NAME);
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId))));
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId))));
+    }
+
+    @Test
+    public void testStopJob() {
+        String jobId = submitJob("STREAMING").getBody().jsonPath().getString("jobId");
+        SeaTunnelServer seaTunnelServer =
+                (SeaTunnelServer)
+                        hazelcastInstance
+                                .node
+                                .getNodeExtension()
+                                .createExtensionServices()
+                                .get(Constant.SEATUNNEL_SERVICE_NAME);
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId))));
+
+        String parameters = "{" + "\"jobId\":" + jobId + "," + "\"isStopWithSavePoint\":true}";
+
+        given().body(parameters)
+                .post(
+                        HOST
+                                + hazelcastInstance
+                                        .getCluster()
+                                        .getLocalMember()
+                                        .getAddress()
+                                        .getPort()
+                                + RestConstant.STOP_JOB_URL)
+                .then()
+                .statusCode(200)
+                .body("jobId", equalTo(jobId));
+
+        Awaitility.await()
+                .atMost(6, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId))));
+
+        String jobId2 = submitJob("STREAMING").getBody().jsonPath().getString("jobId");
+
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId2))));
+        parameters = "{" + "\"jobId\":" + jobId2 + "," + "\"isStopWithSavePoint\":false}";
+
+        given().body(parameters)
+                .post(
+                        HOST
+                                + hazelcastInstance
+                                        .getCluster()
+                                        .getLocalMember()
+                                        .getAddress()
+                                        .getPort()
+                                + RestConstant.STOP_JOB_URL)
+                .then()
+                .statusCode(200)
+                .body("jobId", equalTo(jobId2));
+
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId2))));
+    }
+
+    @AfterEach
+    void afterClass() {
+        if (hazelcastInstance != null) {
+            hazelcastInstance.shutdown();
+        }
+    }
+
+    private Response submitJob(String jobMode) {
         String requestBody =
                 "{\n"
                         + "    \"env\": {\n"
-                        + "        \"job.mode\": \"batch\"\n"
+                        + "        \"job.mode\": \""
+                        + jobMode
+                        + "\"\n"
                         + "    },\n"
                         + "    \"source\": [\n"
                         + "        {\n"
@@ -181,32 +301,6 @@ public class RestApiIT {
                                         + parameters);
 
         response.then().statusCode(200).body("jobName", equalTo("test"));
-        String jobId = response.getBody().jsonPath().getString("jobId");
-        SeaTunnelServer seaTunnelServer =
-                (SeaTunnelServer)
-                        hazelcastInstance
-                                .node
-                                .getNodeExtension()
-                                .createExtensionServices()
-                                .get(Constant.SEATUNNEL_SERVICE_NAME);
-        JobStatus jobStatus =
-                seaTunnelServer.getCoordinatorService().getJobStatus(Long.parseLong(jobId));
-        Assertions.assertEquals(JobStatus.RUNNING, jobStatus);
-        Awaitility.await()
-                .atMost(2, TimeUnit.MINUTES)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        JobStatus.FINISHED,
-                                        seaTunnelServer
-                                                .getCoordinatorService()
-                                                .getJobStatus(Long.parseLong(jobId))));
-    }
-
-    @AfterAll
-    static void afterClass() {
-        if (hazelcastInstance != null) {
-            hazelcastInstance.shutdown();
-        }
+        return response;
     }
 }

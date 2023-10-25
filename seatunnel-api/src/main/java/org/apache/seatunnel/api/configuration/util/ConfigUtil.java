@@ -20,7 +20,6 @@ package org.apache.seatunnel.api.configuration.util;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.dataformat.javaprop.JavaPropsMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
@@ -29,98 +28,19 @@ import org.apache.seatunnel.api.configuration.Option;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.ParameterizedType;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class ConfigUtil {
-    private static final JavaPropsMapper PROPERTIES_MAPPER = new JavaPropsMapper();
+
     private static final ObjectMapper JACKSON_MAPPER = new ObjectMapper();
-
-    /**
-     *
-     *
-     * <pre>
-     * poll.timeout = 1000
-     *                      ==>>  poll : {timeout = 1000, interval = 500}
-     * poll.interval = 500
-     * </pre>
-     */
-    public static Map<String, Object> treeMap(Object rawMap) {
-        // TODO: Keeping the order of the values in the map
-        try {
-            return PROPERTIES_MAPPER.readValue(
-                    PROPERTIES_MAPPER.writeValueAsString(rawMap),
-                    new TypeReference<Map<String, Object>>() {});
-        } catch (JsonProcessingException e) {
-            throw new IllegalArgumentException("Json parsing exception.");
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    static Object flatteningMap(
-            Object rawValue, Map<String, Object> newMap, List<String> keys, boolean nestedMap) {
-        if (rawValue == null) {
-            return null;
-        }
-        if (!(rawValue instanceof List) && !(rawValue instanceof Map)) {
-            if (newMap == null) {
-                return rawValue;
-            }
-            newMap.put(String.join(".", keys), rawValue);
-            return newMap;
-        }
-
-        if (rawValue instanceof List) {
-            List<Object> rawList = (List<Object>) rawValue;
-            rawList.replaceAll(value -> flatteningMap(value, null, null, false));
-            if (newMap != null) {
-                newMap.put(String.join(".", keys), rawList);
-                return newMap;
-            }
-            return rawList;
-        } else {
-            Map<String, Object> rawMap = (Map<String, Object>) rawValue;
-            if (!nestedMap) {
-                keys = new ArrayList<>();
-                newMap = new LinkedHashMap<>(rawMap.size());
-            }
-            for (Map.Entry<String, Object> entry : rawMap.entrySet()) {
-                keys.add(entry.getKey());
-                flatteningMap(entry.getValue(), newMap, keys, true);
-                keys.remove(keys.size() - 1);
-            }
-            return newMap;
-        }
-    }
-
-    /**
-     *
-     *
-     * <pre>
-     *                                                  poll.timeout = 1000
-     * poll : {timeout = 1000, interval = 500}  ==>>
-     *                                                  poll.interval = 500
-     * </pre>
-     */
-    @SuppressWarnings("unchecked")
-    public static Map<String, Object> flatteningMap(Map<String, Object> treeMap) {
-        return (Map<String, Object>) flatteningMapWithObject(treeMap);
-    }
-
-    static Object flatteningMapWithObject(Object rawValue) {
-        return flatteningMap(rawValue, null, null, false);
-    }
 
     @SuppressWarnings("unchecked")
     public static <T> T convertValue(Object rawValue, Option<T> option) {
         TypeReference<T> typeReference = option.typeReference();
-        rawValue = flatteningMapWithObject(rawValue);
         if (typeReference.getType() instanceof Class) {
             // simple type
             Class<T> clazz = (Class<T>) typeReference.getType();
@@ -163,6 +83,12 @@ public class ConfigUtil {
     }
 
     static <T> List<T> convertToList(Object rawValue, Class<T> clazz) {
+        if (rawValue instanceof List) {
+            return ((List<?>) rawValue)
+                    .stream()
+                            .map(value -> convertValue(convertToJsonString(value), clazz))
+                            .collect(Collectors.toList());
+        }
         return Arrays.stream(rawValue.toString().split(","))
                 .map(String::trim)
                 .map(value -> convertValue(value, clazz))
@@ -278,6 +204,9 @@ public class ConfigUtil {
     }
 
     public static String convertToJsonString(Object o) {
+        if (o == null) {
+            return null;
+        }
         if (o instanceof String) {
             return (String) o;
         }

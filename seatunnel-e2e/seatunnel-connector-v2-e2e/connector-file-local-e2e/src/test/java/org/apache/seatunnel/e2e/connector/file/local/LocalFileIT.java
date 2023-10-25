@@ -28,7 +28,14 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.TestTemplate;
 
+import io.airlift.compress.lzo.LzopCodec;
+
+import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
@@ -45,11 +52,18 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
                         container);
 
+                Path jsonLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/json/e2e.json"));
+                ContainerUtil.copyFileIntoContainers(
+                        jsonLzo, "/seatunnel/read/lzo_json/e2e.json", container);
+
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e.txt",
                         "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
                         container);
 
+                Path txtLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/text/e2e.txt"));
+                ContainerUtil.copyFileIntoContainers(
+                        txtLzo, "/seatunnel/read/lzo_text/e2e.txt", container);
                 ContainerUtil.copyFileIntoContainers(
                         "/excel/e2e.xlsx",
                         "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
@@ -69,6 +83,7 @@ public class LocalFileIT extends TestSuiteBase {
                         "/excel/e2e.xlsx",
                         "/seatunnel/read/excel_filter/name=tyrantlucifer/hobby=coding/e2e_filter.xlsx",
                         container);
+                container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
             };
 
     @TestTemplate
@@ -81,6 +96,7 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/excel/local_excel_projection_to_assert.conf");
         // test write local text file
         helper.execute("/text/fake_to_local_file_text.conf");
+        helper.execute("/text/local_file_text_lzo_to_assert.conf");
         // test read skip header
         helper.execute("/text/local_file_text_skip_headers.conf");
         // test read local text file
@@ -91,6 +107,7 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/json/fake_to_local_file_json.conf");
         // test read local json file
         helper.execute("/json/local_file_json_to_assert.conf");
+        helper.execute("/json/local_file_json_lzo_to_console.conf");
         // test write local orc file
         helper.execute("/orc/fake_to_local_file_orc.conf");
         // test read local orc file
@@ -105,5 +122,18 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
         // test read filtered local file
         helper.execute("/excel/local_filter_excel_to_assert.conf");
+
+        // test read empty directory
+        helper.execute("/json/local_file_to_console.conf");
+        helper.execute("/parquet/local_file_to_console.conf");
+    }
+
+    private Path convertToLzoFile(File file) throws IOException {
+        LzopCodec lzo = new LzopCodec();
+        Path path = Paths.get(file.getAbsolutePath() + ".lzo");
+        OutputStream outputStream = lzo.createOutputStream(Files.newOutputStream(path));
+        outputStream.write(Files.readAllBytes(file.toPath()));
+        outputStream.close();
+        return path;
     }
 }

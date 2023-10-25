@@ -21,9 +21,11 @@ import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * The interface for Source. It acts like a factory class that helps construct the {@link
@@ -49,9 +51,23 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends S
     /**
      * Get the data type of the records produced by this source.
      *
+     * @deprecated Please use {@link #getProducedCatalogTables}
      * @return SeaTunnel data type.
      */
-    SeaTunnelDataType<T> getProducedType();
+    @Deprecated
+    default SeaTunnelDataType<T> getProducedType() {
+        return (SeaTunnelDataType) getProducedCatalogTables().get(0).getSeaTunnelRowType();
+    }
+
+    /**
+     * Get the catalog tables output by this source, It is recommended that all connectors implement
+     * this method instead of {@link #getProducedType}. CatalogTable contains more information to
+     * help downstream support more accurate and complete synchronization capabilities.
+     */
+    default List<CatalogTable> getProducedCatalogTables() {
+        throw new UnsupportedOperationException(
+                "getProducedCatalogTables method has not been implemented.");
+    }
 
     /**
      * Create source reader, used to produce data.

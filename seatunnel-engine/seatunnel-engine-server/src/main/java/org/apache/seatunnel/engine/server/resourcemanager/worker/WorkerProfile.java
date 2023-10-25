@@ -25,6 +25,7 @@ import com.hazelcast.cluster.Address;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.IOException;
@@ -33,6 +34,7 @@ import java.io.IOException;
  * Used to describe the status of the current Worker, including address and resource assign status
  */
 @Data
+@AllArgsConstructor
 public class WorkerProfile implements IdentifiedDataSerializable {
 
     private Address address;
