@@ -149,6 +149,15 @@ public class RestApiIT {
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        seaTunnelServer
+                                                .getCoordinatorService()
+                                                .getJobStatus(Long.parseLong(jobId))));
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
                                         JobStatus.FINISHED,
                                         seaTunnelServer
                                                 .getCoordinatorService()

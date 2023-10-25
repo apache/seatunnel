@@ -460,7 +460,7 @@ public class ClusterFaultToleranceIT {
                                 Thread.sleep(2000);
                                 log.warn(
                                         FileUtils.getFileLineNumberFromDir(testResources.getLeft())
-                                                + "");
+                                                .toString());
                                 Assertions.assertTrue(
                                         JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
                                                 && testRowNumber * testParallelism
