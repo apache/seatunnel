@@ -150,7 +150,7 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
                             indexName,
                             s -> {
                                 ConstraintKey.ConstraintType constraintType =
-                                        ConstraintKey.ConstraintType.KEY;
+                                        ConstraintKey.ConstraintType.INDEX_KEY;
                                 if (!noUnique) {
                                     constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
                                 }

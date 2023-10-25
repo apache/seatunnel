@@ -232,4 +232,10 @@ public class BaseSinkConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("To be written sheet name,only valid for excel files");
+
+    public static final Option<Boolean> ENABLE_HEADER_WRITE =
+            Options.key("enable_header_write")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("false:dont write header,true:write header");
 }

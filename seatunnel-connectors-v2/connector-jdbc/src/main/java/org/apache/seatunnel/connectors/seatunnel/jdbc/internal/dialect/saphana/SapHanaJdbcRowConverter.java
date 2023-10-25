@@ -19,10 +19,11 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 public class SapHanaJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
-        return "SapHana";
+        return DatabaseIdentifier.SAP_HANA;
     }
 }

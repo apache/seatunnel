@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -40,7 +41,6 @@ import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.exception.Amazon
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
-import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.ACCESS_KEY_ID;
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.REGION;
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.SECRET_ACCESS_KEY;
@@ -74,7 +74,7 @@ public class AmazonDynamoDBSource
                         REGION.key(),
                         ACCESS_KEY_ID.key(),
                         SECRET_ACCESS_KEY.key(),
-                        SCHEMA.key());
+                        TableSchemaOptions.SCHEMA.key());
         if (!result.isSuccess()) {
             throw new AmazonDynamoDBConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
