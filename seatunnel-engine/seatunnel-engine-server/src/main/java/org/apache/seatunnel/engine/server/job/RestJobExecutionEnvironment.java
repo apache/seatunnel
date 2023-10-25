@@ -40,14 +40,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class JobImmutableInformationEnv extends AbstractJobEnvironment {
+public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
     private final Config seaTunnelJobConfig;
 
     private final NodeEngineImpl nodeEngine;
 
     private final Long jobId;
 
-    public JobImmutableInformationEnv(
+    public RestJobExecutionEnvironment(
             JobConfig jobConfig,
             Config seaTunnelJobConfig,
             Node node,
