@@ -33,7 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeM
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
-import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA;
+import static org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PLUGIN_NAME;
 
 @Slf4j
