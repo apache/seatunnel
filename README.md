@@ -6,8 +6,6 @@
 [![Join Slack](https://img.shields.io/badge/slack-%23seatunnel-4f8eba?logo=slack)](https://s.apache.org/seatunnel-slack)
 [![Twitter Follow](https://img.shields.io/twitter/follow/ASFSeaTunnel.svg?label=Follow&logo=twitter)](https://twitter.com/ASFSeaTunnel)
 
-SeaTunnel, formerly known as Waterdrop, was rebranded on October 12, 2021.
-
 ## Table of Contents
 - [Overview](#overview)
 - [Why Choose SeaTunnel](#why-choose-seatunnel)
