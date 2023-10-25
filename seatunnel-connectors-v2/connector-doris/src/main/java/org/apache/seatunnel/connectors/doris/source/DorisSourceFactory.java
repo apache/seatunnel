@@ -41,7 +41,8 @@ public class DorisSourceFactory implements TableSourceFactory {
                         DorisConfig.USERNAME,
                         DorisConfig.PASSWORD,
                         DorisConfig.TABLE_IDENTIFIER,
-                        CatalogTableUtil.SCHEMA)
+                        CatalogTableUtil.SCHEMA,
+                        DorisConfig.DORIS_FILTER_QUERY)
                 .build();
     }
 

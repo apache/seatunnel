@@ -29,6 +29,7 @@ import java.util.Map;
 @AllArgsConstructor
 @Getter
 public class DorisSourceState implements Serializable {
+    private static final long serialVersionUID = 812677654882088818L;
     private boolean shouldEnumerate;
     private Map<Integer, List<DorisSourceSplit>> pendingSplit;
 }

@@ -32,10 +32,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -67,7 +67,7 @@ public class DorisSourceSplitEnumerator
         this.context = context;
         this.dorisConfig = dorisConfig;
         this.seaTunnelRowType = rowType;
-        this.pendingSplit = new HashMap<>();
+        this.pendingSplit = new ConcurrentHashMap<>();
         this.shouldEnumerate = (dorisSourceState == null);
         if (dorisSourceState != null) {
             this.shouldEnumerate = dorisSourceState.isShouldEnumerate();
@@ -89,8 +89,8 @@ public class DorisSourceSplitEnumerator
             synchronized (stateLock) {
                 addPendingSplit(dorisSourceSplits);
                 shouldEnumerate = false;
+                assignSplit(readers);
             }
-            assignSplit(readers);
         }
 
         log.debug(
@@ -102,8 +102,10 @@ public class DorisSourceSplitEnumerator
     public void addSplitsBack(List<DorisSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to DorisSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
-            addPendingSplit(splits);
-            assignSplit(Collections.singletonList(subtaskId));
+            synchronized (stateLock) {
+                addPendingSplit(splits);
+                assignSplit(Collections.singletonList(subtaskId));
+            }
         }
     }
 
@@ -123,7 +125,9 @@ public class DorisSourceSplitEnumerator
     public void registerReader(int subtaskId) {
         log.debug("Register reader {} to DorisSourceSplitEnumerator.", subtaskId);
         if (!pendingSplit.isEmpty()) {
-            assignSplit(Collections.singletonList(subtaskId));
+            synchronized (stateLock) {
+                assignSplit(Collections.singletonList(subtaskId));
+            }
         }
     }
 
