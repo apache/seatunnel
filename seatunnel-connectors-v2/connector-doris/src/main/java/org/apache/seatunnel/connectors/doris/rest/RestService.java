@@ -211,12 +211,18 @@ public class RestService implements Serializable {
             throws IOException {
         int responseCode = connection.getResponseCode();
         if (responseCode != HttpStatus.SC_OK) {
-            logger.warn("Failed to get response from Doris {}, http code is {}", connection.getURL(), responseCode);
+            logger.warn(
+                    "Failed to get response from Doris {}, http code is {}",
+                    connection.getURL(),
+                    responseCode);
             throw new IOException("Failed to get response from Doris");
         }
 
         StringBuilder result = new StringBuilder();
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+        try (BufferedReader in =
+                new BufferedReader(
+                        new InputStreamReader(
+                                connection.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = in.readLine()) != null) {
                 result.append(line);
