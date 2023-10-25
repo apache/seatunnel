@@ -27,7 +27,7 @@ import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
 
-public class JobExecutionEnvironment extends AbstractJobEnvironment {
+public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
 
     private final String jobFilePath;
 
@@ -36,7 +36,7 @@ public class JobExecutionEnvironment extends AbstractJobEnvironment {
     private final JobClient jobClient;
 
     /** If the JobId is not empty, it is used to restore job from savePoint */
-    public JobExecutionEnvironment(
+    public ClientJobExecutionEnvironment(
             JobConfig jobConfig,
             String jobFilePath,
             SeaTunnelHazelcastClient seaTunnelHazelcastClient,
@@ -50,7 +50,7 @@ public class JobExecutionEnvironment extends AbstractJobEnvironment {
                 new JobContext(isStartWithSavePoint ? jobId : jobClient.getNewJobId()));
     }
 
-    public JobExecutionEnvironment(
+    public ClientJobExecutionEnvironment(
             JobConfig jobConfig,
             String jobFilePath,
             SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
