@@ -28,6 +28,8 @@ import org.apache.spark.sql.connector.read.PartitionReader;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
+import java.util.Map;
+
 public class SeaTunnelMicroBatchPartitionReaderFactory implements PartitionReaderFactory {
 
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
@@ -59,6 +61,7 @@ public class SeaTunnelMicroBatchPartitionReaderFactory implements PartitionReade
         Integer checkpointInterval = seaTunnelPartition.getCheckpointInterval();
         String hdfsRoot = seaTunnelPartition.getHdfsRoot();
         String hdfsUser = seaTunnelPartition.getHdfsUser();
+        Map<String, String> envOptions = caseInsensitiveStringMap.asCaseSensitiveMap();
         if (source instanceof SupportCoordinate) {
             partitionReader =
                     new CoordinatedMicroBatchPartitionReader(
@@ -69,7 +72,8 @@ public class SeaTunnelMicroBatchPartitionReaderFactory implements PartitionReade
                             checkpointInterval,
                             checkpointLocation,
                             hdfsRoot,
-                            hdfsUser);
+                            hdfsUser,
+                            envOptions);
         } else {
             partitionReader =
                     new ParallelMicroBatchPartitionReader(
@@ -80,7 +84,8 @@ public class SeaTunnelMicroBatchPartitionReaderFactory implements PartitionReade
                             checkpointInterval,
                             checkpointLocation,
                             hdfsRoot,
-                            hdfsUser);
+                            hdfsUser,
+                            envOptions);
         }
         return new SeaTunnelMicroBatchPartitionReader(partitionReader);
     }

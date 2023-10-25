@@ -21,6 +21,7 @@ SeaTunnel, formerly known as Waterdrop, was rebranded on October 12, 2021.
 - [How to Compile](#how-to-compile)
 - [Contact Us](#contact-us)
 - [Landscapes](#landscapes)
+- [Apache SeaTunnel Web Project](#apache-seaTunnel-web-project)
 - [Our Users](#our-users)
 - [License](#license)
 - [Frequently Asked Questions](#frequently-asked-questions)
@@ -28,6 +29,7 @@ SeaTunnel, formerly known as Waterdrop, was rebranded on October 12, 2021.
 ## Overview
 
 SeaTunnel is a next-generation, high-performance, distributed data integration tool, capable of synchronizing vast amounts of data daily. It's trusted by numerous companies for its efficiency and stability.
+
 
 ## Why Choose SeaTunnel
 
@@ -109,6 +111,11 @@ Refer to this [document](docs/en/contribution/setup.md) for compilation instruct
 ## Landscapes
 
 SeaTunnel enriches the [CNCF CLOUD NATIVE Landscape](https://landscape.cncf.io/?landscape=observability-and-analysis&license=apache-license-2-0).
+
+## Apache SeaTunnel Web Project
+
+SeaTunnel Web is a web project that provides visual management of jobs, scheduling, running and monitoring capabilities. It is developed based on the SeaTunnel Connector API and the SeaTunnel Zeta Engine. It is a web project that can be deployed independently. It is also a sub-project of SeaTunnel.
+For more information, please refer to [SeaTunnel Web](https://github.com/apache/seatunnel-web)
 
 ## Our Users
 
