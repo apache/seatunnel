@@ -21,29 +21,47 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
+import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
+import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+
+import static org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy.getFlowControlStrategy;
 
 public class InternalRowCollector implements Collector<SeaTunnelRow> {
     private final Handover<InternalRow> handover;
     private final Object checkpointLock;
     private final InternalRowConverter rowSerialization;
     private final AtomicLong collectTotalCount;
+    private Map<String, Object> envOptions;
+    private FlowControlGate flowControlGate;
 
     public InternalRowCollector(
-            Handover<InternalRow> handover, Object checkpointLock, SeaTunnelDataType<?> dataType) {
+            Handover<InternalRow> handover,
+            Object checkpointLock,
+            SeaTunnelDataType<?> dataType,
+            Map<String, String> envOptionsInfo) {
         this.handover = handover;
         this.checkpointLock = checkpointLock;
         this.rowSerialization = new InternalRowConverter(dataType);
         this.collectTotalCount = new AtomicLong(0);
+        this.envOptions = (Map) envOptionsInfo;
+        FlowControlStrategy flowControlStrategy = getFlowControlStrategy(envOptions);
+        if (flowControlStrategy != null) {
+            this.flowControlGate = FlowControlGate.create(flowControlStrategy);
+        }
     }
 
     @Override
     public void collect(SeaTunnelRow record) {
         try {
             synchronized (checkpointLock) {
+                if (flowControlGate != null) {
+                    flowControlGate.audit(record);
+                }
                 handover.produce(rowSerialization.convert(record));
             }
             collectTotalCount.incrementAndGet();

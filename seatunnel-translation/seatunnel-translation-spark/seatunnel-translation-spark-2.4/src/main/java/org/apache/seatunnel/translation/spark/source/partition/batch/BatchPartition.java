@@ -28,25 +28,34 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
 
+import java.util.Map;
+
 public class BatchPartition implements InputPartition<InternalRow> {
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
     protected final Integer subtaskId;
+    private Map<String, String> envOptions;
 
     public BatchPartition(
-            SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            Integer parallelism,
+            Integer subtaskId,
+            Map<String, String> envOptions) {
         this.source = source;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
+        this.envOptions = envOptions;
     }
 
     @Override
     public InputPartitionReader<InternalRow> createPartitionReader() {
         ParallelBatchPartitionReader partitionReader;
         if (source instanceof SupportCoordinate) {
-            partitionReader = new CoordinatedBatchPartitionReader(source, parallelism, subtaskId);
+            partitionReader =
+                    new CoordinatedBatchPartitionReader(source, parallelism, subtaskId, envOptions);
         } else {
-            partitionReader = new ParallelBatchPartitionReader(source, parallelism, subtaskId);
+            partitionReader =
+                    new ParallelBatchPartitionReader(source, parallelism, subtaskId, envOptions);
         }
         return new SeaTunnelInputPartitionReader(partitionReader);
     }

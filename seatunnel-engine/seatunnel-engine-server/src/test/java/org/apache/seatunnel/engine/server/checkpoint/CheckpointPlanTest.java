@@ -115,7 +115,6 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                                 Collections.singletonMap(
                                         "fields", ImmutableMap.of("id", "int", "name", "string"))));
         FakeSource fakeSource = new FakeSource(ReadonlyConfig.fromConfig(fakeSourceConfig));
-        fakeSource.prepare(fakeSourceConfig);
         fakeSource.setJobContext(jobContext);
 
         Action fake =

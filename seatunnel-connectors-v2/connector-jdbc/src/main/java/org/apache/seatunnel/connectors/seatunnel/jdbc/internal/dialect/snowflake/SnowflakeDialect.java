@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.snowflake;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
@@ -26,7 +27,7 @@ import java.util.Optional;
 public class SnowflakeDialect implements JdbcDialect {
     @Override
     public String dialectName() {
-        return "Snowflake";
+        return DatabaseIdentifier.SNOWFLAKE;
     }
 
     @Override

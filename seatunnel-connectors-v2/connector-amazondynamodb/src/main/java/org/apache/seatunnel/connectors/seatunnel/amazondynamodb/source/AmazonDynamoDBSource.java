@@ -23,7 +23,10 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -34,9 +37,6 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.exception.AmazonDynamoDBConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
@@ -49,8 +49,11 @@ import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.Am
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
-public class AmazonDynamoDBSource extends AbstractSingleSplitSource<SeaTunnelRow>
-        implements SupportColumnProjection {
+public class AmazonDynamoDBSource
+        implements SeaTunnelSource<
+                        SeaTunnelRow, AmazonDynamoDBSourceSplit, AmazonDynamoDBSourceState>,
+                SupportParallelism,
+                SupportColumnProjection {
 
     private AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
 
@@ -94,8 +97,27 @@ public class AmazonDynamoDBSource extends AbstractSingleSplitSource<SeaTunnelRow
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(
-            SingleSplitReaderContext readerContext) throws Exception {
+    public SourceSplitEnumerator<AmazonDynamoDBSourceSplit, AmazonDynamoDBSourceState>
+            createEnumerator(
+                    SourceSplitEnumerator.Context<AmazonDynamoDBSourceSplit> enumeratorContext)
+                    throws Exception {
+        return new AmazonDynamoDBSourceSplitEnumerator(
+                enumeratorContext, amazondynamodbSourceOptions);
+    }
+
+    @Override
+    public SourceSplitEnumerator<AmazonDynamoDBSourceSplit, AmazonDynamoDBSourceState>
+            restoreEnumerator(
+                    SourceSplitEnumerator.Context<AmazonDynamoDBSourceSplit> enumeratorContext,
+                    AmazonDynamoDBSourceState checkpointState)
+                    throws Exception {
+        return new AmazonDynamoDBSourceSplitEnumerator(
+                enumeratorContext, amazondynamodbSourceOptions, checkpointState);
+    }
+
+    @Override
+    public SourceReader<SeaTunnelRow, AmazonDynamoDBSourceSplit> createReader(
+            SourceReader.Context readerContext) throws Exception {
         return new AmazonDynamoDBSourceReader(readerContext, amazondynamodbSourceOptions, typeInfo);
     }
 }

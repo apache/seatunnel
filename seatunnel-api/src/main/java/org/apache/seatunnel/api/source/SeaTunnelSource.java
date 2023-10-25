@@ -56,7 +56,7 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends S
      */
     @Deprecated
     default SeaTunnelDataType<T> getProducedType() {
-        throw new UnsupportedOperationException("getProducedType method has not been implemented.");
+        return (SeaTunnelDataType) getProducedCatalogTables().get(0).getSeaTunnelRowType();
     }
 
     /**
