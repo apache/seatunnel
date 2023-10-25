@@ -30,9 +30,8 @@
 
     <properties>
         <mongo.driver.version>4.7.1</mongo.driver.version>
-        <avro.version>1.11.1</avro.version>
+        <avro.version>1.11.3</avro.version>
         <mongo-kafka-connect.version>1.10.1</mongo-kafka-connect.version>
-        <junit.vserion>4.13.2</junit.vserion>
     </properties>
 
     <dependencies>
@@ -80,7 +79,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>${junit.vserion}</version>
+            <version>${junit4.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

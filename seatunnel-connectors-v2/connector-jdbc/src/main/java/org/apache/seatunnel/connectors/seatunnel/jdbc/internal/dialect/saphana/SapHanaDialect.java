@@ -19,6 +19,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
@@ -27,7 +28,7 @@ import java.util.Optional;
 public class SapHanaDialect implements JdbcDialect {
     @Override
     public String dialectName() {
-        return "SapHana";
+        return DatabaseIdentifier.SAP_HANA;
     }
 
     @Override

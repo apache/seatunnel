@@ -63,7 +63,6 @@ public class TestUtils {
                                         "fields", ImmutableMap.of("id", "int", "name", "string"))));
         FakeSource fakeSource = new FakeSource(ReadonlyConfig.fromConfig(fakeSourceConfig));
         fakeSource.setJobContext(jobContext);
-        fakeSource.prepare(fakeSourceConfig);
 
         Action fake =
                 new SourceAction<>(

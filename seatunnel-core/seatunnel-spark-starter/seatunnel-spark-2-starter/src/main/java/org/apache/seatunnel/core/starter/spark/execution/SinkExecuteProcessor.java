@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
@@ -37,7 +38,6 @@ import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.translation.spark.sink.SparkSinkInjector;
-import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -94,7 +94,10 @@ public class SinkExecuteProcessor
             DatasetTableInfo datasetTableInfo =
                     fromSourceTable(sinkConfig, sparkRuntimeEnvironment, upstreamDataStreams)
                             .orElse(input);
+            SeaTunnelDataType<?> inputType =
+                    datasetTableInfo.getCatalogTable().getSeaTunnelRowType();
             Dataset<Row> dataset = datasetTableInfo.getDataset();
+
             int parallelism;
             if (sinkConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 parallelism = sinkConfig.getInt(CommonOptions.PARALLELISM.key());
@@ -120,7 +123,7 @@ public class SinkExecuteProcessor
                                         sinkConfig.getString(PLUGIN_NAME.key())),
                                 sinkConfig);
                 sink.setJobContext(jobContext);
-                sink.setTypeInfo((SeaTunnelRowType) TypeConverterUtils.convert(dataset.schema()));
+                sink.setTypeInfo((SeaTunnelRowType) inputType);
             } else {
                 TableSinkFactoryContext context =
                         new TableSinkFactoryContext(
@@ -154,7 +157,6 @@ public class SinkExecuteProcessor
                             .equals(e.getMessage())) {
                 return true;
             }
-            return true;
         }
         return false;
     }

@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -206,7 +207,7 @@ public class SqlServerCreateTableSqlBuilder {
         final List<String> columnSqls = new ArrayList<>();
         columnSqls.add("[" + CatalogUtils.getFieldIde(column.getName(), fieldIde) + "]");
         String tyNameDef = "";
-        if (StringUtils.equals(catalogName, "sqlserver")) {
+        if (StringUtils.equals(catalogName, DatabaseIdentifier.SQLSERVER)) {
             columnSqls.add(column.getSourceType());
         } else {
             // Column name

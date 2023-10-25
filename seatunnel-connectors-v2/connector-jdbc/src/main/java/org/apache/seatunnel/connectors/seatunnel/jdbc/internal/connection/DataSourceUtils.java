@@ -59,7 +59,7 @@ public class DataSourceUtils implements Serializable {
         if (jdbcConnectionConfig.getPassword().isPresent()) {
             accessConfig.put("password", jdbcConnectionConfig.getPassword().get());
         }
-
+        accessConfig.putAll(jdbcConnectionConfig.getProperties());
         return accessConfig;
     }
 

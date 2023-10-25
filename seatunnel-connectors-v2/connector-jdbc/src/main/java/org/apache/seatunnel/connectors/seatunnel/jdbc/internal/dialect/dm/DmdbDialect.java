@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
@@ -41,7 +42,7 @@ public class DmdbDialect implements JdbcDialect {
 
     @Override
     public String dialectName() {
-        return "DM";
+        return DatabaseIdentifier.DAMENG;
     }
 
     @Override
@@ -162,5 +163,15 @@ public class DmdbDialect implements JdbcDialect {
         }
 
         return "\"" + getFieldIde(identifier, fieldIde) + "\"";
+    }
+
+    @Override
+    public TablePath parse(String tablePath) {
+        return TablePath.of(tablePath, true);
+    }
+
+    @Override
+    public String tableIdentifier(TablePath tablePath) {
+        return tablePath.getSchemaAndTableName();
     }
 }
