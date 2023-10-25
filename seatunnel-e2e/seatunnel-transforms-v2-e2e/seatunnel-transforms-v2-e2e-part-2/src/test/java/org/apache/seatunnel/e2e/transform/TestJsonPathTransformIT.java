@@ -30,4 +30,18 @@ public class TestJsonPathTransformIT extends TestSuiteBase {
                 container.executeJob("/json_path_transform/json_path_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testArray(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/json_path_transform/array_test.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testNestedRow(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/json_path_transform/nested_row_test.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

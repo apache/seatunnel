@@ -55,6 +55,10 @@
             <artifactId>json-path</artifactId>
             <version>${json-path.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
 
     </dependencies>
 

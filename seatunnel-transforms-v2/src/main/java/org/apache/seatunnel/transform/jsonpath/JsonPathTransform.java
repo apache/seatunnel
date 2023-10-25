@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.JsonPathException;
 import lombok.extern.slf4j.Slf4j;
@@ -49,8 +51,8 @@ import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCod
 public class JsonPathTransform extends MultipleFieldOutputTransform {
 
     public static final String PLUGIN_NAME = "JsonPath";
-    private JsonPathTransformConfig config;
-    private SeaTunnelRowType seaTunnelRowType;
+    private final JsonPathTransformConfig config;
+    private final SeaTunnelRowType seaTunnelRowType;
 
     private String[] outputFieldNames;
 
@@ -60,7 +62,8 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
 
     private static final Map<String, JsonPath> JSON_PATH_CACHE = new ConcurrentHashMap<>();
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER =
+            new ObjectMapper().registerModule(new JavaTimeModule());
 
     public JsonPathTransform(JsonPathTransformConfig config, CatalogTable catalogTable) {
         super(catalogTable);
@@ -138,9 +141,11 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
                     break;
                 case ARRAY:
                 case MAP:
-                case ROW:
-                case MULTIPLE_ROW:
                     jsonString = OBJECT_MAPPER.writeValueAsString(value);
+                    break;
+                case ROW:
+                    SeaTunnelRow row = (SeaTunnelRow) value;
+                    jsonString = OBJECT_MAPPER.writeValueAsString(row.getFields());
                     break;
                 default:
                     throw new UnsupportedOperationException(
@@ -150,13 +155,10 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
             if (parseResult instanceof String) {
                 return parseResult;
             } else {
-                return OBJECT_MAPPER.writeValueAsString(parseResult);
+                return String.valueOf(parseResult);
             }
         } catch (JsonProcessingException e) {
-            throw new TransformException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
-                    String.format(
-                            "JsonPathTransform try convert %s to json for jsonpath failed", value));
+            throw new TransformException(CommonErrorCode.JSON_OPERATION_FAILED, e.getMessage());
         } catch (JsonPathException e) {
             throw new TransformException(JSON_PATH_COMPILE_ERROR, e.getMessage());
         }

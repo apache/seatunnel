@@ -37,7 +37,6 @@ Support SeatunnelDateType
 * ARRAY
 * MAP
 * ROW
-* MULTIPLE_ROW
 
 #### dest_field
 
@@ -47,11 +46,11 @@ Support SeatunnelDateType
 
 > Jsonpath
 
-## Example
+## Example1
 
 The data read from source is a table like this:
 
-|                    data                     | timestamp |
+|                    dATA                     | timestamp |
 |---------------------------------------------|-----------|
 | {"data":{"name":"seatunnel","version":2.3}} | 10000     |
 | {"data":{"name":"seatunnel","version":2.2}} | 20000     |
@@ -85,6 +84,41 @@ Then the data result table `fake1` will like this
 |---------------------------------------------|-----------|-----------|---------|
 | {"data":{"name":"seatunnel","version":2.3}} | 10000     | seatunnel | 2.3     |
 | {"data":{"name":"seatunnel","version":2.2}} | 20000     | seatunnel | 2.2     |
+
+## Example2
+
+The data read from source is a table like this:
+
+|   data(Seatunnelrow)   | timestamp |
+|------------------------|-----------|
+| ["data1",2,"data3"]    | 1000      |
+| ["data21",22,"data23"] | 2000      |
+
+the first column in the given rows is also of type `seatunnelRow`, and we want use JsonPath to select data from the first column.
+
+```json
+transform {
+  JsonPath {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    fields = [
+     {
+        "src_field" = "data"
+  //We select the data at index zero.
+        "path" = "$[0]"
+        "dest_field" = "test_str"
+     }
+    ]
+  }
+}
+```
+
+Then the data result table `fake1` will like this
+
+|          data          | timestamp | test_str |
+|------------------------|-----------|----------|
+| ["data1",2,"data3"]    | 1000      | data1    |
+| ["data21",22,"data23"] | 2000      | Data2    |
 
 ## Changelog
 
