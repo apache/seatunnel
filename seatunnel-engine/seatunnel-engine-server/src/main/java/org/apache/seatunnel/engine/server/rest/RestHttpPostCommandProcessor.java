@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.server.rest;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -96,14 +98,20 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         Config config = RestUtil.buildConfig(requestHandle(httpPostCommand));
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(requestParams.get(RestConstant.JOB_NAME));
+        if (Common.getDeployMode() == null) {
+            Common.setDeployMode(DeployMode.CLIENT);
+        }
+        boolean startWithSavePoint =
+                Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT));
         RestJobExecutionEnvironment restJobExecutionEnvironment =
                 new RestJobExecutionEnvironment(
                         jobConfig,
                         config,
                         textCommandService.getNode(),
-                        Boolean.parseBoolean(
-                                requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT)),
-                        Long.parseLong(requestParams.get(RestConstant.JOB_ID)));
+                        startWithSavePoint,
+                        startWithSavePoint
+                                ? Long.parseLong(requestParams.get(RestConstant.JOB_ID))
+                                : null);
         JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
         CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
         Data data =
