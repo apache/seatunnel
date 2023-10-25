@@ -45,8 +45,6 @@ public class KuduSinkFactory implements TableSinkFactory {
                 .optional(KuduSinkConfig.ADMIN_OPERATION_TIMEOUT)
                 .optional(KuduSinkConfig.SAVE_MODE)
                 .optional(KuduSinkConfig.FLUSH_MODE)
-                .optional(KuduSinkConfig.BATCH_SIZE)
-                .optional(KuduSinkConfig.BUFFER_FLUSH_INTERVAL)
                 .optional(KuduSinkConfig.IGNORE_NOT_FOUND)
                 .optional(KuduSinkConfig.IGNORE_DUPLICATE)
                 .optional(KuduSinkConfig.ENABLE_KERBEROS)
