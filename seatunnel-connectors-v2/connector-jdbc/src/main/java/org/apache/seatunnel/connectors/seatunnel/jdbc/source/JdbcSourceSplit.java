@@ -18,19 +18,27 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.ToString;
 
 @Data
+@ToString
 @AllArgsConstructor
 public class JdbcSourceSplit implements SourceSplit {
-
-    Object[] parameterValues;
-    Integer splitId;
+    private final TablePath tablePath;
+    private final String splitId;
+    private final String splitQuery;
+    private final String splitKeyName;
+    private final SeaTunnelDataType splitKeyType;
+    private final Object splitStart;
+    private final Object splitEnd;
 
     @Override
     public String splitId() {
-        return splitId.toString();
+        return splitId;
     }
 }

@@ -15,23 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
+package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.source.SourceSplit;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-import java.io.Serializable;
-import java.math.BigDecimal;
-
-@Data
 @AllArgsConstructor
-public class PartitionParameter implements Serializable {
+@Getter
+@Setter
+public class AmazonDynamoDBSourceSplit implements SourceSplit {
 
-    String partitionColumnName;
-    SeaTunnelDataType<?> dataType;
-    BigDecimal minValue;
-    BigDecimal maxValue;
-    Integer partitionNumber;
+    private Integer splitId;
+    private Integer totalSegments;
+    private Integer itemCount;
+
+    @Override
+    public String splitId() {
+        return splitId.toString();
+    }
 }

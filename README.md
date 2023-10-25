@@ -8,12 +8,6 @@
 
 ---
 
-[![EN doc](https://img.shields.io/badge/document-English-blue.svg)](README.md)
-
-SeaTunnel, formerly named Waterdrop, was rebranded as SeaTunnel on October 12, 2021.
-
----
-
 SeaTunnel is a next-generation, super high-performance, distributed, massive data integration tool. It efficiently and stably synchronizes tens of billions of data daily and has been adopted by numerous companies.
 
 ## Why Choose SeaTunnel
@@ -89,6 +83,11 @@ SeaTunnel defaults to using the SeaTunnel Zeta Engine as the runtime execution e
 - **Yonghui Superstores Founders' Alliance-Yonghui Yunchuang Technology, Member E-commerce Data Analysis Platform**: Provides real-time streaming and offline SQL computing of e-commerce user behavior data for Yonghui Life.
 
 For more use cases, please refer to the [SeaTunnel blog](https://seatunnel.apache.org/blog).
+
+## Apache SeaTunnel Web Project
+
+SeaTunnel Web is a web project that provides visual management of jobs, scheduling, running and monitoring capabilities. It is developed based on the SeaTunnel Connector API and the SeaTunnel Zeta Engine. It is a web project that can be deployed independently. It is also a sub-project of SeaTunnel.
+For more information, please refer to [SeaTunnel Web](https://github.com/apache/seatunnel-web)
 
 ## Code of Conduct
 

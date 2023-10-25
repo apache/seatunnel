@@ -15,16 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.scheduler;
+package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
-import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
-import lombok.NonNull;
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 
-import java.util.concurrent.CompletableFuture;
-
-public interface JobScheduler {
-    CompletableFuture<Void> reSchedulerPipeline(@NonNull SubPlan subPlan);
-
-    void startScheduling();
+@Getter
+@Setter
+@AllArgsConstructor
+public class AmazonDynamoDBSourceState implements Serializable {
+    private boolean shouldEnumerate;
+    private Map<Integer, List<AmazonDynamoDBSourceSplit>> pendingSplits;
 }

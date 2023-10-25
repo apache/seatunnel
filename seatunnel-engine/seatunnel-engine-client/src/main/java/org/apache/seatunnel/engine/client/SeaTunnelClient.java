@@ -18,8 +18,8 @@
 package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobClient;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobMetricsRunner.JobMetricsSummary;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
@@ -48,15 +48,15 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
     }
 
     @Override
-    public JobExecutionEnvironment createExecutionContext(
+    public ClientJobExecutionEnvironment createExecutionContext(
             @NonNull String filePath, @NonNull JobConfig jobConfig) {
-        return new JobExecutionEnvironment(jobConfig, filePath, hazelcastClient);
+        return new ClientJobExecutionEnvironment(jobConfig, filePath, hazelcastClient);
     }
 
     @Override
-    public JobExecutionEnvironment restoreExecutionContext(
+    public ClientJobExecutionEnvironment restoreExecutionContext(
             @NonNull String filePath, @NonNull JobConfig jobConfig, @NonNull Long jobId) {
-        return new JobExecutionEnvironment(jobConfig, filePath, hazelcastClient, true, jobId);
+        return new ClientJobExecutionEnvironment(jobConfig, filePath, hazelcastClient, true, jobId);
     }
 
     @Override

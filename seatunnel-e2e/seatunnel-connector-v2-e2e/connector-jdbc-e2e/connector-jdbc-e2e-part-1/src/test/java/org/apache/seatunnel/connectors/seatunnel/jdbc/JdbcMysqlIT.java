@@ -36,9 +36,11 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcCo
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.ChunkSplitter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSource;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -339,7 +341,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     }
 
     @Test
-    public void parametersTest() throws SQLException, IOException, ClassNotFoundException {
+    public void parametersTest() throws Exception {
         defaultSinkParametersTest();
         defaultSourceParametersTest();
     }
@@ -417,7 +419,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         Assertions.assertEquals(connectionProperties4.get("rewriteBatchedStatements"), "false");
     }
 
-    void defaultSourceParametersTest() throws IOException, SQLException, ClassNotFoundException {
+    void defaultSourceParametersTest() throws Exception {
         // case1 url not contains parameters and properties not contains parameters
         Map<String, Object> map1 = getDefaultConfigMap();
         map1.put("url", getUrl());
@@ -517,11 +519,14 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         return connectionProperties;
     }
 
-    private Properties getSourceProperties(JdbcSource jdbcSource)
-            throws IOException, SQLException, ClassNotFoundException {
+    private Properties getSourceProperties(JdbcSource jdbcSource) throws Exception {
+        JdbcSourceSplitEnumerator enumerator =
+                ((JdbcSourceSplitEnumerator) jdbcSource.createEnumerator(null));
+        ChunkSplitter splitter =
+                ((ChunkSplitter) ReflectionUtils.getField(enumerator, "splitter").get());
         JdbcConnectionProvider connectionProvider =
                 (JdbcConnectionProvider)
-                        ReflectionUtils.getField(jdbcSource, "jdbcConnectionProvider").get();
+                        ReflectionUtils.getField(splitter, "connectionProvider").get();
         ConnectionImpl connection = (ConnectionImpl) connectionProvider.getOrEstablishConnection();
         Properties connectionProperties = connection.getProperties();
         return connectionProperties;
