@@ -234,7 +234,7 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
                                                             "5.3",
                                                             "6.30000",
                                                             "NEW",
-                                                            "2020-02-02 10:02:02.0"),
+                                                            "2020-02-02 02:02:02.0"),
                                                     Arrays.asList(
                                                             "1",
                                                             "true",
@@ -246,7 +246,7 @@ public class KuduCDCSinkIT extends TestSuiteBase implements TestResource {
                                                             "5.3",
                                                             "6.30000",
                                                             "NEW",
-                                                            "2020-02-02 10:02:02.0"))
+                                                            "2020-02-02 02:02:02.0"))
                                             .collect(Collectors.toList()),
                                     readData(KUDU_SINK_TABLE));
                         });
