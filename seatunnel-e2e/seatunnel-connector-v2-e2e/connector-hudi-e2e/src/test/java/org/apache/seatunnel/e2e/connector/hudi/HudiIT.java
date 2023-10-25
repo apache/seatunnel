@@ -15,20 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.source;
+package org.apache.seatunnel.e2e.connector.hudi;
 
-import java.io.Serializable;
-import java.util.Set;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-public class HudiSourceState implements Serializable {
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 
-    private final Set<HudiSourceSplit> assignedSplit;
+import java.io.IOException;
 
-    public HudiSourceState(Set<HudiSourceSplit> assignedSplit) {
-        this.assignedSplit = assignedSplit;
-    }
+public class HudiIT extends TestSuiteBase {
 
-    public Set<HudiSourceSplit> getAssignedSplit() {
-        return assignedSplit;
+    @TestTemplate
+    public void testWriteHudi(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult textWriteResult = container.executeJob("/fake_to_hudi.conf");
+        Assertions.assertEquals(0, textWriteResult.getExitCode());
     }
 }

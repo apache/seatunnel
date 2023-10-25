@@ -15,31 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.source;
+package org.apache.seatunnel.connectors.seatunnel.hudi.state;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-import org.apache.hadoop.mapred.InputSplit;
+import java.io.Serializable;
+import java.util.List;
 
-public class HudiSourceSplit implements SourceSplit {
+@Data
+@AllArgsConstructor
+public class HudiAggregatedCommitInfo implements Serializable {
 
-    private static final long serialVersionUID = -1L;
-
-    private final String splitId;
-
-    private final InputSplit inputSplit;
-
-    public HudiSourceSplit(String splitId, InputSplit inputSplit) {
-        this.splitId = splitId;
-        this.inputSplit = inputSplit;
-    }
-
-    @Override
-    public String splitId() {
-        return this.splitId;
-    }
-
-    public InputSplit getInputSplit() {
-        return this.inputSplit;
-    }
+    private final List<HudiCommitInfo> hudiCommitInfoList;
 }

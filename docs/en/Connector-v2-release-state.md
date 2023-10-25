@@ -38,7 +38,6 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [Hive](connector-v2/source/Hive.md)                         | Source | GA     | 2.2.0-beta      |
 | [Http](connector-v2/sink/Http.md)                           | Sink   | Beta   | 2.2.0-beta      |
 | [Http](connector-v2/source/Http.md)                         | Source | Beta   | 2.2.0-beta      |
-| [Hudi](connector-v2/source/Hudi.md)                         | Source | Beta   | 2.2.0-beta      |
 | [Iceberg](connector-v2/source/Iceberg.md)                   | Source | Beta   | 2.2.0-beta      |
 | [InfluxDB](connector-v2/sink/InfluxDB.md)                   | Sink   | Beta   | 2.3.0           |
 | [InfluxDB](connector-v2/source/InfluxDB.md)                 | Source | Beta   | 2.3.0-beta      |
