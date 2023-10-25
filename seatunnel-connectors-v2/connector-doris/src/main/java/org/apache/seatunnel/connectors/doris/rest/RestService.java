@@ -230,9 +230,9 @@ public class RestService implements Serializable {
         } catch (IOException e) {
             throw new IOException(e);
         } finally {
-           if(in != null) { 
-               in.close();
-           }
+            if (in != null) {
+                in.close();
+            }
         }
         return result.toString();
     }
