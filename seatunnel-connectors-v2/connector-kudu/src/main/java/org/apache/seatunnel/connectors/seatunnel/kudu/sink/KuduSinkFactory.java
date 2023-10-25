@@ -24,6 +24,11 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Arrays;
+
+import static org.apache.kudu.client.SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND;
+import static org.apache.kudu.client.SessionConfiguration.FlushMode.MANUAL_FLUSH;
+
 @AutoService(Factory.class)
 public class KuduSinkFactory implements TableSinkFactory {
     @Override
@@ -46,6 +51,14 @@ public class KuduSinkFactory implements TableSinkFactory {
                 .optional(KuduSinkConfig.IGNORE_DUPLICATE)
                 .optional(KuduSinkConfig.ENABLE_KERBEROS)
                 .optional(KuduSinkConfig.KERBEROS_KRB5_CONF)
+                .conditional(
+                        KuduSinkConfig.FLUSH_MODE,
+                        Arrays.asList(AUTO_FLUSH_BACKGROUND.name(), MANUAL_FLUSH.name()),
+                        KuduSinkConfig.BATCH_SIZE)
+                .conditional(
+                        KuduSinkConfig.FLUSH_MODE,
+                        AUTO_FLUSH_BACKGROUND.name(),
+                        KuduSinkConfig.BUFFER_FLUSH_INTERVAL)
                 .conditional(
                         KuduSinkConfig.ENABLE_KERBEROS,
                         true,
