@@ -257,9 +257,9 @@ public class MysqlCreateTableSqlBuilder {
 
     private void getColumnNameBytes(List<String> columnSqls, Long bitLen) {
         bitLen = bitLen == null ? Integer.MAX_VALUE : bitLen;
-        if (bitLen >= 0 && bitLen <= 64) {
+        if (bitLen > 0 && bitLen <= 64) {
             columnSqls.add(MysqlType.BIT.getName());
-            columnSqls.add("(" + (bitLen == 0 ? 1 : bitLen) + ")");
+            columnSqls.add("(" + bitLen + ")");
         } else {
             bitLen = bitLen == -1 ? bitLen : bitLen >> 3;
             if (bitLen >= 0 && bitLen <= 255) {
