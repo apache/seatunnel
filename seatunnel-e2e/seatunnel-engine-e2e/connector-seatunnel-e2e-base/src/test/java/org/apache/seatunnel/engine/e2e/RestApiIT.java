@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -63,7 +61,6 @@ public class RestApiIT {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
         hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-        Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
@@ -278,9 +275,7 @@ public class RestApiIT {
                         + "        }\n"
                         + "    ]\n"
                         + "}";
-        String parameters = "jobId=1&jobName=test&isStartWithSavePoint=false";
-        // Only jobName is compared because jobId is randomly generated if isStartWithSavePoint is
-        // false
+        String parameters = "jobName=test";
         Response response =
                 given().body(requestBody)
                         .post(
