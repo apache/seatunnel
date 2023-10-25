@@ -18,11 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlite;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 public class SqliteJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
     public String converterName() {
-        return "Sqlite";
+        return DatabaseIdentifier.SQLITE;
     }
 }

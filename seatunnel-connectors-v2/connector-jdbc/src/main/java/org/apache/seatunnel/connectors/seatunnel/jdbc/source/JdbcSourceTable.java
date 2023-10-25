@@ -17,21 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 
-import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
 
 @Data
-@AllArgsConstructor
-public class PartitionParameter implements Serializable {
+@Builder
+public class JdbcSourceTable implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-    String partitionColumnName;
-    SeaTunnelDataType<?> dataType;
-    BigDecimal minValue;
-    BigDecimal maxValue;
-    Integer partitionNumber;
+    private final TablePath tablePath;
+    private final String query;
+    private final String partitionColumn;
+    private final Integer partitionNumber;
+    private final BigDecimal partitionStart;
+    private final BigDecimal partitionEnd;
+    private final CatalogTable catalogTable;
 }
