@@ -133,7 +133,9 @@ public class RestApiIT {
 
     @Test
     public void testSubmitJob() {
-        String jobId = submitJob("BATCH").getBody().jsonPath().getString("jobId");
+        Response response = submitJob("BATCH");
+        response.then().statusCode(200).body("jobName", equalTo("test"));
+        String jobId = response.getBody().jsonPath().getString("jobId");
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer)
                         hazelcastInstance
@@ -237,6 +239,14 @@ public class RestApiIT {
                                                 .getJobStatus(Long.parseLong(jobId2))));
     }
 
+    @Test
+    public void testStartWithSavePointWithoutJobId() {
+        Response response = submitJob("BATCH", true);
+        response.then()
+                .statusCode(400)
+                .body("message", equalTo("Please provide jobId when start with save point."));
+    }
+
     @AfterEach
     void afterClass() {
         if (hazelcastInstance != null) {
@@ -245,6 +255,10 @@ public class RestApiIT {
     }
 
     private Response submitJob(String jobMode) {
+        return submitJob(jobMode, false);
+    }
+
+    private Response submitJob(String jobMode, boolean isStartWithSavePoint) {
         String requestBody =
                 "{\n"
                         + "    \"env\": {\n"
@@ -276,6 +290,9 @@ public class RestApiIT {
                         + "    ]\n"
                         + "}";
         String parameters = "jobName=test";
+        if (isStartWithSavePoint) {
+            parameters = parameters + "&isStartWithSavePoint=true";
+        }
         Response response =
                 given().body(requestBody)
                         .post(
@@ -288,8 +305,6 @@ public class RestApiIT {
                                         + RestConstant.SUBMIT_JOB_URL
                                         + "?"
                                         + parameters);
-
-        response.then().statusCode(200).body("jobName", equalTo("test"));
         return response;
     }
 }
