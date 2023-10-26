@@ -95,7 +95,7 @@ public class MultipleTableJobConfigParserTest {
     }
 
     @Test
-    public void testMultipleSinkName() {
+    public void testMultipleSinkNameAndSinkParse() throws IOException {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/batch_fakesource_to_two_file.conf");
         JobConfig jobConfig = new JobConfig();
@@ -108,6 +108,10 @@ public class MultipleTableJobConfigParserTest {
 
         Assertions.assertEquals("Sink[0]-LocalFile-default-identifier", actions.get(0).getName());
         Assertions.assertEquals("Sink[1]-LocalFile-default-identifier", actions.get(1).getName());
+        Assertions.assertFalse(
+                ((SinkAction) actions.get(0)).getSink().createCommitter().isPresent());
+        Assertions.assertTrue(
+                ((SinkAction) actions.get(0)).getSink().createAggregatedCommitter().isPresent());
     }
 
     @Test
