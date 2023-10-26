@@ -127,7 +127,7 @@ Companies and organizations worldwide use SeaTunnel for research, production, an
 
 ### 1. How do I install SeaTunnel?
 
-Follow the [installation guide](https://seatunnel.apache.org/docs/2.1.0/flink/installation/) on our website to get started.
+Follow the [installation guide](https://seatunnel.apache.org/docs/2.3.3/start-v2/locally/deployment/) on our website to get started.
 
 ### 2. How can I contribute to SeaTunnel?
 
