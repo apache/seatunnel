@@ -27,11 +27,14 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
+import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
+import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -51,6 +54,8 @@ import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -60,9 +65,9 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class DorisCatalogIT extends TestSuiteBase implements TestResource {
 
-    private static final String DOCKER_IMAGE = "zykkk/doris:1.2.2.1-avx2-x86_84";
+    private static final String DOCKER_IMAGE = "adamlee489/doris:2.0.2_x86";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
-    private static final String HOST = "doris_cdc_e2e";
+    private static final String HOST = "doris_catalog_e2e";
     private static final int DOCKER_QUERY_PORT = 9030;
     private static final int DOCKER_HTTP_PORT = 8030;
     private static final int QUERY_PORT = 9939;
@@ -71,7 +76,7 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
     private static final String DATABASE = "test";
-    private static final String SINK_TABLE = "e2e_table_sink";
+    private static final String SINK_TABLE = "doris_catalog_e2e";
     private static final String DRIVER_JAR =
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
     private static final String SET_SQL =
@@ -79,14 +84,21 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
 
     private GenericContainer<?> container;
     private Connection jdbcConnection;
+    private DorisCatalogFactory factory;
     private DorisCatalog catalog;
 
+    @BeforeAll
     @Override
     public void startUp() throws Exception {
+
         container =
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
+                        .withEnv("FE_SERVERS","fe1:127.0.0.1:9010")
+                        .withEnv("FE_ID","1")
+                        .withEnv("CURRENT_BE_IP","127.0.0.1")
+                        .withEnv("CURRENT_BE_PORT","9050")
                         .withPrivilegedMode(true)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
@@ -100,23 +112,42 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
                 .await()
                 .atMost(10000, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
+        initCatalogFactory();
         initCatalog();
+    }
+
+    private void initCatalogFactory() {
+        if (factory == null) {
+            factory = new DorisCatalogFactory();
+        }
     }
 
     private void initCatalog() {
         String catalogName = "doris";
         String frontEndNodes = container.getHost() + ":" + HTTP_PORT;
-        DorisConfig config = DorisConfig.of(ReadonlyConfig.fromMap(new HashMap<>()));
-        catalog =
-                new DorisCatalog(
-                        catalogName,
-                        frontEndNodes,
-                        QUERY_PORT,
-                        USERNAME,
-                        PASSWORD,
-                        config,
-                        DATABASE);
+
+        factory = new DorisCatalogFactory();
+
+        Map<String, Object> map = new HashMap<>();
+        map.put(DorisOptions.FENODES.key(), frontEndNodes);
+        map.put(DorisOptions.QUERY_PORT.key(), QUERY_PORT);
+        map.put(DorisOptions.USERNAME.key(), USERNAME);
+        map.put(DorisOptions.PASSWORD.key(), PASSWORD);
+        map.put(DorisOptions.DEFAULT_DATABASE.key(), PASSWORD);
+
+        catalog = (DorisCatalog) factory.createCatalog(catalogName, ReadonlyConfig.fromMap(map));
+
         catalog.open();
+    }
+
+    @Test
+    void factoryIdentifier() {
+        Assertions.assertEquals(factory.factoryIdentifier(), "Doris");
+    }
+
+    @Test
+    void optionRule() {
+        Assertions.assertNotNull(factory.optionRule());
     }
 
     @Test
@@ -144,6 +175,9 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
 
         boolean dbCreated = false;
 
+        List<String> databases = catalog.listDatabases();
+        Assertions.assertEquals(databases.size(), 0);
+
         if (!catalog.databaseExists(tablePath.getDatabaseName())) {
             catalog.createDatabase(tablePath, false);
             dbCreated = true;
@@ -152,6 +186,9 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
         Assertions.assertFalse(catalog.tableExists(tablePath));
         catalog.createTable(tablePath, catalogTable, false);
         Assertions.assertTrue(catalog.tableExists(tablePath));
+
+        List<String> tables = catalog.listTables(tablePath.getDatabaseName());
+        Assertions.assertEquals(tables.size(), 1);
 
         catalog.dropTable(tablePath, false);
         Assertions.assertFalse(catalog.tableExists(tablePath));
@@ -162,6 +199,7 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @AfterAll
     @Override
     public void tearDown() throws Exception {
         if (container != null) {
