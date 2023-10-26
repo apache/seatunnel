@@ -1,6 +1,6 @@
 # SQL Server CDC
 
-> SqlServer CDC source connector
+> Sql Server CDC source connector
 
 ## Support SQL Server Version
 
@@ -22,8 +22,8 @@
 
 ## Description
 
-The SqlServer CDC connector allows for reading snapshot data and incremental data from SqlServer database. This document
-describes how to setup the SqlServer CDC connector to run SQL queries against SqlServer databases.
+The Sql Server CDC connector allows for reading snapshot data and incremental data from SqlServer database. This document
+describes how to setup the Sql Server CDC connector to run SQL queries against SqlServer databases.
 
 ## Supported DataSource Info
 
@@ -84,6 +84,33 @@ Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For ex
 | debezium.*                                     | config   | No       | -       | Pass-through Debezium's properties to Debezium Embedded Engine which is used to capture data changes from SqlServer server.<br/>See more about<br/>the [Debezium's SqlServer Connector properties](https://debezium.io/documentation/reference/1.6/connectors/sqlserver.html#sqlserver-connector-properties)                                                                                                                                                                                                                                                                                                         |
 | format                                         | Enum     | No       | DEFAULT | Optional output format for SqlServer CDC, valid enumerations are "DEFAULT"、"COMPATIBLE_DEBEZIUM_JSON".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | common-options                                 |          | no       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+### Enable Sql Server CDC
+
+1. Check whether the CDC Agent is enabled
+
+> EXEC xp_servicecontrol N'querystate', N'SQLServerAGENT'; <br/>
+> If the result is running, prove that it is enabled. Otherwise, you need to manually enable it
+> 2. Enable the CDC Agent
+> /opt/mssql/bin/mssql-conf setup
+
+3. The result is as follows
+
+> 1) Evaluation (free, no production use rights, 180-day limit)
+> 2) Developer (free, no production use rights)
+> 3) Express (free)
+> 4) Web (PAID)
+> 5) Standard (PAID)
+> 6) Enterprise (PAID)
+> 7) Enterprise Core (PAID)
+> 8) I bought a license through a retail sales channel and have a product key to enter.
+
+4. Set the CDC at the library level
+   Set the library level below to enable CDC. At this level, all tables under the libraries of the enabled CDC automatically enable CDC
+
+> USE TestDB; -- Replace with the actual database name <br/>
+> EXEC sys.sp_cdc_enable_db;<br/>
+> SELECT name, is_tracked_by_cdc  FROM sys.tables  WHERE name = 'table'; -- table Replace with the name of the table you want to check
 
 ## Task Example
 
