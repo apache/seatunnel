@@ -206,6 +206,7 @@ public class SparkStarter implements Starter {
         appendSparkConf(commands, this.sparkConf);
         appendAppJar(commands);
         appendOption(commands, "--config", this.commandArgs.getConfigFile());
+        appendOption(commands, "--name", this.commandArgs.getJobName());
         if (commandArgs.isEncrypt()) {
             commands.add("--encrypt");
         }
