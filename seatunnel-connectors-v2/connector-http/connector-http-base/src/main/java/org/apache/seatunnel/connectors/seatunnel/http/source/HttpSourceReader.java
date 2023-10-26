@@ -150,7 +150,6 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         this.httpParameter
                 .getParams()
                 .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
-        //
     }
 
     @Override
