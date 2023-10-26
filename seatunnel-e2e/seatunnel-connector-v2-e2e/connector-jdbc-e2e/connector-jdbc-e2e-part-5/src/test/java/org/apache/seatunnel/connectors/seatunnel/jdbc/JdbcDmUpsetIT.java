@@ -59,7 +59,7 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
     private static final String DM_USERNAME = "SYSDBA2";
     private static final String DM_PASSWORD = "testPassword";
     private static final int DOCKET_PORT = 5236;
-    private static final int JDBC_PORT = 5336;
+    private static final int JDBC_PORT = 5236;
     private static final String DM_URL = "jdbc:dm://" + HOST + ":%s";
 
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
@@ -251,11 +251,11 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
                 new GenericContainer<>(DM_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(DM_CONTAINER_HOST)
+                        .withExposedPorts(JDBC_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
         container.setPortBindings(
                 Lists.newArrayList(String.format("%s:%s", JDBC_PORT, DOCKET_PORT)));
-
         return container;
     }
 
@@ -284,7 +284,9 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
             }
 
             Connection dmCon =
-                    driver.connect(jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost()), props);
+                    driver.connect(
+                            String.format(DM_URL, DOCKET_PORT).replace(HOST, dbServer.getHost()),
+                            props);
             dmCon.setAutoCommit(false);
 
             createDBAUser(dmCon);
