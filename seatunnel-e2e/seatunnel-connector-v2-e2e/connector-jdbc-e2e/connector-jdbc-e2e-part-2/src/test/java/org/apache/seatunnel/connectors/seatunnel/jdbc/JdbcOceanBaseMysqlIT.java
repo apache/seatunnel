@@ -279,6 +279,7 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
     GenericContainer<?> initContainer() {
         return new GenericContainer<>(IMAGE)
                 .withEnv("MODE", "slim")
+                .withEnv("OB_DATAFILE_SIZE", "2G")
                 .withNetwork(NETWORK)
                 .withNetworkAliases(HOSTNAME)
                 .withExposedPorts(PORT)
