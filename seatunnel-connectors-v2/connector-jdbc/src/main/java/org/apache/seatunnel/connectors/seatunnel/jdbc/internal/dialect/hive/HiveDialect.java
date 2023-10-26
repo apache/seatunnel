@@ -18,14 +18,13 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.hive;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Optional;
@@ -34,7 +33,7 @@ public class HiveDialect implements JdbcDialect {
 
     @Override
     public String dialectName() {
-        return "HIVE";
+        return DatabaseIdentifier.HIVE;
     }
 
     @Override
@@ -54,10 +53,9 @@ public class HiveDialect implements JdbcDialect {
     }
 
     @Override
-    public ResultSetMetaData getResultSetMetaData(
-            Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
-        PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
-        return ps.executeQuery().getMetaData();
+    public ResultSetMetaData getResultSetMetaData(Connection conn, String query)
+            throws SQLException {
+        return conn.prepareStatement(query).executeQuery().getMetaData();
     }
 
     @Override

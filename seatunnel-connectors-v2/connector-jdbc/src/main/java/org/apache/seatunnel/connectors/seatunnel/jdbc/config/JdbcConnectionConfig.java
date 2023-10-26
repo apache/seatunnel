@@ -53,7 +53,7 @@ public class JdbcConnectionConfig implements Serializable {
 
     public String kerberosKeytabPath;
 
-    public String krb5Path = JdbcOptions.KERBEROS_KRB5_CONF_PATH.defaultValue();
+    public String krb5Path = JdbcOptions.KRB5_PATH.defaultValue();
 
     private Map<String, String> properties;
 
@@ -76,7 +76,7 @@ public class JdbcConnectionConfig implements Serializable {
             builder.useKerberos(config.get(JdbcOptions.USE_KERBEROS));
             builder.kerberosPrincipal(config.get(JdbcOptions.KERBEROS_PRINCIPAL));
             builder.kerberosKeytabPath(config.get(JdbcOptions.KERBEROS_KEYTAB_PATH));
-            builder.krb5Path(config.get(JdbcOptions.KERBEROS_KRB5_CONF_PATH));
+            builder.kerberosKeytabPath(config.get(JdbcOptions.KRB5_PATH));
         }
         config.getOptional(JdbcOptions.USER).ifPresent(builder::username);
         config.getOptional(JdbcOptions.PASSWORD).ifPresent(builder::password);
@@ -155,13 +155,11 @@ public class JdbcConnectionConfig implements Serializable {
         private String xaDataSourceClassName;
         private int maxCommitAttempts = JdbcOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
         private int transactionTimeoutSec = JdbcOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
-
+        private Map<String, String> properties;
         public boolean useKerberos = JdbcOptions.USE_KERBEROS.defaultValue();
         public String kerberosPrincipal;
         public String kerberosKeytabPath;
-        public String krb5Path = JdbcOptions.KERBEROS_KRB5_CONF_PATH.defaultValue();
-
-        private Map<String, String> properties;
+        public String krb5Path = JdbcOptions.KRB5_PATH.defaultValue();
 
         private Builder() {}
 
@@ -252,7 +250,6 @@ public class JdbcConnectionConfig implements Serializable {
 
         public Builder properties(Map<String, String> properties) {
             this.properties = properties;
-
             return this;
         }
 
@@ -270,15 +267,12 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.transactionTimeoutSec = this.transactionTimeoutSec;
             jdbcConnectionConfig.maxCommitAttempts = this.maxCommitAttempts;
             jdbcConnectionConfig.xaDataSourceClassName = this.xaDataSourceClassName;
-
             jdbcConnectionConfig.useKerberos = this.useKerberos;
             jdbcConnectionConfig.kerberosPrincipal = this.kerberosPrincipal;
             jdbcConnectionConfig.kerberosKeytabPath = this.kerberosKeytabPath;
             jdbcConnectionConfig.krb5Path = this.krb5Path;
-
             jdbcConnectionConfig.properties =
                     this.properties == null ? new HashMap<>() : this.properties;
-
             return jdbcConnectionConfig;
         }
     }
