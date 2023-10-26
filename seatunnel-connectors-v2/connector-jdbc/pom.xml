@@ -249,5 +249,9 @@
             <groupId>cn.com.kingbase</groupId>
             <artifactId>kingbase8</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-jdbc</artifactId>
+        </dependency>
     </dependencies>
 </project>
