@@ -283,7 +283,7 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
                 .withNetworkAliases(HOSTNAME)
                 .withExposedPorts(PORT)
                 .waitingFor(Wait.forLogMessage(".*boot success!.*", 1))
-                .withStartupTimeout(Duration.ofMinutes(3))
+                .withStartupTimeout(Duration.ofMinutes(5))
                 .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)));
     }
 
