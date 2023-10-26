@@ -316,32 +316,32 @@ source {
 
 ### pageing
 
-  ```hocon
-  source {
-      Http {
-        url = "http://localhost:8080/mock/queryData"
-        method = "GET"
-        format = "json"
-        params={
-         page: "${page}"
-        }
-        content_field = "$.data.*"
-        pageing={
-         total_page_size=20
-         page_field=page
-         #when don't know the total_page_size use batch_size if read size<batch_size finish ,otherwise continue
-         #batch_size=10
-        }
-        schema = {
-          fields {
-            name = string
-            age = string
-          }
+```hocon
+source {
+    Http {
+      url = "http://localhost:8080/mock/queryData"
+      method = "GET"
+      format = "json"
+      params={
+       page: "${page}"
+      }
+      content_field = "$.data.*"
+      pageing={
+       total_page_size=20
+       page_field=page
+       #when don't know the total_page_size use batch_size if read size<batch_size finish ,otherwise continue
+       #batch_size=10
+      }
+      schema = {
+        fields {
+          name = string
+          age = string
         }
       }
-  }
+    }
+}
 
-  ```
+```
 
 ## Changelog
 
