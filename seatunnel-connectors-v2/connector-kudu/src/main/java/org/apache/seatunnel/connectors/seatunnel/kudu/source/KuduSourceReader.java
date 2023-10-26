@@ -17,20 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
-import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat;
 
-import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
@@ -62,33 +60,31 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        KuduSourceSplit split = splits.poll();
-        Object[] parameterValues = split.parameterValues;
-        int lowerBound = Integer.parseInt(parameterValues[0].toString());
-        int upperBound = Integer.parseInt(parameterValues[1].toString());
-        List<ColumnSchema> columnSchemaList = kuduInputFormat.getColumnsSchemas();
-        KuduScanner kuduScanner = kuduInputFormat.getKuduBuildSplit(lowerBound, upperBound);
-        //
-        while (kuduScanner.hasMoreRows()) {
-            RowResultIterator rowResults = kuduScanner.nextRows();
-            while (rowResults.hasNext()) {
-                RowResult rowResult = rowResults.next();
-                SeaTunnelRow seaTunnelRow =
-                        KuduInputFormat.getSeaTunnelRowData(
-                                rowResult, kuduInputFormat.getSeaTunnelRowType(columnSchemaList));
-                output.collect(seaTunnelRow);
+        synchronized (output.getCheckpointLock()) {
+            KuduSourceSplit split = splits.poll();
+            if (null != split) {
+                KuduScanner kuduScanner = kuduInputFormat.scanner(split.getToken());
+                while (kuduScanner.hasMoreRows()) {
+                    RowResultIterator rowResults = kuduScanner.nextRows();
+                    while (rowResults.hasNext()) {
+                        RowResult rowResult = rowResults.next();
+                        SeaTunnelRow seaTunnelRow = kuduInputFormat.toInternal(rowResult);
+                        output.collect(seaTunnelRow);
+                    }
+                }
+            } else if (noMoreSplit && splits.isEmpty()) {
+                // signal to the source that we have reached the end of the data.
+                log.info("Closed the bounded kudu source");
+                context.signalNoMoreElement();
+            } else {
+                Thread.sleep(1000L);
             }
-        }
-        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
-            // signal to the source that we have reached the end of the data.
-            log.info("Closed the bounded fake source");
-            context.signalNoMoreElement();
         }
     }
 
     @Override
     public List<KuduSourceSplit> snapshotState(long checkpointId) {
-        return Collections.emptyList();
+        return new ArrayList<>(splits);
     }
 
     @Override

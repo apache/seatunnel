@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -50,7 +51,8 @@ import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertCon
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
 
 @AutoService(SeaTunnelSink.class)
-public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
     private SeaTunnelRowType seaTunnelRowType;
     private CatalogTable catalogTable;
     private List<AssertFieldRule> assertFieldRules;

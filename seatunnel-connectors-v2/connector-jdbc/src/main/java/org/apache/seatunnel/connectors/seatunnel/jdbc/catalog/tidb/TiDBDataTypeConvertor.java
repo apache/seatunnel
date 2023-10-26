@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.collections4.MapUtils;
 
@@ -206,6 +207,6 @@ public class TiDBDataTypeConvertor implements DataTypeConvertor<MysqlType> {
 
     @Override
     public String getIdentity() {
-        return "TiDB";
+        return DatabaseIdentifier.TIDB;
     }
 }
