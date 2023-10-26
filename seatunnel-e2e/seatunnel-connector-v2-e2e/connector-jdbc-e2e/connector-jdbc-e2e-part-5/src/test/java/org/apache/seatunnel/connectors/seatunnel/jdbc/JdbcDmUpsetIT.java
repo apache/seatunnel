@@ -24,11 +24,8 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.images.PullPolicy;
-import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
@@ -49,10 +46,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
-
-import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcDmUpsetIT extends AbstractJdbcIT {
@@ -269,26 +262,6 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
     @Override
     public String quoteIdentifier(String field) {
         return "\"" + field + "\"";
-    }
-
-    @BeforeAll
-    @Override
-    public void startUp() {
-        dbServer = initContainer().withImagePullPolicy(PullPolicy.alwaysPull());
-
-        Startables.deepStart(Stream.of(dbServer)).join();
-
-        jdbcCase = getJdbcCase();
-        beforeStartUP();
-        given().ignoreExceptions()
-                .await()
-                .atMost(360, TimeUnit.SECONDS)
-                .untilAsserted(() -> this.initializeJdbcConnection(jdbcCase.getJdbcUrl()));
-
-        createSchemaIfNeeded();
-        createNeededTables();
-        insertTestData();
-        initCatalog();
     }
 
     protected void beforeStartUP() {
