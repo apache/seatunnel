@@ -100,6 +100,12 @@
                 <scope>provided</scope>
             </dependency>
             <dependency>
+                <groupId>com.oracle.database.xml</groupId>
+                <artifactId>xdb6</artifactId>
+                <version>${oracle.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
                 <groupId>org.xerial</groupId>
                 <artifactId>sqlite-jdbc</artifactId>
                 <version>${sqlite.version}</version>
@@ -202,6 +208,10 @@
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
             <artifactId>ojdbc8</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.oracle.database.xml</groupId>
+            <artifactId>xdb6</artifactId>
         </dependency>
         <dependency>
             <groupId>org.xerial</groupId>
