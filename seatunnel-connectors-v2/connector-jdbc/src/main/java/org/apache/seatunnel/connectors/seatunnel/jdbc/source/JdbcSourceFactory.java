@@ -25,7 +25,6 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
-
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 
@@ -75,7 +74,6 @@ public class JdbcSourceFactory implements TableSourceFactory {
         jdbcDialect.connectionUrlParse(
                 config.getJdbcConnectionConfig().getUrl(),
                 config.getJdbcConnectionConfig().getProperties(),
-
                 jdbcDialect.defaultParameter());
         return () -> (SeaTunnelSource<T, SplitT, StateT>) new JdbcSource(config);
     }
