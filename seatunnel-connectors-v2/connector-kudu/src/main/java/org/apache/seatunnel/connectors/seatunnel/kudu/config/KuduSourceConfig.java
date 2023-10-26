@@ -19,26 +19,47 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-import java.io.Serializable;
+import org.apache.kudu.client.AsyncKuduClient;
 
-public class KuduSourceConfig implements Serializable {
+import lombok.Getter;
+import lombok.ToString;
 
-    public static final Option<String> KUDU_MASTER =
-            Options.key("kudu_master")
+@Getter
+@ToString
+public class KuduSourceConfig extends CommonConfig {
+
+    public static final Option<Long> QUERY_TIMEOUT =
+            Options.key("scan_token_query_timeout")
+                    .longType()
+                    .defaultValue(AsyncKuduClient.DEFAULT_OPERATION_TIMEOUT_MS)
+                    .withDescription(
+                            "The timeout for connecting scan token. If not set, it will be the same as operationTimeout");
+
+    public static final Option<Integer> SCAN_BATCH_SIZE_BYTES =
+            Options.key("scan_token_batch_size_bytes")
+                    .intType()
+                    .defaultValue(1024 * 1024)
+                    .withDescription(
+                            "Kudu scan bytes. The maximum number of bytes read at a time, the default is 1MB");
+
+    public static final Option<String> FILTER =
+            Options.key("filter")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Kudu master address");
+                    .withDescription("Kudu scan filter expressions");
 
-    public static final Option<String> TABLE_NAME =
-            Options.key("kudu_table")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Kudu table name");
+    private int batchSizeBytes;
 
-    public static final Option<String> COLUMNS_LIST =
-            Options.key("columnsList")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Specifies the column names of the table");
+    protected Long queryTimeout;
+
+    private String filter;
+
+    public KuduSourceConfig(ReadonlyConfig config) {
+        super(config);
+        this.batchSizeBytes = config.get(SCAN_BATCH_SIZE_BYTES);
+        this.queryTimeout = config.get(QUERY_TIMEOUT);
+        this.filter = config.get(FILTER);
+    }
 }

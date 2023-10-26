@@ -15,18 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kudu.source;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
+package org.apache.seatunnel.connectors.seatunnel.kudu.state;
 
 import java.io.Serializable;
 
-@Data
-@AllArgsConstructor
-public class PartitionParameter implements Serializable {
-
-    String partitionColumnName;
-    Long minValue;
-    Long maxValue;
-}
+public class KuduCommitInfo implements Serializable {}
