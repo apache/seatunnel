@@ -57,6 +57,7 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
     private static final String SQLSERVER_NTEXT = "NTEXT";
     private static final String SQLSERVER_NCHAR = "NCHAR";
     private static final String SQLSERVER_NVARCHAR = "NVARCHAR";
+    private static final String SQLSERVER_SYSNAME = "SYSNAME";
     private static final String SQLSERVER_TEXT = "TEXT";
 
     // ------------------------------time-------------------------
@@ -105,6 +106,7 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
             case SQLSERVER_NTEXT:
             case SQLSERVER_NVARCHAR:
             case SQLSERVER_TEXT:
+            case SQLSERVER_SYSNAME:
                 return BasicType.STRING_TYPE;
             case SQLSERVER_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
