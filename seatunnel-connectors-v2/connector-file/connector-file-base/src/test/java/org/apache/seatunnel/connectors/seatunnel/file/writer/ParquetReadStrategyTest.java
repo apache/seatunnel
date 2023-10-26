@@ -73,7 +73,7 @@ public class ParquetReadStrategyTest {
     }
 
     @Test
-    public void testParquetRead3() throws Exception {
+    public void testParquetReadUseSystemDefaultTimeZone() throws Exception {
         URL resource = ParquetReadStrategyTest.class.getResource("/timestamp_as_int64.parquet");
         Assertions.assertNotNull(resource);
         String path = Paths.get(resource.toURI()).toString();
