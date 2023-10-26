@@ -43,7 +43,7 @@ public class TestUtils {
                     new JobStatusData(
                             4352352414135L + i,
                             "Testfdsafew" + i,
-                            JobStatus.CANCELLING,
+                            JobStatus.CANCELING,
                             System.currentTimeMillis(),
                             System.currentTimeMillis()));
             Thread.sleep(2L);
@@ -53,7 +53,7 @@ public class TestUtils {
                     new JobStatusData(
                             4352352414135L + i,
                             "fdsafsddfasfsdafasdf" + i,
-                            JobStatus.RECONCILING,
+                            JobStatus.UNKNOWABLE,
                             System.currentTimeMillis(),
                             null));
             Thread.sleep(2L);

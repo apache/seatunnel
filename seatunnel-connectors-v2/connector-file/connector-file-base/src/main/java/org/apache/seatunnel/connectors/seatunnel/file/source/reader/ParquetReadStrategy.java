@@ -203,7 +203,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     return new Timestamp(timestamp).toLocalDateTime();
                 }
                 Instant instant = Instant.ofEpochMilli((long) field);
-                return LocalDateTime.ofInstant(instant, ZoneId.of("+8"));
+                return LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
             case ROW:
                 SeaTunnelRowType rowType = (SeaTunnelRowType) fieldType;
                 Object[] objects = new Object[rowType.getTotalFields()];

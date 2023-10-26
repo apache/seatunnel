@@ -96,4 +96,9 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
         log.info("test in container: {}", identifier());
         return executeJob(master, confFile);
     }
+
+    @Override
+    public String getServerLogs() {
+        return master.getLogs();
+    }
 }

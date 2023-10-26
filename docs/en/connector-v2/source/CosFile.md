@@ -56,6 +56,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | common-options            |         | no       | -                   |
 | sheet_name                | string  | no       | -                   |
 | file_filter_pattern       | string  | no       | -                   |
+| compress_codec            | string  | no       | none                |
 
 ### path [string]
 
@@ -251,6 +252,16 @@ Reader the sheet of the workbook,Only used when file_format is excel.
 ### file_filter_pattern [string]
 
 Filter pattern, which used for filtering files.
+
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc/parquet:  
+  automatically recognizes the compression type, no additional settings required.
 
 ## Example
 

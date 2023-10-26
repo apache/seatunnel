@@ -21,12 +21,19 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeMapper;
+
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -54,7 +61,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     private static final OracleDataTypeConvertor DATA_TYPE_CONVERTOR =
             new OracleDataTypeConvertor();
 
-    private static final List<String> EXCLUDED_SCHEMAS =
+    protected static List<String> EXCLUDED_SCHEMAS =
             Collections.unmodifiableList(
                     Arrays.asList(
                             "APPQOSSYS",
@@ -129,12 +136,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getDropTableSql(TablePath tablePath) {
-        return String.format("DROP TABLE %s", getTableName(tablePath));
-    }
-
-    @Override
-    protected String getTableName(TablePath tablePath) {
-        return tablePath.getSchemaAndTableName().toUpperCase();
+        return String.format("DROP TABLE %s", tablePath.getSchemaAndTableName("\""));
     }
 
     @Override
@@ -227,5 +229,30 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getOptionTableName(TablePath tablePath) {
         return tablePath.getSchemaAndTableName();
+    }
+
+    @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        try {
+            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
+                return databaseExists(tablePath.getDatabaseName())
+                        && listTables(tablePath.getDatabaseName())
+                                .contains(tablePath.getSchemaAndTableName());
+            }
+            return listTables().contains(tablePath.getSchemaAndTableName());
+        } catch (DatabaseNotExistException e) {
+            return false;
+        }
+    }
+
+    private List<String> listTables() {
+        List<String> databases = listDatabases();
+        return listTables(databases.get(0));
+    }
+
+    @Override
+    public CatalogTable getTable(String sqlQuery) throws SQLException {
+        Connection defaultConnection = getConnection(defaultUrl);
+        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new OracleTypeMapper());
     }
 }

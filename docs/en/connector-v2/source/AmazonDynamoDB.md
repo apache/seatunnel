@@ -12,20 +12,22 @@ Read data from Amazon DynamoDB.
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [ ] [column projection](../../concept/connector-v2-features.md)
-- [ ] [parallelism](../../concept/connector-v2-features.md)
+- [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
-|       name        |  type  | required | default value |
-|-------------------|--------|----------|---------------|
-| url               | string | yes      | -             |
-| region            | string | yes      | -             |
-| access_key_id     | string | yes      | -             |
-| secret_access_key | string | yes      | -             |
-| table             | string | yes      | -             |
-| schema            | config | yes      | -             |
-| common-options    |        | yes      | -             |
+|         name          |  type  | required | default value |
+|-----------------------|--------|----------|---------------|
+| url                   | string | yes      | -             |
+| region                | string | yes      | -             |
+| access_key_id         | string | yes      | -             |
+| secret_access_key     | string | yes      | -             |
+| table                 | string | yes      | -             |
+| schema                | config | yes      | -             |
+| common-options        |        | yes      | -             |
+| scan_item_limit       |        | false    | -             |
+| parallel_scan_threads |        | false    | -             |
 
 ### url [string]
 
@@ -69,6 +71,14 @@ schema {
 
 Source Plugin common parameters, refer to [Source Plugin](common-options.md) for details
 
+### scan_item_limit
+
+number of item each scan request should return
+
+### parallel_scan_threads
+
+number of logical segments for parallel scan
+
 ## Example
 
 ```bash
@@ -106,4 +116,5 @@ Amazondynamodb {
 ### next version
 
 - Add Amazon DynamoDB Source Connector
+- Add source  split to Amazondynamodb Connectors
 
