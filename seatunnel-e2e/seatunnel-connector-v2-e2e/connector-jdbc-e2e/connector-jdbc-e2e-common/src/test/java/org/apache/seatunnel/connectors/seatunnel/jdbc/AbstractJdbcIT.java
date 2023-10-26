@@ -113,7 +113,11 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             props.put("password", jdbcCase.getPassword());
         }
 
-        this.connection = driver.connect(jdbcUrl.replace(HOST, dbServer.getHost()), props);
+        if (dbServer != null) {
+            jdbcUrl = jdbcUrl.replace(HOST, dbServer.getHost());
+        }
+
+        this.connection = driver.connect(jdbcUrl, props);
         connection.setAutoCommit(false);
     }
 

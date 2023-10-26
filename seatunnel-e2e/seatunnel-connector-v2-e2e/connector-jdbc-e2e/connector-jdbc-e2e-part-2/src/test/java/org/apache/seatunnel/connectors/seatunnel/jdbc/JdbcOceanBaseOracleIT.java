@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase.OceanBaseOracleCatalog;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import org.junit.jupiter.api.Assertions;
@@ -35,11 +34,7 @@ import org.testcontainers.containers.GenericContainer;
 import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.sql.Date;
-import java.sql.Driver;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -48,7 +43,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
 @Disabled("Oracle mode of OceanBase Enterprise Edition does not provide docker environment")
 public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
@@ -75,7 +69,7 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
         jdbcCase = getJdbcCase();
 
         try {
-            initConnection();
+            initializeJdbcConnection(jdbcCase.getJdbcUrl().replace(HOST, HOSTNAME));
         } catch (Exception e) {
             throw new RuntimeException("Failed to initial jdbc connection", e);
         }
@@ -127,29 +121,6 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
                 .insertSql(insertSql)
                 .testData(testDataSet)
                 .build();
-    }
-
-    private void initConnection()
-            throws SQLException, ClassNotFoundException, MalformedURLException,
-                    InstantiationException, IllegalAccessException {
-        URLClassLoader urlClassLoader =
-                new URLClassLoader(
-                        new URL[] {new URL(driverUrl())},
-                        JdbcOceanBaseOracleIT.class.getClassLoader());
-        Thread.currentThread().setContextClassLoader(urlClassLoader);
-        Driver driver = (Driver) urlClassLoader.loadClass(jdbcCase.getDriverClass()).newInstance();
-        Properties props = new Properties();
-
-        if (StringUtils.isNotBlank(jdbcCase.getUserName())) {
-            props.put("user", jdbcCase.getUserName());
-        }
-
-        if (StringUtils.isNotBlank(jdbcCase.getPassword())) {
-            props.put("password", jdbcCase.getPassword());
-        }
-
-        connection = driver.connect(jdbcCase.getJdbcUrl().replace(HOST, HOSTNAME), props);
-        connection.setAutoCommit(false);
     }
 
     @Override
