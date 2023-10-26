@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import lombok.Data;
 import lombok.NonNull;
 
 import java.io.Serializable;
@@ -37,6 +38,7 @@ import java.util.Properties;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /** Simple JDBC connection provider. */
+@Data
 public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Serializable {
 
     private static final Logger LOG = LoggerFactory.getLogger(SimpleJdbcConnectionProvider.class);
@@ -88,7 +90,7 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
         }
     }
 
-    private Driver getLoadedDriver() throws SQLException, ClassNotFoundException {
+    protected Driver getLoadedDriver() throws SQLException, ClassNotFoundException {
         if (loadedDriver == null) {
             loadedDriver = loadDriver(jdbcConfig.getDriverName());
         }

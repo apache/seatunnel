@@ -32,7 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
@@ -101,7 +101,7 @@ public class JdbcCatalogUtils {
         log.warn(
                 "Catalog not found, loading tables from jdbc directly. url : {}",
                 jdbcConnectionConfig.getUrl());
-        try (Connection connection = getConnection(jdbcConnectionConfig)) {
+        try (Connection connection = getConnection(jdbcConnectionConfig, jdbcDialect)) {
             log.info("Loading catalog tables for jdbc : {}", jdbcConnectionConfig.getUrl());
             for (JdbcSourceTableConfig tableConfig : tablesConfig) {
                 CatalogTable catalogTable = getCatalogTable(tableConfig, connection, jdbcDialect);
@@ -316,9 +316,9 @@ public class JdbcCatalogUtils {
                 resultSetMetaData, jdbcDialect.getJdbcDialectTypeMapper());
     }
 
-    private static Connection getConnection(JdbcConnectionConfig config)
+    private static Connection getConnection(JdbcConnectionConfig config, JdbcDialect jdbcDialect)
             throws SQLException, ClassNotFoundException {
-        SimpleJdbcConnectionProvider connectionProvider = new SimpleJdbcConnectionProvider(config);
+        JdbcConnectionProvider connectionProvider = jdbcDialect.getJdbcConnectionProvider(config);
         return connectionProvider.getOrEstablishConnection();
     }
 

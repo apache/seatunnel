@@ -48,6 +48,7 @@
         <hikari.version>4.0.3</hikari.version>
         <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
         <kingbase8.version>8.6.0</kingbase8.version>
+        <hive.jdbc.version>3.1.3</hive.jdbc.version>
     </properties>
 
     <dependencyManagement>
@@ -151,10 +152,15 @@
                 <scope>provided</scope>
             </dependency>
             <dependency>
-                <groupId>cn.com.kingbase</groupId>
-                <artifactId>kingbase8</artifactId>
-                <version>${kingbase8.version}</version>
+                <groupId>org.apache.hive</groupId>
+                <artifactId>hive-jdbc</artifactId>
+                <version>${hive.jdbc.version}</version>
                 <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.hive</groupId>
+                <artifactId>hive-service</artifactId>
+                <version>${hive.jdbc.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -237,11 +243,13 @@
             <groupId>com.vertica.jdbc</groupId>
             <artifactId>vertica-jdbc</artifactId>
         </dependency>
-
         <dependency>
-            <groupId>cn.com.kingbase</groupId>
-            <artifactId>kingbase8</artifactId>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-jdbc</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-service</artifactId>
+        </dependency>
     </dependencies>
 </project>
