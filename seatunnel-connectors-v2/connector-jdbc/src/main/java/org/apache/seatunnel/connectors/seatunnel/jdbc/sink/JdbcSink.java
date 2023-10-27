@@ -99,24 +99,6 @@ public class JdbcSink
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.config = ReadonlyConfig.fromConfig(pluginConfig);
-        this.jdbcSinkConfig = JdbcSinkConfig.of(config);
-        this.dialect =
-                JdbcDialectLoader.load(
-                        jdbcSinkConfig.getJdbcConnectionConfig().getUrl(),
-                        jdbcSinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
-                        config.get(JdbcOptions.FIELD_IDE) == null
-                                ? null
-                                : config.get(JdbcOptions.FIELD_IDE).getValue());
-        this.dialect.connectionUrlParse(
-                jdbcSinkConfig.getJdbcConnectionConfig().getUrl(),
-                jdbcSinkConfig.getJdbcConnectionConfig().getProperties(),
-                this.dialect.defaultParameter());
-        this.dataSaveMode = DataSaveMode.APPEND_DATA;
-    }
-
-    @Override
     public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> createWriter(
             SinkWriter.Context context) {
         SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> sinkWriter;
