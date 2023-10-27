@@ -96,10 +96,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-        Map<String, String> catalogOptions =
-                config.get(CatalogOptions.CATALOG_OPTIONS) == null
-                        ? new HashMap<>()
-                        : config.get(CatalogOptions.CATALOG_OPTIONS);
+        ReadonlyConfig catalogOptions = getCatalogOptions(context);
         Optional<String> optionalTable = config.getOptional(TABLE);
         Optional<String> optionalDatabase = config.getOptional(DATABASE);
         Optional<String> queryOptional = config.getOptional(QUERY);
@@ -121,13 +118,13 @@ public class JdbcSinkFactory implements TableSinkFactory {
             } else {
                 sinkSchemaName = null;
             }
-            if (StringUtils.isNotBlank(catalogOptions.get(JdbcCatalogOptions.SCHEMA.key()))) {
-                sinkSchemaName = catalogOptions.get(JdbcCatalogOptions.SCHEMA.key());
+            if (StringUtils.isNotBlank(catalogOptions.get(JdbcCatalogOptions.SCHEMA))) {
+                sinkSchemaName = catalogOptions.get(JdbcCatalogOptions.SCHEMA);
             }
             // to add tablePrefix and tableSuffix
             String tempTableName;
-            String prefix = catalogOptions.get(JdbcCatalogOptions.TABLE_PREFIX.key());
-            String suffix = catalogOptions.get(JdbcCatalogOptions.TABLE_SUFFIX.key());
+            String prefix = catalogOptions.get(JdbcCatalogOptions.TABLE_PREFIX);
+            String suffix = catalogOptions.get(JdbcCatalogOptions.TABLE_SUFFIX);
             if (StringUtils.isNotEmpty(prefix) || StringUtils.isNotEmpty(suffix)) {
                 tempTableName =
                         StringUtils.isNotEmpty(prefix) ? prefix + sinkTableName : sinkTableName;
