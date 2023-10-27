@@ -32,10 +32,9 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistExceptio
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,7 +47,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -56,7 +54,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -158,7 +155,12 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             throw new TableNotExistException(catalogName, tablePath);
         }
 
-        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
+        String dbUrl;
+        if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
+            dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
+        } else {
+            dbUrl = getUrlFromDatabaseName(defaultDatabase);
+        }
         Connection conn = getConnection(dbUrl);
         try {
             DatabaseMetaData metaData = conn.getMetaData();
@@ -203,33 +205,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected Optional<PrimaryKey> getPrimaryKey(
             DatabaseMetaData metaData, String database, String schema, String table)
             throws SQLException {
-
-        // According to the Javadoc of java.sql.DatabaseMetaData#getPrimaryKeys,
-        // the returned primary key columns are ordered by COLUMN_NAME, not by KEY_SEQ.
-        // We need to sort them based on the KEY_SEQ value.
-        ResultSet rs = metaData.getPrimaryKeys(database, schema, table);
-
-        // seq -> column name
-        List<Pair<Integer, String>> primaryKeyColumns = new ArrayList<>();
-        String pkName = null;
-        while (rs.next()) {
-            String columnName = rs.getString("COLUMN_NAME");
-            // all the PK_NAME should be the same
-            pkName = rs.getString("PK_NAME");
-            int keySeq = rs.getInt("KEY_SEQ");
-            // KEY_SEQ is 1-based index
-            primaryKeyColumns.add(Pair.of(keySeq, columnName));
-        }
-        // initialize size
-        List<String> pkFields =
-                primaryKeyColumns.stream()
-                        .sorted(Comparator.comparingInt(Pair::getKey))
-                        .map(Pair::getValue)
-                        .collect(Collectors.toList());
-        if (CollectionUtils.isEmpty(pkFields)) {
-            return Optional.empty();
-        }
-        return Optional.of(PrimaryKey.of(pkName, pkFields));
+        return CatalogUtils.getPrimaryKey(metaData, TablePath.of(database, schema, table));
     }
 
     protected List<ConstraintKey> getConstraintKeys(DatabaseMetaData metaData, TablePath tablePath)
@@ -244,39 +220,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected List<ConstraintKey> getConstraintKeys(
             DatabaseMetaData metaData, String database, String schema, String table)
             throws SQLException {
-        ResultSet resultSet = metaData.getIndexInfo(database, schema, table, false, false);
-        // index name -> index
-        Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
-        while (resultSet.next()) {
-            String columnName = resultSet.getString("COLUMN_NAME");
-            if (columnName == null) {
-                continue;
-            }
-            String indexName = resultSet.getString("INDEX_NAME");
-            boolean noUnique = resultSet.getBoolean("NON_UNIQUE");
-
-            ConstraintKey constraintKey =
-                    constraintKeyMap.computeIfAbsent(
-                            indexName,
-                            s -> {
-                                ConstraintKey.ConstraintType constraintType =
-                                        ConstraintKey.ConstraintType.INDEX_KEY;
-                                if (!noUnique) {
-                                    constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
-                                }
-                                return ConstraintKey.of(
-                                        constraintType, indexName, new ArrayList<>());
-                            });
-
-            ConstraintKey.ColumnSortType sortType =
-                    "A".equals(resultSet.getString("ASC_OR_DESC"))
-                            ? ConstraintKey.ColumnSortType.ASC
-                            : ConstraintKey.ColumnSortType.DESC;
-            ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
-                    new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
-            constraintKey.getColumnNames().add(constraintKeyColumn);
-        }
-        return new ArrayList<>(constraintKeyMap.values());
+        return CatalogUtils.getConstraintKeys(metaData, TablePath.of(database, schema, table));
     }
 
     protected String getListDatabaseSql() {
@@ -543,5 +487,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         try (PreparedStatement ps = getConnection(url).prepareStatement(sql)) {
             return ps.execute();
         }
+    }
+
+    public CatalogTable getTable(String sqlQuery) throws SQLException {
+        Connection defaultConnection = getConnection(defaultUrl);
+        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery);
     }
 }

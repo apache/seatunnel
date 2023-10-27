@@ -135,6 +135,23 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult12 =
                 container.executeJob("/http_multilinejson_to_assert.conf");
         Assertions.assertEquals(0, execResult12.getExitCode());
+
+        // http httpFormRequestbody
+        Container.ExecResult execResult13 =
+                container.executeJob("/http_formrequestbody_to_assert.conf");
+        Assertions.assertEquals(0, execResult13.getExitCode());
+
+        // http httpJsonRequestBody
+        Container.ExecResult execResult14 =
+                container.executeJob("/http_jsonrequestbody_to_assert.conf");
+        Assertions.assertEquals(0, execResult14.getExitCode());
+
+        Container.ExecResult execResult15 =
+                container.executeJob("/http_page_increase_page_num.conf");
+        Assertions.assertEquals(0, execResult15.getExitCode());
+        Container.ExecResult execResult16 =
+                container.executeJob("/http_page_increase_no_page_num.conf");
+        Assertions.assertEquals(0, execResult16.getExitCode());
     }
 
     public String getMockServerConfig() {

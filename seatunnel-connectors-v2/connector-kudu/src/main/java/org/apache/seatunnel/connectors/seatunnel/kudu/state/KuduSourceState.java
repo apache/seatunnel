@@ -17,6 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.state;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.kudu.source.KuduSourceSplit;
 
-public class KuduSourceState implements Serializable {}
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
+@AllArgsConstructor
+@Getter
+public class KuduSourceState implements Serializable {
+    private boolean shouldEnumerate;
+    private Map<Integer, List<KuduSourceSplit>> pendingSplits;
+}

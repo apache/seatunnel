@@ -34,4 +34,6 @@ public interface TestContainer extends TestResource {
             throws IOException, InterruptedException;
 
     Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException;
+
+    String getServerLogs();
 }

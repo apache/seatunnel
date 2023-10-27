@@ -21,27 +21,23 @@ import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.lang3.StringUtils;
 
 import com.google.auto.service.AutoService;
 
-import java.util.Optional;
-
 @AutoService(Factory.class)
 public class MySqlCatalogFactory implements CatalogFactory {
 
-    public static final String IDENTIFIER = "MySQL";
-
     @Override
     public String factoryIdentifier() {
-        return IDENTIFIER;
+        return DatabaseIdentifier.MYSQL;
     }
 
     @Override
@@ -51,10 +47,6 @@ public class MySqlCatalogFactory implements CatalogFactory {
                 StringUtils.isNoneBlank(urlWithDatabase),
                 "Miss config <base-url>! Please check your config.");
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
-        Optional<String> defaultDatabase = urlInfo.getDefaultDatabase();
-        if (!defaultDatabase.isPresent()) {
-            throw new OptionValidationException(JdbcCatalogOptions.BASE_URL);
-        }
         return new MySqlCatalog(
                 catalogName,
                 options.get(JdbcCatalogOptions.USERNAME),

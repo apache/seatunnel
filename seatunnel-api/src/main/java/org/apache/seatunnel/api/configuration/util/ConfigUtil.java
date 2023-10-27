@@ -83,6 +83,12 @@ public class ConfigUtil {
     }
 
     static <T> List<T> convertToList(Object rawValue, Class<T> clazz) {
+        if (rawValue instanceof List) {
+            return ((List<?>) rawValue)
+                    .stream()
+                            .map(value -> convertValue(convertToJsonString(value), clazz))
+                            .collect(Collectors.toList());
+        }
         return Arrays.stream(rawValue.toString().split(","))
                 .map(String::trim)
                 .map(value -> convertValue(value, clazz))

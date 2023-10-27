@@ -143,6 +143,9 @@ public class MultiTableSink
                             committer ->
                                     committers.put(tableIdentifier, (SinkCommitter<?>) committer));
         }
+        if (committers.isEmpty()) {
+            return Optional.empty();
+        }
         return Optional.of(new MultiTableSinkCommitter(committers));
     }
 
@@ -161,6 +164,9 @@ public class MultiTableSink
             sinkOptional.ifPresent(
                     sinkAggregatedCommitter ->
                             aggCommitters.put(tableIdentifier, sinkAggregatedCommitter));
+        }
+        if (aggCommitters.isEmpty()) {
+            return Optional.empty();
         }
         return Optional.of(new MultiTableSinkAggregatedCommitter(aggCommitters));
     }
