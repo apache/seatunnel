@@ -20,6 +20,10 @@ package org.apache.seatunnel.e2e.connector.pulsar;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -52,12 +56,14 @@ import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.google.common.collect.Lists;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -145,8 +151,131 @@ public class PulsarBatchIT extends TestSuiteBase implements TestResource {
 
         try {
             FakeConfig fakeConfig = FakeConfig.buildWithConfig(ConfigFactory.empty());
+            CatalogTable catalogTable =
+                    CatalogTable.of(
+                            TableIdentifier.of("", "", "", ""),
+                            TableSchema.builder()
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_map",
+                                                    new MapType<>(
+                                                            BasicType.STRING_TYPE,
+                                                            BasicType.STRING_TYPE),
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_array",
+                                                    ArrayType.INT_ARRAY_TYPE,
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_string",
+                                                    BasicType.STRING_TYPE,
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_boolean",
+                                                    BasicType.BOOLEAN_TYPE,
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_tinyint",
+                                                    BasicType.BYTE_TYPE,
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_smallint",
+                                                    BasicType.SHORT_TYPE,
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_int",
+                                                    BasicType.INT_TYPE,
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_bigint",
+                                                    BasicType.LONG_TYPE,
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_float",
+                                                    BasicType.FLOAT_TYPE,
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_double",
+                                                    BasicType.DOUBLE_TYPE,
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_decimal",
+                                                    new DecimalType(38, 10),
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_bytes",
+                                                    PrimitiveByteArrayType.INSTANCE,
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_date",
+                                                    LocalTimeType.LOCAL_DATE_TYPE,
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "c_timestamp",
+                                                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                                    0,
+                                                    true,
+                                                    null,
+                                                    null))
+                                    .build(),
+                            Collections.emptyMap(),
+                            Collections.emptyList(),
+                            "");
+
             FakeDataGenerator fakeDataGenerator =
-                    new FakeDataGenerator(SEATUNNEL_ROW_TYPE, fakeConfig);
+                    new FakeDataGenerator(Lists.newArrayList(catalogTable), fakeConfig);
             SimpleCollector simpleCollector = new SimpleCollector();
             fakeDataGenerator.collectFakedRows(100, simpleCollector);
             JsonSerializationSchema jsonSerializationSchema =

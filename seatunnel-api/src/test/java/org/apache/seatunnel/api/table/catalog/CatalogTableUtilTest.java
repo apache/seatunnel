@@ -51,7 +51,7 @@ public class CatalogTableUtilTest {
         String path = getTestConfigFile("/conf/simple.schema.conf");
         Config config = ConfigFactory.parseFile(new File(path));
         SeaTunnelRowType seaTunnelRowType =
-                CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+                CatalogTableUtil.buildWithConfig(config).get(0).getSeaTunnelRowType();
         Assertions.assertNotNull(seaTunnelRowType);
         Assertions.assertEquals(seaTunnelRowType.getFieldType(1), ArrayType.BYTE_ARRAY_TYPE);
         Assertions.assertEquals(seaTunnelRowType.getFieldType(2), BasicType.STRING_TYPE);
@@ -65,7 +65,7 @@ public class CatalogTableUtilTest {
         String path = getTestConfigFile("/conf/complex.schema.conf");
         Config config = ConfigFactory.parseFile(new File(path));
         SeaTunnelRowType seaTunnelRowType =
-                CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+                CatalogTableUtil.buildWithConfig(config).get(0).getSeaTunnelRowType();
         Assertions.assertNotNull(seaTunnelRowType);
         Assertions.assertEquals(
                 seaTunnelRowType.getFieldType(0),
@@ -91,7 +91,7 @@ public class CatalogTableUtilTest {
         String path = getTestConfigFile("/conf/config_special_schema.conf");
         Config config = ConfigFactory.parseFile(new File(path));
         SeaTunnelRowType seaTunnelRowType =
-                CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+                CatalogTableUtil.buildWithConfig(config).get(0).getSeaTunnelRowType();
         Assertions.assertEquals(seaTunnelRowType.getTotalFields(), 12);
         Assertions.assertEquals(seaTunnelRowType.getFieldType(5).getSqlType(), SqlType.BYTES);
         Assertions.assertEquals(seaTunnelRowType.getFieldName(6), "t.date");
@@ -136,6 +136,23 @@ public class CatalogTableUtilTest {
                                 cannotFindCatalogReadonlyConfig,
                                 Thread.currentThread().getContextClassLoader()));
     }
+
+    @Test
+    public void testBuildWithConfigWithSingleCatalogTable()
+            throws FileNotFoundException, URISyntaxException {
+        String path = getTestConfigFile("/conf/catalog/single_schema.conf");
+        Config config = ConfigFactory.parseFile(new File(path));
+        ReadonlyConfig schemaConfig = ReadonlyConfig.fromConfig(config);
+        List<CatalogTable> catalogTables = CatalogTableUtil.buildWithConfig("test", schemaConfig);
+        Assertions.assertEquals(1, catalogTables.size());
+        TableIdentifier tableIdentifier = catalogTables.get(0).getTableId();
+        Assertions.assertEquals("test", tableIdentifier.getCatalogName());
+        Assertions.assertEquals("database", tableIdentifier.getDatabaseName());
+        Assertions.assertEquals("schema", tableIdentifier.getSchemaName());
+        Assertions.assertEquals("table", tableIdentifier.getTableName());
+    }
+
+    public void testBuildWithConfigWithCatalogTables() {}
 
     public static String getTestConfigFile(String configFile)
             throws FileNotFoundException, URISyntaxException {

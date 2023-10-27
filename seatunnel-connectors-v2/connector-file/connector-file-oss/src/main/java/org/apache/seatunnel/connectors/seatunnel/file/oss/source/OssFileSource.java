@@ -91,7 +91,9 @@ public class OssFileSource extends BaseFileSource {
                 case JSON:
                 case EXCEL:
                     SeaTunnelRowType userDefinedSchema =
-                            CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+                            CatalogTableUtil.buildWithConfig(pluginConfig)
+                                    .get(0)
+                                    .getSeaTunnelRowType();
                     readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
                     rowType = readStrategy.getActualSeaTunnelRowTypeInfo();
                     break;

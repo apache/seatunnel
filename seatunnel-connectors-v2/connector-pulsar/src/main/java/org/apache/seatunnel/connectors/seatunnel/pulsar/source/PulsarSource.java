@@ -302,7 +302,7 @@ public class PulsarSource
 
     private void setDeserialization(Config config) {
         if (config.hasPath(SCHEMA.key())) {
-            typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+            typeInfo = CatalogTableUtil.buildWithConfig(config).get(0).getSeaTunnelRowType();
             String format = FORMAT.defaultValue();
             if (config.hasPath(FORMAT.key())) {
                 format = config.getString(FORMAT.key());

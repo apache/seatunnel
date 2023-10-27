@@ -23,6 +23,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtilTest;
 
+import lombok.SneakyThrows;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
@@ -35,8 +37,8 @@ public class BaseConfigParserTest {
         return ConfigFactory.parseFile(new File(getTestConfigFile(configFile)));
     }
 
-    protected ReadonlyConfig getReadonlyConfig(String configFile)
-            throws FileNotFoundException, URISyntaxException {
+    @SneakyThrows
+    protected ReadonlyConfig getReadonlyConfig(String configFile) {
         return ReadonlyConfig.fromConfig(getConfig(configFile));
     }
 

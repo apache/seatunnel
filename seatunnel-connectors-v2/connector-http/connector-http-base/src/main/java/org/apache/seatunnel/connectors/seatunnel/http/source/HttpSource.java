@@ -114,7 +114,8 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     protected void buildSchemaWithConfig(Config pluginConfig) {
         if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
-            this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+            this.rowType =
+                    CatalogTableUtil.buildWithConfig(pluginConfig).get(0).getSeaTunnelRowType();
             // default use json format
             HttpConfig.ResponseFormat format = HttpConfig.FORMAT.defaultValue();
             if (pluginConfig.hasPath(HttpConfig.FORMAT.key())) {

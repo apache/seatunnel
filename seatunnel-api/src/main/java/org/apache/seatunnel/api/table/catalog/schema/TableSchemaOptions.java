@@ -28,6 +28,18 @@ import java.util.Map;
 
 public class TableSchemaOptions {
 
+    public static final Option<Map<String, Object>> SCHEMA =
+            Options.key("schema")
+                    .type(new TypeReference<Map<String, Object>>() {})
+                    .noDefaultValue()
+                    .withDescription("SeaTunnel Schema");
+
+    public static final Option<List<Map<String, Object>>> SCHEMAS =
+            Options.key("schemas")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription("SeaTunnel Schemas");
+
     public static class TableIdentifierOptions {
 
         public static final Option<Boolean> SCHEMA_FIRST =
@@ -49,17 +61,17 @@ public class TableSchemaOptions {
                         .withDescription("SeaTunnel Schema Table Comment");
     }
 
-    public static final Option<Map<String, Object>> SCHEMA =
-            Options.key("schema")
-                    .type(new TypeReference<Map<String, Object>>() {})
-                    .noDefaultValue()
-                    .withDescription("SeaTunnel Schema");
-
     // We should use ColumnOptions instead of FieldOptions
     @Deprecated
     public static class FieldOptions {
-        public static final Option<Map<String, Object>> FIELDS =
+        public static final Option<Map<String, Object>> SCHEMA_FIELDS =
                 Options.key("schema.fields")
+                        .type(new TypeReference<Map<String, Object>>() {})
+                        .noDefaultValue()
+                        .withDescription("SeaTunnel Schema Fields");
+
+        public static final Option<Map<String, Object>> FIELDS =
+                Options.key("fields")
                         .type(new TypeReference<Map<String, Object>>() {})
                         .noDefaultValue()
                         .withDescription("SeaTunnel Schema Fields");

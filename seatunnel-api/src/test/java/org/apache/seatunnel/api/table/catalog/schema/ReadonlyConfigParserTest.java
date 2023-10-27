@@ -35,25 +35,16 @@ import java.util.List;
 class ReadonlyConfigParserTest extends BaseConfigParserTest {
 
     private final String columnConfig = "/conf/catalog/schema_column.conf";
-    private final String fieldConfig = "/conf/catalog/schema_field.conf";
 
     @Test
     void parseColumn() throws FileNotFoundException, URISyntaxException {
-        ReadonlyConfig config = getReadonlyConfig(columnConfig);
+        ReadonlyConfig schemaConfig =
+                getReadonlyConfig(columnConfig)
+                        .getOptional(TableSchemaOptions.SCHEMA)
+                        .map(ReadonlyConfig::fromMap)
+                        .get();
 
-        ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
-        TableSchema tableSchema = readonlyConfigParser.parse(config);
-        assertPrimaryKey(tableSchema);
-        assertConstraintKey(tableSchema);
-        assertColumn(tableSchema);
-    }
-
-    @Test
-    void parseField() throws FileNotFoundException, URISyntaxException {
-        ReadonlyConfig config = getReadonlyConfig(fieldConfig);
-
-        ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
-        TableSchema tableSchema = readonlyConfigParser.parse(config);
+        TableSchema tableSchema = new TableSchemaParser().parse(schemaConfig);
         assertPrimaryKey(tableSchema);
         assertConstraintKey(tableSchema);
         assertColumn(tableSchema);

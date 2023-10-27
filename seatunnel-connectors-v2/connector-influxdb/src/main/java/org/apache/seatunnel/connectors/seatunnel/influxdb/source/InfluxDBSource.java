@@ -86,7 +86,7 @@ public class InfluxDBSource
         }
         try {
             this.sourceConfig = SourceConfig.loadConfig(config);
-            this.typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+            this.typeInfo = CatalogTableUtil.buildWithConfig(config).get(0).getSeaTunnelRowType();
             this.columnsIndexList = initColumnsIndex(InfluxDBClient.getInfluxDB(sourceConfig));
         } catch (Exception e) {
             throw new InfluxdbConnectorException(

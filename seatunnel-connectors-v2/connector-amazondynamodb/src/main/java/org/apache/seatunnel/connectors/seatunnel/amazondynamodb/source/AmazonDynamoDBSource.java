@@ -83,7 +83,7 @@ public class AmazonDynamoDBSource
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         amazondynamodbSourceOptions = new AmazonDynamoDBSourceOptions(pluginConfig);
-        typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+        typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).get(0).getSeaTunnelRowType();
     }
 
     @Override

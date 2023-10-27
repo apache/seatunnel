@@ -89,7 +89,8 @@ public class MongodbSource
                             .build();
         }
         if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
-            this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+            this.rowType =
+                    CatalogTableUtil.buildWithConfig(pluginConfig).get(0).getSeaTunnelRowType();
         } else {
             this.rowType = CatalogTableUtil.buildSimpleTextSchema();
         }

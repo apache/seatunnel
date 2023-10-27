@@ -85,7 +85,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         amazonSqsSourceOptions = new AmazonSqsSourceOptions(pluginConfig);
-        typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+        typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).get(0).getSeaTunnelRowType();
 
         setDeserialization(pluginConfig);
     }
@@ -109,7 +109,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
 
     private void setDeserialization(Config config) {
         if (config.hasPath(TableSchemaOptions.SCHEMA.key())) {
-            typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+            typeInfo = CatalogTableUtil.buildWithConfig(config).get(0).getSeaTunnelRowType();
             MessageFormat format = ReadonlyConfig.fromConfig(config).get(FORMAT);
             switch (format) {
                 case JSON:

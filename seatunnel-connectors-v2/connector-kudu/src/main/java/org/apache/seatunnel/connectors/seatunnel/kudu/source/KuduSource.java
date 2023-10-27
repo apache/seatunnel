@@ -112,7 +112,8 @@ public class KuduSource
         }
 
         if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
-            rowTypeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+            rowTypeInfo =
+                    CatalogTableUtil.buildWithConfig(pluginConfig).get(0).getSeaTunnelRowType();
         } else {
             try (KuduClient kuduClient = KuduUtil.getKuduClient(kuduSourceConfig)) {
                 rowTypeInfo =

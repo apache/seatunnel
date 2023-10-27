@@ -108,7 +108,7 @@ public class IcebergSource
                 CheckConfigUtil.checkAllExists(pluginConfig, TableSchemaOptions.SCHEMA.key());
         if (checkResult.isSuccess()) {
             SeaTunnelRowType projectedRowType =
-                    CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+                    CatalogTableUtil.buildWithConfig(pluginConfig).get(0).getSeaTunnelRowType();
             for (int i = 0; i < projectedRowType.getFieldNames().length; i++) {
                 String fieldName = projectedRowType.getFieldName(i);
                 SeaTunnelDataType<?> projectedFieldType = projectedRowType.getFieldType(i);

@@ -53,7 +53,8 @@ public class MaxcomputeSource
     @Override
     public void prepare(Config pluginConfig) {
         if (pluginConfig.hasPath(SCHEMA.key())) {
-            this.typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+            this.typeInfo =
+                    CatalogTableUtil.buildWithConfig(pluginConfig).get(0).getSeaTunnelRowType();
         } else {
             this.typeInfo = MaxcomputeTypeMapper.getSeaTunnelRowType(pluginConfig);
         }

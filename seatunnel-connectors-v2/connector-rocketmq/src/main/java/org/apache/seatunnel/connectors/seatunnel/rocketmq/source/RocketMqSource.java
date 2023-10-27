@@ -252,7 +252,7 @@ public class RocketMqSource
 
     private void setDeserialization(Config config) {
         if (config.hasPath(ConsumerConfig.SCHEMA.key())) {
-            typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+            typeInfo = CatalogTableUtil.buildWithConfig(config).get(0).getSeaTunnelRowType();
             SchemaFormat format = SchemaFormat.JSON;
             if (config.hasPath(FORMAT.key())) {
                 format = SchemaFormat.find(config.getString(FORMAT.key()));

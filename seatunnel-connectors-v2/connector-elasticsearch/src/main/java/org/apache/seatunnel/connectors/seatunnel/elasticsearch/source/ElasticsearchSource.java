@@ -64,7 +64,8 @@ public class ElasticsearchSource
         this.pluginConfig = pluginConfig;
         if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             // todo: We need to remove the schema in ES.
-            rowTypeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+            rowTypeInfo =
+                    CatalogTableUtil.buildWithConfig(pluginConfig).get(0).getSeaTunnelRowType();
             source = Arrays.asList(rowTypeInfo.getFieldNames());
         } else {
             source = pluginConfig.getStringList(SourceConfig.SOURCE.key());

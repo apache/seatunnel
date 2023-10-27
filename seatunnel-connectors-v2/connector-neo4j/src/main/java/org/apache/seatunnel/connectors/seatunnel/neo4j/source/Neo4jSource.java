@@ -72,7 +72,7 @@ public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow>
         }
 
         this.neo4jSourceQueryInfo = new Neo4jSourceQueryInfo(pluginConfig);
-        this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+        this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).get(0).getSeaTunnelRowType();
     }
 
     @Override

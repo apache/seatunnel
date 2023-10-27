@@ -21,7 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
+import org.apache.seatunnel.api.table.catalog.schema.CatalogTableParser;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -30,8 +30,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
-
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -100,13 +98,9 @@ public class CatalogTableUtil implements Serializable {
     public static List<CatalogTable> getCatalogTables(
             String factoryId, ReadonlyConfig readonlyConfig, ClassLoader classLoader) {
         // Highest priority: specified schema
-        Map<String, Object> schemaMap = readonlyConfig.get(TableSchemaOptions.SCHEMA);
-        if (schemaMap != null) {
-            if (schemaMap.isEmpty()) {
-                throw new SeaTunnelException("Schema config can not be empty");
-            }
-            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(factoryId, readonlyConfig);
-            return Collections.singletonList(catalogTable);
+        if (readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()
+                || readonlyConfig.getOptional(TableSchemaOptions.SCHEMAS).isPresent()) {
+            return CatalogTableUtil.buildWithConfig(factoryId, readonlyConfig);
         }
 
         Optional<Catalog> optionalCatalog =
@@ -141,7 +135,7 @@ public class CatalogTableUtil implements Serializable {
                                                 factoryId)));
     }
 
-    public static CatalogTable buildWithConfig(Config config) {
+    public static List<CatalogTable> buildWithConfig(Config config) {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
         return buildWithConfig(readonlyConfig);
     }
@@ -182,43 +176,16 @@ public class CatalogTableUtil implements Serializable {
         return catalogTables;
     }
 
-    public static CatalogTable buildWithConfig(ReadonlyConfig readonlyConfig) {
+    // todo: this method should be removed we should use buildWithConfig(String catalogName,
+    // ReadonlyConfig readonlyConfig);
+    @Deprecated
+    public static List<CatalogTable> buildWithConfig(ReadonlyConfig readonlyConfig) {
         return buildWithConfig("", readonlyConfig);
     }
 
-    public static CatalogTable buildWithConfig(String catalogName, ReadonlyConfig readonlyConfig) {
-        if (readonlyConfig.get(TableSchemaOptions.SCHEMA) == null) {
-            throw new RuntimeException(
-                    "Schema config need option [schema], please correct your config first");
-        }
-        TableSchema tableSchema = new ReadonlyConfigParser().parse(readonlyConfig);
-
-        ReadonlyConfig schemaConfig =
-                readonlyConfig
-                        .getOptional(TableSchemaOptions.SCHEMA)
-                        .map(ReadonlyConfig::fromMap)
-                        .orElseThrow(
-                                () -> new IllegalArgumentException("Schema config can't be null"));
-
-        TablePath tablePath;
-        if (StringUtils.isNotEmpty(
-                schemaConfig.get(TableSchemaOptions.TableIdentifierOptions.TABLE))) {
-            tablePath =
-                    TablePath.of(
-                            schemaConfig.get(TableSchemaOptions.TableIdentifierOptions.TABLE),
-                            schemaConfig.get(
-                                    TableSchemaOptions.TableIdentifierOptions.SCHEMA_FIRST));
-        } else {
-            tablePath = TablePath.EMPTY;
-        }
-
-        return CatalogTable.of(
-                TableIdentifier.of(catalogName, tablePath),
-                tableSchema,
-                new HashMap<>(),
-                // todo: add partitionKeys?
-                new ArrayList<>(),
-                readonlyConfig.get(TableSchemaOptions.TableIdentifierOptions.COMMENT));
+    public static List<CatalogTable> buildWithConfig(
+            String catalogName, ReadonlyConfig readonlyConfig) {
+        return new CatalogTableParser(catalogName).parse(readonlyConfig);
     }
 
     public static SeaTunnelRowType buildSimpleTextSchema() {

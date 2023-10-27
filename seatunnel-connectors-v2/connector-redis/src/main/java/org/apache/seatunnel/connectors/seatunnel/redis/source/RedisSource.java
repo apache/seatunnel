@@ -88,7 +88,7 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                             pluginConfig.getString(RedisConfig.FORMAT.key()).toUpperCase());
             if (RedisConfig.Format.JSON.equals(format)) {
                 this.seaTunnelRowType =
-                        CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+                        CatalogTableUtil.buildWithConfig(pluginConfig).get(0).getSeaTunnelRowType();
                 this.deserializationSchema =
                         new JsonDeserializationSchema(false, false, seaTunnelRowType);
             }

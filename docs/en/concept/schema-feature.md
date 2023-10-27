@@ -137,6 +137,23 @@ constraintKeys = [
 | INDEX_KEY      | key         |
 | UNIQUE_KEY     | unique key  |
 
+## SchemasOptions
+
+We can use SchemasOptions to define multiple schema, the SchemasOptions contains multiple schemas.
+
+```agsl
+schemas = [
+  {
+     columns = [
+     ]
+     ...
+  },
+  {
+  
+  }
+]
+```
+
 ## How to use schema
 
 ### Recommended

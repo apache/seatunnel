@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -41,13 +42,16 @@ import java.util.HashMap;
 import java.util.List;
 
 public class FakeDataGenerator {
+    private final List<CatalogTable> catalogTables;
     private final SeaTunnelRowType rowType;
     private final FakeConfig fakeConfig;
     private final JsonDeserializationSchema jsonDeserializationSchema;
     private final FakeDataRandomUtils fakeDataRandomUtils;
 
-    public FakeDataGenerator(SeaTunnelRowType rowType, FakeConfig fakeConfig) {
-        this.rowType = rowType;
+    public FakeDataGenerator(List<CatalogTable> catalogTables, FakeConfig fakeConfig) {
+        this.catalogTables = catalogTables;
+        // todo: FakeSource support generate multi table data
+        this.rowType = catalogTables.get(0).getSeaTunnelRowType();
         this.fakeConfig = fakeConfig;
         this.jsonDeserializationSchema =
                 fakeConfig.getFakeRows() == null
@@ -77,14 +81,12 @@ public class FakeDataGenerator {
             randomRow.add(randomColumnValue(fieldType));
         }
         SeaTunnelRow row = new SeaTunnelRow(randomRow.toArray());
-        if (!fakeConfig.getTableIdentifiers().isEmpty()) {
-            row.setTableId(
-                    fakeConfig
-                            .getTableIdentifiers()
-                            .get(RandomUtils.nextInt(0, fakeConfig.getTableIdentifiers().size()))
-                            .toTablePath()
-                            .toString());
-        }
+        row.setTableId(
+                catalogTables
+                        .get(RandomUtils.nextInt(0, catalogTables.size()))
+                        .getTableId()
+                        .toTablePath()
+                        .toString());
         return row;
     }
 

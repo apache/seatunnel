@@ -76,7 +76,7 @@ public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         this.sheetsParameters = new SheetsParameters().buildWithConfig(pluginConfig);
         if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             this.seaTunnelRowType =
-                    CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+                    CatalogTableUtil.buildWithConfig(pluginConfig).get(0).getSeaTunnelRowType();
         } else {
             this.seaTunnelRowType = CatalogTableUtil.buildSimpleTextSchema();
         }

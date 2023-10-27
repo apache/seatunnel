@@ -77,7 +77,7 @@ public class IoTDBSource
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, mergedConfigCheck.getMsg()));
         }
-        this.typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+        this.typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).get(0).getSeaTunnelRowType();
         pluginConfig
                 .entrySet()
                 .forEach(entry -> configParams.put(entry.getKey(), entry.getValue().unwrapped()));
