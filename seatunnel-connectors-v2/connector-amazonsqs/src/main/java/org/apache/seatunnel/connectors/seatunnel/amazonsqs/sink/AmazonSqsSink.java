@@ -50,7 +50,7 @@ public class AmazonSqsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public String getPluginName() {
-        return "amazonsqs";
+        return "AmazonSqs";
     }
 
     public AmazonSqsSink(ReadonlyConfig pluginConfig, SeaTunnelRowType typeInfo) {
