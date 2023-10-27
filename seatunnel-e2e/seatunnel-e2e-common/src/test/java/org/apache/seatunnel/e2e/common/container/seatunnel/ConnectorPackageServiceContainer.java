@@ -216,4 +216,9 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
         log.info("test in container: {}", identifier());
         return executeJob(server1, confFile);
     }
+
+    @Override
+    public String getServerLogs() {
+        return server1.getLogs();
+    }
 }
