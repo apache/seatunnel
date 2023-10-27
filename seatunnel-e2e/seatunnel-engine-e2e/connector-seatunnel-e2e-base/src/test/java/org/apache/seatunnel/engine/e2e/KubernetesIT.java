@@ -135,14 +135,14 @@ public class KubernetesIT {
                 coreV1Api.deleteNamespacedService(
                         "seatunnel", "default", null, null, null, null, null, null);
             } catch (Exception e) {
-                log.info("The service of seatunel does not exist");
+                log.info("The service of seatunnel does not exist");
             }
             try {
                 appsV1Api.readNamespacedStatefulSet("seatunnel", "default", null);
                 appsV1Api.deleteNamespacedStatefulSet(
                         "seatunnel", "default", null, null, null, null, null, null);
             } catch (Exception e) {
-                log.info("The statefulset of seatunel does not exist");
+                log.info("The statefulset of seatunnel does not exist");
             }
             coreV1Api.createNamespacedService("default", yamlSvc, null, null, null, null);
             appsV1Api.createNamespacedStatefulSet(
