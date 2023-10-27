@@ -26,9 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
@@ -507,9 +505,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
 
     private Properties getSinkProperties(JdbcSink jdbcSink)
             throws IOException, SQLException, ClassNotFoundException {
-        jdbcSink.setTypeInfo(
-                new SeaTunnelRowType(
-                        new String[] {"id"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE}));
         JdbcSinkWriter jdbcSinkWriter = (JdbcSinkWriter) jdbcSink.createWriter(null);
         JdbcConnectionProvider connectionProvider =
                 (JdbcConnectionProvider)
