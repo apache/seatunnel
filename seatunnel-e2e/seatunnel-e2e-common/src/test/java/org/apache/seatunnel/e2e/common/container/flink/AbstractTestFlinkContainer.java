@@ -139,4 +139,9 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         log.info("test in container: {}", identifier());
         return executeJob(jobManager, confFile);
     }
+
+    @Override
+    public String getServerLogs() {
+        return jobManager.getLogs();
+    }
 }

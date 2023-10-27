@@ -22,6 +22,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
@@ -47,6 +50,7 @@ import com.google.common.collect.ImmutableMap;
 import com.hazelcast.map.IMap;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
@@ -128,7 +132,12 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
         fake.setParallelism(parallelism);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, parallelism);
 
-        ConsoleSink consoleSink = new ConsoleSink();
+        ConsoleSink consoleSink =
+                new ConsoleSink(
+                        new SeaTunnelRowType(
+                                new String[] {"id"},
+                                new SeaTunnelDataType<?>[] {BasicType.INT_TYPE}),
+                        ReadonlyConfig.fromMap(new HashMap<>()));
         consoleSink.setJobContext(jobContext);
         Action console =
                 new SinkAction<>(
