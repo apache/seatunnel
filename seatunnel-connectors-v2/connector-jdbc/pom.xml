@@ -169,8 +169,8 @@
                         <artifactId>jdk.tools</artifactId>
                     </exclusion>
                 </exclusions>
-             </dependency>
-             <dependency>
+            </dependency>
+            <dependency>
                 <groupId>com.oceanbase</groupId>
                 <artifactId>oceanbase-client</artifactId>
                 <version>${oceanbase.jdbc.version}</version>
