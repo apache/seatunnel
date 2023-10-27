@@ -57,6 +57,10 @@ public class RestUtil {
         } catch (IndexOutOfBoundsException e) {
             throw new IllegalArgumentException("Invalid Params format in Params.");
         }
+        if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
+                && requestParams.get(RestConstant.JOB_ID) == null) {
+            throw new IllegalArgumentException("Please provide jobId when start with save point.");
+        }
     }
 
     public static Config buildConfig(JsonNode jsonNode) {

@@ -143,4 +143,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         log.info("test in container: {}", identifier());
         return executeJob(server, confFile);
     }
+
+    @Override
+    public String getServerLogs() {
+        return server.getLogs();
+    }
 }

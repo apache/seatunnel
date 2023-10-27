@@ -152,6 +152,14 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 Thread.sleep(100);
             } else {
                 collector.resetEmptyThisPollNext();
+                /**
+                 * The current thread obtain a checkpoint lock in the method {@link
+                 * SourceReader#pollNext(Collector)}. When trigger the checkpoint or savepoint,
+                 * other threads try to obtain the lock in the method {@link
+                 * SourceFlowLifeCycle#triggerBarrier(Barrier)}. When high CPU load, checkpoint
+                 * process may be blocked as long time. So we need sleep to free the CPU.
+                 */
+                Thread.sleep(0L);
             }
 
             if (collector.captureSchemaChangeBeforeCheckpointSignal()) {

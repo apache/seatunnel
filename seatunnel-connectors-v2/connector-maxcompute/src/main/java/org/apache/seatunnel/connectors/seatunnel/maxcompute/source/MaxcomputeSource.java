@@ -23,7 +23,9 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
@@ -31,22 +33,30 @@ import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeM
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import static org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions.SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PLUGIN_NAME;
+
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class MaxcomputeSource
         implements SeaTunnelSource<SeaTunnelRow, MaxcomputeSourceSplit, MaxcomputeSourceState>,
-                SupportParallelism {
+                SupportParallelism,
+                SupportColumnProjection {
     private SeaTunnelRowType typeInfo;
     private Config pluginConfig;
 
     @Override
     public String getPluginName() {
-        return "Maxcompute";
+        return PLUGIN_NAME;
     }
 
     @Override
     public void prepare(Config pluginConfig) {
-        this.typeInfo = MaxcomputeTypeMapper.getSeaTunnelRowType(pluginConfig);
+        if (pluginConfig.hasPath(SCHEMA.key())) {
+            this.typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+        } else {
+            this.typeInfo = MaxcomputeTypeMapper.getSeaTunnelRowType(pluginConfig);
+        }
         this.pluginConfig = pluginConfig;
     }
 

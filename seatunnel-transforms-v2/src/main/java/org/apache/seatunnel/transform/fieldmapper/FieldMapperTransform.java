@@ -92,6 +92,7 @@ public class FieldMapperTransform extends AbstractCatalogSupportTransform {
         List<Column> outputColumns = new ArrayList<>(fieldMapper.size());
         needReaderColIndex = new ArrayList<>(fieldMapper.size());
         ArrayList<String> inputFieldNames = Lists.newArrayList(seaTunnelRowType.getFieldNames());
+        ArrayList<String> outputFieldNames = new ArrayList<>();
         fieldMapper.forEach(
                 (key, value) -> {
                     int fieldIndex = inputFieldNames.indexOf(key);
@@ -110,18 +111,32 @@ public class FieldMapperTransform extends AbstractCatalogSupportTransform {
                                     oldColumn.getDefaultValue(),
                                     oldColumn.getComment());
                     outputColumns.add(outputColumn);
+                    outputFieldNames.add(outputColumn.getName());
                     needReaderColIndex.add(fieldIndex);
                 });
 
         List<ConstraintKey> outputConstraintKeys =
                 inputCatalogTable.getTableSchema().getConstraintKeys().stream()
+                        .filter(
+                                key -> {
+                                    List<String> constraintColumnNames =
+                                            key.getColumnNames().stream()
+                                                    .map(
+                                                            ConstraintKey.ConstraintKeyColumn
+                                                                    ::getColumnName)
+                                                    .collect(Collectors.toList());
+                                    return outputFieldNames.containsAll(constraintColumnNames);
+                                })
                         .map(ConstraintKey::copy)
                         .collect(Collectors.toList());
 
-        PrimaryKey copiedPrimaryKey =
-                inputCatalogTable.getTableSchema().getPrimaryKey() == null
-                        ? null
-                        : inputCatalogTable.getTableSchema().getPrimaryKey().copy();
+        PrimaryKey copiedPrimaryKey = null;
+        if (inputCatalogTable.getTableSchema().getPrimaryKey() != null
+                && outputFieldNames.containsAll(
+                        inputCatalogTable.getTableSchema().getPrimaryKey().getColumnNames())) {
+            copiedPrimaryKey = inputCatalogTable.getTableSchema().getPrimaryKey().copy();
+        }
+
         return TableSchema.builder()
                 .primaryKey(copiedPrimaryKey)
                 .columns(outputColumns)

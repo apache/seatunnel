@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
 
@@ -33,11 +34,9 @@ import java.util.Optional;
 @AutoService(Factory.class)
 public class TiDBCatalogFactory implements CatalogFactory {
 
-    public static final String IDENTIFIER = "TiDB";
-
     @Override
     public String factoryIdentifier() {
-        return IDENTIFIER;
+        return DatabaseIdentifier.TIDB;
     }
 
     @Override

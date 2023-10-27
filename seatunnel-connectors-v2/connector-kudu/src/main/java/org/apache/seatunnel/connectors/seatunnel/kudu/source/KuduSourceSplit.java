@@ -27,9 +27,9 @@ import lombok.Data;
 public class KuduSourceSplit implements SourceSplit {
 
     private static final long serialVersionUID = -1L;
-
-    Object[] parameterValues;
     public final Integer splitId;
+
+    private final byte[] token;
 
     @Override
     public String splitId() {

@@ -18,10 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.vertica;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 public class VerticaJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
-        return "Vertica";
+        return DatabaseIdentifier.VERTICA;
     }
 }

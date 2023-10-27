@@ -77,7 +77,7 @@ public class JdbcSourceOptions extends SourceOptions {
                                     + "currently-running database processes in the MySQL cluster. This connector"
                                     + " joins the MySQL  cluster as another server (with this unique ID) "
                                     + "so it can read the binlog. By default, a random number is generated between"
-                                    + " 5400 and 6400, though we recommend setting an explicit value.");
+                                    + " 6500 and 2,148,492,146, though we recommend setting an explicit value.");
 
     public static final Option<Long> CONNECT_TIMEOUT_MS =
             Options.key("connect.timeout.ms")
