@@ -88,8 +88,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
         ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
         actions.addAll(immutablePair.getLeft());
         // Enable upload connector jar package to engine server, automatically upload connector Jar
-        // packages
-        // and dependent third-party Jar packages to the server before job execution.
+        // packages and dependent third-party Jar packages to the server before job execution.
         // Enabling this configuration does not require the server to hold all connector Jar
         // packages.
         boolean enableUploadConnectorJarPackage =
@@ -110,11 +109,6 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                     action -> {
                         addCommonPluginJarsToAction(
                                 action, commonPluginJarUrls, commonJarIdentifiers);
-                    });
-            actions.forEach(
-                    action -> {
-                        org.apache.seatunnel.engine.core.dag.actions.Config config =
-                                action.getConfig();
                     });
         } else {
             jarUrls.addAll(commonPluginJars);

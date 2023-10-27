@@ -5,22 +5,27 @@ sidebar_position: 8
 
 # Optimize Apache SeaTunnel Zeta job submission
 
-we need to optimize the logic of Zeta engine execution jobs. The server should only have the core jar package of the engine, and all connector packages are on the client side. When submitting a job,
-the client side should upload the required jar packages to the server instead of just retaining the path to the jar package. When the server executes a job, it loads the jar package required for the job.
-After the job is completed, the jar package is deleted.
+We can enable the optimization job submission process, which is configured in the `seatunel.yaml`. After enabling the optimization of the Seatunnel job submission process configuration item,
+users can use the Seatunnel Zeta engine as the execution engine without placing the connector Jar packages required for task execution or the third-party Jar packages that the connector relies on in each engine `connector` directory.
+Users only need to place all the Jar packages for task execution on the client that submits the job, and the client will automatically upload the Jars required for task execution to the Zeta engine. It is necessary to enable this configuration item when submitting jobs in Docker or k8s mode,
+which can fundamentally solve the problem of large container images caused by the heavy weight of the Seatunnrl Zeta engine. In the image, only the core framework package of the Zeta engine needs to be provided,
+and then the jar package of the connector and the third-party jar package that the connector relies on can be separately uploaded to the pod for distribution.
 
-# ConnectorJar File Type
-
-The ConnectorPackageClient client exists on each TaskExecutor and is used for uploading and downloading Jar packages. Through ConnectorPackageClient, you can download the connector's jar package, the jar package that the connector depends on, and the user's jar and other files from the service executed by JobMaster, and store the contents of the Jar file in the local disk. All Jar package files can be roughly divided into Two types:
-
+After enabling the optimization job submission process configuration item, you do not need to place the following two types of Jar packages in the Zeta engine:
 - COMMON_PLUGIN_JARS
 - CONNECTOR_PLUGIN_JARS
 
-The jar package of the connector specified by the user in the configuration file of the submitted job and the jar package that the connector depends on can be regarded as temporarily stored files. The life cycle of the jar package is the same as the entire task submitted to Zeta for execution.
+COMMON_ PLUGIN_ JARS refers to the third-party Jar package that the connector relies on, CONNECTOR_ PLUGIN_ JARS refers to the connector Jar package.
+When common jars do not exist in Zeta's `lib`, it can upload the local common jars of the client to the `lib` directory of all engine nodes.
+This way, even if the user does not place a jar on all nodes in Zeta's `lib`, the task can still be executed normally.
+However, we do not recommend relying on the configuration item of opening the optimization job submission process to upload the third-party Jar package that the connector relies on.
+If you use Zeta Engine, please add the the third-party jar package files that the connector relies on to `$SEATUNNEL_HOME/lib/` directory on each node, such as jdbc drivers.
 
 # ConnectorJar storage strategy
 
-Users can configure the storage strategy of the current connector Jar package and the third-party Jar package that the connector depends on through the configuration file. There are two storage strategies that can be configured, namely shared Jar package storage strategy and isolated Jar package storage strategy. Two different storage strategies provide a more flexible storage mode for Jar files. Users can configure the storage strategy to share the same Jar package file with multiple execution jobs in the engine.
+You can configure the storage strategy of the current connector Jar package and the third-party Jar package that the connector depends on through the configuration file.
+There are two storage strategies that can be configured, namely shared Jar package storage strategy and isolated Jar package storage strategy.
+Two different storage strategies provide a more flexible storage mode for Jar files. You can configure the storage strategy to share the same Jar package file with multiple execution jobs in the engine.
 
 ## Related configuration
 
@@ -34,13 +39,11 @@ Users can configure the storage strategy of the current connector Jar package an
 
 ## IsolatedConnectorJarStorageStrategy
 
-![Isolated ConnectorJar Storage Strategy](../images/IsolatedConnectorJarStorage.png)
-
 Before the job is submitted, the connector Jar package will be uploaded to an independent file storage path on the Master node.
 The connector Jar packages of different jobs are in different storage paths, so the connector Jar packages of different jobs are isolated from each other.
 The Jar package files required for the execution of a job have no influence on other jobs. When the current job execution ends, the Jar package file in the storage path generated based on the JobId will be deleted.
 
-Configuration parameter example:
+Example:
 
 ```yaml
 jar-storage:
@@ -60,28 +63,12 @@ Detailed explanation of configuration parameters:
 
 ## SharedConnectorJarStorageStrategy
 
-![Shared ConnectorJar Storage Strategy](../images/SharedConnectorJarStorage.png)
-
-Before the job is submitted, the connector Jar package will be uploaded to the Master node.
-First, it will be judged whether there is a current Jar package locally on the current Master node.
-If other jobs have already uploaded the current Jar package, then only the current Jar package needs to be unique.
-The value of RefCount associated with the identifier can be incremented.
-There is no need to persist the current Jar package file to the Master node for storage,
-because different jobs can share it on the Master node if they use the same Jar package file.
-All Jar package files are persisted to a shared file storage path,
-and Jar packages that reference the Master node can be shared between different jobs.
-Under the SharedConnectorJarStorageStrategy storage strategy, the reference counts of all Jar packages are stored in hazelcast's Imap.
-The key in the Map data structure is the unique identifier of the Jar package, and the value is the count of current Jar references.
-What is different from IsolatedConnectorJarStorageStrategy is that all jobs under the current strategy share Jar package policies.
-Therefore, if a job is executed, all its associated Jar package files cannot be deleted directly.
-Instead, the refCount of the hazelcast Imap type needs to be referenced and modified.
-Each Jar package stored in the Master node will be reference counted in refCount,
-and all entries in the current refCount will be traversed.
-It is necessary to decrement the reference count of all entries in refCount of all Jar package files required for current job execution.
-SharedConnectorJarStorageStrategy will start a daemon thread for Jar cleaning work.
+Before the job is submitted, the connector Jar package will be uploaded to the Master node. Different jobs can share connector jars on the Master node if they use the same Jar package file.
+All Jar package files are persisted to a shared file storage path, and Jar packages that reference the Master node can be shared between different jobs. After the task execution is completed,
+the SharedConnectorJarStorageStrategy will not immediately delete all Jar packages related to the current task execution，but instead has an independent thread responsible for cleaning up the work.
 The configuration in the following configuration file sets the running time of the cleaning work and the survival time of the Jar package.
 
-Configuration parameter example:
+Example:
 
 ```yaml
 jar-storage:
