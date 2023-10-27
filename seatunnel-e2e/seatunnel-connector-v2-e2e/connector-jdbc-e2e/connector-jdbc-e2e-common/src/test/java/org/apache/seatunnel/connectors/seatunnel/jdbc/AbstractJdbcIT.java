@@ -84,6 +84,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected JdbcCase jdbcCase;
     protected Connection connection;
     protected Catalog catalog;
+    protected URLClassLoader urlClassLoader;
 
     abstract JdbcCase getJdbcCase();
 
@@ -95,14 +96,38 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     abstract GenericContainer<?> initContainer();
 
+    protected URLClassLoader getUrlClassLoader() throws MalformedURLException {
+        if (urlClassLoader == null) {
+            urlClassLoader =
+                    new URLClassLoader(
+                            new URL[] {new URL(driverUrl())},
+                            AbstractJdbcIT.class.getClassLoader());
+            Thread.currentThread().setContextClassLoader(urlClassLoader);
+        }
+        return urlClassLoader;
+    }
+
+    protected Class<?> loadDriverClassFromUrl() {
+        try {
+            return getUrlClassLoader().loadClass(jdbcCase.getDriverClass());
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to load driver class: " + jdbcCase.getDriverClass(), e);
+        }
+    }
+
+    protected Class<?> loadDriverClass() {
+        try {
+            return Class.forName(jdbcCase.getDriverClass());
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to load driver class: " + jdbcCase.getDriverClass(), e);
+        }
+    }
+
     protected void initializeJdbcConnection(String jdbcUrl)
-            throws SQLException, ClassNotFoundException, MalformedURLException,
-                    InstantiationException, IllegalAccessException {
-        URLClassLoader urlClassLoader =
-                new URLClassLoader(
-                        new URL[] {new URL(driverUrl())}, AbstractJdbcIT.class.getClassLoader());
-        Thread.currentThread().setContextClassLoader(urlClassLoader);
-        Driver driver = (Driver) urlClassLoader.loadClass(jdbcCase.getDriverClass()).newInstance();
+            throws SQLException, InstantiationException, IllegalAccessException {
+        Driver driver = (Driver) loadDriverClass().newInstance();
         Properties props = new Properties();
 
         if (StringUtils.isNotBlank(jdbcCase.getUserName())) {
