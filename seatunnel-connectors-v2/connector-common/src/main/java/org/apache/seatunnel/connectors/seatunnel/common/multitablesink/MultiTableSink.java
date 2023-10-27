@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -93,16 +94,22 @@ public class MultiTableSink
                 int index = context.getIndexOfSubtask() * replicaNum + i;
                 SinkIdentifier sinkIdentifier = SinkIdentifier.of(tableIdentifier, index);
                 List<?> state =
-                        states.stream()
-                                .flatMap(
-                                        multiTableState ->
-                                                multiTableState.getStates().get(sinkIdentifier)
-                                                        .stream())
-                                .filter(Objects::nonNull)
-                                .collect(Collectors.toList());
-                writers.put(
+                    states.stream()
+                        .map(
+                            multiTableState ->
+                                multiTableState.getStates().get(sinkIdentifier))
+                        .filter(Objects::nonNull)
+                        .flatMap(Collection::stream)
+                        .collect(Collectors.toList());
+                if (state.isEmpty()) {
+                    writers.put(
+                        sinkIdentifier,
+                        sink.createWriter(new SinkContextProxy(index, context)));
+                } else {
+                    writers.put(
                         sinkIdentifier,
                         sink.restoreWriter(new SinkContextProxy(index, context), state));
+                }
             }
         }
         return new MultiTableSinkWriter(writers, replicaNum);
