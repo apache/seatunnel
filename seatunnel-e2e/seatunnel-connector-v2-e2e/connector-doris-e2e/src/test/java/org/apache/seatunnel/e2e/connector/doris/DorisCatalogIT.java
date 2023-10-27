@@ -95,10 +95,10 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
-                        .withEnv("FE_SERVERS","fe1:127.0.0.1:9010")
-                        .withEnv("FE_ID","1")
-                        .withEnv("CURRENT_BE_IP","127.0.0.1")
-                        .withEnv("CURRENT_BE_PORT","9050")
+                        .withEnv("FE_SERVERS", "fe1:127.0.0.1:9010")
+                        .withEnv("FE_ID", "1")
+                        .withEnv("CURRENT_BE_IP", "127.0.0.1")
+                        .withEnv("CURRENT_BE_PORT", "9050")
                         .withPrivilegedMode(true)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
