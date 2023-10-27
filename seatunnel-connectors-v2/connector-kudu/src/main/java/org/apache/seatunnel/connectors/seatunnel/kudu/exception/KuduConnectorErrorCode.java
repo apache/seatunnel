@@ -23,11 +23,10 @@ public enum KuduConnectorErrorCode implements SeaTunnelErrorCode {
     GET_KUDUSCAN_OBJECT_FAILED("KUDU-01", "Get the Kuduscan object for each splice failed"),
     CLOSE_KUDU_CLIENT_FAILED("KUDU-02", "Close Kudu client failed"),
     DATA_TYPE_CAST_FILED("KUDU-03", "Value type does not match column type"),
-    KUDU_UPSERT_FAILED("KUDU-04", "Upsert data to Kudu failed"),
-    KUDU_INSERT_FAILED("KUDU-05", "Insert data to Kudu failed"),
-    INIT_KUDU_CLIENT_FAILED("KUDU-06", "Initialize the Kudu client failed"),
+    WRITE_DATA_FAILED("KUDU-04", "while sending value to Kudu failed"),
+    INIT_KUDU_CLIENT_FAILED("KUDU-05", "Initialize the Kudu client failed"),
     GENERATE_KUDU_PARAMETERS_FAILED(
-            "KUDU-07", "Generate Kudu Parameters in the preparation phase failed");
+            "KUDU-06", "Generate Kudu Parameters in the preparation phase failed");
 
     private final String code;
 

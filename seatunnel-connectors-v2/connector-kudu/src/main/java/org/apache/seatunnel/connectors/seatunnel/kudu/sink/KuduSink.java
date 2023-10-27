@@ -20,13 +20,22 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.sink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSinkState;
 
 import com.google.auto.service.AutoService;
 
@@ -37,9 +46,11 @@ import java.io.IOException;
  * {@link AbstractSimpleSink}.
  */
 @AutoService(SeaTunnelSink.class)
-public class KuduSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class KuduSink
+        implements SeaTunnelSink<
+                SeaTunnelRow, KuduSinkState, KuduCommitInfo, KuduAggregatedCommitInfo> {
 
-    private Config config;
+    private KuduSinkConfig kuduSinkConfig;
     private SeaTunnelRowType seaTunnelRowType;
 
     @Override
@@ -59,12 +70,22 @@ public class KuduSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.config = pluginConfig;
+        ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
+        ConfigValidator.of(config).validate(new KuduSinkFactory().optionRule());
+        try {
+            kuduSinkConfig = new KuduSinkConfig(config);
+        } catch (Exception e) {
+            throw new KuduConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, ExceptionUtils.getMessage(e)));
+        }
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
-        return new KuduSinkWriter(seaTunnelRowType, config);
+    public SinkWriter<SeaTunnelRow, KuduCommitInfo, KuduSinkState> createWriter(
+            SinkWriter.Context context) throws IOException {
+        return new KuduSinkWriter(seaTunnelRowType, kuduSinkConfig);
     }
 }
