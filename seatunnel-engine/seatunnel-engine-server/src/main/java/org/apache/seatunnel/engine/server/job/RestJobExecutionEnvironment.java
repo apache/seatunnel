@@ -55,7 +55,7 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                                         .getHazelcastInstance()
                                         .getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME)
                                         .newId()));
-        this.jobId = Long.valueOf(jobConfig.getJobContext().getJobId());
+        this.jobId = Long.valueOf(this.jobConfig.getJobContext().getJobId());
     }
 
     public Long getJobId() {
