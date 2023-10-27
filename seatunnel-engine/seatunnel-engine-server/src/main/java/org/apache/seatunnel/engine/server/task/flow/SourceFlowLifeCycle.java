@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.Record;
-import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -59,7 +58,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
 @Slf4j
@@ -154,6 +152,14 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 Thread.sleep(100);
             } else {
                 collector.resetEmptyThisPollNext();
+                /**
+                 * The current thread obtain a checkpoint lock in the method {@link
+                 * SourceReader#pollNext(Collector)}. When trigger the checkpoint or savepoint,
+                 * other threads try to obtain the lock in the method {@link
+                 * SourceFlowLifeCycle#triggerBarrier(Barrier)}. When high CPU load, checkpoint
+                 * process may be blocked as long time. So we need sleep to free the CPU.
+                 */
+                Thread.sleep(0L);
             }
 
             if (collector.captureSchemaChangeBeforeCheckpointSignal()) {
@@ -338,21 +344,17 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         if (actionStateList.isEmpty()) {
             return;
         }
-        List<SplitT> splits =
+        List<byte[]> splits =
                 actionStateList.stream()
                         .map(ActionSubtaskState::getState)
                         .flatMap(Collection::stream)
                         .filter(Objects::nonNull)
-                        .map(bytes -> sneaky(() -> splitSerializer.deserialize(bytes)))
                         .collect(Collectors.toList());
         try {
             runningTask
                     .getExecutionContext()
                     .sendToMember(
-                            new RestoredSplitOperation(
-                                    enumeratorTaskLocation,
-                                    SerializationUtils.serialize(splits.toArray()),
-                                    indexID),
+                            new RestoredSplitOperation(enumeratorTaskLocation, splits, indexID),
                             enumeratorTaskAddress)
                     .get();
         } catch (InterruptedException | ExecutionException e) {

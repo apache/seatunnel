@@ -17,14 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+
+import org.apache.commons.lang3.StringUtils;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -33,9 +41,17 @@ public class PostgresDialect implements JdbcDialect {
 
     public static final int DEFAULT_POSTGRES_FETCH_SIZE = 128;
 
+    public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
+
+    public PostgresDialect() {}
+
+    public PostgresDialect(String fieldIde) {
+        this.fieldIde = fieldIde;
+    }
+
     @Override
     public String dialectName() {
-        return "PostgreSQL";
+        return DatabaseIdentifier.POSTGRESQL;
     }
 
     @Override
@@ -87,5 +103,61 @@ public class PostgresDialect implements JdbcDialect {
             statement.setFetchSize(DEFAULT_POSTGRES_FETCH_SIZE);
         }
         return statement;
+    }
+
+    @Override
+    public String tableIdentifier(String database, String tableName) {
+        // resolve pg database name upper or lower not recognised
+        return quoteDatabaseIdentifier(database) + "." + quoteIdentifier(tableName);
+    }
+
+    @Override
+    public String quoteIdentifier(String identifier) {
+        if (identifier.contains(".")) {
+            String[] parts = identifier.split("\\.");
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < parts.length - 1; i++) {
+                sb.append("\"").append(parts[i]).append("\"").append(".");
+            }
+            return sb.append("\"")
+                    .append(getFieldIde(parts[parts.length - 1], fieldIde))
+                    .append("\"")
+                    .toString();
+        }
+
+        return "\"" + getFieldIde(identifier, fieldIde) + "\"";
+    }
+
+    @Override
+    public String quoteDatabaseIdentifier(String identifier) {
+        return "\"" + identifier + "\"";
+    }
+
+    @Override
+    public TablePath parse(String tablePath) {
+        return TablePath.of(tablePath, true);
+    }
+
+    @Override
+    public Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
+            throws SQLException {
+        if (StringUtils.isBlank(table.getQuery())) {
+            String rowCountQuery =
+                    String.format(
+                            "SELECT reltuples FROM pg_class r WHERE relkind = 'r' AND relname = '%s';",
+                            table.getTablePath().getTableName());
+            try (Statement stmt = connection.createStatement()) {
+                try (ResultSet rs = stmt.executeQuery(rowCountQuery)) {
+                    if (!rs.next()) {
+                        throw new SQLException(
+                                String.format(
+                                        "No result returned after running query [%s]",
+                                        rowCountQuery));
+                    }
+                    return rs.getLong(1);
+                }
+            }
+        }
+        return SQLUtils.countForSubquery(connection, table.getQuery());
     }
 }

@@ -44,10 +44,20 @@ public class ReflectionUtils {
 
     public static Optional<Object> getField(Object object, Class<?> clazz, String fieldName) {
         try {
-            Field field = clazz.getDeclaredField(fieldName);
-            field.setAccessible(true);
-            return Optional.of(field.get(object));
-        } catch (NoSuchFieldException | IllegalAccessException e) {
+            Class<?> searchType = clazz;
+            while (!Object.class.equals(searchType) && searchType != null) {
+                Field[] fields = searchType.getDeclaredFields();
+                for (Field field : fields) {
+                    if (fieldName.equals(field.getName())) {
+                        field.setAccessible(true);
+                        return Optional.of(field.get(object));
+                    }
+                }
+                // find super class
+                searchType = searchType.getSuperclass();
+            }
+            return Optional.empty();
+        } catch (IllegalAccessException | IllegalArgumentException e) {
             return Optional.empty();
         }
     }

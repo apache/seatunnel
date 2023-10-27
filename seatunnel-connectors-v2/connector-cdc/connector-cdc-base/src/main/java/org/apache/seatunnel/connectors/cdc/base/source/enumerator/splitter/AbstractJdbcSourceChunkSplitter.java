@@ -112,6 +112,19 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         final int chunkSize = sourceConfig.getSplitSize();
         final double distributionFactorUpper = sourceConfig.getDistributionFactorUpper();
         final double distributionFactorLower = sourceConfig.getDistributionFactorLower();
+        final int sampleShardingThreshold = sourceConfig.getSampleShardingThreshold();
+
+        log.info(
+                "Splitting table {} into chunks, split column: {}, min: {}, max: {}, chunk size: {}, "
+                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {}",
+                tableId,
+                splitColumnName,
+                min,
+                max,
+                chunkSize,
+                distributionFactorUpper,
+                distributionFactorLower,
+                sampleShardingThreshold);
 
         if (isEvenlySplitColumn(splitColumn)) {
             long approximateRowCnt = queryApproximateRowCnt(jdbc, tableId);
@@ -130,7 +143,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             } else {
                 int shardCount = (int) (approximateRowCnt / chunkSize);
                 int inverseSamplingRate = sourceConfig.getInverseSamplingRate();
-                if (sourceConfig.getSampleShardingThreshold() < shardCount) {
+                if (sampleShardingThreshold < shardCount) {
                     // It is necessary to ensure that the number of data rows sampled by the
                     // sampling rate is greater than the number of shards.
                     // Otherwise, if the sampling rate is too low, it may result in an insufficient
@@ -144,9 +157,17 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                                 chunkSize);
                         inverseSamplingRate = chunkSize;
                     }
+                    log.info(
+                            "Use sampling sharding for table {}, the sampling rate is {}",
+                            tableId,
+                            inverseSamplingRate);
                     Object[] sample =
                             sampleDataFromColumn(
                                     jdbc, tableId, splitColumnName, inverseSamplingRate);
+                    log.info(
+                            "Sample data from table {} end, the sample size is {}",
+                            tableId,
+                            sample.length);
                     return efficientShardingThroughSampling(
                             tableId, sample, approximateRowCnt, shardCount);
                 }
@@ -288,6 +309,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
     }
 
     // ------------------------------------------------------------------------------------------
+
     /** Returns the distribution factor of the given table. */
     @SuppressWarnings("MagicNumber")
     protected double calculateDistributionFactor(
@@ -335,6 +357,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
             throws SQLException {
         Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
+        Column splitColumn = null;
         if (primaryKey.isPresent()) {
             List<String> pkColumns = primaryKey.get().getColumnNames();
 
@@ -342,7 +365,10 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             for (String pkColumn : pkColumns) {
                 Column column = table.columnWithName(pkColumn);
                 if (isEvenlySplitColumn(column)) {
-                    return column;
+                    splitColumn = columnComparable(splitColumn, column);
+                    if (sqlTypePriority(splitColumn) == 1) {
+                        return splitColumn;
+                    }
                 }
             }
         }
@@ -356,10 +382,16 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 for (ConstraintKey.ConstraintKeyColumn uniqueKeyColumn : uniqueKeyColumns) {
                     Column column = table.columnWithName(uniqueKeyColumn.getColumnName());
                     if (isEvenlySplitColumn(column)) {
-                        return column;
+                        splitColumn = columnComparable(splitColumn, column);
+                        if (sqlTypePriority(splitColumn) == 1) {
+                            return splitColumn;
+                        }
                     }
                 }
             }
+        }
+        if (splitColumn != null) {
+            return splitColumn;
         }
 
         throw new UnsupportedOperationException(
@@ -388,5 +420,34 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             }
             log.info("JdbcSourceChunkSplitter has split {} chunks for table {}", count, tableId);
         }
+    }
+
+    private int sqlTypePriority(Column splitColumn) {
+        switch (fromDbzColumn(splitColumn).getSqlType()) {
+            case TINYINT:
+                return 1;
+            case SMALLINT:
+                return 2;
+            case INT:
+                return 3;
+            case BIGINT:
+                return 4;
+            case DECIMAL:
+                return 5;
+            case STRING:
+                return 6;
+            default:
+                return Integer.MAX_VALUE;
+        }
+    }
+
+    private Column columnComparable(Column then, Column other) {
+        if (then == null) {
+            return other;
+        }
+        if (sqlTypePriority(then) > sqlTypePriority(other)) {
+            return other;
+        }
+        return then;
     }
 }

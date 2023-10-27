@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.gbase8a;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
@@ -26,7 +27,7 @@ import java.util.Optional;
 public class Gbase8aDialect implements JdbcDialect {
     @Override
     public String dialectName() {
-        return "Gbase8a";
+        return DatabaseIdentifier.GBASE_8A;
     }
 
     @Override

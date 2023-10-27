@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.engine.server.dag.execution;
 
-import org.apache.seatunnel.api.table.type.MultipleRowType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
-import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
@@ -54,24 +53,24 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
 public class ExecutionPlanGenerator {
     private final LogicalDag logicalPlan;
     private final JobImmutableInformation jobImmutableInformation;
-    private final CheckpointConfig checkpointConfig;
+    private final EngineConfig engineConfig;
     private final IdGenerator idGenerator = new IdGenerator();
 
     public ExecutionPlanGenerator(
             @NonNull LogicalDag logicalPlan,
             @NonNull JobImmutableInformation jobImmutableInformation,
-            @NonNull CheckpointConfig checkpointConfig) {
+            @NonNull EngineConfig engineConfig) {
         checkArgument(
                 logicalPlan.getEdges().size() > 0, "ExecutionPlan Builder must have LogicalPlan.");
         this.logicalPlan = logicalPlan;
         this.jobImmutableInformation = jobImmutableInformation;
-        this.checkpointConfig = checkpointConfig;
+        this.engineConfig = engineConfig;
     }
 
     public ExecutionPlan generate() {
@@ -215,9 +214,24 @@ public class ExecutionPlanGenerator {
             return executionEdges;
         }
         ExecutionVertex sourceExecutionVertex = sourceExecutionVertices.stream().findFirst().get();
-        SourceAction sourceAction = (SourceAction) sourceExecutionVertex.getAction();
-        SeaTunnelDataType sourceProducedType = sourceAction.getSource().getProducedType();
-        if (!SqlType.MULTIPLE_ROW.equals(sourceProducedType.getSqlType())) {
+        Action sourceAction = sourceExecutionVertex.getAction();
+        List<CatalogTable> producedCatalogTables = new ArrayList<>();
+        if (sourceAction instanceof SourceAction) {
+            try {
+                producedCatalogTables =
+                        ((SourceAction<?, ?, ?>) sourceAction)
+                                .getSource()
+                                .getProducedCatalogTables();
+            } catch (UnsupportedOperationException e) {
+            }
+        } else if (sourceAction instanceof TransformChainAction) {
+            return executionEdges;
+        } else {
+            throw new SeaTunnelException(
+                    "source action must be SourceAction or TransformChainAction");
+        }
+        if (producedCatalogTables.size() <= 1
+                || targetVerticesMap.get(sourceExecutionVertex.getVertexId()).size() <= 1) {
             return executionEdges;
         }
 
@@ -234,8 +248,11 @@ public class ExecutionPlanGenerator {
                 ShuffleMultipleRowStrategy.builder()
                         .jobId(jobImmutableInformation.getJobId())
                         .inputPartitions(sourceAction.getParallelism())
-                        .inputRowType(MultipleRowType.class.cast(sourceProducedType))
-                        .queueEmptyQueueTtl((int) (checkpointConfig.getCheckpointInterval() * 3))
+                        .catalogTables(producedCatalogTables)
+                        .queueEmptyQueueTtl(
+                                (int)
+                                        (engineConfig.getCheckpointConfig().getCheckpointInterval()
+                                                * 3))
                         .build();
         ShuffleConfig shuffleConfig =
                 ShuffleConfig.builder().shuffleStrategy(shuffleStrategy).build();

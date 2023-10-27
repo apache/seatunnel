@@ -22,8 +22,8 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -48,7 +48,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Cluster fault tolerance test. Test the job which have two pipelines can recovery capability and
@@ -69,7 +69,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     public static final String DYNAMIC_TEST_PARALLELISM = "dynamic_test_parallelism";
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineBatchJobRunOkIn2Node()
             throws ExecutionException, InterruptedException {
@@ -116,7 +115,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
+            ClientJobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
@@ -128,7 +127,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -200,7 +199,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
         return new ImmutablePair<>(targetDir, targetConfigFilePath);
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineStreamJobRunOkIn2Node()
             throws ExecutionException, InterruptedException {
@@ -245,7 +243,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
+            ClientJobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
@@ -257,7 +255,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -299,7 +297,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineBatchJobRestoreIn2NodeWorkerDown()
             throws ExecutionException, InterruptedException {
@@ -344,7 +341,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
+            ClientJobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
@@ -357,7 +354,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -378,7 +375,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -415,7 +412,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineStreamJobRestoreIn2NodeWorkerDown()
             throws ExecutionException, InterruptedException {
@@ -460,7 +456,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
+            ClientJobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
@@ -477,7 +473,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // Wait some tasks commit finished, and we can get rows from the
                                 // sink target dir
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -499,7 +495,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -544,13 +540,14 @@ public class ClusterFaultToleranceTwoPipelineIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineBatchJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
-        String testCaseName = "testTwoPipelineBatchJobRestoreIn2NodeMasterDown";
+        String testCaseName =
+                "testTwoPipelineBatchJobRestoreIn2NodeMasterDown" + System.currentTimeMillis();
         String testClusterName =
-                "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRestoreIn2NodeMasterDown";
+                "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRestoreIn2NodeMasterDown"
+                        + System.currentTimeMillis();
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -589,7 +586,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
+            ClientJobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
@@ -602,7 +599,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -623,7 +620,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -653,13 +650,14 @@ public class ClusterFaultToleranceTwoPipelineIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineStreamJobRestoreIn2NodeMasterDown()
             throws ExecutionException, InterruptedException {
-        String testCaseName = "testTwoPipelineStreamJobRestoreIn2NodeMasterDown";
+        String testCaseName =
+                "testTwoPipelineStreamJobRestoreIn2NodeMasterDown" + System.currentTimeMillis();
         String testClusterName =
-                "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRestoreIn2NodeMasterDown";
+                "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRestoreIn2NodeMasterDown"
+                        + System.currentTimeMillis();
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -698,7 +696,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
+            ClientJobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
@@ -712,7 +710,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // Wait some tasks commit finished, and we can get rows from the
                                 // sink target dir
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -733,7 +731,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())

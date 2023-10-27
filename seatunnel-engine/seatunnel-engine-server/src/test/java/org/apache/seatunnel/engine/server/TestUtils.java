@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
@@ -52,18 +53,16 @@ public class TestUtils {
         return System.getProperty("user.dir") + "/src/test/resources/" + confFile;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static LogicalDag getTestLogicalDag(JobContext jobContext) throws MalformedURLException {
         IdGenerator idGenerator = new IdGenerator();
-        FakeSource fakeSource = new FakeSource();
-        fakeSource.setJobContext(jobContext);
         Config fakeSourceConfig =
                 ConfigFactory.parseMap(
                         Collections.singletonMap(
                                 "schema",
                                 Collections.singletonMap(
                                         "fields", ImmutableMap.of("id", "int", "name", "string"))));
-        fakeSource.prepare(fakeSourceConfig);
+        FakeSource fakeSource = new FakeSource(ReadonlyConfig.fromConfig(fakeSourceConfig));
+        fakeSource.setJobContext(jobContext);
 
         Action fake =
                 new SourceAction<>(

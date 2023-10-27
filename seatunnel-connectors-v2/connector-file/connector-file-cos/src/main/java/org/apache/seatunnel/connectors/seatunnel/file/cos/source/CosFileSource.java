@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
@@ -83,7 +84,7 @@ public class CosFileSource extends BaseFileSource {
                 FileFormat.valueOf(
                         pluginConfig.getString(CosConfig.FILE_FORMAT_TYPE.key()).toUpperCase());
         // only json text csv type support user-defined schema now
-        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
+        if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:
@@ -106,6 +107,11 @@ public class CosFileSource extends BaseFileSource {
                             "SeaTunnel does not supported this file format");
             }
         } else {
+            if (filePaths.isEmpty()) {
+                // When the directory is empty, distribute default behavior schema
+                rowType = CatalogTableUtil.buildSimpleTextSchema();
+                return;
+            }
             try {
                 rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
             } catch (FileConnectorException e) {

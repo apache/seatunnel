@@ -53,8 +53,10 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      * Set the row type info of sink row data. This method will be automatically called by
      * translation.
      *
+     * @deprecated instead by {@link org.apache.seatunnel.api.table.factory.Factory}
      * @param seaTunnelRowType The row type info of sink.
      */
+    @Deprecated
     void setTypeInfo(SeaTunnelRowType seaTunnelRowType);
 
     /**

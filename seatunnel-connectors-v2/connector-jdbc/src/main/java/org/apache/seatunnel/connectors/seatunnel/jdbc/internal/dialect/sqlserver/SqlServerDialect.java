@@ -17,19 +17,40 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
+import org.apache.commons.lang3.StringUtils;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class SqlServerDialect implements JdbcDialect {
+
+    public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
+
+    public SqlServerDialect() {}
+
+    public SqlServerDialect(String fieldIde) {
+        this.fieldIde = fieldIde;
+    }
+
     @Override
     public String dialectName() {
-        return "Sqlserver";
+        return DatabaseIdentifier.SQLSERVER;
     }
 
     @Override
@@ -104,5 +125,113 @@ public class SqlServerDialect implements JdbcDialect {
                         insertValues);
 
         return Optional.of(upsertSQL);
+    }
+
+    @Override
+    public String quoteIdentifier(String identifier) {
+        if (identifier.contains(".")) {
+            String[] parts = identifier.split("\\.");
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < parts.length - 1; i++) {
+                sb.append("[").append(parts[i]).append("]").append(".");
+            }
+            return sb.append("[")
+                    .append(getFieldIde(parts[parts.length - 1], fieldIde))
+                    .append("]")
+                    .toString();
+        }
+
+        return "[" + getFieldIde(identifier, fieldIde) + "]";
+    }
+
+    @Override
+    public String quoteDatabaseIdentifier(String identifier) {
+        return "[" + identifier + "]";
+    }
+
+    @Override
+    public TablePath parse(String tablePath) {
+        return TablePath.of(tablePath, true);
+    }
+
+    @Override
+    public Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
+            throws SQLException {
+        if (StringUtils.isBlank(table.getQuery())) {
+            TablePath tablePath = table.getTablePath();
+            try (Statement stmt = connection.createStatement()) {
+                if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
+                    String useDatabaseStatement =
+                            String.format(
+                                    "USE %s;",
+                                    quoteDatabaseIdentifier(tablePath.getDatabaseName()));
+                    stmt.execute(useDatabaseStatement);
+                }
+                String rowCountQuery =
+                        String.format(
+                                "SELECT Total_Rows = SUM(st.row_count) FROM sys"
+                                        + ".dm_db_partition_stats st WHERE object_name(object_id) = '%s' AND index_id < 2;",
+                                tablePath.getTableName());
+                try (ResultSet rs = stmt.executeQuery(rowCountQuery)) {
+                    if (!rs.next()) {
+                        throw new SQLException(
+                                String.format(
+                                        "No result returned after running query [%s]",
+                                        rowCountQuery));
+                    }
+                    return rs.getLong(1);
+                }
+            }
+        }
+        return SQLUtils.countForSubquery(connection, table.getQuery());
+    }
+
+    @Override
+    public Object queryNextChunkMax(
+            Connection connection,
+            JdbcSourceTable table,
+            String columnName,
+            int chunkSize,
+            Object includedLowerBound)
+            throws SQLException {
+        String quotedColumn = quoteIdentifier(columnName);
+        String sqlQuery;
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            sqlQuery =
+                    String.format(
+                            "SELECT MAX(%s) FROM ("
+                                    + "SELECT TOP (%s) %s FROM (%s) AS T1 WHERE %s >= ? ORDER BY %s ASC"
+                                    + ") AS T2",
+                            quotedColumn,
+                            chunkSize,
+                            quotedColumn,
+                            table.getQuery(),
+                            quotedColumn,
+                            quotedColumn);
+        } else {
+            sqlQuery =
+                    String.format(
+                            "SELECT MAX(%s) FROM ("
+                                    + "SELECT TOP (%s) %s FROM %s WHERE %s >= ? ORDER BY %s ASC "
+                                    + ") AS T",
+                            quotedColumn,
+                            chunkSize,
+                            quotedColumn,
+                            table.getTablePath().getFullName(),
+                            quotedColumn,
+                            quotedColumn);
+        }
+        try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
+            ps.setObject(1, includedLowerBound);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getObject(1);
+                } else {
+                    // this should never happen
+                    throw new SQLException(
+                            String.format("No result returned after running query [%s]", sqlQuery));
+                }
+            }
+        }
     }
 }

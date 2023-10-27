@@ -2,6 +2,10 @@
 
 > JDBC Mysql Sink Connector
 
+## Support Mysql Version
+
+- 5.5/5.6/5.7/8.0
+
 ## Support Those Engines
 
 > Spark<br/>
@@ -54,27 +58,29 @@ semantics (using XA transaction guarantee).
 
 ## Sink Options
 
-|                   Name                    |  Type   | Required | Default |                                                                                                                 Description                                                                                                                  |
-|-------------------------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                       |
-| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                |
-| user                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                |
-| password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                 |
-| query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                       |
-| database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                     |
-| table                                     | String  | No       | -       | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                         |
-| primary_keys                              | Array   | No       | -       | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                          |
-| support_upsert_by_query_primary_key_exist | Boolean | No       | false   | Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupport upsert syntax. **Note**: that this method has low performance |
-| connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                          |
-| max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                        |
-| batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                         |
-| is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                            |
-| generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to                                                                                                                                                                     |
-| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource`, and<br/>please refer to appendix for other data sources                                                                   |
-| max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                        |
-| transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                          |
-| auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                           |
-| common-options                            |         | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                          |
+|                   Name                    |  Type   | Required | Default |                                                                                                                  Description                                                                                                                   |
+|-------------------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                         |
+| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                  |
+| user                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                  |
+| password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                   |
+| query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
+| database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                       |
+| table                                     | String  | No       | -       | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                           |
+| primary_keys                              | Array   | No       | -       | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                            |
+| support_upsert_by_query_primary_key_exist | Boolean | No       | false   | Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupport upsert syntax. **Note**: that this method has low performance   |
+| connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
+| max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                          |
+| batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                           |
+| is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                              |
+| generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to                                                                                                                                                                       |
+| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource`, and<br/>please refer to appendix for other data sources                                                                     |
+| max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                          |
+| transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                            |
+| auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                             |
+| field_ide                                 | String  | No       | -       | Identify whether the field needs to be converted when synchronizing from the source to the sink. `ORIGINAL` indicates no conversion is needed;`UPPERCASE` indicates conversion to uppercase;`LOWERCASE` indicates conversion to lowercase.     |
+| properties                                | Map     | No       | -       | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL. |
+| common-options                            |         | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                            |
 
 ### Tips
 
@@ -118,7 +124,7 @@ transform {
 
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
@@ -136,7 +142,7 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
@@ -155,7 +161,7 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
     
         max_retries = 0
@@ -177,7 +183,7 @@ sink {
 ```
 sink {
     jdbc {
-        url = "jdbc:mysql://localhost:3306/test"
+        url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
@@ -187,6 +193,7 @@ sink {
         database = test
         table = sink_table
         primary_keys = ["id","name"]
+        field_ide = UPPERCASE
     }
 }
 ```

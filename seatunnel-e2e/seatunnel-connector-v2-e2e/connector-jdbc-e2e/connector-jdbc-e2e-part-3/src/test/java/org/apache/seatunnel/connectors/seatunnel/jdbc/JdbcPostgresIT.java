@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -26,6 +32,7 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -95,7 +102,9 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  multilinestring geometry(MULTILINESTRING, 4326),\n"
                     + "  multipolygon geometry(MULTIPOLYGON, 4326),\n"
                     + "  geometrycollection geometry(GEOMETRYCOLLECTION, 4326),\n"
-                    + "  geog geography(POINT, 4326)\n"
+                    + "  geog geography(POINT, 4326),\n"
+                    + "  json_col json NOT NULL,\n"
+                    + "  jsonb_col jsonb NOT NULL\n"
                     + ")";
     private static final String PG_SINK_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_sink_table (\n"
@@ -126,7 +135,9 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    multilinestring varchar(2000) NULL,\n"
                     + "    multipolygon varchar(2000) NULL,\n"
                     + "    geometrycollection varchar(2000) NULL,\n"
-                    + "    geog varchar(2000) NULL\n"
+                    + "    geog varchar(2000) NULL,\n"
+                    + "    json_col json NOT NULL \n,"
+                    + "    jsonb_col jsonb NOT NULL\n"
                     + "  )";
     private static final String SOURCE_SQL =
             "select \n"
@@ -157,8 +168,10 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "multilinestring,\n"
                     + "multipolygon,\n"
                     + "geometrycollection,\n"
-                    + "geog\n"
-                    + " from pg_e2e_source_table";
+                    + "geog,\n"
+                    + "json_col,\n"
+                    + "jsonb_col\n"
+                    + "from pg_e2e_source_table";
     private static final String SINK_SQL =
             "select\n"
                     + "  gid,\n"
@@ -188,7 +201,9 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  cast(multilinestring as geometry) as multilinestring,\n"
                     + "  cast(multipolygon as geometry) as multilinestring,\n"
                     + "  cast(geometrycollection as geometry) as geometrycollection,\n"
-                    + "  cast(geog as geography) as geog\n"
+                    + "  cast(geog as geography) as geog,\n"
+                    + "   json_col,\n"
+                    + "   jsonb_col\n"
                     + "from\n"
                     + "  pg_e2e_sink_table";
 
@@ -244,6 +259,43 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @Test
+    public void testCatalog() {
+        String schema = "public";
+        String databaseName = POSTGRESQL_CONTAINER.getDatabaseName();
+        String tableName = "pg_e2e_sink_table";
+        String catalogDatabaseName = "pg_e2e_catalog_database";
+        String catalogTableName = "pg_e2e_catalog_table";
+
+        Catalog catalog =
+                new PostgresCatalog(
+                        DatabaseIdentifier.POSTGRESQL,
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
+                        schema);
+        catalog.open();
+
+        TablePath tablePath = new TablePath(databaseName, schema, tableName);
+        TablePath catalogTablePath = new TablePath(catalogDatabaseName, schema, catalogTableName);
+
+        Assertions.assertFalse(catalog.databaseExists(catalogTablePath.getDatabaseName()));
+        catalog.createDatabase(catalogTablePath, false);
+        Assertions.assertTrue(catalog.databaseExists(catalogTablePath.getDatabaseName()));
+
+        CatalogTable catalogTable = catalog.getTable(tablePath);
+        catalog.createTable(catalogTablePath, catalogTable, false);
+        Assertions.assertTrue(catalog.tableExists(catalogTablePath));
+
+        catalog.dropTable(catalogTablePath, false);
+        Assertions.assertFalse(catalog.tableExists(catalogTablePath));
+
+        catalog.dropDatabase(catalogTablePath, false);
+        Assertions.assertFalse(catalog.databaseExists(catalogTablePath.getDatabaseName()));
+
+        catalog.close();
+    }
+
     private void initializeJdbcTable() {
         try (Connection connection = getJdbcConnection()) {
             Statement statement = connection.createStatement();
@@ -279,7 +331,9 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    multilinestring,\n"
                                 + "    multipolygon,\n"
                                 + "    geometrycollection,\n"
-                                + "    geog\n"
+                                + "    geog,\n"
+                                + "    json_col,\n"
+                                + "    jsonb_col \n"
                                 + "  )\n"
                                 + "VALUES\n"
                                 + "  (\n"
@@ -330,7 +384,9 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "      'GEOMETRYCOLLECTION(POINT(-122.3462 47.5921), LINESTRING(-122.3460 47.5924, -122.3457 47.5924))',\n"
                                 + "      4326\n"
                                 + "    ),\n"
-                                + "    ST_GeographyFromText('POINT(-122.3452 47.5925)')\n"
+                                + "    ST_GeographyFromText('POINT(-122.3452 47.5925)'),\n"
+                                + "    '{\"key\":\"test\"}',\n"
+                                + "    '{\"key\":\"test\"}'\n"
                                 + "  )");
             }
 

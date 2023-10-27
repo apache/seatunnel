@@ -55,14 +55,13 @@ import lombok.NonNull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public class ParquetWriteStrategy extends AbstractWriteStrategy {
     private final LinkedHashMap<String, ParquetWriter<GenericRecord>> beingWrittenWriter;
     private AvroSchemaConverter schemaConverter;
@@ -163,7 +162,6 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         return writer;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private Object resolveObject(Object data, SeaTunnelDataType<?> seaTunnelDataType) {
         if (data == null) {
             return null;
@@ -191,7 +189,10 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
             case DATE:
                 return data;
             case TIMESTAMP:
-                return ((LocalDateTime) data).toInstant(ZoneOffset.of("+8")).toEpochMilli();
+                return ((LocalDateTime) data)
+                        .atZone(ZoneId.systemDefault())
+                        .toInstant()
+                        .toEpochMilli();
             case BYTES:
                 return ByteBuffer.wrap((byte[]) data);
             case ROW:
@@ -222,7 +223,6 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static Type seaTunnelDataType2ParquetDataType(
             String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {

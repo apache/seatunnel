@@ -49,6 +49,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | common-options            |         | no       | -                   |
 | sheet_name                | string  | no       | -                   |
 | file_filter_pattern       | string  | no       | -                   |
+| compress_codec            | string  | no       | none                |
 
 ### host [string]
 
@@ -58,9 +59,9 @@ The target ftp host is required
 
 The target ftp port is required
 
-### username [string]
+### user [string]
 
-The target ftp username is required
+The target ftp user name is required
 
 ### password [string]
 
@@ -227,6 +228,16 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ### sheet_name [string]
 
 Reader the sheet of the workbook,Only used when file_format_type is excel.
+
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc/parquet:  
+  automatically recognizes the compression type, no additional settings required.
 
 ## Example
 

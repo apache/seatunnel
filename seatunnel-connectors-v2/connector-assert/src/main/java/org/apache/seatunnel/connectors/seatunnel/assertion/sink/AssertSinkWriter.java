@@ -17,39 +17,49 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.excecutor.AssertExecutor;
 import org.apache.seatunnel.connectors.seatunnel.assertion.exception.AssertConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.assertion.exception.AssertConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
+import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertTableRule;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.LongAccumulator;
 
-public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+        implements SupportMultiTableSinkWriter<Void> {
 
     private final SeaTunnelRowType seaTunnelRowType;
     private final List<AssertFieldRule> assertFieldRules;
     private final List<AssertFieldRule.AssertRule> assertRowRules;
+    private final AssertTableRule assertTableRule;
     private static final AssertExecutor ASSERT_EXECUTOR = new AssertExecutor();
     private static final LongAccumulator LONG_ACCUMULATOR = new LongAccumulator(Long::sum, 0);
+    private static final Set<String> TABLE_NAMES = new CopyOnWriteArraySet<>();
 
     public AssertSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
             List<AssertFieldRule> assertFieldRules,
-            List<AssertFieldRule.AssertRule> assertRowRules) {
+            List<AssertFieldRule.AssertRule> assertRowRules,
+            AssertTableRule assertTableRule) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.assertFieldRules = assertFieldRules;
         this.assertRowRules = assertRowRules;
+        this.assertTableRule = assertTableRule;
     }
 
     @Override
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     public void write(SeaTunnelRow element) {
         LONG_ACCUMULATOR.accumulate(1);
+        TABLE_NAMES.add(element.getTableId());
         if (Objects.nonNull(assertFieldRules)) {
             ASSERT_EXECUTOR
                     .fail(element, seaTunnelRowType, assertFieldRules)
@@ -89,6 +99,15 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                                                 + " fail rule: "
                                                 + failRule);
                             });
+        }
+        if (!assertTableRule.getTableNames().isEmpty()
+                && !new HashSet<>(assertTableRule.getTableNames()).equals(TABLE_NAMES)) {
+            throw new AssertConnectorException(
+                    AssertConnectorErrorCode.RULE_VALIDATION_FAILED,
+                    "table names: "
+                            + TABLE_NAMES
+                            + " is not equal to "
+                            + assertTableRule.getTableNames());
         }
     }
 }

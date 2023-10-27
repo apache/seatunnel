@@ -20,13 +20,14 @@ package org.apache.seatunnel.engine.server.rest;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.job.JobImmutableInformationEnv;
+import org.apache.seatunnel.engine.server.job.RestJobExecutionEnvironment;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpPostCommandProcessor;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
@@ -42,6 +43,7 @@ import java.util.Map;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOB_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOB_URL;
 
 public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostCommand> {
@@ -66,6 +68,8 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         try {
             if (uri.startsWith(SUBMIT_JOB_URL)) {
                 handleSubmitJob(httpPostCommand, uri);
+            } else if (uri.startsWith(STOP_JOB_URL)) {
+                handleStopJob(httpPostCommand, uri);
             } else {
                 original.handle(httpPostCommand);
             }
@@ -89,27 +93,18 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
             throws IllegalArgumentException {
         Map<String, String> requestParams = new HashMap<>();
         RestUtil.buildRequestParams(requestParams, uri);
-        byte[] requestBody = httpPostCommand.getData();
-        if (requestBody.length == 0) {
-            throw new IllegalArgumentException("Request body is empty.");
-        }
-        JsonNode requestBodyJsonNode;
-        try {
-            requestBodyJsonNode = RestUtil.convertByteToJsonNode(requestBody);
-        } catch (IOException e) {
-            throw new IllegalArgumentException("Invalid JSON format in request body.");
-        }
-        Config config = RestUtil.buildConfig(requestBodyJsonNode);
+        Config config = RestUtil.buildConfig(requestHandle(httpPostCommand));
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName(requestParams.get("jobName"));
-        JobImmutableInformationEnv jobImmutableInformationEnv =
-                new JobImmutableInformationEnv(
+        jobConfig.setName(requestParams.get(RestConstant.JOB_NAME));
+        RestJobExecutionEnvironment restJobExecutionEnvironment =
+                new RestJobExecutionEnvironment(
                         jobConfig,
                         config,
                         textCommandService.getNode(),
-                        Boolean.parseBoolean(requestParams.get("isStartWithSavePoint")),
-                        Long.parseLong(requestParams.get("jobId")));
-        JobImmutableInformation jobImmutableInformation = jobImmutableInformationEnv.build();
+                        Boolean.parseBoolean(
+                                requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT)),
+                        Long.parseLong(requestParams.get(RestConstant.JOB_ID)));
+        JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
         CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
         Data data =
                 textCommandService
@@ -122,14 +117,55 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                         Long.parseLong(jobConfig.getJobContext().getJobId()), data);
         voidPassiveCompletableFuture.join();
 
-        Long jobId = jobImmutableInformationEnv.getJobId();
+        Long jobId = restJobExecutionEnvironment.getJobId();
         this.prepareResponse(
                 httpPostCommand,
-                new JsonObject().add("jobId", jobId).add("jobName", requestParams.get("jobName")));
+                new JsonObject()
+                        .add(RestConstant.JOB_ID, jobId)
+                        .add(RestConstant.JOB_NAME, requestParams.get(RestConstant.JOB_NAME)));
+    }
+
+    private void handleStopJob(HttpPostCommand httpPostCommand, String uri) {
+        Map<String, Object> map = JsonUtils.toMap(requestHandle(httpPostCommand));
+        boolean isStopWithSavePoint = false;
+        if (map.get(RestConstant.JOB_ID) == null) {
+            throw new IllegalArgumentException("jobId cannot be empty.");
+        }
+        long jobId = Long.parseLong(map.get(RestConstant.JOB_ID).toString());
+        if (map.get(RestConstant.IS_STOP_WITH_SAVE_POINT) != null) {
+            isStopWithSavePoint =
+                    Boolean.parseBoolean(map.get(RestConstant.IS_STOP_WITH_SAVE_POINT).toString());
+        }
+
+        CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
+
+        if (isStopWithSavePoint) {
+            coordinatorService.savePoint(jobId);
+        } else {
+            coordinatorService.cancelJob(jobId);
+        }
+
+        this.prepareResponse(
+                httpPostCommand,
+                new JsonObject().add(RestConstant.JOB_ID, map.get(RestConstant.JOB_ID).toString()));
     }
 
     @Override
     public void handleRejection(HttpPostCommand httpPostCommand) {
         handle(httpPostCommand);
+    }
+
+    private JsonNode requestHandle(HttpPostCommand httpPostCommand) {
+        byte[] requestBody = httpPostCommand.getData();
+        if (requestBody.length == 0) {
+            throw new IllegalArgumentException("Request body is empty.");
+        }
+        JsonNode requestBodyJsonNode;
+        try {
+            requestBodyJsonNode = RestUtil.convertByteToJsonNode(requestBody);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Invalid JSON format in request body.");
+        }
+        return requestBodyJsonNode;
     }
 }

@@ -18,6 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase.OceanBaseMySqlCatalog;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -36,39 +39,70 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Disabled("Disabled due to insufficient hardware resources in the CI environment")
 public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
 
-    @Override
-    String imageName() {
-        return "oceanbase/oceanbase-ce:4.0.0.0";
-    }
+    private static final String IMAGE = "oceanbase/oceanbase-ce:4.1.0.0";
 
-    @Override
-    String host() {
-        return "e2e_oceanbase_mysql";
-    }
-
-    @Override
-    int port() {
-        return 2881;
-    }
-
-    @Override
-    String username() {
-        return "root";
-    }
-
-    @Override
-    String password() {
-        return "";
-    }
+    private static final String HOSTNAME = "e2e_oceanbase_mysql";
+    private static final int PORT = 2881;
+    private static final String USERNAME = "root@test";
+    private static final String PASSWORD = "";
+    private static final String OCEANBASE_DATABASE = "seatunnel";
+    private static final String OCEANBASE_CATALOG_DATABASE = "seatunnel_catalog";
 
     @Override
     List<String> configFile() {
         return Lists.newArrayList("/jdbc_oceanbase_mysql_source_and_sink.conf");
+    }
+
+    @Override
+    JdbcCase getJdbcCase() {
+        Map<String, String> containerEnv = new HashMap<>();
+        String jdbcUrl =
+                String.format(OCEANBASE_JDBC_TEMPLATE, dbServer.getMappedPort(PORT), "test");
+        Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
+        String[] fieldNames = testDataSet.getKey();
+
+        String insertSql = insertTable(OCEANBASE_DATABASE, OCEANBASE_SOURCE, fieldNames);
+
+        return JdbcCase.builder()
+                .dockerImage(IMAGE)
+                .networkAliases(HOSTNAME)
+                .containerEnv(containerEnv)
+                .driverClass(OCEANBASE_DRIVER_CLASS)
+                .host(HOST)
+                .port(PORT)
+                .localPort(dbServer.getMappedPort(PORT))
+                .jdbcTemplate(OCEANBASE_JDBC_TEMPLATE)
+                .jdbcUrl(jdbcUrl)
+                .userName(USERNAME)
+                .password(PASSWORD)
+                .database(OCEANBASE_DATABASE)
+                .sourceTable(OCEANBASE_SOURCE)
+                .sinkTable(OCEANBASE_SINK)
+                .catalogDatabase(OCEANBASE_CATALOG_DATABASE)
+                .catalogTable(OCEANBASE_CATALOG_TABLE)
+                .createSql(createSqlTemplate())
+                .configFile(configFile())
+                .insertSql(insertSql)
+                .testData(testDataSet)
+                .build();
+    }
+
+    @Override
+    protected void createSchemaIfNeeded() {
+        String sql = "CREATE DATABASE IF NOT EXISTS " + OCEANBASE_DATABASE;
+        try {
+            connection.prepareStatement(sql).executeUpdate();
+        } catch (Exception e) {
+            throw new SeaTunnelRuntimeException(
+                    JdbcITErrorCode.CREATE_TABLE_FAILED, "Fail to execute sql " + sql, e);
+        }
     }
 
     @Override
@@ -239,18 +273,30 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
     }
 
     @Override
+    String getFullTableName(String tableName) {
+        return buildTableInfoWithSchema(OCEANBASE_DATABASE, tableName);
+    }
+
+    @Override
     GenericContainer<?> initContainer() {
-        GenericContainer<?> container =
-                new GenericContainer<>(imageName())
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(host())
-                        .waitingFor(Wait.forLogMessage(".*boot success!.*", 1))
-                        .withStartupTimeout(Duration.ofMinutes(5))
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(imageName())));
+        return new GenericContainer<>(IMAGE)
+                .withNetwork(NETWORK)
+                .withNetworkAliases(HOSTNAME)
+                .withExposedPorts(PORT)
+                .waitingFor(Wait.forLogMessage(".*boot success!.*", 1))
+                .withStartupTimeout(Duration.ofMinutes(3))
+                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)));
+    }
 
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", port(), port())));
-
-        return container;
+    @Override
+    protected void initCatalog() {
+        catalog =
+                new OceanBaseMySqlCatalog(
+                        "oceanbase",
+                        USERNAME,
+                        PASSWORD,
+                        JdbcUrlUtil.getUrlInfo(
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())));
+        catalog.open();
     }
 }

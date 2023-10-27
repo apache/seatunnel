@@ -19,18 +19,16 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
-import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlserverTypeMapper;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -38,32 +36,35 @@ import org.apache.commons.lang3.tuple.Pair;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 
 @Slf4j
 public class SqlServerCatalog extends AbstractJdbcCatalog {
 
-    private static final Set<String> SYS_DATABASES = new HashSet<>(4);
+    private static final SqlServerDataTypeConvertor DATA_TYPE_CONVERTOR =
+            new SqlServerDataTypeConvertor();
 
-    static {
-        SYS_DATABASES.add("master");
-        SYS_DATABASES.add("tempdb");
-        SYS_DATABASES.add("model");
-        SYS_DATABASES.add("msdb");
-    }
+    private static final String SELECT_COLUMNS_SQL_TEMPLATE =
+            "SELECT tbl.name AS table_name,\n"
+                    + "       col.name AS column_name,\n"
+                    + "       ext.value AS comment,\n"
+                    + "       col.column_id AS column_id,\n"
+                    + "       types.name AS type,\n"
+                    + "       col.max_length AS max_length,\n"
+                    + "       col.precision AS precision,\n"
+                    + "       col.scale AS scale,\n"
+                    + "       col.is_nullable AS is_nullable,\n"
+                    + "       def.definition AS default_value\n"
+                    + "FROM sys.tables tbl\n"
+                    + "    INNER JOIN sys.columns col ON tbl.object_id = col.object_id\n"
+                    + "    LEFT JOIN sys.types types ON col.user_type_id = types.user_type_id\n"
+                    + "    LEFT JOIN sys.extended_properties ext ON ext.major_id = col.object_id AND ext.minor_id = col.column_id\n"
+                    + "    LEFT JOIN sys.default_constraints def ON col.default_object_id = def.object_id AND ext.minor_id = col.column_id AND ext.name = 'MS_Description'\n"
+                    + "WHERE schema_name(tbl.schema_id) = '%s' %s\n"
+                    + "ORDER BY tbl.name, col.column_id";
 
     public SqlServerCatalog(
             String catalogName,
@@ -75,133 +76,29 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    public List<String> listDatabases() throws CatalogException {
-        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-                PreparedStatement ps = conn.prepareStatement("SELECT NAME FROM sys.databases")) {
-
-            List<String> databases = new ArrayList<>();
-            ResultSet rs = ps.executeQuery();
-
-            while (rs.next()) {
-                String databaseName = rs.getString(1);
-                if (!SYS_DATABASES.contains(databaseName)) {
-                    databases.add(databaseName);
-                }
-            }
-
-            return databases;
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format("Failed listing database in catalog %s", this.catalogName), e);
-        }
+    protected String getListDatabaseSql() {
+        return "SELECT NAME FROM sys.databases";
     }
 
     @Override
-    public List<String> listTables(String databaseName)
-            throws CatalogException, DatabaseNotExistException {
-        if (!databaseExists(databaseName)) {
-            throw new DatabaseNotExistException(this.catalogName, databaseName);
-        }
-
-        String dbUrl = getUrlFromDatabaseName(databaseName);
-        try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
-                PreparedStatement ps =
-                        conn.prepareStatement(
-                                "SELECT TABLE_SCHEMA, TABLE_NAME FROM "
-                                        + databaseName
-                                        + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")) {
-
-            ResultSet rs = ps.executeQuery();
-
-            List<String> tables = new ArrayList<>();
-
-            while (rs.next()) {
-                tables.add(rs.getString(1) + "." + rs.getString(2));
-            }
-
-            return tables;
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format("Failed listing database in catalog %s", catalogName), e);
-        }
+    protected String getListTableSql(String databaseName) {
+        return "SELECT TABLE_SCHEMA, TABLE_NAME FROM "
+                + databaseName
+                + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
     }
 
     @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            return databaseExists(tablePath.getDatabaseName())
-                    && listTables(tablePath.getDatabaseName())
-                            .contains(tablePath.getSchemaAndTableName());
-        } catch (DatabaseNotExistException e) {
-            return false;
-        }
-    }
-
-    @Override
-    public CatalogTable getTable(TablePath tablePath)
-            throws CatalogException, TableNotExistException {
-        if (!tableExists(tablePath)) {
-            throw new TableNotExistException(catalogName, tablePath);
-        }
+    protected String getSelectColumnsSql(TablePath tablePath) {
         String tableSql =
                 StringUtils.isNotEmpty(tablePath.getTableName())
                         ? "AND tbl.name = '" + tablePath.getTableName() + "'"
                         : "";
 
-        String columnSql =
-                String.format(
-                        "    SELECT tbl.name AS table_name, \n           col.name AS column_name, \n           ext.value AS comment, \n           col.column_id AS column_id, \n           types.name AS type, \n           col.max_length AS max_length, \n           col.precision AS precision, \n           col.scale AS scale, \n           col.is_nullable AS is_nullable, \n def.definition AS default_value\n     FROM sys.tables tbl \nINNER JOIN sys.columns col \n        ON tbl.object_id = col.object_id \n LEFT JOIN sys.types types \n        ON col.user_type_id = types.user_type_id \n LEFT JOIN sys.extended_properties ext \n        ON ext.major_id = col.object_id and ext.minor_id = col.column_id \n   LEFT JOIN sys.default_constraints def ON col.default_object_id = def.object_id \n    AND ext.minor_id = col.column_id \n       AND ext.name = 'MS_Description' \n     WHERE schema_name(tbl.schema_id) = '%s' \n       %s \n  ORDER BY tbl.name, col.column_id",
-                        tablePath.getSchemaName(), tableSql);
-
-        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
-        try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd)) {
-            DatabaseMetaData metaData = conn.getMetaData();
-            Optional<PrimaryKey> primaryKey =
-                    getPrimaryKey(
-                            metaData,
-                            tablePath.getDatabaseName(),
-                            tablePath.getSchemaName(),
-                            tablePath.getTableName());
-            List<ConstraintKey> constraintKeys =
-                    getConstraintKeys(
-                            metaData,
-                            tablePath.getDatabaseName(),
-                            tablePath.getSchemaName(),
-                            tablePath.getTableName());
-
-            try (PreparedStatement ps = conn.prepareStatement(columnSql);
-                    ResultSet resultSet = ps.executeQuery(); ) {
-                TableSchema.Builder builder = TableSchema.builder();
-                while (resultSet.next()) {
-                    buildTable(resultSet, builder);
-                }
-
-                // add primary key
-                primaryKey.ifPresent(builder::primaryKey);
-                // add constraint key
-                constraintKeys.forEach(builder::constraintKey);
-                TableIdentifier tableIdentifier =
-                        TableIdentifier.of(
-                                catalogName,
-                                tablePath.getDatabaseName(),
-                                tablePath.getSchemaName(),
-                                tablePath.getTableName());
-                return CatalogTable.of(
-                        tableIdentifier,
-                        builder.build(),
-                        buildConnectorOptions(tablePath),
-                        Collections.emptyList(),
-                        "",
-                        "sqlserver");
-            }
-
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format("Failed getting table %s", tablePath.getFullName()), e);
-        }
+        return String.format(SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(), tableSql);
     }
 
-    private void buildTable(ResultSet resultSet, TableSchema.Builder builder) throws SQLException {
+    @Override
+    protected Column buildColumn(ResultSet resultSet) throws SQLException {
         String columnName = resultSet.getString("column_name");
         String sourceType = resultSet.getString("type");
         //        String typeName = resultSet.getString("DATA_TYPE").toUpperCase();
@@ -266,21 +163,19 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
             default:
                 break;
         }
-        PhysicalColumn physicalColumn =
-                PhysicalColumn.of(
-                        columnName,
-                        type,
-                        0,
-                        isNullable,
-                        defaultValue,
-                        comment,
-                        sourceType,
-                        false,
-                        false,
-                        bitLen,
-                        null,
-                        columnLength);
-        builder.column(physicalColumn);
+        return PhysicalColumn.of(
+                columnName,
+                type,
+                0,
+                isNullable,
+                defaultValue,
+                comment,
+                sourceType,
+                false,
+                false,
+                bitLen,
+                null,
+                columnLength);
     }
 
     private SeaTunnelDataType<?> fromJdbcType(String typeName, int precision, int scale) {
@@ -288,103 +183,57 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(SqlServerDataTypeConvertor.PRECISION, precision);
         dataTypeProperties.put(SqlServerDataTypeConvertor.SCALE, scale);
-        return new SqlServerDataTypeConvertor().toSeaTunnelType(pair.getLeft(), dataTypeProperties);
+        return DATA_TYPE_CONVERTOR.toSeaTunnelType(pair.getLeft(), dataTypeProperties);
     }
 
     @Override
-    protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
-            throws CatalogException {
-
-        String createTableSql =
-                SqlServerCreateTableSqlBuilder.builder(tablePath, table).build(tablePath, table);
-        log.info("create table sql: {}", createTableSql);
-        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-                PreparedStatement ps = conn.prepareStatement(createTableSql)) {
-            System.out.println(createTableSql);
-            return ps.execute();
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format("Failed creating table %s", tablePath.getFullName()), e);
-        }
+    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
+        return SqlServerCreateTableSqlBuilder.builder(tablePath, table).build(tablePath, table);
     }
 
     @Override
-    protected boolean dropTableInternal(TablePath tablePath) throws CatalogException {
-        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
-        try (Connection conn = DriverManager.getConnection(dbUrl, username, pwd);
-                PreparedStatement ps =
-                        conn.prepareStatement(
-                                String.format(
-                                        "DROP TABLE IF EXISTS %s", tablePath.getFullName()))) {
-            // Will there exist concurrent drop for one table?
-            return ps.execute();
-        } catch (SQLException e) {
-            throw new CatalogException(
-                    String.format("Failed dropping table %s", tablePath.getFullName()), e);
-        }
+    protected String getDropTableSql(TablePath tablePath) {
+        return String.format("DROP TABLE %s", tablePath.getFullName());
     }
 
     @Override
-    protected boolean createDatabaseInternal(String databaseName) throws CatalogException {
-        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-                PreparedStatement ps =
-                        conn.prepareStatement(
-                                String.format("CREATE DATABASE `%s`", databaseName))) {
-            return ps.execute();
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format(
-                            "Failed creating database %s in catalog %s",
-                            databaseName, this.catalogName),
-                    e);
-        }
+    protected String getCreateDatabaseSql(String databaseName) {
+        return String.format("CREATE DATABASE %s", databaseName);
     }
 
     @Override
-    protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
-        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd);
-                PreparedStatement ps =
-                        conn.prepareStatement(
-                                String.format("DROP DATABASE IF EXISTS `%s`;", databaseName))) {
-            return ps.execute();
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format(
-                            "Failed dropping database %s in catalog %s",
-                            databaseName, this.catalogName),
-                    e);
-        }
+    protected String getDropDatabaseSql(String databaseName) {
+        return String.format("DROP DATABASE %s;", databaseName);
     }
 
-    @SuppressWarnings("unchecked")
-    private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
-        Pair<SqlServerType, Map<String, Object>> pair =
-                SqlServerType.parse(metadata.getColumnTypeName(colIndex));
-        Map<String, Object> dataTypeProperties = new HashMap<>();
-        dataTypeProperties.put(
-                SqlServerDataTypeConvertor.PRECISION, metadata.getPrecision(colIndex));
-        dataTypeProperties.put(SqlServerDataTypeConvertor.SCALE, metadata.getScale(colIndex));
-        return new SqlServerDataTypeConvertor().toSeaTunnelType(pair.getLeft(), dataTypeProperties);
+    @Override
+    protected void dropDatabaseInternal(String databaseName) throws CatalogException {
+        closeDatabaseConnection(databaseName);
+        super.dropDatabaseInternal(databaseName);
     }
 
-    @SuppressWarnings("MagicNumber")
-    private Map<String, String> buildConnectorOptions(TablePath tablePath) {
-        Map<String, String> options = new HashMap<>(8);
-        options.put("connector", "jdbc");
-        options.put("url", getUrlFromDatabaseName(tablePath.getDatabaseName()));
-        options.put("table-name", tablePath.getFullName());
-        options.put("username", username);
-        options.put("password", pwd);
-        return options;
-    }
-
-    private String getUrlFromDatabaseName(String databaseName) {
+    @Override
+    protected String getUrlFromDatabaseName(String databaseName) {
         return baseUrl + ";databaseName=" + databaseName + ";" + suffix;
     }
 
-    private String getCreateTableSql(TablePath tablePath, CatalogTable table) {
+    @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        try {
+            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
+                return databaseExists(tablePath.getDatabaseName())
+                        && listTables(tablePath.getDatabaseName())
+                                .contains(tablePath.getSchemaAndTableName());
+            }
+            return listTables(defaultDatabase).contains(tablePath.getSchemaAndTableName());
+        } catch (DatabaseNotExistException e) {
+            return false;
+        }
+    }
 
-        return "";
+    @Override
+    public CatalogTable getTable(String sqlQuery) throws SQLException {
+        Connection defaultConnection = getConnection(defaultUrl);
+        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new SqlserverTypeMapper());
     }
 }

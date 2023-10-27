@@ -18,8 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.sql.Connection;
@@ -27,7 +30,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -68,9 +76,13 @@ public interface JdbcDialect extends Serializable {
     default String quoteIdentifier(String identifier) {
         return identifier;
     }
+    /** Quotes the identifier for database name or field name */
+    default String quoteDatabaseIdentifier(String identifier) {
+        return identifier;
+    }
 
     default String tableIdentifier(String database, String tableName) {
-        return quoteIdentifier(database) + "." + quoteIdentifier(tableName);
+        return quoteDatabaseIdentifier(database) + "." + quoteIdentifier(tableName);
     }
 
     /**
@@ -210,13 +222,173 @@ public interface JdbcDialect extends Serializable {
         return statement;
     }
 
-    default ResultSetMetaData getResultSetMetaData(
-            Connection conn, JdbcSourceConfig jdbcSourceConfig) throws SQLException {
-        PreparedStatement ps = conn.prepareStatement(jdbcSourceConfig.getQuery());
+    default ResultSetMetaData getResultSetMetaData(Connection conn, String query)
+            throws SQLException {
+        PreparedStatement ps = conn.prepareStatement(query);
         return ps.getMetaData();
     }
 
     default String extractTableName(TablePath tablePath) {
         return tablePath.getSchemaAndTableName();
+    }
+
+    default String getFieldIde(String identifier, String fieldIde) {
+        if (StringUtils.isEmpty(fieldIde)) {
+            return identifier;
+        }
+        switch (FieldIdeEnum.valueOf(fieldIde.toUpperCase())) {
+            case LOWERCASE:
+                return identifier.toLowerCase();
+            case UPPERCASE:
+                return identifier.toUpperCase();
+            default:
+                return identifier;
+        }
+    }
+
+    default Map<String, String> defaultParameter() {
+        return new HashMap<>();
+    }
+
+    default void connectionUrlParse(
+            String url, Map<String, String> info, Map<String, String> defaultParameter) {
+        defaultParameter.forEach(
+                (key, value) -> {
+                    if (!url.contains(key) && !info.containsKey(key)) {
+                        info.put(key, value);
+                    }
+                });
+    }
+
+    default TablePath parse(String tablePath) {
+        return TablePath.of(tablePath);
+    }
+
+    default String tableIdentifier(TablePath tablePath) {
+        return tablePath.getFullName();
+    }
+
+    /**
+     * Approximate total number of entries in the lookup table.
+     *
+     * @param connection The JDBC connection object used to connect to the database.
+     * @param table table info.
+     * @return approximate row count statement.
+     */
+    default Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
+            throws SQLException {
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            return SQLUtils.countForSubquery(connection, table.getQuery());
+        }
+        return SQLUtils.countForTable(connection, tableIdentifier(table.getTablePath()));
+    }
+
+    /**
+     * Performs a sampling operation on the specified column of a table in a JDBC-connected
+     * database.
+     *
+     * @param connection The JDBC connection object used to connect to the database.
+     * @param table The table in which the column resides.
+     * @param columnName The name of the column to be sampled.
+     * @param samplingRate samplingRate The inverse of the fraction of the data to be sampled from
+     *     the column. For example, a value of 1000 would mean 1/1000 of the data will be sampled.
+     * @return Returns a List of sampled data from the specified column.
+     * @throws SQLException If an SQL error occurs during the sampling operation.
+     */
+    default Object[] sampleDataFromColumn(
+            Connection connection, JdbcSourceTable table, String columnName, int samplingRate)
+            throws SQLException {
+        String sampleQuery;
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            sampleQuery =
+                    String.format(
+                            "SELECT %s FROM (%s) AS T",
+                            quoteIdentifier(columnName), table.getQuery());
+        } else {
+            sampleQuery =
+                    String.format(
+                            "SELECT %s FROM %s",
+                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()));
+        }
+
+        try (Statement stmt =
+                connection.createStatement(
+                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
+            stmt.setFetchSize(Integer.MIN_VALUE);
+            try (ResultSet rs = stmt.executeQuery(sampleQuery)) {
+                int count = 0;
+                List<Object> results = new ArrayList<>();
+
+                while (rs.next()) {
+                    count++;
+                    if (count % samplingRate == 0) {
+                        results.add(rs.getObject(1));
+                    }
+                }
+                Object[] resultsArray = results.toArray();
+                Arrays.sort(resultsArray);
+                return resultsArray;
+            }
+        }
+    }
+
+    /**
+     * Query the maximum value of the next chunk, and the next chunk must be greater than or equal
+     * to <code>includedLowerBound</code> value [min_1, max_1), [min_2, max_2),... [min_n, null).
+     * Each time this method is called it will return max1, max2...
+     *
+     * @param connection JDBC connection.
+     * @param table table info.
+     * @param columnName column name.
+     * @param chunkSize chunk size.
+     * @param includedLowerBound the previous chunk end value.
+     * @return next chunk end value.
+     */
+    default Object queryNextChunkMax(
+            Connection connection,
+            JdbcSourceTable table,
+            String columnName,
+            int chunkSize,
+            Object includedLowerBound)
+            throws SQLException {
+        String quotedColumn = quoteIdentifier(columnName);
+        String sqlQuery;
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            sqlQuery =
+                    String.format(
+                            "SELECT MAX(%s) FROM ("
+                                    + "SELECT %s FROM (%s) AS T1 WHERE %s >= ? ORDER BY %s ASC LIMIT %s"
+                                    + ") AS T2",
+                            quotedColumn,
+                            quotedColumn,
+                            table.getQuery(),
+                            quotedColumn,
+                            quotedColumn,
+                            chunkSize);
+        } else {
+            sqlQuery =
+                    String.format(
+                            "SELECT MAX(%s) FROM ("
+                                    + "SELECT %s FROM %s WHERE %s >= ? ORDER BY %s ASC LIMIT %s"
+                                    + ") AS T",
+                            quotedColumn,
+                            quotedColumn,
+                            tableIdentifier(table.getTablePath()),
+                            quotedColumn,
+                            quotedColumn,
+                            chunkSize);
+        }
+        try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
+            ps.setObject(1, includedLowerBound);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getObject(1);
+                } else {
+                    // this should never happen
+                    throw new SQLException(
+                            String.format("No result returned after running query [%s]", sqlQuery));
+                }
+            }
+        }
     }
 }

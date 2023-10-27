@@ -18,39 +18,26 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
-import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeMapper;
 
-import com.mysql.cj.MysqlType;
-import com.mysql.cj.jdbc.result.ResultSetImpl;
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_BIT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_BYTEA;
@@ -65,7 +52,10 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.Postgr
 @Slf4j
 public class PostgresCatalog extends AbstractJdbcCatalog {
 
-    private static final String SELECT_COLUMNS_SQL =
+    private static final PostgresDataTypeConvertor DATA_TYPE_CONVERTOR =
+            new PostgresDataTypeConvertor();
+
+    private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT \n"
                     + "    a.attname AS column_name, \n"
                     + "\t\tt.typname as type_name,\n"
@@ -102,8 +92,6 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
                     + "ORDER BY \n"
                     + "    a.attnum;";
 
-    protected static final Set<String> SYS_DATABASES = new HashSet<>(9);
-
     static {
         SYS_DATABASES.add("information_schema");
         SYS_DATABASES.add("pg_catalog");
@@ -116,8 +104,6 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         SYS_DATABASES.add("template1");
     }
 
-    protected final Map<String, Connection> connectionMap;
-
     public PostgresCatalog(
             String catalogName,
             String username,
@@ -125,154 +111,26 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
             JdbcUrlUtil.UrlInfo urlInfo,
             String defaultSchema) {
         super(catalogName, username, pwd, urlInfo, defaultSchema);
-        this.connectionMap = new ConcurrentHashMap<>();
-    }
-
-    public Connection getConnection(String url) {
-        if (connectionMap.containsKey(url)) {
-            return connectionMap.get(url);
-        }
-        try {
-            Connection connection = DriverManager.getConnection(url, username, pwd);
-            connectionMap.put(url, connection);
-            return connection;
-        } catch (SQLException e) {
-            throw new CatalogException(String.format("Failed connecting to %s via JDBC.", url), e);
-        }
     }
 
     @Override
-    public void close() throws CatalogException {
-        for (Map.Entry<String, Connection> entry : connectionMap.entrySet()) {
-            try {
-                entry.getValue().close();
-            } catch (SQLException e) {
-                throw new CatalogException(
-                        String.format("Failed to close %s via JDBC.", entry.getKey()), e);
-            }
-        }
-        super.close();
+    protected String getListDatabaseSql() {
+        return "select datname from pg_database;";
     }
 
     @Override
-    public List<String> listDatabases() throws CatalogException {
-        try (PreparedStatement ps =
-                defaultConnection.prepareStatement("select datname from pg_database;")) {
-
-            List<String> databases = new ArrayList<>();
-            ResultSet rs = ps.executeQuery();
-
-            while (rs.next()) {
-                String databaseName = rs.getString(1);
-                if (!SYS_DATABASES.contains(databaseName)) {
-                    databases.add(rs.getString(1));
-                }
-            }
-
-            return databases;
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format("Failed listing database in catalog %s", this.catalogName), e);
-        }
+    protected String getListTableSql(String databaseName) {
+        return "SELECT table_schema, table_name FROM information_schema.tables;";
     }
 
     @Override
-    public List<String> listTables(String databaseName)
-            throws CatalogException, DatabaseNotExistException {
-        if (!databaseExists(databaseName)) {
-            throw new DatabaseNotExistException(this.catalogName, databaseName);
-        }
-
-        String dbUrl = getUrlFromDatabaseName(databaseName);
-        Connection connection = getConnection(dbUrl);
-        try (PreparedStatement ps =
-                connection.prepareStatement(
-                        "SELECT table_schema, table_name FROM information_schema.tables;")) {
-
-            ResultSet rs = ps.executeQuery();
-
-            List<String> tables = new ArrayList<>();
-
-            while (rs.next()) {
-                String schemaName = rs.getString("table_schema");
-                String tableName = rs.getString("table_name");
-                if (org.apache.commons.lang3.StringUtils.isNotBlank(schemaName)
-                        && !SYS_DATABASES.contains(schemaName)) {
-                    tables.add(schemaName + "." + tableName);
-                }
-            }
-
-            return tables;
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format("Failed listing database in catalog %s", catalogName), e);
-        }
+    protected String getSelectColumnsSql(TablePath tablePath) {
+        return String.format(
+                SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(), tablePath.getTableName());
     }
 
     @Override
-    public CatalogTable getTable(TablePath tablePath)
-            throws CatalogException, TableNotExistException {
-        if (!tableExists(tablePath)) {
-            throw new TableNotExistException(catalogName, tablePath);
-        }
-
-        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
-        Connection conn = getConnection(dbUrl);
-        try {
-            DatabaseMetaData metaData = conn.getMetaData();
-            Optional<PrimaryKey> primaryKey =
-                    getPrimaryKey(
-                            metaData,
-                            tablePath.getDatabaseName(),
-                            tablePath.getSchemaName(),
-                            tablePath.getTableName());
-            List<ConstraintKey> constraintKeys =
-                    getConstraintKeys(
-                            metaData,
-                            tablePath.getDatabaseName(),
-                            tablePath.getSchemaName(),
-                            tablePath.getTableName());
-
-            String sql =
-                    String.format(
-                            SELECT_COLUMNS_SQL,
-                            tablePath.getSchemaName(),
-                            tablePath.getTableName());
-            try (PreparedStatement ps = conn.prepareStatement(sql);
-                    ResultSet resultSet = ps.executeQuery()) {
-                TableSchema.Builder builder = TableSchema.builder();
-
-                // add column
-                while (resultSet.next()) {
-                    buildColumn(resultSet, builder);
-                }
-
-                // add primary key
-                primaryKey.ifPresent(builder::primaryKey);
-                // add constraint key
-                constraintKeys.forEach(builder::constraintKey);
-                TableIdentifier tableIdentifier =
-                        TableIdentifier.of(
-                                catalogName,
-                                tablePath.getDatabaseName(),
-                                tablePath.getSchemaName(),
-                                tablePath.getTableName());
-                return CatalogTable.of(
-                        tableIdentifier,
-                        builder.build(),
-                        buildConnectorOptions(tablePath),
-                        Collections.emptyList(),
-                        "",
-                        "postgres");
-            }
-
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format("Failed getting table %s", tablePath.getFullName()), e);
-        }
-    }
-
-    private void buildColumn(ResultSet resultSet, TableSchema.Builder builder) throws SQLException {
+    protected Column buildColumn(ResultSet resultSet) throws SQLException {
         String columnName = resultSet.getString("column_name");
         String typeName = resultSet.getString("type_name");
         String fullTypeName = resultSet.getString("full_type_name");
@@ -282,8 +140,9 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         Object defaultValue = resultSet.getObject("default_value");
         boolean isNullable = resultSet.getString("is_nullable").equals("YES");
 
-        if (defaultValue != null && defaultValue.toString().contains("regclass"))
+        if (defaultValue != null && defaultValue.toString().contains("regclass")) {
             defaultValue = null;
+        }
 
         SeaTunnelDataType<?> type = fromJdbcType(typeName, columnLength, columnScale);
         long bitLen = 0;
@@ -311,131 +170,76 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
                 break;
         }
 
-        PhysicalColumn physicalColumn =
-                PhysicalColumn.of(
-                        columnName,
-                        type,
-                        0,
-                        isNullable,
-                        defaultValue,
-                        columnComment,
-                        fullTypeName,
-                        false,
-                        false,
-                        bitLen,
-                        null,
-                        columnLength);
-        builder.column(physicalColumn);
+        return PhysicalColumn.of(
+                columnName,
+                type,
+                0,
+                isNullable,
+                defaultValue,
+                columnComment,
+                fullTypeName,
+                false,
+                false,
+                bitLen,
+                null,
+                columnLength);
     }
 
     @Override
-    protected boolean createTableInternal(TablePath tablePath, CatalogTable table)
-            throws CatalogException {
-        String createTableSql = new PostgresCreateTableSqlBuilder(table).build(tablePath);
-        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
-        Connection conn = getConnection(dbUrl);
-        log.info("create table sql: {}", createTableSql);
-        try (PreparedStatement ps = conn.prepareStatement(createTableSql)) {
-            ps.execute();
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format("Failed creating table %s", tablePath.getFullName()), e);
-        }
-        return true;
+    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
+        return new PostgresCreateTableSqlBuilder(table).build(tablePath);
     }
 
     @Override
-    protected boolean dropTableInternal(TablePath tablePath) throws CatalogException {
-        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
-
-        String schemaName = tablePath.getSchemaName();
-        String tableName = tablePath.getTableName();
-
-        String sql = "DROP TABLE IF EXISTS \"" + schemaName + "\".\"" + tableName + "\"";
-        Connection connection = getConnection(dbUrl);
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            // Will there exist concurrent drop for one table?
-            return ps.execute();
-        } catch (SQLException e) {
-            throw new CatalogException(
-                    String.format("Failed dropping table %s", tablePath.getFullName()), e);
-        }
+    protected String getDropTableSql(TablePath tablePath) {
+        return "DROP TABLE \""
+                + tablePath.getSchemaName()
+                + "\".\""
+                + tablePath.getTableName()
+                + "\"";
     }
 
     @Override
-    protected boolean createDatabaseInternal(String databaseName) throws CatalogException {
-        String sql = "CREATE DATABASE \"" + databaseName + "\"";
-        try (PreparedStatement ps = defaultConnection.prepareStatement(sql)) {
-            return ps.execute();
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format(
-                            "Failed creating database %s in catalog %s",
-                            databaseName, this.catalogName),
-                    e);
-        }
+    protected String getCreateDatabaseSql(String databaseName) {
+        return "CREATE DATABASE \"" + databaseName + "\"";
     }
 
     @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            return databaseExists(tablePath.getDatabaseName())
-                    && listTables(tablePath.getDatabaseName())
-                            .contains(tablePath.getSchemaAndTableName());
-        } catch (DatabaseNotExistException e) {
-            return false;
-        }
+    protected String getDropDatabaseSql(String databaseName) {
+        return "DROP DATABASE \"" + databaseName + "\"";
     }
 
     @Override
-    protected boolean dropDatabaseInternal(String databaseName) throws CatalogException {
-        String sql = "DROP DATABASE IF EXISTS \"" + databaseName + "\"";
-        try (PreparedStatement ps = defaultConnection.prepareStatement(sql)) {
-            return ps.execute();
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format(
-                            "Failed dropping database %s in catalog %s",
-                            databaseName, this.catalogName),
-                    e);
-        }
-    }
-
-    /**
-     * @see MysqlType
-     * @see ResultSetImpl#getObjectStoredProc(int, int)
-     */
-    @SuppressWarnings("unchecked")
-    private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
-        String columnTypeName = metadata.getColumnTypeName(colIndex);
-        Map<String, Object> dataTypeProperties = new HashMap<>();
-        dataTypeProperties.put(
-                PostgresDataTypeConvertor.PRECISION, metadata.getPrecision(colIndex));
-        dataTypeProperties.put(PostgresDataTypeConvertor.SCALE, metadata.getScale(colIndex));
-        return new PostgresDataTypeConvertor().toSeaTunnelType(columnTypeName, dataTypeProperties);
+    protected void dropDatabaseInternal(String databaseName) throws CatalogException {
+        closeDatabaseConnection(databaseName);
+        super.dropDatabaseInternal(databaseName);
     }
 
     private SeaTunnelDataType<?> fromJdbcType(String typeName, long precision, long scale) {
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(PostgresDataTypeConvertor.PRECISION, precision);
         dataTypeProperties.put(PostgresDataTypeConvertor.SCALE, scale);
-        return new PostgresDataTypeConvertor().toSeaTunnelType(typeName, dataTypeProperties);
+        return DATA_TYPE_CONVERTOR.toSeaTunnelType(typeName, dataTypeProperties);
     }
 
-    @SuppressWarnings("MagicNumber")
-    private Map<String, String> buildConnectorOptions(TablePath tablePath) {
-        Map<String, String> options = new HashMap<>(8);
-        options.put("connector", "jdbc");
-        options.put("url", baseUrl + tablePath.getDatabaseName());
-        options.put("table-name", tablePath.getFullName());
-        options.put("username", username);
-        options.put("password", pwd);
-        return options;
+    @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        try {
+            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
+                return databaseExists(tablePath.getDatabaseName())
+                        && listTables(tablePath.getDatabaseName())
+                                .contains(tablePath.getSchemaAndTableName());
+            }
+
+            return listTables(defaultDatabase).contains(tablePath.getSchemaAndTableName());
+        } catch (DatabaseNotExistException e) {
+            return false;
+        }
     }
 
-    private String getUrlFromDatabaseName(String databaseName) {
-        String url = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-        return url + databaseName + suffix;
+    @Override
+    public CatalogTable getTable(String sqlQuery) throws SQLException {
+        Connection defaultConnection = getConnection(defaultUrl);
+        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new PostgresTypeMapper());
     }
 }

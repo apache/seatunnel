@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -42,6 +43,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
+import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
@@ -52,6 +54,7 @@ import java.util.Locale;
 @AutoService(SeaTunnelSource.class)
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     protected final HttpParameter httpParameter = new HttpParameter();
+    protected PageInfo pageInfo;
     protected SeaTunnelRowType rowType;
     protected JsonField jsonField;
     protected String contentField;
@@ -82,10 +85,35 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         }
         this.httpParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
+        buildPagingWithConfig(pluginConfig);
+    }
+
+    private void buildPagingWithConfig(Config pluginConfig) {
+        if (pluginConfig.hasPath(HttpConfig.PAGEING.key())) {
+            pageInfo = new PageInfo();
+            Config pageConfig = pluginConfig.getConfig(HttpConfig.PAGEING.key());
+            if (pageConfig.hasPath(HttpConfig.TOTAL_PAGE_SIZE.key())) {
+                pageInfo.setTotalPageSize(pageConfig.getLong(HttpConfig.TOTAL_PAGE_SIZE.key()));
+            }
+            if (pageConfig.hasPath(HttpConfig.TOTAL_PAGE_SIZE.key())) {
+                pageInfo.setTotalPageSize(pageConfig.getLong(HttpConfig.TOTAL_PAGE_SIZE.key()));
+            } else {
+                pageInfo.setTotalPageSize(HttpConfig.TOTAL_PAGE_SIZE.defaultValue());
+            }
+
+            if (pageConfig.hasPath(HttpConfig.BATCH_SIZE.key())) {
+                pageInfo.setBatchSize(pageConfig.getInt(HttpConfig.BATCH_SIZE.key()));
+            } else {
+                pageInfo.setBatchSize(HttpConfig.BATCH_SIZE.defaultValue());
+            }
+            if (pageConfig.hasPath(HttpConfig.PAGE_FIELD.key())) {
+                pageInfo.setPageField(pageConfig.getString(HttpConfig.PAGE_FIELD.key()));
+            }
+        }
     }
 
     protected void buildSchemaWithConfig(Config pluginConfig) {
-        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
+        if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
             // default use json format
             HttpConfig.ResponseFormat format = HttpConfig.FORMAT.defaultValue();
@@ -140,7 +168,8 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                 readerContext,
                 this.deserializationSchema,
                 jsonField,
-                contentField);
+                contentField,
+                pageInfo);
     }
 
     private JsonField getJsonField(Config jsonFieldConf) {

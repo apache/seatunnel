@@ -25,24 +25,34 @@ supports query SQL and can achieve projection effect.
 
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [support multiple table read](../../concept/connector-v2-features.md)
 
 ## Options
 
-|             name             |  type  | required |  default value  |
-|------------------------------|--------|----------|-----------------|
-| url                          | String | Yes      | -               |
-| driver                       | String | Yes      | -               |
-| user                         | String | No       | -               |
-| password                     | String | No       | -               |
-| query                        | String | Yes      | -               |
-| compatible_mode              | String | No       | -               |
-| connection_check_timeout_sec | Int    | No       | 30              |
-| partition_column             | String | No       | -               |
-| partition_upper_bound        | Long   | No       | -               |
-| partition_lower_bound        | Long   | No       | -               |
-| partition_num                | Int    | No       | job parallelism |
-| fetch_size                   | Int    | No       | 0               |
-| common-options               |        | No       | -               |
+|                    name                    |  type  | required |  default value  |
+|--------------------------------------------|--------|----------|-----------------|
+| url                                        | String | Yes      | -               |
+| driver                                     | String | Yes      | -               |
+| user                                       | String | No       | -               |
+| password                                   | String | No       | -               |
+| query                                      | String | No       | -               |
+| compatible_mode                            | String | No       | -               |
+| connection_check_timeout_sec               | Int    | No       | 30              |
+| partition_column                           | String | No       | -               |
+| partition_upper_bound                      | Long   | No       | -               |
+| partition_lower_bound                      | Long   | No       | -               |
+| partition_num                              | Int    | No       | job parallelism |
+| fetch_size                                 | Int    | No       | 0               |
+| properties                                 | Map    | No       | -               |
+| table_path                                 | String | No       | -               |
+| table_list                                 | Array  | No       | -               |
+| where_condition                            | String | No       | -               |
+| split.size                                 | Int    | No       | 8096            |
+| split.even-distribution.factor.lower-bound | Double | No       | 0.05            |
+| split.even-distribution.factor.upper-bound | Double | No       | 100             |
+| split.sample-sharding.threshold            | Int    | No       | 1000            |
+| split.inverse-sampling.rate                | Int    | No       | 1000            |
+| common-options                             |        | No       | -               |
 
 ### driver [string]
 
@@ -76,11 +86,11 @@ The time in seconds to wait for the database operation used to validate the conn
 
 The column name for parallelism's partition, only support numeric type.
 
-### partition_upper_bound [long]
+### partition_upper_bound [BigDecimal]
 
 The partition_column max value for scan, if not set SeaTunnel will query database get max value.
 
-### partition_lower_bound [long]
+### partition_lower_bound [BigDecimal]
 
 The partition_column min value for scan, if not set SeaTunnel will query database get min value.
 
@@ -92,6 +102,62 @@ The number of partition count, only support positive integer. default value is j
 
 For queries that return a large number of objects, you can configure the row fetch size used in the query to
 improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.
+
+### properties
+
+Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.
+
+### table_path
+
+The path to the full path of table, you can use this configuration instead of `query`.
+
+examples:
+- mysql: "testdb.table1"
+- oracle: "test_schema.table1"
+- sqlserver: "testdb.test_schema.table1"
+- postgresql: "testdb.test_schema.table1"
+
+### table_list
+
+The list of tables to be read, you can use this configuration instead of `table_path`
+
+example
+
+```hocon
+table_list = [
+  {
+    table_path = "testdb.table1"
+  }
+  {
+    table_path = "testdb.table2"
+    query = "select * from testdb.table2 where id > 100"
+  }
+]
+```
+
+### where_condition
+
+Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`
+
+### split.size
+
+The split size (number of rows) of table, captured tables are split into multiple splits when read of table.
+
+### split.even-distribution.factor.lower-bound
+
+The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.
+
+### split.even-distribution.factor.upper-bound
+
+The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0.
+
+### split.sample-sharding.threshold
+
+This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.
+
+### split.inverse-sampling.rate
+
+The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.
 
 ### common options
 
@@ -125,6 +191,7 @@ there are some reference value for params above.
 | Snowflake  | net.snowflake.client.jdbc.SnowflakeDriver           | jdbc:snowflake://<account_name>.snowflakecomputing.com                 | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                             |
 | Redshift   | com.amazon.redshift.jdbc42.Driver                   | jdbc:redshift://localhost:5439/testdb?defaultRowFetchSize=1000         | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                      |
 | Vertica    | com.vertica.jdbc.Driver                             | jdbc:vertica://localhost:5433                                          | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar             |
+| Kingbase   | com.kingbase8.Driver                                | jdbc:kingbase8://localhost:54321/db_test                               | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                          |
 | OceanBase  | com.oceanbase.jdbc.Driver                           | jdbc:oceanbase://localhost:2881                                        | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar              |
 
 ## Example
@@ -145,15 +212,83 @@ Jdbc {
 parallel:
 
 ```
+env {
+  execution.parallelism = 10
+  job.mode = "BATCH"
+}
+source {
+    Jdbc {
+        url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+        driver = "com.mysql.cj.jdbc.Driver"
+        connection_check_timeout_sec = 100
+        user = "root"
+        password = "123456"
+        query = "select * from type_bin"
+        partition_column = "id"
+        partition_num = 10
+        # Read start boundary
+        #partition_lower_bound = ...
+        # Read end boundary
+        #partition_upper_bound = ...
+    }
+}
+
+sink {
+  Console {}
+}
+```
+
+Using `table_path` read:
+
+***Configuring `table_path` will turn on auto split, you can configure `split.*` to adjust the split strategy***
+
+```hocon
 Jdbc {
     url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
     driver = "com.mysql.cj.jdbc.Driver"
     connection_check_timeout_sec = 100
     user = "root"
     password = "123456"
-    query = "select * from type_bin"
-    partition_column = "id"
-    partition_num = 10
+  
+    # e.g. table_path = "testdb.table1"、table_path = "test_schema.table1"、table_path = "testdb.test_schema.table1"
+    table_path = "testdb.table1"
+    #split.size = 8096
+    #split.even-distribution.factor.upper-bound = 100
+    #split.even-distribution.factor.lower-bound = 0.05
+    #split.sample-sharding.threshold = 1000
+    #split.inverse-sampling.rate = 1000
+}
+```
+
+multiple table read:
+
+***Configuring `table_list` will turn on auto split, you can configure `split.*` to adjust the split strategy***
+
+```hocon
+Jdbc {
+    url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+    driver = "com.mysql.cj.jdbc.Driver"
+    connection_check_timeout_sec = 100
+    user = "root"
+    password = "123456"
+
+    table_list = [
+        {
+          # e.g. table_path = "testdb.table1"、table_path = "test_schema.table1"、table_path = "testdb.test_schema.table1"
+          table_path = "testdb.table1"
+        },
+        {
+          table_path = "testdb.table2"
+          # Use query filetr rows & columns
+          query = "select id, name from testdb.table2 where id > 100"
+        }
+    ]
+    #where_condition= "where id > 100"
+    #split.size = 8096
+    #split.even-distribution.factor.upper-bound = 100
+    #split.even-distribution.factor.lower-bound = 0.05
+    #split.sample-sharding.threshold = 1000
+    #split.inverse-sampling.rate = 1000
 }
 ```
 

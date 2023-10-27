@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.starter.spark.execution;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 
 import org.apache.spark.sql.Dataset;
@@ -28,15 +29,15 @@ import org.apache.spark.sql.Row;
 import java.util.List;
 import java.util.Optional;
 
+import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
+
 public abstract class SparkAbstractPluginExecuteProcessor<T>
-        implements PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment> {
+        implements PluginExecuteProcessor<DatasetTableInfo, SparkRuntimeEnvironment> {
     protected SparkRuntimeEnvironment sparkRuntimeEnvironment;
     protected final List<? extends Config> pluginConfigs;
     protected final JobContext jobContext;
     protected final List<T> plugins;
     protected static final String ENGINE_TYPE = "seatunnel";
-    protected static final String PLUGIN_NAME = "plugin_name";
-    protected static final String RESULT_TABLE_NAME = "result_table_name";
     protected static final String SOURCE_TABLE_NAME = "source_table_name";
 
     protected SparkAbstractPluginExecuteProcessor(
@@ -57,19 +58,34 @@ public abstract class SparkAbstractPluginExecuteProcessor<T>
     protected abstract List<T> initializePlugins(List<? extends Config> pluginConfigs);
 
     protected void registerInputTempView(Config pluginConfig, Dataset<Row> dataStream) {
-        if (pluginConfig.hasPath(RESULT_TABLE_NAME)) {
-            String tableName = pluginConfig.getString(RESULT_TABLE_NAME);
+        if (pluginConfig.hasPath(RESULT_TABLE_NAME.key())) {
+            String tableName = pluginConfig.getString(RESULT_TABLE_NAME.key());
             registerTempView(tableName, dataStream);
         }
     }
 
-    protected Optional<Dataset<Row>> fromSourceTable(
-            Config pluginConfig, SparkRuntimeEnvironment sparkRuntimeEnvironment) {
+    protected Optional<DatasetTableInfo> fromSourceTable(
+            Config pluginConfig,
+            SparkRuntimeEnvironment sparkRuntimeEnvironment,
+            List<DatasetTableInfo> upstreamDataStreams) {
         if (!pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
             return Optional.empty();
         }
         String sourceTableName = pluginConfig.getString(SOURCE_TABLE_NAME);
-        return Optional.of(sparkRuntimeEnvironment.getSparkSession().read().table(sourceTableName));
+        DatasetTableInfo datasetTableInfo =
+                upstreamDataStreams.stream()
+                        .filter(info -> sourceTableName.equals(info.getTableName()))
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new SeaTunnelException(
+                                                String.format(
+                                                        "table %s not found", sourceTableName)));
+        return Optional.of(
+                new DatasetTableInfo(
+                        sparkRuntimeEnvironment.getSparkSession().read().table(sourceTableName),
+                        datasetTableInfo.getCatalogTable(),
+                        sourceTableName));
     }
 
     private void registerTempView(String tableName, Dataset<Row> ds) {

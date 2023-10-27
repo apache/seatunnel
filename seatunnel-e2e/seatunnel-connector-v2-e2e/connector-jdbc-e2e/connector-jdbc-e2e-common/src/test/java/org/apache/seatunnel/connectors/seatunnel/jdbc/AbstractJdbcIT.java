@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -29,13 +32,17 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 
+import com.github.dockerjava.api.model.Image;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -76,6 +83,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected GenericContainer<?> dbServer;
     protected JdbcCase jdbcCase;
     protected Connection connection;
+    protected Catalog catalog;
 
     abstract JdbcCase getJdbcCase();
 
@@ -141,12 +149,16 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                     String.format(
                             createTemplate,
                             buildTableInfoWithSchema(
-                                    jdbcCase.getDatabase(), jdbcCase.getSourceTable()));
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSchema(),
+                                    jdbcCase.getSourceTable()));
             String createSink =
                     String.format(
                             createTemplate,
                             buildTableInfoWithSchema(
-                                    jdbcCase.getDatabase(), jdbcCase.getSinkTable()));
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSchema(),
+                                    jdbcCase.getSinkTable()));
 
             statement.execute(createSource);
             statement.execute(createSink);
@@ -173,10 +185,24 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                 + ")";
     }
 
+    protected void clearTable(String database, String schema, String table) {
+        clearTable(database, table);
+    }
+
+    protected String buildTableInfoWithSchema(String database, String schema, String table) {
+        return buildTableInfoWithSchema(database, table);
+    }
+
     public void clearTable(String schema, String table) {
         try (Statement statement = connection.createStatement()) {
             statement.execute("TRUNCATE TABLE " + buildTableInfoWithSchema(schema, table));
+            connection.commit();
         } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException exception) {
+                throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, exception);
+            }
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, e);
         }
     }
@@ -202,10 +228,11 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     @BeforeAll
     @Override
     public void startUp() {
-        dbServer = initContainer();
-        jdbcCase = getJdbcCase();
+        dbServer = initContainer().withImagePullPolicy(PullPolicy.alwaysPull());
 
         Startables.deepStart(Stream.of(dbServer)).join();
+
+        jdbcCase = getJdbcCase();
 
         given().ignoreExceptions()
                 .await()
@@ -215,16 +242,39 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         createSchemaIfNeeded();
         createNeededTables();
         insertTestData();
+        initCatalog();
     }
 
+    @AfterAll
     @Override
     public void tearDown() throws SQLException {
-        if (dbServer != null) {
-            dbServer.close();
+        if (catalog != null) {
+            catalog.close();
         }
 
         if (connection != null) {
             connection.close();
+        }
+
+        if (dbServer != null) {
+            dbServer.close();
+            String images =
+                    dockerClient.listImagesCmd().exec().stream()
+                            .map(Image::getId)
+                            .collect(Collectors.joining(","));
+            log.info(
+                    "before remove image {}, list images: {}",
+                    dbServer.getDockerImageName(),
+                    images);
+            dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
+            images =
+                    dockerClient.listImagesCmd().exec().stream()
+                            .map(Image::getId)
+                            .collect(Collectors.joining(","));
+            log.info(
+                    "after remove image {}, list images: {}",
+                    dbServer.getDockerImageName(),
+                    images);
         }
     }
 
@@ -238,6 +288,43 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         }
 
         compareResult();
-        clearTable(jdbcCase.getDatabase(), jdbcCase.getSinkTable());
+        clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
+    }
+
+    protected void initCatalog() {}
+
+    @Test
+    public void testCatalog() {
+        if (catalog == null) {
+            return;
+        }
+
+        TablePath sourceTablePath =
+                new TablePath(
+                        jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSourceTable());
+        TablePath targetTablePath =
+                new TablePath(
+                        jdbcCase.getCatalogDatabase(),
+                        jdbcCase.getCatalogSchema(),
+                        jdbcCase.getCatalogTable());
+        boolean createdDb = false;
+
+        if (!catalog.databaseExists(targetTablePath.getDatabaseName())) {
+            catalog.createDatabase(targetTablePath, false);
+            Assertions.assertTrue(catalog.databaseExists(targetTablePath.getDatabaseName()));
+            createdDb = true;
+        }
+
+        CatalogTable catalogTable = catalog.getTable(sourceTablePath);
+        catalog.createTable(targetTablePath, catalogTable, false);
+        Assertions.assertTrue(catalog.tableExists(targetTablePath));
+
+        catalog.dropTable(targetTablePath, false);
+        Assertions.assertFalse(catalog.tableExists(targetTablePath));
+
+        if (createdDb) {
+            catalog.dropDatabase(targetTablePath, false);
+            Assertions.assertFalse(catalog.databaseExists(targetTablePath.getDatabaseName()));
+        }
     }
 }

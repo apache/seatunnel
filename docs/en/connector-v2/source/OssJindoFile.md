@@ -8,6 +8,9 @@ Read data from aliyun oss file system using jindo api.
 
 :::tip
 
+You need to download [jindosdk-4.6.1.tar.gz](https://jindodata-binary.oss-cn-shanghai.aliyuncs.com/release/4.6.1/jindosdk-4.6.1.tar.gz)
+and then unzip it, copy jindo-sdk-4.6.1.jar and jindo-core-4.6.1.jar from lib to ${SEATUNNEL_HOME}/lib.
+
 If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
 
 If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
@@ -57,6 +60,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | common-options            |         | no       | -                   |
 | sheet_name                | string  | no       | -                   |
 | file_filter_pattern       | string  | no       | -                   |
+| compress_codec            | string  | no       | none                |
 
 ### path [string]
 
@@ -253,11 +257,21 @@ Reader the sheet of the workbook,Only used when file_format_type is excel.
 
 Filter pattern, which used for filtering files.
 
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc/parquet:  
+  automatically recognizes the compression type, no additional settings required.
+
 ## Example
 
 ```hocon
 
-  OssFile {
+OssJindoFile {
     path = "/seatunnel/orc"
     bucket = "oss://tyrantlucifer-image-bed"
     access_key = "xxxxxxxxxxxxxxxxx"
@@ -270,7 +284,7 @@ Filter pattern, which used for filtering files.
 
 ```hocon
 
-  OssFile {
+OssJindoFile {
     path = "/seatunnel/json"
     bucket = "oss://tyrantlucifer-image-bed"
     access_key = "xxxxxxxxxxxxxxxxx"

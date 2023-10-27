@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -36,6 +38,7 @@ import java.time.LocalTime;
 import java.util.Optional;
 
 /** Base class for all converters that convert between JDBC object and SeaTunnel internal object. */
+@Slf4j
 public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
 
     public abstract String converterName();
@@ -43,7 +46,6 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
     public AbstractJdbcRowConverter() {}
 
     @Override
-    @SuppressWarnings("checkstyle:Indentation")
     public SeaTunnelRow toInternal(ResultSet rs, SeaTunnelRowType typeInfo) throws SQLException {
         Object[] fields = new Object[typeInfo.getTotalFields()];
         for (int fieldIndex = 0; fieldIndex < typeInfo.getTotalFields(); fieldIndex++) {

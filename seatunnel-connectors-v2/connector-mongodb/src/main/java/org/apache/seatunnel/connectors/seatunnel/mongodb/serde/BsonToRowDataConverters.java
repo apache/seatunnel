@@ -86,9 +86,7 @@ public class BsonToRowDataConverters implements Serializable {
             @Override
             public Object apply(BsonValue bsonValue) {
                 if (isBsonValueNull(bsonValue) || isBsonDecimalNaN(bsonValue)) {
-                    throw new MongodbConnectorException(
-                            UNSUPPORTED_OPERATION,
-                            "Unable to convert to <" + type + "> from nullable value " + bsonValue);
+                    return null;
                 }
                 return internalConverter.apply(bsonValue);
             }

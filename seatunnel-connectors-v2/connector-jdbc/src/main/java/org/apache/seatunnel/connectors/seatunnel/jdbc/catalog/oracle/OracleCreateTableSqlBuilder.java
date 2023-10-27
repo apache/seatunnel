@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -36,23 +38,27 @@ public class OracleCreateTableSqlBuilder {
     private PrimaryKey primaryKey;
     private OracleDataTypeConvertor oracleDataTypeConvertor;
     private String sourceCatalogName;
+    private String fieldIde;
 
     public OracleCreateTableSqlBuilder(CatalogTable catalogTable) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.oracleDataTypeConvertor = new OracleDataTypeConvertor();
         this.sourceCatalogName = catalogTable.getCatalogName();
+        this.fieldIde = catalogTable.getOptions().get("fieldIde");
     }
 
     public String build(TablePath tablePath) {
         StringBuilder createTableSql = new StringBuilder();
         createTableSql
                 .append("CREATE TABLE ")
-                .append(tablePath.getSchemaAndTableName())
+                .append(tablePath.getSchemaAndTableName("\""))
                 .append(" (\n");
 
         List<String> columnSqls =
-                columns.stream().map(this::buildColumnSql).collect(Collectors.toList());
+                columns.stream()
+                        .map(column -> CatalogUtils.getFieldIde(buildColumnSql(column), fieldIde))
+                        .collect(Collectors.toList());
 
         // Add primary key directly in the create table statement
         if (primaryKey != null
@@ -70,7 +76,7 @@ public class OracleCreateTableSqlBuilder {
                         .map(
                                 column ->
                                         buildColumnCommentSql(
-                                                column, tablePath.getSchemaAndTableName()))
+                                                column, tablePath.getSchemaAndTableName("\"")))
                         .collect(Collectors.toList());
 
         if (!commentSqls.isEmpty()) {
@@ -83,10 +89,10 @@ public class OracleCreateTableSqlBuilder {
 
     private String buildColumnSql(Column column) {
         StringBuilder columnSql = new StringBuilder();
-        columnSql.append(column.getName()).append(" ");
+        columnSql.append("\"").append(column.getName()).append("\" ");
 
         String columnType =
-                sourceCatalogName.equals("oracle")
+                StringUtils.equalsIgnoreCase(DatabaseIdentifier.ORACLE, sourceCatalogName)
                         ? column.getSourceType()
                         : buildColumnType(column);
         columnSql.append(columnType);
@@ -94,11 +100,6 @@ public class OracleCreateTableSqlBuilder {
         if (!column.isNullable()) {
             columnSql.append(" NOT NULL");
         }
-
-        //        if (column.getDefaultValue() != null) {
-        //            columnSql.append(" DEFAULT
-        // '").append(column.getDefaultValue().toString()).append("'");
-        //        }
 
         return columnSql.toString();
     }
@@ -140,7 +141,10 @@ public class OracleCreateTableSqlBuilder {
 
     private String buildPrimaryKeySql(PrimaryKey primaryKey) {
         String randomSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
-        String columnNamesString = String.join(", ", primaryKey.getColumnNames());
+        String columnNamesString =
+                primaryKey.getColumnNames().stream()
+                        .map(columnName -> "\"" + columnName + "\"")
+                        .collect(Collectors.joining(", "));
 
         // In Oracle database, the maximum length for an identifier is 30 characters.
         String primaryKeyStr = primaryKey.getPrimaryKey();
@@ -148,21 +152,26 @@ public class OracleCreateTableSqlBuilder {
             primaryKeyStr = primaryKeyStr.substring(0, 25);
         }
 
-        return "CONSTRAINT "
-                + primaryKeyStr
-                + "_"
-                + randomSuffix
-                + " PRIMARY KEY ("
-                + columnNamesString
-                + ")";
+        return CatalogUtils.getFieldIde(
+                "CONSTRAINT "
+                        + primaryKeyStr
+                        + "_"
+                        + randomSuffix
+                        + " PRIMARY KEY ("
+                        + columnNamesString
+                        + ")",
+                fieldIde);
     }
 
     private String buildColumnCommentSql(Column column, String tableName) {
         StringBuilder columnCommentSql = new StringBuilder();
-        columnCommentSql.append("COMMENT ON COLUMN ").append(tableName).append(".");
         columnCommentSql
-                .append(column.getName())
-                .append(" IS '")
+                .append(CatalogUtils.quoteIdentifier("COMMENT ON COLUMN ", fieldIde))
+                .append(tableName)
+                .append(".");
+        columnCommentSql
+                .append(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "\""))
+                .append(CatalogUtils.quoteIdentifier(" IS '", fieldIde))
                 .append(column.getComment())
                 .append("'");
         return columnCommentSql.toString();

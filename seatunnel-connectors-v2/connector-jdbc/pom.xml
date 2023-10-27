@@ -45,11 +45,18 @@
         <saphana.version>2.14.7</saphana.version>
         <snowflake.version>3.13.29</snowflake.version>
         <vertica.version>12.0.3-0</vertica.version>
+        <hikari.version>4.0.3</hikari.version>
         <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
+        <kingbase8.version>8.6.0</kingbase8.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>com.zaxxer</groupId>
+                <artifactId>HikariCP</artifactId>
+                <version>${hikari.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.aliyun.phoenix</groupId>
                 <artifactId>ali-phoenix-shaded-thin-client</artifactId>
@@ -143,6 +150,12 @@
                 <version>${vertica.version}</version>
                 <scope>provided</scope>
             </dependency>
+            <dependency>
+                <groupId>cn.com.kingbase</groupId>
+                <artifactId>kingbase8</artifactId>
+                <version>${kingbase8.version}</version>
+                <scope>provided</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -152,6 +165,12 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-common</artifactId>
             <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>${hikari.version}</version>
         </dependency>
 
         <dependency>
@@ -218,5 +237,11 @@
             <groupId>com.vertica.jdbc</groupId>
             <artifactId>vertica-jdbc</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>cn.com.kingbase</groupId>
+            <artifactId>kingbase8</artifactId>
+        </dependency>
+
     </dependencies>
 </project>

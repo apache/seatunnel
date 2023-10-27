@@ -49,7 +49,6 @@ public class TablestoreTypeMapper implements JdbcDialectTypeMapper {
     private static final String TABLESTORE_VARBINARY = "VARBINARY";
     private static final String TABLESTORE_MEDIUMBLOB = "MEDIUMBLOB";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {

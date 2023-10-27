@@ -27,12 +27,14 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -44,6 +46,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.sink.SinkCommonOptions.MULTI_TABLE_SINK_REPLICA;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.AUTO_COMMIT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.COMPATIBLE_MODE;
@@ -71,16 +74,26 @@ public class JdbcSinkFactory implements TableSinkFactory {
         return "Jdbc";
     }
 
+    private ReadonlyConfig getCatalogOptions(TableSinkFactoryContext context) {
+        ReadonlyConfig config = context.getOptions();
+        // TODO Remove obsolete code
+        Optional<Map<String, String>> catalogOptions =
+                config.getOptional(CatalogOptions.CATALOG_OPTIONS);
+        if (catalogOptions.isPresent()) {
+            return ReadonlyConfig.fromMap(new HashMap<>(catalogOptions.get()));
+        }
+        return config;
+    }
+
     @Override
-    public TableSink createSink(TableFactoryContext context) {
+    public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-        Map<String, String> catalogOptions = config.get(CatalogOptions.CATALOG_OPTIONS);
+        ReadonlyConfig catalogOptions = getCatalogOptions(context);
         Optional<String> optionalTable = config.getOptional(TABLE);
         if (!optionalTable.isPresent()) {
-            catalogOptions = catalogOptions == null ? new HashMap<>() : catalogOptions;
-            String prefix = catalogOptions.get(JdbcCatalogOptions.TABLE_PREFIX.key());
-            String suffix = catalogOptions.get(JdbcCatalogOptions.TABLE_SUFFIX.key());
+            String prefix = catalogOptions.get(JdbcCatalogOptions.TABLE_PREFIX);
+            String suffix = catalogOptions.get(JdbcCatalogOptions.TABLE_SUFFIX);
             if (StringUtils.isNotEmpty(prefix) || StringUtils.isNotEmpty(suffix)) {
                 TableIdentifier tableId = catalogTable.getTableId();
                 String tableName =
@@ -100,15 +113,13 @@ public class JdbcSinkFactory implements TableSinkFactory {
                                 catalogTable.getTableSchema(),
                                 catalogTable.getOptions(),
                                 catalogTable.getPartitionKeys(),
+                                catalogTable.getComment(),
                                 catalogTable.getCatalogName());
             }
             Map<String, String> map = config.toMap();
-            if (StringUtils.isNotBlank(catalogOptions.get(JdbcCatalogOptions.SCHEMA.key()))) {
-                map.put(
-                        TABLE.key(),
-                        catalogOptions.get(JdbcCatalogOptions.SCHEMA.key())
-                                + "."
-                                + catalogTable.getTableId().getTableName());
+            String schema = catalogOptions.get(JdbcCatalogOptions.SCHEMA);
+            if (StringUtils.isNotBlank(schema)) {
+                map.put(TABLE.key(), schema + "." + catalogTable.getTableId().getTableName());
             } else if (StringUtils.isNotBlank(catalogTable.getTableId().getSchemaName())) {
                 map.put(
                         TABLE.key(),
@@ -142,10 +153,16 @@ public class JdbcSinkFactory implements TableSinkFactory {
         }
         final ReadonlyConfig options = config;
         JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
+        FieldIdeEnum fieldIdeEnum = config.get(JdbcOptions.FIELD_IDE);
         JdbcDialect dialect =
                 JdbcDialectLoader.load(
                         sinkConfig.getJdbcConnectionConfig().getUrl(),
-                        sinkConfig.getJdbcConnectionConfig().getCompatibleMode());
+                        sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
+                        fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
+        dialect.connectionUrlParse(
+                sinkConfig.getJdbcConnectionConfig().getUrl(),
+                sinkConfig.getJdbcConnectionConfig().getProperties(),
+                dialect.defaultParameter());
         CatalogTable finalCatalogTable = catalogTable;
         return () ->
                 new JdbcSink(
@@ -170,7 +187,8 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         AUTO_COMMIT,
                         SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST,
                         PRIMARY_KEYS,
-                        COMPATIBLE_MODE)
+                        COMPATIBLE_MODE,
+                        MULTI_TABLE_SINK_REPLICA)
                 .conditional(
                         IS_EXACTLY_ONCE,
                         true,

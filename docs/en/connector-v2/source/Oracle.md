@@ -37,7 +37,7 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                 PostgreSQL Data type                                 | SeaTunnel Data type |
+|                                   Oracle Data type                                   | SeaTunnel Data type |
 |--------------------------------------------------------------------------------------|---------------------|
 | INTEGER                                                                              | INT                 |
 | FLOAT                                                                                | DECIMAL(38, 18)     |
@@ -54,20 +54,21 @@ Read external data source data through JDBC.
 
 ## Source Options
 
-|             Name             |  Type  | Required |     Default     |                                                                                                                            Description                                                                                                                            |
-|------------------------------|--------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                          | String | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:oracle:thin:@datasource01:1523:xe                                                                                                                                                                           |
-| driver                       | String | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `oracle.jdbc.OracleDriver`.                                                                                                                                     |
-| user                         | String | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
-| password                     | String | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
-| query                        | String | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
-| connection_check_timeout_sec | Int    | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
-| partition_column             | String | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                     |
-| partition_lower_bound        | Long   | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
-| partition_upper_bound        | Long   | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
-| partition_num                | Int    | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
-| fetch_size                   | Int    | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
-| common-options               |        | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
+|             Name             |    Type    | Required |     Default     |                                                                                                                            Description                                                                                                                            |
+|------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:oracle:thin:@datasource01:1523:xe                                                                                                                                                                           |
+| driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `oracle.jdbc.OracleDriver`.                                                                                                                                     |
+| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
+| password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
+| query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
+| connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
+| partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                     |
+| partition_lower_bound        | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
+| partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
+| partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
+| fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
+| properties                   | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                    |
+| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
 
 ### Tips
 
@@ -111,6 +112,10 @@ sink {
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
 
 ```
+env {
+  execution.parallelism = 10
+  job.mode = "BATCH"
+}
 source {
     Jdbc {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
@@ -124,7 +129,13 @@ source {
         partition_column = "ID"
         # Number of fragments
         partition_num = 10
+        properties {
+        database.oracle.jdbc.timezoneAsRegion = "false"
+        }
     }
+}
+sink {
+  Console {}
 }
 ```
 

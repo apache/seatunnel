@@ -64,7 +64,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DOCUMENT_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ENCODE_VALUE_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.FULL_DOCUMENT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.extractBsonDocument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class MongoDBConnectorDeserializationSchema
@@ -100,11 +100,7 @@ public class MongoDBConnectorDeserializationSchema
                 emit(record, insert, out);
                 break;
             case DELETE:
-                SeaTunnelRow delete =
-                        new SeaTunnelRow(
-                                new Object[] {
-                                    documentKey.get(ID_FIELD).asObjectId().getValue().toString()
-                                });
+                SeaTunnelRow delete = extractRowData(documentKey);
                 delete.setRowKind(RowKind.DELETE);
                 emit(record, delete, out);
                 break;
@@ -154,17 +150,6 @@ public class MongoDBConnectorDeserializationSchema
         return (SeaTunnelRow) physicalConverter.convert(document);
     }
 
-    private BsonDocument extractBsonDocument(
-            Struct value, @Nonnull Schema valueSchema, String fieldName) {
-        if (valueSchema.field(fieldName) != null) {
-            String docString = value.getString(fieldName);
-            if (docString != null) {
-                return BsonDocument.parse(docString);
-            }
-        }
-        return null;
-    }
-
     // -------------------------------------------------------------------------------------
     // Runtime Converters
     // -------------------------------------------------------------------------------------
@@ -200,9 +185,7 @@ public class MongoDBConnectorDeserializationSchema
             @Override
             public Object apply(BsonValue bsonValue) {
                 if (isBsonValueNull(bsonValue) || isBsonDecimalNaN(bsonValue)) {
-                    throw new MongodbConnectorException(
-                            UNSUPPORTED_OPERATION,
-                            "Unable to convert to <" + type + "> from nullable value " + bsonValue);
+                    return null;
                 }
                 return internalConverter.apply(bsonValue);
             }

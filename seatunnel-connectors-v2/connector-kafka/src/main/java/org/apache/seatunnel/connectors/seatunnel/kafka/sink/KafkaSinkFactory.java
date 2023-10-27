@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 
@@ -56,7 +56,7 @@ public class KafkaSinkFactory implements TableSinkFactory {
     }
 
     @Override
-    public TableSink createSink(TableFactoryContext context) {
+    public TableSink createSink(TableSinkFactoryContext context) {
         return () ->
                 new KafkaSink(
                         context.getOptions(),

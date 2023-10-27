@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,13 +44,25 @@ public final class CatalogTable implements Serializable {
 
     private final String catalogName;
 
+    public static CatalogTable of(TableIdentifier tableId, CatalogTable catalogTable) {
+        CatalogTable newTable = catalogTable.copy();
+        return new CatalogTable(
+                tableId,
+                newTable.getTableSchema(),
+                newTable.getOptions(),
+                newTable.getPartitionKeys(),
+                newTable.getComment(),
+                newTable.getCatalogName());
+    }
+
     public static CatalogTable of(
             TableIdentifier tableId,
             TableSchema tableSchema,
             Map<String, String> options,
             List<String> partitionKeys,
             String comment) {
-        return new CatalogTable(tableId, tableSchema, options, partitionKeys, comment);
+        return new CatalogTable(
+                tableId, tableSchema, options, partitionKeys, comment, tableId.getCatalogName());
     }
 
     public static CatalogTable of(
@@ -65,7 +81,7 @@ public final class CatalogTable implements Serializable {
             Map<String, String> options,
             List<String> partitionKeys,
             String comment) {
-        this(tableId, tableSchema, options, partitionKeys, comment, "");
+        this(tableId, tableSchema, options, partitionKeys, comment, tableId.getCatalogName());
     }
 
     private CatalogTable(
@@ -77,10 +93,21 @@ public final class CatalogTable implements Serializable {
             String catalogName) {
         this.tableId = tableId;
         this.tableSchema = tableSchema;
-        this.options = options;
-        this.partitionKeys = partitionKeys;
+        // Make sure the options and partitionKeys are mutable
+        this.options = new HashMap<>(options);
+        this.partitionKeys = new ArrayList<>(partitionKeys);
         this.comment = comment;
         this.catalogName = catalogName;
+    }
+
+    public CatalogTable copy() {
+        return new CatalogTable(
+                tableId.copy(),
+                tableSchema.copy(),
+                new HashMap<>(options),
+                new ArrayList<>(partitionKeys),
+                comment,
+                catalogName);
     }
 
     public TableIdentifier getTableId() {
@@ -89,6 +116,10 @@ public final class CatalogTable implements Serializable {
 
     public TableSchema getTableSchema() {
         return tableSchema;
+    }
+
+    public SeaTunnelRowType getSeaTunnelRowType() {
+        return tableSchema.toPhysicalRowDataType();
     }
 
     public Map<String, String> getOptions() {
@@ -120,6 +151,9 @@ public final class CatalogTable implements Serializable {
                 + partitionKeys
                 + ", comment='"
                 + comment
+                + '\''
+                + ", catalogName='"
+                + catalogName
                 + '\''
                 + '}';
     }

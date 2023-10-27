@@ -23,8 +23,8 @@
 # get seatunnel home
 SEATUNNEL_HOME=$(cd $(dirname $0);cd ../;pwd)
 
-# connector default version is 2.3.1, you can also choose a custom version. eg: 2.1.2:  sh install-plugin.sh 2.1.2
-version=2.3.1
+# connector default version is 2.3.3, you can also choose a custom version. eg: 2.1.2:  sh install-plugin.sh 2.1.2
+version=2.3.3
 
 if [ -n "$1" ]; then
     version="$1"
@@ -43,18 +43,13 @@ if [ ! -d ${SEATUNNEL_HOME}/connectors ];
       echo "create connectors directory"
 fi
 
-# create the seatunnel connectors directory (for v2)
-if [ ! -d ${SEATUNNEL_HOME}/connectors/seatunnel ];
-  then
-      mkdir ${SEATUNNEL_HOME}/connectors/seatunnel
-      echo "create seatunnel connectors directory"
-fi  
-
 while read line; do
-    if  [ ${line:0:1} != "-" ] && [ ${line:0:1} != "#" ]
+    first_char=$(echo "$line" | cut -c 1)
+
+    if [ "$first_char" != "-" ] && [ "$first_char" != "#" ]
       	then
       		echo "install connector : " $line
-      		${SEATUNNEL_HOME}/mvnw dependency:get -DgroupId=org.apache.seatunnel -DartifactId=${line} -Dversion=${version} -Ddest=${SEATUNNEL_HOME}/connectors/seatunnel
+      		${SEATUNNEL_HOME}/mvnw dependency:get -DgroupId=org.apache.seatunnel -DartifactId=${line} -Dversion=${version} -Ddest=${SEATUNNEL_HOME}/connectors
     fi
 
 done < ${SEATUNNEL_HOME}/config/plugin_config
