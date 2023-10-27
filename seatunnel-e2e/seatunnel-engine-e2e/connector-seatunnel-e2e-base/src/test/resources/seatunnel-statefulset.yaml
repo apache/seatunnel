@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: seatunnel
+spec:
+  serviceName: "seatunnel"
+  replicas: 2
+  selector:
+    matchLabels:
+      app: seatunnel
+  template:
+    metadata:
+      labels:
+        app: seatunnel
+    spec:
+      containers:
+        - name: seatunnel
+          image: seatunnel:lastest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5801
+              name: client
+          command: [ 'sh' ]
+          args:
+            - "/opt/seatunnel/bin/seatunnel-cluster.sh"
+            - "-DJvmOption=-Xms2G -Xmx2G"
+          resources:
+            limits:
+              cpu: "1"
+              memory: 4G
+            requests:
+              cpu: "1"
+              memory: 2G

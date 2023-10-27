@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: seatunnel
+spec:
+  selector:
+    app: seatunnel
+  ports:
+    - port: 5801
+      name: seatunnel
+  clusterIP: None
