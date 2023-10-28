@@ -44,68 +44,68 @@ public class DamengDataTypeConvertor implements DataTypeConvertor<String> {
     public static final Integer DEFAULT_SCALE = 18;
 
     // ============================data types=====================
-    private static final String DM_BIT = "BIT";
+    public static final String DM_BIT = "BIT";
 
     // ----------------------------number-------------------------
-    private static final String DM_NUMERIC = "NUMERIC";
-    private static final String DM_NUMBER = "NUMBER";
-    private static final String DM_DECIMAL = "DECIMAL";
+    public static final String DM_NUMERIC = "NUMERIC";
+    public static final String DM_NUMBER = "NUMBER";
+    public static final String DM_DECIMAL = "DECIMAL";
     /** same to DECIMAL */
-    private static final String DM_DEC = "DEC";
+    public static final String DM_DEC = "DEC";
 
     // ----------------------------int-----------------------------
-    private static final String DM_INTEGER = "INTEGER";
-    private static final String DM_INT = "INT";
+    public static final String DM_INTEGER = "INTEGER";
+    public static final String DM_INT = "INT";
     public static final String DM_PLS_INTEGER = "PLS_INTEGER";
-    private static final String DM_BIGINT = "BIGINT";
-    private static final String DM_TINYINT = "TINYINT";
-    private static final String DM_BYTE = "BYTE";
-    private static final String DM_SMALLINT = "SMALLINT";
+    public static final String DM_BIGINT = "BIGINT";
+    public static final String DM_TINYINT = "TINYINT";
+    public static final String DM_BYTE = "BYTE";
+    public static final String DM_SMALLINT = "SMALLINT";
 
     // dm float is double for Cpp.
-    private static final String DM_FLOAT = "FLOAT";
-    private static final String DM_DOUBLE = "DOUBLE";
-    private static final String DM_DOUBLE_PRECISION = "DOUBLE PRECISION";
-    private static final String DM_REAL = "REAL";
+    public static final String DM_FLOAT = "FLOAT";
+    public static final String DM_DOUBLE = "DOUBLE";
+    public static final String DM_DOUBLE_PRECISION = "DOUBLE PRECISION";
+    public static final String DM_REAL = "REAL";
 
     // DM_CHAR DM_CHARACTER DM_VARCHAR DM_VARCHAR2 max is 32767
-    private static final String DM_CHAR = "CHAR";
-    private static final String DM_CHARACTER = "CHARACTER";
-    private static final String DM_VARCHAR = "VARCHAR";
-    private static final String DM_VARCHAR2 = "VARCHAR2";
-    private static final String DM_LONGVARCHAR = "LONGVARCHAR";
-    private static final String DM_CLOB = "CLOB";
-    private static final String DM_TEXT = "TEXT";
-    private static final String DM_LONG = "LONG";
+    public static final String DM_CHAR = "CHAR";
+    public static final String DM_CHARACTER = "CHARACTER";
+    public static final String DM_VARCHAR = "VARCHAR";
+    public static final String DM_VARCHAR2 = "VARCHAR2";
+    public static final String DM_LONGVARCHAR = "LONGVARCHAR";
+    public static final String DM_CLOB = "CLOB";
+    public static final String DM_TEXT = "TEXT";
+    public static final String DM_LONG = "LONG";
 
     // ------------------------------time-------------------------
-    private static final String DM_DATE = "DATE";
-    private static final String DM_TIME = "TIME";
-    private static final String DM_TIMESTAMP = "TIMESTAMP";
-    private static final String DM_DATETIME = "DATETIME";
+    public static final String DM_DATE = "DATE";
+    public static final String DM_TIME = "TIME";
+    public static final String DM_TIMESTAMP = "TIMESTAMP";
+    public static final String DM_DATETIME = "DATETIME";
 
     // ---------------------------binary---------------------------
-    private static final String DM_BINARY = "BINARY";
-    private static final String DM_VARBINARY = "VARBINARY";
+    public static final String DM_BINARY = "BINARY";
+    public static final String DM_VARBINARY = "VARBINARY";
 
     // -------------------------time interval-----------------------
-    private static final String DM_INTERVAL_YEAR_TO_MONTH = "INTERVAL YEAR TO MONTH";
-    private static final String DM_INTERVAL_YEAR = "INTERVAL YEAR";
-    private static final String DM_INTERVAL_MONTH = "INTERVAL MONTH";
-    private static final String DM_INTERVAL_DAY = "INTERVAL DAY";
-    private static final String DM_INTERVAL_DAY_TO_HOUR = "INTERVAL DAY TO HOUR";
-    private static final String DM_INTERVAL_DAY_TO_MINUTE = "INTERVAL DAY TO MINUTE";
-    private static final String DM_INTERVAL_DAY_TO_SECOND = "INTERVAL DAY TO SECOND";
-    private static final String DM_INTERVAL_HOUR = "INTERVAL HOUR";
-    private static final String DM_INTERVAL_HOUR_TO_MINUTE = "INTERVAL HOUR TO MINUTE";
-    private static final String DM_INTERVAL_HOUR_TO_SECOND = "INTERVAL HOUR TO SECOND";
-    private static final String DM_INTERVAL_MINUTE = "INTERVAL MINUTE";
-    private static final String DM_INTERVAL_MINUTE_TO_SECOND = "INTERVAL MINUTE TO SECOND";
-    private static final String DM_INTERVAL_SECOND = "INTERVAL SECOND";
+    public static final String DM_INTERVAL_YEAR_TO_MONTH = "INTERVAL YEAR TO MONTH";
+    public static final String DM_INTERVAL_YEAR = "INTERVAL YEAR";
+    public static final String DM_INTERVAL_MONTH = "INTERVAL MONTH";
+    public static final String DM_INTERVAL_DAY = "INTERVAL DAY";
+    public static final String DM_INTERVAL_DAY_TO_HOUR = "INTERVAL DAY TO HOUR";
+    public static final String DM_INTERVAL_DAY_TO_MINUTE = "INTERVAL DAY TO MINUTE";
+    public static final String DM_INTERVAL_DAY_TO_SECOND = "INTERVAL DAY TO SECOND";
+    public static final String DM_INTERVAL_HOUR = "INTERVAL HOUR";
+    public static final String DM_INTERVAL_HOUR_TO_MINUTE = "INTERVAL HOUR TO MINUTE";
+    public static final String DM_INTERVAL_HOUR_TO_SECOND = "INTERVAL HOUR TO SECOND";
+    public static final String DM_INTERVAL_MINUTE = "INTERVAL MINUTE";
+    public static final String DM_INTERVAL_MINUTE_TO_SECOND = "INTERVAL MINUTE TO SECOND";
+    public static final String DM_INTERVAL_SECOND = "INTERVAL SECOND";
     // time zone
-    private static final String DM_TIME_WITH_TIME_ZONE = "TIME WITH TIME ZONE";
-    private static final String DM_TIMESTAMP_WITH_TIME_ZONE = "TIMESTAMP WITH TIME ZONE";
-    private static final String TIMESTAMP_WITH_LOCAL_TIME_ZONE = "TIMESTAMP WITH LOCAL TIME ZONE";
+    public static final String DM_TIME_WITH_TIME_ZONE = "TIME WITH TIME ZONE";
+    public static final String DM_TIMESTAMP_WITH_TIME_ZONE = "TIMESTAMP WITH TIME ZONE";
+    public static final String TIMESTAMP_WITH_LOCAL_TIME_ZONE = "TIMESTAMP WITH LOCAL TIME ZONE";
 
     // ------------------------------blob-------------------------
     public static final String DM_BLOB = "BLOB";

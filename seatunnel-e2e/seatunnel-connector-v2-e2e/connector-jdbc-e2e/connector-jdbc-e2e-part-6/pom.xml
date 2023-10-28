@@ -47,5 +47,11 @@
             <artifactId>ojdbc8</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.dameng</groupId>
+            <artifactId>DmJdbcDriver18</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

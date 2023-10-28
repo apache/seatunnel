@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -26,7 +27,6 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -35,19 +35,19 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-public class OracleCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuilder {
+public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuilder {
 
     private List<Column> columns;
     private PrimaryKey primaryKey;
-    private OracleDataTypeConvertor oracleDataTypeConvertor;
+    private DamengDataTypeConvertor damengDataTypeConvertor;
     private String sourceCatalogName;
     private String fieldIde;
     private List<ConstraintKey> constraintKeys;
 
-    public OracleCreateTableSqlBuilder(CatalogTable catalogTable) {
+    public DamengCreateTableSqlBuilder(CatalogTable catalogTable) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
-        this.oracleDataTypeConvertor = new OracleDataTypeConvertor();
+        this.damengDataTypeConvertor = new DamengDataTypeConvertor();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
         constraintKeys = catalogTable.getTableSchema().getConstraintKeys();
@@ -89,6 +89,7 @@ public class OracleCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
                 }
             }
         }
+
         createTableSql.append(String.join(",\n", columnSqls));
         createTableSql.append("\n)");
 
@@ -114,7 +115,7 @@ public class OracleCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
         columnSql.append("\"").append(column.getName()).append("\" ");
 
         String columnType =
-                StringUtils.equalsIgnoreCase(DatabaseIdentifier.ORACLE, sourceCatalogName)
+                StringUtils.equals(sourceCatalogName, "dameng")
                         ? column.getSourceType()
                         : buildColumnType(column);
         columnSql.append(columnType);
@@ -132,19 +133,23 @@ public class OracleCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
         Long bitLen = column.getBitLen();
         switch (sqlType) {
             case BYTES:
+                bitLen = bitLen == null ? -1 : (bitLen <= 64 ? bitLen : bitLen >> 3);
                 if (bitLen < 0 || bitLen > 2000) {
                     return "BLOB";
                 } else {
-                    return "RAW(" + bitLen + ")";
+                    return "VARBINARY(" + bitLen + ")";
                 }
             case STRING:
-                if (columnLength > 0 && columnLength < 4000) {
-                    return "VARCHAR2(" + columnLength + " CHAR)";
+                columnLength = columnLength == null ? 0 : columnLength;
+                if (columnLength > 0 && columnLength < 16358) {
+                    return "VARCHAR(" + columnLength + " CHAR)";
+                } else if (columnLength < 64000) {
+                    return "TEXT";
                 } else {
                     return "CLOB";
                 }
             default:
-                String type = oracleDataTypeConvertor.toConnectorType(column.getDataType(), null);
+                String type = damengDataTypeConvertor.toConnectorType(column.getDataType(), null);
                 if (type.equals("NUMBER")) {
                     if (column.getDataType() instanceof DecimalType) {
                         DecimalType decimalType = (DecimalType) column.getDataType();
@@ -168,7 +173,6 @@ public class OracleCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
                         .map(columnName -> "\"" + columnName + "\"")
                         .collect(Collectors.joining(", "));
 
-        // In Oracle database, the maximum length for an identifier is 30 characters.
         String primaryKeyStr = primaryKey.getPrimaryKey();
         if (primaryKeyStr.length() > 25) {
             primaryKeyStr = primaryKeyStr.substring(0, 25);

@@ -242,4 +242,27 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         Connection defaultConnection = getConnection(defaultUrl);
         return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new PostgresTypeMapper());
     }
+
+    // If you have ConstraintKey need implement some additions
+    protected void createTableInternal(TablePath tablePath, CatalogTable table)
+            throws CatalogException {
+        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
+        PostgresCreateTableSqlBuilder postgresCreateTableSqlBuilder =
+                new PostgresCreateTableSqlBuilder(table);
+        String createTableSql = postgresCreateTableSqlBuilder.build(tablePath);
+        try {
+            executeInternal(dbUrl, createTableSql);
+            if (postgresCreateTableSqlBuilder.isHaveConstraintKey) {
+                String alterTableSql =
+                        "ALTER TABLE "
+                                + tablePath.getSchemaAndTableName("\"")
+                                + " REPLICA IDENTITY FULL;";
+                log.info("alterTableSql: {}", alterTableSql);
+                executeInternal(dbUrl, alterTableSql);
+            }
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format("Failed creating table %s", tablePath.getFullName()), e);
+        }
+    }
 }

@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
@@ -185,8 +186,16 @@ public class SqlServerCreateTableSqlBuilder {
         }
         if (CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
-                if (StringUtils.isBlank(constraintKey.getConstraintName())) {
+                if (StringUtils.isBlank(constraintKey.getConstraintName())
+                        || (primaryKey != null
+                                && StringUtils.equals(
+                                        primaryKey.getPrimaryKey(),
+                                        constraintKey.getConstraintName()))) {
                     continue;
+                }
+                String constraintKeySql = buildConstraintKeySql(constraintKey);
+                if (StringUtils.isNotEmpty(constraintKeySql)) {
+                    columnSqls.add("\t" + constraintKeySql);
                 }
             }
         }
@@ -196,7 +205,7 @@ public class SqlServerCreateTableSqlBuilder {
     private String buildColumnIdentifySql(
             Column column, String catalogName, Map<String, String> columnComments) {
         final List<String> columnSqls = new ArrayList<>();
-        columnSqls.add("[" + column.getName() + "]");
+        columnSqls.add("[" + CatalogUtils.getFieldIde(column.getName(), fieldIde) + "]");
         String tyNameDef = "";
         if (StringUtils.equals(catalogName, DatabaseIdentifier.SQLSERVER)) {
             columnSqls.add(column.getSourceType());
@@ -258,7 +267,8 @@ public class SqlServerCreateTableSqlBuilder {
 
         // comment
         if (column.getComment() != null) {
-            columnComments.put(column.getName(), column.getComment());
+            columnComments.put(
+                    CatalogUtils.getFieldIde(column.getName(), fieldIde), column.getComment());
         }
 
         return String.join(" ", columnSqls);
@@ -268,7 +278,9 @@ public class SqlServerCreateTableSqlBuilder {
         //                        .map(columnName -> "`" + columnName + "`")
         String key =
                 primaryKey.getColumnNames().stream()
-                        .map(columnName -> "[" + columnName + "]")
+                        .map(
+                                columnName ->
+                                        "[" + CatalogUtils.getFieldIde(columnName, fieldIde) + "]")
                         .collect(Collectors.joining(", "));
         // add sort type
         return String.format("PRIMARY KEY (%s)", key);
@@ -276,27 +288,30 @@ public class SqlServerCreateTableSqlBuilder {
 
     private String buildConstraintKeySql(ConstraintKey constraintKey) {
         ConstraintKey.ConstraintType constraintType = constraintKey.getConstraintType();
+        String randomSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
+
+        String constraintName = constraintKey.getConstraintName();
+        if (constraintName.length() > 25) {
+            constraintName = constraintName.substring(0, 25);
+        }
         String indexColumns =
                 constraintKey.getColumnNames().stream()
                         .map(
-                                constraintKeyColumn -> {
-                                    if (constraintKeyColumn.getSortType() == null) {
-                                        return String.format(
-                                                "`%s`", constraintKeyColumn.getColumnName());
-                                    }
-                                    return String.format(
-                                            "`%s` %s",
-                                            constraintKeyColumn.getColumnName(),
-                                            constraintKeyColumn.getSortType().name());
-                                })
+                                constraintKeyColumn ->
+                                        String.format(
+                                                "[%s]",
+                                                CatalogUtils.getFieldIde(
+                                                        constraintKeyColumn.getColumnName(),
+                                                        fieldIde)))
                         .collect(Collectors.joining(", "));
+
         String keyName = null;
         switch (constraintType) {
             case INDEX_KEY:
                 keyName = "KEY";
                 break;
             case UNIQUE_KEY:
-                keyName = "UNIQUE KEY";
+                keyName = "UNIQUE";
                 break;
             case FOREIGN_KEY:
                 keyName = "FOREIGN KEY";
@@ -306,7 +321,17 @@ public class SqlServerCreateTableSqlBuilder {
                 throw new UnsupportedOperationException(
                         "Unsupported constraint type: " + constraintType);
         }
-        return String.format(
-                "%s `%s` (%s)", keyName, constraintKey.getConstraintName(), indexColumns);
+
+        if (StringUtils.equals(keyName, "UNIQUE")) {
+            return "CONSTRAINT "
+                    + constraintName
+                    + "_"
+                    + randomSuffix
+                    + " UNIQUE ("
+                    + indexColumns
+                    + ")";
+        }
+        // todo KEY AND FOREIGN_KEY
+        return null;
     }
 }

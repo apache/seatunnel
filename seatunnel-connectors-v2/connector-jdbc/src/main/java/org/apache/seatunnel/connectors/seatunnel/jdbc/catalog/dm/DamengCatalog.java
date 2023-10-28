@@ -53,14 +53,19 @@ public class DamengCatalog extends AbstractJdbcCatalog {
 
     private static final String SELECT_COLUMNS_SQL =
             "SELECT COLUMNS.COLUMN_NAME, COLUMNS.DATA_TYPE, COLUMNS.DATA_LENGTH, COLUMNS.DATA_PRECISION, COLUMNS.DATA_SCALE "
-                    + ", COLUMNS.NULLABLE, COLUMNS.DATA_DEFAULT, COMMENTS.COMMENTS "
+                    + ", COLUMNS.NULLABLE, COLUMNS.DATA_DEFAULT, COMMENTS.COMMENTS ,"
+                    + "CASE \n"
+                    + "        WHEN COLUMNS.DATA_TYPE IN ('CHAR', 'CHARACTER', 'VARCHAR', 'VARCHAR2', 'VARBINARY', 'BINARY') THEN COLUMNS.DATA_TYPE || '(' || COLUMNS.DATA_LENGTH || ')'\n"
+                    + "        WHEN COLUMNS.DATA_TYPE IN ('NUMERIC', 'DECIMAL', 'NUMBER') AND COLUMNS.DATA_PRECISION IS NOT NULL AND COLUMNS.DATA_SCALE IS NOT NULL AND COLUMNS.DATA_PRECISION != 0 AND COLUMNS.DATA_SCALE != 0 THEN COLUMNS.DATA_TYPE || '(' || COLUMNS.DATA_PRECISION || ', ' || COLUMNS.DATA_SCALE || ')'\n"
+                    + "        ELSE COLUMNS.DATA_TYPE\n"
+                    + "    END AS SOURCE_TYPE \n"
                     + "FROM ALL_TAB_COLUMNS COLUMNS "
                     + "LEFT JOIN ALL_COL_COMMENTS COMMENTS "
                     + "ON COLUMNS.OWNER = COMMENTS.SCHEMA_NAME "
                     + "AND COLUMNS.TABLE_NAME = COMMENTS.TABLE_NAME "
                     + "AND COLUMNS.COLUMN_NAME = COMMENTS.COLUMN_NAME "
-                    + "WHERE COLUMNS.OWNER = ? "
-                    + "AND COLUMNS.TABLE_NAME = ? "
+                    + "WHERE COLUMNS.OWNER = '%s' "
+                    + "AND COLUMNS.TABLE_NAME = '%s' "
                     + "ORDER BY COLUMNS.COLUMN_ID ASC";
 
     public DamengCatalog(
@@ -79,17 +84,17 @@ public class DamengCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        throw new UnsupportedOperationException();
+        return new DamengCreateTableSqlBuilder(table).build(tablePath);
     }
 
     @Override
     protected String getDropTableSql(TablePath tablePath) {
-        return String.format("DROP TABLE %s", getTableName(tablePath));
+        return String.format("DROP TABLE %s", tablePath.getSchemaAndTableName("\""));
     }
 
     @Override
     protected String getTableName(TablePath tablePath) {
-        return tablePath.getSchemaAndTableName().toUpperCase();
+        return tablePath.getSchemaAndTableName();
     }
 
     @Override
@@ -115,6 +120,7 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
         String columnName = resultSet.getString("COLUMN_NAME");
         String typeName = resultSet.getString("DATA_TYPE");
+        String sourceTypeName = resultSet.getString("SOURCE_TYPE");
         long columnLength = resultSet.getLong("DATA_LENGTH");
         long columnPrecision = resultSet.getLong("DATA_PRECISION");
         long columnScale = resultSet.getLong("DATA_SCALE");
@@ -123,20 +129,52 @@ public class DamengCatalog extends AbstractJdbcCatalog {
         boolean isNullable = resultSet.getString("NULLABLE").equals("Y");
 
         SeaTunnelDataType<?> type = fromJdbcType(typeName, columnPrecision, columnScale);
-
+        long bitLen = 0;
+        long longColumnLength = 0;
+        switch (typeName) {
+            case DamengDataTypeConvertor.DM_BIT:
+                bitLen = columnLength;
+                break;
+            case DamengDataTypeConvertor.DM_DECIMAL:
+            case DamengDataTypeConvertor.DM_TIMESTAMP:
+            case DamengDataTypeConvertor.DM_DATETIME:
+            case DamengDataTypeConvertor.DM_TIME:
+                columnLength = columnScale;
+                break;
+            case DamengDataTypeConvertor.DM_CHAR:
+            case DamengDataTypeConvertor.DM_CHARACTER:
+            case DamengDataTypeConvertor.DM_VARCHAR:
+            case DamengDataTypeConvertor.DM_VARCHAR2:
+            case DamengDataTypeConvertor.DM_LONGVARCHAR:
+            case DamengDataTypeConvertor.DM_CLOB:
+            case DamengDataTypeConvertor.DM_TEXT:
+            case DamengDataTypeConvertor.DM_LONG:
+                longColumnLength = columnLength;
+                break;
+            case DamengDataTypeConvertor.DM_BINARY:
+            case DamengDataTypeConvertor.DM_VARBINARY:
+            case DamengDataTypeConvertor.DM_BLOB:
+            case DamengDataTypeConvertor.DM_BFILE:
+            case DamengDataTypeConvertor.DM_IMAGE:
+            case DamengDataTypeConvertor.DM_LONGVARBINARY:
+                bitLen = columnLength * 8;
+                break;
+            default:
+                break;
+        }
         return PhysicalColumn.of(
                 columnName,
                 type,
-                0,
+                ((int) columnLength),
                 isNullable,
                 defaultValue,
                 columnComment,
-                typeName,
+                sourceTypeName,
                 false,
                 false,
-                0L,
+                bitLen,
                 null,
-                columnLength);
+                longColumnLength);
     }
 
     private SeaTunnelDataType<?> fromJdbcType(String typeName, long precision, long scale) {

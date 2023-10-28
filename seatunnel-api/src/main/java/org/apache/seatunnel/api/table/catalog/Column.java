@@ -55,7 +55,10 @@ public abstract class Column implements Serializable {
 
     protected final String comment;
 
-    /** Field type in the database * */
+    /**
+     * Field type in the database For example : varchar is varchar(50),DECIMAL is DECIMAL(20,5) ,
+     * int is int Each database can customize the sourceType according to its own characteristics*
+     */
     protected final String sourceType;
 
     /** Unsigned bit * */
@@ -64,7 +67,13 @@ public abstract class Column implements Serializable {
     /** Whether to use the 0 bit * */
     protected final boolean isZeroFill;
 
-    /** Bit length * */
+    /**
+     * Bit length For different database byte types, it is possible to define the number of bits is
+     * not the same, so the byte types parameter is converted to bits according to the database at
+     * the time of construction, and then the bitLen is converted to the child end when the
+     * automatic table is builtinteger may be cross the border For example, Mysql has 8 bits of
+     * bytes: bitLen = bytesLen << 3
+     */
     protected final Long bitLen;
 
     /** integer may be cross the border * */

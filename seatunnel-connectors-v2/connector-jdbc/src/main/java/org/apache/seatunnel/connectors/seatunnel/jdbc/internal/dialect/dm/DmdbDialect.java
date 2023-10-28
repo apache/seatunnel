@@ -22,13 +22,24 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRow
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static java.lang.String.format;
+
 public class DmdbDialect implements JdbcDialect {
+
+    public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
+
+    public DmdbDialect(String fieldIde) {
+        this.fieldIde = fieldIde;
+    }
+
+    public DmdbDialect() {}
 
     @Override
     public String dialectName() {
@@ -85,6 +96,15 @@ public class DmdbDialect implements JdbcDialect {
                 Arrays.stream(fieldNames)
                         .map(fieldName -> "SOURCE." + quoteIdentifier(fieldName))
                         .collect(Collectors.joining(", "));
+        // If there is a schema in the sql of dm, an error will be reported.
+        // This is compatible with the case that the schema is written or not written in the conf
+        // configuration file
+        String databaseName =
+                database == null
+                        ? quoteIdentifier(tableName)
+                        : (tableName.contains(".")
+                                ? quoteIdentifier(tableName)
+                                : tableIdentifier(database, tableName));
         String upsertSQL =
                 String.format(
                         " MERGE INTO %s TARGET"
@@ -94,7 +114,7 @@ public class DmdbDialect implements JdbcDialect {
                                 + " UPDATE SET %s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s)",
-                        tableIdentifier(database, tableName),
+                        databaseName,
                         usingClause,
                         onConditions,
                         updateSetClause,
@@ -105,8 +125,45 @@ public class DmdbDialect implements JdbcDialect {
     }
 
     @Override
-    public String extractTableName(TablePath tablePath) {
-        return tablePath.getTableName();
+    public String getDeleteStatement(String database, String tableName, String[] conditionFields) {
+        String conditionClause =
+                Arrays.stream(conditionFields)
+                        .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
+                        .collect(Collectors.joining(" AND "));
+        String databaseName =
+                database == null
+                        ? quoteIdentifier(tableName)
+                        : (tableName.contains(".")
+                                ? quoteIdentifier(tableName)
+                                : tableIdentifier(database, tableName));
+
+        return String.format("DELETE FROM %s WHERE %s", databaseName, conditionClause);
+    }
+
+    // Compatibility Both database = mode and table-names = schema.tableName are configured
+    @Override
+    public String tableIdentifier(String database, String tableName) {
+        if (tableName.contains(".")) {
+            return quoteIdentifier(tableName);
+        }
+        return quoteDatabaseIdentifier(database) + "." + quoteIdentifier(tableName);
+    }
+
+    @Override
+    public String quoteIdentifier(String identifier) {
+        if (identifier.contains(".")) {
+            String[] parts = identifier.split("\\.");
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < parts.length - 1; i++) {
+                sb.append("\"").append(parts[i]).append("\"").append(".");
+            }
+            return sb.append("\"")
+                    .append(getFieldIde(parts[parts.length - 1], fieldIde))
+                    .append("\"")
+                    .toString();
+        }
+
+        return "\"" + getFieldIde(identifier, fieldIde) + "\"";
     }
 
     @Override
