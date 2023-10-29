@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -118,20 +115,6 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         this.offsetFactory = createOffsetFactory(readonlyConfig);
     }
 
-    @Override
-    public final void prepare(Config pluginConfig) throws PrepareFailException {
-        this.readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
-
-        this.startupConfig = getStartupConfig(readonlyConfig);
-        this.stopConfig = getStopConfig(readonlyConfig);
-        this.stopMode = stopConfig.getStopMode();
-        this.incrementalParallelism = readonlyConfig.get(SourceOptions.INCREMENTAL_PARALLELISM);
-        this.configFactory = createSourceConfigFactory(readonlyConfig);
-        this.dataSourceDialect = createDataSourceDialect(readonlyConfig);
-        this.deserializationSchema = createDebeziumDeserializationSchema(readonlyConfig);
-        this.offsetFactory = createOffsetFactory(readonlyConfig);
-    }
-
     protected StartupConfig getStartupConfig(ReadonlyConfig config) {
         return new StartupConfig(
                 config.get(getStartupModeOption()),
@@ -176,11 +159,6 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
     @Override
     public Boundedness getBoundedness() {
         return stopMode == StopMode.NEVER ? Boundedness.UNBOUNDED : Boundedness.BOUNDED;
-    }
-
-    @Override
-    public SeaTunnelDataType<T> getProducedType() {
-        return deserializationSchema.getProducedType();
     }
 
     @SuppressWarnings("MagicNumber")

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -49,8 +50,6 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -105,7 +104,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  geometrycollection geometry(GEOMETRYCOLLECTION, 4326),\n"
                     + "  geog geography(POINT, 4326),\n"
                     + "  json_col json NOT NULL,\n"
-                    + "  jsonb_col jsonb NOT NULL\n"
+                    + "  jsonb_col jsonb NOT NULL,\n"
+                    + "  xml_col xml NOT NULL\n"
                     + ")";
     private static final String PG_SINK_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_sink_table (\n"
@@ -138,7 +138,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    geometrycollection varchar(2000) NULL,\n"
                     + "    geog varchar(2000) NULL,\n"
                     + "    json_col json NOT NULL \n,"
-                    + "    jsonb_col jsonb NOT NULL\n"
+                    + "    jsonb_col jsonb NOT NULL,\n"
+                    + "    xml_col xml NOT NULL\n"
                     + "  )";
     private static final String SOURCE_SQL =
             "select \n"
@@ -171,7 +172,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "geometrycollection,\n"
                     + "geog,\n"
                     + "json_col,\n"
-                    + "jsonb_col\n"
+                    + "jsonb_col,\n"
+                    + " cast(xml_col as varchar) \n"
                     + "from pg_e2e_source_table";
     private static final String SINK_SQL =
             "select\n"
@@ -204,7 +206,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  cast(geometrycollection as geometry) as geometrycollection,\n"
                     + "  cast(geog as geography) as geog,\n"
                     + "   json_col,\n"
-                    + "   jsonb_col\n"
+                    + "   jsonb_col,\n"
+                    + "  cast(xml_col as varchar) \n"
                     + "from\n"
                     + "  pg_e2e_sink_table";
 
@@ -254,11 +257,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         for (String CONFIG_FILE : PG_CONFIG_FILE_LIST) {
             Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
             Assertions.assertEquals(0, execResult.getExitCode());
-            Assertions.assertTimeout(
-                    Duration.of(10, ChronoUnit.SECONDS),
-                    () ->
-                            Assertions.assertIterableEquals(
-                                    querySql(SOURCE_SQL), querySql(SINK_SQL)));
+            Assertions.assertIterableEquals(querySql(SOURCE_SQL), querySql(SINK_SQL));
             executeSQL("truncate table pg_e2e_sink_table");
             log.info(CONFIG_FILE + " e2e test completed");
         }
@@ -274,7 +273,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
 
         Catalog catalog =
                 new PostgresCatalog(
-                        "postgres",
+                        DatabaseIdentifier.POSTGRESQL,
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
@@ -338,7 +337,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    geometrycollection,\n"
                                 + "    geog,\n"
                                 + "    json_col,\n"
-                                + "    jsonb_col \n"
+                                + "    jsonb_col, \n"
+                                + "    xml_col \n"
                                 + "  )\n"
                                 + "VALUES\n"
                                 + "  (\n"
@@ -391,7 +391,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    ),\n"
                                 + "    ST_GeographyFromText('POINT(-122.3452 47.5925)'),\n"
                                 + "    '{\"key\":\"test\"}',\n"
-                                + "    '{\"key\":\"test\"}'\n"
+                                + "    '{\"key\":\"test\"}',\n"
+                                + "    '<XX:NewSize>test</XX:NewSize>'\n"
                                 + "  )");
             }
 

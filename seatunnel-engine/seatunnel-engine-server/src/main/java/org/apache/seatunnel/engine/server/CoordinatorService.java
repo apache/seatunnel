@@ -275,92 +275,37 @@ public class CoordinatorService {
                         metricsImap,
                         engineConfig);
 
-        // If Job Status is CANCELLING , set needRestore to false
         try {
-            jobMaster.init(
-                    runningJobInfoIMap.get(jobId).getInitializationTimestamp(),
-                    true,
-                    !JobStatus.CANCELLING.equals(jobStatus));
+            jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), true);
         } catch (Exception e) {
             throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
         }
 
         String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
-        if (jobStatus.isEndState()) {
-            logger.info(
-                    String.format(
-                            "The restore %s is in an end state %s, store the job info to JobHistory and clear the job running time info",
-                            jobFullName, jobStatus));
-            jobMaster.cleanJob();
-            return;
-        }
-
-        if (jobStatus.ordinal() < JobStatus.RUNNING.ordinal()) {
-            CompletableFuture.runAsync(
-                    () -> {
-                        logger.info(
-                                String.format(
-                                        "The restore %s is state %s, cancel job and submit it again.",
-                                        jobFullName, jobStatus));
-                        jobMaster.cancelJob();
-                        jobMaster.getJobMasterCompleteFuture().join();
-                        submitJob(jobId, jobInfo.getJobImmutableInformation()).join();
-                    },
-                    executorService);
-
-            return;
-        }
-
         runningJobMasterMap.put(jobId, jobMaster);
-        jobMaster.markRestore();
 
-        if (JobStatus.CANCELLING.equals(jobStatus)) {
-            logger.info(
-                    String.format(
-                            "The restore %s is in %s state, cancel the job",
-                            jobFullName, jobStatus));
-            CompletableFuture.runAsync(
-                    () -> {
-                        try {
-                            jobMaster.cancelJob();
-                            jobMaster.run();
-                        } finally {
-                            // voidCompletableFuture will be cancelled when zeta master node
-                            // shutdown to simulate master failure,
-                            // don't update runningJobMasterMap is this case.
-                            if (!jobMaster.getJobMasterCompleteFuture().isCancelled()) {
-                                runningJobMasterMap.remove(jobId);
-                            }
+        logger.info(
+                String.format(
+                        "The restore %s is in %s state, restore pipeline and take over this job running",
+                        jobFullName, jobStatus));
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        jobMaster
+                                .getPhysicalPlan()
+                                .getPipelineList()
+                                .forEach(SubPlan::restorePipelineState);
+                        jobMaster.run();
+                    } finally {
+                        // voidCompletableFuture will be cancelled when zeta master node
+                        // shutdown to simulate master failure,
+                        // don't update runningJobMasterMap is this case.
+                        if (!jobMaster.getJobMasterCompleteFuture().isCompletedExceptionally()) {
+                            runningJobMasterMap.remove(jobId);
                         }
-                    },
-                    executorService);
-            return;
-        }
-
-        if (JobStatus.RUNNING.equals(jobStatus)) {
-            logger.info(
-                    String.format(
-                            "The restore %s is in %s state, restore pipeline and take over this job running",
-                            jobFullName, jobStatus));
-            CompletableFuture.runAsync(
-                    () -> {
-                        try {
-                            jobMaster
-                                    .getPhysicalPlan()
-                                    .getPipelineList()
-                                    .forEach(SubPlan::restorePipelineState);
-                            jobMaster.run();
-                        } finally {
-                            // voidCompletableFuture will be cancelled when zeta master node
-                            // shutdown to simulate master failure,
-                            // don't update runningJobMasterMap is this case.
-                            if (!jobMaster.getJobMasterCompleteFuture().isCancelled()) {
-                                runningJobMasterMap.remove(jobId);
-                            }
-                        }
-                    },
-                    executorService);
-        }
+                    }
+                },
+                executorService);
     }
 
     private void checkNewActiveMaster() {
@@ -390,10 +335,11 @@ public class CoordinatorService {
         }
     }
 
-    private void clearCoordinatorService() {
+    public synchronized void clearCoordinatorService() {
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
         executorService.shutdownNow();
+        runningJobMasterMap.clear();
 
         try {
             executorService.awaitTermination(20, TimeUnit.SECONDS);
@@ -457,9 +403,7 @@ public class CoordinatorService {
                                 new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
                         runningJobMasterMap.put(jobId, jobMaster);
                         jobMaster.init(
-                                runningJobInfoIMap.get(jobId).getInitializationTimestamp(),
-                                false,
-                                true);
+                                runningJobInfoIMap.get(jobId).getInitializationTimestamp(), false);
                         // We specify that when init is complete, the submitJob is complete
                         jobSubmitFuture.complete(null);
                     } catch (Throwable e) {
@@ -552,7 +496,11 @@ public class CoordinatorService {
             JobHistoryService.JobState jobDetailState = jobHistoryService.getJobDetailState(jobId);
             return null == jobDetailState ? JobStatus.UNKNOWABLE : jobDetailState.getJobStatus();
         }
-        return runningJobMaster.getJobStatus();
+        JobStatus jobStatus = runningJobMaster.getJobStatus();
+        if (jobStatus == null) {
+            return jobHistoryService.getFinishedJobStateImap().get(jobId).getJobStatus();
+        }
+        return jobStatus;
     }
 
     public JobMetrics getJobMetrics(long jobId) {
@@ -690,7 +638,7 @@ public class CoordinatorService {
                                     || executionState.equals(ExecutionState.RUNNING)
                                     || executionState.equals(ExecutionState.CANCELING))) {
                         TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
-                        physicalVertex.updateTaskExecutionState(
+                        physicalVertex.updateStateByExecutionService(
                                 new TaskExecutionState(
                                         taskGroupLocation,
                                         ExecutionState.FAILED,
@@ -743,9 +691,6 @@ public class CoordinatorService {
         AtomicLong cancellingJobCount = new AtomicLong();
         AtomicLong canceledJobCount = new AtomicLong();
         AtomicLong finishedJobCount = new AtomicLong();
-        AtomicLong restartingJobCount = new AtomicLong();
-        AtomicLong suspendedJobCount = new AtomicLong();
-        AtomicLong reconcilingJobCount = new AtomicLong();
 
         if (runningJobInfoIMap != null) {
             runningJobInfoIMap
@@ -771,7 +716,7 @@ public class CoordinatorService {
                                         case FAILED:
                                             failedJobCount.addAndGet(1);
                                             break;
-                                        case CANCELLING:
+                                        case CANCELING:
                                             cancellingJobCount.addAndGet(1);
                                             break;
                                         case CANCELED:
@@ -779,15 +724,6 @@ public class CoordinatorService {
                                             break;
                                         case FINISHED:
                                             finishedJobCount.addAndGet(1);
-                                            break;
-                                        case RESTARTING:
-                                            restartingJobCount.addAndGet(1);
-                                            break;
-                                        case SUSPENDED:
-                                            suspendedJobCount.addAndGet(1);
-                                            break;
-                                        case RECONCILING:
-                                            reconcilingJobCount.addAndGet(1);
                                             break;
                                         default:
                                     }
@@ -813,12 +749,6 @@ public class CoordinatorService {
                         "canceledJobCount",
                         canceledJobCount,
                         "finishedJobCount",
-                        finishedJobCount,
-                        "restartingJobCount",
-                        restartingJobCount,
-                        "suspendedJobCount",
-                        suspendedJobCount,
-                        "reconcilingJobCount",
-                        reconcilingJobCount));
+                        finishedJobCount));
     }
 }

@@ -18,10 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.phoenix;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 public class PhoenixJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
-        return "Phoenix";
+        return DatabaseIdentifier.PHOENIX;
     }
 }

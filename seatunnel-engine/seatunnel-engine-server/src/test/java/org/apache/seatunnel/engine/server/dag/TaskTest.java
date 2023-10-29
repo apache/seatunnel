@@ -22,6 +22,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
@@ -53,6 +56,7 @@ import com.hazelcast.map.IMap;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.concurrent.Executors;
 
 public class TaskTest extends AbstractSeaTunnelServerTest {
@@ -110,7 +114,11 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                 new SinkAction<>(
                         idGenerator.getNextId(),
                         "console",
-                        new ConsoleSink(),
+                        new ConsoleSink(
+                                new SeaTunnelRowType(
+                                        new String[] {"id"},
+                                        new SeaTunnelDataType<?>[] {BasicType.INT_TYPE}),
+                                ReadonlyConfig.fromMap(new HashMap<>())),
                         Sets.newHashSet(new URL("file:///console.jar")));
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 2);
 
@@ -165,8 +173,6 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                                 "schema",
                                 Collections.singletonMap(
                                         "fields", ImmutableMap.of("id", "int", "name", "string"))));
-        FakeSource fakeSource = new FakeSource(ReadonlyConfig.fromConfig(fakeSourceConfig));
-        fakeSource.prepare(fakeSourceConfig);
-        return fakeSource;
+        return new FakeSource(ReadonlyConfig.fromConfig(fakeSourceConfig));
     }
 }
