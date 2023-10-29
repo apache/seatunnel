@@ -25,9 +25,9 @@ import org.testcontainers.containers.Container;
 public class TestJsonPathTransformIT extends TestSuiteBase {
 
     @TestTemplate
-    public void testJsonPath(TestContainer container) throws Exception {
+    public void testBasicType(TestContainer container) throws Exception {
         Container.ExecResult execResult =
-                container.executeJob("/json_path_transform/json_path_transform.conf");
+                container.executeJob("/json_path_transform/json_path_basic_type_test.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 

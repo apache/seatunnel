@@ -36,7 +36,7 @@ public class JsonPathTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(JsonPathTransformConfig.FIELDS).build();
+        return OptionRule.builder().required(JsonPathTransformConfig.COLUMNS).build();
     }
 
     @Override

@@ -16,19 +16,25 @@
  */
 package org.apache.seatunnel.transform.jsonpath;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+
 import java.io.Serializable;
 
-public class FiledConfig implements Serializable {
+public class ColumnConfig implements Serializable {
     private final String path;
 
     private final String srcField;
 
     private final String destField;
 
-    public FiledConfig(String path, String srcField, String destField) {
+    private final SeaTunnelDataType<?> dataType;
+
+    public ColumnConfig(
+            String path, String srcField, String destField, SeaTunnelDataType<?> dataType) {
         this.path = path;
         this.srcField = srcField;
         this.destField = destField;
+        this.dataType = dataType;
     }
 
     public String getPath() {
@@ -41,5 +47,9 @@ public class FiledConfig implements Serializable {
 
     public String getDestField() {
         return destField;
+    }
+
+    public SeaTunnelDataType<?> getDataType() {
+        return dataType;
     }
 }

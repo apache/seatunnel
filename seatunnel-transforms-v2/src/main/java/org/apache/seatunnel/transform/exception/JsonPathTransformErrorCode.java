@@ -19,16 +19,20 @@ package org.apache.seatunnel.transform.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum JsonPathTransformErrorCode implements SeaTunnelErrorCode {
-    FIELDS_MUST_NOT_EMPTY(
-            "JSONPATH_ERROR_CODE-01", "JsonPathTransform config fields must not empty"),
-    INPUT_FIELD_NOT_FOUND("JSONPATH_ERROR_CODE-02", "JsonPathTransform config src_field not found"),
+    COLUMNS_MUST_NOT_EMPTY(
+            "JSONPATH_ERROR_CODE-01", "JsonPathTransform config columns must not empty"),
+    SRC_FIELD_MUST_NOT_EMPTY(
+            "JSONPATH_ERROR_CODE-02", "JsonPathTransform src_field must not empty"),
     PATH_MUST_NOT_EMPTY(
             "JSONPATH_ERROR_CODE-03", "JsonPathTransform config field path must not empty"),
-    SRC_FIELD_MUST_NOT_EMPTY(
-            "JSONPATH_ERROR_CODE-04", "JsonPathTransform src_field must not empty"),
     DEST_FIELD_MUST_NOT_EMPTY(
-            "JSONPATH_ERROR_CODE-05", "JsonPathTransform dest_field path must not empty"),
-    JSON_PATH_COMPILE_ERROR("JSONPATH_ERROR_CODE-06", "JsonPathTransform path is invalid"),
+            "JSONPATH_ERROR_CODE-04", "JsonPathTransform dest_field must not empty"),
+
+    JSON_PATH_COMPILE_ERROR("JSONPATH_ERROR_CODE-05", "JsonPathTransform path is invalid"),
+    DEST_TYPE_MUST_NOT_EMPTY(
+            "JSONPATH_ERROR_CODE-06", "JsonPathTransform dest_type must not empty"),
+    SRC_FIELD_NOT_FOUND(
+            "JSONPATH_ERROR_CODE-02", "JsonPathTransform src_field not found in source"),
     ;
     private final String code;
     private final String description;

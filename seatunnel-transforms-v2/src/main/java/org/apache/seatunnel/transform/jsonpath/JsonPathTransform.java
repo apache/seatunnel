@@ -16,21 +16,20 @@
  */
 package org.apache.seatunnel.transform.jsonpath;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.format.json.JsonToRowConverters;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.exception.TransformException;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.JsonPathException;
 import lombok.extern.slf4j.Slf4j;
@@ -41,35 +40,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.IntFunction;
-import java.util.stream.IntStream;
 
-import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode.INPUT_FIELD_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode.JSON_PATH_COMPILE_ERROR;
+import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode.SRC_FIELD_NOT_FOUND;
 
 @Slf4j
 public class JsonPathTransform extends MultipleFieldOutputTransform {
 
     public static final String PLUGIN_NAME = "JsonPath";
+    private static final Map<String, JsonPath> JSON_PATH_CACHE = new ConcurrentHashMap<>();
     private final JsonPathTransformConfig config;
     private final SeaTunnelRowType seaTunnelRowType;
 
-    private String[] outputFieldNames;
-
-    private SeaTunnelDataType[] dataTypes;
+    private JsonToRowConverters.JsonToRowConverter[] converters;
+    private SeaTunnelRowType outputSeaTunnelRowType;
 
     private int[] srcFieldIndexArr;
-
-    private static final Map<String, JsonPath> JSON_PATH_CACHE = new ConcurrentHashMap<>();
-
-    private static final ObjectMapper OBJECT_MAPPER =
-            new ObjectMapper().registerModule(new JavaTimeModule());
 
     public JsonPathTransform(JsonPathTransformConfig config, CatalogTable catalogTable) {
         super(catalogTable);
         this.config = config;
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
-        initOutputFields();
+        init();
     }
 
     @Override
@@ -77,41 +69,57 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
         return PLUGIN_NAME;
     }
 
-    private void initOutputFields() {
+    private void init() {
 
-        if (outputFieldNames != null || dataTypes != null || srcFieldIndexArr != null) {
-            return;
-        }
+        initSrcFieldIndexArr();
+        initOutputSeaTunnelRowType();
+        initConverters();
+    }
 
-        List<FiledConfig> filedConfigs = this.config.getFiledConfigs();
+    private void initConverters() {
+        JsonToRowConverters jsonToRowConverters = new JsonToRowConverters(false, false);
+        this.converters =
+                this.config.getColumnConfigs().stream()
+                        .map(ColumnConfig::getDataType)
+                        .map(jsonToRowConverters::createConverter)
+                        .toArray(JsonToRowConverters.JsonToRowConverter[]::new);
+    }
 
-        String[] fieldNames = seaTunnelRowType.getFieldNames();
-        Set<String> fieldNameSet = new HashSet<>(Arrays.asList(fieldNames));
-        this.outputFieldNames = new String[filedConfigs.size()];
-        this.dataTypes = new SeaTunnelDataType[outputFieldNames.length];
-        this.srcFieldIndexArr = new int[outputFieldNames.length];
+    private void initOutputSeaTunnelRowType() {
 
-        for (int i = 0; i < filedConfigs.size(); i++) {
-            FiledConfig filedConfig = filedConfigs.get(i);
-            String srcField = filedConfig.getSrcField();
+        SeaTunnelDataType<?>[] dataTypes =
+                this.config.getColumnConfigs().stream()
+                        .map(ColumnConfig::getDataType)
+                        .toArray(SeaTunnelDataType<?>[]::new);
+        this.outputSeaTunnelRowType =
+                new SeaTunnelRowType(
+                        this.config.getColumnConfigs().stream()
+                                .map(ColumnConfig::getDestField)
+                                .toArray(String[]::new),
+                        dataTypes);
+    }
+
+    private void initSrcFieldIndexArr() {
+        List<ColumnConfig> columnConfigs = this.config.getColumnConfigs();
+        Set<String> fieldNameSet = new HashSet<>(Arrays.asList(seaTunnelRowType.getFieldNames()));
+        this.srcFieldIndexArr = new int[columnConfigs.size()];
+
+        for (int i = 0; i < columnConfigs.size(); i++) {
+            ColumnConfig columnConfig = columnConfigs.get(i);
+            String srcField = columnConfig.getSrcField();
             if (!fieldNameSet.contains(srcField)) {
                 throw new TransformException(
-                        INPUT_FIELD_NOT_FOUND,
+                        SRC_FIELD_NOT_FOUND,
                         String.format(
                                 "JsonPathTransform config not found src_field:[%s]", srcField));
             }
-            this.outputFieldNames[i] = filedConfig.getDestField();
             this.srcFieldIndexArr[i] = seaTunnelRowType.indexOf(srcField);
         }
-        this.dataTypes =
-                IntStream.range(0, filedConfigs.size())
-                        .mapToObj((IntFunction<SeaTunnelDataType>) value -> BasicType.STRING_TYPE)
-                        .toArray(value -> new SeaTunnelDataType[value]);
     }
 
     @Override
     protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
-        List<FiledConfig> configs = this.config.getFiledConfigs();
+        List<ColumnConfig> configs = this.config.getColumnConfigs();
         int size = configs.size();
         Object[] fieldValues = new Object[size];
         for (int i = 0; i < size; i++) {
@@ -120,19 +128,24 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
                     doTransform(
                             seaTunnelRowType.getFieldType(pos),
                             inputRow.getField(pos),
-                            configs.get(i));
+                            configs.get(i),
+                            converters[i]);
         }
         return fieldValues;
     }
 
-    private Object doTransform(SeaTunnelDataType dataType, Object value, FiledConfig filedConfig) {
+    private Object doTransform(
+            SeaTunnelDataType<?> inputDataType,
+            Object value,
+            ColumnConfig columnConfig,
+            JsonToRowConverters.JsonToRowConverter converter) {
         if (value == null) {
             return null;
         }
-        JSON_PATH_CACHE.computeIfAbsent(filedConfig.getPath(), JsonPath::compile);
+        JSON_PATH_CACHE.computeIfAbsent(columnConfig.getPath(), JsonPath::compile);
         String jsonString = "";
         try {
-            switch (dataType.getSqlType()) {
+            switch (inputDataType.getSqlType()) {
                 case STRING:
                     jsonString = value.toString();
                     break;
@@ -141,24 +154,20 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
                     break;
                 case ARRAY:
                 case MAP:
-                    jsonString = OBJECT_MAPPER.writeValueAsString(value);
+                    jsonString = JsonUtils.toJsonString(value);
                     break;
                 case ROW:
                     SeaTunnelRow row = (SeaTunnelRow) value;
-                    jsonString = OBJECT_MAPPER.writeValueAsString(row.getFields());
+                    jsonString = JsonUtils.toJsonString(row.getFields());
                     break;
                 default:
                     throw new UnsupportedOperationException(
-                            "JsonPathTransform unsupported type: " + dataType.getSqlType());
+                            "JsonPathTransform unsupported sourceDataType: "
+                                    + inputDataType.getSqlType());
             }
-            Object parseResult = JSON_PATH_CACHE.get(filedConfig.getPath()).read(jsonString);
-            if (parseResult instanceof String) {
-                return parseResult;
-            } else {
-                return String.valueOf(parseResult);
-            }
-        } catch (JsonProcessingException e) {
-            throw new TransformException(CommonErrorCode.JSON_OPERATION_FAILED, e.getMessage());
+            Object result = JSON_PATH_CACHE.get(columnConfig.getPath()).read(jsonString);
+            JsonNode jsonNode = JsonUtils.toJsonNode(result);
+            return converter.convert(jsonNode);
         } catch (JsonPathException e) {
             throw new TransformException(JSON_PATH_COMPILE_ERROR, e.getMessage());
         }
@@ -166,8 +175,13 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
 
     @Override
     protected Column[] getOutputColumns() {
-        return Arrays.stream(this.outputFieldNames)
-                .map(field -> PhysicalColumn.of(field, BasicType.STRING_TYPE, 200, true, "", ""))
-                .toArray(Column[]::new);
+        int len = this.outputSeaTunnelRowType.getTotalFields();
+        Column[] columns = new Column[len];
+        for (int i = 0; i < len; i++) {
+            String fieldName = this.outputSeaTunnelRowType.getFieldName(i);
+            SeaTunnelDataType<?> fieldType = this.outputSeaTunnelRowType.getFieldType(i);
+            columns[i] = PhysicalColumn.of(fieldName, fieldType, 200, true, "", "");
+        }
+        return columns;
     }
 }
