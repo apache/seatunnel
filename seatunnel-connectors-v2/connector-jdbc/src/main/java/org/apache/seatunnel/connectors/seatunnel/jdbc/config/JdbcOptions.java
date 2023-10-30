@@ -188,7 +188,7 @@ public interface JdbcOptions {
                     .stringType()
                     .defaultValue("/etc/krb5.conf")
                     .withDescription(
-                            "When use kerberos, we should set krb5 path file path such as '/etc/krb5.conf'. ");
+                            "When use kerberos, we should set krb5 path file path such as '/seatunnel/krb5.conf' or use the default path '/etc/krb5.conf");
 
     Option<Map<String, String>> PROPERTIES =
             Options.key("properties")
