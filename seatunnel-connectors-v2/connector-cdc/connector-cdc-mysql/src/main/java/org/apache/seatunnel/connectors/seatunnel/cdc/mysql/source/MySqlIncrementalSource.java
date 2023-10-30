@@ -50,6 +50,7 @@ import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
 
 import java.time.ZoneId;
+import java.util.List;
 
 @NoArgsConstructor
 @AutoService(SeaTunnelSource.class)
@@ -58,8 +59,10 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     static final String IDENTIFIER = "MySQL-CDC";
 
     public MySqlIncrementalSource(
-            ReadonlyConfig options, SeaTunnelDataType<SeaTunnelRow> dataType) {
-        super(options, dataType);
+            ReadonlyConfig options,
+            SeaTunnelDataType<SeaTunnelRow> dataType,
+            List<CatalogTable> catalogTables) {
+        super(options, dataType, catalogTables);
     }
 
     @Override

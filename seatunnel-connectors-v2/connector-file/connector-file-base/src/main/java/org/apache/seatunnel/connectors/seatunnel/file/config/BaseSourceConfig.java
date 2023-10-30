@@ -119,4 +119,10 @@ public class BaseSourceConfig {
                     .noDefaultValue()
                     .withDescription(
                             "File pattern. The connector will filter some files base on the pattern.");
+
+    public static final Option<CompressFormat> COMPRESS_CODEC =
+            Options.key("compress_codec")
+                    .enumType(CompressFormat.class)
+                    .defaultValue(CompressFormat.NONE)
+                    .withDescription("Compression codec");
 }

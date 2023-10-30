@@ -20,8 +20,8 @@ package org.apache.seatunnel.engine.e2e;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -71,7 +71,7 @@ public class TelemetryApiIT {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(testClusterName);
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv =
+        ClientJobExecutionEnvironment jobExecutionEnv =
                 engineClient.createExecutionContext(filePath, jobConfig);
 
         clientJobProxy = jobExecutionEnv.execute();
@@ -176,16 +176,6 @@ public class TelemetryApiIT {
                                 "job_count{cluster=\""
                                         + testClusterName
                                         + "\",type=\"finished\",} 0.0"))
-                .body(
-                        containsString(
-                                "job_count{cluster=\""
-                                        + testClusterName
-                                        + "\",type=\"reconciling\",} 0.0"))
-                .body(
-                        containsString(
-                                "job_count{cluster=\""
-                                        + testClusterName
-                                        + "\",type=\"restarting\",} 0.0"))
                 // Running job count is 1
                 .body(
                         containsString(
@@ -197,11 +187,6 @@ public class TelemetryApiIT {
                                 "job_count{cluster=\""
                                         + testClusterName
                                         + "\",type=\"scheduled\",} 0.0"))
-                .body(
-                        containsString(
-                                "job_count{cluster=\""
-                                        + testClusterName
-                                        + "\",type=\"suspended\",} 0.0"))
                 // Node
                 .body(
                         matchesRegex(

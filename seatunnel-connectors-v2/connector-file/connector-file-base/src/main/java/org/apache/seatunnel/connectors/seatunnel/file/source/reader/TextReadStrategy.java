@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
@@ -39,12 +40,17 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import io.airlift.compress.lzo.LzopCodec;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+@Slf4j
 public class TextReadStrategy extends AbstractReadStrategy {
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private String fieldDelimiter = BaseSourceConfig.DELIMITER.defaultValue();
@@ -52,6 +58,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
     private DateTimeUtils.Formatter datetimeFormat =
             BaseSourceConfig.DATETIME_FORMAT.defaultValue();
     private TimeUtils.Formatter timeFormat = BaseSourceConfig.TIME_FORMAT.defaultValue();
+    private CompressFormat compressFormat = BaseSourceConfig.COMPRESS_CODEC.defaultValue();
     private int[] indexes;
 
     @Override
@@ -61,9 +68,25 @@ public class TextReadStrategy extends AbstractReadStrategy {
         FileSystem fs = FileSystem.get(conf);
         Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
+        InputStream inputStream;
+        switch (compressFormat) {
+            case LZO:
+                LzopCodec lzo = new LzopCodec();
+                inputStream = lzo.createInputStream(fs.open(filePath));
+                break;
+            case NONE:
+                inputStream = fs.open(filePath);
+                break;
+            default:
+                log.warn(
+                        "Text file does not support this compress type: {}",
+                        compressFormat.getCompressCodec());
+                inputStream = fs.open(filePath);
+                break;
+        }
+
         try (BufferedReader reader =
-                new BufferedReader(
-                        new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
+                new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
             reader.lines()
                     .skip(skipHeaderNumber)
                     .forEach(
@@ -199,6 +222,10 @@ public class TextReadStrategy extends AbstractReadStrategy {
             timeFormat =
                     TimeUtils.Formatter.parse(
                             pluginConfig.getString(BaseSourceConfig.TIME_FORMAT.key()));
+        }
+        if (pluginConfig.hasPath(BaseSourceConfig.COMPRESS_CODEC.key())) {
+            String compressCodec = pluginConfig.getString(BaseSourceConfig.COMPRESS_CODEC.key());
+            compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
     }
 }

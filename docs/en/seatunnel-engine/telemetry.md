@@ -62,9 +62,9 @@ Note: All metrics both have the same labelName `cluster`, that's value is the co
 
 ### Job info detail
 
-| MetricName | Type  |                                                                               Labels                                                                               |             DESCRIPTION             |
-|------------|-------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------|
-| job_count  | Gauge | **type**, the type of job, including: "canceled" "cancelling" "created" "failed" "failing" "finished" "reconciling" "restarting" "running" "scheduled" "suspended" | All job counts of seatunnel cluster |
+| MetricName | Type  |                                                           Labels                                                            |             DESCRIPTION             |
+|------------|-------|-----------------------------------------------------------------------------------------------------------------------------|-------------------------------------|
+| job_count  | Gauge | **type**, the type of job, including: "canceled" "cancelling" "created" "failed" "failing" "finished" "running" "scheduled" | All job counts of seatunnel cluster |
 
 ### JVM Metrics
 

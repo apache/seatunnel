@@ -54,15 +54,9 @@ public class JobMetricExports extends AbstractCollector {
             metricFamily.addMetric(labelValues("failed"), jobCountMetrics.getFailedJobCount());
             metricFamily.addMetric(labelValues("failing"), jobCountMetrics.getFailingJobCount());
             metricFamily.addMetric(labelValues("finished"), jobCountMetrics.getFinishedJobCount());
-            metricFamily.addMetric(
-                    labelValues("reconciling"), jobCountMetrics.getReconcilingJobCount());
-            metricFamily.addMetric(
-                    labelValues("restarting"), jobCountMetrics.getRestartingJobCount());
             metricFamily.addMetric(labelValues("running"), jobCountMetrics.getRunningJobCount());
             metricFamily.addMetric(
                     labelValues("scheduled"), jobCountMetrics.getScheduledJobCount());
-            metricFamily.addMetric(
-                    labelValues("suspended"), jobCountMetrics.getSuspendedJobCount());
 
             mfs.add(metricFamily);
         }

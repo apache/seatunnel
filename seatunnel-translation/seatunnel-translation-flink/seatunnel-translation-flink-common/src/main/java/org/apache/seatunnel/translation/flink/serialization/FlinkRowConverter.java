@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.flink.serialization;
 
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -28,6 +29,8 @@ import org.apache.flink.types.Row;
 import org.apache.flink.types.RowKind;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -68,6 +71,15 @@ public class FlinkRowConverter extends RowConverter<Row> {
             case MAP:
                 return convertMap(
                         (Map<?, ?>) field, (MapType<?, ?>) dataType, FlinkRowConverter::convert);
+
+                /**
+                 * To solve lost precision and scale of {@link
+                 * org.apache.seatunnel.api.table.type.DecimalType}, use {@link java.lang.String} as
+                 * the convert result of {@link java.math.BigDecimal} instance.
+                 */
+            case DECIMAL:
+                BigDecimal decimal = (BigDecimal) field;
+                return decimal.toString();
             default:
                 return field;
         }
@@ -122,6 +134,18 @@ public class FlinkRowConverter extends RowConverter<Row> {
             case MAP:
                 return convertMap(
                         (Map<?, ?>) field, (MapType<?, ?>) dataType, FlinkRowConverter::reconvert);
+
+                /**
+                 * To solve lost precision and scale of {@link
+                 * org.apache.seatunnel.api.table.type.DecimalType}, create {@link
+                 * java.math.BigDecimal} instance from {@link java.lang.String} type field.
+                 */
+            case DECIMAL:
+                DecimalType decimalType = (DecimalType) dataType;
+                String decimalData = (String) field;
+                BigDecimal decimal = new BigDecimal(decimalData);
+                decimal.setScale(decimalType.getScale(), RoundingMode.HALF_UP);
+                return decimal;
             default:
                 return field;
         }

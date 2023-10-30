@@ -207,7 +207,13 @@ public class JdbcDb2IT extends AbstractJdbcIT {
         try (Statement statement = connection.createStatement()) {
             String truncate = String.format("delete from \"%s\".%s where 1=1;", schema, table);
             statement.execute(truncate);
+            connection.commit();
         } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException exception) {
+                throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, exception);
+            }
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, e);
         }
     }

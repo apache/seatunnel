@@ -31,7 +31,4 @@ public class JobCounter {
     private long cancellingJobCount;
     private long canceledJobCount;
     private long finishedJobCount;
-    private long restartingJobCount;
-    private long suspendedJobCount;
-    private long reconcilingJobCount;
 }

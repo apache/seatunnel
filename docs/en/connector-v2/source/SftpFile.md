@@ -48,6 +48,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | common-options            |         | no       | -                   |
 | sheet_name                | string  | no       | -                   |
 | file_filter_pattern       | string  | no       | -                   |
+| compress_codec            | string  | no       | none                |
 
 ### host [string]
 
@@ -230,6 +231,16 @@ Reader the sheet of the workbook,Only used when file_format_type is excel.
 ### file_filter_pattern [string]
 
 Filter pattern, which used for filtering files.
+
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc/parquet:  
+  automatically recognizes the compression type, no additional settings required.
 
 ## Example
 

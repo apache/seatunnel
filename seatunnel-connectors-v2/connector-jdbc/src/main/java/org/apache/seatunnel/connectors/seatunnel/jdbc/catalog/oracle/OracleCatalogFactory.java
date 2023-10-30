@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
 
@@ -35,7 +36,7 @@ public class OracleCatalogFactory implements CatalogFactory {
 
     @Override
     public String factoryIdentifier() {
-        return "Oracle";
+        return DatabaseIdentifier.ORACLE;
     }
 
     @Override

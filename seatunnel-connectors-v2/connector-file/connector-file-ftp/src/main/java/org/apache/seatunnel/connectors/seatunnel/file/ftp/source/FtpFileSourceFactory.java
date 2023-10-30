@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.ftp.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
@@ -55,12 +55,13 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                         BaseSourceConfig.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
-                        CatalogTableUtil.SCHEMA)
+                        TableSchemaOptions.SCHEMA)
                 .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
                 .optional(BaseSourceConfig.DATE_FORMAT)
                 .optional(BaseSourceConfig.DATETIME_FORMAT)
                 .optional(BaseSourceConfig.TIME_FORMAT)
                 .optional(BaseSourceConfig.FILE_FILTER_PATTERN)
+                .optional(BaseSourceConfig.COMPRESS_CODEC)
                 .build();
     }
 

@@ -298,6 +298,12 @@ http://spark.apache.org/docs/latest/configuration.html#configuring-logging
 
 https://medium.com/@iacomini.riccardo/spark-logging-configuration-in-yarn-faf5ba5fdb01
 
+## How do I configure logging related parameters of SeaTunnel-E2E Test?
+
+The log4j configuration file of `seatunnel-e2e` existed in `seatunnel-e2e/seatunnel-e2e-common/src/test/resources/log4j2.properties`. You can modify logging related parameters directly in the configuration file.
+
+For example, if you want to output more detailed logs of E2E Test, just downgrade `rootLogger.level` in the configuration file.
+
 ## Error when writing to ClickHouse: ClassCastException
 
 In SeaTunnel, the data type will not be actively converted. After the Input reads the data, the corresponding
