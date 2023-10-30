@@ -64,8 +64,10 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
     /**
      * Get the data type of the records consumed by this sink.
      *
+     * @deprecated instead by {@link org.apache.seatunnel.api.table.factory.Factory}
      * @return SeaTunnel data type.
      */
+    @Deprecated
     SeaTunnelDataType<IN> getConsumedType();
 
     /**
