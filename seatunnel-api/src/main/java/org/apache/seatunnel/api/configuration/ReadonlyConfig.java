@@ -105,8 +105,8 @@ public class ReadonlyConfig implements Serializable {
                 if (value != null) {
                     log.warn(
                             "Please use the new key '{}' instead of the deprecated key '{}'.",
-                            fallbackKey,
-                            option.key());
+                            option.key(),
+                            fallbackKey);
                     break;
                 }
             }
