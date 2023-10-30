@@ -144,7 +144,13 @@ jobs:
           modules=`python tools/update_modules_check/update_modules_check.py cv2 "$update_files"`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
-
+      - name: install k8s
+        id: k8s
+        run: |
+          curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE=777 sh -
+          cat /etc/rancher/k3s/k3s.yaml
+          mkdir -p ~/.kube
+          cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
       - name: Check Connector V2 E2E Update
         id: cv2-e2e-modules
         if: ${{ steps.filter.outputs.cv2-e2e == 'true' }}
