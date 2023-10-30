@@ -184,7 +184,7 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        container.executeJob("/mysqlcdc_to_mysql_with_multi_table.conf");
+                        container.executeJob("/mysqlcdc_to_mysql_with_multi_table_mode_two_table.conf");
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -221,6 +221,88 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                                                                 getSourceQuerySQL(
                                                                         MYSQL_DATABASE2,
                                                                         SOURCE_TABLE_2)))));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason = "Currently SPARK and FLINK do not support multi table")
+    public void testMultiTableWithRestore(TestContainer container) {
+        // Clear related content to ensure that multiple operations are not affected
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_2);
+        clearTable(MYSQL_DATABASE2, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE2, SOURCE_TABLE_2);
+
+        CompletableFuture.supplyAsync(
+            () -> {
+                try {
+                    container.executeJob("/mysqlcdc_to_mysql_with_multi_table_mode_one_table.conf");
+                } catch (Exception e) {
+                    log.error("Commit task exception :" + e.getMessage());
+                    throw new RuntimeException(e);
+                }
+                return null;
+            });
+
+        // insert update delete
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+            .untilAsserted(
+                () ->
+                    Assertions.assertAll(
+                        () ->
+                            Assertions.assertIterableEquals(
+                                query(
+                                    getSourceQuerySQL(
+                                        MYSQL_DATABASE,
+                                        SOURCE_TABLE_1)),
+                                query(
+                                    getSourceQuerySQL(
+                                        MYSQL_DATABASE2,
+                                        SOURCE_TABLE_1)))));
+
+        CompletableFuture.supplyAsync(
+            () -> {
+                try {
+                    container.executeJob("/mysqlcdc_to_mysql_with_multi_table_mode_two_table.conf");
+                } catch (Exception e) {
+                    log.error("Commit task exception :" + e.getMessage());
+                    throw new RuntimeException(e);
+                }
+                return null;
+            });
+
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_2);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+            .untilAsserted(
+                () ->
+                    Assertions.assertAll(
+                        () ->
+                            Assertions.assertIterableEquals(
+                                query(
+                                    getSourceQuerySQL(
+                                        MYSQL_DATABASE,
+                                        SOURCE_TABLE_1)),
+                                query(
+                                    getSourceQuerySQL(
+                                        MYSQL_DATABASE2,
+                                        SOURCE_TABLE_1))),
+                        () ->
+                            Assertions.assertIterableEquals(
+                                query(
+                                    getSourceQuerySQL(
+                                        MYSQL_DATABASE,
+                                        SOURCE_TABLE_2)),
+                                query(
+                                    getSourceQuerySQL(
+                                        MYSQL_DATABASE2,
+                                        SOURCE_TABLE_2)))));
     }
 
     private Connection getJdbcConnection() throws SQLException {
