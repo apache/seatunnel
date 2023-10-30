@@ -91,7 +91,9 @@ Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For ex
 
 > EXEC xp_servicecontrol N'querystate', N'SQLServerAGENT'; <br/>
 > If the result is running, prove that it is enabled. Otherwise, you need to manually enable it
-> 2. Enable the CDC Agent
+
+2.Enable the CDC Agent
+
 > /opt/mssql/bin/mssql-conf setup
 
 3. The result is as follows
