@@ -94,21 +94,21 @@ public class MultiTableSink
                 int index = context.getIndexOfSubtask() * replicaNum + i;
                 SinkIdentifier sinkIdentifier = SinkIdentifier.of(tableIdentifier, index);
                 List<?> state =
-                    states.stream()
-                        .map(
-                            multiTableState ->
-                                multiTableState.getStates().get(sinkIdentifier))
-                        .filter(Objects::nonNull)
-                        .flatMap(Collection::stream)
-                        .collect(Collectors.toList());
+                        states.stream()
+                                .map(
+                                        multiTableState ->
+                                                multiTableState.getStates().get(sinkIdentifier))
+                                .filter(Objects::nonNull)
+                                .flatMap(Collection::stream)
+                                .collect(Collectors.toList());
                 if (state.isEmpty()) {
                     writers.put(
-                        sinkIdentifier,
-                        sink.createWriter(new SinkContextProxy(index, context)));
+                            sinkIdentifier,
+                            sink.createWriter(new SinkContextProxy(index, context)));
                 } else {
                     writers.put(
-                        sinkIdentifier,
-                        sink.restoreWriter(new SinkContextProxy(index, context), state));
+                            sinkIdentifier,
+                            sink.restoreWriter(new SinkContextProxy(index, context), state));
                 }
             }
         }
