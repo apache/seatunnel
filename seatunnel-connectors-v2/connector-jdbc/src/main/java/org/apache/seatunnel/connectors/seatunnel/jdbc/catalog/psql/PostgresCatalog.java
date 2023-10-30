@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalo
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeMapper;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
@@ -186,8 +187,33 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return new PostgresCreateTableSqlBuilder(table).build(tablePath);
+    protected void createTableInternal(TablePath tablePath, CatalogTable table)
+            throws CatalogException {
+        PostgresCreateTableSqlBuilder postgresCreateTableSqlBuilder =
+                new PostgresCreateTableSqlBuilder(table);
+        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
+        try {
+            String createTableSql = postgresCreateTableSqlBuilder.build(tablePath);
+            executeInternal(dbUrl, createTableSql);
+
+            if (postgresCreateTableSqlBuilder.isHaveConstraintKey) {
+                String alterTableSql =
+                        "ALTER TABLE "
+                                + tablePath.getSchemaAndTableName("\"")
+                                + " REPLICA IDENTITY FULL;";
+                executeInternal(dbUrl, alterTableSql);
+            }
+
+            if (CollectionUtils.isNotEmpty(postgresCreateTableSqlBuilder.getCreateIndexSqls())) {
+                for (String createIndexSql : postgresCreateTableSqlBuilder.getCreateIndexSqls()) {
+                    executeInternal(dbUrl, createIndexSql);
+                }
+            }
+
+        } catch (Exception ex) {
+            throw new CatalogException(
+                    String.format("Failed creating table %s", tablePath.getFullName()), ex);
+        }
     }
 
     @Override

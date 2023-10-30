@@ -169,70 +169,12 @@ public class MysqlCreateTableSqlBuilder {
     private String buildColumnIdentifySql(Column column, String catalogName) {
         final List<String> columnSqls = new ArrayList<>();
         columnSqls.add(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "`"));
+        boolean isSupportDef = true;
         if (StringUtils.equals(catalogName, DatabaseIdentifier.MYSQL)) {
             columnSqls.add(column.getSourceType());
         } else {
             // Column name
-            SqlType dataType = column.getDataType().getSqlType();
-            boolean isBytes = StringUtils.equals(dataType.name(), SqlType.BYTES.name());
-            Long columnLength = column.getLongColumnLength();
-            Long bitLen = column.getBitLen();
-            if (isBytes) {
-                if (bitLen >= 0 && bitLen <= 64) {
-                    columnSqls.add(MysqlType.BIT.getName());
-                    columnSqls.add("(" + (bitLen == 0 ? 1 : bitLen) + ")");
-                } else {
-                    bitLen = bitLen == -1 ? bitLen : bitLen >> 3;
-                    if (bitLen >= 0 && bitLen <= 255) {
-                        columnSqls.add(MysqlType.TINYBLOB.getName());
-                    } else if (bitLen <= 16383) {
-                        columnSqls.add(MysqlType.BLOB.getName());
-                    } else if (bitLen <= 16777215) {
-                        columnSqls.add(MysqlType.MEDIUMBLOB.getName());
-                    } else {
-                        columnSqls.add(MysqlType.LONGBLOB.getName());
-                    }
-                }
-            } else {
-                if (columnLength >= 16383 && columnLength <= 65535) {
-                    columnSqls.add(MysqlType.TEXT.getName());
-                } else if (columnLength >= 65535 && columnLength <= 16777215) {
-                    columnSqls.add(MysqlType.MEDIUMTEXT.getName());
-                } else if (columnLength > 16777215 || columnLength == -1) {
-                    columnSqls.add(MysqlType.LONGTEXT.getName());
-                } else {
-                    // Column type
-                    columnSqls.add(
-                            mysqlDataTypeConvertor
-                                    .toConnectorType(column.getDataType(), null)
-                                    .getName());
-                    // Column length
-                    // add judge is need column legth
-                    if (column.getColumnLength() != null) {
-                        final String name =
-                                mysqlDataTypeConvertor
-                                        .toConnectorType(column.getDataType(), null)
-                                        .getName();
-                        String fieSql = "";
-                        List<String> list = new ArrayList<>();
-                        list.add(MysqlType.VARCHAR.getName());
-                        list.add(MysqlType.CHAR.getName());
-                        list.add(MysqlType.BIGINT.getName());
-                        list.add(MysqlType.INT.getName());
-                        if (StringUtils.equals(name, MysqlType.DECIMAL.getName())) {
-                            DecimalType decimalType = (DecimalType) column.getDataType();
-                            fieSql =
-                                    String.format(
-                                            "(%d, %d)",
-                                            decimalType.getPrecision(), decimalType.getScale());
-                            columnSqls.add(fieSql);
-                        } else if (list.contains(name)) {
-                            fieSql = "(" + column.getLongColumnLength() + ")";
-                            columnSqls.add(fieSql);
-                        }
-                    }
-                }
-            }
+            getColumnName(column, columnSqls);
         }
         // nullable
         if (column.isNullable()) {
@@ -240,12 +182,96 @@ public class MysqlCreateTableSqlBuilder {
         } else {
             columnSqls.add("NOT NULL");
         }
-        // TODO support default value
+
         if (column.getComment() != null) {
             columnSqls.add("COMMENT '" + column.getComment() + "'");
         }
 
         return String.join(" ", columnSqls);
+    }
+
+    private void getColumnName(Column column, List<String> columnSqls) {
+        SqlType dataType = column.getDataType().getSqlType();
+        boolean isBytes = StringUtils.equals(dataType.name(), SqlType.BYTES.name());
+        Long columnLength = column.getLongColumnLength();
+        Long bitLen = column.getBitLen();
+        if (isBytes) {
+            getColumnNameBytes(columnSqls, bitLen);
+        } else {
+            getColumnNameNonBytes(column, columnSqls, columnLength);
+        }
+    }
+
+    private void getColumnNameNonBytes(Column column, List<String> columnSqls, Long columnLength) {
+        columnLength = columnLength == null ? Integer.MAX_VALUE : columnLength;
+        if (columnLength >= 16383 && columnLength <= 65535) {
+            columnSqls.add(MysqlType.TEXT.getName());
+        } else if (columnLength >= 65535 && columnLength <= 16777215) {
+            columnSqls.add(MysqlType.MEDIUMTEXT.getName());
+        } else if (columnLength > 16777215 || columnLength == -1) {
+            columnSqls.add(MysqlType.LONGTEXT.getName());
+        } else {
+            // Column type
+            final String name =
+                    mysqlDataTypeConvertor.toConnectorType(column.getDataType(), null).getName();
+            if (columnLength == 0
+                    && StringUtils.equalsIgnoreCase(name, MysqlType.VARCHAR.getName())) {
+                columnSqls.add(MysqlType.LONGTEXT.getName());
+                return;
+            }
+            columnSqls.add(
+                    mysqlDataTypeConvertor.toConnectorType(column.getDataType(), null).getName());
+
+            String fieSql = "";
+            List<String> list = new ArrayList<>();
+            list.add(MysqlType.VARCHAR.getName());
+            list.add(MysqlType.CHAR.getName());
+            list.add(MysqlType.BIGINT.getName());
+            list.add(MysqlType.INT.getName());
+            if (StringUtils.equals(name, MysqlType.DECIMAL.getName())) {
+                DecimalType decimalType = (DecimalType) column.getDataType();
+                fieSql =
+                        String.format(
+                                "(%d, %d)", decimalType.getPrecision(), decimalType.getScale());
+                columnSqls.add(fieSql);
+                return;
+            }
+            if (list.contains(name)) {
+                if (MysqlType.VARCHAR.getName().equals(name)) {
+                    fieSql = "(" + column.getLongColumnLength() + ")";
+                } else if (MysqlType.CHAR.getName().equals(name)) {
+                    fieSql = "(" + column.getLongColumnLength() + ")";
+                } else {
+                    // int and bigint
+                    fieSql =
+                            "("
+                                    + (column.getLongColumnLength().equals(0L)
+                                            ? 11
+                                            : column.getLongColumnLength())
+                                    + ")";
+                }
+                columnSqls.add(fieSql);
+            }
+        }
+    }
+
+    private void getColumnNameBytes(List<String> columnSqls, Long bitLen) {
+        bitLen = bitLen == null ? Integer.MAX_VALUE : bitLen;
+        if (bitLen > 0 && bitLen <= 64) {
+            columnSqls.add(MysqlType.BIT.getName());
+            columnSqls.add("(" + bitLen + ")");
+        } else {
+            bitLen = bitLen == -1 ? bitLen : bitLen >> 3;
+            if (bitLen >= 0 && bitLen <= 255) {
+                columnSqls.add(MysqlType.TINYBLOB.getName());
+            } else if (bitLen <= 16383) {
+                columnSqls.add(MysqlType.BLOB.getName());
+            } else if (bitLen <= 16777215) {
+                columnSqls.add(MysqlType.MEDIUMBLOB.getName());
+            } else {
+                columnSqls.add(MysqlType.LONGBLOB.getName());
+            }
+        }
     }
 
     private String buildPrimaryKeySql() {

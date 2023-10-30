@@ -21,6 +21,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import org.testcontainers.containers.GenericContainer;
@@ -28,9 +29,14 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.sql.Connection;
 import java.sql.Date;
+import java.sql.Driver;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -39,19 +45,21 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
+@Slf4j
 public class JdbcDmUpsetIT extends AbstractJdbcIT {
 
     private static final String DM_IMAGE = "laglangyue/dmdb8";
     private static final String DM_CONTAINER_HOST = "e2e_dmdb_upset";
 
-    private static final String DM_DATABASE = "SYSDBA";
+    private static final String DM_DATABASE = "SYSDBA2";
     private static final String DM_SOURCE = "E2E_TABLE_SOURCE_UPSET";
     private static final String DM_SINK = "E2E_TABLE_SINK_UPSET";
-    private static final String DM_USERNAME = "SYSDBA";
-    private static final String DM_PASSWORD = "SYSDBA";
+    private static final String DM_USERNAME = "SYSDBA2";
+    private static final String DM_PASSWORD = "testPassword";
     private static final int DOCKET_PORT = 5236;
-    private static final int JDBC_PORT = 5336;
+    private static final int JDBC_PORT = 5236;
     private static final String DM_URL = "jdbc:dm://" + HOST + ":%s";
 
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
@@ -243,16 +251,61 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
                 new GenericContainer<>(DM_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(DM_CONTAINER_HOST)
+                        .withExposedPorts(JDBC_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
         container.setPortBindings(
                 Lists.newArrayList(String.format("%s:%s", JDBC_PORT, DOCKET_PORT)));
-
         return container;
     }
 
     @Override
     public String quoteIdentifier(String field) {
         return "\"" + field + "\"";
+    }
+
+    protected void beforeStartUP() {
+        try {
+            URLClassLoader urlClassLoader =
+                    new URLClassLoader(
+                            new URL[] {new URL(driverUrl())},
+                            AbstractJdbcIT.class.getClassLoader());
+            Thread.currentThread().setContextClassLoader(urlClassLoader);
+            Driver driver =
+                    (Driver) urlClassLoader.loadClass(jdbcCase.getDriverClass()).newInstance();
+            Properties props = new Properties();
+
+            if (StringUtils.isNotBlank(jdbcCase.getUserName())) {
+                props.put("user", "SYSDBA");
+            }
+
+            if (StringUtils.isNotBlank(jdbcCase.getPassword())) {
+                props.put("password", "SYSDBA");
+            }
+
+            Connection dmCon =
+                    driver.connect(
+                            String.format(DM_URL, DOCKET_PORT).replace(HOST, dbServer.getHost()),
+                            props);
+            dmCon.setAutoCommit(false);
+
+            createDBAUser(dmCon);
+        } catch (Exception e) {
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, e);
+        }
+    }
+
+    protected void createDBAUser(Connection dnCon) {
+        try (Statement statement = dnCon.createStatement()) {
+
+            String createUser = "CREATE USER SYSDBA2 IDENTIFIED BY testPassword;";
+            String updateUserDBA = "GRANT DBA TO SYSDBA2;";
+            statement.execute(createUser);
+            statement.execute(updateUserDBA);
+
+            dnCon.commit();
+        } catch (Exception exception) {
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
+        }
     }
 }
