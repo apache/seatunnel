@@ -69,7 +69,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
 
     @Override
     public String getPluginName() {
-        return "amazonsqs";
+        return "AmazonSqs";
     }
 
     @Override
