@@ -66,13 +66,16 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class DorisCatalogIT extends TestSuiteBase implements TestResource {
 
-    private static final String DOCKER_IMAGE = "adamlee489/doris:2.0.2_x86";
+    // use image adamlee489/doris:2.0.2_arm when running this test on mac
+    // private static final String DOCKER_IMAGE = "adamlee489/doris:2.0.2_arm";
+    private static final String FE_DOCKER_IMAGE = "apache/doris:1.2.2-fe-arm";
+    private static final String BE_DOCKER_IMAGE = "apache/doris:1.2.2-be-arm";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "doris_catalog_e2e";
     private static final int DOCKER_QUERY_PORT = 9030;
     private static final int DOCKER_HTTP_PORT = 8030;
-    private static final int QUERY_PORT = 9939;
-    private static final int HTTP_PORT = 8939;
+    private static final int QUERY_PORT = 19030;
+    private static final int HTTP_PORT = 18030;
     private static final String URL = "jdbc:mysql://%s:" + QUERY_PORT;
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
@@ -80,11 +83,13 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE = "doris_catalog_e2e";
     private static final String DRIVER_JAR =
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
-    private static final String SET_SQL =
-            "ADMIN SET FRONTEND CONFIG (\"enable_batch_delete_by_default\" = \"true\")";
+    // private static final String SET_SQL =
+    //         "ADMIN SET FRONTEND CONFIG (\"enable_batch_delete_by_default\" = \"true\")";
+    private static final String SET_SQL = "ALTER SYSTEM ADD BACKEND '127.0.0.1:9050'";
     private static final String SHOW_BE = "SHOW BACKENDS";
 
-    private GenericContainer<?> container;
+    private GenericContainer<?> feContainer;
+    private GenericContainer<?> beContainer;
     private Connection jdbcConnection;
     private DorisCatalogFactory factory;
     private DorisCatalog catalog;
@@ -93,23 +98,53 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
 
-        container =
-                new GenericContainer<>(DOCKER_IMAGE)
+        // container =
+        //         new GenericContainer<>(DOCKER_IMAGE)
+        //                 .withNetwork(NETWORK)
+        //                 .withNetworkAliases(HOST)
+        //                 .withEnv("FE_SERVERS", "fe1:127.0.0.1:9010")
+        //                 .withEnv("FE_ID", "1")
+        //                 .withEnv("CURRENT_BE_IP", "127.0.0.1")
+        //                 .withEnv("CURRENT_BE_PORT", "9050")
+        //                 .withCommand("ulimit -n 65536")
+        //                 .withCreateContainerCmdModifier(
+        //                         cmd -> cmd.getHostConfig().withMemorySwap(0L))
+        //                 .withPrivilegedMode(true)
+        //                 .withLogConsumer(
+        //                         new
+        // Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
+        // container.setPortBindings(
+        //         Lists.newArrayList(
+        //                 String.format("%s:%s", QUERY_PORT, DOCKER_QUERY_PORT),
+        //                 String.format("%s:%s", HTTP_PORT, DOCKER_HTTP_PORT)));
+
+        feContainer =
+                new GenericContainer<>(FE_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
-                        .withNetworkAliases(HOST)
+                        .withNetworkAliases("doris_fe_e2e")
                         .withEnv("FE_SERVERS", "fe1:127.0.0.1:9010")
                         .withEnv("FE_ID", "1")
-                        .withEnv("CURRENT_BE_IP", "127.0.0.1")
-                        .withEnv("CURRENT_BE_PORT", "9050")
-                        .withCommand("ulimit -n 65536")
                         .withPrivilegedMode(true)
                         .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
-        container.setPortBindings(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(FE_DOCKER_IMAGE)));
+        feContainer.setPortBindings(
                 Lists.newArrayList(
                         String.format("%s:%s", QUERY_PORT, DOCKER_QUERY_PORT),
                         String.format("%s:%s", HTTP_PORT, DOCKER_HTTP_PORT)));
-        Startables.deepStart(Stream.of(container)).join();
+
+        beContainer =
+                new GenericContainer<>(BE_DOCKER_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases("doris_be_e2e")
+                        .withEnv("CURRENT_BE_IP", "127.0.0.1")
+                        .withEnv("CURRENT_BE_PORT", "9050")
+                        .withPrivilegedMode(true)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(BE_DOCKER_IMAGE)));
+
+        Startables.deepStart(Stream.of(feContainer, beContainer)).join();
         log.info("doris container started");
         given().ignoreExceptions()
                 .await()
@@ -127,7 +162,7 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
 
     private void initCatalog() {
         String catalogName = "doris";
-        String frontEndNodes = container.getHost() + ":" + HTTP_PORT;
+        String frontEndNodes = feContainer.getHost() + ":" + HTTP_PORT;
 
         factory = new DorisCatalogFactory();
 
@@ -205,8 +240,11 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
     @AfterAll
     @Override
     public void tearDown() throws Exception {
-        if (container != null) {
-            container.close();
+        if (feContainer != null) {
+            feContainer.close();
+        }
+        if (beContainer != null) {
+            beContainer.close();
         }
         if (jdbcConnection != null) {
             jdbcConnection.close();
@@ -227,7 +265,7 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
         Properties props = new Properties();
         props.put("user", USERNAME);
         props.put("password", PASSWORD);
-        jdbcConnection = driver.connect(String.format(URL, container.getHost()), props);
+        jdbcConnection = driver.connect(String.format(URL, feContainer.getHost()), props);
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(SET_SQL);
             ResultSet resultSet;
