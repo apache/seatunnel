@@ -88,7 +88,6 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                         : workbook.getSheetAt(0);
         cellCount = seaTunnelRowType.getTotalFields();
         cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
-        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         int rowCount = sheet.getPhysicalNumberOfRows();
         if (skipHeaderNumber > Integer.MAX_VALUE
@@ -108,6 +107,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                             ? IntStream.range(0, cellCount).toArray()
                                             : indexes;
                             int z = 0;
+                            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
                             for (int j : cellIndexes) {
                                 Cell cell = rowData.getCell(j);
                                 seaTunnelRow.setField(
