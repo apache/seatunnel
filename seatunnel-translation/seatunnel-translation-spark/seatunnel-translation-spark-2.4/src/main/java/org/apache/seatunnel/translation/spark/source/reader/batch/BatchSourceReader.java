@@ -19,7 +19,9 @@ package org.apache.seatunnel.translation.spark.source.reader.batch;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.translation.spark.source.partition.batch.BatchPartition;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
@@ -35,14 +37,24 @@ public class BatchSourceReader implements DataSourceReader {
 
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
+    private final Boolean isChangeLogStream;
 
-    public BatchSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism) {
+    public BatchSourceReader(
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            Integer parallelism,
+            Boolean isChangeLogStream) {
         this.source = source;
         this.parallelism = parallelism;
+        this.isChangeLogStream = isChangeLogStream;
     }
 
     @Override
     public StructType readSchema() {
+        if (isChangeLogStream) {
+            SeaTunnelDataType<SeaTunnelRow> rowType =
+                    TypeConverterUtils.getProducedType((SeaTunnelRowType) source.getProducedType());
+            return (StructType) TypeConverterUtils.convert(rowType);
+        }
         return (StructType) TypeConverterUtils.convert(source.getProducedType());
     }
 

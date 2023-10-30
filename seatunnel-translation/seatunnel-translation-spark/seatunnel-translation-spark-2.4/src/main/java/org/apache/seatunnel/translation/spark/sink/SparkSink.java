@@ -37,6 +37,8 @@ import org.apache.spark.sql.types.StructType;
 import java.io.IOException;
 import java.util.Optional;
 
+import static org.apache.seatunnel.translation.spark.utils.TypeConverterUtils.IS_CHANGE_LOG_STREAM;
+
 public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
         implements WriteSupport, StreamWriteSupport, DataSourceV2 {
 
@@ -59,9 +61,9 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
     public StreamWriter createStreamWriter(
             String queryId, StructType schema, OutputMode mode, DataSourceOptions options) {
         init(options);
-
+        Boolean isChangeLogStream = options.getBoolean(IS_CHANGE_LOG_STREAM, false);
         try {
-            return new SparkStreamWriter<>(sink);
+            return new SparkStreamWriter<>(sink, isChangeLogStream);
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }
@@ -71,9 +73,9 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
     public Optional<DataSourceWriter> createWriter(
             String writeUUID, StructType schema, SaveMode mode, DataSourceOptions options) {
         init(options);
-
+        Boolean isChangeLogStream = options.getBoolean(IS_CHANGE_LOG_STREAM, false);
         try {
-            return Optional.of(new SparkDataSourceWriter<>(sink));
+            return Optional.of(new SparkDataSourceWriter<>(sink, isChangeLogStream));
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }

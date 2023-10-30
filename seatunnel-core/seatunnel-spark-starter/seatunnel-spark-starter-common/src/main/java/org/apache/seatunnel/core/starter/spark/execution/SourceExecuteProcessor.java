@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
@@ -30,11 +31,9 @@ import org.apache.seatunnel.core.starter.execution.SourceTableInfo;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.types.StructType;
 
 import com.google.common.collect.Lists;
 
@@ -46,6 +45,7 @@ import java.util.Set;
 
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
+import static org.apache.seatunnel.translation.spark.utils.TypeConverterUtils.IS_CHANGE_LOG_STREAM;
 
 @SuppressWarnings("rawtypes")
 public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<SourceTableInfo> {
@@ -79,15 +79,18 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
             Dataset<Row> dataset =
                     sparkRuntimeEnvironment
                             .getSparkSession()
-                            .read()
+                            .readStream()
+                            //  .read()
                             .format(SeaTunnelSource.class.getSimpleName())
                             .option(CommonOptions.PARALLELISM.key(), parallelism)
                             .option(
                                     Constants.SOURCE_SERIALIZATION,
                                     SerializationUtils.objectToString(source))
-                            .schema(
-                                    (StructType)
-                                            TypeConverterUtils.convert(source.getProducedType()))
+                            .option(IS_CHANGE_LOG_STREAM, source instanceof SupportCoordinate)
+                            //      .schema(
+                            //              (StructType)
+                            //
+                            // TypeConverterUtils.convert(TypeConverterUtils.getProducedType((SeaTunnelRowType) source.getProducedType())))
                             .load();
             sources.add(
                     new DatasetTableInfo(

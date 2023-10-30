@@ -167,6 +167,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                                                 reader.pollNext(collector);
                                                 Thread.sleep(SLEEP_TIME_INTERVAL);
                                             } catch (Exception e) {
+                                                e.printStackTrace();
                                                 running = false;
                                                 flag.set(false);
                                                 throw new RuntimeException(e);

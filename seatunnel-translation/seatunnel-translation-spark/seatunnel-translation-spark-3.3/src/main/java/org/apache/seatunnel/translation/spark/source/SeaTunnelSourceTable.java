@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.spark.source;
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.spark.source.scan.SeaTunnelScanBuilder;
@@ -38,6 +39,8 @@ import com.google.common.collect.Sets;
 
 import java.util.Map;
 import java.util.Set;
+
+import static org.apache.seatunnel.translation.spark.utils.TypeConverterUtils.IS_CHANGE_LOG_STREAM;
 
 /** The basic unit of SeaTunnel DataSource generated, supporting read and write */
 public class SeaTunnelSourceTable implements Table, SupportsRead {
@@ -78,6 +81,13 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
     /** Returns the schema of this table */
     @Override
     public StructType schema() {
+        Boolean isChangeLogStream = Boolean.valueOf(properties.get(IS_CHANGE_LOG_STREAM));
+        if (isChangeLogStream) {
+            return (StructType)
+                    TypeConverterUtils.convert(
+                            TypeConverterUtils.getProducedType(
+                                    (SeaTunnelRowType) source.getProducedType()));
+        }
         return (StructType) TypeConverterUtils.convert(source.getProducedType());
     }
 

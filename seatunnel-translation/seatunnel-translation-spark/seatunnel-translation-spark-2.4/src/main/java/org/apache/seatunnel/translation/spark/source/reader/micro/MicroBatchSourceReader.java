@@ -19,7 +19,9 @@ package org.apache.seatunnel.translation.spark.source.reader.micro;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.spark.source.partition.micro.MicroBatchPartition;
 import org.apache.seatunnel.translation.spark.source.state.MicroBatchState;
@@ -44,6 +46,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
     protected final String checkpointPath;
     protected final String hdfsRoot;
     protected final String hdfsUser;
+    private final Boolean isChangeLogStream;
     protected Integer checkpointId;
     protected MicroBatchState startOffset;
     protected MicroBatchState endOffset;
@@ -55,7 +58,8 @@ public class MicroBatchSourceReader implements MicroBatchReader {
             Integer checkpointInterval,
             String checkpointPath,
             String hdfsRoot,
-            String hdfsUser) {
+            String hdfsUser,
+            Boolean isChangeLogStream) {
         this.source = source;
         this.parallelism = parallelism;
         this.checkpointId = checkpointId;
@@ -63,6 +67,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
         this.checkpointPath = checkpointPath;
         this.hdfsRoot = hdfsRoot;
         this.hdfsUser = hdfsUser;
+        this.isChangeLogStream = isChangeLogStream;
     }
 
     @Override
@@ -101,6 +106,11 @@ public class MicroBatchSourceReader implements MicroBatchReader {
 
     @Override
     public StructType readSchema() {
+        if (isChangeLogStream) {
+            SeaTunnelDataType<SeaTunnelRow> rowType =
+                    TypeConverterUtils.getProducedType((SeaTunnelRowType) source.getProducedType());
+            return (StructType) TypeConverterUtils.convert(rowType);
+        }
         return (StructType) TypeConverterUtils.convert(source.getProducedType());
     }
 

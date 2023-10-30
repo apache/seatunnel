@@ -41,6 +41,7 @@ import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.streaming.StreamingQueryException;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -110,6 +111,9 @@ public class SinkExecuteProcessor
             Optional<? extends Factory> factory = plugins.get(i);
             boolean fallBack = !factory.isPresent() || isFallback(factory.get());
             SeaTunnelSink sink;
+            SeaTunnelRowType rowType =
+                    (SeaTunnelRowType) TypeConverterUtils.convert(dataset.schema());
+            Boolean isChangeLogStream = TypeConverterUtils.isChangeLogStream(rowType);
             if (fallBack) {
                 sink =
                         fallbackCreateSink(
@@ -120,7 +124,7 @@ public class SinkExecuteProcessor
                                         sinkConfig.getString(PLUGIN_NAME.key())),
                                 sinkConfig);
                 sink.setJobContext(jobContext);
-                sink.setTypeInfo((SeaTunnelRowType) TypeConverterUtils.convert(dataset.schema()));
+                sink.setTypeInfo(TypeConverterUtils.getConsumedType(rowType, isChangeLogStream));
             } else {
                 TableSinkFactoryContext context =
                         new TableSinkFactoryContext(
@@ -137,9 +141,14 @@ public class SinkExecuteProcessor
                 DataSaveMode dataSaveMode = saveModeSink.getUserConfigSaveMode();
                 saveModeSink.handleSaveMode(dataSaveMode);
             }
-            SparkSinkInjector.inject(dataset.write(), sink)
-                    .option("checkpointLocation", "/tmp")
-                    .save();
+            try {
+                SparkSinkInjector.inject(dataset.writeStream(), sink, isChangeLogStream)
+                        .option("checkpointLocation", "/tmp")
+                        .start()
+                        .awaitTermination();
+            } catch (StreamingQueryException e) {
+                throw new RuntimeException(e);
+            }
         }
         // the sink is the last stream
         return null;

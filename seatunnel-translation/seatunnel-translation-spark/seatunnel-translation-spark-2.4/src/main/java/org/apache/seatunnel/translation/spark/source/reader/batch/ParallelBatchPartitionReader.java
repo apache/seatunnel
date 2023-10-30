@@ -19,6 +19,7 @@ package org.apache.seatunnel.translation.spark.source.reader.batch;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
@@ -87,7 +88,11 @@ public class ParallelBatchPartitionReader {
         if (!prepare) {
             return;
         }
+        internalSourceActivate();
+        prepare = false;
+    }
 
+    protected void internalSourceActivate() {
         this.internalSource = createInternalSource();
         try {
             this.internalSource.open();
@@ -97,7 +102,11 @@ public class ParallelBatchPartitionReader {
         }
 
         this.internalRowCollector =
-                new InternalRowCollector(handover, checkpointLock, source.getProducedType());
+                new InternalRowCollector(
+                        handover,
+                        checkpointLock,
+                        source.getProducedType(),
+                        source instanceof SupportCoordinate);
         executorService.execute(
                 () -> {
                     try {
@@ -108,7 +117,6 @@ public class ParallelBatchPartitionReader {
                         running = false;
                     }
                 });
-        prepare = false;
     }
 
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {

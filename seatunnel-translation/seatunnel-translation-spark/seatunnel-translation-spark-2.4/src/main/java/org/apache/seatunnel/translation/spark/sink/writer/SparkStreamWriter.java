@@ -32,9 +32,10 @@ public class SparkStreamWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
         implements StreamWriter {
 
     public SparkStreamWriter(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink)
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            Boolean isChangeLogStream)
             throws IOException {
-        super(sink);
+        super(sink, isChangeLogStream);
     }
 
     @Override

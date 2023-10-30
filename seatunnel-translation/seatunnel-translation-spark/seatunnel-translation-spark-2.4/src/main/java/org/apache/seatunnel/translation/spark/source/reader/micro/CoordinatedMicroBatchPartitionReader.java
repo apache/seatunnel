@@ -58,7 +58,23 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
         this.collectorMap = new HashMap<>(parallelism);
         for (int i = 0; i < parallelism; i++) {
             collectorMap.put(
-                    i, new InternalRowCollector(handover, new Object(), source.getProducedType()));
+                    i,
+                    new InternalRowCollector(
+                            handover, new Object(), source.getProducedType(), true));
+        }
+    }
+
+    @Override
+    protected void internalSourceActivate() {
+        super.internalSourceActivate();
+
+        if (restoredState != null) {
+            try {
+                internalSource.snapshotState(checkpointId - 1);
+                internalSource.notifyCheckpointComplete(checkpointId - 1);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -122,7 +138,7 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
 
     @Override
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
-        return new InternalCoordinatedSource<>(source, null, parallelism);
+        return new InternalCoordinatedSource<>(source, restoredState, parallelism);
     }
 
     public class InternalCoordinatedSource<SplitT extends SourceSplit, StateT extends Serializable>

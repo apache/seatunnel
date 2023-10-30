@@ -43,17 +43,20 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
 
     private final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> aggregatedCommitter;
+    private final Boolean isChangeLogStream;
 
     public SeaTunnelBatchWrite(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink)
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            Boolean isChangeLogStream)
             throws IOException {
         this.sink = sink;
         this.aggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
+        this.isChangeLogStream = isChangeLogStream;
     }
 
     @Override
     public DataWriterFactory createBatchWriterFactory(PhysicalWriteInfo info) {
-        return new SeaTunnelSparkDataWriterFactory<>(sink);
+        return new SeaTunnelSparkDataWriterFactory<>(sink, isChangeLogStream);
     }
 
     @Override

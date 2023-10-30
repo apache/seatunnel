@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import org.apache.spark.sql.types.DataType;
@@ -32,6 +33,7 @@ import org.apache.spark.sql.types.Metadata;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -41,6 +43,8 @@ public class TypeConverterUtils {
     private static final Map<DataType, SeaTunnelDataType<?>> TO_SEA_TUNNEL_TYPES =
             new HashMap<>(16);
     public static final String ROW_KIND_FIELD = "op";
+
+    public static final String IS_CHANGE_LOG_STREAM = "isChangeLogStream";
 
     static {
         TO_SEA_TUNNEL_TYPES.put(DataTypes.NullType, BasicType.VOID_TYPE);
@@ -181,5 +185,40 @@ public class TypeConverterUtils {
             fieldTypes[i] = convert(structFields[i].dataType());
         }
         return new SeaTunnelRowType(fieldNames, fieldTypes);
+    }
+
+    public static Boolean isChangeLogStream(SeaTunnelRowType seaTunnelRowType) {
+        return TypeConverterUtils.ROW_KIND_FIELD.equals(seaTunnelRowType.getFieldName(0));
+    }
+
+    public static SeaTunnelRowType getConsumedType(
+            SeaTunnelRowType seaTunnelRowType, Boolean isChangeLogStream) {
+        ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();
+        ArrayList<String> fieldNames = new ArrayList<>();
+        if (isChangeLogStream) {
+            for (int i = 1; i < seaTunnelRowType.getTotalFields(); i++) {
+                fieldNames.add(seaTunnelRowType.getFieldName(i));
+                seaTunnelDataTypes.add(seaTunnelRowType.getFieldType(i));
+            }
+            return new SeaTunnelRowType(
+                    fieldNames.toArray(new String[0]),
+                    seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[0]));
+        }
+        return seaTunnelRowType;
+    }
+
+    public static SeaTunnelDataType<SeaTunnelRow> getProducedType(
+            SeaTunnelRowType seaTunnelRowType) {
+        ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();
+        ArrayList<String> fieldNames = new ArrayList<>();
+        fieldNames.add(TypeConverterUtils.ROW_KIND_FIELD);
+        seaTunnelDataTypes.add(BasicType.BYTE_TYPE);
+        for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+            fieldNames.add(seaTunnelRowType.getFieldName(i));
+            seaTunnelDataTypes.add(seaTunnelRowType.getFieldType(i));
+        }
+        return new SeaTunnelRowType(
+                fieldNames.toArray(new String[0]),
+                seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[0]));
     }
 }

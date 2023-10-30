@@ -44,19 +44,23 @@ public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
     @Nullable protected final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>
             sinkAggregatedCommitter;
 
+    private final Boolean isChangeLogStream;
+
     public SparkDataSourceWriter(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink)
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            Boolean isChangeLogStream)
             throws IOException {
         this.sink = sink;
         this.sinkAggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
         if (sinkAggregatedCommitter != null) {
             sinkAggregatedCommitter.init();
         }
+        this.isChangeLogStream = isChangeLogStream;
     }
 
     @Override
     public DataWriterFactory<InternalRow> createWriterFactory() {
-        return new SparkDataWriterFactory<>(sink);
+        return new SparkDataWriterFactory<>(sink, isChangeLogStream);
     }
 
     @Override

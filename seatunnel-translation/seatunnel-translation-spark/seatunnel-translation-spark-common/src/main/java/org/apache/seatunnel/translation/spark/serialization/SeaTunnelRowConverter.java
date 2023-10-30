@@ -191,7 +191,11 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         int num = engineRow.getFields().length;
         Object[] fields = new Object[num];
         for (int i = 0; i < num; i++) {
-            fields[i] = reconvert(engineRow.getFields()[i], rowType.getFieldType(i));
+            if (TypeConverterUtils.ROW_KIND_FIELD.equals(rowType.getFieldName(i))) {
+
+            } else {
+                fields[i] = reconvert(engineRow.getFields()[i], rowType.getFieldType(i));
+            }
         }
         return new SeaTunnelRow(fields);
     }

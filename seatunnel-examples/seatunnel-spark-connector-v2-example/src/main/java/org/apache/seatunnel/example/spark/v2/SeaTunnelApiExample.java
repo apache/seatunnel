@@ -26,6 +26,8 @@ public class SeaTunnelApiExample {
 
     public static void main(String[] args)
             throws FileNotFoundException, URISyntaxException, CommandException {
+        System.setProperty("hadoop.home.dir", "D:\\Development\\environment\\hadoop\\hadoop-2.7.4");
+        System.setProperty("HADOOP_USER_NAME", "hadoop");
         String configurePath = args.length > 0 ? args[0] : "/examples/spark.batch.conf";
         ExampleUtils.builder(configurePath);
     }

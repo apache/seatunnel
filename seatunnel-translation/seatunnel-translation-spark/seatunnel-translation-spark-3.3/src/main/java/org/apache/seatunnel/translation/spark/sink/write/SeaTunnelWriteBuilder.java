@@ -27,14 +27,17 @@ public class SeaTunnelWriteBuilder<StateT, CommitInfoT, AggregatedCommitInfoT>
         implements WriteBuilder {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
+    private final Boolean isChangeLogStream;
 
     public SeaTunnelWriteBuilder(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink) {
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            Boolean isChangeLogStream) {
         this.sink = sink;
+        this.isChangeLogStream = isChangeLogStream;
     }
 
     @Override
     public Write build() {
-        return new SeaTunnelWrite<>(sink);
+        return new SeaTunnelWrite<>(sink, isChangeLogStream);
     }
 }

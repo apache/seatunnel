@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.spark.serialization;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -65,8 +66,15 @@ import java.util.Map;
 
 public final class InternalRowConverter extends RowConverter<InternalRow> {
 
+    private Boolean isChangeLogStream = false;
+
     public InternalRowConverter(SeaTunnelDataType<?> dataType) {
         super(dataType);
+    }
+
+    public InternalRowConverter(SeaTunnelDataType<?> dataType, Boolean isChangeLogStream) {
+        super(dataType);
+        this.isChangeLogStream = isChangeLogStream;
     }
 
     @Override
@@ -75,7 +83,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return (InternalRow) convert(seaTunnelRow, dataType);
     }
 
-    private static Object convert(Object field, SeaTunnelDataType<?> dataType) {
+    private Object convert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;
         }
@@ -120,24 +128,33 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         }
     }
 
-    private static InternalRow convert(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
+    private InternalRow convert(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
         int arity = rowType.getTotalFields();
+        if (isChangeLogStream) {
+            MutableValue[] values = new MutableValue[arity + 1];
+            values[0] = createMutableValue(BasicType.BYTE_TYPE);
+            values[0].update(seaTunnelRow.getRowKind().toByteValue());
+            for (int i = 0; i < arity; i++) {
+                values[i + 1] = createMutableValue(rowType.getFieldType(i));
+                Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(i));
+                if (fieldValue != null) {
+                    values[i + 1].update(fieldValue);
+                }
+            }
+            return new SpecificInternalRow(values);
+        }
         MutableValue[] values = new MutableValue[arity];
         for (int i = 0; i < arity; i++) {
             values[i] = createMutableValue(rowType.getFieldType(i));
-            if (TypeConverterUtils.ROW_KIND_FIELD.equals(rowType.getFieldName(i))) {
-                values[i].update(seaTunnelRow.getRowKind().toByteValue());
-            } else {
-                Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(i));
-                if (fieldValue != null) {
-                    values[i].update(fieldValue);
-                }
+            Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(i));
+            if (fieldValue != null) {
+                values[i].update(fieldValue);
             }
         }
         return new SpecificInternalRow(values);
     }
 
-    private static ArrayBasedMapData convertMap(Map<?, ?> mapData, MapType<?, ?> mapType) {
+    private ArrayBasedMapData convertMap(Map<?, ?> mapData, MapType<?, ?> mapType) {
         if (mapData == null || mapData.size() == 0) {
             return ArrayBasedMapData.apply(new Object[] {}, new Object[] {});
         }
@@ -151,7 +168,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return ArrayBasedMapData.apply(keys, values);
     }
 
-    private static Map<Object, Object> reconvertMap(MapData mapData, MapType<?, ?> mapType) {
+    private Map<Object, Object> reconvertMap(MapData mapData, MapType<?, ?> mapType) {
         if (mapData == null || mapData.numElements() == 0) {
             return Collections.emptyMap();
         }
@@ -169,8 +186,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return newMap;
     }
 
-    private static Map<Object, Object> reconvertMap(
-            HashTrieMap<?, ?> hashTrieMap, MapType<?, ?> mapType) {
+    private Map<Object, Object> reconvertMap(HashTrieMap<?, ?> hashTrieMap, MapType<?, ?> mapType) {
         if (hashTrieMap == null || hashTrieMap.size() == 0) {
             return Collections.emptyMap();
         }
@@ -218,7 +234,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return (SeaTunnelRow) reconvert(engineRow, dataType);
     }
 
-    private static Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
+    private Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;
         }
@@ -276,7 +292,29 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         }
     }
 
-    private static SeaTunnelRow reconvert(InternalRow engineRow, SeaTunnelRowType rowType) {
+    private SeaTunnelRow reconvert(InternalRow engineRow, SeaTunnelRowType rowType) {
+        if (isChangeLogStream) {
+            Object[] fields = new Object[engineRow.numFields() - 1];
+            for (int i = 0; i < fields.length; i++) {
+                fields[i] =
+                        reconvert(
+                                engineRow.get(
+                                        i + 1, TypeConverterUtils.convert(rowType.getFieldType(i))),
+                                rowType.getFieldType(i));
+            }
+            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+            RowKind rowKind =
+                    RowKind.fromByteValue(
+                            (Byte)
+                                    reconvert(
+                                            engineRow.get(
+                                                    0,
+                                                    TypeConverterUtils.convert(
+                                                            BasicType.BYTE_TYPE)),
+                                            BasicType.BYTE_TYPE));
+            seaTunnelRow.setRowKind(rowKind);
+            return seaTunnelRow;
+        }
         Object[] fields = new Object[engineRow.numFields()];
         for (int i = 0; i < engineRow.numFields(); i++) {
             fields[i] =
@@ -287,7 +325,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return new SeaTunnelRow(fields);
     }
 
-    private static Object reconvertArray(ArrayData arrayData, ArrayType<?, ?> arrayType) {
+    private Object reconvertArray(ArrayData arrayData, ArrayType<?, ?> arrayType) {
         if (arrayData == null || arrayData.numElements() == 0) {
             return Collections.emptyList().toArray();
         }
@@ -300,8 +338,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return newArray;
     }
 
-    private static Object reconvertArray(
-            WrappedArray.ofRef<?> arrayData, ArrayType<?, ?> arrayType) {
+    private Object reconvertArray(WrappedArray.ofRef<?> arrayData, ArrayType<?, ?> arrayType) {
         if (arrayData == null || arrayData.size() == 0) {
             return Collections.emptyList().toArray();
         }

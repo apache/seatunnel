@@ -57,7 +57,9 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
         this.collectorMap = new HashMap<>(parallelism);
         for (int i = 0; i < parallelism; i++) {
             collectorMap.put(
-                    i, new InternalRowCollector(handover, new Object(), source.getProducedType()));
+                    i,
+                    new InternalRowCollector(
+                            handover, new Object(), source.getProducedType(), true));
         }
     }
 

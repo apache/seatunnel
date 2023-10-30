@@ -47,10 +47,11 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
             SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
             @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
             SeaTunnelDataType<?> dataType,
-            long epochId) {
+            long epochId,
+            Boolean isChangeLogStream) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
-        this.rowConverter = new InternalRowConverter(dataType);
+        this.rowConverter = new InternalRowConverter(dataType, isChangeLogStream);
         this.epochId = epochId == 0 ? 1 : epochId;
     }
 

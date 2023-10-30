@@ -33,10 +33,13 @@ public class InternalRowCollector implements Collector<SeaTunnelRow> {
     private final AtomicLong collectTotalCount;
 
     public InternalRowCollector(
-            Handover<InternalRow> handover, Object checkpointLock, SeaTunnelDataType<?> dataType) {
+            Handover<InternalRow> handover,
+            Object checkpointLock,
+            SeaTunnelDataType<?> dataType,
+            Boolean isChangeLogStream) {
         this.handover = handover;
         this.checkpointLock = checkpointLock;
-        this.rowSerialization = new InternalRowConverter(dataType);
+        this.rowSerialization = new InternalRowConverter(dataType, isChangeLogStream);
         this.collectTotalCount = new AtomicLong(0);
     }
 

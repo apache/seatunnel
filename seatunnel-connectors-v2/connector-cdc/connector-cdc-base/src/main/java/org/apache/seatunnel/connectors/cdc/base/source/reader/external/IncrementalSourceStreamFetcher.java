@@ -101,6 +101,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                     try {
                         streamFetchTask.execute(taskContext);
                     } catch (Exception e) {
+                        e.printStackTrace();
                         log.error(
                                 String.format(
                                         "Execute stream read task for incremental split %s fail",

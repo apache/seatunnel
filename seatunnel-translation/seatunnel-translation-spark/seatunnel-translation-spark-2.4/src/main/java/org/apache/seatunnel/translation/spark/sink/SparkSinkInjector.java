@@ -26,16 +26,20 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.streaming.DataStreamWriter;
 import org.apache.spark.sql.streaming.OutputMode;
 
-public class SparkSinkInjector {
+import static org.apache.seatunnel.translation.spark.utils.TypeConverterUtils.IS_CHANGE_LOG_STREAM;
 
+public class SparkSinkInjector {
     private static final String SPARK_SINK_CLASS_NAME =
             "org.apache.seatunnel.translation.spark.sink.SparkSink";
 
     public static DataStreamWriter<Row> inject(
-            DataStreamWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink) {
+            DataStreamWriter<Row> dataset,
+            SeaTunnelSink<?, ?, ?, ?> sink,
+            Boolean isChangeLogStream) {
         return dataset.format(SPARK_SINK_CLASS_NAME)
                 .outputMode(OutputMode.Append())
-                .option(Constants.SINK, SerializationUtils.objectToString(sink));
+                .option(Constants.SINK, SerializationUtils.objectToString(sink))
+                .option(IS_CHANGE_LOG_STREAM, isChangeLogStream);
     }
 
     public static DataFrameWriter<Row> inject(

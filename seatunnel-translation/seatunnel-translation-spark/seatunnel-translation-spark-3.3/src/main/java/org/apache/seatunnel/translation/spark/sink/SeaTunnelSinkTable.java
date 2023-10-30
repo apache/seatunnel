@@ -18,7 +18,9 @@
 package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.spark.sink.write.SeaTunnelWriteBuilder;
@@ -37,6 +39,8 @@ import com.google.common.collect.Sets;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.seatunnel.translation.spark.utils.TypeConverterUtils.IS_CHANGE_LOG_STREAM;
+
 public class SeaTunnelSinkTable implements Table, SupportsWrite {
 
     private static final String SINK_TABLE_NAME = "SeaTunnelSinkTable";
@@ -45,9 +49,12 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
 
     private final SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink;
 
+    private final Boolean isChangeLogStream;
+
     public SeaTunnelSinkTable(Map<String, String> properties) {
         this.properties = properties;
         String sinkSerialization = properties.getOrDefault(Constants.SINK_SERIALIZATION, "");
+        isChangeLogStream = Boolean.valueOf(properties.get(IS_CHANGE_LOG_STREAM));
         if (StringUtils.isBlank(sinkSerialization)) {
             throw new IllegalArgumentException("sink.serialization must be specified");
         }
@@ -56,7 +63,7 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
 
     @Override
     public WriteBuilder newWriteBuilder(LogicalWriteInfo info) {
-        return new SeaTunnelWriteBuilder<>(sink);
+        return new SeaTunnelWriteBuilder<>(sink, isChangeLogStream);
     }
 
     @Override
@@ -66,6 +73,11 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
 
     @Override
     public StructType schema() {
+        if (isChangeLogStream) {
+            SeaTunnelDataType<SeaTunnelRow> rowType =
+                    TypeConverterUtils.getProducedType((SeaTunnelRowType) sink.getConsumedType());
+            return (StructType) TypeConverterUtils.convert(rowType);
+        }
         return (StructType) TypeConverterUtils.convert(sink.getConsumedType());
     }
 

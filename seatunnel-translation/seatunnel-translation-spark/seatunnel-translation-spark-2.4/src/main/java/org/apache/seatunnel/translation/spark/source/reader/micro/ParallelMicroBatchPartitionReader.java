@@ -32,6 +32,8 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -42,6 +44,7 @@ import java.util.Map;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionReader {
     protected static final Integer CHECKPOINT_SLEEP_INTERVAL = 10;
     protected static final Integer CHECKPOINT_RETRIES = 3;
@@ -78,14 +81,14 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
     }
 
     @Override
-    protected void prepare() {
+    protected void internalSourceActivate() {
         try {
             this.fileSystem = getFileSystem();
             this.restoredState = restoreState(checkpointId - 1);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        super.prepare();
+        super.internalSourceActivate();
         prepareCheckpoint();
     }
 
@@ -148,7 +151,7 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
         }
     }
 
-    private Map<Integer, List<byte[]>> restoreState(int checkpointId) throws IOException {
+    protected Map<Integer, List<byte[]>> restoreState(int checkpointId) throws IOException {
         Path hdfsPath = getCheckpointPathWithId(checkpointId);
         if (!fileSystem.exists(hdfsPath)) {
             return null;
@@ -171,14 +174,10 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
     protected void saveState(ReaderState readerState, int checkpointId) throws IOException {
         byte[] bytes = SerializationUtils.serialize(readerState);
         Path hdfsPath = getCheckpointPathWithId(checkpointId);
-        if (!fileSystem.exists(hdfsPath)) {
-            fileSystem.createNewFile(hdfsPath);
-        }
-
-        try (FSDataOutputStream outputStream = fileSystem.append(hdfsPath)) {
+        try (FSDataOutputStream outputStream = fileSystem.create(hdfsPath)) {
             outputStream.write(bytes);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Checkpoint save failed", e);
         }
     }
 

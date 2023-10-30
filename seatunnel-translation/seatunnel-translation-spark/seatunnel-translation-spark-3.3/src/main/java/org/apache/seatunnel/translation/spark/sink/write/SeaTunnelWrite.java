@@ -30,16 +30,19 @@ import java.io.IOException;
 public class SeaTunnelWrite<AggregatedCommitInfoT, CommitInfoT, StateT> implements Write {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
+    private final Boolean isChangeLogStream;
 
     public SeaTunnelWrite(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink) {
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            Boolean isChangeLogStream) {
         this.sink = sink;
+        this.isChangeLogStream = isChangeLogStream;
     }
 
     @Override
     public BatchWrite toBatch() {
         try {
-            return new SeaTunnelBatchWrite<>(sink);
+            return new SeaTunnelBatchWrite<>(sink, isChangeLogStream);
         } catch (IOException e) {
             throw new RuntimeException("SeaTunnel Spark sink create batch failed", e);
         }
@@ -48,7 +51,7 @@ public class SeaTunnelWrite<AggregatedCommitInfoT, CommitInfoT, StateT> implemen
     @Override
     public StreamingWrite toStreaming() {
         try {
-            return new SeaTunnelBatchWrite<>(sink);
+            return new SeaTunnelBatchWrite<>(sink, isChangeLogStream);
         } catch (IOException e) {
             throw new RuntimeException("SeaTunnel Spark sink create batch failed", e);
         }

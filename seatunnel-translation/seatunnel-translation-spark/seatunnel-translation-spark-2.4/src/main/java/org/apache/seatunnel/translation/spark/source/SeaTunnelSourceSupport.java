@@ -44,6 +44,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 
+import static org.apache.seatunnel.translation.spark.utils.TypeConverterUtils.IS_CHANGE_LOG_STREAM;
+
 public class SeaTunnelSourceSupport
         implements DataSourceV2, ReadSupport, MicroBatchReadSupport, DataSourceRegister {
     private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelSourceSupport.class);
@@ -64,7 +66,8 @@ public class SeaTunnelSourceSupport
     public DataSourceReader createReader(DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
         int parallelism = options.getInt(CommonOptions.PARALLELISM.key(), 1);
-        return new BatchSourceReader(seaTunnelSource, parallelism);
+        Boolean isChangeLogStream = options.getBoolean(IS_CHANGE_LOG_STREAM, false);
+        return new BatchSourceReader(seaTunnelSource, parallelism, isChangeLogStream);
     }
 
     @Override
@@ -86,6 +89,7 @@ public class SeaTunnelSourceSupport
                         .orElse(FileSystem.getDefaultUri(configuration).toString());
         String hdfsUser = options.get(Constants.HDFS_USER).orElse("");
         Integer checkpointId = options.getInt(Constants.CHECKPOINT_ID, 1);
+        Boolean isChangeLogStream = options.getBoolean(IS_CHANGE_LOG_STREAM, false);
         return new MicroBatchSourceReader(
                 seaTunnelSource,
                 parallelism,
@@ -93,7 +97,8 @@ public class SeaTunnelSourceSupport
                 checkpointInterval,
                 checkpointPath,
                 hdfsRoot,
-                hdfsUser);
+                hdfsUser,
+                isChangeLogStream);
     }
 
     private SeaTunnelSource<SeaTunnelRow, ?, ?> getSeaTunnelSource(DataSourceOptions options) {

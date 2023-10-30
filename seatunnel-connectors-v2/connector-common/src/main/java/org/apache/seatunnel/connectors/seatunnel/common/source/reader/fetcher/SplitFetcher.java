@@ -82,6 +82,7 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
                 // nothing to do, everything is inside #runOnce.
             }
         } catch (Throwable t) {
+            t.printStackTrace();
             errorHandler.accept(t);
         } finally {
             try {
