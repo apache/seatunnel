@@ -17,20 +17,14 @@
 
 package org.apache.seatunnel.api.sink;
 
-/**
- * The SaveMode for the Sink connectors that use table or other table structures to organize data
- */
-public enum DataSaveMode {
+public enum SchemaSaveMode {
 
-    // Preserve database structure and delete data
-    DROP_DATA,
+    // Will create when the table does not exist, delete and rebuild when the table is saved
+    RECREATE_SCHEMA,
 
-    // Preserve database structure, preserve data
-    APPEND_DATA,
+    // Will Created when the table does not exist, skipped when the table is saved
+    CREATE_SCHEMA_WHEN_NOT_EXIST,
 
-    // User defined processing
-    CUSTOM_PROCESSING,
-
-    // When there exist data, an error will be reported
-    ERROR_WHEN_DATA_EXISTS
+    // Error will be reported when the table does not exist
+    ERROR_WHEN_SCHEMA_NOT_EXIST,
 }

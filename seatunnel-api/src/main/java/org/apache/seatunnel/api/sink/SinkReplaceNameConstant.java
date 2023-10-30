@@ -17,20 +17,11 @@
 
 package org.apache.seatunnel.api.sink;
 
-/**
- * The SaveMode for the Sink connectors that use table or other table structures to organize data
- */
-public enum DataSaveMode {
+public final class SinkReplaceNameConstant {
 
-    // Preserve database structure and delete data
-    DROP_DATA,
+    public static final String REPLACE_TABLE_NAME_KEY = "${table_name}";
 
-    // Preserve database structure, preserve data
-    APPEND_DATA,
+    public static final String REPLACE_SCHEMA_NAME_KEY = "${schema_name}";
 
-    // User defined processing
-    CUSTOM_PROCESSING,
-
-    // When there exist data, an error will be reported
-    ERROR_WHEN_DATA_EXISTS
+    public static final String REPLACE_DATABASE_NAME_KEY = "${database_name}";
 }
