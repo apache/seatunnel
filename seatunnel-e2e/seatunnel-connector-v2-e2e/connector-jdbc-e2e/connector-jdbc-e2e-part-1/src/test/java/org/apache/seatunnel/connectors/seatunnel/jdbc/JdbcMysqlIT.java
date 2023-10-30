@@ -40,7 +40,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcUtils;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -69,16 +68,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.stream.Collectors;
 
 public class JdbcMysqlIT extends AbstractJdbcIT {
 
-    private static final Object LOCK = new Object();
     private static final String MYSQL_IMAGE = "mysql:latest";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "seatunnel";
@@ -184,15 +180,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 .build();
     }
 
-    void compareResult() {}
-
     @Override
-    protected Object getLock() {
-        return LOCK;
-    }
-
-    @Override
-    protected void compareResult(String configKey) {
+    protected void compareResult(String configFileName) {
         String[] fieldNames =
                 new String[] {
                     "c_bit_1",
@@ -239,38 +228,48 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_binary",
                     "c_decimal_30",
                 };
-        // Select null value to check Issue-5559
+        // Select null value to check https://github.com/apache/seatunnel/issues/5559
         try (Statement statement = connection.createStatement()) {
-            ResultSet allData =
+            ResultSet source =
+                    statement.executeQuery(
+                            String.format(
+                                    "select * from %s",
+                                    buildTableInfoWithSchema(
+                                            this.jdbcCase.getSchema(),
+                                            this.jdbcCase.getSourceTable())));
+            List<Object> sourceResult = new ArrayList<>();
+            while (source.next()) {
+                List<Object> row = new ArrayList<>();
+                for (String fieldName : fieldNames) {
+                    row.add(source.getObject(fieldName));
+                }
+                sourceResult.add(row);
+            }
+            ResultSet sink =
                     statement.executeQuery(
                             String.format(
                                     "select * from %s",
                                     buildTableInfoWithSchema(
                                             this.jdbcCase.getSchema(),
                                             this.jdbcCase.getSinkTable())));
-            StringBuilder stringBuilder = new StringBuilder();
-            JdbcUtils.formatResultSet(allData, stringBuilder);
-            log.info("Table[{}]'s Data: \n{}", this.jdbcCase.getSinkTable(), stringBuilder);
-
-            String whereStr =
-                    Arrays.stream(fieldNames)
-                            .map(this::quoteIdentifier)
-                            .map(field -> field + " is null")
-                            .collect(Collectors.joining(" and "));
-            String countSql =
-                    String.format(
-                            "select count(1) from %s where %s",
-                            buildTableInfoWithSchema(
-                                    this.jdbcCase.getSchema(), this.jdbcCase.getSinkTable()),
-                            whereStr);
-            ResultSet resultSet = statement.executeQuery(countSql);
-            log.info(String.format("Config [%s] Count SQL [%s].", configKey, countSql));
-            resultSet.next();
-            Assertions.assertEquals(
-                    1,
-                    resultSet.getInt(1),
-                    String.format("Config [%s] Null Value Row Count.", configKey));
-        } catch (SQLException | IOException e) {
+            List<Object> sinkResult = new ArrayList<>();
+            while (sink.next()) {
+                List<Object> row = new ArrayList<>();
+                for (String fieldName : fieldNames) {
+                    Object value = sink.getObject(fieldName);
+                    if (value == null) {
+                        // do nothing
+                    } else if (value instanceof BigDecimal) {
+                        value = ((BigDecimal) value).stripTrailingZeros();
+                    } else if (value instanceof byte[]) {
+                        value = new String((byte[]) value);
+                    }
+                    row.add(value);
+                }
+                sinkResult.add(row);
+            }
+            Assertions.assertIterableEquals(sourceResult, sinkResult);
+        } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
@@ -383,7 +382,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                                     null,
                                     null,
                                     null,
-                                    // Issue-5559 this value cannot set null, this null
+                                    // https://github.com/apache/seatunnel/issues/5559 this value
+                                    // cannot set null, this null
                                     // value column's row will be lost in
                                     // jdbc_mysql_source_and_sink_parallel.conf,jdbc_mysql_source_and_sink_parallel_upper_lower.conf.
                                     bigintValue.add(BigDecimal.valueOf(i)),

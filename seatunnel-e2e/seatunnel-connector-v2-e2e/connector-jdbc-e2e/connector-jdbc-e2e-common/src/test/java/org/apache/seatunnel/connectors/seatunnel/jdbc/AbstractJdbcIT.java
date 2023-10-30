@@ -90,12 +90,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     abstract JdbcCase getJdbcCase();
 
-    @Deprecated
-    abstract void compareResult() throws SQLException, IOException;
-
-    protected void compareResult(String configKey) throws SQLException, IOException {
-        compareResult();
-    }
+    abstract void compareResult(String configFileName) throws SQLException, IOException;
 
     abstract String driverUrl();
 
@@ -326,25 +321,11 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             throws IOException, InterruptedException, SQLException {
         List<String> configFiles = jdbcCase.getConfigFile();
         for (String configFile : configFiles) {
-            if (null != getLock()) {
-                synchronized (getLock()) {
-                    Container.ExecResult execResult = container.executeJob(configFile);
-                    Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-                    compareResult(configFile);
-                    clearTable(
-                            jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
-                }
-            } else {
-                Container.ExecResult execResult = container.executeJob(configFile);
-                Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-                compareResult(configFile);
-                clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
-            }
+            Container.ExecResult execResult = container.executeJob(configFile);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            compareResult(configFile);
+            clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
         }
-    }
-
-    protected Object getLock() {
-        return null;
     }
 
     protected void initCatalog() {}

@@ -156,7 +156,7 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() {}
+    void compareResult(String configFileName) {}
 
     @Override
     protected void createNeededTables() {

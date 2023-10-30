@@ -91,7 +91,7 @@ public class JdbcVerticaIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() {}
+    void compareResult(String configFileName) {}
 
     @Override
     String driverUrl() {

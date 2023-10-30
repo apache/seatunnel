@@ -46,7 +46,7 @@ public abstract class JdbcOceanBaseITBase extends AbstractJdbcIT {
     abstract String getFullTableName(String tableName);
 
     @Override
-    void compareResult() {
+    void compareResult(String configFileName) {
         String sourceSql =
                 String.format("select * from %s order by 1", getFullTableName(OCEANBASE_SOURCE));
         String sinkSql =

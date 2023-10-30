@@ -88,7 +88,7 @@ public class JdbcGreenplumIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() {}
+    void compareResult(String configFileName) {}
 
     @Override
     String driverUrl() {
