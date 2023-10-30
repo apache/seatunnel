@@ -49,7 +49,7 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
         if (sink == null) {
             this.sink =
                     SerializationUtils.stringToObject(
-                            options.get(Constants.SINK)
+                            options.get(Constants.SINK_SERIALIZATION)
                                     .orElseThrow(
                                             () ->
                                                     new IllegalArgumentException(
