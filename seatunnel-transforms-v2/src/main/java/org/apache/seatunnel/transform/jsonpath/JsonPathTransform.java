@@ -80,7 +80,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
         JsonToRowConverters jsonToRowConverters = new JsonToRowConverters(false, false);
         this.converters =
                 this.config.getColumnConfigs().stream()
-                        .map(ColumnConfig::getDataType)
+                        .map(ColumnConfig::getDestType)
                         .map(jsonToRowConverters::createConverter)
                         .toArray(JsonToRowConverters.JsonToRowConverter[]::new);
     }
@@ -89,7 +89,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
 
         SeaTunnelDataType<?>[] dataTypes =
                 this.config.getColumnConfigs().stream()
-                        .map(ColumnConfig::getDataType)
+                        .map(ColumnConfig::getDestType)
                         .toArray(SeaTunnelDataType<?>[]::new);
         this.outputSeaTunnelRowType =
                 new SeaTunnelRowType(

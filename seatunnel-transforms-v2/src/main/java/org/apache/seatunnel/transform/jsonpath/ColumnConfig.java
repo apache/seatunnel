@@ -27,14 +27,14 @@ public class ColumnConfig implements Serializable {
 
     private final String destField;
 
-    private final SeaTunnelDataType<?> dataType;
+    private final SeaTunnelDataType<?> destType;
 
     public ColumnConfig(
-            String path, String srcField, String destField, SeaTunnelDataType<?> dataType) {
+            String path, String srcField, String destField, SeaTunnelDataType<?> destType) {
         this.path = path;
         this.srcField = srcField;
         this.destField = destField;
-        this.dataType = dataType;
+        this.destType = destType;
     }
 
     public String getPath() {
@@ -49,7 +49,7 @@ public class ColumnConfig implements Serializable {
         return destField;
     }
 
-    public SeaTunnelDataType<?> getDataType() {
-        return dataType;
+    public SeaTunnelDataType<?> getDestType() {
+        return destType;
     }
 }
