@@ -49,6 +49,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.sql.Connection;
 import java.sql.Driver;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
@@ -81,6 +82,7 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
     private static final String SET_SQL =
             "ADMIN SET FRONTEND CONFIG (\"enable_batch_delete_by_default\" = \"true\")";
+    private static final String SHOW_BE = "SHOW BACKENDS";
 
     private GenericContainer<?> container;
     private Connection jdbcConnection;
@@ -99,6 +101,7 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
                         .withEnv("FE_ID", "1")
                         .withEnv("CURRENT_BE_IP", "127.0.0.1")
                         .withEnv("CURRENT_BE_PORT", "9050")
+                        .withCommand("ulimit -n 65536")
                         .withPrivilegedMode(true)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
@@ -227,6 +230,13 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
         jdbcConnection = driver.connect(String.format(URL, container.getHost()), props);
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(SET_SQL);
+            ResultSet resultSet;
+
+            do {
+                resultSet = statement.executeQuery(SHOW_BE);
+            } while (!resultSet.next()
+                    || (!"Yes".equalsIgnoreCase(resultSet.getString(9))
+                            && !"Yes".equalsIgnoreCase(resultSet.getString(10))));
         }
     }
 }
