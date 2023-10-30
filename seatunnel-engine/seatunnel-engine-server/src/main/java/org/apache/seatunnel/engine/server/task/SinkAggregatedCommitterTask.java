@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
@@ -285,6 +286,11 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
     @Override
     public Set<URL> getJarsUrl() {
         return new HashSet<>(sink.getJarUrls());
+    }
+
+    @Override
+    public Set<ConnectorJarIdentifier> getConnectorPluginJars() {
+        return new HashSet<>(sink.getConnectorJarIdentifiers());
     }
 
     @Override

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
@@ -362,6 +363,11 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @Override
     public Set<URL> getJarsUrl() {
         return new HashSet<>(source.getJarUrls());
+    }
+
+    @Override
+    public Set<ConnectorJarIdentifier> getConnectorPluginJars() {
+        return new HashSet<>(source.getConnectorJarIdentifiers());
     }
 
     @Override

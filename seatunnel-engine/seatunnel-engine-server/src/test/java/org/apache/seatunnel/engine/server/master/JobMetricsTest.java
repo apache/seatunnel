@@ -156,6 +156,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                         isStartWithSavePoint,
                         nodeEngine.getSerializationService().toData(testLogicalDag),
                         testLogicalDag.getJobConfig(),
+                        Collections.emptyList(),
                         Collections.emptyList());
 
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
