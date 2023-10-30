@@ -103,8 +103,8 @@ public class ReadonlyConfig implements Serializable {
             for (String fallbackKey : option.getFallbackKeys()) {
                 value = getValue(fallbackKey);
                 if (value != null) {
-                    log.info(
-                            "Config uses fallback configuration key '{}' instead of key '{}'",
+                    log.warn(
+                            "Please use the new key '{}' instead of the deprecated key '{}'.",
                             fallbackKey,
                             option.key());
                     break;
