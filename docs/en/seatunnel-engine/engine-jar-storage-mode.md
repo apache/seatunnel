@@ -3,7 +3,14 @@
 sidebar_position: 8
 -------------------
 
-# Optimize Apache SeaTunnel Zeta job submission
+# Config Engine Jar Storage Mode
+
+:::warn
+
+Please note that this feature is currently in an experimental stage, and there are many areas that still need improvement. Therefore, we recommend exercising caution when using this feature to avoid potential issues and unnecessary risks.
+We are committed to ongoing efforts to enhance and stabilize this functionality, ensuring a better experience for you.
+
+:::
 
 We can enable the optimization job submission process, which is configured in the `seatunel.yaml`. After enabling the optimization of the Seatunnel job submission process configuration item,
 users can use the Seatunnel Zeta engine as the execution engine without placing the connector Jar packages required for task execution or the third-party Jar packages that the connector relies on in each engine `connector` directory.
