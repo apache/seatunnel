@@ -19,12 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
+@SuppressWarnings("checkstyle:MagicNumber")
 public interface JdbcOptions {
 
     Option<String> URL = Options.key("url").stringType().noDefaultValue().withDescription("url");
@@ -54,6 +57,20 @@ public interface JdbcOptions {
 
     Option<String> QUERY =
             Options.key("query").stringType().noDefaultValue().withDescription("query");
+
+    Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
+            Options.key("schema_save_mode")
+                    .enumType(SchemaSaveMode.class)
+                    .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
+                    .withDescription("schema_save_mode");
+    Option<DataSaveMode> DATA_SAVE_MODE =
+            Options.key("data_save_mode")
+                    .enumType(DataSaveMode.class)
+                    .defaultValue(DataSaveMode.APPEND_DATA)
+                    .withDescription("data_save_mode");
+
+    Option<String> CUSTOM_SQL =
+            Options.key("custom_sql").stringType().noDefaultValue().withDescription("custom_sql");
 
     Option<Boolean> AUTO_COMMIT =
             Options.key("auto_commit")

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
@@ -40,8 +41,10 @@ import com.google.common.collect.Lists;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
@@ -50,12 +53,20 @@ import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
 @SuppressWarnings("rawtypes")
 public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<SourceTableInfo> {
     private static final String PLUGIN_TYPE = "source";
+    private Map envOption = new HashMap<String, String>();
 
     public SourceExecuteProcessor(
             SparkRuntimeEnvironment sparkEnvironment,
             JobContext jobContext,
             List<? extends Config> sourceConfigs) {
         super(sparkEnvironment, jobContext, sourceConfigs);
+        for (Map.Entry<String, ConfigValue> entry : sparkEnvironment.getConfig().entrySet()) {
+            String envKey = entry.getKey();
+            String envValue = entry.getValue().render();
+            if (envKey != null && envValue != null) {
+                envOption.put(envKey, envValue);
+            }
+        }
     }
 
     @Override
@@ -86,6 +97,7 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
                             .option(
                                     Constants.SOURCE_SERIALIZATION,
                                     SerializationUtils.objectToString(source))
+                            .options(envOption)
                             .schema(schema)
                             .load();
             sources.add(

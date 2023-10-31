@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -29,29 +26,19 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
-import com.google.auto.service.AutoService;
-import lombok.NoArgsConstructor;
-
 import static org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkFactory.LOG_PRINT_DATA;
 import static org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkFactory.LOG_PRINT_DELAY;
 
-@NoArgsConstructor
-@AutoService(SeaTunnelSink.class)
 public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
-    private SeaTunnelRowType seaTunnelRowType;
-    private boolean isPrintData = true;
-    private int delayMs = 0;
+    private final SeaTunnelRowType seaTunnelRowType;
+    private final boolean isPrintData;
+    private final int delayMs;
 
     public ConsoleSink(SeaTunnelRowType seaTunnelRowType, ReadonlyConfig options) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.isPrintData = options.get(LOG_PRINT_DATA);
         this.delayMs = options.get(LOG_PRINT_DELAY);
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override
@@ -67,11 +54,5 @@ public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     @Override
     public String getPluginName() {
         return "Console";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) {
-        this.isPrintData = ReadonlyConfig.fromConfig(pluginConfig).get(LOG_PRINT_DATA);
-        this.delayMs = ReadonlyConfig.fromConfig(pluginConfig).get(LOG_PRINT_DELAY);
     }
 }

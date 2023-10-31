@@ -25,17 +25,14 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 
-import com.google.auto.service.AutoService;
 import com.google.common.collect.Lists;
 
 import java.util.List;
 
-@AutoService(SeaTunnelSource.class)
 public class KafkaSource
         implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState>,
                 SupportParallelism {
@@ -63,11 +60,6 @@ public class KafkaSource
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
         return Lists.newArrayList(kafkaSourceConfig.getCatalogTable());
-    }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return kafkaSourceConfig.getCatalogTable().getSeaTunnelRowType();
     }
 
     @Override

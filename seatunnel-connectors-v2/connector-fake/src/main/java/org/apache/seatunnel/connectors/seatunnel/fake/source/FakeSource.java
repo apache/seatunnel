@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -31,27 +28,19 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
-import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
 
 import org.apache.commons.collections4.CollectionUtils;
 
-import com.google.auto.service.AutoService;
 import com.google.common.collect.Lists;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@AutoService(SeaTunnelSource.class)
 public class FakeSource
         implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeSourceState>,
                 SupportParallelism,
@@ -97,11 +86,6 @@ public class FakeSource
     }
 
     @Override
-    public SeaTunnelRowType getProducedType() {
-        return catalogTable.getSeaTunnelRowType();
-    }
-
-    @Override
     public SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> createEnumerator(
             SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) throws Exception {
         return new FakeSourceSplitEnumerator(enumeratorContext, fakeConfig, Collections.emptySet());
@@ -124,21 +108,6 @@ public class FakeSource
     @Override
     public String getPluginName() {
         return "FakeSource";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(pluginConfig, TableSchemaOptions.SCHEMA.key());
-        if (!result.isSuccess()) {
-            throw new FakeConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
-        this.fakeConfig = FakeConfig.buildWithConfig(pluginConfig);
     }
 
     @Override

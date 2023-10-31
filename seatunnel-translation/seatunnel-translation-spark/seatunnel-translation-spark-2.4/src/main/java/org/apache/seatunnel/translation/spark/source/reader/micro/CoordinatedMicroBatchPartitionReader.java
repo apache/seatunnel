@@ -45,7 +45,8 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
             Integer checkpointInterval,
             String checkpointPath,
             String hdfsRoot,
-            String hdfsUser) {
+            String hdfsUser,
+            Map<String, String> envOptions) {
         super(
                 source,
                 parallelism,
@@ -54,11 +55,14 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
                 checkpointInterval,
                 checkpointPath,
                 hdfsRoot,
-                hdfsUser);
+                hdfsUser,
+                envOptions);
         this.collectorMap = new HashMap<>(parallelism);
         for (int i = 0; i < parallelism; i++) {
             collectorMap.put(
-                    i, new InternalRowCollector(handover, new Object(), source.getProducedType()));
+                    i,
+                    new InternalRowCollector(
+                            handover, new Object(), source.getProducedType(), envOptions));
         }
     }
 

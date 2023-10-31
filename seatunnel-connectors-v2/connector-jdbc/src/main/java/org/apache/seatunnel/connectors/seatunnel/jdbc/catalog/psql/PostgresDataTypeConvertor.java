@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import org.apache.commons.collections4.MapUtils;
@@ -107,6 +108,7 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
     public static final String PG_GEOGRAPHY = "geography";
     public static final String PG_JSON = "json";
     public static final String PG_JSONB = "jsonb";
+    public static final String PG_XML = "xml";
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
@@ -164,6 +166,7 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
             case PG_GEOGRAPHY:
             case PG_JSON:
             case PG_JSONB:
+            case PG_XML:
                 return BasicType.STRING_TYPE;
             case PG_CHAR_ARRAY:
             case PG_CHARACTER_ARRAY:
@@ -231,6 +234,6 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
 
     @Override
     public String getIdentity() {
-        return "POSTGRES";
+        return DatabaseIdentifier.POSTGRESQL;
     }
 }

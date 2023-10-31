@@ -17,19 +17,25 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobClient;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 
 import lombok.NonNull;
 
 public interface SeaTunnelClientInstance {
 
-    JobExecutionEnvironment createExecutionContext(
-            @NonNull String filePath, @NonNull JobConfig config);
+    ClientJobExecutionEnvironment createExecutionContext(
+            @NonNull String filePath,
+            @NonNull JobConfig config,
+            @NonNull SeaTunnelConfig seaTunnelConfig);
 
-    JobExecutionEnvironment restoreExecutionContext(
-            @NonNull String filePath, @NonNull JobConfig config, @NonNull Long jobId);
+    ClientJobExecutionEnvironment restoreExecutionContext(
+            @NonNull String filePath,
+            @NonNull JobConfig config,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull Long jobId);
 
     JobClient createJobClient();
 
