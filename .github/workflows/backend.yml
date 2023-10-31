@@ -151,8 +151,7 @@ jobs:
           cat /etc/rancher/k3s/k3s.yaml
           mkdir -p ~/.kube
           cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-          echo "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" >> /etc/profile
-          source /etc/profile
+          export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
       - name: Check Connector V2 E2E Update
         id: cv2-e2e-modules
         if: ${{ steps.filter.outputs.cv2-e2e == 'true' }}
