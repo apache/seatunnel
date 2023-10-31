@@ -68,7 +68,9 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      * @return SeaTunnel data type.
      */
     @Deprecated
-    SeaTunnelDataType<IN> getConsumedType();
+    default SeaTunnelDataType<IN> getConsumedType() {
+        throw new UnsupportedOperationException("getConsumedType method is not supported");
+    }
 
     /**
      * This method will be called to creat {@link SinkWriter}
