@@ -116,7 +116,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String configFileName) {}
+    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {

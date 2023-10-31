@@ -154,7 +154,7 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String configFileName) {
+    void compareResult(String executeKey) {
         final TablePath tablePathSource = TablePath.of("seatunnel", "source");
         final CatalogTable tableSource = catalog.getTable(tablePathSource);
         final List<Column> columnsSource = tableSource.getTableSchema().getColumns();

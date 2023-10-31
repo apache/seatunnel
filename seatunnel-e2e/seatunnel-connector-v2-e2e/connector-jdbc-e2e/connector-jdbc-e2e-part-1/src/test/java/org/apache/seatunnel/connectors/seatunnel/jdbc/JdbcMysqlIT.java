@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -27,6 +29,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
@@ -53,7 +56,6 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import com.mysql.cj.jdbc.ConnectionImpl;
 
 import java.io.IOException;
@@ -181,7 +183,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     }
 
     @Override
-    protected void compareResult(String configFileName) {
+    protected void compareResult(String executeKey) {
         String[] fieldNames =
                 new String[] {
                     "c_bit_1",
@@ -218,14 +220,16 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_longtext",
                     "c_date",
                     "c_datetime",
-                    "c_timestamp",
                     "c_time",
+                    "c_timestamp",
                     "c_tinyblob",
                     "c_mediumblob",
                     "c_blob",
                     "c_longblob",
                     "c_varbinary",
                     "c_binary",
+                    "c_bigint_30",
+                    "c_decimal_unsigned_30",
                     "c_decimal_30",
                 };
         // Select null value to check https://github.com/apache/seatunnel/issues/5559
@@ -233,44 +237,28 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
             ResultSet source =
                     statement.executeQuery(
                             String.format(
-                                    "select * from %s",
+                                    "select * from %s order by `c_bigint_30`",
                                     buildTableInfoWithSchema(
                                             this.jdbcCase.getSchema(),
                                             this.jdbcCase.getSourceTable())));
-            List<Object> sourceResult = new ArrayList<>();
-            while (source.next()) {
-                List<Object> row = new ArrayList<>();
-                for (String fieldName : fieldNames) {
-                    row.add(source.getObject(fieldName));
-                }
-                sourceResult.add(row);
-            }
+            Object[] sourceResult = toArrayResult(source, fieldNames);
             ResultSet sink =
                     statement.executeQuery(
                             String.format(
-                                    "select * from %s",
+                                    "select * from %s order by `c_bigint_30`",
                                     buildTableInfoWithSchema(
                                             this.jdbcCase.getSchema(),
                                             this.jdbcCase.getSinkTable())));
-            List<Object> sinkResult = new ArrayList<>();
-            while (sink.next()) {
-                List<Object> row = new ArrayList<>();
-                for (String fieldName : fieldNames) {
-                    Object value = sink.getObject(fieldName);
-                    if (value == null) {
-                        // do nothing
-                    } else if (value instanceof BigDecimal) {
-                        value = ((BigDecimal) value).stripTrailingZeros();
-                    } else if (value instanceof byte[]) {
-                        value = new String((byte[]) value);
-                    }
-                    row.add(value);
-                }
-                sinkResult.add(row);
-            }
-            Assertions.assertIterableEquals(sourceResult, sinkResult);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+            Object[] sinkResult = toArrayResult(sink, fieldNames);
+            log.warn(
+                    "{}: source data count {}, sink data count {}.",
+                    executeKey,
+                    sourceResult.length,
+                    sinkResult.length);
+            Assertions.assertArrayEquals(
+                    sourceResult, sinkResult, String.format("[%s] data compare", executeKey));
+        } catch (SQLException | IOException e) {
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.DATA_COMPARISON_FAILED, e);
         }
     }
 
