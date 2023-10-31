@@ -22,14 +22,23 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
+
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
     private final Config seaTunnelJobConfig;
@@ -55,11 +64,25 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                                         .getHazelcastInstance()
                                         .getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME)
                                         .newId()));
-        this.jobId = Long.valueOf(jobConfig.getJobContext().getJobId());
+        this.jobId = Long.valueOf(this.jobConfig.getJobContext().getJobId());
     }
 
     public Long getJobId() {
         return jobId;
+    }
+
+    @Override
+    protected LogicalDag getLogicalDag() {
+        ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
+        actions.addAll(immutablePair.getLeft());
+        jarUrls.addAll(commonPluginJars);
+        jarUrls.addAll(immutablePair.getRight());
+        actions.forEach(
+                action -> {
+                    addCommonPluginJarsToAction(
+                            action, new HashSet<>(commonPluginJars), Collections.emptySet());
+                });
+        return getLogicalDagGenerator().generate();
     }
 
     @Override
@@ -75,6 +98,7 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                 isStartWithSavePoint,
                 nodeEngine.getSerializationService().toData(getLogicalDag()),
                 jobConfig,
-                new ArrayList<>(jarUrls));
+                new ArrayList<>(jarUrls),
+                new ArrayList<>(connectorJarIdentifiers));
     }
 }

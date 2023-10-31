@@ -33,12 +33,14 @@ import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
@@ -112,6 +114,8 @@ public class JobMaster {
 
     private JobDAGInfo jobDAGInfo;
 
+    private SeaTunnelServer seaTunnelServer;
+
     /**
      * we need store slot used by task in Hazelcast IMap and release or reuse it when a new master
      * node active.
@@ -159,7 +163,8 @@ public class JobMaster {
             @NonNull IMap ownedSlotProfilesIMap,
             @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
             @NonNull IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap,
-            EngineConfig engineConfig) {
+            EngineConfig engineConfig,
+            SeaTunnelServer seaTunnelServer) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
@@ -175,6 +180,7 @@ public class JobMaster {
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
         this.metricsImap = metricsImap;
+        this.seaTunnelServer = seaTunnelServer;
     }
 
     public void init(long initializationTimestamp, boolean restart) throws Exception {
@@ -304,6 +310,12 @@ public class JobMaster {
                             ExceptionUtils.getMessage(e)));
         } finally {
             jobMasterCompleteFuture.join();
+            List<ConnectorJarIdentifier> pluginJarIdentifiers =
+                    jobImmutableInformation.getPluginJarIdentifiers();
+            seaTunnelServer
+                    .getConnectorPackageService()
+                    .cleanUpWhenJobFinished(
+                            jobImmutableInformation.getJobId(), pluginJarIdentifiers);
         }
     }
 

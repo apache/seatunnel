@@ -164,6 +164,11 @@ public class JdbcGBase8aIT extends AbstractJdbcIT {
     }
 
     @Override
+    protected Class<?> loadDriverClass() {
+        return super.loadDriverClassFromUrl();
+    }
+
+    @Override
     GenericContainer<?> initContainer() {
         GenericContainer<?> container =
                 new GenericContainer<>(GBASE_IMAGE)

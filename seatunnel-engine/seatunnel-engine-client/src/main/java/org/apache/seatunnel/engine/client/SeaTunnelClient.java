@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobMetricsRunner.JobMetricsSummary;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetClusterHealthMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
@@ -49,14 +50,21 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
 
     @Override
     public ClientJobExecutionEnvironment createExecutionContext(
-            @NonNull String filePath, @NonNull JobConfig jobConfig) {
-        return new ClientJobExecutionEnvironment(jobConfig, filePath, hazelcastClient);
+            @NonNull String filePath,
+            @NonNull JobConfig jobConfig,
+            @NonNull SeaTunnelConfig seaTunnelConfig) {
+        return new ClientJobExecutionEnvironment(
+                jobConfig, filePath, hazelcastClient, seaTunnelConfig);
     }
 
     @Override
     public ClientJobExecutionEnvironment restoreExecutionContext(
-            @NonNull String filePath, @NonNull JobConfig jobConfig, @NonNull Long jobId) {
-        return new ClientJobExecutionEnvironment(jobConfig, filePath, hazelcastClient, true, jobId);
+            @NonNull String filePath,
+            @NonNull JobConfig jobConfig,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull Long jobId) {
+        return new ClientJobExecutionEnvironment(
+                jobConfig, filePath, hazelcastClient, seaTunnelConfig, true, jobId);
     }
 
     @Override

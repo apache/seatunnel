@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.TaskGroupDeployException;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
@@ -81,6 +82,18 @@ public class PhysicalVertex {
 
     private final Set<URL> pluginJarsUrls;
 
+    // Set<URL> pluginJarsUrls is a collection of paths stored on the engine for all connector Jar
+    // packages and third-party Jar packages that the connector relies on.
+    // All storage paths come from the unique identifier obtained after uploading the Jar package
+    // through the client.
+    // Set<ConnectorJarIdentifier> represents the set of the unique identifier of a Jar package
+    // file,
+    // which contains more information about the Jar package file, including the name of the
+    // connector plugin using the current Jar, the type of the current Jar package, and so on.
+    // TODO: Only use Set<ConnectorJarIdentifier>to save more information about the Jar package,
+    // including the storage path of the Jar package on the server.
+    private final Set<ConnectorJarIdentifier> connectorJarIdentifiers;
+
     private final IMap<Object, Object> runningJobStateIMap;
 
     /**
@@ -117,6 +130,7 @@ public class PhysicalVertex {
             int pipelineId,
             int totalPipelineNum,
             Set<URL> pluginJarsUrls,
+            Set<ConnectorJarIdentifier> connectorJarIdentifiers,
             @NonNull JobImmutableInformation jobImmutableInformation,
             long initializationTimestamp,
             @NonNull NodeEngine nodeEngine,
@@ -127,6 +141,7 @@ public class PhysicalVertex {
         this.taskGroup = taskGroup;
         this.flakeIdGenerator = flakeIdGenerator;
         this.pluginJarsUrls = pluginJarsUrls;
+        this.connectorJarIdentifiers = connectorJarIdentifiers;
 
         Long[] stateTimestamps = new Long[ExecutionState.values().length];
         if (runningJobStateTimestampsIMap.get(taskGroup.getTaskGroupLocation()) == null) {
@@ -330,7 +345,8 @@ public class PhysicalVertex {
         return new TaskGroupImmutableInformation(
                 flakeIdGenerator.newId(),
                 nodeEngine.getSerializationService().toData(this.taskGroup),
-                this.pluginJarsUrls);
+                this.pluginJarsUrls,
+                this.connectorJarIdentifiers);
     }
 
     public synchronized void updateTaskState(@NonNull ExecutionState targetState) {

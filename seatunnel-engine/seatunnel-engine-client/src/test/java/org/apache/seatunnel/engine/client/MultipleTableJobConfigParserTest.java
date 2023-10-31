@@ -26,6 +26,7 @@ import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -33,6 +34,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -109,7 +111,7 @@ public class MultipleTableJobConfigParserTest {
     }
 
     @Test
-    public void testMultipleTableSourceWithMultiTableSinkParse() {
+    public void testMultipleTableSourceWithMultiTableSinkParse() throws IOException {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/batch_fake_to_console_multi_table.conf");
         JobConfig jobConfig = new JobConfig();
@@ -121,5 +123,9 @@ public class MultipleTableJobConfigParserTest {
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
         Assertions.assertEquals("MultiTableSink-Console", actions.get(0).getName());
+        Assertions.assertFalse(
+                ((SinkAction) actions.get(0)).getSink().createCommitter().isPresent());
+        Assertions.assertFalse(
+                ((SinkAction) actions.get(0)).getSink().createAggregatedCommitter().isPresent());
     }
 }

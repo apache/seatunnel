@@ -108,6 +108,7 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
     public static final String PG_GEOGRAPHY = "geography";
     public static final String PG_JSON = "json";
     public static final String PG_JSONB = "jsonb";
+    public static final String PG_XML = "xml";
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
@@ -165,6 +166,7 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
             case PG_GEOGRAPHY:
             case PG_JSON:
             case PG_JSONB:
+            case PG_XML:
                 return BasicType.STRING_TYPE;
             case PG_CHAR_ARRAY:
             case PG_CHARACTER_ARRAY:

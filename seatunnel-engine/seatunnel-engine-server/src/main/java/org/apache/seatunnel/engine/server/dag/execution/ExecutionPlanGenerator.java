@@ -36,6 +36,7 @@ import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 
 import lombok.NonNull;
@@ -107,6 +108,7 @@ public class ExecutionPlanGenerator {
                             new ArrayList<>(),
                             ((SinkAction<?, ?, ?, ?>) action).getSink(),
                             action.getJarUrls(),
+                            action.getConnectorJarIdentifiers(),
                             (SinkConfig) action.getConfig());
         } else if (action instanceof SourceAction) {
             newAction =
@@ -114,20 +116,23 @@ public class ExecutionPlanGenerator {
                             id,
                             action.getName(),
                             ((SourceAction<?, ?, ?>) action).getSource(),
-                            action.getJarUrls());
+                            action.getJarUrls(),
+                            action.getConnectorJarIdentifiers());
         } else if (action instanceof TransformAction) {
             newAction =
                     new TransformAction(
                             id,
                             action.getName(),
                             ((TransformAction) action).getTransform(),
-                            action.getJarUrls());
+                            action.getJarUrls(),
+                            action.getConnectorJarIdentifiers());
         } else if (action instanceof TransformChainAction) {
             newAction =
                     new TransformChainAction(
                             id,
                             action.getName(),
                             action.getJarUrls(),
+                            action.getConnectorJarIdentifiers(),
                             ((TransformChainAction<?>) action).getTransforms());
         } else {
             throw new UnknownActionException(action);
@@ -365,6 +370,7 @@ public class ExecutionPlanGenerator {
             List<SeaTunnelTransform> transforms = new ArrayList<>(transformChainedVertices.size());
             List<String> names = new ArrayList<>(transformChainedVertices.size());
             Set<URL> jars = new HashSet<>();
+            Set<ConnectorJarIdentifier> identifiers = new HashSet<>();
 
             transformChainedVertices.stream()
                     .peek(
@@ -377,13 +383,14 @@ public class ExecutionPlanGenerator {
                             action -> {
                                 transforms.add(action.getTransform());
                                 jars.addAll(action.getJarUrls());
+                                identifiers.addAll(action.getConnectorJarIdentifiers());
                                 names.add(action.getName());
                             });
             String transformChainActionName =
                     String.format("TransformChain[%s]", String.join("->", names));
             TransformChainAction transformChainAction =
                     new TransformChainAction(
-                            newVertexId, transformChainActionName, jars, transforms);
+                            newVertexId, transformChainActionName, jars, identifiers, transforms);
             transformChainAction.setParallelism(currentVertex.getAction().getParallelism());
 
             ExecutionVertex executionVertex =
