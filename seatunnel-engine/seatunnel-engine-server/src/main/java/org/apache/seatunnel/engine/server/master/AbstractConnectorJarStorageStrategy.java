@@ -33,10 +33,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -52,7 +49,7 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
 
     protected static final String COMMON_PLUGIN_JAR_STORAGE_PATH = "/plugins";
 
-    protected static final String CONNECTOR_PLUGIN_JAR_STORAGE_PATH = "/connectors/seatunnel";
+    protected static final String CONNECTOR_PLUGIN_JAR_STORAGE_PATH = "/connectors";
 
     protected String storageDir;
 
@@ -81,7 +78,7 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
             LOGGER.warning(
                     String.format(
                             "The creation of directories : %s for the connector jar storage path has failed.",
-                            file.getParentFile().toPath().toString()));
+                            file.getParentFile().toPath()));
         }
         return file;
     }
@@ -97,8 +94,7 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
         boolean success = false;
         try {
             if (!storageFile.exists()) {
-                FileOutputStream fos = new FileOutputStream(storageFile);
-                fos.write(connectorJar.getData());
+                Files.write(storageFile.toPath(), connectorJar.getData());
             } else {
                 LOGGER.warning(
                         String.format(
@@ -159,26 +155,5 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
                                 member.getAddress());
                     }
                 });
-    }
-
-    @Override
-    public byte[] readConnectorJarByteDataInternal(File connectorJarFile) {
-        try {
-            // Read file data and convert it to a byte array.
-            FileInputStream inputStream = new FileInputStream(connectorJarFile);
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
-            }
-            return outputStream.toByteArray();
-        } catch (IOException e) {
-            LOGGER.warning(
-                    String.format(
-                            "Failed to read the connector jar package file : { %s } , the file to be read may not exist",
-                            connectorJarFile));
-            return new byte[0];
-        }
     }
 }

@@ -60,7 +60,7 @@ public interface ConnectorJarStorageStrategy extends Serializable {
      *
      * @param connectorJar connector jar
      * @param storageLocation the storage location of the connector jar in the local file system
-     * @return
+     * @return the storage path of connector jar file
      */
     Optional<Path> storageConnectorJarFileInternal(ConnectorJar connectorJar, File storageLocation);
 
@@ -69,7 +69,7 @@ public interface ConnectorJarStorageStrategy extends Serializable {
      *
      * @param jobId ID of the job for the connector jar
      * @param connectorJar connector jar
-     * @return
+     * @return true if the same connector Jar package exists in the engine, otherwise false
      */
     boolean checkConnectorJarExisted(long jobId, ConnectorJar connectorJar);
 
@@ -78,7 +78,7 @@ public interface ConnectorJarStorageStrategy extends Serializable {
      *
      * @param jobId ID of the job for the connector jar
      * @param connectorJar connector jar
-     * @return
+     * @return the unique identifier of the connector jar
      */
     ConnectorJarIdentifier getConnectorJarIdentifier(long jobId, ConnectorJar connectorJar);
 
@@ -97,32 +97,11 @@ public interface ConnectorJarStorageStrategy extends Serializable {
     void deleteConnectorJarInExecutionNode(ConnectorJarIdentifier connectorJarIdentifier);
 
     /**
-     * Delete the connector jar package by connectorJarIdentifier
-     *
-     * @param connectorJarIdentifier the unique identifier of the connector jar.
-     */
-    /**
      * Delete the connector jar package in the local file system by connectorJarIdentifier.
      *
      * @param storageLocation the storage location of the connector jar
      */
     void deleteConnectorJarInternal(File storageLocation);
-
-    /**
-     * Read connector Jar package from file to byte array.
-     *
-     * @param connectorJarFile the connector jar file
-     * @return the byte array of the connector jar file
-     */
-    byte[] readConnectorJarByteDataInternal(File connectorJarFile);
-
-    /**
-     * Read connector Jar package from file to byte array.
-     *
-     * @param connectorJarFile the connector jar file
-     * @return the byte array of the connector jar file
-     */
-    byte[] readConnectorJarByteData(File connectorJarFile);
 
     /**
      * Carry out the cleaning work after the task is finished.

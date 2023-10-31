@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Timer;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BiFunction;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
@@ -56,7 +55,7 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
         this.readWriteLock = new ReentrantReadWriteLock();
         this.connectorJarRefCounters =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS);
-        // Initializing the clean up task
+        // Initializing the cleanup task
         this.cleanupTimer = new Timer(true);
         this.cleanupInterval = connectorJarStorageConfig.getCleanupTaskInterval() * 1000;
         this.cleanupTimer.schedule(
@@ -95,10 +94,7 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
                 ConnectorJarIdentifier.of(
                         connectorJar, getStorageLocationPath(jobId, connectorJar));
         RefCount refCount = connectorJarRefCounters.get(connectorJarIdentifier);
-        if (refCount != null) {
-            return true;
-        }
-        return false;
+        return refCount != null;
     }
 
     public void increaseRefCountForConnectorJar(ConnectorJarIdentifier connectorJarIdentifier) {
@@ -145,35 +141,18 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
     @Override
     public void cleanUpWhenJobFinished(
             long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList) {
-        connectorJarIdentifierList.forEach(
-                connectorJarIdentifier -> {
-                    decreaseConnectorJarRefCount(connectorJarIdentifier);
-                });
+        connectorJarIdentifierList.forEach(this::decreaseConnectorJarRefCount);
     }
 
     public void decreaseConnectorJarRefCount(ConnectorJarIdentifier connectorJarIdentifier) {
         connectorJarRefCounters.compute(
                 connectorJarIdentifier,
-                new BiFunction<ConnectorJarIdentifier, RefCount, RefCount>() {
-                    @Override
-                    public RefCount apply(
-                            ConnectorJarIdentifier connectorJarIdentifier, RefCount refCount) {
-                        if (refCount != null) {
-                            Long references = refCount.getReferences();
-                            refCount.setReferences(--references);
-                        }
-                        return refCount;
+                (connectorJarIdentifier1, refCount) -> {
+                    if (refCount != null) {
+                        Long references = refCount.getReferences();
+                        refCount.setReferences(--references);
                     }
+                    return refCount;
                 });
-    }
-
-    @Override
-    public byte[] readConnectorJarByteData(File connectorJarFile) {
-        readWriteLock.readLock().lock();
-        try {
-            return readConnectorJarByteDataInternal(connectorJarFile);
-        } finally {
-            readWriteLock.readLock().unlock();
-        }
     }
 }
