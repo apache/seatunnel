@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.core.dag.actions.ShuffleStrategy;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
@@ -284,6 +285,7 @@ public class PhysicalPlanGenerator {
                                         pipelineIndex,
                                         totalPipelineNum,
                                         sinkAction.getJarUrls(),
+                                        sinkAction.getConnectorJarIdentifiers(),
                                         jobImmutableInformation,
                                         initializationTimestamp,
                                         nodeEngine,
@@ -392,6 +394,7 @@ public class PhysicalPlanGenerator {
                                                     pipelineIndex,
                                                     totalPipelineNum,
                                                     seaTunnelTask.getJarsUrl(),
+                                                    seaTunnelTask.getConnectorPluginJars(),
                                                     jobImmutableInformation,
                                                     initializationTimestamp,
                                                     nodeEngine,
@@ -433,6 +436,7 @@ public class PhysicalPlanGenerator {
                                                     pipelineIndex,
                                                     totalPipelineNum,
                                                     seaTunnelTask.getJarsUrl(),
+                                                    seaTunnelTask.getConnectorPluginJars(),
                                                     jobImmutableInformation,
                                                     initializationTimestamp,
                                                     nodeEngine,
@@ -487,6 +491,7 @@ public class PhysicalPlanGenerator {
                                     pipelineIndex,
                                     totalPipelineNum,
                                     t.getJarsUrl(),
+                                    t.getConnectorPluginJars(),
                                     jobImmutableInformation,
                                     initializationTimestamp,
                                     nodeEngine,
@@ -568,6 +573,14 @@ public class PhysicalPlanGenerator {
                                                 .flatMap(task -> task.getJarsUrl().stream())
                                                 .collect(Collectors.toSet());
 
+                                Set<ConnectorJarIdentifier> jarIdentifiers =
+                                        taskList.stream()
+                                                .flatMap(
+                                                        task ->
+                                                                task.getConnectorPluginJars()
+                                                                        .stream())
+                                                .collect(Collectors.toSet());
+
                                 if (taskList.stream()
                                         .anyMatch(TransformSeaTunnelTask.class::isInstance)) {
                                     // contains IntermediateExecutionFlow in task group
@@ -599,6 +612,7 @@ public class PhysicalPlanGenerator {
                                                     pipelineIndex,
                                                     totalPipelineNum,
                                                     jars,
+                                                    jarIdentifiers,
                                                     jobImmutableInformation,
                                                     initializationTimestamp,
                                                     nodeEngine,
@@ -621,6 +635,7 @@ public class PhysicalPlanGenerator {
                                                     pipelineIndex,
                                                     totalPipelineNum,
                                                     jars,
+                                                    jarIdentifiers,
                                                     jobImmutableInformation,
                                                     initializationTimestamp,
                                                     nodeEngine,

@@ -69,7 +69,7 @@ public class RestApiIT {
         clientConfig.setClusterName(testClusterName);
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         ClientJobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(filePath, jobConfig);
+                engineClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
 
         clientJobProxy = jobExecutionEnv.execute();
 
