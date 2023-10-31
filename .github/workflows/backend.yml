@@ -147,7 +147,7 @@ jobs:
       - name: install k8s
         id: k8s
         run: |
-          curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE=777 sh -
+          curl -sfL https://get.k3s.io | sh -s - --docker
           cat /etc/rancher/k3s/k3s.yaml
           mkdir -p ~/.kube
           cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
