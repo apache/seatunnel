@@ -37,7 +37,7 @@ Read data from Amazon SQS.
 
 ```bash
 source {
-  amazonsqs {
+  AmazonSqs {
     url = "http://127.0.0.1:4566"
     region = "us-east-1"
     format = text

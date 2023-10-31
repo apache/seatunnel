@@ -25,15 +25,12 @@ echo Set SEATUNNEL_HOME to [%SEATUNNEL_HOME%]
 REM Connector default version is 2.3.3, you can also choose a custom version. eg: 2.1.2:  install-plugin.bat 2.1.2
 set "version=2.3.3"
 if not "%~1"=="" set "version=%~1"
-echo Install hadoop shade jar, usage version is %version%
 
 REM Create the lib directory
 if not exist "%SEATUNNEL_HOME%\lib" (
     mkdir "%SEATUNNEL_HOME%\lib"
     echo create lib directory
 )
-
-call "%SEATUNNEL_HOME%\mvnw.cmd" dependency:get -DgroupId="org.apache.seatunnel" -Dclassifier="optional" -DartifactId="seatunnel-hadoop3-3.1.4-uber" -Dversion="%version%" -Ddest="%SEATUNNEL_HOME%\lib"
 
 echo Install SeaTunnel connectors plugins, usage version is %version%
 

@@ -75,7 +75,7 @@ source {
 }
 
 sink {
-  amazonsqs {
+  AmazonSqs {
     url = "http://127.0.0.1:8000"
     region = "us-east-1"
     queue = "queueName"
