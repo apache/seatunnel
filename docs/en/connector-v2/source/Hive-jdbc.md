@@ -2,6 +2,10 @@
 
 > JDBC Hive Source Connector
 
+## Support Hive Version
+
+- Definitely supports 3.1.3 and 3.1.2, other versions need to be tested.
+
 ## Support Those Engines
 
 > Spark<br/>
