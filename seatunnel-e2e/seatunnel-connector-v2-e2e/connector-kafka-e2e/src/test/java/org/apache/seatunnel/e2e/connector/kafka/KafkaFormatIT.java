@@ -105,6 +105,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     // Used to map local data paths to kafa topics that need to be written to kafka
     private static LinkedHashMap<String, String> LOCAL_DATA_TO_KAFKA_MAPPING;
 
+    // Initialization maps local data and paths ready to be sent to kafka
     static {
         LOCAL_DATA_TO_KAFKA_MAPPING =
                 new LinkedHashMap<String, String>() {
@@ -204,7 +205,8 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testFormatCheck(TestContainer container) throws IOException, InterruptedException {
+    public void testFormatCanalCheck(TestContainer container)
+            throws IOException, InterruptedException {
         LOG.info("====================== Check Canal======================");
         Container.ExecResult execCanalResultKafka =
                 container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
@@ -216,6 +218,11 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 0, execCanalResultToPgSql.getExitCode(), execCanalResultToPgSql.getStderr());
         // Check Canal
         checkCanalFormat();
+    }
+
+    @TestTemplate
+    public void testFormatOggCheck(TestContainer container)
+            throws IOException, InterruptedException {
 
         LOG.info("====================== Check Ogg======================");
         Container.ExecResult execOggResultKafka =
@@ -230,8 +237,13 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
         // Check Ogg
         checkOggFormat();
+    }
 
-        LOG.info("======================  Check debezium ====================== ");
+    @TestTemplate
+    public void testFormatDebeziumCheck(TestContainer container)
+            throws IOException, InterruptedException {
+
+        LOG.info("======================  Check Debezium ====================== ");
         Container.ExecResult execDebeziumResultKafka =
                 container.executeJob("/debeziumFormatIT/kafkasource_debezium_to_kafka.conf");
         Assertions.assertEquals(
@@ -243,6 +255,11 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 0, execDebeziumResultToPgSql.getExitCode(), execDebeziumResultToPgSql.getStderr());
         // Check debezium
         checkDebeziumFormat();
+    }
+
+    @TestTemplate
+    public void testFormatCompatibleCheck(TestContainer container)
+            throws IOException, InterruptedException {
 
         LOG.info("======================  Check Compatible ====================== ");
         Container.ExecResult execCompatibleResultToPgSql =
