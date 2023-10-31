@@ -29,7 +29,6 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
@@ -61,9 +60,7 @@ import com.mysql.cj.jdbc.ConnectionImpl;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -232,34 +229,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_decimal_unsigned_30",
                     "c_decimal_30",
                 };
-        // Select null value to check https://github.com/apache/seatunnel/issues/5559
-        try (Statement statement = connection.createStatement()) {
-            ResultSet source =
-                    statement.executeQuery(
-                            String.format(
-                                    "select * from %s order by `c_bigint_30`",
-                                    buildTableInfoWithSchema(
-                                            this.jdbcCase.getSchema(),
-                                            this.jdbcCase.getSourceTable())));
-            Object[] sourceResult = toArrayResult(source, fieldNames);
-            ResultSet sink =
-                    statement.executeQuery(
-                            String.format(
-                                    "select * from %s order by `c_bigint_30`",
-                                    buildTableInfoWithSchema(
-                                            this.jdbcCase.getSchema(),
-                                            this.jdbcCase.getSinkTable())));
-            Object[] sinkResult = toArrayResult(sink, fieldNames);
-            log.warn(
-                    "{}: source data count {}, sink data count {}.",
-                    executeKey,
-                    sourceResult.length,
-                    sinkResult.length);
-            Assertions.assertArrayEquals(
-                    sourceResult, sinkResult, String.format("[%s] data compare", executeKey));
-        } catch (SQLException | IOException e) {
-            throw new SeaTunnelRuntimeException(JdbcITErrorCode.DATA_COMPARISON_FAILED, e);
-        }
+        defaultCompare(executeKey, fieldNames, "c_bigint_30");
     }
 
     @Override

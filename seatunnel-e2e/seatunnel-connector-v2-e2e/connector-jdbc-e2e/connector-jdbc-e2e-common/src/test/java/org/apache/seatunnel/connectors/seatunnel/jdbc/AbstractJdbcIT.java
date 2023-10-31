@@ -415,4 +415,36 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             return data;
         }
     }
+
+    protected void defaultCompare(String executeKey, String[] fieldNames, String sortKey) {
+        try (Statement statement = connection.createStatement()) {
+            ResultSet source =
+                    statement.executeQuery(
+                            String.format(
+                                    "SELECT * FROM %s ORDER BY %s",
+                                    buildTableInfoWithSchema(
+                                            this.jdbcCase.getSchema(),
+                                            this.jdbcCase.getSourceTable()),
+                                    quoteIdentifier(sortKey)));
+            Object[] sourceResult = toArrayResult(source, fieldNames);
+            ResultSet sink =
+                    statement.executeQuery(
+                            String.format(
+                                    "SELECT * FROM %s ORDER BY %s",
+                                    buildTableInfoWithSchema(
+                                            this.jdbcCase.getSchema(),
+                                            this.jdbcCase.getSinkTable()),
+                                    quoteIdentifier(sortKey)));
+            Object[] sinkResult = toArrayResult(sink, fieldNames);
+            log.warn(
+                    "{}: source data count {}, sink data count {}.",
+                    executeKey,
+                    sourceResult.length,
+                    sinkResult.length);
+            Assertions.assertArrayEquals(
+                    sourceResult, sinkResult, String.format("[%s] data compare", executeKey));
+        } catch (SQLException | IOException e) {
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.DATA_COMPARISON_FAILED, e);
+        }
+    }
 }
