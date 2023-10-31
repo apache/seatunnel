@@ -130,20 +130,6 @@ public class KubernetesIT {
                                     new File(
                                             PROJECT_ROOT_PATH
                                                     + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/seatunnel-statefulset.yaml"));
-            try {
-                coreV1Api.readNamespacedService("seatunnel", "default", null);
-                coreV1Api.deleteNamespacedService(
-                        "seatunnel", "default", null, null, null, null, null, null);
-            } catch (Exception e) {
-                log.info("The service of seatunnel does not exist");
-            }
-            try {
-                appsV1Api.readNamespacedStatefulSet("seatunnel", "default", null);
-                appsV1Api.deleteNamespacedStatefulSet(
-                        "seatunnel", "default", null, null, null, null, null, null);
-            } catch (Exception e) {
-                log.info("The statefulset of seatunnel does not exist");
-            }
             coreV1Api.createNamespacedService("default", yamlSvc, null, null, null, null);
             appsV1Api.createNamespacedStatefulSet(
                     "default", yamlStatefulSet, null, null, null, null);
@@ -163,20 +149,6 @@ public class KubernetesIT {
             if (ObjectUtils.isNotEmpty(hadoopJarTarget)) {
                 Files.deleteIfExists(hadoopJarTarget);
             }
-            try {
-                appsV1Api.deleteNamespacedStatefulSet(
-                        "seatunnel", "default", null, null, null, null, null, null);
-            } catch (Exception e) {
-                log.error("deleteNamespacedStatefulSet fail:", e);
-            }
-            try {
-                coreV1Api.deleteNamespacedService(
-                        "seatunnel", "default", null, null, null, null, null, null);
-            } catch (Exception e) {
-                log.error("deleteNamespacedService fail:", e);
-            }
-            Thread.sleep(60000);
-            dockerClient.removeImageCmd(tag).exec();
         }
     }
 }
