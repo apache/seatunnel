@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.collections4.MapUtils;
 
@@ -196,6 +197,6 @@ public class SnowflakeDataTypeConvertor implements DataTypeConvertor<String> {
 
     @Override
     public String getIdentity() {
-        return "SNOWFLAKE";
+        return DatabaseIdentifier.SNOWFLAKE;
     }
 }

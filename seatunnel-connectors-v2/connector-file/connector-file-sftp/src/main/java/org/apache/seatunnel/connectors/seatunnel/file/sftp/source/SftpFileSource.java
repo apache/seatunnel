@@ -58,7 +58,7 @@ public class SftpFileSource extends BaseFileSource {
                         SftpConfig.FILE_FORMAT_TYPE.key(),
                         SftpConfig.SFTP_HOST.key(),
                         SftpConfig.SFTP_PORT.key(),
-                        SftpConfig.SFTP_USERNAME.key(),
+                        SftpConfig.SFTP_USER.key(),
                         SftpConfig.SFTP_PASSWORD.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(

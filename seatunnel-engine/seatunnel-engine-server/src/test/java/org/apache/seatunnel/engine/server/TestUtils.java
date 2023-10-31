@@ -22,6 +22,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
@@ -45,6 +48,7 @@ import com.google.common.collect.Sets;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
@@ -69,18 +73,25 @@ public class TestUtils {
                         idGenerator.getNextId(),
                         "fake",
                         fakeSource,
-                        Sets.newHashSet(new URL("file:///fake.jar")));
+                        Sets.newHashSet(new URL("file:///fake.jar")),
+                        Collections.emptySet());
         fake.setParallelism(3);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 3);
 
-        ConsoleSink consoleSink = new ConsoleSink();
+        ConsoleSink consoleSink =
+                new ConsoleSink(
+                        new SeaTunnelRowType(
+                                new String[] {"id"},
+                                new SeaTunnelDataType<?>[] {BasicType.INT_TYPE}),
+                        ReadonlyConfig.fromMap(new HashMap<>()));
         consoleSink.setJobContext(jobContext);
         Action console =
                 new SinkAction<>(
                         idGenerator.getNextId(),
                         "console",
                         consoleSink,
-                        Sets.newHashSet(new URL("file:///console.jar")));
+                        Sets.newHashSet(new URL("file:///console.jar")),
+                        Collections.emptySet());
         console.setParallelism(3);
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 3);
 

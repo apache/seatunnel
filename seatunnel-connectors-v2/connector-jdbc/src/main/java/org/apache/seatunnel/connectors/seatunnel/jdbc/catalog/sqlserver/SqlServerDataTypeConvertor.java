@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -145,6 +146,6 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
 
     @Override
     public String getIdentity() {
-        return "SqlServer";
+        return DatabaseIdentifier.SQLSERVER;
     }
 }

@@ -50,6 +50,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -90,7 +91,11 @@ public class JobConfigParser {
                         0, config.getString(CollectionConstants.PLUGIN_NAME), getTableName(config));
         SourceAction action =
                 new SourceAction(
-                        idGenerator.getNextId(), actionName, tuple.getLeft(), tuple.getRight());
+                        idGenerator.getNextId(),
+                        actionName,
+                        tuple.getLeft(),
+                        tuple.getRight(),
+                        new HashSet<>());
         action.setParallelism(parallelism);
         SeaTunnelRowType producedType = (SeaTunnelRowType) tuple.getLeft().getProducedType();
         CatalogTable catalogTable = CatalogTableUtil.getCatalogTable(tableId, producedType);
@@ -121,7 +126,8 @@ public class JobConfigParser {
                         actionName,
                         new ArrayList<>(inputActions),
                         transform,
-                        tuple.getRight());
+                        tuple.getRight(),
+                        new HashSet<>());
         action.setParallelism(parallelism);
         CatalogTable catalogTable =
                 CatalogTableUtil.getCatalogTable(
@@ -210,7 +216,8 @@ public class JobConfigParser {
                         actionName,
                         new ArrayList<>(inputActions),
                         sink,
-                        tuple.getRight());
+                        tuple.getRight(),
+                        new HashSet<>());
         action.setParallelism(parallelism);
         return action;
     }

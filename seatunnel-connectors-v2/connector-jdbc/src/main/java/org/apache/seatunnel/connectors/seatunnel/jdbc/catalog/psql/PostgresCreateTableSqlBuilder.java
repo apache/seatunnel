@@ -19,14 +19,20 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
+import lombok.Getter;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -39,6 +45,10 @@ public class PostgresCreateTableSqlBuilder {
     private PostgresDataTypeConvertor postgresDataTypeConvertor;
     private String sourceCatalogName;
     private String fieldIde;
+    private List<ConstraintKey> constraintKeys;
+    public Boolean isHaveConstraintKey = false;
+
+    @Getter public List<String> createIndexSqls = new ArrayList<>();
 
     public PostgresCreateTableSqlBuilder(CatalogTable catalogTable) {
         this.columns = catalogTable.getTableSchema().getColumns();
@@ -46,6 +56,7 @@ public class PostgresCreateTableSqlBuilder {
         this.postgresDataTypeConvertor = new PostgresDataTypeConvertor();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
+        this.constraintKeys = catalogTable.getTableSchema().getConstraintKeys();
     }
 
     public String build(TablePath tablePath) {
@@ -62,6 +73,32 @@ public class PostgresCreateTableSqlBuilder {
                                         CatalogUtils.quoteIdentifier(
                                                 buildColumnSql(column), fieldIde))
                         .collect(Collectors.toList());
+
+        if (CollectionUtils.isNotEmpty(constraintKeys)) {
+            for (ConstraintKey constraintKey : constraintKeys) {
+                if (StringUtils.isBlank(constraintKey.getConstraintName())
+                        || (primaryKey != null
+                                && StringUtils.equals(
+                                        primaryKey.getPrimaryKey(),
+                                        constraintKey.getConstraintName()))) {
+                    continue;
+                }
+                isHaveConstraintKey = true;
+                switch (constraintKey.getConstraintType()) {
+                    case UNIQUE_KEY:
+                        String uniqueKeySql = buildUniqueKeySql(constraintKey);
+                        columnSqls.add("\t" + uniqueKeySql);
+                        break;
+                    case INDEX_KEY:
+                        String indexKeySql = buildIndexKeySql(tablePath, constraintKey);
+                        createIndexSqls.add(indexKeySql);
+                        break;
+                    case FOREIGN_KEY:
+                        // todo: add foreign key
+                        break;
+                }
+            }
+        }
 
         createTableSql.append(String.join(",\n", columnSqls));
         createTableSql.append("\n);");
@@ -89,7 +126,7 @@ public class PostgresCreateTableSqlBuilder {
 
         // For simplicity, assume the column type in SeaTunnelDataType is the same as in PostgreSQL
         String columnType =
-                StringUtils.equalsIgnoreCase("postgres", sourceCatalogName)
+                StringUtils.equalsIgnoreCase(DatabaseIdentifier.POSTGRESQL, sourceCatalogName)
                         ? column.getSourceType()
                         : buildColumnType(column);
         columnSql.append(columnType);
@@ -145,5 +182,50 @@ public class PostgresCreateTableSqlBuilder {
                 .append(column.getComment())
                 .append("'");
         return columnCommentSql.toString();
+    }
+
+    private String buildUniqueKeySql(ConstraintKey constraintKey) {
+        String constraintName = constraintKey.getConstraintName();
+        if (constraintName.length() > 25) {
+            constraintName = constraintName.substring(0, 25);
+        }
+        String indexColumns =
+                constraintKey.getColumnNames().stream()
+                        .map(
+                                constraintKeyColumn ->
+                                        String.format(
+                                                "\"%s\"",
+                                                CatalogUtils.getFieldIde(
+                                                        constraintKeyColumn.getColumnName(),
+                                                        fieldIde)))
+                        .collect(Collectors.joining(", "));
+        return "CONSTRAINT " + constraintName + " UNIQUE (" + indexColumns + ")";
+    }
+
+    private String buildIndexKeySql(TablePath tablePath, ConstraintKey constraintKey) {
+        // We add table name to index name to avoid name conflict in PG
+        // Since index name in PG should unique in the schema
+        String constraintName = tablePath.getTableName() + "_" + constraintKey.getConstraintName();
+        if (constraintName.length() > 25) {
+            constraintName = constraintName.substring(0, 25);
+        }
+        String indexColumns =
+                constraintKey.getColumnNames().stream()
+                        .map(
+                                constraintKeyColumn ->
+                                        String.format(
+                                                "\"%s\"",
+                                                CatalogUtils.getFieldIde(
+                                                        constraintKeyColumn.getColumnName(),
+                                                        fieldIde)))
+                        .collect(Collectors.joining(", "));
+
+        return "CREATE INDEX "
+                + constraintName
+                + " ON "
+                + tablePath.getSchemaAndTableName("\"")
+                + "("
+                + indexColumns
+                + ");";
     }
 }

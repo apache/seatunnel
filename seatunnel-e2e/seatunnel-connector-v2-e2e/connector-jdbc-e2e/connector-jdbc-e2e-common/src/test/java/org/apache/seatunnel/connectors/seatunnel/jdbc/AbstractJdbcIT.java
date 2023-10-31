@@ -84,6 +84,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected JdbcCase jdbcCase;
     protected Connection connection;
     protected Catalog catalog;
+    protected URLClassLoader urlClassLoader;
 
     abstract JdbcCase getJdbcCase();
 
@@ -95,14 +96,38 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     abstract GenericContainer<?> initContainer();
 
+    protected URLClassLoader getUrlClassLoader() throws MalformedURLException {
+        if (urlClassLoader == null) {
+            urlClassLoader =
+                    new URLClassLoader(
+                            new URL[] {new URL(driverUrl())},
+                            AbstractJdbcIT.class.getClassLoader());
+            Thread.currentThread().setContextClassLoader(urlClassLoader);
+        }
+        return urlClassLoader;
+    }
+
+    protected Class<?> loadDriverClassFromUrl() {
+        try {
+            return getUrlClassLoader().loadClass(jdbcCase.getDriverClass());
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to load driver class: " + jdbcCase.getDriverClass(), e);
+        }
+    }
+
+    protected Class<?> loadDriverClass() {
+        try {
+            return Class.forName(jdbcCase.getDriverClass());
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to load driver class: " + jdbcCase.getDriverClass(), e);
+        }
+    }
+
     protected void initializeJdbcConnection(String jdbcUrl)
-            throws SQLException, ClassNotFoundException, MalformedURLException,
-                    InstantiationException, IllegalAccessException {
-        URLClassLoader urlClassLoader =
-                new URLClassLoader(
-                        new URL[] {new URL(driverUrl())}, AbstractJdbcIT.class.getClassLoader());
-        Thread.currentThread().setContextClassLoader(urlClassLoader);
-        Driver driver = (Driver) urlClassLoader.loadClass(jdbcCase.getDriverClass()).newInstance();
+            throws SQLException, InstantiationException, IllegalAccessException {
+        Driver driver = (Driver) loadDriverClass().newInstance();
         Properties props = new Properties();
 
         if (StringUtils.isNotBlank(jdbcCase.getUserName())) {
@@ -113,7 +138,11 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             props.put("password", jdbcCase.getPassword());
         }
 
-        this.connection = driver.connect(jdbcUrl.replace(HOST, dbServer.getHost()), props);
+        if (dbServer != null) {
+            jdbcUrl = jdbcUrl.replace(HOST, dbServer.getHost());
+        }
+
+        this.connection = driver.connect(jdbcUrl, props);
         connection.setAutoCommit(false);
     }
 
@@ -233,7 +262,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         Startables.deepStart(Stream.of(dbServer)).join();
 
         jdbcCase = getJdbcCase();
-
+        beforeStartUP();
         given().ignoreExceptions()
                 .await()
                 .atMost(360, TimeUnit.SECONDS)
@@ -244,6 +273,9 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         insertTestData();
         initCatalog();
     }
+
+    // before startUp For example, create a user
+    protected void beforeStartUP() {}
 
     @AfterAll
     @Override
@@ -266,7 +298,11 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                     "before remove image {}, list images: {}",
                     dbServer.getDockerImageName(),
                     images);
-            dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
+            try {
+                dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
+            } catch (Exception ignored) {
+                log.warn("Failed to delete the image. Another container may be in use", ignored);
+            }
             images =
                     dockerClient.listImagesCmd().exec().stream()
                             .map(Image::getId)

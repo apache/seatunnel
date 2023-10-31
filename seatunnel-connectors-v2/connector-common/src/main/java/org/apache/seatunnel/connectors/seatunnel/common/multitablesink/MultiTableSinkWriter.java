@@ -156,6 +156,7 @@ public class MultiTableSinkWriter
 
     @Override
     public List<MultiTableState> snapshotState(long checkpointId) throws IOException {
+        checkQueueRemain();
         subSinkErrorCheck();
         List<MultiTableState> multiTableStates = new ArrayList<>();
         MultiTableState multiTableState = new MultiTableState(new HashMap<>());
@@ -174,6 +175,7 @@ public class MultiTableSinkWriter
 
     @Override
     public Optional<MultiTableCommitInfo> prepareCommit() throws IOException {
+        checkQueueRemain();
         subSinkErrorCheck();
         MultiTableCommitInfo multiTableCommitInfo = new MultiTableCommitInfo(new HashMap<>());
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
@@ -194,6 +196,7 @@ public class MultiTableSinkWriter
 
     @Override
     public void abortPrepare() {
+        checkQueueRemain();
         Throwable firstE = null;
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
@@ -217,6 +220,7 @@ public class MultiTableSinkWriter
 
     @Override
     public void close() throws IOException {
+        checkQueueRemain();
         executorService.shutdownNow();
         Throwable firstE = null;
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
@@ -241,6 +245,19 @@ public class MultiTableSinkWriter
         }
         if (firstE != null) {
             throw new RuntimeException(firstE);
+        }
+    }
+
+    private void checkQueueRemain() {
+        try {
+            for (BlockingQueue<SeaTunnelRow> blockingQueue : blockingQueues) {
+                while (!blockingQueue.isEmpty()) {
+                    Thread.sleep(100);
+                    subSinkErrorCheck();
+                }
+            }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
     }
 }
