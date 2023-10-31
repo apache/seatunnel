@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.master;
+package org.apache.seatunnel.engine.server.service.jar;
 
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
@@ -60,7 +60,7 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
         this.cleanupInterval = connectorJarStorageConfig.getCleanupTaskInterval() * 1000;
         this.cleanupTimer.schedule(
                 new SharedConnectorJarCleanupTask(
-                        LOGGER, this::deleteConnectorJar, connectorJarRefCounters),
+                        this::deleteConnectorJar, connectorJarRefCounters),
                 cleanupInterval,
                 cleanupInterval);
     }

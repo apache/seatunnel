@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.master;
+package org.apache.seatunnel.engine.server.service.jar;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelProperties;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
