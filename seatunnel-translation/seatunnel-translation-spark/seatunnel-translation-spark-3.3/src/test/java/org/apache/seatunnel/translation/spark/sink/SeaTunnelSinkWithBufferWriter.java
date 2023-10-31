@@ -30,7 +30,7 @@ import java.util.Optional;
 
 public class SeaTunnelSinkWithBufferWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
-    private final List<String> valueBuffer;
+    private final List<Object> valueBuffer;
 
     public SeaTunnelSinkWithBufferWriter() {
         this.valueBuffer = new ArrayList<>();
@@ -38,7 +38,7 @@ public class SeaTunnelSinkWithBufferWriter implements SinkWriter<SeaTunnelRow, V
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        valueBuffer.add(element.getField(0).toString());
+        valueBuffer.add(element.getField(0));
         if (valueBuffer.size() == 3) {
             Assertions.assertIterableEquals(
                     Arrays.asList("fanjia", "hailin", "wenjun"), valueBuffer);
