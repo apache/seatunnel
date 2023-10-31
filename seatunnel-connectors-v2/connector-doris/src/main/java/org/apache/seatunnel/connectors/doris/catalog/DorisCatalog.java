@@ -285,7 +285,12 @@ public class DorisCatalog implements Catalog {
     @Override
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
-        throw new UnsupportedOperationException();
+        String query = DorisCatalogUtil.getDropTableQuery(tablePath, ignoreIfNotExists);
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(query);
+        } catch (SQLException e) {
+            throw new CatalogException(e);
+        }
     }
 
     @Override

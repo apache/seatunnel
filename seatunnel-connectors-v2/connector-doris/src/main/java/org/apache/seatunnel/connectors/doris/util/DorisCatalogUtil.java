@@ -87,6 +87,10 @@ public class DorisCatalogUtil {
         return "DROP DATABASE " + (ignoreIfNotExists ? "IF EXISTS " : "") + database;
     }
 
+    public static String getDropTableQuery(TablePath tablePath, boolean ignoreIfNotExists) {
+        return "DROP TABLE " + (ignoreIfNotExists ? "IF EXISTS " : "") + tablePath.getFullName();
+    }
+
     /**
      * @param createTableTemplate create table template
      * @param catalogTable catalog table
