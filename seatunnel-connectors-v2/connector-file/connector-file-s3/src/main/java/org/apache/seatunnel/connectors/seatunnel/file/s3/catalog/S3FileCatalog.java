@@ -35,6 +35,7 @@ import org.apache.hadoop.fs.LocatedFileStatus;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 
+import java.io.IOException;
 import java.util.List;
 
 @AllArgsConstructor
@@ -47,7 +48,15 @@ public class S3FileCatalog implements Catalog {
     public void open() throws CatalogException {}
 
     @Override
-    public void close() throws CatalogException {}
+    public void close() throws CatalogException {
+        if (hadoopFileSystemProxy != null) {
+            try {
+                hadoopFileSystemProxy.close();
+            } catch (IOException e) {
+                throw new CatalogException(e);
+            }
+        }
+    }
 
     @Override
     public String name() {

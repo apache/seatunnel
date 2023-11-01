@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
 import org.apache.iceberg.Table;
+import org.apache.iceberg.util.ThreadPools;
 
 import lombok.Getter;
 import lombok.NonNull;
@@ -74,6 +75,7 @@ public abstract class AbstractSplitEnumerator
     public void close() throws IOException {
         icebergTableLoader.close();
         isOpen = false;
+        ThreadPools.getWorkerPool().shutdownNow();
     }
 
     @Override

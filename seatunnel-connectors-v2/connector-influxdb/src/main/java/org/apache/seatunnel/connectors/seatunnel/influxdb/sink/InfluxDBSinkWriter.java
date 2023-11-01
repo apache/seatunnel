@@ -36,6 +36,7 @@ import org.influxdb.dto.Point;
 
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.internal.concurrent.TaskRunner;
 
 import java.io.IOException;
 import java.net.ConnectException;
@@ -88,6 +89,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         if (influxdb != null) {
             influxdb.close();
             influxdb = null;
+            ((TaskRunner.RealBackend) TaskRunner.INSTANCE.getBackend()).shutdown();
         }
     }
 
