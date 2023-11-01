@@ -32,7 +32,6 @@
         <module>connector-seatunnel-e2e-base</module>
         <module>connector-console-seatunnel-e2e</module>
         <module>seatunnel-engine-k8s-e2e</module>
-
     </modules>
 
     <properties>

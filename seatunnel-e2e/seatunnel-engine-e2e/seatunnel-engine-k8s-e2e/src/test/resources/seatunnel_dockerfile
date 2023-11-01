@@ -21,7 +21,7 @@ COPY /jars/seatunnel-hadoop3-3.1.4-uber.jar ${SEATUNNEL_HOME}/lib/seatunnel-hado
 COPY /jars/seatunnel-transforms-v2.jar ${SEATUNNEL_HOME}/lib/sseatunnel-transforms-v2.jar
 COPY /jars/seatunnel-starter.jar ${SEATUNNEL_HOME}/starter/seatunnel-starter.jar
 COPY /bin ${SEATUNNEL_HOME}/bin
-COPY /plugin-mapping.properties ${SEATUNNEL_HOME}/connectors/plugin-mapping.properties
+COPY /connectors ${SEATUNNEL_HOME}/connectors
 COPY /config ${SEATUNNEL_HOME}/config
 RUN  mkdir -p SEATUNNEL_HOME/logs
 WORKDIR /opt/seatunnel

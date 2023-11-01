@@ -40,12 +40,15 @@ import io.kubernetes.client.util.Config;
 import io.kubernetes.client.util.Yaml;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
@@ -99,8 +102,10 @@ public class KubernetesIT {
                                 new File(
                                         PROJECT_ROOT_PATH
                                                 + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources/seatunnel-statefulset.yaml"));
-        coreV1Api.createNamespacedService("default", yamlSvc, null, null, null, null);
-        appsV1Api.createNamespacedStatefulSet("default", yamlStatefulSet, null, null, null, null);
+        String podName = "seatunnel-0";
+        String namespace = "default";
+        coreV1Api.createNamespacedService(namespace, yamlSvc, null, null, null, null);
+        appsV1Api.createNamespacedStatefulSet(namespace, yamlStatefulSet, null, null, null, null);
         Thread.sleep(5000);
         V1StatefulSet v1StatefulSet =
                 appsV1Api.readNamespacedStatefulSet("seatunnel", "default", null);
@@ -108,6 +113,28 @@ public class KubernetesIT {
         Assertions.assertNotNull(v1StatefulSet.getStatus().getReadyReplicas());
         Assertions.assertEquals(v1StatefulSet.getStatus().getReadyReplicas(), 2);
         log.info(v1StatefulSet.toString());
+        // submit job
+        String command =
+                "sh /opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template";
+        Process process =
+                Runtime.getRuntime()
+                        .exec(
+                                "kubectl exec -it "
+                                        + podName
+                                        + " -n "
+                                        + namespace
+                                        + " -- "
+                                        + command);
+        // Read the output of the command
+        BufferedReader readerResult =
+                new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String line;
+        while ((line = readerResult.readLine()) != null) {
+            log.info(line);
+        }
+        // Close the reader and wait for the process to complete
+        readerResult.close();
+        process.waitFor();
     }
 
     private void copyFileToCurrentResources(String targetPath) throws IOException {
@@ -115,6 +142,8 @@ public class KubernetesIT {
         jarsPath.mkdirs();
         File binPath = new File(targetPath + "/bin");
         binPath.mkdirs();
+        File connectorsPath = new File(targetPath + "/connectors/seatunnel");
+        connectorsPath.mkdirs();
         FileUtils.copyDirectory(
                 new File(PROJECT_ROOT_PATH + "/config"), new File(targetPath + "/config"));
         // replace hazelcast.yaml and hazelcast-client.yaml
@@ -156,5 +185,30 @@ public class KubernetesIT {
                                 + "/seatunnel-core/seatunnel-starter/src/main/bin/seatunnel-cluster.sh"),
                 Paths.get(targetPath + "/bin/seatunnel-cluster.sh"),
                 StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(
+                Paths.get(targetPath + "/custom_config/plugin-mapping.properties"),
+                Paths.get(targetPath + "/connectors/plugin-mapping.properties"),
+                StandardCopyOption.REPLACE_EXISTING);
+        fuzzyCopy(
+                PROJECT_ROOT_PATH + "/seatunnel-connectors-v2/connector-fake/target/",
+                targetPath + "/connectors/seatunnel/",
+                "^connector-fake.*\\.jar$");
+        fuzzyCopy(
+                PROJECT_ROOT_PATH + "/seatunnel-connectors-v2/connector-console/target/",
+                targetPath + "/connectors/seatunnel/",
+                "^connector-console.*\\.jar$");
+    }
+
+    private void fuzzyCopy(String sourceUrl, String targetUrl, String pattern) throws IOException {
+        File dir = new File(sourceUrl);
+        File[] files = dir.listFiles();
+        for (File file : files) {
+            if (Pattern.matches(pattern, file.getName())) {
+                Files.copy(
+                        file.toPath(),
+                        Paths.get(targetUrl + file.getName()),
+                        StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
     }
 }
