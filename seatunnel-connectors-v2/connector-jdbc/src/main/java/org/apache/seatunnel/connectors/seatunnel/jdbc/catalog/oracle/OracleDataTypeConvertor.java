@@ -66,6 +66,7 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
     public static final String ORACLE_ROWID = "ROWID";
     public static final String ORACLE_CLOB = "CLOB";
     public static final String ORACLE_NCLOB = "NCLOB";
+    private static final String ORACLE_XML = "XMLTYPE";
     // ------------------------------time-------------------------
     public static final String ORACLE_DATE = "DATE";
     public static final String ORACLE_TIMESTAMP = "TIMESTAMP";
@@ -124,6 +125,7 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
             case ORACLE_ROWID:
             case ORACLE_NCLOB:
             case ORACLE_CLOB:
+            case ORACLE_XML:
                 return BasicType.STRING_TYPE;
             case ORACLE_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
