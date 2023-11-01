@@ -220,9 +220,13 @@ public class MultiTableSinkWriter
 
     @Override
     public void close() throws IOException {
-        checkQueueRemain();
-        executorService.shutdownNow();
         Throwable firstE = null;
+        try {
+            checkQueueRemain();
+        } catch (Exception e) {
+            firstE = e;
+        }
+        executorService.shutdownNow();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
                 for (SinkWriter<SeaTunnelRow, ?, ?> sinkWriter :
