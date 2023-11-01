@@ -20,66 +20,47 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel-e2e</artifactId>
+        <artifactId>seatunnel-engine-e2e</artifactId>
         <version>${revision}</version>
     </parent>
 
-    <artifactId>seatunnel-engine-e2e</artifactId>
-    <packaging>pom</packaging>
-    <name>SeaTunnel : E2E : Engine :</name>
-
-    <modules>
-        <module>connector-seatunnel-e2e-base</module>
-        <module>connector-console-seatunnel-e2e</module>
-        <module>seatunnel-engine-k8s-e2e</module>
-
-    </modules>
-
-    <properties>
-        <!--  SeaTunnel Engine use     -->
-        <hazelcast.version>5.1</hazelcast.version>
-    </properties>
+    <artifactId>seatunnel-engine-k8s-e2e</artifactId>
+    <name>SeaTunnel : E2E : Engine : K8s</name>
 
     <dependencies>
         <dependency>
-            <groupId>com.hazelcast</groupId>
-            <artifactId>hazelcast</artifactId>
-            <version>${hazelcast.version}</version>
-            <classifier>tests</classifier>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-e2e-common</artifactId>
+            <artifactId>connector-seatunnel-e2e-base</artifactId>
             <version>${project.version}</version>
+            <classifier>tests</classifier>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+        <!-- SeaTunnel connectors -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-engine-client</artifactId>
-            <version>${project.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>connector-file-local</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>connector-fake</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-engine-server</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-starter</artifactId>
+            <artifactId>connector-fake</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-console</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.kubernetes</groupId>
+            <artifactId>client-java</artifactId>
+            <version>16.0.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-model</artifactId>
+            <version>3.6.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
 </project>

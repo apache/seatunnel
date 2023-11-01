@@ -17,16 +17,13 @@
 
 FROM openjdk:8
 ENV SEATUNNEL_HOME="/opt/seatunnel"
-ARG SEATUNNEL_VERSION
-COPY /apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz /opt/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
-WORKDIR /opt
-RUN tar -xzvf apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz && \
-mv apache-seatunnel-${SEATUNNEL_VERSION} seatunnel && \
-rm -f apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz && \
-find ${SEATUNNEL_HOME}/connectors/  -type f ! -name connector-console* -a ! -name connector-fake* -exec rm -f {} +
-COPY /seatunnel-hadoop3-3.1.4-uber.jar  ${SEATUNNEL_HOME}/lib/seatunnel-hadoop3-3.1.4-uber.jar
-COPY /hazelcast-client-K8sIT.yaml /opt/seatunnel/config/hazelcast-client.yaml
-COPY /hazelcast-K8sIT.yaml  /opt/seatunnel/config/hazelcast.yaml
+COPY /jars/seatunnel-hadoop3-3.1.4-uber.jar ${SEATUNNEL_HOME}/lib/seatunnel-hadoop3-3.1.4-uber.jar
+COPY /jars/seatunnel-transforms-v2.jar ${SEATUNNEL_HOME}/lib/sseatunnel-transforms-v2.jar
+COPY /jars/seatunnel-starter.jar ${SEATUNNEL_HOME}/starter/seatunnel-starter.jar
+COPY /bin ${SEATUNNEL_HOME}/bin
+COPY /plugin-mapping.properties ${SEATUNNEL_HOME}/connectors/plugin-mapping.properties
+COPY /config ${SEATUNNEL_HOME}/config
+RUN  mkdir -p SEATUNNEL_HOME/logs
 WORKDIR /opt/seatunnel
 
 
