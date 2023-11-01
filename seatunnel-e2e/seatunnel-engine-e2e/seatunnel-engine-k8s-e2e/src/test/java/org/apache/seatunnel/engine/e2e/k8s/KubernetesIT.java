@@ -17,6 +17,14 @@
 
 package org.apache.seatunnel.engine.e2e.k8s;
 
+import org.apache.maven.model.Model;
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+
+import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.testcontainers.DockerClientFactory;
+
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.BuildImageCmd;
 import com.github.dockerjava.api.model.Info;
@@ -30,12 +38,6 @@ import io.kubernetes.client.openapi.models.V1StatefulSet;
 import io.kubernetes.client.util.Config;
 import io.kubernetes.client.util.Yaml;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.maven.model.Model;
-import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
-import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.testcontainers.DockerClientFactory;
 
 import java.io.File;
 import java.io.FileReader;
@@ -93,8 +95,7 @@ public class KubernetesIT {
                                         PROJECT_ROOT_PATH
                                                 + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources/seatunnel-statefulset.yaml"));
         coreV1Api.createNamespacedService("default", yamlSvc, null, null, null, null);
-        appsV1Api.createNamespacedStatefulSet(
-                "default", yamlStatefulSet, null, null, null, null);
+        appsV1Api.createNamespacedStatefulSet("default", yamlStatefulSet, null, null, null, null);
         Thread.sleep(5000);
         V1StatefulSet v1StatefulSet =
                 appsV1Api.readNamespacedStatefulSet("seatunnel", "default", null);
@@ -105,31 +106,33 @@ public class KubernetesIT {
     }
 
     private void copyFileToCurrentResources() throws IOException {
-        String targetPath = PROJECT_ROOT_PATH + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources/";
-        Files.copy(Paths.get(
+        String targetPath =
+                PROJECT_ROOT_PATH
+                        + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources/";
+        Files.copy(
+                Paths.get(
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(targetPath + "jars/seatunnel-hadoop3-3.1.4-uber.jar")
-        );
-        Files.copy(Paths.get(
+                Paths.get(targetPath + "jars/seatunnel-hadoop3-3.1.4-uber.jar"));
+        Files.copy(
+                Paths.get(
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-core/seatunnel-starter/target/seatunnel-starter.jar"),
-                Paths.get(targetPath + "jars/seatunnel-starter.jar")
-        );
-        Files.copy(Paths.get(
+                Paths.get(targetPath + "jars/seatunnel-starter.jar"));
+        Files.copy(
+                Paths.get(
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-transforms-v2/target/seatunnel-transforms-v2.jar"),
-                Paths.get(targetPath + "jars/seatunnel-transforms-v2.jar")
-        );
-        Files.copy(Paths.get(
+                Paths.get(targetPath + "jars/seatunnel-transforms-v2.jar"));
+        Files.copy(
+                Paths.get(
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-core/seatunnel-starter/src/main/bin/seatunnel.sh"),
-                Paths.get(targetPath + "bin/seatunnel.sh")
-        );
-        Files.copy(Paths.get(
+                Paths.get(targetPath + "bin/seatunnel.sh"));
+        Files.copy(
+                Paths.get(
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-core/seatunnel-starter/src/main/bin/seatunnel-cluster.sh"),
-                Paths.get(targetPath + "bin/seatunnel-cluster.sh")
-        );
+                Paths.get(targetPath + "bin/seatunnel-cluster.sh"));
     }
 }
