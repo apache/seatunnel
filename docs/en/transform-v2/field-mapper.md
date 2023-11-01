@@ -56,6 +56,36 @@ Then the data in result table `fake1` will like this
 | 3  | 123  | Kin Dom  |
 | 4  | 123  | Joy Dom  |
 
+If it's a multi-table scenario, then the configuration example is as follows:
+
+```
+transform {
+  FieldMapper {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    table_transform = [
+                 {
+                    tablePath = "test.table1"
+                    fieldMapper  {
+                        id = id
+                        name = name_as
+                        age = age
+                    }
+                 }
+                 ,
+                  {
+                     tablePath = "test.table2"
+                     fieldMapper  {
+                        id = id
+                        name = name
+                        age = age_as
+                     }
+                  }
+            ]
+  }
+}
+```
+
 ## Changelog
 
 ### new version

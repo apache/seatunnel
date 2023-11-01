@@ -18,8 +18,6 @@
 package org.apache.seatunnel.transform.sql;
 
 import org.apache.seatunnel.api.common.CommonOptions;
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -41,20 +39,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType.ZETA;
-
 @Slf4j
 public class SQLTransform extends AbstractCatalogSupportTransform {
     public static final String PLUGIN_NAME = "Sql";
-
-    public static final Option<String> KEY_QUERY =
-            Options.key("query").stringType().noDefaultValue().withDescription("The query SQL");
-
-    public static final Option<String> KEY_ENGINE =
-            Options.key("engine")
-                    .stringType()
-                    .defaultValue(ZETA.name())
-                    .withDescription("The SQL engine type");
 
     private String query;
 
@@ -62,14 +49,13 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
 
     private transient SQLEngine sqlEngine;
 
-    public SQLTransform(@NonNull ReadonlyConfig config, @NonNull CatalogTable catalogTable) {
+    public SQLTransform(
+            @NonNull SQLTransformConfig sqlTransformConfig,
+            @NonNull ReadonlyConfig config,
+            @NonNull CatalogTable catalogTable) {
         super(catalogTable);
-        this.query = config.get(KEY_QUERY);
-        if (config.getOptional(KEY_ENGINE).isPresent()) {
-            this.engineType = EngineType.valueOf(config.get(KEY_ENGINE).toUpperCase());
-        } else {
-            this.engineType = ZETA;
-        }
+        this.query = sqlTransformConfig.getQuery();
+        this.engineType = sqlTransformConfig.getEngineType();
 
         List<String> sourceTableNames = config.get(CommonOptions.SOURCE_TABLE_NAME);
         if (sourceTableNames != null && !sourceTableNames.isEmpty()) {

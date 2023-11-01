@@ -315,4 +315,17 @@ public final class FactoryUtil {
         ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
         return factory.createTransform(context).createTransform();
     }
+
+    public static SeaTunnelTransform<?> createAndPrepareMultiTableTransform(
+            List<CatalogTable> catalogTables,
+            ReadonlyConfig options,
+            ClassLoader classLoader,
+            String factoryIdentifier) {
+        final TableTransformFactory factory =
+                discoverFactory(classLoader, TableTransformFactory.class, factoryIdentifier);
+        TableTransformFactoryContext context =
+                new TableTransformFactoryContext(catalogTables, options, classLoader);
+        ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
+        return factory.createTransform(context).createTransform();
+    }
 }

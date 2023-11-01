@@ -46,6 +46,9 @@ public class AssertCatalogTableRule implements Serializable {
     @OptionMark(description = "constraint key rule")
     private AssertConstraintKeyRule constraintKeyRule;
 
+    @OptionMark(description = "partition key rule")
+    private AssertPartitionKeyRule partitionKeyRule;
+
     @OptionMark(description = "column rule")
     private AssertColumnRule columnRule;
 
@@ -62,6 +65,9 @@ public class AssertCatalogTableRule implements Serializable {
         }
         if (constraintKeyRule != null) {
             constraintKeyRule.checkRule(tableSchema.getConstraintKeys());
+        }
+        if (partitionKeyRule != null) {
+            partitionKeyRule.checkRule(catalogTable.getPartitionKeys());
         }
         if (columnRule != null) {
             columnRule.checkRule(tableSchema.getColumns());
@@ -122,6 +128,26 @@ public class AssertCatalogTableRule implements Serializable {
                         CATALOG_TABLE_FAILED,
                         String.format(
                                 "constraintKeys: %s is not equal to %s", check, constraintKeys));
+            }
+        }
+    }
+
+    @Data
+    @AllArgsConstructor
+    public static class AssertPartitionKeyRule implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private List<String> partitionKeys;
+
+        public void checkRule(List<String> check) {
+            if (CollectionUtils.isEmpty(check)) {
+                throw new AssertConnectorException(CATALOG_TABLE_FAILED, "partition is null");
+            }
+            if (CollectionUtils.isNotEmpty(partitionKeys)
+                    && !CollectionUtils.isEqualCollection(partitionKeys, check)) {
+                throw new AssertConnectorException(
+                        CATALOG_TABLE_FAILED,
+                        String.format(
+                                "partitionKeys: %s is not equal to %s", check, partitionKeys));
             }
         }
     }

@@ -32,14 +32,18 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class SplitTransform extends MultipleFieldOutputTransform {
+    public static String PLUGIN_NAME = "Split";
     private SplitTransformConfig splitTransformConfig;
     private int splitFieldIndex;
+
+    private CatalogTable inputCatalogTable;
 
     public SplitTransform(
             @NonNull SplitTransformConfig splitTransformConfig,
             @NonNull CatalogTable catalogTable) {
         super(catalogTable);
         this.splitTransformConfig = splitTransformConfig;
+        this.inputCatalogTable = catalogTable;
         SeaTunnelRowType seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
         splitFieldIndex = seaTunnelRowType.indexOf(splitTransformConfig.getSplitField());
         if (splitFieldIndex == -1) {
@@ -79,12 +83,18 @@ public class SplitTransform extends MultipleFieldOutputTransform {
 
     @Override
     protected Column[] getOutputColumns() {
+        Column splitColumn = inputCatalogTable.getTableSchema().getColumns().get(splitFieldIndex);
         List<PhysicalColumn> collect =
                 Arrays.stream(splitTransformConfig.getOutputFields())
                         .map(
                                 fieldName -> {
                                     return PhysicalColumn.of(
-                                            fieldName, BasicType.STRING_TYPE, 200, true, "", "");
+                                            fieldName,
+                                            BasicType.STRING_TYPE,
+                                            splitColumn.getColumnLength(),
+                                            splitColumn.isNullable(),
+                                            splitColumn.getDefaultValue(),
+                                            splitColumn.getComment());
                                 })
                         .collect(Collectors.toList());
         return collect.toArray(new Column[0]);

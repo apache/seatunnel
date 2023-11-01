@@ -150,7 +150,7 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
         }
     }
 
-    public class ConstraintKeyParser
+    public static class ConstraintKeyParser
             implements TableSchemaParser.ConstraintKeyParser<ReadonlyConfig> {
 
         @Override
@@ -225,7 +225,8 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
         }
     }
 
-    public class PrimaryKeyParser implements TableSchemaParser.PrimaryKeyParser<ReadonlyConfig> {
+    public static class PrimaryKeyParser
+            implements TableSchemaParser.PrimaryKeyParser<ReadonlyConfig> {
 
         @Override
         public PrimaryKey parse(ReadonlyConfig schemaConfig) {

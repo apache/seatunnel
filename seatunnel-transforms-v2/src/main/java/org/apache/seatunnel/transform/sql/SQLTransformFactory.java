@@ -18,7 +18,6 @@
 package org.apache.seatunnel.transform.sql;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
@@ -26,7 +25,7 @@ import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.transform.sql.SQLTransform.KEY_QUERY;
+import static org.apache.seatunnel.transform.sql.SQLTransformConfig.KEY_QUERY;
 
 @AutoService(Factory.class)
 public class SQLTransformFactory implements TableTransformFactory {
@@ -37,12 +36,14 @@ public class SQLTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(KEY_QUERY).build();
+        return OptionRule.builder()
+                .bundled(KEY_QUERY)
+                .bundled(SQLTransformConfig.MULTI_TABLES)
+                .build();
     }
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
-        CatalogTable catalogTable = context.getCatalogTables().get(0);
-        return () -> new SQLTransform(context.getOptions(), catalogTable);
+        return () -> new SQLMultiCatalogTransform(context.getCatalogTables(), context.getOptions());
     }
 }

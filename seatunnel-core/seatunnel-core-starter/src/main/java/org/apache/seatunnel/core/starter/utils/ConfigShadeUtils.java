@@ -95,7 +95,7 @@ public final class ConfigShadeUtils {
 
     public static Config decryptConfig(Config config) {
         String identifier =
-                TypesafeConfigUtils.getConfig(
+                TypesafeConfigUtils.getString(
                         config.hasPath(Constants.ENV)
                                 ? config.getConfig(Constants.ENV)
                                 : ConfigFactory.empty(),
@@ -106,7 +106,7 @@ public final class ConfigShadeUtils {
 
     public static Config encryptConfig(Config config) {
         String identifier =
-                TypesafeConfigUtils.getConfig(
+                TypesafeConfigUtils.getString(
                         config.hasPath(Constants.ENV)
                                 ? config.getConfig(Constants.ENV)
                                 : ConfigFactory.empty(),

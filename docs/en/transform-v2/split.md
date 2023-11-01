@@ -64,6 +64,32 @@ Then the data in result table `fake1` will like this
 | Kin Dom  | 20  | 123  | Kin        | Dom       |
 | Joy Dom  | 20  | 123  | Joy        | Dom       |
 
+If it's a multi-table scenario, then the configuration example is as follows:
+
+```
+transform {
+  Split {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+        table_transform = [
+             {
+                tablePath = "test.table1"
+                separator = "_"
+                split_field = "name"
+                output_fields = ["table1_name1", "table1_name2"]
+             }
+             ,
+             {
+                tablePath = "test.table2"
+                separator = "_"
+                split_field = "name"
+                output_fields = ["table2_name1", "table2_name2"]
+             }
+        ]
+  }
+}
+```
+
 ## Changelog
 
 ### new version

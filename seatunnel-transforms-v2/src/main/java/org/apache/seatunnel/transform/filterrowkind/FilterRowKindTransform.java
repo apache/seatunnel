@@ -40,9 +40,10 @@ public class FilterRowKindTransform extends FilterRowTransform {
     private Set<RowKind> excludeKinds = Collections.emptySet();
 
     public FilterRowKindTransform(
-            @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
+            @NonNull FilterRowKinkTransformConfig config, @NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
-        initConfig(config);
+        includeKinds = config.getIncludeKinds();
+        excludeKinds = config.getExcludeKinds();
     }
 
     @Override

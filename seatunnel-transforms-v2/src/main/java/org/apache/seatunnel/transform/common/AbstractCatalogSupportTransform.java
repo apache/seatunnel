@@ -25,6 +25,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.NonNull;
 
+import java.util.Collections;
+import java.util.List;
+
 public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelTransform {
     protected CatalogTable inputCatalogTable;
 
@@ -45,6 +48,11 @@ public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelT
         }
 
         return outputCatalogTable;
+    }
+
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(getProducedCatalogTable());
     }
 
     private CatalogTable transformCatalogTable() {

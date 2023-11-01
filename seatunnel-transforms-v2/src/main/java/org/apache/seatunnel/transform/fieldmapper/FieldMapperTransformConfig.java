@@ -17,15 +17,21 @@
 
 package org.apache.seatunnel.transform.fieldmapper;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAnySetter;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Getter
@@ -38,11 +44,51 @@ public class FieldMapperTransformConfig implements Serializable {
                     .withDescription(
                             "Specify the field mapping relationship between input and output");
 
+    public static final Option<List<TableTransforms>> MULTI_TABLES =
+            Options.key("table_transform")
+                    .listType(TableTransforms.class)
+                    .noDefaultValue()
+                    .withDescription("");
+
+    @Data
+    public static class TableTransforms implements Serializable {
+        @JsonAlias("table_path")
+        private String tablePath;
+
+        private Map<String, String> fieldMapper = new LinkedHashMap<>();
+
+        @JsonAnySetter
+        public void add(String key, String value) {
+            // TODO Currently, ReadonlyConfig does not support storing objects, so special handling
+            // is required
+            fieldMapper.put(key.substring("fieldMapper.".length()), value);
+        }
+    }
+
     private Map<String, String> fieldMapper = new LinkedHashMap<>();
 
     public static FieldMapperTransformConfig of(ReadonlyConfig config) {
         FieldMapperTransformConfig fieldMapperTransformConfig = new FieldMapperTransformConfig();
         fieldMapperTransformConfig.setFieldMapper(config.get(FIELD_MAPPER));
         return fieldMapperTransformConfig;
+    }
+
+    public static FieldMapperTransformConfig of(ReadonlyConfig config, CatalogTable catalogTable) {
+        String tablePath = catalogTable.getTableId().toTablePath().getFullName();
+        if (null != config.get(MULTI_TABLES)) {
+            return config.get(MULTI_TABLES).stream()
+                    .filter(tableTransforms -> tableTransforms.getTablePath().equals(tablePath))
+                    .findFirst()
+                    .map(
+                            tableTransforms -> {
+                                FieldMapperTransformConfig fieldMapperTransformConfig =
+                                        new FieldMapperTransformConfig();
+                                fieldMapperTransformConfig.setFieldMapper(
+                                        tableTransforms.getFieldMapper());
+                                return fieldMapperTransformConfig;
+                            })
+                    .orElseGet(() -> of(config));
+        }
+        return of(config);
     }
 }

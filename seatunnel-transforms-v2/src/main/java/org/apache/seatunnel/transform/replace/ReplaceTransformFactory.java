@@ -18,7 +18,6 @@
 package org.apache.seatunnel.transform.replace;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
@@ -36,11 +35,12 @@ public class ReplaceTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
+                .bundled(
                         ReplaceTransformConfig.KEY_REPLACE_FIELD,
                         ReplaceTransformConfig.KEY_PATTERN,
                         ReplaceTransformConfig.KEY_REPLACEMENT)
                 .optional(ReplaceTransformConfig.KEY_IS_REGEX)
+                .bundled(ReplaceTransformConfig.MULTI_TABLES)
                 .conditional(
                         ReplaceTransformConfig.KEY_IS_REGEX,
                         true,
@@ -50,7 +50,7 @@ public class ReplaceTransformFactory implements TableTransformFactory {
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
-        CatalogTable catalogTable = context.getCatalogTables().get(0);
-        return () -> new ReplaceTransform(context.getOptions(), catalogTable);
+        return () ->
+                new ReplaceMultiCatalogTransform(context.getCatalogTables(), context.getOptions());
     }
 }
