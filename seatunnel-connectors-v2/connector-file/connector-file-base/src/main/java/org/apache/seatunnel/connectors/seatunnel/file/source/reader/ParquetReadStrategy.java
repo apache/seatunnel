@@ -81,7 +81,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private int[] indexes;
 
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output)
+    public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         if (Boolean.FALSE.equals(checkFileType(path))) {
             String errorMsg =
@@ -119,6 +119,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     fields[i] = resolveObject(data, seaTunnelRowType.getFieldType(i));
                 }
                 SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                seaTunnelRow.setTableId(tableId);
                 output.collect(seaTunnelRow);
             }
         }

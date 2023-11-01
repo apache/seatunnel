@@ -74,7 +74,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
 
     @SneakyThrows
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output) {
+    public void read(String path, String tableId, Collector<SeaTunnelRow> output) {
         Configuration conf = getConfiguration();
         FileSystem fs = FileSystem.get(conf);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
@@ -124,6 +124,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                     seaTunnelRow.setField(index++, value);
                                 }
                             }
+                            seaTunnelRow.setTableId(tableId);
                             output.collect(seaTunnelRow);
                         });
     }
