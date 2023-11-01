@@ -190,7 +190,7 @@ public class SparkSinkTest {
         GenericRow row2WithRow =
                 new GenericRow(
                         new Object[] {
-                            213,
+                            12,
                             "string2",
                             false,
                             2.2f,
@@ -255,7 +255,7 @@ public class SparkSinkTest {
         GenericRow row3WithRow =
                 new GenericRow(
                         new Object[] {
-                            111,
+                            233,
                             "string3",
                             true,
                             231.1f,
