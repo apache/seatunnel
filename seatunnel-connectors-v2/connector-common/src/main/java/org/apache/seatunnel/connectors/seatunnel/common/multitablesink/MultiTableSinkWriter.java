@@ -196,8 +196,12 @@ public class MultiTableSinkWriter
 
     @Override
     public void abortPrepare() {
-        checkQueueRemain();
         Throwable firstE = null;
+        try {
+            checkQueueRemain();
+        } catch (Exception e) {
+            firstE = e;
+        }
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
                 for (SinkWriter<SeaTunnelRow, ?, ?> sinkWriter :
