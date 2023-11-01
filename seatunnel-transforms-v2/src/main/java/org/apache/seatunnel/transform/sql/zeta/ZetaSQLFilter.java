@@ -67,13 +67,13 @@ public class ZetaSQLFilter {
         }
         if (whereExpr instanceof LikeExpression) {
             boolean isNotLike = ((LikeExpression) whereExpr).isNot();
-            // like SQL parsing
-            if (!isNotLike) {
-                return likeExpr((LikeExpression) whereExpr, inputFields);
-            }
             // not like SQL parsing
             if (isNotLike) {
                 return notLikeExpr((LikeExpression) whereExpr, inputFields);
+            }
+            // like SQL parsing
+            if (!isNotLike) {
+                return likeExpr((LikeExpression) whereExpr, inputFields);
             }
         }
         if (whereExpr instanceof ComparisonOperator) {
@@ -156,7 +156,7 @@ public class ZetaSQLFilter {
     }
 
     /**
-     * like syntax expression filters
+     * Like expression filter
      *
      * @param likeExpression like expression
      * @param inputFields input fields
@@ -200,7 +200,7 @@ public class ZetaSQLFilter {
     }
 
     /**
-     * not like syntax expression filters
+     * Not Like expression filter
      *
      * @param likeExpression not like expression
      * @param inputFields input fields
