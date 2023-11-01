@@ -44,10 +44,13 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
@@ -71,8 +74,8 @@ public class KubernetesIT {
         ApiClient client = Config.defaultClient();
         AppsV1Api appsV1Api = new AppsV1Api(client);
         CoreV1Api coreV1Api = new CoreV1Api(client);
-        MavenXpp3Reader reader = new MavenXpp3Reader();
-        Model model = reader.read(new FileReader(pomPath), true);
+        MavenXpp3Reader pomReader = new MavenXpp3Reader();
+        Model model = pomReader.read(new FileReader(pomPath), true);
         String artifactId = model.getArtifactId();
         String tag = artifactId + ":lastest";
         Info info = dockerClient.infoCmd().exec();
@@ -125,16 +128,34 @@ public class KubernetesIT {
                                         + namespace
                                         + " -- "
                                         + command);
-        // Read the output of the command
-        BufferedReader readerResult =
-                new BufferedReader(new InputStreamReader(process.getInputStream()));
+        final InputStream inputStream = process.getInputStream();
+        // Create a timer to handle the timeout
+        Timer timer = new Timer();
+        timer.schedule(
+                new TimerTask() {
+                    @Override
+                    public void run() {
+                        process.destroy(); // Terminate the process if it takes too long
+                        timer.cancel(); // Cancel the timer
+                        throw new RuntimeException("Timeout Exception: job run failed");
+                    }
+                },
+                60000); // 1 minute timeout
+        // Read the process output
+        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
         String line;
-        while ((line = readerResult.readLine()) != null) {
+        while ((line = reader.readLine()) != null) {
             log.info(line);
+            if (line.contains("Total Read Count")) {
+                int count = parseNumberAfterColon(line);
+                if (count > 0) {
+                    System.out.println(line);
+                    timer.cancel(); // Cancel the timer if the desired phrase is found
+                    break;
+                }
+            }
         }
-        // Close the reader and wait for the process to complete
-        readerResult.close();
-        process.waitFor();
+        reader.close();
     }
 
     private void copyFileToCurrentResources(String targetPath) throws IOException {
@@ -142,7 +163,7 @@ public class KubernetesIT {
         jarsPath.mkdirs();
         File binPath = new File(targetPath + "/bin");
         binPath.mkdirs();
-        File connectorsPath = new File(targetPath + "/connectors/seatunnel");
+        File connectorsPath = new File(targetPath + "/connectors");
         connectorsPath.mkdirs();
         FileUtils.copyDirectory(
                 new File(PROJECT_ROOT_PATH + "/config"), new File(targetPath + "/config"));
@@ -191,11 +212,11 @@ public class KubernetesIT {
                 StandardCopyOption.REPLACE_EXISTING);
         fuzzyCopy(
                 PROJECT_ROOT_PATH + "/seatunnel-connectors-v2/connector-fake/target/",
-                targetPath + "/connectors/seatunnel/",
+                targetPath + "/connectors/",
                 "^connector-fake.*\\.jar$");
         fuzzyCopy(
                 PROJECT_ROOT_PATH + "/seatunnel-connectors-v2/connector-console/target/",
-                targetPath + "/connectors/seatunnel/",
+                targetPath + "/connectors/",
                 "^connector-console.*\\.jar$");
     }
 
@@ -210,5 +231,19 @@ public class KubernetesIT {
                         StandardCopyOption.REPLACE_EXISTING);
             }
         }
+    }
+
+    private int parseNumberAfterColon(String input) {
+        int number = 0;
+        int colonIndex = input.indexOf(":");
+        if (colonIndex != -1) {
+            String contentAfterColon = input.substring(colonIndex + 1).trim();
+            try {
+                number = Integer.parseInt(contentAfterColon);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid number format");
+            }
+        }
+        return number;
     }
 }
