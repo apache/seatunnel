@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.job;
+package org.apache.seatunnel.engine.server.rest;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
