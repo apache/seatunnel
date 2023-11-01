@@ -269,6 +269,8 @@ sink {
         database = "sink_database"
         table = "sink_table"
         primary_keys = ["key1", "key2", ...]
+        schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+        data_save_mode="APPEND_DATA"
     }
 }
 ```
