@@ -33,7 +33,7 @@ public class MetadataColumn extends Column {
     protected MetadataColumn(
             String name,
             SeaTunnelDataType<?> dataType,
-            Integer columnLength,
+            Long columnLength,
             String metadataKey,
             boolean nullable,
             Object defaultValue,
@@ -45,7 +45,7 @@ public class MetadataColumn extends Column {
     public static MetadataColumn of(
             String name,
             SeaTunnelDataType<?> dataType,
-            Integer columnLength,
+            Long columnLength,
             String metadataKey,
             boolean nullable,
             Object defaultValue,

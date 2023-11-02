@@ -150,7 +150,7 @@ public class ElasticSearchCatalog implements Catalog {
                                     fieldName,
                                     elasticSearchDataTypeConvertor.toSeaTunnelType(
                                             fieldName, fieldType),
-                                    null,
+                                    (Long) null,
                                     true,
                                     null,
                                     null);
