@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
         - name: seatunnel
-          image: seatunnel:lastest
+          image: seatunnel:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5801

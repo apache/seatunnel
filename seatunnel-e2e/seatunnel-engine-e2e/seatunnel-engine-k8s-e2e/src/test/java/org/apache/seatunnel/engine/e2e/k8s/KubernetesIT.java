@@ -57,105 +57,100 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 
 @Slf4j
 public class KubernetesIT {
+    private static final String namespace = "default";
+    private static final String svcName = "seatunnel";
+    private static final String stsName = "seatunnel";
+    private static final String podName = "seatunnel-0";
 
     @Test
     public void test()
             throws IOException, XmlPullParserException, ApiException, InterruptedException {
-        String targetPath =
-                PROJECT_ROOT_PATH
-                        + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources";
-        // If the Docker BaseDirectory is set as the root directory of the project, the image
-        // created is too large, so choose to copy the files that need to be created as images
-        // to the same level as the dockerfile. After completing the image creation, delete
-        // these files locally
-        copyFileToCurrentResources(targetPath);
-        DockerClient dockerClient = DockerClientFactory.lazyClient();
-        String pomPath = PROJECT_ROOT_PATH + "/pom.xml";
         ApiClient client = Config.defaultClient();
         AppsV1Api appsV1Api = new AppsV1Api(client);
         CoreV1Api coreV1Api = new CoreV1Api(client);
-        MavenXpp3Reader pomReader = new MavenXpp3Reader();
-        Model model = pomReader.read(new FileReader(pomPath), true);
-        String artifactId = model.getArtifactId();
-        String tag = artifactId + ":lastest";
-        Info info = dockerClient.infoCmd().exec();
-        log.info("Docker's environmental information");
-        log.info(info.toString());
-        if (dockerClient.listImagesCmd().withImageNameFilter(tag).exec().size() > 0) {
-            dockerClient.removeImageCmd(tag).exec();
-        }
-        File file =
-                new File(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources/seatunnel_dockerfile");
-        BuildImageCmd buildImageCmd = dockerClient.buildImageCmd(file);
-        buildImageCmd.withTag(tag);
-        String imageId = buildImageCmd.start().awaitImageId();
-        Assertions.assertNotNull(imageId);
-        Configuration.setDefaultApiClient(client);
-        V1Service yamlSvc =
-                (V1Service)
-                        Yaml.load(
-                                new File(
-                                        PROJECT_ROOT_PATH
-                                                + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources/seatunnel-service.yaml"));
-        V1StatefulSet yamlStatefulSet =
-                (V1StatefulSet)
-                        Yaml.load(
-                                new File(
-                                        PROJECT_ROOT_PATH
-                                                + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources/seatunnel-statefulset.yaml"));
-        String podName = "seatunnel-0";
-        String namespace = "default";
-        coreV1Api.createNamespacedService(namespace, yamlSvc, null, null, null, null);
-        appsV1Api.createNamespacedStatefulSet(namespace, yamlStatefulSet, null, null, null, null);
-        Thread.sleep(5000);
-        V1StatefulSet v1StatefulSet =
-                appsV1Api.readNamespacedStatefulSet("seatunnel", "default", null);
-        // assert ready replicas
-        Assertions.assertNotNull(v1StatefulSet.getStatus().getReadyReplicas());
-        Assertions.assertEquals(v1StatefulSet.getStatus().getReadyReplicas(), 2);
-        log.info(v1StatefulSet.toString());
-        // submit job
-        String command =
-                "sh /opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template";
-        Process process =
-                Runtime.getRuntime()
-                        .exec(
-                                "kubectl exec -it "
-                                        + podName
-                                        + " -n "
-                                        + namespace
-                                        + " -- "
-                                        + command);
-        final InputStream inputStream = process.getInputStream();
-        // Create a timer to handle the timeout
-        Timer timer = new Timer();
-        timer.schedule(
-                new TimerTask() {
-                    @Override
-                    public void run() {
-                        process.destroy(); // Terminate the process if it takes too long
-                        timer.cancel(); // Cancel the timer
-                        throw new RuntimeException("Timeout Exception: job run failed");
-                    }
-                },
-                60000); // 1 minute timeout
-        // Read the process output
-        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            log.info(line);
-            if (line.contains("Total Read Count")) {
-                int count = parseNumberAfterColon(line);
-                if (count > 0) {
-                    System.out.println(line);
-                    timer.cancel(); // Cancel the timer if the desired phrase is found
-                    break;
-                }
+        DockerClient dockerClient = DockerClientFactory.lazyClient();
+        try {
+            String targetPath =
+                    PROJECT_ROOT_PATH
+                            + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources";
+            // If the Docker BaseDirectory is set as the root directory of the project, the image
+            // created is too large, so choose to copy the files that need to be created as images
+            // to the same level as the dockerfile. After completing the image creation, delete
+            // these files locally
+            String pomPath = PROJECT_ROOT_PATH + "/pom.xml";
+            MavenXpp3Reader pomReader = new MavenXpp3Reader();
+            Model model = pomReader.read(new FileReader(pomPath), true);
+            String artifactId = model.getArtifactId();
+            String tag = artifactId + ":latest";
+            Info info = dockerClient.infoCmd().exec();
+            log.info("Docker's environmental information");
+            log.info(info.toString());
+            if (dockerClient.listImagesCmd().withImageNameFilter(tag).exec().isEmpty()) {
+                copyFileToCurrentResources(targetPath);
+                File file =
+                        new File(
+                                PROJECT_ROOT_PATH
+                                        + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources/seatunnel_dockerfile");
+                BuildImageCmd buildImageCmd = dockerClient.buildImageCmd(file);
+                buildImageCmd.withTag(tag);
+                String imageId = buildImageCmd.start().awaitImageId();
+                Assertions.assertNotNull(imageId);
             }
+            Configuration.setDefaultApiClient(client);
+            V1Service yamlSvc =
+                    (V1Service)
+                            Yaml.load(
+                                    new File(
+                                            PROJECT_ROOT_PATH
+                                                    + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources/seatunnel-service.yaml"));
+            V1StatefulSet yamlStatefulSet =
+                    (V1StatefulSet)
+                            Yaml.load(
+                                    new File(
+                                            PROJECT_ROOT_PATH
+                                                    + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources/seatunnel-statefulset.yaml"));
+            coreV1Api.createNamespacedService(namespace, yamlSvc, null, null, null, null);
+            appsV1Api.createNamespacedStatefulSet(
+                    namespace, yamlStatefulSet, null, null, null, null);
+            Thread.sleep(5000);
+            V1StatefulSet v1StatefulSet =
+                    appsV1Api.readNamespacedStatefulSet(stsName, namespace, null);
+            // assert ready replicas
+            Assertions.assertNotNull(v1StatefulSet.getStatus().getReadyReplicas());
+            Assertions.assertEquals(v1StatefulSet.getStatus().getReadyReplicas(), 2);
+            log.info(v1StatefulSet.toString());
+            // submit job
+            String command =
+                    "sh /opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template";
+            Process process =
+                    Runtime.getRuntime()
+                            .exec(
+                                    "kubectl exec -it "
+                                            + podName
+                                            + " -n "
+                                            + namespace
+                                            + " -- "
+                                            + command);
+            Assertions.assertEquals(validate(process), 0);
+            // submit an error job
+            String commandError =
+                    "sh /opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template.error";
+            process =
+                    Runtime.getRuntime()
+                            .exec(
+                                    "kubectl exec -it "
+                                            + podName
+                                            + " -n "
+                                            + namespace
+                                            + " -- "
+                                            + commandError);
+            Assertions.assertEquals(validate(process), 1);
+        } finally {
+            appsV1Api.deleteNamespacedStatefulSet(
+                    stsName, namespace, null, null, null, null, null, null);
+            coreV1Api.deleteNamespacedService(
+                    svcName, namespace, null, null, null, null, null, null);
         }
-        reader.close();
     }
 
     private void copyFileToCurrentResources(String targetPath) throws IOException {
@@ -238,12 +233,43 @@ public class KubernetesIT {
         int colonIndex = input.indexOf(":");
         if (colonIndex != -1) {
             String contentAfterColon = input.substring(colonIndex + 1).trim();
-            try {
-                number = Integer.parseInt(contentAfterColon);
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid number format");
-            }
+            number = Integer.parseInt(contentAfterColon);
         }
         return number;
+    }
+
+    private int validate(Process process) throws IOException {
+        try {
+            final InputStream inputStream = process.getInputStream();
+            // Create a timer to handle the timeout
+            Timer timer = new Timer();
+            timer.schedule(
+                    new TimerTask() {
+                        @Override
+                        public void run() {
+                            process.destroy(); // Terminate the process if it takes too long
+                            timer.cancel(); // Cancel the timer
+                        }
+                    },
+                    60000); // 1 minute timeout
+            // Read the process output
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                log.info(line);
+                if (line.contains("Total Read Count")) {
+                    int count = parseNumberAfterColon(line);
+                    if (count > 0) {
+                        timer.cancel(); // Cancel the timer if the desired phrase is found
+                        reader.close();
+                        return 0;
+                    }
+                }
+            }
+            reader.close();
+            return 1;
+        } catch (RuntimeException e) {
+            return 1;
+        }
     }
 }
