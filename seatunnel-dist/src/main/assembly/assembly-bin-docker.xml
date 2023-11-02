@@ -1,0 +1,192 @@
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.1.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.0 http://maven.apache.org/xsd/assembly-2.1.0.xsd">
+    <id>bin</id>
+    <formats>
+        <format>tar.gz</format>
+    </formats>
+    <includeBaseDirectory>true</includeBaseDirectory>
+    <fileSets>
+        <fileSet>
+            <directory>../</directory>
+
+            <excludes>
+                <exclude>**/target/**</exclude>
+                <exclude>**/.classpath</exclude>
+                <exclude>**/.project</exclude>
+                <exclude>**/.settings/**</exclude>
+                <exclude>lib/**</exclude>
+                <exclude>**/.DS_Store</exclude>
+            </excludes>
+
+            <includes>
+                <include>README.md</include>
+                <include>config/**</include>
+                <include>plugins/**</include>
+            </includes>
+        </fileSet>
+        <!-- ============ Install Plugin Bin ============  -->
+        <fileSet>
+            <directory>../bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <!-- ============ Starter Bin ============  -->
+        <!--connector starter v2-->
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-flink-starter/seatunnel-flink-13-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-flink-starter/seatunnel-flink-15-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-spark-starter/seatunnel-spark-2-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-spark-starter/seatunnel-spark-3-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+
+        <fileSet>
+            <directory>${project.build.directory}/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <includes>
+                <include>*</include>
+            </includes>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <!--Licenses And NOTICE-->
+        <fileSet>
+            <directory>release-docs</directory>
+            <outputDirectory>.</outputDirectory>
+        </fileSet>
+        <!-- DISCLAIMER -->
+        <fileSet>
+            <directory>${basedir}/.././</directory>
+            <includes>
+                <include>DISCLAIMER</include>
+            </includes>
+            <outputDirectory>.</outputDirectory>
+        </fileSet>
+        <!-- maven wrapper tools -->
+        <fileSet>
+            <directory>${basedir}/.././</directory>
+            <includes>
+                <include>mvnw</include>
+                <include>mvnw.cmd</include>
+            </includes>
+            <fileMode>0755</fileMode>
+            <outputDirectory>.</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${basedir}/.././</directory>
+            <includes>
+                <include>.mvn/wrapper/maven-wrapper.properties</include>
+            </includes>
+            <fileMode>0755</fileMode>
+            <outputDirectory>.</outputDirectory>
+        </fileSet>
+    </fileSets>
+
+    <files>
+        <file>
+            <source>../plugin-mapping.properties</source>
+            <outputDirectory>/connectors</outputDirectory>
+        </file>
+    </files>
+
+    <dependencySets>
+        <!-- ============ Logging Jars ============  -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <outputDirectory>/starter/logging</outputDirectory>
+            <includes>
+                <include>org.slf4j:slf4j-api:jar</include>
+                <include>org.slf4j:jcl-over-slf4j:jar</include>
+                <include>org.apache.logging.log4j:log4j-api:jar</include>
+                <include>org.apache.logging.log4j:log4j-core:jar</include>
+                <include>org.apache.logging.log4j:log4j-slf4j-impl:jar</include>
+            </includes>
+        </dependencySet>
+
+        <!-- ============ Starter Jars ============  -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <!-- Flink V2 starter -->
+                <include>org.apache.seatunnel:seatunnel-flink-13-starter:jar</include>
+                <include>org.apache.seatunnel:seatunnel-flink-15-starter:jar</include>
+                <!-- Spark V2 starter -->
+                <include>org.apache.seatunnel:seatunnel-spark-2-starter:jar</include>
+                <include>org.apache.seatunnel:seatunnel-spark-3-starter:jar</include>
+                <!-- SeaTunnel Engine starter -->
+                <include>org.apache.seatunnel:seatunnel-starter:jar</include>
+            </includes>
+            <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
+            <outputDirectory>/starter</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+
+        <!-- ============ SeaTunnel Transforms V2 Jars And SeaTunnel Hadoop3 Uber Jar============  -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
+                <include>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:jar:*:optional</include>
+            </includes>
+            <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
+            <outputDirectory>/lib</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+
+        <!-- ============ Connectors Jars ============  -->
+        <!-- SeaTunnel connectors for Demo -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>org.apache.seatunnel:connector-fake:jar</include>
+                <include>org.apache.seatunnel:connector-console:jar</include>
+            </includes>
+            <outputDirectory>/connectors</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+    </dependencySets>
+</assembly>
