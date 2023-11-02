@@ -72,8 +72,7 @@ public class KubernetesIT {
                         + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources";
         // If the Docker BaseDirectory is set as the root directory of the project, the image
         // created is too large, so choose to copy the files that need to be created as images
-        // to the same level as the dockerfile. After completing the image creation, delete
-        // these files locally
+        // to the same level as the dockerfile.
         String pomPath = PROJECT_ROOT_PATH + "/pom.xml";
         MavenXpp3Reader pomReader = new MavenXpp3Reader();
         Model model = pomReader.read(new FileReader(pomPath), true);
