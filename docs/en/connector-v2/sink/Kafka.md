@@ -124,7 +124,6 @@ sink {
   kafka {
       topic = "test_topic"
       bootstrap.servers = "localhost:9092"
-      partition = 3
       format = json
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
@@ -146,7 +145,6 @@ sink {
   kafka {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
-      partition = 3
       format = json
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
@@ -181,7 +179,6 @@ sink {
   kafka {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
-      partition = 3
       format = json
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE

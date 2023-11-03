@@ -45,11 +45,13 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceCon
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalogFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
 
 import java.time.ZoneId;
+import java.util.List;
 
 @NoArgsConstructor
 @AutoService(SeaTunnelSource.class)
@@ -58,8 +60,10 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     static final String IDENTIFIER = "MySQL-CDC";
 
     public MySqlIncrementalSource(
-            ReadonlyConfig options, SeaTunnelDataType<SeaTunnelRow> dataType) {
-        super(options, dataType);
+            ReadonlyConfig options,
+            SeaTunnelDataType<SeaTunnelRow> dataType,
+            List<CatalogTable> catalogTables) {
+        super(options, dataType, catalogTables);
     }
 
     @Override
@@ -106,7 +110,8 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         SeaTunnelDataType<SeaTunnelRow> physicalRowType;
         if (dataType == null) {
             // TODO: support metadata keys
-            try (Catalog catalog = new MySqlCatalogFactory().createCatalog("mysql", config)) {
+            try (Catalog catalog =
+                    new MySqlCatalogFactory().createCatalog(DatabaseIdentifier.MYSQL, config)) {
                 catalog.open();
                 CatalogTable table =
                         catalog.getTable(

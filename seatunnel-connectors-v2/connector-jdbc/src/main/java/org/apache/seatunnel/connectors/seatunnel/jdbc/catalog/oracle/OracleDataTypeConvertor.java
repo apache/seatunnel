@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.collections4.MapUtils;
 
@@ -65,6 +66,7 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
     public static final String ORACLE_ROWID = "ROWID";
     public static final String ORACLE_CLOB = "CLOB";
     public static final String ORACLE_NCLOB = "NCLOB";
+    private static final String ORACLE_XML = "XMLTYPE";
     // ------------------------------time-------------------------
     public static final String ORACLE_DATE = "DATE";
     public static final String ORACLE_TIMESTAMP = "TIMESTAMP";
@@ -123,6 +125,7 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
             case ORACLE_ROWID:
             case ORACLE_NCLOB:
             case ORACLE_CLOB:
+            case ORACLE_XML:
                 return BasicType.STRING_TYPE;
             case ORACLE_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
@@ -195,6 +198,6 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
 
     @Override
     public String getIdentity() {
-        return "Oracle";
+        return DatabaseIdentifier.ORACLE;
     }
 }
