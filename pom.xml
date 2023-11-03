@@ -771,7 +771,7 @@
                             <goals>
                                 <goal>exec</goal>
                             </goals>
-                            <phase>package</phase>
+                            <phase>verify</phase>
                             <configuration>
                                 <skip>${docker.verify.skip}</skip>
                                 <environmentVariables>
