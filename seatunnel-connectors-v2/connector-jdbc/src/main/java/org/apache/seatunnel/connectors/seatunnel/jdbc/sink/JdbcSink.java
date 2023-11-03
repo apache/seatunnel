@@ -17,23 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -42,7 +41,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
@@ -51,8 +49,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.google.auto.service.AutoService;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,63 +56,46 @@ import java.util.Optional;
 
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
 
-@AutoService(SeaTunnelSink.class)
 public class JdbcSink
         implements SeaTunnelSink<SeaTunnelRow, JdbcSinkState, XidInfo, JdbcAggregatedCommitInfo>,
-                SupportDataSaveMode,
+                SupportSaveMode,
                 SupportMultiTableSink {
 
-    private SeaTunnelRowType seaTunnelRowType;
+    private final SeaTunnelRowType seaTunnelRowType;
 
     private JobContext jobContext;
 
-    private JdbcSinkConfig jdbcSinkConfig;
+    private final JdbcSinkConfig jdbcSinkConfig;
 
-    private JdbcDialect dialect;
+    private final JdbcDialect dialect;
 
-    private ReadonlyConfig config;
+    private final ReadonlyConfig config;
 
-    private DataSaveMode dataSaveMode;
+    private final DataSaveMode dataSaveMode;
 
-    private CatalogTable catalogTable;
+    private final SchemaSaveMode schemaSaveMode;
+
+    private final CatalogTable catalogTable;
 
     public JdbcSink(
             ReadonlyConfig config,
             JdbcSinkConfig jdbcSinkConfig,
             JdbcDialect dialect,
+            SchemaSaveMode schemaSaveMode,
             DataSaveMode dataSaveMode,
             CatalogTable catalogTable) {
         this.config = config;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.dialect = dialect;
+        this.schemaSaveMode = schemaSaveMode;
         this.dataSaveMode = dataSaveMode;
         this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
     }
 
-    public JdbcSink() {}
-
     @Override
     public String getPluginName() {
         return "Jdbc";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.config = ReadonlyConfig.fromConfig(pluginConfig);
-        this.jdbcSinkConfig = JdbcSinkConfig.of(config);
-        this.dialect =
-                JdbcDialectLoader.load(
-                        jdbcSinkConfig.getJdbcConnectionConfig().getUrl(),
-                        jdbcSinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
-                        config.get(JdbcOptions.FIELD_IDE) == null
-                                ? null
-                                : config.get(JdbcOptions.FIELD_IDE).getValue());
-        this.dialect.connectionUrlParse(
-                jdbcSinkConfig.getJdbcConnectionConfig().getUrl(),
-                jdbcSinkConfig.getJdbcConnectionConfig().getProperties(),
-                this.dialect.defaultParameter());
-        this.dataSaveMode = DataSaveMode.KEEP_SCHEMA_AND_DATA;
     }
 
     @Override
@@ -168,11 +147,6 @@ public class JdbcSink
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-    }
-
-    @Override
     public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
         return this.seaTunnelRowType;
     }
@@ -199,20 +173,19 @@ public class JdbcSink
     }
 
     @Override
-    public DataSaveMode getUserConfigSaveMode() {
-        return dataSaveMode;
-    }
-
-    @Override
-    public void handleSaveMode(DataSaveMode saveMode) {
+    public Optional<SaveModeHandler> getSaveModeHandler() {
         if (catalogTable != null) {
             if (StringUtils.isBlank(jdbcSinkConfig.getDatabase())) {
-                return;
+                return Optional.empty();
+            }
+            if (StringUtils.isBlank(jdbcSinkConfig.getTable())) {
+                return Optional.empty();
             }
             Optional<Catalog> catalogOptional =
                     JdbcCatalogUtils.findCatalog(jdbcSinkConfig.getJdbcConnectionConfig(), dialect);
             if (catalogOptional.isPresent()) {
-                try (Catalog catalog = catalogOptional.get()) {
+                try {
+                    Catalog catalog = catalogOptional.get();
                     catalog.open();
                     FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcOptions.FIELD_IDE);
                     String fieldIde =
@@ -225,20 +198,20 @@ public class JdbcSink
                                             + "."
                                             + CatalogUtils.quoteTableIdentifier(
                                                     jdbcSinkConfig.getTable(), fieldIde));
-                    if (!catalog.databaseExists(jdbcSinkConfig.getDatabase())) {
-                        catalog.createDatabase(tablePath, true);
-                    }
                     catalogTable.getOptions().put("fieldIde", fieldIde);
-                    if (!catalog.tableExists(tablePath)) {
-                        catalog.createTable(tablePath, catalogTable, true);
-                    }
-                } catch (UnsupportedOperationException | CatalogException e) {
-                    // TODO Temporary fix, this feature has been changed in this pr
-                    // https://github.com/apache/seatunnel/pull/5645
+                    return Optional.of(
+                            new DefaultSaveModeHandler(
+                                    schemaSaveMode,
+                                    dataSaveMode,
+                                    catalog,
+                                    tablePath,
+                                    catalogTable,
+                                    config.get(JdbcOptions.CUSTOM_SQL)));
                 } catch (Exception e) {
                     throw new JdbcConnectorException(HANDLE_SAVE_MODE_FAILED, e);
                 }
             }
         }
+        return Optional.empty();
     }
 }

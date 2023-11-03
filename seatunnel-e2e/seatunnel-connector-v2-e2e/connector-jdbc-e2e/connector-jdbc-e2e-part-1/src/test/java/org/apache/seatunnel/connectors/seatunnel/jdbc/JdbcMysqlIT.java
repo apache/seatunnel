@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -26,9 +28,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
@@ -55,7 +55,6 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import com.mysql.cj.jdbc.ConnectionImpl;
 
 import java.io.IOException;
@@ -181,7 +180,57 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() {}
+    protected void compareResult(String executeKey) {
+        String[] fieldNames =
+                new String[] {
+                    "c_bit_1",
+                    "c_bit_8",
+                    "c_bit_16",
+                    "c_bit_32",
+                    "c_bit_64",
+                    "c_boolean",
+                    "c_tinyint",
+                    "c_tinyint_unsigned",
+                    "c_smallint",
+                    "c_smallint_unsigned",
+                    "c_mediumint",
+                    "c_mediumint_unsigned",
+                    "c_int",
+                    "c_integer",
+                    "c_year",
+                    "c_int_unsigned",
+                    "c_integer_unsigned",
+                    "c_bigint",
+                    "c_bigint_unsigned",
+                    "c_decimal",
+                    "c_decimal_unsigned",
+                    "c_float",
+                    "c_float_unsigned",
+                    "c_double",
+                    "c_double_unsigned",
+                    "c_char",
+                    "c_tinytext",
+                    "c_mediumtext",
+                    "c_text",
+                    "c_varchar",
+                    "c_json",
+                    "c_longtext",
+                    "c_date",
+                    "c_datetime",
+                    "c_time",
+                    "c_timestamp",
+                    "c_tinyblob",
+                    "c_mediumblob",
+                    "c_blob",
+                    "c_longblob",
+                    "c_varbinary",
+                    "c_binary",
+                    "c_bigint_30",
+                    "c_decimal_unsigned_30",
+                    "c_decimal_30",
+                };
+        defaultCompare(executeKey, fieldNames, "c_bigint_30");
+    }
 
     @Override
     String driverUrl() {
@@ -244,58 +293,115 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         BigDecimal decimalValue = new BigDecimal("999999999999999999999999999899");
         for (int i = 0; i < 100; i++) {
             byte byteArr = Integer.valueOf(i).byteValue();
-            SeaTunnelRow row =
-                    new SeaTunnelRow(
-                            new Object[] {
-                                i % 2 == 0 ? (byte) 1 : (byte) 0,
-                                new byte[] {byteArr},
-                                new byte[] {byteArr, byteArr},
-                                new byte[] {byteArr, byteArr, byteArr, byteArr},
-                                new byte[] {
-                                    byteArr, byteArr, byteArr, byteArr, byteArr, byteArr, byteArr,
-                                    byteArr
-                                },
-                                i % 2 == 0 ? Boolean.TRUE : Boolean.FALSE,
-                                i,
-                                i,
-                                i,
-                                i,
-                                i,
-                                i,
-                                i,
-                                i,
-                                i,
-                                Long.parseLong("1"),
-                                Long.parseLong("1"),
-                                Long.parseLong("1"),
-                                BigDecimal.valueOf(i, 0),
-                                BigDecimal.valueOf(i, 18),
-                                BigDecimal.valueOf(i, 18),
-                                Float.parseFloat("1.1"),
-                                Float.parseFloat("1.1"),
-                                Double.parseDouble("1.1"),
-                                Double.parseDouble("1.1"),
-                                "f",
-                                String.format("f1_%s", i),
-                                String.format("f1_%s", i),
-                                String.format("f1_%s", i),
-                                String.format("f1_%s", i),
-                                String.format("{\"aa\":\"bb_%s\"}", i),
-                                String.format("f1_%s", i),
-                                Date.valueOf(LocalDate.now()),
-                                Timestamp.valueOf(LocalDateTime.now()),
-                                Time.valueOf(LocalTime.now()),
-                                new Timestamp(System.currentTimeMillis()),
-                                "test".getBytes(),
-                                "test".getBytes(),
-                                "test".getBytes(),
-                                "test".getBytes(),
-                                "test".getBytes(),
-                                "f".getBytes(),
-                                bigintValue.add(BigDecimal.valueOf(i)),
-                                decimalValue.add(BigDecimal.valueOf(i)),
-                                decimalValue.add(BigDecimal.valueOf(i)),
-                            });
+            SeaTunnelRow row;
+            if (i == 99) {
+                row =
+                        new SeaTunnelRow(
+                                new Object[] {
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    // https://github.com/apache/seatunnel/issues/5559 this value
+                                    // cannot set null, this null
+                                    // value column's row will be lost in
+                                    // jdbc_mysql_source_and_sink_parallel.conf,jdbc_mysql_source_and_sink_parallel_upper_lower.conf.
+                                    bigintValue.add(BigDecimal.valueOf(i)),
+                                    decimalValue.add(BigDecimal.valueOf(i)),
+                                    null,
+                                });
+            } else {
+                row =
+                        new SeaTunnelRow(
+                                new Object[] {
+                                    i % 2 == 0 ? (byte) 1 : (byte) 0,
+                                    new byte[] {byteArr},
+                                    new byte[] {byteArr, byteArr},
+                                    new byte[] {byteArr, byteArr, byteArr, byteArr},
+                                    new byte[] {
+                                        byteArr, byteArr, byteArr, byteArr, byteArr, byteArr,
+                                        byteArr, byteArr
+                                    },
+                                    i % 2 == 0 ? Boolean.TRUE : Boolean.FALSE,
+                                    i,
+                                    i,
+                                    i,
+                                    i,
+                                    i,
+                                    i,
+                                    i,
+                                    i,
+                                    i,
+                                    Long.parseLong("1"),
+                                    Long.parseLong("1"),
+                                    Long.parseLong("1"),
+                                    BigDecimal.valueOf(i, 0),
+                                    BigDecimal.valueOf(i, 18),
+                                    BigDecimal.valueOf(i, 18),
+                                    Float.parseFloat("1.1"),
+                                    Float.parseFloat("1.1"),
+                                    Double.parseDouble("1.1"),
+                                    Double.parseDouble("1.1"),
+                                    "f",
+                                    String.format("f1_%s", i),
+                                    String.format("f1_%s", i),
+                                    String.format("f1_%s", i),
+                                    String.format("f1_%s", i),
+                                    String.format("{\"aa\":\"bb_%s\"}", i),
+                                    String.format("f1_%s", i),
+                                    Date.valueOf(LocalDate.now()),
+                                    Timestamp.valueOf(LocalDateTime.now()),
+                                    Time.valueOf(LocalTime.now()),
+                                    new Timestamp(System.currentTimeMillis()),
+                                    "test".getBytes(),
+                                    "test".getBytes(),
+                                    "test".getBytes(),
+                                    "test".getBytes(),
+                                    "test".getBytes(),
+                                    "f".getBytes(),
+                                    bigintValue.add(BigDecimal.valueOf(i)),
+                                    decimalValue.add(BigDecimal.valueOf(i)),
+                                    decimalValue.add(BigDecimal.valueOf(i)),
+                                });
+            }
             rows.add(row);
         }
 
@@ -507,9 +613,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
 
     private Properties getSinkProperties(JdbcSink jdbcSink)
             throws IOException, SQLException, ClassNotFoundException {
-        jdbcSink.setTypeInfo(
-                new SeaTunnelRowType(
-                        new String[] {"id"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE}));
         JdbcSinkWriter jdbcSinkWriter = (JdbcSinkWriter) jdbcSink.createWriter(null);
         JdbcConnectionProvider connectionProvider =
                 (JdbcConnectionProvider)

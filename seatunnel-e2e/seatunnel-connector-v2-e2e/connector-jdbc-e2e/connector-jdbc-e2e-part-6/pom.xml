@@ -23,7 +23,7 @@
     </parent>
 
     <artifactId>connector-jdbc-e2e-part-6</artifactId>
-    <name>SeaTunnel : E2E : Connector V2 : Jdbc : Part 2</name>
+    <name>SeaTunnel : E2E : Connector V2 : Jdbc : Part 6</name>
 
     <dependencies>
         <dependency>

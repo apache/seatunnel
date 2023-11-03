@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -63,7 +61,6 @@ public class RestApiIT {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
         hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-        Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
@@ -72,7 +69,7 @@ public class RestApiIT {
         clientConfig.setClusterName(testClusterName);
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         ClientJobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(filePath, jobConfig);
+                engineClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
 
         clientJobProxy = jobExecutionEnv.execute();
 
@@ -136,7 +133,9 @@ public class RestApiIT {
 
     @Test
     public void testSubmitJob() {
-        String jobId = submitJob("BATCH").getBody().jsonPath().getString("jobId");
+        Response response = submitJob("BATCH");
+        response.then().statusCode(200).body("jobName", equalTo("test"));
+        String jobId = response.getBody().jsonPath().getString("jobId");
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer)
                         hazelcastInstance
@@ -246,6 +245,14 @@ public class RestApiIT {
                                                 .getJobStatus(Long.parseLong(jobId2))));
     }
 
+    @Test
+    public void testStartWithSavePointWithoutJobId() {
+        Response response = submitJob("BATCH", true);
+        response.then()
+                .statusCode(400)
+                .body("message", equalTo("Please provide jobId when start with save point."));
+    }
+
     @AfterEach
     void afterClass() {
         if (hazelcastInstance != null) {
@@ -254,6 +261,10 @@ public class RestApiIT {
     }
 
     private Response submitJob(String jobMode) {
+        return submitJob(jobMode, false);
+    }
+
+    private Response submitJob(String jobMode, boolean isStartWithSavePoint) {
         String requestBody =
                 "{\n"
                         + "    \"env\": {\n"
@@ -284,9 +295,10 @@ public class RestApiIT {
                         + "        }\n"
                         + "    ]\n"
                         + "}";
-        String parameters = "jobId=1&jobName=test&isStartWithSavePoint=false";
-        // Only jobName is compared because jobId is randomly generated if isStartWithSavePoint is
-        // false
+        String parameters = "jobName=test";
+        if (isStartWithSavePoint) {
+            parameters = parameters + "&isStartWithSavePoint=true";
+        }
         Response response =
                 given().body(requestBody)
                         .post(
@@ -299,8 +311,6 @@ public class RestApiIT {
                                         + RestConstant.SUBMIT_JOB_URL
                                         + "?"
                                         + parameters);
-
-        response.then().statusCode(200).body("jobName", equalTo("test"));
         return response;
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.core.dag.actions;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 
 import lombok.NonNull;
 
@@ -33,17 +34,9 @@ public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends 
             long id,
             @NonNull String name,
             @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-            @NonNull Set<URL> jarUrls) {
-        this(id, name, new ArrayList<>(), sink, jarUrls);
-    }
-
-    public SinkAction(
-            long id,
-            @NonNull String name,
-            @NonNull List<Action> upstreams,
-            @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-            @NonNull Set<URL> jarUrls) {
-        this(id, name, upstreams, sink, jarUrls, null);
+            @NonNull Set<URL> jarUrls,
+            @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        this(id, name, new ArrayList<>(), sink, jarUrls, connectorJarIdentifiers);
     }
 
     public SinkAction(
@@ -52,8 +45,19 @@ public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends 
             @NonNull List<Action> upstreams,
             @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
             @NonNull Set<URL> jarUrls,
+            @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        this(id, name, upstreams, sink, jarUrls, connectorJarIdentifiers, null);
+    }
+
+    public SinkAction(
+            long id,
+            @NonNull String name,
+            @NonNull List<Action> upstreams,
+            @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            @NonNull Set<URL> jarUrls,
+            @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers,
             SinkConfig config) {
-        super(id, name, upstreams, jarUrls, config);
+        super(id, name, upstreams, jarUrls, connectorJarIdentifiers, config);
         this.sink = sink;
     }
 
