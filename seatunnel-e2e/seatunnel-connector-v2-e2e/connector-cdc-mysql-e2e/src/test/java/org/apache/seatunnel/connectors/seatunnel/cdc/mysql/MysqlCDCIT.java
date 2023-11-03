@@ -324,6 +324,12 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                                                                 getSourceQuerySQL(
                                                                         MYSQL_DATABASE2,
                                                                         SOURCE_TABLE_2)))));
+
+        log.info("****************** container logs start ******************");
+        String containerLogs = container.getServerLogs();
+        log.info(containerLogs);
+        Assertions.assertFalse(containerLogs.contains("ERROR"));
+        log.info("****************** container logs end ******************");
     }
 
     private Connection getJdbcConnection() throws SQLException {
