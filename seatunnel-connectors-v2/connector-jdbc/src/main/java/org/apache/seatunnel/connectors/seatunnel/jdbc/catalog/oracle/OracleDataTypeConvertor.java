@@ -78,13 +78,13 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
     public static final String ORACLE_LONG_RAW = "LONG RAW";
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
-        return toSeaTunnelType(connectorDataType, Collections.emptyMap());
+    public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
+        return toSeaTunnelType(field, connectorDataType, Collections.emptyMap());
     }
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            String connectorDataType, Map<String, Object> dataTypeProperties)
+            String field, String connectorDataType, Map<String, Object> dataTypeProperties)
             throws DataTypeConvertException {
         checkNotNull(connectorDataType, "Oracle Type cannot be null");
         connectorDataType = normalizeTimestamp(connectorDataType);
@@ -140,13 +140,17 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
             default:
                 throw new JdbcConnectorException(
                         CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format("Doesn't support ORACLE type '%s' yet.", connectorDataType));
+                        String.format(
+                                "Doesn't support ORACLE type '%s' of the '%s' field yet.",
+                                connectorDataType, field));
         }
     }
 
     @Override
     public String toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties)
             throws DataTypeConvertException {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType cannot be null");
         SqlType sqlType = seaTunnelDataType.getSqlType();
@@ -176,7 +180,8 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
             default:
                 throw new UnsupportedOperationException(
                         String.format(
-                                "Doesn't support SeaTunnel type '%s' yet.", seaTunnelDataType));
+                                "Doesn't support SeaTunnel type '%s' of the '%s' field yet.",
+                                seaTunnelDataType.getSqlType(), field));
         }
     }
 

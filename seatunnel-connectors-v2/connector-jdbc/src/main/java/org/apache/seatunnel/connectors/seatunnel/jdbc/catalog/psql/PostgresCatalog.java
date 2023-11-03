@@ -145,7 +145,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
             defaultValue = null;
         }
 
-        SeaTunnelDataType<?> type = fromJdbcType(typeName, columnLength, columnScale);
+        SeaTunnelDataType<?> type = fromJdbcType(columnName, typeName, columnLength, columnScale);
         long bitLen = 0;
         switch (typeName) {
             case PG_BYTEA:
@@ -241,11 +241,12 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         super.dropDatabaseInternal(databaseName);
     }
 
-    private SeaTunnelDataType<?> fromJdbcType(String typeName, long precision, long scale) {
+    private SeaTunnelDataType<?> fromJdbcType(
+            String columnName, String typeName, long precision, long scale) {
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(PostgresDataTypeConvertor.PRECISION, precision);
         dataTypeProperties.put(PostgresDataTypeConvertor.SCALE, scale);
-        return DATA_TYPE_CONVERTOR.toSeaTunnelType(typeName, dataTypeProperties);
+        return DATA_TYPE_CONVERTOR.toSeaTunnelType(columnName, typeName, dataTypeProperties);
     }
 
     @Override
