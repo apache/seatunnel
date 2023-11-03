@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+package org.apache.seatunnel.connectors.seatunnel.maxcompute;
+
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.sink.MaxcomputeSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.source.MaxcomputeSourceFactory;
 
