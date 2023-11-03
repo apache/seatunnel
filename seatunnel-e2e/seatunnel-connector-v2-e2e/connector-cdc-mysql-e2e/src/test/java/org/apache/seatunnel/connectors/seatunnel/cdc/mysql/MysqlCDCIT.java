@@ -39,6 +39,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -47,6 +48,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
@@ -184,7 +187,8 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        container.executeJob("/mysqlcdc_to_mysql_with_multi_table.conf");
+                        container.executeJob(
+                                "/mysqlcdc_to_mysql_with_multi_table_mode_two_table.conf");
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -194,6 +198,104 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
 
         // insert update delete
         upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_2);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE,
+                                                                        SOURCE_TABLE_1)),
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE2,
+                                                                        SOURCE_TABLE_1))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE,
+                                                                        SOURCE_TABLE_2)),
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE2,
+                                                                        SOURCE_TABLE_2)))));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support multi table")
+    public void testMultiTableWithRestore(TestContainer container)
+            throws IOException, InterruptedException {
+        // Clear related content to ensure that multiple operations are not affected
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_2);
+        clearTable(MYSQL_DATABASE2, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE2, SOURCE_TABLE_2);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/mysqlcdc_to_mysql_with_multi_table_mode_one_table.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // insert update delete
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE,
+                                                                        SOURCE_TABLE_1)),
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE2,
+                                                                        SOURCE_TABLE_1)))));
+
+        Pattern jobIdPattern =
+                Pattern.compile(
+                        ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*", Pattern.DOTALL);
+        Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
+        String jobId;
+        if (matcher.matches()) {
+            jobId = matcher.group(1);
+        } else {
+            throw new RuntimeException("Can not find jobId");
+        }
+
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+
+        // Restore job with add a new table
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/mysqlcdc_to_mysql_with_multi_table_mode_two_table.conf", jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
         upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_2);
 
         // stream stage
