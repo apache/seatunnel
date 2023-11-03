@@ -572,6 +572,18 @@
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
+                    <groupId>com.oracle.database.xml</groupId>
+                    <artifactId>xdb6</artifactId>
+                    <version>${oracle.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.oracle.database.xml</groupId>
+                    <artifactId>xmlparserv2</artifactId>
+                    <version>${oracle.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
                     <groupId>org.xerial</groupId>
                     <artifactId>sqlite-jdbc</artifactId>
                     <version>${sqlite.version}</version>
