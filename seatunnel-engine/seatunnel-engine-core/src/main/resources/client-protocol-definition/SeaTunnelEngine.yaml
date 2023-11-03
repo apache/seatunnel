@@ -240,3 +240,49 @@ methods:
           nullable: false
           since: 2.0
           doc: ''
+
+  - id: 13
+    name: uploadConnectorJar
+    since: 2.0
+    doc: ''
+    request:
+      retryable: true
+      partitionIdentifier: -1
+      params:
+        - name: jobId
+          type: long
+          nullable: false
+          since: 2.0
+          doc: ''
+        - name: connectorJar
+          type: Data
+          nullable: false
+          since: 2.0
+          doc: ''
+    response:
+      params:
+        - name: response
+          type: Data
+          nullable: false
+          since: 2.0
+          doc: ''
+
+  - id: 14
+    name: sendConnectorJarToMemberNode
+    since: 2.0
+    doc: ''
+    request:
+      retryable: true
+      partitionIdentifier: -1
+      params:
+        - name: connectorJar
+          type: Data
+          nullable: false
+          since: 2.0
+          doc: ''
+        - name: connectorJarIdentifier
+          type: Data
+          nullable: false
+          since: 2.0
+          doc: ''
+    response: {}

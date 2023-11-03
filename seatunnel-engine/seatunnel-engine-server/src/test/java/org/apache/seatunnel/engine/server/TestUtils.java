@@ -73,7 +73,8 @@ public class TestUtils {
                         idGenerator.getNextId(),
                         "fake",
                         fakeSource,
-                        Sets.newHashSet(new URL("file:///fake.jar")));
+                        Sets.newHashSet(new URL("file:///fake.jar")),
+                        Collections.emptySet());
         fake.setParallelism(3);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 3);
 
@@ -89,7 +90,8 @@ public class TestUtils {
                         idGenerator.getNextId(),
                         "console",
                         consoleSink,
-                        Sets.newHashSet(new URL("file:///console.jar")));
+                        Sets.newHashSet(new URL("file:///console.jar")),
+                        Collections.emptySet());
         console.setParallelism(3);
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 3);
 

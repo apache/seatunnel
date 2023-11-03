@@ -59,8 +59,8 @@
         <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
-        <scala.version>2.11.12</scala.version>
-        <scala.binary.version>2.11</scala.binary.version>
+        <scala.version>2.12.15</scala.version>
+        <scala.binary.version>2.12</scala.binary.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
 
@@ -84,7 +84,7 @@
         <jersey.version>1.19</jersey.version>
         <javax.servlet.jap.version>2.1</javax.servlet.jap.version>
         <hadoop.binary.version>2.7</hadoop.binary.version>
-        <jackson.version>2.12.6</jackson.version>
+        <jackson.version>2.13.3</jackson.version>
         <lombok.version>1.18.24</lombok.version>
         <commons-compress.version>1.20</commons-compress.version>
         <skip.pmd.check>false</skip.pmd.check>
@@ -101,7 +101,7 @@
         <elasticsearch6.client.version>6.3.1</elasticsearch6.client.version>
         <elasticsearch7.client.version>7.5.1</elasticsearch7.client.version>
         <flink-shaded-hadoop-2.version>2.7.5-7.0</flink-shaded-hadoop-2.version>
-        <commons-lang3.version>3.4</commons-lang3.version>
+        <commons-lang3.version>3.5</commons-lang3.version>
         <commons-io.version>2.11.0</commons-io.version>
         <commons-collections4.version>4.4</commons-collections4.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
