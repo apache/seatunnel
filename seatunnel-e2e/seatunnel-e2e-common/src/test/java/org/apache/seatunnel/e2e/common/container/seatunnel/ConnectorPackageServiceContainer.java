@@ -188,6 +188,16 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
     }
 
     @Override
+    protected String getSavePointCommand() {
+        return "-s";
+    }
+
+    @Override
+    protected String getRestoreCommand() {
+        return "-r";
+    }
+
+    @Override
     protected String getConnectorNamePrefix() {
         return "connector-";
     }
