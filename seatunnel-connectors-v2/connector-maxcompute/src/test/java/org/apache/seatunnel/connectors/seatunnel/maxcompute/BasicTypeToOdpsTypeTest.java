@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+package org.apache.seatunnel.connectors.seatunnel.maxcompute;
+
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
