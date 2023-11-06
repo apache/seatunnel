@@ -58,7 +58,8 @@ public class AvroSerializationSchema implements SerializationSchema {
             return out.toByteArray();
         } catch (IOException e) {
             throw new SeaTunnelAvroFormatException(
-                    AvroFormatErrorCode.SERIALIZATION_ERROR, e.toString());
+                    AvroFormatErrorCode.SERIALIZATION_ERROR,
+                    "Serialization error on record : " + element);
         }
     }
 }

@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunne
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
@@ -293,6 +294,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(TestContainerId.SPARK_2_4)
     public void testFakeSourceToKafkaAvroFormat(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
@@ -301,6 +303,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(TestContainerId.SPARK_2_4)
     public void testKafkaAvroToConsole(TestContainer container)
             throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =

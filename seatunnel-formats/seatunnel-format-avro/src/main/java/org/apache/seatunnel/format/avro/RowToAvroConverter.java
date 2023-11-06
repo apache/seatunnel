@@ -20,8 +20,6 @@ package org.apache.seatunnel.format.avro;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -29,7 +27,6 @@ import org.apache.seatunnel.format.avro.exception.AvroFormatErrorCode;
 import org.apache.seatunnel.format.avro.exception.SeaTunnelAvroFormatException;
 
 import org.apache.avro.Conversions;
-import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.data.TimeConversions;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -38,11 +35,7 @@ import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.io.DatumWriter;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,7 +48,7 @@ public class RowToAvroConverter implements Serializable {
     private final DatumWriter<GenericRecord> writer;
 
     public RowToAvroConverter(SeaTunnelRowType rowType) {
-        this.schema = buildAvroSchemaWithRowType(rowType);
+        this.schema = SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(rowType);
         this.rowType = rowType;
         this.writer = createWriter();
     }
@@ -66,7 +59,7 @@ public class RowToAvroConverter implements Serializable {
         datumWriter.getData().addLogicalTypeConversion(new TimeConversions.DateConversion());
         datumWriter
                 .getData()
-                .addLogicalTypeConversion(new TimeConversions.TimestampMillisConversion());
+                .addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
         return datumWriter;
     }
 
@@ -89,80 +82,6 @@ public class RowToAvroConverter implements Serializable {
         return builder.build();
     }
 
-    private Schema buildAvroSchemaWithRowType(SeaTunnelRowType seaTunnelRowType) {
-        List<Schema.Field> fields = new ArrayList<>();
-        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
-        String[] fieldNames = seaTunnelRowType.getFieldNames();
-        for (int i = 0; i < fieldNames.length; i++) {
-            fields.add(generateField(fieldNames[i], fieldTypes[i]));
-        }
-        return Schema.createRecord("SeaTunnelRecord", null, null, false, fields);
-    }
-
-    private Schema.Field generateField(String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
-        return new Schema.Field(
-                fieldName,
-                seaTunnelDataType2AvroDataType(fieldName, seaTunnelDataType),
-                null,
-                null);
-    }
-
-    private Schema seaTunnelDataType2AvroDataType(
-            String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
-
-        switch (seaTunnelDataType.getSqlType()) {
-            case STRING:
-                return Schema.create(Schema.Type.STRING);
-            case BYTES:
-                return Schema.create(Schema.Type.BYTES);
-            case TINYINT:
-            case SMALLINT:
-            case INT:
-                return Schema.create(Schema.Type.INT);
-            case BIGINT:
-                return Schema.create(Schema.Type.LONG);
-            case FLOAT:
-                return Schema.create(Schema.Type.FLOAT);
-            case DOUBLE:
-                return Schema.create(Schema.Type.DOUBLE);
-            case BOOLEAN:
-                return Schema.create(Schema.Type.BOOLEAN);
-            case MAP:
-                SeaTunnelDataType<?> valueType = ((MapType<?, ?>) seaTunnelDataType).getValueType();
-                return Schema.createMap(seaTunnelDataType2AvroDataType(fieldName, valueType));
-            case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
-                return Schema.createArray(seaTunnelDataType2AvroDataType(fieldName, elementType));
-            case ROW:
-                SeaTunnelDataType<?>[] fieldTypes =
-                        ((SeaTunnelRowType) seaTunnelDataType).getFieldTypes();
-                String[] fieldNames = ((SeaTunnelRowType) seaTunnelDataType).getFieldNames();
-                List<Schema.Field> subField = new ArrayList<>();
-                for (int i = 0; i < fieldNames.length; i++) {
-                    subField.add(generateField(fieldNames[i], fieldTypes[i]));
-                }
-                return Schema.createRecord(fieldName, null, null, false, subField);
-            case DECIMAL:
-                int precision = ((DecimalType) seaTunnelDataType).getPrecision();
-                int scale = ((DecimalType) seaTunnelDataType).getScale();
-                LogicalTypes.Decimal decimal = LogicalTypes.decimal(precision, scale);
-                return decimal.addToSchema(Schema.create(Schema.Type.BYTES));
-            case TIMESTAMP:
-                return LogicalTypes.timestampMillis().addToSchema(Schema.create(Schema.Type.LONG));
-            case DATE:
-                return LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT));
-            case NULL:
-                return Schema.create(Schema.Type.NULL);
-            default:
-                String errorMsg =
-                        String.format(
-                                "SeaTunnel avro format is not supported for this data type [%s]",
-                                seaTunnelDataType.getSqlType());
-                throw new SeaTunnelAvroFormatException(
-                        AvroFormatErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
-        }
-    }
-
     private Object resolveObject(Object data, SeaTunnelDataType<?> seaTunnelDataType) {
         if (data == null) {
             return null;
@@ -176,6 +95,9 @@ public class RowToAvroConverter implements Serializable {
             case DOUBLE:
             case BOOLEAN:
             case MAP:
+            case DECIMAL:
+            case DATE:
+            case TIMESTAMP:
                 return data;
             case TINYINT:
                 Class<?> typeClass = seaTunnelDataType.getTypeClass();
@@ -186,12 +108,6 @@ public class RowToAvroConverter implements Serializable {
                     }
                 }
                 return data;
-            case DECIMAL:
-                BigDecimal decimal = (BigDecimal) data;
-                return ByteBuffer.wrap(decimal.unscaledValue().toByteArray());
-            case DATE:
-                LocalDate localDate = (LocalDate) data;
-                return localDate.toEpochDay();
             case BYTES:
                 return ByteBuffer.wrap((byte[]) data);
             case ARRAY:
@@ -211,7 +127,8 @@ public class RowToAvroConverter implements Serializable {
                         ((SeaTunnelRowType) seaTunnelDataType).getFieldTypes();
                 String[] fieldNames = ((SeaTunnelRowType) seaTunnelDataType).getFieldNames();
                 Schema recordSchema =
-                        buildAvroSchemaWithRowType((SeaTunnelRowType) seaTunnelDataType);
+                        SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(
+                                (SeaTunnelRowType) seaTunnelDataType);
                 GenericRecordBuilder recordBuilder = new GenericRecordBuilder(recordSchema);
                 for (int i = 0; i < fieldNames.length; i++) {
                     recordBuilder.set(
@@ -219,9 +136,6 @@ public class RowToAvroConverter implements Serializable {
                             resolveObject(seaTunnelRow.getField(i), fieldTypes[i]));
                 }
                 return recordBuilder.build();
-            case TIMESTAMP:
-                LocalDateTime dateTime = (LocalDateTime) data;
-                return (dateTime).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
             default:
                 String errorMsg =
                         String.format(

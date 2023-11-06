@@ -26,8 +26,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,6 +38,10 @@ import java.util.Map;
 
 class AvroSerializationSchemaTest {
 
+    private LocalDate localDate = LocalDate.of(2023, 1, 1);
+    private BigDecimal bigDecimal = new BigDecimal("61592600349703735722.724745739637773662");
+    private LocalDateTime localDateTime = LocalDateTime.of(2023, 1, 1, 6, 30, 40);
+
     private SeaTunnelRow buildSeaTunnelRow() {
         SeaTunnelRow subSeaTunnelRow = new SeaTunnelRow(14);
         Map<String, String> map = new HashMap<String, String>();
@@ -43,10 +49,6 @@ class AvroSerializationSchemaTest {
         map.put("k2", "v2");
         String[] strArray = new String[] {"l1", "l2"};
         byte byteVal = 100;
-        LocalDate localDate = LocalDate.of(2023, 1, 1);
-        BigDecimal bigDecimal = new BigDecimal("61592600349703735722.724745739637773662");
-        LocalDateTime localDateTime = LocalDateTime.of(2023, 1, 1, 6, 30, 40);
-
         subSeaTunnelRow.setField(0, map);
         subSeaTunnelRow.setField(1, strArray);
         subSeaTunnelRow.setField(2, "strVal");
@@ -155,11 +157,21 @@ class AvroSerializationSchemaTest {
     }
 
     @Test
-    public void testSerialization() {
+    public void testSerialization() throws IOException {
         SeaTunnelRowType rowType = buildSeaTunnelRowType();
         SeaTunnelRow seaTunnelRow = buildSeaTunnelRow();
         AvroSerializationSchema serializationSchema = new AvroSerializationSchema(rowType);
         byte[] serialize = serializationSchema.serialize(seaTunnelRow);
-        assert serialize.length > 0;
+        AvroDeserializationSchema deserializationSchema = new AvroDeserializationSchema(rowType);
+        SeaTunnelRow deserialize = deserializationSchema.deserialize(serialize);
+        String[] strArray1 = (String[]) seaTunnelRow.getField(1);
+        String[] strArray2 = (String[]) deserialize.getField(1);
+        Assertions.assertArrayEquals(strArray1, strArray2);
+        SeaTunnelRow subRow = (SeaTunnelRow) deserialize.getField(14);
+        Assertions.assertEquals((double) subRow.getField(9), 123.456);
+        BigDecimal bigDecimal1 = (BigDecimal) subRow.getField(12);
+        Assertions.assertEquals(bigDecimal1.compareTo(bigDecimal), 0);
+        LocalDateTime localDateTime1 = (LocalDateTime) subRow.getField(13);
+        Assertions.assertEquals(localDateTime1.compareTo(localDateTime), 0);
     }
 }

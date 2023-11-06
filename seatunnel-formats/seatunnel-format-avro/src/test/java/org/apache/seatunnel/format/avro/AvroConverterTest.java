@@ -166,7 +166,7 @@ class AvroConverterTest {
         RowToAvroConverter rowToAvroConverter = new RowToAvroConverter(rowType);
         GenericRecord record = rowToAvroConverter.convertRowToGenericRecord(seaTunnelRow);
 
-        AvroToRowConverter avroToRowConverter = new AvroToRowConverter();
+        AvroToRowConverter avroToRowConverter = new AvroToRowConverter(rowType);
         SeaTunnelRow converterRow = avroToRowConverter.converter(record, rowType);
 
         Assertions.assertEquals(converterRow, seaTunnelRow);

@@ -37,7 +37,7 @@ public class AvroDeserializationSchema implements DeserializationSchema<SeaTunne
 
     public AvroDeserializationSchema(SeaTunnelRowType rowType) {
         this.rowType = rowType;
-        this.converter = new AvroToRowConverter();
+        this.converter = new AvroToRowConverter(rowType);
     }
 
     @Override

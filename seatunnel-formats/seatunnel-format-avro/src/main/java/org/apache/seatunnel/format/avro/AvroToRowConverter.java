@@ -26,7 +26,6 @@ import org.apache.seatunnel.format.avro.exception.AvroFormatErrorCode;
 import org.apache.seatunnel.format.avro.exception.SeaTunnelAvroFormatException;
 
 import org.apache.avro.Conversions;
-import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.data.TimeConversions;
 import org.apache.avro.generic.GenericDatumReader;
@@ -34,13 +33,6 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 
 public class AvroToRowConverter implements Serializable {
@@ -48,8 +40,11 @@ public class AvroToRowConverter implements Serializable {
     private static final long serialVersionUID = 8177020083886379563L;
 
     private DatumReader<GenericRecord> reader = null;
+    private Schema schema;
 
-    public AvroToRowConverter() {}
+    public AvroToRowConverter(SeaTunnelRowType rowType) {
+        schema = SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(rowType);
+    }
 
     public DatumReader<GenericRecord> getReader() {
         if (reader == null) {
@@ -59,12 +54,12 @@ public class AvroToRowConverter implements Serializable {
     }
 
     private DatumReader<GenericRecord> createReader() {
-        GenericDatumReader<GenericRecord> datumReader = new GenericDatumReader<>();
+        GenericDatumReader<GenericRecord> datumReader = new GenericDatumReader<>(schema, schema);
         datumReader.getData().addLogicalTypeConversion(new Conversions.DecimalConversion());
         datumReader.getData().addLogicalTypeConversion(new TimeConversions.DateConversion());
         datumReader
                 .getData()
-                .addLogicalTypeConversion(new TimeConversions.TimestampMillisConversion());
+                .addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
         return datumReader;
     }
 
@@ -98,6 +93,9 @@ public class AvroToRowConverter implements Serializable {
             case DOUBLE:
             case NULL:
             case BYTES:
+            case DATE:
+            case DECIMAL:
+            case TIMESTAMP:
                 return val;
             case TINYINT:
                 Class<?> typeClass = dataType.getTypeClass();
@@ -110,17 +108,6 @@ public class AvroToRowConverter implements Serializable {
                 BasicType<?> basicType = ((ArrayType<?, ?>) dataType).getElementType();
                 List<Object> list = (List<Object>) val;
                 return convertArray(list, basicType);
-            case DECIMAL:
-                LogicalTypes.Decimal decimal =
-                        (LogicalTypes.Decimal) field.schema().getLogicalType();
-                ByteBuffer buffer = (ByteBuffer) val;
-                byte[] bytes = buffer.array();
-                return new BigDecimal(new BigInteger(bytes), decimal.getScale());
-            case DATE:
-                return LocalDate.ofEpochDay((Long) val);
-            case TIMESTAMP:
-                return LocalDateTime.ofInstant(
-                        Instant.ofEpochMilli((Long) val), ZoneId.systemDefault());
             case ROW:
                 SeaTunnelRowType subRow = (SeaTunnelRowType) dataType;
                 return converter((GenericRecord) val, subRow);
