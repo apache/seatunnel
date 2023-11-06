@@ -44,15 +44,17 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
     public static final Integer DEFAULT_SCALE = 0;
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(@NonNull String connectorDataType) {
+    public SeaTunnelDataType<?> toSeaTunnelType(String field, @NonNull String connectorDataType) {
         Pair<SqlServerType, Map<String, Object>> sqlServerType =
                 SqlServerType.parse(connectorDataType);
-        return toSeaTunnelType(sqlServerType.getLeft(), sqlServerType.getRight());
+        return toSeaTunnelType(field, sqlServerType.getLeft(), sqlServerType.getRight());
     }
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            @NonNull SqlServerType connectorDataType, Map<String, Object> dataTypeProperties)
+            String field,
+            @NonNull SqlServerType connectorDataType,
+            Map<String, Object> dataTypeProperties)
             throws DataTypeConvertException {
         switch (connectorDataType) {
             case BIT:
@@ -101,13 +103,17 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
             default:
                 throw new JdbcConnectorException(
                         CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format("Doesn't support SQLSERVER type '%s'", connectorDataType));
+                        String.format(
+                                "Doesn't support SQLSERVER type '%s' of the '%s' field",
+                                connectorDataType, field));
         }
     }
 
     @Override
     public SqlServerType toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties)
             throws DataTypeConvertException {
         SqlType sqlType = seaTunnelDataType.getSqlType();
         switch (sqlType) {
@@ -140,7 +146,9 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
             default:
                 throw new JdbcConnectorException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        String.format("Doesn't support SqlServer type '%s' yet", sqlType));
+                        String.format(
+                                "Doesn't support SqlServer type '%s' of the '%s' field yet",
+                                sqlType, field));
         }
     }
 

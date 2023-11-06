@@ -87,10 +87,11 @@ public class MaxcomputeTypeMapper implements Serializable {
         try {
             MaxComputeDataTypeConvertor typeConvertor = new MaxComputeDataTypeConvertor();
             for (int i = 0; i < tableSchema.getColumns().size(); i++) {
-                fieldNames.add(tableSchema.getColumns().get(i).getName());
+                String fieldName = tableSchema.getColumns().get(i).getName();
+                fieldNames.add(fieldName);
                 TypeInfo maxcomputeTypeInfo = tableSchema.getColumns().get(i).getTypeInfo();
                 SeaTunnelDataType<?> seaTunnelDataType =
-                        typeConvertor.toSeaTunnelType(maxcomputeTypeInfo, null);
+                        typeConvertor.toSeaTunnelType(fieldName, maxcomputeTypeInfo, null);
                 seaTunnelDataTypes.add(seaTunnelDataType);
             }
         } catch (Exception e) {

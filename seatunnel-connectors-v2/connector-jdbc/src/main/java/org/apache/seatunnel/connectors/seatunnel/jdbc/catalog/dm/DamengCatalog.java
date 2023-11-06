@@ -122,7 +122,8 @@ public class DamengCatalog extends AbstractJdbcCatalog {
         Object defaultValue = resultSet.getObject("DATA_DEFAULT");
         boolean isNullable = resultSet.getString("NULLABLE").equals("Y");
 
-        SeaTunnelDataType<?> type = fromJdbcType(typeName, columnPrecision, columnScale);
+        SeaTunnelDataType<?> type =
+                fromJdbcType(columnName, typeName, columnPrecision, columnScale);
 
         return PhysicalColumn.of(
                 columnName,
@@ -139,11 +140,12 @@ public class DamengCatalog extends AbstractJdbcCatalog {
                 columnLength);
     }
 
-    private SeaTunnelDataType<?> fromJdbcType(String typeName, long precision, long scale) {
+    private SeaTunnelDataType<?> fromJdbcType(
+            String columnName, String typeName, long precision, long scale) {
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(DamengDataTypeConvertor.PRECISION, precision);
         dataTypeProperties.put(DamengDataTypeConvertor.SCALE, scale);
-        return DATA_TYPE_CONVERTOR.toSeaTunnelType(typeName, dataTypeProperties);
+        return DATA_TYPE_CONVERTOR.toSeaTunnelType(columnName, typeName, dataTypeProperties);
     }
 
     @Override

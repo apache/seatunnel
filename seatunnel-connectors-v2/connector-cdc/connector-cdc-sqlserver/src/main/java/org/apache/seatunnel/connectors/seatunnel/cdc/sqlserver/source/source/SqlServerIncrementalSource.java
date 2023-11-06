@@ -25,7 +25,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
@@ -38,23 +37,16 @@ import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchem
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config.SqlServerSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config.SqlServerSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.offset.LsnOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 
 import com.google.auto.service.AutoService;
-import io.debezium.connector.sqlserver.SqlServerConnection;
-import io.debezium.relational.Table;
-import io.debezium.relational.TableId;
 import lombok.NoArgsConstructor;
 
 import java.time.ZoneId;
 import java.util.List;
-
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerTypeUtils.convertFromTable;
 
 @NoArgsConstructor
 @AutoService(SeaTunnelSource.class)
@@ -110,26 +102,7 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
                             config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES));
         }
 
-        SeaTunnelDataType<SeaTunnelRow> physicalRowType;
-        if (dataType == null) {
-            SqlServerSourceConfig sqlServerSourceConfig =
-                    (SqlServerSourceConfig) this.configFactory.create(0);
-            TableId tableId =
-                    this.dataSourceDialect.discoverDataCollections(sqlServerSourceConfig).get(0);
-            Table table;
-            try (SqlServerConnection sqlServerConnection =
-                    createSqlServerConnection(sqlServerSourceConfig.getDbzConfiguration())) {
-                table =
-                        ((SqlServerDialect) dataSourceDialect)
-                                .queryTableSchema(sqlServerConnection, tableId)
-                                .getTable();
-            } catch (Exception e) {
-                throw new SeaTunnelException(e);
-            }
-            physicalRowType = convertFromTable(table);
-        } else {
-            physicalRowType = dataType;
-        }
+        SeaTunnelDataType<SeaTunnelRow> physicalRowType = dataType;
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>)
                 SeaTunnelRowDebeziumDeserializeSchema.builder()

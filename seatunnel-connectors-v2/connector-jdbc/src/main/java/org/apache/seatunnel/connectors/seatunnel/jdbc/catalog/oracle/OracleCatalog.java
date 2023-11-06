@@ -174,7 +174,8 @@ public class OracleCatalog extends AbstractJdbcCatalog {
         Object defaultValue = resultSet.getObject("DEFAULT_VALUE");
         boolean isNullable = resultSet.getString("IS_NULLABLE").equals("YES");
 
-        SeaTunnelDataType<?> type = fromJdbcType(typeName, columnPrecision, columnScale);
+        SeaTunnelDataType<?> type =
+                fromJdbcType(columnName, typeName, columnPrecision, columnScale);
         long bitLen = 0;
         switch (typeName) {
             case ORACLE_LONG:
@@ -214,11 +215,12 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                 columnLength);
     }
 
-    private SeaTunnelDataType<?> fromJdbcType(String typeName, long precision, long scale) {
+    private SeaTunnelDataType<?> fromJdbcType(
+            String columnName, String typeName, long precision, long scale) {
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(OracleDataTypeConvertor.PRECISION, precision);
         dataTypeProperties.put(OracleDataTypeConvertor.SCALE, scale);
-        return DATA_TYPE_CONVERTOR.toSeaTunnelType(typeName, dataTypeProperties);
+        return DATA_TYPE_CONVERTOR.toSeaTunnelType(columnName, typeName, dataTypeProperties);
     }
 
     @Override
