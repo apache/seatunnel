@@ -95,7 +95,7 @@ public class SeaTunnelDataTypeConvertorUtil {
             return parseDecimalType(column);
         }
         if (column.trim().startsWith("{")) {
-            return parseRowType(column);
+            return parseRowType(columnStr);
         }
         throw new UnsupportedOperationException(
                 String.format("the type[%s] is not support", columnStr));
