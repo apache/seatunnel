@@ -13,16 +13,16 @@ Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel
 
 # Format Options
 
-|              option              | default | required |                                                                                                 Description                                                                                                  |
+|              Option              | Default | Required |                                                                                                 Description                                                                                                  |
 |----------------------------------|---------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | format                           | (none)  | yes      | Specify what format to use, here should be 'maxwell_json'.                                                                                                                                                   |
 | maxwell_json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors.                                                                                                         |
 | maxwell_json.database.include    | (none)  | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the MaxWell record. The pattern string is compatible with Java's Pattern. |
 | maxwell_json.table.include       | (none)  | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the MaxWell record. The pattern string is compatible with Java's Pattern.       |
 
-# How to use MaxWell format
+# How To Use MaxWell format
 
-## Kafka uses example
+## Kafka Uses Example
 
 MaxWell provides a unified format for changelog, here is a simple example for an update operation captured from a MySQL products table:
 

@@ -1,10 +1,10 @@
-# Kafka source compatible kafka-connect-json
+# Kafka Source Compatible kafka-connect-json
 
 Seatunnel connector kafka supports parsing data extracted through kafka connect source, especially data extracted from kafka connect jdbc and kafka connect debezium
 
-# How to use
+# How To Use
 
-## Kafka output to mysql
+## Kafka Output To Mysql
 
 ```bash
 env {

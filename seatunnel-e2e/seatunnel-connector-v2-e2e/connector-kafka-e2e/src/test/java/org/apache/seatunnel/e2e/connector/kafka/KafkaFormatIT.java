@@ -86,8 +86,12 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     private static final String OGG_KAFKA_SOURCE_TOPIC = "test-ogg-source";
     private static final String OGG_KAFKA_SINK_TOPIC = "test-ogg-sink";
 
-    // ---------------------------Canal Format Parameter---------------------------------------
+    // ---------------------------MaxWell Format Parameter---------------------------------------
+    private static final String MAXWELL_DATA_PATH = "/maxwell/maxwell_data.txt";
+    private static final String MAXWELL_KAFKA_SOURCE_TOPIC = "maxwell-test-cdc_mds";
+    private static final String MAXWELL_KAFKA_SINK_TOPIC = "test-maxwell-sink";
 
+    // ---------------------------Canal Format Parameter---------------------------------------
     private static final String CANAL_KAFKA_SINK_TOPIC = "test-canal-sink";
     private static final String CANAL_MYSQL_DATABASE = "canal";
     private static final String CANAL_DATA_PATH = "/canal/canal_data.txt";
@@ -114,6 +118,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                         put(OGG_DATA_PATH, OGG_KAFKA_SOURCE_TOPIC);
                         put(COMPATIBLE_DATA_PATH, COMPATIBLE_KAFKA_SOURCE_TOPIC);
                         put(DEBEZIUM_DATA_PATH, DEBEZIUM_KAFKA_SOURCE_TOPIC);
+                        put(MAXWELL_DATA_PATH, MAXWELL_KAFKA_SOURCE_TOPIC);
                     }
                 };
     }
@@ -271,6 +276,22 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
         // Check Compatible
         checkCompatibleFormat();
+    }
+
+    @TestTemplate
+    public void testFormatMaxWellCheck(TestContainer container)
+            throws IOException, InterruptedException {
+        LOG.info("====================== Check MaxWell======================");
+        Container.ExecResult execMaxWellResultKafka =
+                container.executeJob("/maxwellForMatIt/kafkasource_maxwell_to_kafka.conf");
+        Assertions.assertEquals(
+                0, execMaxWellResultKafka.getExitCode(), execMaxWellResultKafka.getStderr());
+        Container.ExecResult execWaxWellResultToPgSql =
+                container.executeJob("/maxwellForMatIt/kafkasource_maxwell_cdc_to_pgsql.conf");
+        Assertions.assertEquals(
+                0, execWaxWellResultToPgSql.getExitCode(), execWaxWellResultToPgSql.getStderr());
+        // Check MaxWell
+        checkMaxWellFormat();
     }
 
     private void checkCanalFormat() {
@@ -457,6 +478,63 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                                 Arrays.asList(18, "sdc", "sdc", "sdc"))
                         .collect(Collectors.toSet());
         Assertions.assertIterableEquals(expected, actual);
+    }
+
+    private void checkMaxWellFormat() {
+        List<String> expectedResult =
+                Arrays.asList(
+                        "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":\"8.1\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":\"0.8\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":104,\"name\":\"hammer\",\"description\":\"12oz carpenter's hammer\",\"weight\":\"0.75\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":105,\"name\":\"hammer\",\"description\":\"14oz carpenter's hammer\",\"weight\":\"0.875\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":106,\"name\":\"hammer\",\"description\":\"16oz carpenter's hammer\",\"weight\":\"1.0\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":\"0.1\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"DELETE\"}",
+                        "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"4.56\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"DELETE\"}",
+                        "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"7.88\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"DELETE\"}");
+
+        ArrayList<String> result = new ArrayList<>();
+        ArrayList<String> topics = new ArrayList<>();
+        topics.add(MAXWELL_KAFKA_SINK_TOPIC);
+        kafkaConsumer.subscribe(topics);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            ConsumerRecords<String, String> consumerRecords =
+                                    kafkaConsumer.poll(Duration.ofMillis(1000));
+                            for (ConsumerRecord<String, String> record : consumerRecords) {
+                                result.add(record.value());
+                            }
+                            Assertions.assertEquals(expectedResult, result);
+                        });
+
+        LOG.info(
+                "==================== start kafka MaxWell format to pg check ====================");
+
+        Set<List<Object>> postgreSinkTableList = getPostgreSinkTableList();
+
+        Set<List<Object>> expected =
+                Stream.<List<Object>>of(
+                                Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
+                                Arrays.asList(102, "car battery", "12V car battery", "8.1"),
+                                Arrays.asList(
+                                        103,
+                                        "12-pack drill bits",
+                                        "12-pack of drill bits with sizes ranging from #40 to #3",
+                                        "0.8"),
+                                Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
+                                Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
+                                Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1.0"),
+                                Arrays.asList(107, "rocks", "box of assorted rocks", "7.88"),
+                                Arrays.asList(
+                                        108, "jacket", "water resistent black wind breaker", "0.1"))
+                        .collect(Collectors.toSet());
+        Assertions.assertIterableEquals(expected, postgreSinkTableList);
     }
 
     // Initialize the kafka Consumer
