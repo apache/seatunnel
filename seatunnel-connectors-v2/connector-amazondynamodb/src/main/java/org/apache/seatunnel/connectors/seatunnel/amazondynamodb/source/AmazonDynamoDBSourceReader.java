@@ -64,7 +64,7 @@ public class AmazonDynamoDBSourceReader
     }
 
     @Override
-    public void open() throws Exception {
+    public void open() {
         dynamoDbClient =
                 DynamoDbClient.builder()
                         .endpointOverride(URI.create(amazondynamodbSourceOptions.getUrl()))
@@ -80,13 +80,13 @@ public class AmazonDynamoDBSourceReader
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         dynamoDbClient.close();
     }
 
     @Override
     @SuppressWarnings("magicnumber")
-    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+    public void pollNext(Collector<SeaTunnelRow> output) {
         while (!pendingSplits.isEmpty()) {
             synchronized (output.getCheckpointLock()) {
                 AmazonDynamoDBSourceSplit split = pendingSplits.poll();
@@ -94,13 +94,13 @@ public class AmazonDynamoDBSourceReader
                 read(split, output);
             }
         }
-        if (pendingSplits.isEmpty() && noMoreSplit) {
+        if (noMoreSplit) {
             context.signalNoMoreElement();
         }
     }
 
     @Override
-    public List<AmazonDynamoDBSourceSplit> snapshotState(long checkpointId) throws Exception {
+    public List<AmazonDynamoDBSourceSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(pendingSplits);
     }
 
@@ -115,9 +115,7 @@ public class AmazonDynamoDBSourceReader
         noMoreSplit = true;
     }
 
-    private void read(AmazonDynamoDBSourceSplit split, Collector<SeaTunnelRow> output)
-            throws Exception {
-        Map<String, AttributeValue> lastKeyEvaluated = null;
+    private void read(AmazonDynamoDBSourceSplit split, Collector<SeaTunnelRow> output) {
         ScanIterable scan;
         ScanRequest scanRequest =
                 ScanRequest.builder()
@@ -145,5 +143,5 @@ public class AmazonDynamoDBSourceReader
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) {}
 }

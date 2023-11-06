@@ -43,16 +43,13 @@ import java.util.Map;
 public class DynamoDbSinkClient {
     private final AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
     private volatile boolean initialize;
-    private volatile Exception flushException;
     private DynamoDbClient dynamoDbClient;
     private final List<WriteRequest> batchList;
-    protected SeaTunnelRowDeserializer seaTunnelRowDeserializer;
 
     public DynamoDbSinkClient(
-            AmazonDynamoDBSourceOptions amazondynamodbSourceOptions, SeaTunnelRowType typeInfo) {
+            AmazonDynamoDBSourceOptions amazondynamodbSourceOptions) {
         this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;
         this.batchList = new ArrayList<>();
-        this.seaTunnelRowDeserializer = new DefaultSeaTunnelRowDeserializer(typeInfo);
     }
 
     private void tryInit() {
@@ -74,9 +71,8 @@ public class DynamoDbSinkClient {
         initialize = true;
     }
 
-    public synchronized void write(PutItemRequest putItemRequest) throws IOException {
+    public synchronized void write(PutItemRequest putItemRequest) {
         tryInit();
-        checkFlushException();
         batchList.add(
                 WriteRequest.builder()
                         .putRequest(PutRequest.builder().item(putItemRequest.item()).build())
@@ -87,7 +83,7 @@ public class DynamoDbSinkClient {
         }
     }
 
-    public synchronized void close() throws IOException {
+    public synchronized void close() {
         if (dynamoDbClient != null) {
             flush();
             dynamoDbClient.close();
@@ -95,7 +91,6 @@ public class DynamoDbSinkClient {
     }
 
     synchronized void flush() {
-        checkFlushException();
         if (batchList.isEmpty()) {
             return;
         }
@@ -107,12 +102,4 @@ public class DynamoDbSinkClient {
         batchList.clear();
     }
 
-    private void checkFlushException() {
-        if (flushException != null) {
-            throw new AmazonDynamoDBConnectorException(
-                    CommonErrorCode.FLUSH_DATA_FAILED,
-                    "Flush data to AmazonDynamoDB failed.",
-                    flushException);
-        }
-    }
 }
