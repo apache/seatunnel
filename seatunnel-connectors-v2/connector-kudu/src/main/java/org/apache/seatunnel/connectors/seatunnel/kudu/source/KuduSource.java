@@ -62,6 +62,12 @@ public class KuduSource
     private KuduInputFormat kuduInputFormat;
     private KuduSourceConfig kuduSourceConfig;
 
+    public KuduSource(KuduSourceConfig kuduSourceConfig, KuduInputFormat kuduInputFormat) {
+        this.kuduSourceConfig = kuduSourceConfig;
+        this.kuduInputFormat = kuduInputFormat;
+        this.rowTypeInfo = kuduInputFormat.getRowTypeInfo();
+    }
+
     @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
@@ -128,7 +134,7 @@ public class KuduSource
         kuduInputFormat = new KuduInputFormat(kuduSourceConfig, rowTypeInfo);
     }
 
-    public SeaTunnelRowType getSeaTunnelRowType(List<ColumnSchema> columnSchemaList) {
+    public static SeaTunnelRowType getSeaTunnelRowType(List<ColumnSchema> columnSchemaList) {
         ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();
         ArrayList<String> fieldNames = new ArrayList<>();
         try {

@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -51,6 +52,11 @@ public class KuduSink
 
     private KuduSinkConfig kuduSinkConfig;
     private SeaTunnelRowType seaTunnelRowType;
+
+    public KuduSink(KuduSinkConfig kuduSinkConfig, CatalogTable catalogTable) {
+        this.kuduSinkConfig = kuduSinkConfig;
+        this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+    }
 
     @Override
     public String getPluginName() {

@@ -17,15 +17,29 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat;
+import org.apache.seatunnel.connectors.seatunnel.kudu.util.KuduUtil;
+
+import org.apache.kudu.client.KuduClient;
 
 import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
 
 import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.MASTER;
 import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.TABLE_NAME;
@@ -62,5 +76,32 @@ public class KuduSourceFactory implements TableSourceFactory {
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return KuduSource.class;
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        ReadonlyConfig config = context.getOptions();
+        KuduSourceConfig kuduSourceConfig = new KuduSourceConfig(config);
+        SeaTunnelRowType rowTypeInfo;
+        if (config.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
+            rowTypeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+        } else {
+            try (KuduClient kuduClient = KuduUtil.getKuduClient(kuduSourceConfig)) {
+                rowTypeInfo =
+                        KuduSource.getSeaTunnelRowType(
+                                kuduClient
+                                        .openTable(kuduSourceConfig.getTable())
+                                        .getSchema()
+                                        .getColumns());
+            } catch (Exception e) {
+                throw new KuduConnectorException(KuduConnectorErrorCode.INIT_KUDU_CLIENT_FAILED, e);
+            }
+        }
+        KuduInputFormat kuduInputFormat = new KuduInputFormat(kuduSourceConfig, rowTypeInfo);
+
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new KuduSource(kuduSourceConfig, kuduInputFormat);
     }
 }
