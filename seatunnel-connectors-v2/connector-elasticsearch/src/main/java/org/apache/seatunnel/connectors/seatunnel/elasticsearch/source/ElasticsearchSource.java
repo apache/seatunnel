@@ -79,7 +79,7 @@ public class ElasticsearchSource
             for (int i = 0; i < source.size(); i++) {
                 String esType = esFieldType.get(source.get(i));
                 SeaTunnelDataType seaTunnelDataType =
-                        elasticSearchDataTypeConvertor.toSeaTunnelType(esType);
+                        elasticSearchDataTypeConvertor.toSeaTunnelType(source.get(i), esType);
                 fieldTypes[i] = seaTunnelDataType;
             }
             rowTypeInfo = new SeaTunnelRowType(source.toArray(new String[0]), fieldTypes);

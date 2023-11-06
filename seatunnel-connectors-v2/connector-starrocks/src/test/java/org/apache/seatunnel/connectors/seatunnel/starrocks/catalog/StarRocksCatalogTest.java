@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks;
+package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;

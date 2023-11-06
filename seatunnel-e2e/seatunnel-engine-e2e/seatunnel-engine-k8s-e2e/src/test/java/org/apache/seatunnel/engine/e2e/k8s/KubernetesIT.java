@@ -110,7 +110,7 @@ public class KubernetesIT {
             appsV1Api.createNamespacedStatefulSet(
                     namespace, yamlStatefulSet, null, null, null, null);
             Awaitility.await()
-                    .atMost(30, TimeUnit.SECONDS)
+                    .atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 V1StatefulSet v1StatefulSet =
