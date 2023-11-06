@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+
 import lombok.NonNull;
 
 import java.io.Serializable;
@@ -40,6 +42,8 @@ public interface Action extends Serializable {
     long getId();
 
     Set<URL> getJarUrls();
+
+    Set<ConnectorJarIdentifier> getConnectorJarIdentifiers();
 
     Config getConfig();
 }

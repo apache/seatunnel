@@ -22,7 +22,11 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 /**
  * This interface is the life cycle of a plugin, after a plugin created, will execute prepare method
  * to do some initialize operation.
+ *
+ * @deprecated SeaTunnel will not invoke prepare when init plugin, instead by {@link
+ *     org.apache.seatunnel.api.table.factory.Factory}
  */
+@Deprecated
 public interface SeaTunnelPluginLifeCycle {
 
     /**
@@ -31,6 +35,11 @@ public interface SeaTunnelPluginLifeCycle {
      * @param pluginConfig plugin config.
      * @throws PrepareFailException if plugin prepare failed, the {@link PrepareFailException} will
      *     throw.
+     * @deprecated SeaTunnel will not invoke prepare when init plugin, instead by {@link
+     *     org.apache.seatunnel.api.table.factory.Factory}
      */
-    void prepare(Config pluginConfig) throws PrepareFailException;
+    @Deprecated
+    default void prepare(Config pluginConfig) throws PrepareFailException {
+        throw new UnsupportedOperationException("prepare method is not supported");
+    }
 }

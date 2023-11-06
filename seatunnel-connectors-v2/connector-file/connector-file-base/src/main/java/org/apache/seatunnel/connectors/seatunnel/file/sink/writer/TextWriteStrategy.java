@@ -49,6 +49,8 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private final DateUtils.Formatter dateFormat;
     private final DateTimeUtils.Formatter dateTimeFormat;
     private final TimeUtils.Formatter timeFormat;
+    private final FileFormat fileFormat;
+    private final Boolean enableHeaderWriter;
     private SerializationSchema serializationSchema;
     private String fileFormat;
     private String collectionDelimiter;
@@ -66,6 +68,8 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         this.fileFormat = fileFormat;
         this.collectionDelimiter = fileSinkConfig.getCollectionDelimiter();
         this.mapKeysDelimiter = fileSinkConfig.getMapKeysDelimiter();
+        this.fileFormat = fileSinkConfig.getFileFormat();
+        this.enableHeaderWriter = fileSinkConfig.getEnableHeaderWriter();
     }
 
     @Override
@@ -154,15 +158,18 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                         OutputStream out =
                                 lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
                         fsDataOutputStream = new FSDataOutputStream(out, null);
+                        enableWriteHeader(fsDataOutputStream);
                         break;
                     case NONE:
                         fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        enableWriteHeader(fsDataOutputStream);
                         break;
                     default:
                         log.warn(
                                 "Text file does not support this compress type: {}",
                                 compressFormat.getCompressCodec());
                         fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        enableWriteHeader(fsDataOutputStream);
                         break;
                 }
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
@@ -175,5 +182,16 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
             }
         }
         return fsDataOutputStream;
+    }
+
+    private void enableWriteHeader(FSDataOutputStream fsDataOutputStream) throws IOException {
+        if (enableHeaderWriter) {
+            fsDataOutputStream.write(
+                    String.join(
+                                    FileFormat.CSV.equals(fileFormat) ? "," : fieldDelimiter,
+                                    seaTunnelRowType.getFieldNames())
+                            .getBytes());
+            fsDataOutputStream.write(rowDelimiter.getBytes());
+        }
     }
 }

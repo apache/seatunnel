@@ -521,6 +521,13 @@
                     <scope>provided</scope>
                 </dependency>
 
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-amazonsqs</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
                 <!-- jdbc driver -->
                 <dependency>
                     <groupId>com.aliyun.phoenix</groupId>
@@ -561,6 +568,18 @@
                 <dependency>
                     <groupId>com.oracle.database.jdbc</groupId>
                     <artifactId>ojdbc8</artifactId>
+                    <version>${oracle.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.oracle.database.xml</groupId>
+                    <artifactId>xdb6</artifactId>
+                    <version>${oracle.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.oracle.database.xml</groupId>
+                    <artifactId>xmlparserv2</artifactId>
                     <version>${oracle.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -702,6 +721,15 @@
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-transforms-v2</artifactId>
                     <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <!-- hadoop jar -->
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                    <version>${project.version}</version>
+                    <classifier>optional</classifier>
                     <scope>provided</scope>
                 </dependency>
             </dependencies>

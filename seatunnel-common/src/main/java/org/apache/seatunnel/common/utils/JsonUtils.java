@@ -30,6 +30,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectWriter;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.SerializerProvider;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.JsonNodeType;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.type.CollectionType;
@@ -39,6 +40,7 @@ import org.apache.commons.lang3.StringUtils;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
@@ -58,6 +60,8 @@ public class JsonUtils {
                     .configure(READ_UNKNOWN_ENUM_VALUES_AS_NULL, true)
                     .configure(REQUIRE_SETTERS_FOR_GETTERS, true)
                     .setTimeZone(TimeZone.getDefault());
+
+    private static final ObjectMapper DEFAULT_OBJECT_MAPPER = new ObjectMapper();
 
     private JsonUtils() {
         throw new UnsupportedOperationException("Construct JSONUtils");
@@ -172,8 +176,24 @@ public class JsonUtils {
     }
 
     public static Map<String, Object> toMap(JsonNode jsonNode) {
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.convertValue(jsonNode, new TypeReference<Map<String, Object>>() {});
+        return DEFAULT_OBJECT_MAPPER.convertValue(
+                jsonNode, new TypeReference<Map<String, Object>>() {});
+    }
+
+    public static Map<String, String> toStringMap(JsonNode jsonNode) {
+        Map<String, String> fieldsMap = new LinkedHashMap<>();
+        jsonNode.fields()
+                .forEachRemaining(
+                        field -> {
+                            String key = field.getKey();
+                            JsonNode value = field.getValue();
+                            if (value.getNodeType() == JsonNodeType.OBJECT) {
+                                fieldsMap.put(key, value.toString());
+                            } else {
+                                fieldsMap.put(key, value.textValue());
+                            }
+                        });
+        return fieldsMap;
     }
 
     /**

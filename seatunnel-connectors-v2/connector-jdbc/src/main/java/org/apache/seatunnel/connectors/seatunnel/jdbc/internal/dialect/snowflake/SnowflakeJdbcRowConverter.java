@@ -18,10 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.snowflake;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 public class SnowflakeJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
-        return "Snowflake";
+        return DatabaseIdentifier.SNOWFLAKE;
     }
 }
