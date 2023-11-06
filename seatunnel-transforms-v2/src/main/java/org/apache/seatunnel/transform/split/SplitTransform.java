@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import lombok.NonNull;
 
@@ -41,12 +42,11 @@ public class SplitTransform extends MultipleFieldOutputTransform {
         super(catalogTable);
         this.splitTransformConfig = splitTransformConfig;
         SeaTunnelRowType seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
-        splitFieldIndex = seaTunnelRowType.indexOf(splitTransformConfig.getSplitField());
-        if (splitFieldIndex == -1) {
-            throw new IllegalArgumentException(
-                    "Cannot find ["
-                            + splitTransformConfig.getSplitField()
-                            + "] field in input row type");
+        try {
+            splitFieldIndex = seaTunnelRowType.indexOf(splitTransformConfig.getSplitField());
+        } catch (IllegalArgumentException e) {
+            throw TransformCommonError.cannotFindInputFieldError(
+                    getPluginName(), splitTransformConfig.getSplitField());
         }
         this.outputCatalogTable = getProducedCatalogTable();
     }

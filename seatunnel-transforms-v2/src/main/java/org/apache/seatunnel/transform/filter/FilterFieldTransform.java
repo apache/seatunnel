@@ -27,8 +27,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportTransform;
-import org.apache.seatunnel.transform.exception.FilterFieldTransformErrorCode;
-import org.apache.seatunnel.transform.exception.TransformException;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -53,13 +52,20 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
         fields = config.get(FilterFieldTransformConfig.KEY_FIELDS).toArray(new String[0]);
         List<String> canNotFoundFields =
                 Arrays.stream(fields)
-                        .filter(field -> seaTunnelRowType.indexOf(field) == -1)
+                        .filter(
+                                field -> {
+                                    try {
+                                        seaTunnelRowType.indexOf(field);
+                                        return false;
+                                    } catch (Exception e) {
+                                        return true;
+                                    }
+                                })
                         .collect(Collectors.toList());
 
         if (!CollectionUtils.isEmpty(canNotFoundFields)) {
-            throw new TransformException(
-                    FilterFieldTransformErrorCode.FILTER_FIELD_NOT_FOUND,
-                    canNotFoundFields.toString());
+            throw TransformCommonError.cannotFindInputFieldsError(
+                    getPluginName(), canNotFoundFields);
         }
     }
 
@@ -92,8 +98,7 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
             String field = filterFields.get(i);
             int inputFieldIndex = seaTunnelRowType.indexOf(field);
             if (inputFieldIndex == -1) {
-                throw new IllegalArgumentException(
-                        "Cannot find [" + field + "] field in input row type");
+                throw TransformCommonError.cannotFindInputFieldError(getPluginName(), field);
             }
             inputValueIndex[i] = inputFieldIndex;
             outputColumns.add(
