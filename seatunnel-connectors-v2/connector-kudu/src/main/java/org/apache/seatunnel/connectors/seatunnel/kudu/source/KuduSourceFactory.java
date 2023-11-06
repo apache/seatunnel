@@ -27,19 +27,27 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat;
+import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.kudu.util.KuduUtil;
 
+import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.client.KuduClient;
 
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.MASTER;
 import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.TABLE_NAME;
@@ -89,7 +97,7 @@ public class KuduSourceFactory implements TableSourceFactory {
         } else {
             try (KuduClient kuduClient = KuduUtil.getKuduClient(kuduSourceConfig)) {
                 rowTypeInfo =
-                        KuduSource.getSeaTunnelRowType(
+                        getSeaTunnelRowType(
                                 kuduClient
                                         .openTable(kuduSourceConfig.getTable())
                                         .getSchema()
@@ -103,5 +111,27 @@ public class KuduSourceFactory implements TableSourceFactory {
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
                         new KuduSource(kuduSourceConfig, kuduInputFormat);
+    }
+
+    public static SeaTunnelRowType getSeaTunnelRowType(List<ColumnSchema> columnSchemaList) {
+        ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();
+        ArrayList<String> fieldNames = new ArrayList<>();
+        try {
+
+            for (int i = 0; i < columnSchemaList.size(); i++) {
+                fieldNames.add(columnSchemaList.get(i).getName());
+                seaTunnelDataTypes.add(KuduTypeMapper.mapping(columnSchemaList, i));
+            }
+
+        } catch (Exception e) {
+            throw new KuduConnectorException(
+                    CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            "Kudu", PluginType.SOURCE, ExceptionUtils.getMessage(e)));
+        }
+        return new SeaTunnelRowType(
+                fieldNames.toArray(new String[0]),
+                seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[0]));
     }
 }

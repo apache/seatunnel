@@ -17,40 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat;
-import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSourceState;
-import org.apache.seatunnel.connectors.seatunnel.kudu.util.KuduUtil;
-
-import org.apache.kudu.ColumnSchema;
-import org.apache.kudu.client.KuduClient;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
@@ -101,58 +80,5 @@ public class KuduSource
     @Override
     public String getPluginName() {
         return "Kudu";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) {
-        ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
-        ConfigValidator.of(config).validate(new KuduSourceFactory().optionRule());
-        try {
-            kuduSourceConfig = new KuduSourceConfig(config);
-        } catch (Exception e) {
-            throw new KuduConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, ExceptionUtils.getMessage(e)));
-        }
-
-        if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
-            rowTypeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-        } else {
-            try (KuduClient kuduClient = KuduUtil.getKuduClient(kuduSourceConfig)) {
-                rowTypeInfo =
-                        getSeaTunnelRowType(
-                                kuduClient
-                                        .openTable(kuduSourceConfig.getTable())
-                                        .getSchema()
-                                        .getColumns());
-            } catch (Exception e) {
-                throw new KuduConnectorException(KuduConnectorErrorCode.INIT_KUDU_CLIENT_FAILED, e);
-            }
-        }
-        kuduInputFormat = new KuduInputFormat(kuduSourceConfig, rowTypeInfo);
-    }
-
-    public static SeaTunnelRowType getSeaTunnelRowType(List<ColumnSchema> columnSchemaList) {
-        ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();
-        ArrayList<String> fieldNames = new ArrayList<>();
-        try {
-
-            for (int i = 0; i < columnSchemaList.size(); i++) {
-                fieldNames.add(columnSchemaList.get(i).getName());
-                seaTunnelDataTypes.add(KuduTypeMapper.mapping(columnSchemaList, i));
-            }
-
-        } catch (Exception e) {
-            throw new KuduConnectorException(
-                    CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            "Kudu", PluginType.SOURCE, ExceptionUtils.getMessage(e)));
-        }
-        return new SeaTunnelRowType(
-                fieldNames.toArray(new String[0]),
-                seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[0]));
     }
 }
