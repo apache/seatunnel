@@ -38,6 +38,6 @@ public class SeaTunnelDataTypeConvertorUtilTest {
                                 SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
                                         "{uuid}"));
         Assertions.assertEquals(
-                "String json deserialization exception.{UUID}", exception2.getMessage());
+                "String json deserialization exception.{uuid}", exception2.getMessage());
     }
 }
