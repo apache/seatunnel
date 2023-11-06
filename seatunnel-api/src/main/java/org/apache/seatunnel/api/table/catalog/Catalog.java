@@ -189,6 +189,25 @@ public interface Catalog extends AutoCloseable {
     void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException;
 
+    /**
+     * Truncate an existing table data in this catalog.
+     *
+     * @param tablePath Path of the table
+     * @param ignoreIfNotExists Flag to specify behavior when a table with the given name doesn't
+     *     exist
+     * @throws TableNotExistException thrown if the table doesn't exist in the catalog and
+     *     ignoreIfNotExists is false
+     * @throws CatalogException in case of any runtime exception
+     */
+    default void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {}
+
+    default boolean isExistsData(TablePath tablePath) {
+        return false;
+    }
+
+    default void executeSql(TablePath tablePath, String sql) {}
+
     // todo: Support for update table metadata
 
 }

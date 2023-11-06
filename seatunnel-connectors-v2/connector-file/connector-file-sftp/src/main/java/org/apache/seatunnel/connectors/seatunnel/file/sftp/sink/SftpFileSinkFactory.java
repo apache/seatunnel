@@ -40,7 +40,7 @@ public class SftpFileSinkFactory implements TableSinkFactory {
                 .required(SftpConfig.FILE_PATH)
                 .required(SftpConfig.SFTP_HOST)
                 .required(SftpConfig.SFTP_PORT)
-                .required(SftpConfig.SFTP_USERNAME)
+                .required(SftpConfig.SFTP_USER)
                 .required(SftpConfig.SFTP_PASSWORD)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .conditional(
@@ -48,11 +48,13 @@ public class SftpFileSinkFactory implements TableSinkFactory {
                         FileFormat.TEXT,
                         BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.FIELD_DELIMITER,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.TXT_COMPRESS,
+                        BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.TXT_COMPRESS,
+                        BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.JSON,

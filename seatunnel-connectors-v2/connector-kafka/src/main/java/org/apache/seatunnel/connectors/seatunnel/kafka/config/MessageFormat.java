@@ -25,4 +25,6 @@ public enum MessageFormat {
     RAW,
     DEBEZIUM_JSON,
     COMPATIBLE_KAFKA_CONNECT_JSON
+    COMPATIBLE_KAFKA_CONNECT_JSON,
+    OGG_JSON
 }

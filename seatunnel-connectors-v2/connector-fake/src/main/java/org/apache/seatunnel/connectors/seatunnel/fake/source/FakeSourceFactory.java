@@ -19,12 +19,18 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogOptions;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption;
 
 import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
 
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ARRAY_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_FAKE_MODE;
@@ -64,7 +70,7 @@ public class FakeSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(CatalogTableUtil.SCHEMA)
+                .required(TableSchemaOptions.SCHEMA)
                 .optional(STRING_FAKE_MODE)
                 .conditional(STRING_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, STRING_TEMPLATE)
                 .optional(TINYINT_FAKE_MODE)
@@ -92,8 +98,16 @@ public class FakeSourceFactory implements TableSourceFactory {
                         DATE_DAY_TEMPLATE,
                         TIME_HOUR_TEMPLATE,
                         TIME_MINUTE_TEMPLATE,
-                        TIME_SECOND_TEMPLATE)
+                        TIME_SECOND_TEMPLATE,
+                        CatalogOptions.TABLE_NAMES)
                 .build();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new FakeSource(context.getOptions());
     }
 
     @Override

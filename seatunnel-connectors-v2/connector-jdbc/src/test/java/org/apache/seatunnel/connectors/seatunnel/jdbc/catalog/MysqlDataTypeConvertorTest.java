@@ -35,22 +35,23 @@ public class MysqlDataTypeConvertorTest {
     @Test
     public void toSeaTunnelTypeWithString() {
         Assertions.assertEquals(
-                new DecimalType(5, 2), mysqlDataTypeConvertor.toSeaTunnelType("DECIMAL(5,2)"));
+                new DecimalType(5, 2), mysqlDataTypeConvertor.toSeaTunnelType("", "DECIMAL(5,2)"));
 
         Assertions.assertEquals(
-                new DecimalType(5, 0), mysqlDataTypeConvertor.toSeaTunnelType("DECIMAL(5)"));
+                new DecimalType(5, 0), mysqlDataTypeConvertor.toSeaTunnelType("", "DECIMAL(5)"));
 
         Assertions.assertEquals(
-                new DecimalType(10, 0), mysqlDataTypeConvertor.toSeaTunnelType("DECIMAL"));
+                new DecimalType(10, 0), mysqlDataTypeConvertor.toSeaTunnelType("", "DECIMAL"));
     }
 
     @Test
     public void toSeaTunnelType() {
         Assertions.assertEquals(
                 BasicType.VOID_TYPE,
-                mysqlDataTypeConvertor.toSeaTunnelType(MysqlType.NULL, Collections.emptyMap()));
+                mysqlDataTypeConvertor.toSeaTunnelType("", MysqlType.NULL, Collections.emptyMap()));
         Assertions.assertEquals(
                 BasicType.STRING_TYPE,
-                mysqlDataTypeConvertor.toSeaTunnelType(MysqlType.VARCHAR, Collections.emptyMap()));
+                mysqlDataTypeConvertor.toSeaTunnelType(
+                        "", MysqlType.VARCHAR, Collections.emptyMap()));
     }
 }

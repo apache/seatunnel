@@ -36,7 +36,6 @@ public class HttpSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(HttpConfig.URL)
                 .optional(HttpConfig.HEADERS)
-                .optional(HttpConfig.PARAMS)
                 .optional(HttpConfig.RETRY)
                 .optional(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)
                 .optional(HttpConfig.RETRY_BACKOFF_MAX_MS)

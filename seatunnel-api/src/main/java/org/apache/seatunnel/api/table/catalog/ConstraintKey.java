@@ -70,7 +70,7 @@ public class ConstraintKey implements Serializable {
     }
 
     public enum ConstraintType {
-        KEY,
+        INDEX_KEY,
         UNIQUE_KEY,
         FOREIGN_KEY
     }

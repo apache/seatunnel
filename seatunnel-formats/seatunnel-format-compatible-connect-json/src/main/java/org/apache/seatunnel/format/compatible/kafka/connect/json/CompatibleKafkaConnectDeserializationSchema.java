@@ -18,9 +18,7 @@
 package org.apache.seatunnel.format.compatible.kafka.connect.json;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.RowKind;
@@ -49,7 +47,6 @@ import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -74,16 +71,14 @@ public class CompatibleKafkaConnectDeserializationSchema
 
     public CompatibleKafkaConnectDeserializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
-            @NonNull Config config,
+            boolean keySchemaEnable,
+            boolean valueSchemaEnable,
             boolean failOnMissingField,
             boolean ignoreParseErrors) {
 
-        Map<String, String> configMap = ReadonlyConfig.fromConfig(config).toMap();
         this.seaTunnelRowType = seaTunnelRowType;
-        this.keySchemaEnable =
-                KafkaConnectJsonFormatOptions.getKeyConverterSchemaEnabled(configMap);
-        this.valueSchemaEnable =
-                KafkaConnectJsonFormatOptions.getValueConverterSchemaEnabled(configMap);
+        this.keySchemaEnable = keySchemaEnable;
+        this.valueSchemaEnable = valueSchemaEnable;
 
         // Runtime converter
         this.runtimeConverter =

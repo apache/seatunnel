@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -44,7 +45,6 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PORT;
@@ -89,7 +89,7 @@ public class RabbitmqSource
                         USERNAME.key(),
                         PASSWORD.key(),
                         QUEUE_NAME.key(),
-                        SCHEMA.key());
+                        TableSchemaOptions.SCHEMA.key());
         if (!result.isSuccess()) {
             throw new RabbitmqConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

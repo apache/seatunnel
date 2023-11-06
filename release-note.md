@@ -49,6 +49,7 @@
 - [Connector-v2] [Jdbc] Fix oracle sql table identifier (#4754)
 - [Connector-v2] [Clickhouse] fix get clickhouse local table name with closing bracket from distributed table engineFull (#4710)
 - [Connector-v2] [CDC] Fix jdbc connection leak for mysql (#5037)
+- [Connector-v2] [File] Fix WriteStrategy parallel writing thread unsafe issue #5546
 
 ### Zeta(ST-Engine)
 
@@ -84,6 +85,7 @@
 - [Container Version] Fix risk of unreproducible test cases #4591
 - [E2e] [Mysql-cdc] Removing the excess MySqlIncrementalSourceIT e2e reduces the CI time (#4738)
 - [E2E] [Common] Update test container version of seatunnel engine (#5323)
+- [E2E] [Jdbc] Fix not remove docker image after test finish on jdbc suite (#5586)
 
 ## Improve
 
@@ -95,6 +97,7 @@
 - [Core] [Starter] Optimize code structure & remove redundant code (#4525)
 - [Core] [Translation] [Flink] Optimize code structure & remove redundant code (#4527)
 - [Core] [Starter] Add check of sink and source config to avoid null pointer exception. (#4734)
+- [Core] [Flink] Remove useless stage type related codes. (#5650)
 
 ### Connector-V2
 
@@ -139,6 +142,7 @@
 - [Zeta] Cancel pipeline add retry to avoid cancel failed. (#4792)
 - [Zeta] Improve Zeta operation max count and ignore NPE (#4787)
 - [Zeta] Remove serialize(deserialize) cost when use shuffle action (#4722)
+- [zeta] Checkpoint exception status messages exclude state data (#5547)
 
 ## Feature
 
@@ -148,6 +152,8 @@
 - [Core] [API] Add copy method to Catalog codes (#4414)
 - [Core] [API] Add options check before create source and sink and transform in FactoryUtil (#4424)
 - [Core] [Shade] Add guava shade module (#4358)
+- [Core] [Spark] Support SeaTunnel Time Type (#5188)
+- [Core] [Flink] Support Decimal Type with configurable precision and scale (#5419)
 
 ### Connector-V2
 
@@ -198,3 +204,4 @@
 - [Docs] Refactor connector-v2 docs using unified format Mysql (#4590)
 - [Docs] Add Value types in Java to Schema features (#5087)
 - [Docs] Replace username by user in the options of FtpFile (#5421)
+- [Docs] Add how to configure logging related parameters of SeaTunnel-E2E Test (#5589)

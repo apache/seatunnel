@@ -55,9 +55,13 @@ public class ParallelBatchPartitionReader {
 
     protected volatile BaseSourceFunction<SeaTunnelRow> internalSource;
     protected volatile InternalRowCollector internalRowCollector;
+    private Map<String, String> envOptions;
 
     public ParallelBatchPartitionReader(
-            SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            Integer parallelism,
+            Integer subtaskId,
+            Map<String, String> envOptions) {
         this.source = source;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
@@ -65,6 +69,7 @@ public class ParallelBatchPartitionReader {
                 ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(
                         1, getEnumeratorThreadName());
         this.handover = new Handover<>();
+        this.envOptions = envOptions;
     }
 
     protected String getEnumeratorThreadName() {
@@ -97,7 +102,8 @@ public class ParallelBatchPartitionReader {
         }
 
         this.internalRowCollector =
-                new InternalRowCollector(handover, checkpointLock, source.getProducedType());
+                new InternalRowCollector(
+                        handover, checkpointLock, source.getProducedType(), envOptions);
         executorService.execute(
                 () -> {
                     try {

@@ -83,7 +83,7 @@ public class InMemoryCatalog implements Catalog {
                         .primaryKey(PrimaryKey.of("id", Lists.newArrayList("id")))
                         .constraintKey(
                                 ConstraintKey.of(
-                                        ConstraintKey.ConstraintType.KEY,
+                                        ConstraintKey.ConstraintType.INDEX_KEY,
                                         "name",
                                         Lists.newArrayList(
                                                 ConstraintKey.ConstraintKeyColumn.of(
