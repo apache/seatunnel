@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 
@@ -46,6 +48,9 @@ import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertCon
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.PRIMARY_KEY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.PRIMARY_KEY_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.PRIMARY_KEY_RULE;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.TableIdentifierRule.TABLE_IDENTIFIER_CATALOG_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.TableIdentifierRule.TABLE_IDENTIFIER_RULE;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.TableIdentifierRule.TABLE_IDENTIFIER_TABLE_NAME;
 
 public class AssertCatalogTableRuleParser {
 
@@ -55,6 +60,7 @@ public class AssertCatalogTableRuleParser {
         parsePrimaryKeyRule(catalogTableRule).ifPresent(tableRule::setPrimaryKeyRule);
         parseConstraintKeyRule(catalogTableRule).ifPresent(tableRule::setConstraintKeyRule);
         parseColumnRule(catalogTableRule).ifPresent(tableRule::setColumnRule);
+        parseTableIdentifierRule(catalogTableRule).ifPresent(tableRule::setTableIdentifierRule);
         return tableRule;
     }
 
@@ -155,5 +161,18 @@ public class AssertCatalogTableRuleParser {
                                 })
                         .collect(Collectors.toList());
         return Optional.of(new AssertCatalogTableRule.AssertConstraintKeyRule(constraintKeys));
+    }
+
+    private Optional<AssertCatalogTableRule.AssertTableIdentifierRule> parseTableIdentifierRule(
+            Config catalogTableRule) {
+        if (!catalogTableRule.hasPath(TABLE_IDENTIFIER_RULE)) {
+            return Optional.empty();
+        }
+        Config tableIdentifierRule = catalogTableRule.getConfig(TABLE_IDENTIFIER_RULE);
+        TableIdentifier tableIdentifier =
+                TableIdentifier.of(
+                        tableIdentifierRule.getString(TABLE_IDENTIFIER_CATALOG_NAME),
+                        TablePath.of(tableIdentifierRule.getString(TABLE_IDENTIFIER_TABLE_NAME)));
+        return Optional.of(new AssertCatalogTableRule.AssertTableIdentifierRule(tableIdentifier));
     }
 }

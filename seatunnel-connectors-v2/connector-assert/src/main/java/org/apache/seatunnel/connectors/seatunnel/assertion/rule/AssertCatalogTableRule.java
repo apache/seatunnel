@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.assertion.exception.AssertConnectorException;
 
@@ -48,6 +49,9 @@ public class AssertCatalogTableRule implements Serializable {
     @OptionMark(description = "column rule")
     private AssertColumnRule columnRule;
 
+    @OptionMark(description = "tableIdentifier rule")
+    private AssertTableIdentifierRule tableIdentifierRule;
+
     public void checkRule(CatalogTable catalogTable) {
         TableSchema tableSchema = catalogTable.getTableSchema();
         if (tableSchema == null) {
@@ -61,6 +65,9 @@ public class AssertCatalogTableRule implements Serializable {
         }
         if (columnRule != null) {
             columnRule.checkRule(tableSchema.getColumns());
+        }
+        if (tableIdentifierRule != null) {
+            tableIdentifierRule.checkRule(catalogTable.getTableId());
         }
     }
 
@@ -135,6 +142,26 @@ public class AssertCatalogTableRule implements Serializable {
                 throw new AssertConnectorException(
                         CATALOG_TABLE_FAILED,
                         String.format("columns: %s is not equal to %s", check, columns));
+            }
+        }
+    }
+
+    @Data
+    @AllArgsConstructor
+    public static class AssertTableIdentifierRule implements Serializable {
+
+        private TableIdentifier tableIdentifier;
+
+        public void checkRule(TableIdentifier actiualTableIdentifier) {
+            if (actiualTableIdentifier == null) {
+                throw new AssertConnectorException(CATALOG_TABLE_FAILED, "tableIdentifier is null");
+            }
+            if (!actiualTableIdentifier.equals(tableIdentifier)) {
+                throw new AssertConnectorException(
+                        CATALOG_TABLE_FAILED,
+                        String.format(
+                                "tableIdentifier: %s is not equal to %s",
+                                actiualTableIdentifier, tableIdentifier));
             }
         }
     }

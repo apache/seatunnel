@@ -43,6 +43,9 @@ public class AmazonDynamoDBSourceOptions implements Serializable {
     private Config schema;
 
     public int batchSize = AmazonDynamoDBConfig.BATCH_SIZE.defaultValue();
+    public int batchIntervalMs = AmazonDynamoDBConfig.BATCH_INTERVAL_MS.defaultValue();
+    public int scanItemLimit = AmazonDynamoDBConfig.SCAN_ITEM_LIMIT.defaultValue();
+    public int parallelScanThreads = AmazonDynamoDBConfig.PARALLEL_SCAN_THREADS.defaultValue();
 
     public AmazonDynamoDBSourceOptions(Config config) {
         this.url = config.getString(AmazonDynamoDBConfig.URL.key());
@@ -55,6 +58,16 @@ public class AmazonDynamoDBSourceOptions implements Serializable {
         }
         if (config.hasPath(AmazonDynamoDBConfig.BATCH_SIZE.key())) {
             this.batchSize = config.getInt(AmazonDynamoDBConfig.BATCH_SIZE.key());
+        }
+        if (config.hasPath(AmazonDynamoDBConfig.BATCH_INTERVAL_MS.key())) {
+            this.batchIntervalMs = config.getInt(AmazonDynamoDBConfig.BATCH_INTERVAL_MS.key());
+        }
+        if (config.hasPath(AmazonDynamoDBConfig.SCAN_ITEM_LIMIT.key())) {
+            this.scanItemLimit = config.getInt(AmazonDynamoDBConfig.SCAN_ITEM_LIMIT.key());
+        }
+        if (config.hasPath(AmazonDynamoDBConfig.PARALLEL_SCAN_THREADS.key())) {
+            this.parallelScanThreads =
+                    config.getInt(AmazonDynamoDBConfig.PARALLEL_SCAN_THREADS.key());
         }
     }
 }

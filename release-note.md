@@ -97,6 +97,7 @@
 - [Core] [Starter] Optimize code structure & remove redundant code (#4525)
 - [Core] [Translation] [Flink] Optimize code structure & remove redundant code (#4527)
 - [Core] [Starter] Add check of sink and source config to avoid null pointer exception. (#4734)
+- [Core] [Flink] Remove useless stage type related codes. (#5650)
 
 ### Connector-V2
 
@@ -151,6 +152,7 @@
 - [Core] [API] Add copy method to Catalog codes (#4414)
 - [Core] [API] Add options check before create source and sink and transform in FactoryUtil (#4424)
 - [Core] [Shade] Add guava shade module (#4358)
+- [Core] [Spark] Support SeaTunnel Time Type (#5188)
 - [Core] [Flink] Support Decimal Type with configurable precision and scale (#5419)
 
 ### Connector-V2

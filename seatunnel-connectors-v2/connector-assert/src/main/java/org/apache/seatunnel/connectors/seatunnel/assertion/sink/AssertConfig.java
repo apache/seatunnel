@@ -64,6 +64,13 @@ public class AssertConfig {
     public static final String COLUMN_DEFAULT_VALUE = "default_value";
     public static final String COLUMN_COMMENT = "comment";
 
+    public static class TableIdentifierRule {
+        public static final String TABLE_IDENTIFIER_RULE = "table_identifier_rule";
+
+        public static final String TABLE_IDENTIFIER_CATALOG_NAME = "catalog_name";
+        public static final String TABLE_IDENTIFIER_TABLE_NAME = "table";
+    }
+
     public static final Option<String> COMMENT =
             Options.key("comment")
                     .stringType()

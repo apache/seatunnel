@@ -105,7 +105,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() throws SQLException, IOException {}
+    void compareResult(String executeKey) throws SQLException, IOException {}
 
     @Override
     String driverUrl() {

@@ -17,11 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -34,9 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaAggregatedComm
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
-import com.google.auto.service.AutoService;
-import lombok.NoArgsConstructor;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -45,30 +38,16 @@ import java.util.Optional;
  * Kafka Sink implementation by using SeaTunnel sink API. This class contains the method to create
  * {@link KafkaSinkWriter} and {@link KafkaSinkCommitter}.
  */
-@AutoService(SeaTunnelSink.class)
-@NoArgsConstructor
 public class KafkaSink
         implements SeaTunnelSink<
                 SeaTunnelRow, KafkaSinkState, KafkaCommitInfo, KafkaAggregatedCommitInfo> {
 
-    private ReadonlyConfig pluginConfig;
-    private SeaTunnelRowType seaTunnelRowType;
+    private final ReadonlyConfig pluginConfig;
+    private final SeaTunnelRowType seaTunnelRowType;
 
     public KafkaSink(ReadonlyConfig pluginConfig, SeaTunnelRowType rowType) {
         this.pluginConfig = pluginConfig;
         this.seaTunnelRowType = rowType;
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
-                .validate(new KafkaSinkFactory().optionRule());
-        this.pluginConfig = ReadonlyConfig.fromConfig(pluginConfig);
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override

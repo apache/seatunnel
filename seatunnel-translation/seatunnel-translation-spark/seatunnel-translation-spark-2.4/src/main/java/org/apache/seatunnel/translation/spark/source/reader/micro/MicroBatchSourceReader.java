@@ -33,6 +33,7 @@ import org.apache.spark.sql.types.StructType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class MicroBatchSourceReader implements MicroBatchReader {
@@ -47,6 +48,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
     protected Integer checkpointId;
     protected MicroBatchState startOffset;
     protected MicroBatchState endOffset;
+    private Map<String, String> envOptions;
 
     public MicroBatchSourceReader(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
@@ -55,7 +57,8 @@ public class MicroBatchSourceReader implements MicroBatchReader {
             Integer checkpointInterval,
             String checkpointPath,
             String hdfsRoot,
-            String hdfsUser) {
+            String hdfsUser,
+            Map<String, String> envOptions) {
         this.source = source;
         this.parallelism = parallelism;
         this.checkpointId = checkpointId;
@@ -63,6 +66,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
         this.checkpointPath = checkpointPath;
         this.hdfsRoot = hdfsRoot;
         this.hdfsUser = hdfsUser;
+        this.envOptions = envOptions;
     }
 
     @Override
@@ -118,7 +122,8 @@ public class MicroBatchSourceReader implements MicroBatchReader {
                             checkpointInterval,
                             checkpointPath,
                             hdfsRoot,
-                            hdfsUser));
+                            hdfsUser,
+                            envOptions));
         } else {
             virtualPartitions = new ArrayList<>(parallelism);
             for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
@@ -131,7 +136,8 @@ public class MicroBatchSourceReader implements MicroBatchReader {
                                 checkpointInterval,
                                 checkpointPath,
                                 hdfsRoot,
-                                hdfsUser));
+                                hdfsUser,
+                                envOptions));
             }
         }
         checkpointId++;

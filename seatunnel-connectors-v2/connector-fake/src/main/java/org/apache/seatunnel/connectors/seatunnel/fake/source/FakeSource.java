@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -30,24 +27,20 @@ import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
-import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
 
-import com.google.auto.service.AutoService;
+import org.apache.commons.collections4.CollectionUtils;
+
 import com.google.common.collect.Lists;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
-@AutoService(SeaTunnelSource.class)
 public class FakeSource
         implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeSourceState>,
                 SupportParallelism,
@@ -60,7 +53,7 @@ public class FakeSource
     public FakeSource() {}
 
     public FakeSource(ReadonlyConfig readonlyConfig) {
-        this.catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
+        this.catalogTable = CatalogTableUtil.buildWithConfig(getPluginName(), readonlyConfig);
         this.fakeConfig = FakeConfig.buildWithConfig(readonlyConfig.toConfig());
     }
 
@@ -73,12 +66,23 @@ public class FakeSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Lists.newArrayList(catalogTable);
-    }
-
-    @Override
-    public SeaTunnelRowType getProducedType() {
-        return catalogTable.getSeaTunnelRowType();
+        // If tableNames is empty, means this is only one catalogTable, return the original
+        // catalogTable
+        if (CollectionUtils.isEmpty(fakeConfig.getTableIdentifiers())) {
+            return Lists.newArrayList(catalogTable);
+        }
+        // Otherwise, return the catalogTables with the tableNames
+        return fakeConfig.getTableIdentifiers().stream()
+                .map(
+                        tableIdentifier ->
+                                CatalogTable.of(
+                                        TableIdentifier.of(
+                                                getPluginName(), tableIdentifier.toTablePath()),
+                                        catalogTable.getTableSchema(),
+                                        catalogTable.getOptions(),
+                                        catalogTable.getPartitionKeys(),
+                                        catalogTable.getComment()))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -104,21 +108,6 @@ public class FakeSource
     @Override
     public String getPluginName() {
         return "FakeSource";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(pluginConfig, TableSchemaOptions.SCHEMA.key());
-        if (!result.isSuccess()) {
-            throw new FakeConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
-        this.fakeConfig = FakeConfig.buildWithConfig(pluginConfig);
     }
 
     @Override

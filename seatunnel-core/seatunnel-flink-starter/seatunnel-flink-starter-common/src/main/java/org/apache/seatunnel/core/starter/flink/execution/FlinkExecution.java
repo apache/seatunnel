@@ -35,8 +35,6 @@ import org.apache.seatunnel.core.starter.execution.TaskExecution;
 import org.apache.seatunnel.core.starter.flink.FlinkStarter;
 
 import org.apache.flink.api.common.RuntimeExecutionMode;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.types.Row;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,11 +54,11 @@ import java.util.stream.Stream;
 @Slf4j
 public class FlinkExecution implements TaskExecution {
     private final FlinkRuntimeEnvironment flinkRuntimeEnvironment;
-    private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment>
+    private final PluginExecuteProcessor<DataStreamTableInfo, FlinkRuntimeEnvironment>
             sourcePluginExecuteProcessor;
-    private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment>
+    private final PluginExecuteProcessor<DataStreamTableInfo, FlinkRuntimeEnvironment>
             transformPluginExecuteProcessor;
-    private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment>
+    private final PluginExecuteProcessor<DataStreamTableInfo, FlinkRuntimeEnvironment>
             sinkPluginExecuteProcessor;
     private final List<URL> jarPaths;
 
@@ -104,7 +102,7 @@ public class FlinkExecution implements TaskExecution {
 
     @Override
     public void execute() throws TaskExecuteException {
-        List<DataStream<Row>> dataStreams = new ArrayList<>();
+        List<DataStreamTableInfo> dataStreams = new ArrayList<>();
         dataStreams = sourcePluginExecuteProcessor.execute(dataStreams);
         dataStreams = transformPluginExecuteProcessor.execute(dataStreams);
         sinkPluginExecuteProcessor.execute(dataStreams);

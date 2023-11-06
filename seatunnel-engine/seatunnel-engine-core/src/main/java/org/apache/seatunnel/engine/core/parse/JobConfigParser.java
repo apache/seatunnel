@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.constants.CollectionConstants;
+import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -49,14 +50,14 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser.DEFAULT_ID;
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
 import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser.checkProducedTypeEquals;
-import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser.ensureJobModeMatch;
 import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser.handleSaveMode;
 
 @Data
@@ -84,13 +85,17 @@ public class JobConfigParser {
         // old logic: prepare(initialization) -> set job context
         source.prepare(config);
         source.setJobContext(jobConfig.getJobContext());
-        ensureJobModeMatch(jobConfig.getJobContext(), source);
+        PluginUtil.ensureJobModeMatch(jobConfig.getJobContext(), source);
         String actionName =
                 createSourceActionName(
                         0, config.getString(CollectionConstants.PLUGIN_NAME), getTableName(config));
         SourceAction action =
                 new SourceAction(
-                        idGenerator.getNextId(), actionName, tuple.getLeft(), tuple.getRight());
+                        idGenerator.getNextId(),
+                        actionName,
+                        tuple.getLeft(),
+                        tuple.getRight(),
+                        new HashSet<>());
         action.setParallelism(parallelism);
         SeaTunnelRowType producedType = (SeaTunnelRowType) tuple.getLeft().getProducedType();
         CatalogTable catalogTable = CatalogTableUtil.getCatalogTable(tableId, producedType);
@@ -121,7 +126,8 @@ public class JobConfigParser {
                         actionName,
                         new ArrayList<>(inputActions),
                         transform,
-                        tuple.getRight());
+                        tuple.getRight(),
+                        new HashSet<>());
         action.setParallelism(parallelism);
         CatalogTable catalogTable =
                 CatalogTableUtil.getCatalogTable(
@@ -210,7 +216,8 @@ public class JobConfigParser {
                         actionName,
                         new ArrayList<>(inputActions),
                         sink,
-                        tuple.getRight());
+                        tuple.getRight(),
+                        new HashSet<>());
         action.setParallelism(parallelism);
         return action;
     }
