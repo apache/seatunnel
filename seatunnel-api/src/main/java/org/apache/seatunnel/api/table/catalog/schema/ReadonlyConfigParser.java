@@ -94,7 +94,7 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                 String key = entry.getKey();
                 String value = entry.getValue();
                 SeaTunnelDataType<?> dataType =
-                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(value);
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(key, value);
                 PhysicalColumn column = PhysicalColumn.of(key, dataType, 0, true, null, null);
                 columns.add(column);
             }
@@ -121,8 +121,10 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                         columnConfig
                                                 .getOptional(TableSchemaOptions.ColumnOptions.TYPE)
                                                 .map(
-                                                        SeaTunnelDataTypeConvertorUtil
-                                                                ::deserializeSeaTunnelDataType)
+                                                        column ->
+                                                                SeaTunnelDataTypeConvertorUtil
+                                                                        .deserializeSeaTunnelDataType(
+                                                                                name, column))
                                                 .orElseThrow(
                                                         () ->
                                                                 new IllegalArgumentException(
@@ -288,7 +290,10 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
         SeaTunnelDataType<?> seaTunnelDataType =
                 columnConfig
                         .getOptional(TableSchemaOptions.ColumnOptions.TYPE)
-                        .map(SeaTunnelDataTypeConvertorUtil::deserializeSeaTunnelDataType)
+                        .map(
+                                column ->
+                                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                                name, column))
                         .orElseThrow(
                                 () ->
                                         new IllegalArgumentException(

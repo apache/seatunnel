@@ -32,7 +32,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
@@ -124,7 +124,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             }
         } catch (Exception ex) {
             throw new ElasticsearchConnectorException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format(
                             "error fieldName=%s,fieldValue=%s,seaTunnelDataType=%s,rowRecord=%s",
                             fieldName, value, seaTunnelDataType, JsonUtils.toJsonString(rowRecord)),
@@ -191,7 +191,8 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             return null;
         } else {
             throw new ElasticsearchConnectorException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unexpected value: " + fieldType);
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                    "Unexpected value: " + fieldType);
         }
     }
 
@@ -211,7 +212,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         DateTimeFormatter dateTimeFormatter = dateTimeFormatterMap.get(formatDate.length());
         if (dateTimeFormatter == null) {
             throw new ElasticsearchConnectorException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION, "unsupported date format");
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, "unsupported date format");
         }
         return LocalDateTime.parse(formatDate, dateTimeFormatter);
     }

@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql;
 
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -25,8 +24,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.collections4.MapUtils;
@@ -88,8 +86,7 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
     // properties.
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            String field, MysqlType mysqlType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field, MysqlType mysqlType, Map<String, Object> dataTypeProperties) {
         checkNotNull(mysqlType, "mysqlType can not be null");
         int precision;
         int scale;
@@ -158,8 +155,8 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
                 return new DecimalType(precision, scale);
                 // TODO: support 'SET' & 'YEAR' type
             default:
-                throw DataTypeConvertException.convertToSeaTunnelDataTypeException(
-                        field, mysqlType);
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.MYSQL, mysqlType.toString(), field);
         }
     }
 
@@ -167,8 +164,7 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
     public MysqlType toConnectorType(
             String field,
             SeaTunnelDataType<?> seaTunnelDataType,
-            Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            Map<String, Object> dataTypeProperties) {
         SqlType sqlType = seaTunnelDataType.getSqlType();
         // todo: verify
         switch (sqlType) {
@@ -206,11 +202,8 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
             case TIMESTAMP:
                 return MysqlType.DATETIME;
             default:
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        String.format(
-                                "Doesn't support MySQL type '%s' of the '%s' field yet",
-                                sqlType, field));
+                throw CommonError.convertToConnectorTypeError(
+                        DatabaseIdentifier.MYSQL, sqlType.toString(), field);
         }
     }
 

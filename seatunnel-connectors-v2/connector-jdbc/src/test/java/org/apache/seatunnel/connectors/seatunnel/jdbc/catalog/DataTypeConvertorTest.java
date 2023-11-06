@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
 
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm.DamengDataTypeConvertor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlDataTypeConvertor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleDataTypeConvertor;
@@ -30,7 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.snowflake.Snowflak
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerDataTypeConvertor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.tidb.TiDBDataTypeConvertor;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -48,195 +47,195 @@ public class DataTypeConvertorTest {
                 new MultipleRowType(new String[] {"table"}, new SeaTunnelRowType[] {rowType});
 
         DamengDataTypeConvertor dameng = new DamengDataTypeConvertor();
-        JdbcConnectorException exception =
+        SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
-                        JdbcConnectorException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> dameng.toSeaTunnelType("test", "UNSUPPORTED_TYPE"));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Doesn't support DMDB type 'UNSUPPORTED_TYPE' of the 'test' field yet.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['Dameng' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception.getMessage());
-        JdbcConnectorException exception2 =
+        SeaTunnelRuntimeException exception2 =
                 Assertions.assertThrows(
-                        JdbcConnectorException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> dameng.toSeaTunnelType("test", "UNSUPPORTED_TYPE", new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Doesn't support DMDB type 'UNSUPPORTED_TYPE' of the 'test' field yet.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['Dameng' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception2.getMessage());
-        UnsupportedOperationException exception3 =
+        SeaTunnelRuntimeException exception3 =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> dameng.toConnectorType("test", rowType, new HashMap<>()));
         Assertions.assertEquals(
-                "Doesn't support SeaTunnel type 'ROW<>' of the 'test' field yet.",
+                "ErrorCode:[COMMON-17], ErrorDescription:['Dameng' unsupported convert SeaTunnel data type 'ROW<>' of 'test' to connector data type.]",
                 exception3.getMessage());
 
         MysqlDataTypeConvertor mysql = new MysqlDataTypeConvertor();
-        DataTypeConvertException exception4 =
+        SeaTunnelRuntimeException exception4 =
                 Assertions.assertThrows(
-                        DataTypeConvertException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> mysql.toSeaTunnelType("test", "UNSUPPORTED_TYPE"));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - Convert type: UNKNOWN of the test field to SeaTunnel data type error.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['MySQL' unsupported convert type 'UNKNOWN' of 'test' to SeaTunnel data type.]",
                 exception4.getMessage());
-        DataTypeConvertException exception5 =
+        SeaTunnelRuntimeException exception5 =
                 Assertions.assertThrows(
-                        DataTypeConvertException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> mysql.toSeaTunnelType("test", UNKNOWN, new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - Convert type: UNKNOWN of the test field to SeaTunnel data type error.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['MySQL' unsupported convert type 'UNKNOWN' of 'test' to SeaTunnel data type.]",
                 exception5.getMessage());
-        JdbcConnectorException exception6 =
+        SeaTunnelRuntimeException exception6 =
                 Assertions.assertThrows(
-                        JdbcConnectorException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> mysql.toConnectorType("test", multipleRowType, new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - Doesn't support MySQL type 'MULTIPLE_ROW' of the 'test' field yet",
+                "ErrorCode:[COMMON-17], ErrorDescription:['MySQL' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
                 exception6.getMessage());
 
         OracleDataTypeConvertor oracle = new OracleDataTypeConvertor();
-        JdbcConnectorException exception7 =
+        SeaTunnelRuntimeException exception7 =
                 Assertions.assertThrows(
-                        JdbcConnectorException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> oracle.toSeaTunnelType("test", "UNSUPPORTED_TYPE"));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Doesn't support ORACLE type 'UNSUPPORTED_TYPE' of the 'test' field yet.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['Oracle' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception7.getMessage());
-        JdbcConnectorException exception8 =
+        SeaTunnelRuntimeException exception8 =
                 Assertions.assertThrows(
-                        JdbcConnectorException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> oracle.toSeaTunnelType("test", "UNSUPPORTED_TYPE", new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Doesn't support ORACLE type 'UNSUPPORTED_TYPE' of the 'test' field yet.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['Oracle' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception8.getMessage());
-        UnsupportedOperationException exception9 =
+        SeaTunnelRuntimeException exception9 =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> oracle.toConnectorType("test", multipleRowType, new HashMap<>()));
         Assertions.assertEquals(
-                "Doesn't support SeaTunnel type 'MULTIPLE_ROW' of the 'test' field yet.",
+                "ErrorCode:[COMMON-17], ErrorDescription:['Oracle' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
                 exception9.getMessage());
 
         PostgresDataTypeConvertor postgres = new PostgresDataTypeConvertor();
-        UnsupportedOperationException exception10 =
+        SeaTunnelRuntimeException exception10 =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> postgres.toSeaTunnelType("test", "UNSUPPORTED_TYPE"));
         Assertions.assertEquals(
-                "Doesn't support POSTGRES type 'UNSUPPORTED_TYPE' of the 'test' field yet.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['Postgres' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception10.getMessage());
-        UnsupportedOperationException exception11 =
+        SeaTunnelRuntimeException exception11 =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () ->
                                 postgres.toSeaTunnelType(
                                         "test", "UNSUPPORTED_TYPE", new HashMap<>()));
         Assertions.assertEquals(
-                "Doesn't support POSTGRES type 'UNSUPPORTED_TYPE' of the 'test' field yet.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['Postgres' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception11.getMessage());
-        UnsupportedOperationException exception12 =
+        SeaTunnelRuntimeException exception12 =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> postgres.toConnectorType("test", multipleRowType, new HashMap<>()));
         Assertions.assertEquals(
-                "Doesn't support SeaTunnel type 'MULTIPLE_ROW' of the 'test' field yet.",
+                "ErrorCode:[COMMON-17], ErrorDescription:['Postgres' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
                 exception12.getMessage());
 
         RedshiftDataTypeConvertor redshift = new RedshiftDataTypeConvertor();
-        UnsupportedOperationException exception13 =
+        SeaTunnelRuntimeException exception13 =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> redshift.toSeaTunnelType("test", "UNSUPPORTED_TYPE"));
         Assertions.assertEquals(
-                "Doesn't support REDSHIFT type 'UNSUPPORTED_TYPE' of the 'test' field yet.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['Redshift' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception13.getMessage());
-        UnsupportedOperationException exception14 =
+        SeaTunnelRuntimeException exception14 =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () ->
                                 redshift.toSeaTunnelType(
                                         "test", "UNSUPPORTED_TYPE", new HashMap<>()));
         Assertions.assertEquals(
-                "Doesn't support REDSHIFT type 'UNSUPPORTED_TYPE' of the 'test' field yet.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['Redshift' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception14.getMessage());
-        UnsupportedOperationException exception15 =
+        SeaTunnelRuntimeException exception15 =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> redshift.toConnectorType("test", multipleRowType, new HashMap<>()));
         Assertions.assertEquals(
-                "Doesn't support SeaTunnel type 'MULTIPLE_ROW' of the 'test' field yet.",
+                "ErrorCode:[COMMON-17], ErrorDescription:['Redshift' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
                 exception15.getMessage());
 
         SnowflakeDataTypeConvertor snowflake = new SnowflakeDataTypeConvertor();
-        UnsupportedOperationException exception16 =
+        SeaTunnelRuntimeException exception16 =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> snowflake.toSeaTunnelType("test", "UNSUPPORTED_TYPE"));
         Assertions.assertEquals(
-                "Doesn't support SNOWFLAKE type 'UNSUPPORTED_TYPE' of the 'test' field yet.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['Snowflake' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception16.getMessage());
-        UnsupportedOperationException exception17 =
+        SeaTunnelRuntimeException exception17 =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () ->
                                 snowflake.toSeaTunnelType(
                                         "test", "UNSUPPORTED_TYPE", new HashMap<>()));
         Assertions.assertEquals(
-                "Doesn't support SNOWFLAKE type 'UNSUPPORTED_TYPE' of the 'test' field yet.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['Snowflake' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception17.getMessage());
-        UnsupportedOperationException exception18 =
+        SeaTunnelRuntimeException exception18 =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> snowflake.toConnectorType("test", multipleRowType, new HashMap<>()));
         Assertions.assertEquals(
-                "Doesn't support SeaTunnel type 'MULTIPLE_ROW' of the 'test' field yet.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['Snowflake' unsupported convert type 'MULTIPLE_ROW' of 'test' to SeaTunnel data type.]",
                 exception18.getMessage());
 
         SqlServerDataTypeConvertor sqlserver = new SqlServerDataTypeConvertor();
-        JdbcConnectorException exception19 =
+        SeaTunnelRuntimeException exception19 =
                 Assertions.assertThrows(
-                        JdbcConnectorException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> sqlserver.toSeaTunnelType("test", "unknown"));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Doesn't support SQLSERVER type 'UNKNOWN' of the 'test' field",
+                "ErrorCode:[COMMON-16], ErrorDescription:['SqlServer' unsupported convert type 'UNKNOWN' of 'test' to SeaTunnel data type.]",
                 exception19.getMessage());
-        JdbcConnectorException exception20 =
+        SeaTunnelRuntimeException exception20 =
                 Assertions.assertThrows(
-                        JdbcConnectorException.class,
+                        SeaTunnelRuntimeException.class,
                         () ->
                                 sqlserver.toSeaTunnelType(
                                         "test", SqlServerType.UNKNOWN, new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Doesn't support SQLSERVER type 'UNKNOWN' of the 'test' field",
+                "ErrorCode:[COMMON-16], ErrorDescription:['SqlServer' unsupported convert type 'UNKNOWN' of 'test' to SeaTunnel data type.]",
                 exception20.getMessage());
-        JdbcConnectorException exception21 =
+        SeaTunnelRuntimeException exception21 =
                 Assertions.assertThrows(
-                        JdbcConnectorException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> sqlserver.toConnectorType("test", multipleRowType, new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - Doesn't support SqlServer type 'MULTIPLE_ROW' of the 'test' field yet",
+                "ErrorCode:[COMMON-17], ErrorDescription:['SqlServer' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
                 exception21.getMessage());
 
         TiDBDataTypeConvertor tidb = new TiDBDataTypeConvertor();
-        DataTypeConvertException exception22 =
+        SeaTunnelRuntimeException exception22 =
                 Assertions.assertThrows(
-                        DataTypeConvertException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> tidb.toSeaTunnelType("test", "UNSUPPORTED_TYPE"));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - Convert type: UNKNOWN of the test field to SeaTunnel data type error.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['TiDB' unsupported convert type 'UNKNOWN' of 'test' to SeaTunnel data type.]",
                 exception22.getMessage());
-        DataTypeConvertException exception23 =
+        SeaTunnelRuntimeException exception23 =
                 Assertions.assertThrows(
-                        DataTypeConvertException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> tidb.toSeaTunnelType("test", UNKNOWN, new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - Convert type: UNKNOWN of the test field to SeaTunnel data type error.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['TiDB' unsupported convert type 'UNKNOWN' of 'test' to SeaTunnel data type.]",
                 exception23.getMessage());
-        JdbcConnectorException exception24 =
+        SeaTunnelRuntimeException exception24 =
                 Assertions.assertThrows(
-                        JdbcConnectorException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> tidb.toConnectorType("test", multipleRowType, new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - TiDB doesn't support SeaTunnel type 'MULTIPLE_ROW' of the 'test' field yet",
+                "ErrorCode:[COMMON-17], ErrorDescription:['TiDB' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
                 exception24.getMessage());
     }
 }

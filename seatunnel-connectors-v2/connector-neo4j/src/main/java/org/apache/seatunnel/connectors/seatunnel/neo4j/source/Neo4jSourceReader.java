@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceQueryInfo;
@@ -133,7 +133,7 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             case MAP:
                 if (!((MapType<?, ?>) dataType).getKeyType().equals(BasicType.STRING_TYPE)) {
                     throw new Neo4jConnectorException(
-                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                             "Key Type of MapType must String type");
                 }
                 final SeaTunnelDataType<?> valueType = ((MapType<?, ?>) dataType).getValueType();
@@ -154,7 +154,7 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 return value.asFloat();
             default:
                 throw new Neo4jConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "not supported data type: " + dataType);
         }
     }

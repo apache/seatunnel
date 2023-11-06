@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
@@ -143,7 +143,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
             return connectionProvider.getOrEstablishConnection();
         } catch (ClassNotFoundException e) {
             throw new JdbcConnectorException(
-                    CommonErrorCode.CLASS_NOT_FOUND,
+                    CommonErrorCodeDeprecated.CLASS_NOT_FOUND,
                     "JDBC-Class not found. - " + e.getMessage(),
                     e);
         }
@@ -247,14 +247,14 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
             Column column = columnMap.get(partitionColumn);
             if (column == null) {
                 throw new JdbcConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         String.format(
                                 "Partitioned column(%s) don't exist in the table columns",
                                 partitionColumn));
             }
             if (!isEvenlySplitColumn(column)) {
                 throw new JdbcConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         String.format("%s is not numeric/string type", partitionColumn));
             }
             return Optional.of(

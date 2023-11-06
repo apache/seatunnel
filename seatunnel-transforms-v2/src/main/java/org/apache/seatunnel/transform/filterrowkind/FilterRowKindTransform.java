@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.FilterRowTransform;
 
@@ -61,7 +61,7 @@ public class FilterRowKindTransform extends FilterRowTransform {
         if ((includeKinds.isEmpty() && excludeKinds.isEmpty())
                 || (!includeKinds.isEmpty() && !excludeKinds.isEmpty())) {
             throw new SeaTunnelRuntimeException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     String.format(
                             "These options(%s,%s) are mutually exclusive, allowing only one set of options to be configured.",
                             FilterRowKinkTransformConfig.INCLUDE_KINDS.key(),
@@ -79,7 +79,7 @@ public class FilterRowKindTransform extends FilterRowTransform {
             return includeKinds.contains(inputRow.getRowKind()) ? inputRow : null;
         }
         throw new SeaTunnelRuntimeException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 "Transform config error! Either excludeKinds or includeKinds must be configured");
     }
 }

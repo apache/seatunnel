@@ -30,7 +30,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParameters;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorErrorCode;
@@ -103,7 +103,7 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow>
             this.rowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
         } catch (Exception e) {
             throw new CassandraConnectorException(
-                    CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                    CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
                     "Get table schema from cassandra source data failed",
                     e);
         }

@@ -17,27 +17,22 @@
 
 package org.apache.seatunnel.common.exception;
 
-public enum CommonErrorCode implements SeaTunnelErrorCode {
-    FILE_OPERATION_FAILED(
-            "COMMON-01", "File operation failed, such as (read,list,write,move,copy,sync) etc..."),
-    JSON_OPERATION_FAILED("COMMON-02", "Json covert/parse operation failed"),
-    REFLECT_CLASS_OPERATION_FAILED("COMMON-03", "Reflect class operation failed"),
-    SERIALIZE_OPERATION_FAILED("COMMON-04", "Serialize class operation failed"),
-    UNSUPPORTED_OPERATION("COMMON-05", "Unsupported operation"),
-    ILLEGAL_ARGUMENT("COMMON-06", "Illegal argument"),
-    UNSUPPORTED_DATA_TYPE("COMMON-07", "Unsupported data type"),
-    SQL_OPERATION_FAILED(
-            "COMMON-08", "Sql operation failed, such as (execute,addBatch,close) etc..."),
-    TABLE_SCHEMA_GET_FAILED("COMMON-09", "Get table schema from upstream data failed"),
-    FLUSH_DATA_FAILED("COMMON-10", "Flush data operation that in sink connector failed"),
-    WRITER_OPERATION_FAILED(
-            "COMMON-11", "Sink writer operation failed, such as (open, close) etc..."),
-    READER_OPERATION_FAILED(
-            "COMMON-12", "Source reader operation failed, such as (open, close) etc..."),
-    HTTP_OPERATION_FAILED(
-            "COMMON-13", "Http operation failed, such as (open, close, response) etc..."),
-    KERBEROS_AUTHORIZED_FAILED("COMMON-14", "Kerberos authorized failed"),
-    CLASS_NOT_FOUND("COMMON-15", "Class load operation failed");
+/** SeaTunnel connector error code interface, it only should be invoked by {@link CommonError} */
+enum CommonErrorCode implements SeaTunnelErrorCode {
+    UNSUPPORTED_DATA_TYPE(
+            "COMMON-07", "'<identifier>' unsupported data type '<dataType>' of '<field>'"),
+    CONVERT_TO_SEATUNNEL_TYPE_ERROR(
+            "COMMON-16",
+            "'<connector>' <type> unsupported convert type '<dataType>' of '<field>' to SeaTunnel data type."),
+    CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE(
+            "COMMON-17",
+            "'<identifier>' unsupported convert type '<dataType>' of '<field>' to SeaTunnel data type."),
+    CONVERT_TO_CONNECTOR_TYPE_ERROR(
+            "COMMON-18",
+            "'<connector>' <type> unsupported convert SeaTunnel data type '<dataType>' of '<field>' to connector data type."),
+    CONVERT_TO_CONNECTOR_TYPE_ERROR_SIMPLE(
+            "COMMON-19",
+            "'<identifier>' unsupported convert SeaTunnel data type '<dataType>' of '<field>' to connector data type.");
 
     private final String code;
     private final String description;

@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.doris.datatype;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -34,26 +35,26 @@ public class DataTypeConvertorTest {
         MultipleRowType multipleRowType =
                 new MultipleRowType(new String[] {"table"}, new SeaTunnelRowType[] {rowType});
         DorisDataTypeConvertor doris = new DorisDataTypeConvertor();
-        UnsupportedOperationException exception =
+        SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> doris.toSeaTunnelType("test", "UNSUPPORTED_TYPE"));
         Assertions.assertEquals(
-                "Doesn't support Doris type 'UNSUPPORTED_TYPE' of the 'test' field yet.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['Doris' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception.getMessage());
-        UnsupportedOperationException exception2 =
+        SeaTunnelRuntimeException exception2 =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> doris.toSeaTunnelType("test", "UNSUPPORTED_TYPE", new HashMap<>()));
         Assertions.assertEquals(
-                "Doesn't support Doris type 'UNSUPPORTED_TYPE' of the 'test' field yet.",
+                "ErrorCode:[COMMON-16], ErrorDescription:['Doris' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception2.getMessage());
-        UnsupportedOperationException exception3 =
+        SeaTunnelRuntimeException exception3 =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> doris.toConnectorType("test", multipleRowType, new HashMap<>()));
         Assertions.assertEquals(
-                "Doris doesn't support SeaTunnel type 'MULTIPLE_ROW' of the 'test' field yet.",
+                "ErrorCode:[COMMON-17], ErrorDescription:['Doris' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
                 exception3.getMessage());
     }
 }

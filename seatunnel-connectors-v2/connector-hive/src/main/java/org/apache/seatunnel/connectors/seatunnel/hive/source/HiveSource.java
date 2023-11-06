@@ -31,7 +31,8 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
@@ -149,7 +150,7 @@ public class HiveSource extends BaseHdfsFileSource {
                             ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
         } else {
             throw new HiveConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "Hive connector only support [text parquet orc] table now");
         }
         String hdfsLocation = tableInformation.getSd().getLocation();
@@ -183,20 +184,19 @@ public class HiveSource extends BaseHdfsFileSource {
         for (FieldSchema col : cols) {
             String name = col.getName();
             String type = col.getType();
-            fields.put(name, covertHiveTypeToSeaTunnelType(type));
+            fields.put(name, covertHiveTypeToSeaTunnelType(name, type));
         }
         schema.put("fields", fields);
         return schema;
     }
 
-    private Object covertHiveTypeToSeaTunnelType(String hiveType) {
+    private Object covertHiveTypeToSeaTunnelType(String name, String hiveType) {
         if (hiveType.contains("varchar")) {
             return SqlType.STRING;
         }
         if (hiveType.contains("char")) {
-            throw new HiveConnectorException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    "SeaTunnel hive connector does not supported char type in text table");
+            throw CommonError.convertToSeaTunnelTypeError(
+                    getPluginName(), PluginType.SOURCE, hiveType, name);
         }
         if (hiveType.contains("binary")) {
             return SqlType.BYTES.name();
@@ -208,7 +208,7 @@ public class HiveSource extends BaseHdfsFileSource {
             String[] columns = hiveType.substring(start + 1, end).split(",");
             for (String column : columns) {
                 String[] splits = column.split(":");
-                fields.put(splits[0], covertHiveTypeToSeaTunnelType(splits[1]));
+                fields.put(splits[0], covertHiveTypeToSeaTunnelType(splits[0], splits[1]));
             }
             return fields;
         }

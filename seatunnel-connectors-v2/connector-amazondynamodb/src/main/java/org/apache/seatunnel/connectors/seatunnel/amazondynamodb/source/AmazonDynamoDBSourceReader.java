@@ -30,7 +30,6 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.paginators.ScanIterable;
 
@@ -38,7 +37,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
@@ -117,7 +115,6 @@ public class AmazonDynamoDBSourceReader
 
     private void read(AmazonDynamoDBSourceSplit split, Collector<SeaTunnelRow> output)
             throws Exception {
-        Map<String, AttributeValue> lastKeyEvaluated = null;
         ScanIterable scan;
         ScanRequest scanRequest =
                 ScanRequest.builder()
