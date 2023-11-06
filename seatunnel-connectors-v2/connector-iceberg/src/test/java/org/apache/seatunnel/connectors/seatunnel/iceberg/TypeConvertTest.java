@@ -34,7 +34,7 @@ public class TypeConvertTest {
                         SeaTunnelRuntimeException.class,
                         () -> IcebergTypeMapper.mapping("test", new Types.UUIDType()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-16], ErrorDescription:['Iceberg' unsupported convert type 'uuid' of 'test' to SeaTunnel data type.]",
+                "ErrorCode:[COMMON-17], ErrorDescription:['Iceberg' unsupported convert type 'uuid' of 'test' to SeaTunnel data type.]",
                 exception.getMessage());
 
         SeaTunnelRuntimeException exception2 =
@@ -49,7 +49,7 @@ public class TypeConvertTest {
                                                 Types.NestedField.of(
                                                         2, false, "value", new Types.UUIDType()))));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-16], ErrorDescription:['Iceberg' unsupported convert type 'uuid' of 'key' to SeaTunnel data type.]",
+                "ErrorCode:[COMMON-17], ErrorDescription:['Iceberg' unsupported convert type 'uuid' of 'key' to SeaTunnel data type.]",
                 exception2.getMessage());
 
         SeaTunnelRuntimeException exception3 =
@@ -61,7 +61,7 @@ public class TypeConvertTest {
                                         Types.MapType.ofOptional(
                                                 1, 1, new Types.UUIDType(), new Types.UUIDType())));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-16], ErrorDescription:['Iceberg' unsupported convert type 'uuid' of 'test' to SeaTunnel data type.]",
+                "ErrorCode:[COMMON-17], ErrorDescription:['Iceberg' unsupported convert type 'uuid' of 'test' to SeaTunnel data type.]",
                 exception3.getMessage());
     }
 }

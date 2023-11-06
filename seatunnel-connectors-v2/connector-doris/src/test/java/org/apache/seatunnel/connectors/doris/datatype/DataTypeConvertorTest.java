@@ -40,21 +40,21 @@ public class DataTypeConvertorTest {
                         SeaTunnelRuntimeException.class,
                         () -> doris.toSeaTunnelType("test", "UNSUPPORTED_TYPE"));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-16], ErrorDescription:['Doris' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
+                "ErrorCode:[COMMON-17], ErrorDescription:['Doris' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception.getMessage());
         SeaTunnelRuntimeException exception2 =
                 Assertions.assertThrows(
                         SeaTunnelRuntimeException.class,
                         () -> doris.toSeaTunnelType("test", "UNSUPPORTED_TYPE", new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-16], ErrorDescription:['Doris' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
+                "ErrorCode:[COMMON-17], ErrorDescription:['Doris' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception2.getMessage());
         SeaTunnelRuntimeException exception3 =
                 Assertions.assertThrows(
                         SeaTunnelRuntimeException.class,
                         () -> doris.toConnectorType("test", multipleRowType, new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-17], ErrorDescription:['Doris' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
+                "ErrorCode:[COMMON-19], ErrorDescription:['Doris' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
                 exception3.getMessage());
     }
 }

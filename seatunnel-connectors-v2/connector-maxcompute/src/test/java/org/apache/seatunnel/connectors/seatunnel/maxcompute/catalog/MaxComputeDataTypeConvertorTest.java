@@ -87,7 +87,7 @@ public class MaxComputeDataTypeConvertorTest {
                         SeaTunnelRuntimeException.class,
                         () -> maxCompute.toSeaTunnelType("test", "UNSUPPORTED_TYPE"));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-16], ErrorDescription:['Maxcompute' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
+                "ErrorCode:[COMMON-17], ErrorDescription:['Maxcompute' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
                 exception.getMessage());
         SeaTunnelRuntimeException exception2 =
                 Assertions.assertThrows(
@@ -96,14 +96,14 @@ public class MaxComputeDataTypeConvertorTest {
                                 maxCompute.toSeaTunnelType(
                                         "test", INTERVAL_DAY_TIME, new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-16], ErrorDescription:['Maxcompute' unsupported convert type 'INTERVAL_DAY_TIME' of 'test' to SeaTunnel data type.]",
+                "ErrorCode:[COMMON-17], ErrorDescription:['Maxcompute' unsupported convert type 'INTERVAL_DAY_TIME' of 'test' to SeaTunnel data type.]",
                 exception2.getMessage());
         SeaTunnelRuntimeException exception3 =
                 Assertions.assertThrows(
                         SeaTunnelRuntimeException.class,
                         () -> maxCompute.toConnectorType("test", multipleRowType, new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-17], ErrorDescription:['Maxcompute' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
+                "ErrorCode:[COMMON-19], ErrorDescription:['Maxcompute' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
                 exception3.getMessage());
     }
 }

@@ -45,7 +45,7 @@ public class TypeConvertTest {
                         InvocationTargetException.class,
                         () -> parseSchema.get().invoke(new HiveSource(), table));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-16], ErrorDescription:['Hive' source unsupported convert type 'char' of 'test' to SeaTunnel data type.]",
+                "ErrorCode:[COMMON-17], ErrorDescription:['Hive' source unsupported convert type 'char' of 'test' to SeaTunnel data type.]",
                 exception.getCause().getMessage());
     }
 }

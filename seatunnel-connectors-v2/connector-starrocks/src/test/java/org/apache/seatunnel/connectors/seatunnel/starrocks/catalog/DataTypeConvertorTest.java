@@ -42,21 +42,21 @@ public class DataTypeConvertorTest {
                         SeaTunnelRuntimeException.class,
                         () -> starrocks.toSeaTunnelType("test", "UNSUPPORTED_TYPE"));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-16], ErrorDescription:['StarRocks' unsupported convert type 'UNKNOWN' of 'test' to SeaTunnel data type.]",
+                "ErrorCode:[COMMON-17], ErrorDescription:['StarRocks' unsupported convert type 'UNKNOWN' of 'test' to SeaTunnel data type.]",
                 exception.getMessage());
         SeaTunnelRuntimeException exception2 =
                 Assertions.assertThrows(
                         SeaTunnelRuntimeException.class,
                         () -> starrocks.toSeaTunnelType("test", UNKNOWN, new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-16], ErrorDescription:['StarRocks' unsupported convert type 'UNKNOWN' of 'test' to SeaTunnel data type.]",
+                "ErrorCode:[COMMON-17], ErrorDescription:['StarRocks' unsupported convert type 'UNKNOWN' of 'test' to SeaTunnel data type.]",
                 exception2.getMessage());
         SeaTunnelRuntimeException exception3 =
                 Assertions.assertThrows(
                         SeaTunnelRuntimeException.class,
                         () -> starrocks.toConnectorType("test", multipleRowType, new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-17], ErrorDescription:['StarRocks' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
+                "ErrorCode:[COMMON-19], ErrorDescription:['StarRocks' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
                 exception3.getMessage());
     }
 }
