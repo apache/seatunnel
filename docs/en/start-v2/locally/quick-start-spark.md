@@ -73,7 +73,7 @@ cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-spark-2-connector-v2.sh \
 --master local[4] \
 --deploy-mode client \
---config ./config/seatunnel.streaming.conf.template
+--config ./config/v2.streaming.conf.template
 ```
 
 spark3.x.x
@@ -83,7 +83,7 @@ cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-spark-3-connector-v2.sh \
 --master local[4] \
 --deploy-mode client \
---config ./config/seatunnel.streaming.conf.template
+--config ./config/v2.streaming.conf.template
 ```
 
 **See The Output**: When you run the command, you could see its output in your console. You can think this
