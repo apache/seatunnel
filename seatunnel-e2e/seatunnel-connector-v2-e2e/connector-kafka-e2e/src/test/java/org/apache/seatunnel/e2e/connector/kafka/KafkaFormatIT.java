@@ -575,7 +575,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    // Initialize ogg data to kafka
+    // Initialize Local Data to kafka
     private void initLocalDataToKafka() {
         String bootstrapServers = KAFKA_CONTAINER.getBootstrapServers();
         Properties props = new Properties();
