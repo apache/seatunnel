@@ -107,15 +107,15 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
             // The status of readers corresponding to all tasks is restored
             restoredState.forEach(
                     (subtaskId, splitBytes) -> {
-                       /* If the Map Task contains -1, it means that there are unread areas of
-                     split that we need to skip */
+                        /* If the Map Task contains -1, it means that there are unread areas of
+                        split that we need to skip */
                         if (subtaskId == -1) {
                             return;
                         }
                         List<SplitT> restoredSplitState = new ArrayList<>(splitBytes.size());
                         for (byte[] splitByte : splitBytes) {
                             try {
-                          /* Deserialize the recovery read state in each Task Finally, the  state of all tasks is added to the new */
+                                /* Deserialize the recovery read state in each Task Finally, the  state of all tasks is added to the new */
                                 restoredSplitState.add(splitSerializer.deserialize(splitByte));
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
