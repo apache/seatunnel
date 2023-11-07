@@ -22,15 +22,13 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.SupportMultipleTable;
-import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.api.table.type.MultipleRowType;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
@@ -40,12 +38,10 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
 @AutoService(Factory.class)
-public class SqlServerIncrementalSourceFactory implements TableSourceFactory, SupportMultipleTable {
+public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
     public String factoryIdentifier() {
@@ -100,26 +96,14 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory, Su
 
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
-            TableSource<T, SplitT, StateT> createSource(TableFactoryContext context) {
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () -> {
-            SeaTunnelDataType<SeaTunnelRow> dataType;
-            if (context.getCatalogTables().size() == 1) {
-                dataType =
-                        context.getCatalogTables().get(0).getTableSchema().toPhysicalRowDataType();
-            } else {
-                Map<String, SeaTunnelRowType> rowTypeMap = new HashMap<>();
-                for (CatalogTable catalogTable : context.getCatalogTables()) {
-                    String tableId = catalogTable.getTableId().toTablePath().toString();
-                    rowTypeMap.put(tableId, catalogTable.getTableSchema().toPhysicalRowDataType());
-                }
-                dataType = new MultipleRowType(rowTypeMap);
-            }
-            return new SqlServerIncrementalSource(context.getOptions(), dataType);
+            List<CatalogTable> catalogTables =
+                    CatalogTableUtil.getCatalogTables(
+                            context.getOptions(), context.getClassLoader());
+            SeaTunnelDataType<SeaTunnelRow> dataType =
+                    CatalogTableUtil.convertToDataType(catalogTables);
+            return new SqlServerIncrementalSource(context.getOptions(), dataType, catalogTables);
         };
-    }
-
-    @Override
-    public SupportMultipleTable.Result applyTables(TableFactoryContext context) {
-        return SupportMultipleTable.Result.of(context.getCatalogTables(), Collections.emptyList());
     }
 }

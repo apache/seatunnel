@@ -23,6 +23,9 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.io.Serializable;
 
 public class MaxcomputeConfig implements Serializable {
+
+    public static final String PLUGIN_NAME = "Maxcompute";
+
     private static final int SPLIT_ROW_DEFAULT = 10000;
     public static final Option<String> ACCESS_ID =
             Options.key("accessId")

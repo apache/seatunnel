@@ -248,4 +248,10 @@ public class BaseSinkConfig {
                     .defaultValue(DEFAULT_MAP_KEYS_DELIMITER_HIVE)
                     .withDescription(
                             "HIVE sets the separator between the key and value of MAP, with the ':'");
+
+    public static final Option<Boolean> ENABLE_HEADER_WRITE =
+            Options.key("enable_header_write")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("false:dont write header,true:write header");
 }

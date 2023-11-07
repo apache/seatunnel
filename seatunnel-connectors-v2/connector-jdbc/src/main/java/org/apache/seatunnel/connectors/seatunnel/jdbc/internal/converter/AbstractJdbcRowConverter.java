@@ -22,6 +22,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -36,6 +39,7 @@ import java.time.LocalTime;
 import java.util.Optional;
 
 /** Base class for all converters that convert between JDBC object and SeaTunnel internal object. */
+@Slf4j
 public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
 
     public abstract String converterName();
@@ -50,51 +54,51 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
             int resultSetIndex = fieldIndex + 1;
             switch (seaTunnelDataType.getSqlType()) {
                 case STRING:
-                    fields[fieldIndex] = rs.getString(resultSetIndex);
+                    fields[fieldIndex] = JdbcUtils.getString(rs, resultSetIndex);
                     break;
                 case BOOLEAN:
-                    fields[fieldIndex] = rs.getBoolean(resultSetIndex);
+                    fields[fieldIndex] = JdbcUtils.getBoolean(rs, resultSetIndex);
                     break;
                 case TINYINT:
-                    fields[fieldIndex] = rs.getByte(resultSetIndex);
+                    fields[fieldIndex] = JdbcUtils.getByte(rs, resultSetIndex);
                     break;
                 case SMALLINT:
-                    fields[fieldIndex] = rs.getShort(resultSetIndex);
+                    fields[fieldIndex] = JdbcUtils.getShort(rs, resultSetIndex);
                     break;
                 case INT:
-                    fields[fieldIndex] = rs.getInt(resultSetIndex);
+                    fields[fieldIndex] = JdbcUtils.getInt(rs, resultSetIndex);
                     break;
                 case BIGINT:
-                    fields[fieldIndex] = rs.getLong(resultSetIndex);
+                    fields[fieldIndex] = JdbcUtils.getLong(rs, resultSetIndex);
                     break;
                 case FLOAT:
-                    fields[fieldIndex] = rs.getFloat(resultSetIndex);
+                    fields[fieldIndex] = JdbcUtils.getFloat(rs, resultSetIndex);
                     break;
                 case DOUBLE:
-                    fields[fieldIndex] = rs.getDouble(resultSetIndex);
+                    fields[fieldIndex] = JdbcUtils.getDouble(rs, resultSetIndex);
                     break;
                 case DECIMAL:
-                    fields[fieldIndex] = rs.getBigDecimal(resultSetIndex);
+                    fields[fieldIndex] = JdbcUtils.getBigDecimal(rs, resultSetIndex);
                     break;
                 case DATE:
-                    Date sqlDate = rs.getDate(resultSetIndex);
+                    Date sqlDate = JdbcUtils.getDate(rs, resultSetIndex);
                     fields[fieldIndex] =
                             Optional.ofNullable(sqlDate).map(e -> e.toLocalDate()).orElse(null);
                     break;
                 case TIME:
-                    Time sqlTime = rs.getTime(resultSetIndex);
+                    Time sqlTime = JdbcUtils.getTime(rs, resultSetIndex);
                     fields[fieldIndex] =
                             Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
                     break;
                 case TIMESTAMP:
-                    Timestamp sqlTimestamp = rs.getTimestamp(resultSetIndex);
+                    Timestamp sqlTimestamp = JdbcUtils.getTimestamp(rs, resultSetIndex);
                     fields[fieldIndex] =
                             Optional.ofNullable(sqlTimestamp)
                                     .map(e -> e.toLocalDateTime())
                                     .orElse(null);
                     break;
                 case BYTES:
-                    fields[fieldIndex] = rs.getBytes(resultSetIndex);
+                    fields[fieldIndex] = JdbcUtils.getBytes(rs, resultSetIndex);
                     break;
                 case NULL:
                     fields[fieldIndex] = null;

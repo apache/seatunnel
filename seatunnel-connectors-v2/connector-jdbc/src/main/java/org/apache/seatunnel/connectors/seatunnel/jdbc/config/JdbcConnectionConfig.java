@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 public class JdbcConnectionConfig implements Serializable {
@@ -45,6 +47,8 @@ public class JdbcConnectionConfig implements Serializable {
 
     public int transactionTimeoutSec = JdbcOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
 
+    private Map<String, String> properties;
+
     public static JdbcConnectionConfig of(ReadonlyConfig config) {
         JdbcConnectionConfig.Builder builder = JdbcConnectionConfig.builder();
         builder.url(config.get(JdbcOptions.URL));
@@ -63,6 +67,7 @@ public class JdbcConnectionConfig implements Serializable {
 
         config.getOptional(JdbcOptions.USER).ifPresent(builder::username);
         config.getOptional(JdbcOptions.PASSWORD).ifPresent(builder::password);
+        config.getOptional(JdbcOptions.PROPERTIES).ifPresent(builder::properties);
         return builder.build();
     }
 
@@ -114,6 +119,10 @@ public class JdbcConnectionConfig implements Serializable {
         return transactionTimeoutSec < 0 ? Optional.empty() : Optional.of(transactionTimeoutSec);
     }
 
+    public Map<String, String> getProperties() {
+        return properties;
+    }
+
     public static JdbcConnectionConfig.Builder builder() {
         return new JdbcConnectionConfig.Builder();
     }
@@ -133,6 +142,7 @@ public class JdbcConnectionConfig implements Serializable {
         private String xaDataSourceClassName;
         private int maxCommitAttempts = JdbcOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
         private int transactionTimeoutSec = JdbcOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
+        private Map<String, String> properties;
 
         private Builder() {}
 
@@ -201,6 +211,11 @@ public class JdbcConnectionConfig implements Serializable {
             return this;
         }
 
+        public Builder properties(Map<String, String> properties) {
+            this.properties = properties;
+            return this;
+        }
+
         public JdbcConnectionConfig build() {
             JdbcConnectionConfig jdbcConnectionConfig = new JdbcConnectionConfig();
             jdbcConnectionConfig.batchSize = this.batchSize;
@@ -215,6 +230,8 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.transactionTimeoutSec = this.transactionTimeoutSec;
             jdbcConnectionConfig.maxCommitAttempts = this.maxCommitAttempts;
             jdbcConnectionConfig.xaDataSourceClassName = this.xaDataSourceClassName;
+            jdbcConnectionConfig.properties =
+                    this.properties == null ? new HashMap<>() : this.properties;
             return jdbcConnectionConfig;
         }
     }

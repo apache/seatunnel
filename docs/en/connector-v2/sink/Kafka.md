@@ -56,12 +56,12 @@ Currently two formats are supported:
 
    For example, Upstream data is the following:
 
-   | name | age |     data      |
-   |------|-----|---------------|
-   | Jack | 16  | data-example1 |
-   | Mary | 23  | data-example2 |
+| name | age |     data      |
+|------|-----|---------------|
+| Jack | 16  | data-example1 |
+| Mary | 23  | data-example2 |
 
-   If `${name}` is set as the topic. So the first row is sent to Jack topic, and the second row is sent to Mary topic.
+If `${name}` is set as the topic. So the first row is sent to Jack topic, and the second row is sent to Mary topic.
 
 ### Semantics
 
@@ -124,7 +124,6 @@ sink {
   kafka {
       topic = "test_topic"
       bootstrap.servers = "localhost:9092"
-      partition = 3
       format = json
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
@@ -146,7 +145,6 @@ sink {
   kafka {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
-      partition = 3
       format = json
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
@@ -181,7 +179,6 @@ sink {
   kafka {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
-      partition = 3
       format = json
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE

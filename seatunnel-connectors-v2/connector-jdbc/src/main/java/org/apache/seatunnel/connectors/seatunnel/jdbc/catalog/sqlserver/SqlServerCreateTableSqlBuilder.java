@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -197,7 +198,7 @@ public class SqlServerCreateTableSqlBuilder {
         final List<String> columnSqls = new ArrayList<>();
         columnSqls.add("[" + column.getName() + "]");
         String tyNameDef = "";
-        if (StringUtils.equals(catalogName, "sqlserver")) {
+        if (StringUtils.equals(catalogName, DatabaseIdentifier.SQLSERVER)) {
             columnSqls.add(column.getSourceType());
         } else {
             // Column name
@@ -217,7 +218,8 @@ public class SqlServerCreateTableSqlBuilder {
             } else {
                 // Add column type
                 SqlServerType sqlServerType =
-                        sqlServerDataTypeConvertor.toConnectorType(column.getDataType(), null);
+                        sqlServerDataTypeConvertor.toConnectorType(
+                                column.getName(), column.getDataType(), null);
                 String typeName = sqlServerType.getName();
                 String fieldSuffixSql = null;
                 tyNameDef = typeName;
@@ -291,7 +293,7 @@ public class SqlServerCreateTableSqlBuilder {
                         .collect(Collectors.joining(", "));
         String keyName = null;
         switch (constraintType) {
-            case KEY:
+            case INDEX_KEY:
                 keyName = "KEY";
                 break;
             case UNIQUE_KEY:

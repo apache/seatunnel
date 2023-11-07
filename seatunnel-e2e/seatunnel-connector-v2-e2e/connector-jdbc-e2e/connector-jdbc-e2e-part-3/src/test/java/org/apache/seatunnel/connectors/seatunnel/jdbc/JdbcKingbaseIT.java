@@ -28,7 +28,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -51,7 +50,6 @@ import java.util.stream.Collectors;
  * engine does not support the TIME type.Two environment variables need to be added to the spark
  * container: "LANG"="C.UTF-8", "JAVA_TOOL_OPTIONS"="-Dfile.encoding=UTF8"
  */
-@Slf4j
 @Disabled("Due to copyright reasons, you need to download the trial version km license yourself")
 public class JdbcKingbaseIT extends AbstractJdbcIT {
     private static final String KINGBASE_IMAGE = "huzhihui/kingbase:v8r6";
@@ -124,7 +122,7 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() throws SQLException, IOException {}
+    void compareResult(String executeKey) throws SQLException, IOException {}
 
     @Override
     String driverUrl() {

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
@@ -36,7 +37,7 @@ public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
     public String converterName() {
-        return "Sqlserver";
+        return DatabaseIdentifier.SQLSERVER;
     }
 
     public PreparedStatement toExternal(

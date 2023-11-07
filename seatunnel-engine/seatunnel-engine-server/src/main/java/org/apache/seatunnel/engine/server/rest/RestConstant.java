@@ -19,10 +19,33 @@ package org.apache.seatunnel.engine.server.rest;
 
 public class RestConstant {
 
+    public static final String JOB_ID = "jobId";
+
+    public static final String JOB_NAME = "jobName";
+
+    public static final String IS_START_WITH_SAVE_POINT = "isStartWithSavePoint";
+
+    public static final String IS_STOP_WITH_SAVE_POINT = "isStopWithSavePoint";
+
+    public static final String JOB_STATUS = "jobStatus";
+
+    public static final String CREATE_TIME = "createTime";
+
+    public static final String ENV_OPTIONS = "envOptions";
+
+    public static final String JOB_DAG = "jobDag";
+
+    public static final String PLUGIN_JARS_URLS = "pluginJarsUrls";
+
+    public static final String JAR_PATH = "jarPath";
+
+    public static final String METRICS = "metrics";
     public static final String RUNNING_JOBS_URL = "/hazelcast/rest/maps/running-jobs";
     public static final String RUNNING_JOB_URL = "/hazelcast/rest/maps/running-job";
     public static final String SUBMIT_JOB_URL = "/hazelcast/rest/maps/submit-job";
 
     public static final String SYSTEM_MONITORING_INFORMATION =
             "/hazelcast/rest/maps/system-monitoring-information";
+
+    public static final String STOP_JOB_URL = "/hazelcast/rest/maps/stop-job";
 }
