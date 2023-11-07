@@ -80,11 +80,11 @@ public class ExecutionPlanGenerator {
         Set<ExecutionEdge> executionEdges = generateExecutionEdges(logicalPlan.getEdges());
         log.debug("Phase 1: generate execution edge list {}", executionEdges);
 
-        executionEdges = generateShuffleEdges(executionEdges);
-        log.debug("Phase 2: generate shuffle edge list {}", executionEdges);
-
         executionEdges = generateTransformChainEdges(executionEdges);
-        log.debug("Phase 3: generate transform chain edge list {}", executionEdges);
+        log.debug("Phase 2: generate transform chain edge list {}", executionEdges);
+
+        executionEdges = generateShuffleEdges(executionEdges);
+        log.debug("Phase 3: generate shuffle edge list {}", executionEdges);
 
         List<Pipeline> pipelines = generatePipelines(executionEdges);
         log.debug("Phase 4: generate pipeline list {}", pipelines);
@@ -208,7 +208,7 @@ public class ExecutionPlanGenerator {
                 edge -> {
                     ExecutionVertex leftVertex = edge.getLeftVertex();
                     ExecutionVertex rightVertex = edge.getRightVertex();
-                    if (leftVertex.getAction() instanceof SourceAction) {
+                    if (rightVertex.getAction() instanceof SinkAction) {
                         sourceExecutionVertices.add(leftVertex);
                     }
                     targetVerticesMap
@@ -230,7 +230,10 @@ public class ExecutionPlanGenerator {
             } catch (UnsupportedOperationException e) {
             }
         } else if (sourceAction instanceof TransformChainAction) {
-            return executionEdges;
+            List<SeaTunnelTransform> transforms =
+                    ((TransformChainAction) sourceAction).getTransforms();
+            producedCatalogTables =
+                    transforms.get(transforms.size() - 1).getProducedCatalogTables();
         } else {
             throw new SeaTunnelException(
                     "source action must be SourceAction or TransformChainAction");
@@ -270,6 +273,13 @@ public class ExecutionPlanGenerator {
         ExecutionVertex shuffleVertex =
                 new ExecutionVertex(shuffleVertexId, shuffleAction, shuffleAction.getParallelism());
         ExecutionEdge sourceToShuffleEdge = new ExecutionEdge(sourceExecutionVertex, shuffleVertex);
+        executionEdges.forEach(
+                edge -> {
+                    ExecutionVertex rightVertex = edge.getRightVertex();
+                    if (sourceExecutionVertex.equals(rightVertex)) {
+                        newExecutionEdges.add(edge);
+                    }
+                });
         newExecutionEdges.add(sourceToShuffleEdge);
 
         for (ExecutionVertex sinkVertex : sinkVertices) {

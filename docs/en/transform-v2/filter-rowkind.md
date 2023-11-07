@@ -66,3 +66,32 @@ sink {
 }
 ```
 
+If it's a multi-table scenario, then the configuration example is as follows:
+
+```
+transform {
+  FilterRowKind {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    table_transform = [
+             {
+                tablePath = "test.table1"
+                exclude_kinds = ["INSERT"]
+             }
+             ,
+             {
+                tablePath = "test.table2"
+                include_kinds = ["INSERT"]
+             }
+        ]
+  }
+}
+```
+
+## Changelog
+
+### new version
+
+- Add FilterRowKind Transform plugin
+- Support multi-table
+

@@ -92,9 +92,32 @@ sink {
 }
 ```
 
+If it's a multi-table scenario, then the configuration example is as follows:
+
+```
+transform {
+  Sql {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    table_transform = [
+         {
+            tablePath = "test.table1"
+            query = "select id, regexp_replace(name, '_', '.') as name, age, pi() as pi from fake"
+         }
+         ,
+         {
+            tablePath = "test.table2"
+            query = "select id, regexp_replace(name, '_', '-') as name, age, pi() as pi from fake"
+         }
+    ]
+  }
+}
+```
+
 ## Changelog
 
 ### new version
 
-- Add SQL Transform Connector
+- Add SQL Transform plugin
+- Support multi-table
 

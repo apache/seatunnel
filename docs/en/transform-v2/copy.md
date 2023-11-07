@@ -56,10 +56,37 @@ Then the data in result table `fake1` will like this
 | Kin Dom  | 20  | 123  | Kin Dom  | Kin Dom  | 20   |
 | Joy Dom  | 20  | 123  | Joy Dom  | Joy Dom  | 20   |
 
+If it's a multi-table scenario, then the configuration example is as follows:
+
+```
+transform {
+  Copy {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    table_transform = [
+         {
+            tablePath = "test.table1"
+            fields  {
+                "id_1" = "id"
+            }
+         }
+         ,
+          {
+             tablePath = "test.table2"
+             fields  {
+                 "name_2" = "name"
+             }
+          }
+         ]
+  }
+}
+```
+
 ## Changelog
 
 ### new version
 
-- Add Copy Transform Connector
+- Add Copy Transform plugin
 - Support copy fields to a new fields
+- Support multi-table
 

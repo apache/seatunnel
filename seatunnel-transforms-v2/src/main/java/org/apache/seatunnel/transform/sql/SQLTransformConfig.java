@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.fieldmapper;
+package org.apache.seatunnel.transform.sql;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAnySetter;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
@@ -30,19 +29,22 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+
+import static org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType.ZETA;
 
 @Getter
 @Setter
-public class FieldMapperTransformConfig implements Serializable {
-    public static final Option<Map<String, String>> FIELD_MAPPER =
-            Options.key("field_mapper")
-                    .mapType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Specify the field mapping relationship between input and output");
+public class SQLTransformConfig {
+
+    public static final Option<String> KEY_QUERY =
+            Options.key("query").stringType().noDefaultValue().withDescription("The query SQL");
+
+    public static final Option<String> KEY_ENGINE =
+            Options.key("engine")
+                    .stringType()
+                    .defaultValue(ZETA.name())
+                    .withDescription("The SQL engine type");
 
     public static final Option<List<TableTransforms>> MULTI_TABLES =
             Options.key("table_transform")
@@ -55,25 +57,25 @@ public class FieldMapperTransformConfig implements Serializable {
         @JsonAlias("table_path")
         private String tablePath;
 
-        private Map<String, String> fieldMapper = new LinkedHashMap<>();
+        @JsonAlias("query")
+        private String query;
 
-        @JsonAnySetter
-        public void add(String key, String value) {
-            // TODO Currently, ReadonlyConfig does not support storing objects, so special handling
-            // is required
-            fieldMapper.put(key.substring("fieldMapper.".length()), value);
-        }
+        @JsonAlias("engine")
+        private String engine;
     }
 
-    private Map<String, String> fieldMapper = new LinkedHashMap<>();
+    private String query;
+    private SQLEngineFactory.EngineType engineType;
 
-    public static FieldMapperTransformConfig of(ReadonlyConfig config) {
-        FieldMapperTransformConfig fieldMapperTransformConfig = new FieldMapperTransformConfig();
-        fieldMapperTransformConfig.setFieldMapper(config.get(FIELD_MAPPER));
-        return fieldMapperTransformConfig;
+    public static SQLTransformConfig of(ReadonlyConfig config) {
+        SQLTransformConfig sqlTransformConfig = new SQLTransformConfig();
+        sqlTransformConfig.setQuery(config.get(KEY_QUERY));
+        sqlTransformConfig.setEngineType(
+                SQLEngineFactory.EngineType.valueOf(config.get(KEY_ENGINE)));
+        return sqlTransformConfig;
     }
 
-    public static FieldMapperTransformConfig of(ReadonlyConfig config, CatalogTable catalogTable) {
+    public static SQLTransformConfig of(ReadonlyConfig config, CatalogTable catalogTable) {
         String tablePath = catalogTable.getTableId().toTablePath().getFullName();
         if (null != config.get(MULTI_TABLES)) {
             return config.get(MULTI_TABLES).stream()
@@ -81,11 +83,14 @@ public class FieldMapperTransformConfig implements Serializable {
                     .findFirst()
                     .map(
                             tableTransforms -> {
-                                FieldMapperTransformConfig fieldMapperTransformConfig =
-                                        new FieldMapperTransformConfig();
-                                fieldMapperTransformConfig.setFieldMapper(
-                                        tableTransforms.getFieldMapper());
-                                return fieldMapperTransformConfig;
+                                SQLTransformConfig sqlTransformConfig = new SQLTransformConfig();
+                                sqlTransformConfig.setQuery(tableTransforms.getQuery());
+                                sqlTransformConfig.setEngineType(
+                                        tableTransforms.getEngine() != null
+                                                ? SQLEngineFactory.EngineType.valueOf(
+                                                        tableTransforms.getEngine())
+                                                : ZETA);
+                                return sqlTransformConfig;
                             })
                     .orElseGet(() -> of(config));
         }

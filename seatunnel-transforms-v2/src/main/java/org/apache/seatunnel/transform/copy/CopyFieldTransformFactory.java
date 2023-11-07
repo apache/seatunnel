@@ -18,7 +18,6 @@
 package org.apache.seatunnel.transform.copy;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
@@ -38,13 +37,14 @@ public class CopyFieldTransformFactory implements TableTransformFactory {
         return OptionRule.builder()
                 .bundled(CopyTransformConfig.SRC_FIELD, CopyTransformConfig.DEST_FIELD)
                 .bundled(CopyTransformConfig.FIELDS)
+                .bundled(CopyTransformConfig.MULTI_TABLES)
                 .build();
     }
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
-        CopyTransformConfig copyTransformConfig = CopyTransformConfig.of(context.getOptions());
-        CatalogTable catalogTable = context.getCatalogTables().get(0);
-        return () -> new CopyFieldTransform(copyTransformConfig, catalogTable);
+        return () ->
+                new CopyFieldMultiCatalogTransform(
+                        context.getCatalogTables(), context.getOptions());
     }
 }

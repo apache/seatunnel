@@ -18,7 +18,6 @@
 package org.apache.seatunnel.transform.split;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
@@ -36,17 +35,17 @@ public class SplitTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
+                .bundled(
                         SplitTransformConfig.KEY_SEPARATOR,
                         SplitTransformConfig.KEY_SPLIT_FIELD,
                         SplitTransformConfig.KEY_OUTPUT_FIELDS)
+                .bundled(SplitTransformConfig.MULTI_TABLES)
                 .build();
     }
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
-        SplitTransformConfig splitTransformConfig = SplitTransformConfig.of(context.getOptions());
-        CatalogTable catalogTable = context.getCatalogTables().get(0);
-        return () -> new SplitTransform(splitTransformConfig, catalogTable);
+        return () ->
+                new SplitMultiCatalogTransform(context.getCatalogTables(), context.getOptions());
     }
 }

@@ -113,9 +113,36 @@ sink {
 }
 ```
 
+If it's a multi-table scenario, then the configuration example is as follows:
+
+```
+transform {
+  Replace {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+        table_transform = [
+             {
+                tablePath = "test.table1"
+                replace_field = "name"
+                pattern = "_"
+                replacement = "."
+             }
+             ,
+             {
+                tablePath = "test.table2"
+                replace_field = "name"
+                pattern = "_"
+                replacement = "-"
+             }
+        ]
+  }
+}
+```
+
 ## Changelog
 
 ### new version
 
-- Add Replace Transform Connector
+- Add Replace Transform plugin
+- Support multi-table
 

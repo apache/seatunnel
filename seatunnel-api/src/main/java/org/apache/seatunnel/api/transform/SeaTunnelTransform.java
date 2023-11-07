@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.io.Serializable;
+import java.util.List;
 
 public interface SeaTunnelTransform<T>
         extends Serializable,
@@ -56,6 +57,8 @@ public interface SeaTunnelTransform<T>
 
     /** Get the catalog table output by this transform */
     CatalogTable getProducedCatalogTable();
+
+    List<CatalogTable> getProducedCatalogTables();
 
     /**
      * Transform input data to {@link this#getProducedType()} types data.

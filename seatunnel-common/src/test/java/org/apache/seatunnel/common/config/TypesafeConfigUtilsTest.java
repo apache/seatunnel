@@ -72,9 +72,9 @@ public class TypesafeConfigUtilsTest {
         Config config = getConfig();
         Assertions.assertEquals(
                 Long.parseLong("100"),
-                (long) TypesafeConfigUtils.getConfig(config, "l1", Long.parseLong("101")));
+                (long) TypesafeConfigUtils.getLong(config, "l1", Long.parseLong("101")));
         Assertions.assertEquals(
                 Long.parseLong("100"),
-                (long) TypesafeConfigUtils.getConfig(config, "l2", Long.parseLong("100")));
+                (long) TypesafeConfigUtils.getLong(config, "l2", Long.parseLong("100")));
     }
 }
