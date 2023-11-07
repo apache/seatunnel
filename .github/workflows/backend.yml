@@ -282,16 +282,8 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
       - name: run all modules unit test
-        if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -B -T 1 clean verify -D"maven.test.skip"=false -D"license.skipAddThirdParty"=true --no-snapshot-updates
-        env:
-          MAVEN_OPTS: -Xmx4096m
-
-      - name: run updated modules unit test
-        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''
-        run: |
-          ./mvnw -B -T 1 clean verify -D"maven.test.skip"=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
