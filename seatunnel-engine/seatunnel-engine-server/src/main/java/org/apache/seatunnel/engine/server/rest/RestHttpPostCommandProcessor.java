@@ -20,8 +20,6 @@ package org.apache.seatunnel.engine.server.rest;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -97,9 +95,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         Config config = RestUtil.buildConfig(requestHandle(httpPostCommand));
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(requestParams.get(RestConstant.JOB_NAME));
-        if (Common.getDeployMode() == null) {
-            Common.setDeployMode(DeployMode.CLIENT);
-        }
+
         boolean startWithSavePoint =
                 Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT));
         RestJobExecutionEnvironment restJobExecutionEnvironment =

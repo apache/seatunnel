@@ -50,7 +50,7 @@ public class Common {
 
     private static final int PLUGIN_LIB_DIR_DEPTH = 3;
 
-    private static DeployMode MODE;
+    private static DeployMode MODE = DeployMode.CLIENT;
 
     private static String SEATUNNEL_HOME;
 

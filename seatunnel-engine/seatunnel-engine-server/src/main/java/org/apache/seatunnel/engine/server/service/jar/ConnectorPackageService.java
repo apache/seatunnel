@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.master;
+package org.apache.seatunnel.engine.server.service.jar;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
@@ -27,7 +27,6 @@ import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMembe
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
-import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -35,7 +34,6 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Collection;
 import java.util.List;
 
 @Slf4j
@@ -67,10 +65,9 @@ public class ConnectorPackageService {
     }
 
     public ConnectorJarIdentifier storageConnectorJarFile(long jobId, Data connectorJarData) {
-        // deserialize connector jar package data
         ConnectorJar connectorJar = nodeEngine.getSerializationService().toObject(connectorJarData);
-        /**
-         * If the server holds the same Jar package file, there is no need for additional storaged.
+        /*
+         * If the server holds the same Jar package file, there is no need for additional storage.
          * When the Connector Jar storage strategy is SharedConnectorJarStorageStrategy, the
          * reference count in the connectorJarRefCounters needs to be increased. When the Connector
          * Jar storage strategy is IsolatedConnectorJarStorageStrategy, we don't need to do any
@@ -92,15 +89,17 @@ public class ConnectorPackageService {
         }
         ConnectorJarIdentifier connectorJarIdentifier =
                 connectorJarStorageStrategy.storageConnectorJarFile(jobId, connectorJar);
-        Address masterNodeAddress = nodeEngine.getClusterService().getMasterAddress();
-        Collection<Member> memberList = nodeEngine.getClusterService().getMembers();
-        memberList.forEach(
-                member -> {
-                    Address address = member.getAddress();
-                    if (!address.equals(masterNodeAddress)) {
-                        sendConnectorJarToMemberNode(connectorJarIdentifier, connectorJar, address);
-                    }
-                });
+        nodeEngine
+                .getClusterService()
+                .getMembers()
+                .forEach(
+                        member -> {
+                            Address address = member.getAddress();
+                            if (!address.equals(nodeEngine.getThisAddress())) {
+                                sendConnectorJarToMemberNode(
+                                        connectorJarIdentifier, connectorJar, address);
+                            }
+                        });
         return connectorJarIdentifier;
     }
 

@@ -25,10 +25,12 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import lombok.ToString;
 
 import java.io.IOException;
 import java.io.Serializable;
 
+@ToString
 public class TaskLocation implements IdentifiedDataSerializable, Serializable {
 
     private TaskGroupLocation taskGroupLocation;

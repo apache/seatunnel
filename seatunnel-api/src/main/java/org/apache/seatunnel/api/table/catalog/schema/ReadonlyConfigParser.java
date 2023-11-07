@@ -81,7 +81,7 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
         return tableSchemaBuilder.build();
     }
 
-    public class FieldParser implements TableSchemaParser.FieldParser<ReadonlyConfig> {
+    private static class FieldParser implements TableSchemaParser.FieldParser<ReadonlyConfig> {
 
         @Override
         public List<Column> parse(ReadonlyConfig schemaConfig) {
@@ -102,7 +102,7 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
         }
     }
 
-    public class ColumnParser implements TableSchemaParser.ColumnParser<ReadonlyConfig> {
+    private static class ColumnParser implements TableSchemaParser.ColumnParser<ReadonlyConfig> {
 
         @Override
         public List<Column> parse(ReadonlyConfig schemaConfig) {
@@ -150,7 +150,7 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
         }
     }
 
-    public class ConstraintKeyParser
+    private static class ConstraintKeyParser
             implements TableSchemaParser.ConstraintKeyParser<ReadonlyConfig> {
 
         @Override
@@ -184,37 +184,41 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                                         TableSchemaOptions.ConstraintKeyOptions
                                                                 .CONSTRAINT_KEY_COLUMNS)
                                                 .map(
-                                                        constraintColumnMapList -> {
-                                                            return constraintColumnMapList.stream()
-                                                                    .map(ReadonlyConfig::fromMap)
-                                                                    .map(
-                                                                            constraintColumnConfig -> {
-                                                                                String columnName =
-                                                                                        constraintColumnConfig
-                                                                                                .getOptional(
-                                                                                                        TableSchemaOptions
-                                                                                                                .ConstraintKeyOptions
-                                                                                                                .CONSTRAINT_KEY_COLUMN_NAME)
-                                                                                                .orElseThrow(
-                                                                                                        () ->
-                                                                                                                new IllegalArgumentException(
-                                                                                                                        "schema.constraintKeys.constraintColumns.* config need option [columnName], please correct your config first"));
-                                                                                ConstraintKey
-                                                                                                .ColumnSortType
-                                                                                        columnSortType =
-                                                                                                constraintColumnConfig
-                                                                                                        .get(
-                                                                                                                TableSchemaOptions
-                                                                                                                        .ConstraintKeyOptions
-                                                                                                                        .CONSTRAINT_KEY_COLUMN_SORT_TYPE);
-                                                                                return ConstraintKey
-                                                                                        .ConstraintKeyColumn
-                                                                                        .of(
-                                                                                                columnName,
-                                                                                                columnSortType);
-                                                                            })
-                                                                    .collect(Collectors.toList());
-                                                        })
+                                                        constraintColumnMapList ->
+                                                                constraintColumnMapList.stream()
+                                                                        .map(
+                                                                                ReadonlyConfig
+                                                                                        ::fromMap)
+                                                                        .map(
+                                                                                constraintColumnConfig -> {
+                                                                                    String
+                                                                                            columnName =
+                                                                                                    constraintColumnConfig
+                                                                                                            .getOptional(
+                                                                                                                    TableSchemaOptions
+                                                                                                                            .ConstraintKeyOptions
+                                                                                                                            .CONSTRAINT_KEY_COLUMN_NAME)
+                                                                                                            .orElseThrow(
+                                                                                                                    () ->
+                                                                                                                            new IllegalArgumentException(
+                                                                                                                                    "schema.constraintKeys.constraintColumns.* config need option [columnName], please correct your config first"));
+                                                                                    ConstraintKey
+                                                                                                    .ColumnSortType
+                                                                                            columnSortType =
+                                                                                                    constraintColumnConfig
+                                                                                                            .get(
+                                                                                                                    TableSchemaOptions
+                                                                                                                            .ConstraintKeyOptions
+                                                                                                                            .CONSTRAINT_KEY_COLUMN_SORT_TYPE);
+                                                                                    return ConstraintKey
+                                                                                            .ConstraintKeyColumn
+                                                                                            .of(
+                                                                                                    columnName,
+                                                                                                    columnSortType);
+                                                                                })
+                                                                        .collect(
+                                                                                Collectors
+                                                                                        .toList()))
                                                 .orElseThrow(
                                                         () ->
                                                                 new IllegalArgumentException(
@@ -225,7 +229,8 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
         }
     }
 
-    public class PrimaryKeyParser implements TableSchemaParser.PrimaryKeyParser<ReadonlyConfig> {
+    private static class PrimaryKeyParser
+            implements TableSchemaParser.PrimaryKeyParser<ReadonlyConfig> {
 
         @Override
         public PrimaryKey parse(ReadonlyConfig schemaConfig) {
@@ -248,143 +253,5 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                                     "Schema config need option [primaryKey.columnNames], please correct your config first"));
             return new PrimaryKey(primaryKeyName, columns);
         }
-    }
-
-    /**
-     * Parse columns from columns config.
-     *
-     * <pre>
-     *     columns = [
-     *      {
-     *          name = "name"
-     *          type = "string"
-     *          columnLength = 0
-     *          nullable = true
-     *          defaultValue = null
-     *          comment = "name"
-     *     },
-     *     {
-     *          name = "age"
-     *          type = "int"
-     *          columnLength = 0
-     *          nullable = true
-     *          defaultValue = null
-     *          comment = "age"
-     *     }
-     *     ]
-     * </pre>
-     *
-     * @param columnConfig columns config
-     * @return columns
-     */
-    private Column parseFromColumn(ReadonlyConfig columnConfig) {
-        String name =
-                columnConfig
-                        .getOptional(TableSchemaOptions.ColumnOptions.NAME)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalArgumentException(
-                                                "schema.columns.* config need option [name], please correct your config first"));
-        SeaTunnelDataType<?> seaTunnelDataType =
-                columnConfig
-                        .getOptional(TableSchemaOptions.ColumnOptions.TYPE)
-                        .map(SeaTunnelDataTypeConvertorUtil::deserializeSeaTunnelDataType)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalArgumentException(
-                                                "schema.columns.* config need option [type], please correct your config first"));
-
-        Integer columnLength = columnConfig.get(TableSchemaOptions.ColumnOptions.COLUMN_LENGTH);
-        Boolean nullable = columnConfig.get(TableSchemaOptions.ColumnOptions.NULLABLE);
-        Object defaultValue = columnConfig.get(TableSchemaOptions.ColumnOptions.DEFAULT_VALUE);
-        String comment = columnConfig.get(TableSchemaOptions.ColumnOptions.COMMENT);
-        return PhysicalColumn.of(
-                name, seaTunnelDataType, columnLength, nullable, defaultValue, comment);
-    }
-
-    /**
-     * Parse primary key from primary key config.
-     *
-     * <pre>
-     *     primaryKey {
-     *          name = "primary_key"
-     *          columnNames = ["name", "age"]
-     *     }
-     * </pre>
-     *
-     * @param primaryKeyConfig primary key config
-     * @return primary key
-     */
-    private PrimaryKey parsePrimaryKey(Map<String, Object> primaryKeyConfig) {
-        if (!primaryKeyConfig.containsKey(
-                        TableSchemaOptions.PrimaryKeyOptions.PRIMARY_KEY_NAME.key())
-                || !primaryKeyConfig.containsKey(
-                        TableSchemaOptions.PrimaryKeyOptions.PRIMARY_KEY_COLUMNS.key())) {
-            throw new IllegalArgumentException(
-                    "Schema config need option [primaryKey.name, primaryKey.columnNames], please correct your config first");
-        }
-
-        String primaryKeyName =
-                (String)
-                        primaryKeyConfig.get(
-                                TableSchemaOptions.PrimaryKeyOptions.PRIMARY_KEY_NAME.key());
-        List<String> columns =
-                (List<String>)
-                        primaryKeyConfig.get(
-                                TableSchemaOptions.PrimaryKeyOptions.PRIMARY_KEY_COLUMNS.key());
-        return new PrimaryKey(primaryKeyName, columns);
-    }
-
-    private ConstraintKey parseConstraintKeys(ReadonlyConfig constraintKeyConfig) {
-        String constraintName =
-                constraintKeyConfig
-                        .getOptional(TableSchemaOptions.ConstraintKeyOptions.CONSTRAINT_KEY_NAME)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalArgumentException(
-                                                "schema.constraintKeys.* config need option [constraintName], please correct your config first"));
-        ConstraintKey.ConstraintType constraintType =
-                constraintKeyConfig
-                        .getOptional(TableSchemaOptions.ConstraintKeyOptions.CONSTRAINT_KEY_TYPE)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalArgumentException(
-                                                "schema.constraintKeys.* config need option [constraintType], please correct your config first"));
-        List<ConstraintKey.ConstraintKeyColumn> columns =
-                constraintKeyConfig
-                        .getOptional(TableSchemaOptions.ConstraintKeyOptions.CONSTRAINT_KEY_COLUMNS)
-                        .map(
-                                constraintColumnMapList -> {
-                                    return constraintColumnMapList.stream()
-                                            .map(ReadonlyConfig::fromMap)
-                                            .map(
-                                                    constraintColumnConfig -> {
-                                                        String columnName =
-                                                                constraintColumnConfig
-                                                                        .getOptional(
-                                                                                TableSchemaOptions
-                                                                                        .ConstraintKeyOptions
-                                                                                        .CONSTRAINT_KEY_COLUMN_NAME)
-                                                                        .orElseThrow(
-                                                                                () ->
-                                                                                        new IllegalArgumentException(
-                                                                                                "schema.constraintKeys.constraintColumns.* config need option [columnName], please correct your config first"));
-                                                        ConstraintKey.ColumnSortType
-                                                                columnSortType =
-                                                                        constraintColumnConfig.get(
-                                                                                TableSchemaOptions
-                                                                                        .ConstraintKeyOptions
-                                                                                        .CONSTRAINT_KEY_COLUMN_SORT_TYPE);
-                                                        return ConstraintKey.ConstraintKeyColumn.of(
-                                                                columnName, columnSortType);
-                                                    })
-                                            .collect(Collectors.toList());
-                                })
-                        .orElseThrow(
-                                () ->
-                                        new IllegalArgumentException(
-                                                "schema.constraintKeys.* config need option [columns], please correct your config first"));
-
-        return ConstraintKey.of(constraintType, constraintName, columns);
     }
 }
