@@ -33,7 +33,6 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.paginators.ScanIterable;
 
-import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +61,7 @@ public class AmazonDynamoDBSourceReader
     }
 
     @Override
-    public void open() throws Exception {
+    public void open() {
         dynamoDbClient =
                 DynamoDbClient.builder()
                         .endpointOverride(URI.create(amazondynamodbSourceOptions.getUrl()))
@@ -78,27 +77,26 @@ public class AmazonDynamoDBSourceReader
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         dynamoDbClient.close();
     }
 
     @Override
     @SuppressWarnings("magicnumber")
-    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+    public void pollNext(Collector<SeaTunnelRow> output) {
         while (!pendingSplits.isEmpty()) {
             synchronized (output.getCheckpointLock()) {
                 AmazonDynamoDBSourceSplit split = pendingSplits.poll();
-
                 read(split, output);
             }
         }
-        if (pendingSplits.isEmpty() && noMoreSplit) {
+        if (noMoreSplit && pendingSplits.isEmpty()) {
             context.signalNoMoreElement();
         }
     }
 
     @Override
-    public List<AmazonDynamoDBSourceSplit> snapshotState(long checkpointId) throws Exception {
+    public List<AmazonDynamoDBSourceSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(pendingSplits);
     }
 
@@ -113,8 +111,7 @@ public class AmazonDynamoDBSourceReader
         noMoreSplit = true;
     }
 
-    private void read(AmazonDynamoDBSourceSplit split, Collector<SeaTunnelRow> output)
-            throws Exception {
+    private void read(AmazonDynamoDBSourceSplit split, Collector<SeaTunnelRow> output) {
         ScanIterable scan;
         ScanRequest scanRequest =
                 ScanRequest.builder()
@@ -142,5 +139,5 @@ public class AmazonDynamoDBSourceReader
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) {}
 }

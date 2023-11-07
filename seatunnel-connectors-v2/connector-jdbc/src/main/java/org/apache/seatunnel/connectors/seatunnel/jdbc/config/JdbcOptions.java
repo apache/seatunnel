@@ -180,6 +180,33 @@ public interface JdbcOptions {
                     .noDefaultValue()
                     .withDescription("Whether case conversion is required");
 
+    Option<Boolean> USE_KERBEROS =
+            Options.key("use_kerberos")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether to enable Kerberos, default is false.");
+
+    Option<String> KERBEROS_PRINCIPAL =
+            Options.key("kerberos_principal")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "When use kerberos, we should set kerberos principal such as 'test_user@xxx'. ");
+
+    Option<String> KERBEROS_KEYTAB_PATH =
+            Options.key("kerberos_keytab_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "When use kerberos, we should set kerberos principal file path such as '/home/test/test_user.keytab'. ");
+
+    Option<String> KRB5_PATH =
+            Options.key("krb5_path")
+                    .stringType()
+                    .defaultValue("/etc/krb5.conf")
+                    .withDescription(
+                            "When use kerberos, we should set krb5 path file path such as '/seatunnel/krb5.conf' or use the default path '/etc/krb5.conf");
+
     Option<Map<String, String>> PROPERTIES =
             Options.key("properties")
                     .mapType()

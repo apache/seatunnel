@@ -150,26 +150,26 @@ public class ServerConfigOptions {
 
     public static final Option<ConnectorJarStorageMode> CONNECTOR_JAR_STORAGE_MODE =
             Options.key("connector-jar-storage-mode")
-                    .type(new TypeReference<ConnectorJarStorageMode>() {})
+                    .enumType(ConnectorJarStorageMode.class)
                     .defaultValue(ConnectorJarStorageMode.SHARED)
                     .withDescription(
                             "The storage mode of the connector jar package, including SHARED, ISOLATED. Default is SHARED");
 
     public static final Option<String> CONNECTOR_JAR_STORAGE_PATH =
             Options.key("connector-jar-storage-path")
-                    .type(new TypeReference<String>() {})
+                    .stringType()
                     .defaultValue("")
                     .withDescription("The user defined connector jar storage path.");
 
     public static final Option<Integer> CONNECTOR_JAR_CLEANUP_TASK_INTERVAL =
             Options.key("connector-jar-cleanup-task-interval")
-                    .type(new TypeReference<Integer>() {})
+                    .intType()
                     .defaultValue(3600)
                     .withDescription("The user defined connector jar cleanup task interval.");
 
     public static final Option<Integer> CONNECTOR_JAR_EXPIRY_TIME =
             Options.key("connector-jar-expiry-time")
-                    .type(new TypeReference<Integer>() {})
+                    .intType()
                     .defaultValue(600)
                     .withDescription("The user defined connector jar expiry time.");
 
@@ -181,7 +181,7 @@ public class ServerConfigOptions {
 
     public static final Option<Map<String, String>> CONNECTOR_JAR_HA_STORAGE_PLUGIN_CONFIG =
             Options.key("plugin-config")
-                    .type(new TypeReference<Map<String, String>>() {})
+                    .mapType()
                     .noDefaultValue()
                     .withDescription("The connector jar HA storage instance configuration.");
 
