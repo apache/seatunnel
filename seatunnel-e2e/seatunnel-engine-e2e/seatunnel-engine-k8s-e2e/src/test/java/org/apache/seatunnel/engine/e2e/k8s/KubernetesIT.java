@@ -117,7 +117,7 @@ public class KubernetesIT {
                                         appsV1Api.readNamespacedStatefulSet(
                                                 stsName, namespace, null);
                                 Assertions.assertEquals(
-                                        v1StatefulSet.getStatus().getReadyReplicas(), 2);
+                                        2, v1StatefulSet.getStatus().getReadyReplicas());
                             });
             // submit job
             String command =
