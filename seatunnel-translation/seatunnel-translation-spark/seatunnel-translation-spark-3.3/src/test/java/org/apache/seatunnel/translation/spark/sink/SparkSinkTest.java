@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SaveMode;
@@ -285,11 +291,121 @@ public class SparkSinkTest {
                             row3
                         });
 
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {
+                            "int",
+                            "string",
+                            "boolean",
+                            "float",
+                            "double",
+                            "byte",
+                            "short",
+                            "long",
+                            "decimal",
+                            "date",
+                            "timestamp",
+                            "null",
+                            "array_string",
+                            "array_boolean",
+                            "array_byte",
+                            "array_short",
+                            "array_int",
+                            "array_long",
+                            "array_float",
+                            "array_double",
+                            "map",
+                            "row"
+                        },
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.BOOLEAN_TYPE,
+                            BasicType.FLOAT_TYPE,
+                            BasicType.DOUBLE_TYPE,
+                            BasicType.BYTE_TYPE,
+                            BasicType.SHORT_TYPE,
+                            BasicType.LONG_TYPE,
+                            new org.apache.seatunnel.api.table.type.DecimalType(10, 2),
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            BasicType.VOID_TYPE,
+                            org.apache.seatunnel.api.table.type.ArrayType.STRING_ARRAY_TYPE,
+                            org.apache.seatunnel.api.table.type.ArrayType.BOOLEAN_ARRAY_TYPE,
+                            org.apache.seatunnel.api.table.type.ArrayType.BYTE_ARRAY_TYPE,
+                            org.apache.seatunnel.api.table.type.ArrayType.SHORT_ARRAY_TYPE,
+                            org.apache.seatunnel.api.table.type.ArrayType.INT_ARRAY_TYPE,
+                            org.apache.seatunnel.api.table.type.ArrayType.LONG_ARRAY_TYPE,
+                            org.apache.seatunnel.api.table.type.ArrayType.FLOAT_ARRAY_TYPE,
+                            org.apache.seatunnel.api.table.type.ArrayType.DOUBLE_ARRAY_TYPE,
+                            new org.apache.seatunnel.api.table.type.MapType<>(
+                                    BasicType.STRING_TYPE, BasicType.STRING_TYPE),
+                            new SeaTunnelRowType(
+                                    new String[] {
+                                        "int",
+                                        "string",
+                                        "boolean",
+                                        "float",
+                                        "double",
+                                        "byte",
+                                        "short",
+                                        "long",
+                                        "decimal",
+                                        "date",
+                                        "timestamp",
+                                        "null",
+                                        "array_string",
+                                        "array_boolean",
+                                        "array_byte",
+                                        "array_short",
+                                        "array_int",
+                                        "array_long",
+                                        "array_float",
+                                        "array_double",
+                                        "map"
+                                    },
+                                    new SeaTunnelDataType[] {
+                                        BasicType.INT_TYPE,
+                                        BasicType.STRING_TYPE,
+                                        BasicType.BOOLEAN_TYPE,
+                                        BasicType.FLOAT_TYPE,
+                                        BasicType.DOUBLE_TYPE,
+                                        BasicType.BYTE_TYPE,
+                                        BasicType.SHORT_TYPE,
+                                        BasicType.LONG_TYPE,
+                                        new org.apache.seatunnel.api.table.type.DecimalType(10, 2),
+                                        LocalTimeType.LOCAL_DATE_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        BasicType.VOID_TYPE,
+                                        org.apache.seatunnel.api.table.type.ArrayType
+                                                .STRING_ARRAY_TYPE,
+                                        org.apache.seatunnel.api.table.type.ArrayType
+                                                .BOOLEAN_ARRAY_TYPE,
+                                        org.apache.seatunnel.api.table.type.ArrayType
+                                                .BYTE_ARRAY_TYPE,
+                                        org.apache.seatunnel.api.table.type.ArrayType
+                                                .SHORT_ARRAY_TYPE,
+                                        org.apache.seatunnel.api.table.type.ArrayType
+                                                .INT_ARRAY_TYPE,
+                                        org.apache.seatunnel.api.table.type.ArrayType
+                                                .LONG_ARRAY_TYPE,
+                                        org.apache.seatunnel.api.table.type.ArrayType
+                                                .FLOAT_ARRAY_TYPE,
+                                        org.apache.seatunnel.api.table.type.ArrayType
+                                                .DOUBLE_ARRAY_TYPE,
+                                        new org.apache.seatunnel.api.table.type.MapType<>(
+                                                BasicType.STRING_TYPE, BasicType.STRING_TYPE)
+                                    })
+                        });
+
         Dataset<Row> dataset =
                 spark.createDataFrame(
                         Arrays.asList(row1WithRow, row2WithRow, row3WithRow),
                         structType.add("row", structType));
-        SparkSinkInjector.inject(dataset.write(), new SeaTunnelSinkWithBuffer())
+        SparkSinkInjector.inject(
+                        dataset.write(),
+                        new SeaTunnelSinkWithBuffer(),
+                        CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType))
                 .option("checkpointLocation", "/tmp")
                 .mode(SaveMode.Append)
                 .save();
