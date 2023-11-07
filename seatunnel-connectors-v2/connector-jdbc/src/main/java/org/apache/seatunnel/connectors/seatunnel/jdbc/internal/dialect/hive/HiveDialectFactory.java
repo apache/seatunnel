@@ -15,24 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.sink;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.hive;
 
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
-import java.io.IOException;
+import com.google.auto.service.AutoService;
 
-public class SeaTunnelSinkWithBuffer implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> {
+/** Factory for {@link HiveDialect}. */
+@AutoService(JdbcDialectFactory.class)
+public class HiveDialectFactory implements JdbcDialectFactory {
 
     @Override
-    public String getPluginName() {
-        return "SeaTunnelSinkWithBuffer";
+    public boolean acceptsURL(String url) {
+        return url.startsWith("jdbc:hive2:");
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, Void, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
-        return new SeaTunnelSinkWithBufferWriter();
+    public JdbcDialect create() {
+        return new HiveDialect();
     }
 }
