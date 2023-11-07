@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.sink.write;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.spark.sql.connector.write.Write;
@@ -27,14 +28,17 @@ public class SeaTunnelWriteBuilder<StateT, CommitInfoT, AggregatedCommitInfoT>
         implements WriteBuilder {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
+    private final CatalogTable catalogTable;
 
     public SeaTunnelWriteBuilder(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink) {
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            CatalogTable catalogTable) {
         this.sink = sink;
+        this.catalogTable = catalogTable;
     }
 
     @Override
     public Write build() {
-        return new SeaTunnelWrite<>(sink);
+        return new SeaTunnelWrite<>(sink, catalogTable);
     }
 }

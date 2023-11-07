@@ -119,7 +119,9 @@ public class SinkExecuteProcessor
                 saveModeHandler.ifPresent(SaveModeHandler::handleSaveMode);
             }
             DataStreamSink<Row> dataStreamSink =
-                    stream.getDataStream().sinkTo(new FlinkSink<>(sink)).name(sink.getPluginName());
+                    stream.getDataStream()
+                            .sinkTo(new FlinkSink<>(sink, stream.getCatalogTable()))
+                            .name(sink.getPluginName());
             if (sinkConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 int parallelism = sinkConfig.getInt(CommonOptions.PARALLELISM.key());
                 dataStreamSink.setParallelism(parallelism);
