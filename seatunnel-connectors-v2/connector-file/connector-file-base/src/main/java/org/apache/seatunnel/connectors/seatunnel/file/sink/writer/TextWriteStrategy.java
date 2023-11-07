@@ -73,7 +73,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
-        if (FileFormat.HIVE_TEXT.name().equals(fileFormat)) {
+        if (FileFormat.HIVE_TEXT.equals(fileFormat)) {
             this.serializationSchema =
                     TextSerializationHiveSchema.builder()
                             .seaTunnelRowType(seaTunnelRowType)
