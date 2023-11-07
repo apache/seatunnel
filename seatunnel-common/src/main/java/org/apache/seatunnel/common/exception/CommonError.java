@@ -28,6 +28,13 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_S
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE;
 
+/**
+ * The common error of SeaTunnel. This is an alternative to {@link CommonErrorCodeDeprecated} and is
+ * used to define non-bug errors or expected errors for all connectors and engines. We need to
+ * define a corresponding enumeration type in {@link CommonErrorCode} to determine the output error
+ * message format and content. Then define the corresponding method in {@link CommonError} to
+ * construct the corresponding error instance.
+ */
 public class CommonError {
 
     public static SeaTunnelRuntimeException unsupportedDataType(

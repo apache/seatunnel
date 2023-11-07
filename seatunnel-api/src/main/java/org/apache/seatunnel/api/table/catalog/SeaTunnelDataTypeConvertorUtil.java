@@ -98,8 +98,7 @@ public class SeaTunnelDataTypeConvertorUtil {
         if (column.trim().startsWith("{")) {
             return parseRowType(columnStr);
         }
-        throw new UnsupportedOperationException(
-                String.format("the type[%s] is not support", columnStr));
+        throw CommonError.unsupportedDataType("SeaTunnel", columnStr, field);
     }
 
     private static SeaTunnelDataType<?> parseRowType(String columnStr) {
