@@ -121,7 +121,9 @@ public class SinkExecuteProcessor
             }
             DataStreamSink<Row> dataStreamSink =
                     stream.getDataStream()
-                            .sinkTo(SinkV1Adapter.wrap(new FlinkSink<>(sink)))
+                            .sinkTo(
+                                    SinkV1Adapter.wrap(
+                                            new FlinkSink<>(sink, stream.getCatalogTable())))
                             .name(sink.getPluginName());
             if (sinkConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 int parallelism = sinkConfig.getInt(CommonOptions.PARALLELISM.key());
