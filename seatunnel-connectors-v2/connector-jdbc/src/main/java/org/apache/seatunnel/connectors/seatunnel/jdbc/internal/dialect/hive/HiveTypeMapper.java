@@ -110,7 +110,8 @@ public class HiveTypeMapper implements JdbcDialectTypeMapper {
             case HIVE_UNIONTYPE:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw CommonError.convertToSeaTunnelTypeError(DatabaseIdentifier.HIVE, columnType, jdbcColumnName);
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.HIVE, columnType, jdbcColumnName);
         }
     }
 }
