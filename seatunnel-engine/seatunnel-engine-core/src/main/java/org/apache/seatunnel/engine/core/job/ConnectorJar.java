@@ -36,7 +36,7 @@ public abstract class ConnectorJar implements IdentifiedDataSerializable {
 
     protected ConnectorJar(ConnectorJarType type, byte[] data, String fileName) {
         checkNotNull(data);
-        if (data == null || data.length == 0) {
+        if (data.length == 0) {
             throw new IllegalArgumentException("The Jar package file for the connector is empty!");
         }
         checkNotNull(type);

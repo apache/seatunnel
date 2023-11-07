@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.server.task.operation;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
-import org.apache.seatunnel.engine.server.task.ServerConnectorPackageClient;
+import org.apache.seatunnel.engine.server.service.jar.ServerConnectorPackageClient;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;

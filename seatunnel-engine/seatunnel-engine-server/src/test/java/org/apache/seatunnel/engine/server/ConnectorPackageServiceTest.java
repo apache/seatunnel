@@ -45,7 +45,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
-import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
+import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
