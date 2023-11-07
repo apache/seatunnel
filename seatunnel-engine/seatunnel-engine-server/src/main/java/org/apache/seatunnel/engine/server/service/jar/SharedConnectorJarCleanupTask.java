@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.master;
+package org.apache.seatunnel.engine.server.service.jar;
 
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.RefCount;
 
-import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 
 import java.util.Iterator;
@@ -35,17 +34,13 @@ Cleanup task for shared connector jar package.
  */
 public class SharedConnectorJarCleanupTask extends TimerTask {
 
-    private final ILogger LOGGER;
-
     private final Consumer<ConnectorJarIdentifier> cleanupCallback;
 
     private final IMap<ConnectorJarIdentifier, RefCount> connectorJarRefCounters;
 
     public SharedConnectorJarCleanupTask(
-            ILogger LOGGER,
             Consumer<ConnectorJarIdentifier> cleanupCallback,
             IMap<ConnectorJarIdentifier, RefCount> connectorJarRefCounters) {
-        this.LOGGER = checkNotNull(LOGGER);
         this.cleanupCallback = checkNotNull(cleanupCallback);
         this.connectorJarRefCounters = checkNotNull(connectorJarRefCounters);
     }

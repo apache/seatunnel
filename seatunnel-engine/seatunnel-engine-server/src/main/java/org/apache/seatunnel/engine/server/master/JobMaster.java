@@ -310,12 +310,14 @@ public class JobMaster {
                             ExceptionUtils.getMessage(e)));
         } finally {
             jobMasterCompleteFuture.join();
-            List<ConnectorJarIdentifier> pluginJarIdentifiers =
-                    jobImmutableInformation.getPluginJarIdentifiers();
-            seaTunnelServer
-                    .getConnectorPackageService()
-                    .cleanUpWhenJobFinished(
-                            jobImmutableInformation.getJobId(), pluginJarIdentifiers);
+            if (engineConfig.getConnectorJarStorageConfig().getEnable()) {
+                List<ConnectorJarIdentifier> pluginJarIdentifiers =
+                        jobImmutableInformation.getPluginJarIdentifiers();
+                seaTunnelServer
+                        .getConnectorPackageService()
+                        .cleanUpWhenJobFinished(
+                                jobImmutableInformation.getJobId(), pluginJarIdentifiers);
+            }
         }
     }
 

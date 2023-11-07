@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.io.IOException;
@@ -56,11 +55,6 @@ public class MultiTableSink
     @Override
     public String getPluginName() {
         return "MultiTableSink";
-    }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        throw new UnsupportedOperationException("MultiTableSink only support CatalogTable");
     }
 
     @Override

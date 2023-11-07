@@ -18,11 +18,13 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import lombok.Data;
+import lombok.ToString;
 
 import java.io.Serializable;
 import java.util.List;
 
 @Data
+@ToString(exclude = "state")
 public class ActionSubtaskState implements Serializable {
     private static final long serialVersionUID = 1L;
     private final ActionStateKey stateKey;

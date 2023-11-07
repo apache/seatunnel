@@ -24,12 +24,7 @@ import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelUploadConnectorJarCodec;
 
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.logging.Logger;
-
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,8 +38,6 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 
 public class ConnectorPackageClient {
 
-    private static final ILogger LOGGER = Logger.getLogger(ConnectorPackageClient.class);
-
     private final SeaTunnelHazelcastClient hazelcastClient;
 
     public ConnectorPackageClient(SeaTunnelHazelcastClient hazelcastClient) {
@@ -57,10 +50,16 @@ public class ConnectorPackageClient {
         Set<ConnectorJarIdentifier> connectorJarIdentifiers = new HashSet<>();
         // Upload commonPluginJar
         for (URL commonPluginJar : commonPluginJars) {
-            // handle the local file path
-            // origin path : /${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar ->
-            // handled path : ${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar
-            Path path = Paths.get(commonPluginJar.getPath().substring(1));
+            Path path;
+            if (commonPluginJar.getPath().startsWith("/")) {
+                // handle the local file path
+                // origin path : /${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar
+                // ->
+                // handled path : ${SEATUNNEL_HOME}/plugins/Jdbc/lib/mysql-connector-java-5.1.32.jar
+                path = Paths.get(commonPluginJar.getPath().substring(1));
+            } else {
+                path = Paths.get(commonPluginJar.getPath());
+            }
             ConnectorJarIdentifier connectorJarIdentifier = uploadCommonPluginJar(jobId, path);
             connectorJarIdentifiers.add(connectorJarIdentifier);
         }
@@ -78,18 +77,16 @@ public class ConnectorPackageClient {
         ConnectorJar connectorJar =
                 ConnectorJar.createConnectorJar(
                         digest, ConnectorJarType.COMMON_PLUGIN_JAR, data, fileName);
-        ConnectorJarIdentifier connectorJarIdentifier =
-                hazelcastClient
-                        .getSerializationService()
-                        .toObject(
-                                hazelcastClient.requestOnMasterAndDecodeResponse(
-                                        SeaTunnelUploadConnectorJarCodec.encodeRequest(
-                                                jobId,
-                                                hazelcastClient
-                                                        .getSerializationService()
-                                                        .toData(connectorJar)),
-                                        SeaTunnelUploadConnectorJarCodec::decodeResponse));
-        return connectorJarIdentifier;
+        return hazelcastClient
+                .getSerializationService()
+                .toObject(
+                        hazelcastClient.requestOnMasterAndDecodeResponse(
+                                SeaTunnelUploadConnectorJarCodec.encodeRequest(
+                                        jobId,
+                                        hazelcastClient
+                                                .getSerializationService()
+                                                .toData(connectorJar)),
+                                SeaTunnelUploadConnectorJarCodec::decodeResponse));
     }
 
     public ConnectorJarIdentifier uploadConnectorPluginJar(long jobId, URL connectorPluginJarURL) {
@@ -105,37 +102,24 @@ public class ConnectorPackageClient {
         ConnectorJar connectorJar =
                 ConnectorJar.createConnectorJar(
                         digest, ConnectorJarType.CONNECTOR_PLUGIN_JAR, data, fileName);
-        ConnectorJarIdentifier connectorJarIdentifier =
-                hazelcastClient
-                        .getSerializationService()
-                        .toObject(
-                                hazelcastClient.requestOnMasterAndDecodeResponse(
-                                        SeaTunnelUploadConnectorJarCodec.encodeRequest(
-                                                jobId,
-                                                hazelcastClient
-                                                        .getSerializationService()
-                                                        .toData(connectorJar)),
-                                        SeaTunnelUploadConnectorJarCodec::decodeResponse));
-        return connectorJarIdentifier;
+        return hazelcastClient
+                .getSerializationService()
+                .toObject(
+                        hazelcastClient.requestOnMasterAndDecodeResponse(
+                                SeaTunnelUploadConnectorJarCodec.encodeRequest(
+                                        jobId,
+                                        hazelcastClient
+                                                .getSerializationService()
+                                                .toData(connectorJar)),
+                                SeaTunnelUploadConnectorJarCodec::decodeResponse));
     }
 
     private static byte[] readFileData(Path filePath) {
         // Read file data and convert it to a byte array.
         try {
-            InputStream inputStream = Files.newInputStream(filePath);
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
-            }
-            return outputStream.toByteArray();
+            return Files.readAllBytes(filePath);
         } catch (IOException e) {
-            LOGGER.warning(
-                    String.format(
-                            "Failed to read the connector jar package file : { %s } , the file to be read may not exist",
-                            filePath.toString()));
-            throw new RuntimeException();
+            throw new RuntimeException(e);
         }
     }
 }
