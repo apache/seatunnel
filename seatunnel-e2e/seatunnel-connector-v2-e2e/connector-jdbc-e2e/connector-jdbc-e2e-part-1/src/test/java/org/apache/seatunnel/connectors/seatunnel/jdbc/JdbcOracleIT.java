@@ -74,7 +74,8 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    BINARY_DOUBLE_COL             binary_double,\n"
                     + "    DATE_COL                      date,\n"
                     + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
-                    + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone\n"
+                    + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone,\n"
+                    + "    XML_TYPE_COL                  \"SYS\".\"XMLTYPE\"\n"
                     + ")";
 
     @Override
@@ -116,11 +117,11 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() {}
+    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
+        return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar && wget https://repo1.maven.org/maven2/com/oracle/database/xml/xdb6/12.2.0.1/xdb6-12.2.0.1.jar && wget https://repo1.maven.org/maven2/com/oracle/database/xml/xmlparserv2/12.2.0.1/xmlparserv2-12.2.0.1.jar";
     }
 
     @Override
@@ -138,7 +139,8 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     "BINARY_DOUBLE_COL",
                     "DATE_COL",
                     "TIMESTAMP_WITH_3_FRAC_SEC_COL",
-                    "TIMESTAMP_WITH_LOCAL_TZ"
+                    "TIMESTAMP_WITH_LOCAL_TZ",
+                    "XML_TYPE_COL"
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -157,7 +159,8 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                 Double.parseDouble("2.2"),
                                 Date.valueOf(LocalDate.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
-                                Timestamp.valueOf(LocalDateTime.now())
+                                Timestamp.valueOf(LocalDateTime.now()),
+                                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"><name>SeaTunnel : E2E : Connector V2 : Oracle XMLType</name></project>"
                             });
             rows.add(row);
         }

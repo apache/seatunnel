@@ -108,15 +108,16 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
     public static final String PG_GEOGRAPHY = "geography";
     public static final String PG_JSON = "json";
     public static final String PG_JSONB = "jsonb";
+    public static final String PG_XML = "xml";
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
-        return toSeaTunnelType(connectorDataType, new HashMap<>(0));
+    public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
+        return toSeaTunnelType(field, connectorDataType, new HashMap<>(0));
     }
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            String connectorDataType, Map<String, Object> dataTypeProperties)
+            String field, String connectorDataType, Map<String, Object> dataTypeProperties)
             throws DataTypeConvertException {
         checkNotNull(connectorDataType, "Postgres Type cannot be null");
         switch (connectorDataType) {
@@ -165,6 +166,7 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
             case PG_GEOGRAPHY:
             case PG_JSON:
             case PG_JSONB:
+            case PG_XML:
                 return BasicType.STRING_TYPE;
             case PG_CHAR_ARRAY:
             case PG_CHARACTER_ARRAY:
@@ -187,13 +189,16 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
             default:
                 throw new UnsupportedOperationException(
                         String.format(
-                                "Doesn't support POSTGRES type '%s''  yet.", connectorDataType));
+                                "Doesn't support POSTGRES type '%s' of the '%s' field yet.",
+                                connectorDataType, field));
         }
     }
 
     @Override
     public String toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties)
             throws DataTypeConvertException {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType cannot be null");
         SqlType sqlType = seaTunnelDataType.getSqlType();
@@ -226,7 +231,8 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
             default:
                 throw new UnsupportedOperationException(
                         String.format(
-                                "Doesn't support SeaTunnel type '%s''  yet.", seaTunnelDataType));
+                                "Doesn't support SeaTunnel type '%s' of the '%s' field yet.",
+                                seaTunnelDataType.getSqlType(), field));
         }
     }
 

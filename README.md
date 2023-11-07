@@ -6,129 +6,145 @@
 [![Join Slack](https://img.shields.io/badge/slack-%23seatunnel-4f8eba?logo=slack)](https://s.apache.org/seatunnel-slack)
 [![Twitter Follow](https://img.shields.io/twitter/follow/ASFSeaTunnel.svg?label=Follow&logo=twitter)](https://twitter.com/ASFSeaTunnel)
 
----
+## Table of Contents
+- [Overview](#overview)
+- [Why Choose SeaTunnel](#why-choose-seatunnel)
+- [Key Features](#key-features)
+- [SeaTunnel Workflow](#seatunnel-workflow)
+- [Supported Connectors](#supported-connectors)
+- [Getting Started](#getting-started)
+- [Use Cases](#use-cases)
+- [Code of Conduct](#code-of-conduct)
+- [Contributors](#contributors)
+- [How to Compile](#how-to-compile)
+- [Contact Us](#contact-us)
+- [Landscapes](#landscapes)
+- [Apache SeaTunnel Web Project](#apache-seaTunnel-web-project)
+- [Our Users](#our-users)
+- [License](#license)
+- [Frequently Asked Questions](#frequently-asked-questions)
 
-SeaTunnel is a next-generation, super high-performance, distributed, massive data integration tool. It efficiently and stably synchronizes tens of billions of data daily and has been adopted by numerous companies.
+## Overview
+
+SeaTunnel is a next-generation, high-performance, distributed data integration tool, capable of synchronizing vast amounts of data daily. It's trusted by numerous companies for its efficiency and stability.
+
 
 ## Why Choose SeaTunnel
 
-SeaTunnel specializes in data integration and synchronization, addressing common challenges in this domain:
+SeaTunnel addresses common data integration challenges:
 
-- **Diverse Data Sources**: With hundreds of data sources and evolving technologies, finding a tool capable of rapidly adapting to these sources can be challenging.
-
-- **Complex Synchronization Scenarios**: Data synchronization requirements encompass offline-full synchronization, offline-incremental synchronization, CDC, real-time synchronization, and full database synchronization.
-
-- **Resource Efficiency**: Many existing data integration and synchronization tools demand significant computing resources and JDBC connections for real-time synchronization, adding strain to enterprises.
-
-- **Quality and Monitoring**: Data integration and synchronization processes often encounter data loss or duplication. A lack of monitoring makes it difficult to gain insights during task execution.
+- **Diverse Data Sources**: Seamlessly integrates with hundreds of evolving data sources.
+  
+- **Complex Synchronization Scenarios**: Supports various synchronization methods, including real-time, CDC, and full database synchronization.
+  
+- **Resource Efficiency**: Minimizes computing resources and JDBC connections for real-time synchronization.
+  
+- **Quality and Monitoring**: Provides data quality and monitoring to prevent data loss or duplication.
 
 ## Key Features
 
-- **Diverse Connectors**: SeaTunnel offers support for over 100 connectors, with ongoing expansion. You can explore the list of supported and planned connectors [here](https://github.com/apache/seatunnel/issues/3018).
-
-- **Batch-Stream Integration**: Connectors developed using the SeaTunnel Connector API are highly adaptable to various synchronization scenarios, simplifying data integration management.
-
+- **Diverse Connectors**: Offers support for over 100 connectors, with ongoing expansion.
+  
+- **Batch-Stream Integration**: Easily adaptable connectors simplify data integration management.
+  
 - **Distributed Snapshot Algorithm**: Ensures data consistency across synchronized data.
-
-- **Multi-Engine Support**: Defaulting to the SeaTunnel Zeta Engine, SeaTunnel also supports Flink and Spark as execution engines, catering to various enterprise requirements.
-
-- **JDBC Multiplexing and Log Parsing**: Supports multi-table or whole database synchronization, efficiently addressing over-JDBC connections and CDC multi-table synchronization issues.
-
-- **High Throughput and Low Latency**: Provides stable, high-throughput data synchronization with low latency.
-
-- **Real-Time Monitoring**: Detailed monitoring information throughout the synchronization process offers insights into data volume, size, QPS, and more.
-
-- **Two Job Development Methods**: Supports both coding and canvas design. The [SeaTunnel web project](https://github.com/apache/seatunnel-web) offers visual job management, scheduling, running, and monitoring.
-
-In addition to these features, SeaTunnel provides a versatile Connector API that is not tied to a specific execution engine, ensuring flexibility and compatibility with various engines.
+  
+- **Multi-Engine Support**: Works with SeaTunnel Zeta Engine, Flink, and Spark.
+  
+- **JDBC Multiplexing and Log Parsing**: Efficiently synchronizes multi-tables and databases.
+  
+- **High Throughput and Low Latency**: Provides high-throughput data synchronization with low latency.
+  
+- **Real-Time Monitoring**: Offers detailed insights during synchronization.
+  
+- **Two Job Development Methods**: Supports coding and visual job management with the [SeaTunnel web project](https://github.com/apache/seatunnel-web).
 
 ## SeaTunnel Workflow
 
 ![SeaTunnel Workflow](docs/en/images/architecture_diagram.png)
 
-The SeaTunnel runtime process involves configuring job information, selecting the execution engine, and parallelizing data using Source Connectors. These connectors can easily be developed and extended to meet specific needs. By default, SeaTunnel uses the [SeaTunnel Engine](seatunnel-engine/README.md). If desired, it can package the Connector for execution using Flink or Spark.
+Configure jobs, select execution engines, and parallelize data using Source Connectors. Easily develop and extend connectors to meet your needs.
 
-## Connectors Supported by SeaTunnel
+## Supported Connectors
 
-- Supported Source Connectors: [Check Out](https://seatunnel.apache.org/docs/category/source-v2)
-- Supported Sink Connectors: [Check Out](https://seatunnel.apache.org/docs/category/sink-v2)
-- Transform Connectors: [Check Out](docs/en/transform-v2)
+- [Source Connectors](https://seatunnel.apache.org/docs/category/source-v2)
+- [Sink Connectors](https://seatunnel.apache.org/docs/category/sink-v2)
+- [Transform Connectors](docs/en/transform-v2)
 
 For a list of connectors and their health status, visit the [Connector Status](docs/en/Connector-v2-release-state.md).
 
-## Downloads
+## Getting Started
 
-Download SeaTunnel directly from the [official website](https://seatunnel.apache.org/download).
+Download SeaTunnel from the [official website](https://seatunnel.apache.org/download).
 
-## Quick Start
+Choose your runtime execution engine:
+- [SeaTunnel Zeta Engine](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine/)
+- [Spark](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-spark)
+- [Flink](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-flink)
 
-SeaTunnel defaults to using the SeaTunnel Zeta Engine as the runtime execution engine for data synchronization. For the best functionality and performance, we recommend using the Zeta engine. However, SeaTunnel also supports Flink and Spark as execution engines.
+## Use Cases
 
-- **SeaTunnel Zeta Engine**: [Quick Start](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine/)
+Explore real-world use cases of SeaTunnel, such as Weibo, Tencent Cloud, Sina, Sogou, and Yonghui Superstores. More use cases can be found on the [SeaTunnel blog](https://seatunnel.apache.org/blog).
 
-- **Spark**: [Quick Start](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-spark)
+## Code of Conduct
 
-- **Flink**: [Quick Start](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-flink)
+Participate in this project following the Contributor Covenant [Code of Conduct](https://www.apache.org/foundation/policies/conduct).
 
-## Application Use Cases
+## Contributors
 
-- **Weibo, Value-added Business Department Data Platform**: Weibo's business utilizes a customized version of SeaTunnel for task monitoring in real-time streaming computing.
+We appreciate all developers for their contributions. See the [list of contributors](https://github.com/apache/seatunnel/graphs/contributors).
 
-- **Tencent Cloud**: Collects and extracts data from various business services into Apache Kafka, storing it in Clickhouse.
+## How to Compile
 
-- **Sina, Big Data Operation Analysis Platform**: Performs real-time and offline analysis of data operation and maintenance for services such as Sina News, CDN, and writes the data into Clickhouse.
+Refer to this [document](docs/en/contribution/setup.md) for compilation instructions.
 
-- **Sogou, Sogou Qiqian System**: Uses SeaTunnel as an ETL tool to establish a real-time data warehouse system.
+## Contact Us
 
-- **Yonghui Superstores Founders' Alliance-Yonghui Yunchuang Technology, Member E-commerce Data Analysis Platform**: Provides real-time streaming and offline SQL computing of e-commerce user behavior data for Yonghui Life.
+- Mail list: **dev@seatunnel.apache.org**. Subscribe by sending an email to `dev-subscribe@seatunnel.apache.org`.
 
-For more use cases, please refer to the [SeaTunnel blog](https://seatunnel.apache.org/blog).
+- Slack: [Join SeaTunnel Slack](https://s.apache.org/seatunnel-slack)
+
+- Twitter: [ASFSeaTunnel on Twitter](https://twitter.com/ASFSeaTunnel)
+
+## Landscapes
+
+SeaTunnel enriches the [CNCF CLOUD NATIVE Landscape](https://landscape.cncf.io/?landscape=observability-and-analysis&license=apache-license-2-0).
 
 ## Apache SeaTunnel Web Project
 
 SeaTunnel Web is a web project that provides visual management of jobs, scheduling, running and monitoring capabilities. It is developed based on the SeaTunnel Connector API and the SeaTunnel Zeta Engine. It is a web project that can be deployed independently. It is also a sub-project of SeaTunnel.
 For more information, please refer to [SeaTunnel Web](https://github.com/apache/seatunnel-web)
 
-## Code of Conduct
-
-This project adheres to the Contributor Covenant [Code of Conduct](https://www.apache.org/foundation/policies/conduct). By participating, you are expected to uphold this code. Please follow the [REPORTING GUIDELINES](https://www.apache.org/foundation/policies/conduct#reporting-guidelines) to report unacceptable behavior.
-
-## Contributors
-
-Thanks to [all developers](https://github.com/apache/seatunnel/graphs/contributors)!
-
-<a href="https://github.com/apache/seatunnel/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=apache/seatunnel" />
-</a>
-
-## How to Compile
-
-Please follow this [document](docs/en/contribution/setup.md).
-
-## Contact Us
-
-- Mail list: **dev@seatunnel.apache.org**. Mail to `dev-subscribe@seatunnel.apache.org`, follow the reply to subscribe to the mail list.
-
-- Slack: [Join SeaTunnel Slack](https://s.apache.org/seatunnel-slack)
-
-- Twitter: [ASFSeaTunnel on Twitter](https://twitter.com/ASFSeaTunnel)
-
-- [Bilibili](https://space.bilibili.com/1542095008) (for Chinese users)
-
-## Landscapes
-
-<p align="center">
-<br/><br/>
-<img src="https://landscape.cncf.io/images/left-logo.svg" width="150" alt=""/>&nbsp;&nbsp;<img src="https://landscape.cncf.io/images/right-logo.svg" width="200" alt=""/>
-<br/><br/>
-SeaTunnel enriches the [CNCF CLOUD NATIVE Landscape](https://landscape.cncf.io/?landscape=observability-and-analysis&license=apache-license-2-0).
-
-</p>
-
 ## Our Users
 
-Various companies and organizations use SeaTunnel for research, production, and commercial products. Visit our [website](https://seatunnel.apache.org/user) to find the user page.
+Companies and organizations worldwide use SeaTunnel for research, production, and commercial products. Visit our [user page](https://seatunnel.apache.org/user) for more information.
 
 ## License
 
 [Apache 2.0 License](LICENSE)
+
+## Frequently Asked Questions
+
+### 1. How do I install SeaTunnel?
+
+Follow the [installation guide](https://seatunnel.apache.org/docs/2.3.3/start-v2/locally/deployment/) on our website to get started.
+
+### 2. How can I contribute to SeaTunnel?
+
+We welcome contributions! Please refer to our [Contribution Guidelines](https://github.com/apache/seatunnel/blob/dev/docs/en/contribution/coding-guide.md) for details.
+
+### 3. How do I report issues or request features?
+
+You can report issues or request features on our [GitHub repository](https://github.com/apache/seatunnel/issues).
+
+### 4. Can I use SeaTunnel for commercial purposes?
+
+Yes, SeaTunnel is available under the Apache 2.0 License, allowing commercial use.
+
+### 5. Where can I find documentation and tutorials?
+
+Our [official documentation](https://seatunnel.apache.org/docs) includes detailed guides and tutorials to help you get started.
+
+### 7. Is there a community or support channel?
+
+Join our Slack community for support and discussions: [SeaTunnel Slack](https://s.apache.org/seatunnel-slack).

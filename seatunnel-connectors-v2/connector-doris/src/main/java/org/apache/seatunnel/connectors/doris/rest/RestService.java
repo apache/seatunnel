@@ -209,31 +209,26 @@ public class RestService implements Serializable {
 
     private static String parseResponse(HttpURLConnection connection, Logger logger)
             throws IOException {
-        if (connection.getResponseCode() != HttpStatus.SC_OK) {
+        int responseCode = connection.getResponseCode();
+        if (responseCode != HttpStatus.SC_OK) {
             logger.warn(
-                    "Failed to get response from Doris  {}, http code is {}",
+                    "Failed to get response from Doris {}, http code is {}",
                     connection.getURL(),
-                    connection.getResponseCode());
+                    responseCode);
             throw new IOException("Failed to get response from Doris");
         }
+
         StringBuilder result = new StringBuilder();
-        BufferedReader in = null;
-        try {
-            in =
-                    new BufferedReader(
-                            new InputStreamReader(
-                                    connection.getInputStream(), StandardCharsets.UTF_8));
+        try (BufferedReader in =
+                new BufferedReader(
+                        new InputStreamReader(
+                                connection.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = in.readLine()) != null) {
                 result.append(line);
             }
-        } catch (IOException e) {
-            throw new IOException(e);
-        } finally {
-            if (in != null) {
-                in.close();
-            }
         }
+
         return result.toString();
     }
 

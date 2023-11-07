@@ -23,9 +23,9 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
-import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
@@ -114,14 +114,16 @@ public class SinkExecuteProcessor
                 sink = ((TableSinkFactory) factory.get()).createSink(context).createSink();
                 sink.setJobContext(jobContext);
             }
-            if (SupportDataSaveMode.class.isAssignableFrom(sink.getClass())) {
-                SupportDataSaveMode saveModeSink = (SupportDataSaveMode) sink;
-                DataSaveMode dataSaveMode = saveModeSink.getUserConfigSaveMode();
-                saveModeSink.handleSaveMode(dataSaveMode);
+            if (SupportSaveMode.class.isAssignableFrom(sink.getClass())) {
+                SupportSaveMode saveModeSink = (SupportSaveMode) sink;
+                Optional<SaveModeHandler> saveModeHandler = saveModeSink.getSaveModeHandler();
+                saveModeHandler.ifPresent(SaveModeHandler::handleSaveMode);
             }
             DataStreamSink<Row> dataStreamSink =
                     stream.getDataStream()
-                            .sinkTo(SinkV1Adapter.wrap(new FlinkSink<>(sink)))
+                            .sinkTo(
+                                    SinkV1Adapter.wrap(
+                                            new FlinkSink<>(sink, stream.getCatalogTable())))
                             .name(sink.getPluginName());
             if (sinkConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 int parallelism = sinkConfig.getInt(CommonOptions.PARALLELISM.key());

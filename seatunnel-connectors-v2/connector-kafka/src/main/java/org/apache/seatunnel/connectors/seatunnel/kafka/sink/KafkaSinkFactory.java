@@ -46,6 +46,7 @@ public class KafkaSinkFactory implements TableSinkFactory {
                                 MessageFormat.JSON,
                                 MessageFormat.CANAL_JSON,
                                 MessageFormat.TEXT,
+                                MessageFormat.OGG_JSON,
                                 MessageFormat.AVRO),
                         Config.TOPIC)
                 .optional(
