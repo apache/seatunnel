@@ -301,7 +301,10 @@ public class RestApiIT {
                                         .getPort()
                                 + RestConstant.ENCRYPT_CONFIG)
                 .then()
-                .statusCode(200);
+                .statusCode(200)
+                .body("source[0].result_table_name", equalTo("fake"))
+                .body("source[0].username", equalTo("c2VhdHVubmVs"))
+                .body("source[0].password", equalTo("c2VhdHVubmVsX3Bhc3N3b3Jk"));
     }
 
     @AfterEach
