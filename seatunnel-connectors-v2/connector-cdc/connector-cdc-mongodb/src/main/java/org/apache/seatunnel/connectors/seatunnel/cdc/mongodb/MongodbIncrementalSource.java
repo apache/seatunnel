@@ -26,11 +26,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
+import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfigProvider;
@@ -112,16 +114,16 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
     @Override
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
             ReadonlyConfig config) {
-        SeaTunnelDataType<SeaTunnelRow> physicalRowType;
-        if (dataType == null) {
+        if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
+                config.get(JdbcSourceOptions.FORMAT))) {
             return (DebeziumDeserializationSchema<T>)
                     new DebeziumJsonDeserializeSchema(
-                            config.get(MongodbSourceOptions.DEBEZIUM_PROPERTIES));
-        } else {
-            physicalRowType = dataType;
-            return (DebeziumDeserializationSchema<T>)
-                    new MongoDBConnectorDeserializationSchema(physicalRowType, physicalRowType);
+                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES));
         }
+
+        SeaTunnelDataType<SeaTunnelRow> physicalRowType = dataType;
+        return (DebeziumDeserializationSchema<T>)
+                new MongoDBConnectorDeserializationSchema(physicalRowType, physicalRowType);
     }
 
     @Override

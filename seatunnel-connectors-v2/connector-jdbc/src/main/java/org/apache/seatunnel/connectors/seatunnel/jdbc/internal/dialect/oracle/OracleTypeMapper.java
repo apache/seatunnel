@@ -55,6 +55,7 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
     private static final String ORACLE_ROWID = "ROWID";
     private static final String ORACLE_CLOB = "CLOB";
     private static final String ORACLE_NCLOB = "NCLOB";
+    private static final String ORACLE_XML = "SYS.XMLTYPE";
 
     // ------------------------------time-------------------------
     private static final String ORACLE_DATE = "DATE";
@@ -106,6 +107,7 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
             case ORACLE_ROWID:
             case ORACLE_NCLOB:
             case ORACLE_CLOB:
+            case ORACLE_XML:
                 return BasicType.STRING_TYPE;
             case ORACLE_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
