@@ -57,6 +57,7 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -87,9 +88,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case DATE:
                 return (int) ((LocalDate) field).toEpochDay();
             case TIME:
-                // TODO: Support TIME Type
-                throw new RuntimeException(
-                        "time type is not supported now, but will be supported in the future.");
+                return ((LocalTime) field).toNanoOfDay();
             case TIMESTAMP:
                 return InstantConverterUtils.toEpochMicro(
                         Timestamp.valueOf((LocalDateTime) field).toInstant());
@@ -202,6 +201,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case DATE:
                 return new MutableInt();
             case BIGINT:
+            case TIME:
             case TIMESTAMP:
                 return new MutableLong();
             case FLOAT:
@@ -231,9 +231,10 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 }
                 return LocalDate.ofEpochDay((int) field);
             case TIME:
-                // TODO: Support TIME Type
-                throw new RuntimeException(
-                        "SeaTunnel not support time type, it will be supported in the future.");
+                if (field instanceof Timestamp) {
+                    return LocalTime.ofNanoOfDay(((Timestamp) field).getNanos());
+                }
+                return LocalTime.ofNanoOfDay((long) field);
             case TIMESTAMP:
                 if (field instanceof Timestamp) {
                     return ((Timestamp) field).toLocalDateTime();

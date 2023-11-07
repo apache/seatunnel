@@ -238,3 +238,27 @@ network:
 
 ------------------------------------------------------------------------------------------
 
+### Stop Job.
+
+<details>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
+
+#### Body
+
+```json
+{
+    "jobId": 733584788375666689,
+    "isStopWithSavePoint": false # if job is stopped with save point
+}
+```
+
+#### Responses
+
+```json
+{
+"jobId": 733584788375666689
+}
+```
+
+</details>
+

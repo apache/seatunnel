@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.collections4.MapUtils;
 
@@ -114,16 +115,17 @@ public class DamengDataTypeConvertor implements DataTypeConvertor<String> {
 
     @Override
     public String getIdentity() {
-        return DamengCatalogFactory.IDENTIFIER;
+        return DatabaseIdentifier.DAMENG;
     }
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String dataType) {
-        return toSeaTunnelType(dataType, Collections.emptyMap());
+    public SeaTunnelDataType<?> toSeaTunnelType(String field, String dataType) {
+        return toSeaTunnelType(field, dataType, Collections.emptyMap());
     }
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String dataType, Map<String, Object> properties)
+    public SeaTunnelDataType<?> toSeaTunnelType(
+            String field, String dataType, Map<String, Object> properties)
             throws DataTypeConvertException {
         switch (dataType.toUpperCase()) {
             case DM_BIT:
@@ -200,12 +202,15 @@ public class DamengDataTypeConvertor implements DataTypeConvertor<String> {
             default:
                 throw new JdbcConnectorException(
                         CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format("Doesn't support Dmdb type '%s' yet.", dataType));
+                        String.format(
+                                "Doesn't support DMDB type '%s' of the '%s' field yet.",
+                                dataType, field));
         }
     }
 
     @Override
-    public String toConnectorType(SeaTunnelDataType<?> dataType, Map<String, Object> properties)
+    public String toConnectorType(
+            String field, SeaTunnelDataType<?> dataType, Map<String, Object> properties)
             throws DataTypeConvertException {
         SqlType sqlType = dataType.getSqlType();
         switch (sqlType) {
@@ -237,7 +242,9 @@ public class DamengDataTypeConvertor implements DataTypeConvertor<String> {
                 return DM_BINARY;
             default:
                 throw new UnsupportedOperationException(
-                        String.format("Doesn't support SeaTunnel type '%s' yet.", dataType));
+                        String.format(
+                                "Doesn't support SeaTunnel type '%s' of the '%s' field yet.",
+                                dataType, field));
         }
     }
 }

@@ -7,7 +7,7 @@
 The FakeSource is a virtual data source, which randomly generates the number of rows according to the data structure of the user-defined schema,
 just for some test cases such as type conversion or connector new feature testing
 
-## Key features
+## Key Features
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [x] [stream](../../concept/connector-v2-features.md)
@@ -16,53 +16,53 @@ just for some test cases such as type conversion or connector new feature testin
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-## Options
+## Source Options
 
-|        name         |   type   | required |      default value      |
-|---------------------|----------|----------|-------------------------|
-| schema              | config   | yes      | -                       |
-| rows                | config   | no       | -                       |
-| row.num             | int      | no       | 5                       |
-| split.num           | int      | no       | 1                       |
-| split.read-interval | long     | no       | 1                       |
-| map.size            | int      | no       | 5                       |
-| array.size          | int      | no       | 5                       |
-| bytes.length        | int      | no       | 5                       |
-| string.length       | int      | no       | 5                       |
-| string.fake.mode    | string   | no       | range                   |
-| tinyint.fake.mode   | string   | no       | range                   |
-| tinyint.min         | tinyint  | no       | 0                       |
-| tinyint.max         | tinyint  | no       | 127                     |
-| tinyint.template    | list     | no       | -                       |
-| smallint.fake.mode  | string   | no       | range                   |
-| smallint.min        | smallint | no       | 0                       |
-| smallint.max        | smallint | no       | 32767                   |
-| smallint.template   | list     | no       | -                       |
-| int.fake.template   | string   | no       | range                   |
-| int.min             | int      | no       | 0                       |
-| int.max             | int      | no       | 0x7fffffff              |
-| int.template        | list     | no       | -                       |
-| bigint.fake.mode    | string   | no       | range                   |
-| bigint.min          | bigint   | no       | 0                       |
-| bigint.max          | bigint   | no       | 0x7fffffffffffffff      |
-| bigint.template     | list     | no       | -                       |
-| float.fake.mode     | string   | no       | range                   |
-| float.min           | float    | no       | 0                       |
-| float.max           | float    | no       | 0x1.fffffeP+127         |
-| float.template      | list     | no       | -                       |
-| double.fake.mode    | string   | no       | range                   |
-| double.min          | double   | no       | 0                       |
-| double.max          | double   | no       | 0x1.fffffffffffffP+1023 |
-| double.template     | list     | no       | -                       |
-| common-options      |          | no       | -                       |
+|        Name         |   Type   | Required |         Default         |                                                                                                                                                                                                Description                                                                                                                                                                                                |
+|---------------------|----------|----------|-------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| schema              | config   | yes      | -                       | Define Schema information                                                                                                                                                                                                                                                                                                                                                                                 |
+| rows                | config   | no       | -                       | The row list of fake data output per degree of parallelism see title `Options rows Case`.                                                                                                                                                                                                                                                                                                                 |
+| row.num             | int      | no       | 5                       | The total number of data generated per degree of parallelism                                                                                                                                                                                                                                                                                                                                              |
+| split.num           | int      | no       | 1                       | the number of splits generated by the enumerator for each degree of parallelism                                                                                                                                                                                                                                                                                                                           |
+| split.read-interval | long     | no       | 1                       | The interval(mills) between two split reads in a reader                                                                                                                                                                                                                                                                                                                                                   |
+| map.size            | int      | no       | 5                       | The size of `map` type that connector generated                                                                                                                                                                                                                                                                                                                                                           |
+| array.size          | int      | no       | 5                       | The size of `array` type that connector generated                                                                                                                                                                                                                                                                                                                                                         |
+| bytes.length        | int      | no       | 5                       | The length of `bytes` type that connector generated                                                                                                                                                                                                                                                                                                                                                       |
+| string.length       | int      | no       | 5                       | The length of `string` type that connector generated                                                                                                                                                                                                                                                                                                                                                      |
+| string.fake.mode    | string   | no       | range                   | The fake mode of generating string data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `string.template` option                                                                                                                                                                                                                         |
+| string.template     | list     | no       | -                       | The template list of string type that connector generated, if user configured it, connector will randomly select an item from the template list                                                                                                                                                                                                                                                           |
+| tinyint.fake.mode   | string   | no       | range                   | The fake mode of generating tinyint data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `tinyint.template` option                                                                                                                                                                                                                       |
+| tinyint.min         | tinyint  | no       | 0                       | The min value of tinyint data that connector generated                                                                                                                                                                                                                                                                                                                                                    |
+| tinyint.max         | tinyint  | no       | 127                     | The max value of tinyint data that connector generated                                                                                                                                                                                                                                                                                                                                                    |
+| tinyint.template    | list     | no       | -                       | The template list of tinyint type that connector generated, if user configured it, connector will randomly select an item from the template list                                                                                                                                                                                                                                                          |
+| smallint.fake.mode  | string   | no       | range                   | The fake mode of generating smallint data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `smallint.template` option                                                                                                                                                                                                                     |
+| smallint.min        | smallint | no       | 0                       | The min value of smallint data that connector generated                                                                                                                                                                                                                                                                                                                                                   |
+| smallint.max        | smallint | no       | 32767                   | The max value of smallint data that connector generated                                                                                                                                                                                                                                                                                                                                                   |
+| smallint.template   | list     | no       | -                       | The template list of smallint type that connector generated, if user configured it, connector will randomly select an item from the template list                                                                                                                                                                                                                                                         |
+| int.fake.template   | string   | no       | range                   | The fake mode of generating int data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `int.template` option                                                                                                                                                                                                                               |
+| int.min             | int      | no       | 0                       | The min value of int data that connector generated                                                                                                                                                                                                                                                                                                                                                        |
+| int.max             | int      | no       | 0x7fffffff              | The max value of int data that connector generated                                                                                                                                                                                                                                                                                                                                                        |
+| int.template        | list     | no       | -                       | The template list of int type that connector generated, if user configured it, connector will randomly select an item from the template list                                                                                                                                                                                                                                                              |
+| bigint.fake.mode    | string   | no       | range                   | The fake mode of generating bigint data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `bigint.template` option                                                                                                                                                                                                                         |
+| bigint.min          | bigint   | no       | 0                       | The min value of bigint data that connector generated                                                                                                                                                                                                                                                                                                                                                     |
+| bigint.max          | bigint   | no       | 0x7fffffffffffffff      | The max value of bigint data that connector generated                                                                                                                                                                                                                                                                                                                                                     |
+| bigint.template     | list     | no       | -                       | The template list of bigint type that connector generated, if user configured it, connector will randomly select an item from the template list                                                                                                                                                                                                                                                           |
+| float.fake.mode     | string   | no       | range                   | The fake mode of generating float data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `float.template` option                                                                                                                                                                                                                           |
+| float.min           | float    | no       | 0                       | The min value of float data that connector generated                                                                                                                                                                                                                                                                                                                                                      |
+| float.max           | float    | no       | 0x1.fffffeP+127         | The max value of float data that connector generated                                                                                                                                                                                                                                                                                                                                                      |
+| float.template      | list     | no       | -                       | The template list of float type that connector generated, if user configured it, connector will randomly select an item from the template list                                                                                                                                                                                                                                                            |
+| double.fake.mode    | string   | no       | range                   | The fake mode of generating float data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `double.template` option                                                                                                                                                                                                                          |
+| double.min          | double   | no       | 0                       | The min value of double data that connector generated                                                                                                                                                                                                                                                                                                                                                     |
+| double.max          | double   | no       | 0x1.fffffffffffffP+1023 | The max value of double data that connector generated                                                                                                                                                                                                                                                                                                                                                     |
+| double.template     | list     | no       | -                       | The template list of double type that connector generated, if user configured it, connector will randomly select an item from the template list                                                                                                                                                                                                                                                           |
+| table-names         | list     | no       | -                       | The table list that connector generated, used to simulate multi-table scenarios.<br/> This option will override the `table` option in the `schema` option. For example, if you configure the `table-names` option as follows, the connector will generate data for the `test.table1` and `test.table2` tables, the `database.schema.table` will be dropFor details, see title `Options table-names Case`. |
+| common-options      |          | no       | -                       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                                                                                                                                                                   |
 
-### schema [config]
+## Task Example
 
-#### fields [Config]
+### Simple:
 
-The schema of fake data that you want to generate
-
-#### Examples
+> This example Randomly generates data of a specified type
 
 ```hocon
 schema = {
@@ -103,172 +103,90 @@ schema = {
 }
 ```
 
-### rows
+### Random Generation
 
-The row list of fake data output per degree of parallelism
-
-example
+> 16 data matching the type are randomly generated
 
 ```hocon
-rows = [
-  {
-    kind = INSERT
-    fields = [1, "A", 100]
-  },
-  {
-    kind = UPDATE_BEFORE
-    fields = [1, "A", 100]
-  },
-  {
-    kind = UPDATE_AFTER
-    fields = [1, "A_1", 100]
-  },
-  {
-    kind = DELETE
-    fields = [1, "A_1", 100]
+source {
+  # This is a example input plugin **only for test and demonstrate the feature input plugin**
+  FakeSource {
+    row.num = 16
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(30, 8)"
+        c_null = "null"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
+    }
+    result_table_name = "fake"
   }
-]
+}
 ```
 
-### row.num
-
-The total number of data generated per degree of parallelism
-
-### split.num
-
-the number of splits generated by the enumerator for each degree of parallelism
-
-### split.read-interval
-
-The interval(mills) between two split reads in a reader
-
-### map.size
-
-The size of `map` type that connector generated
-
-### array.size
-
-The size of `array` type that connector generated
-
-### bytes.length
-
-The length of `bytes` type that connector generated
-
-### string.length
-
-The length of `string` type that connector generated
-
-### string.fake.mode
-
-The fake mode of generating string data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `string.template` option
-
-### string.template
-
-The template list of string type that connector generated, if user configured it, connector will randomly select an item from the template list
-
-### tinyint.fake.mode
-
-The fake mode of generating tinyint data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `tinyint.template` option
-
-### tinyint.min
-
-The min value of tinyint data that connector generated
-
-### tinyint.max
-
-The max value of tinyint data that connector generated
-
-### tinyint.template
-
-The template list of tinyint type that connector generated, if user configured it, connector will randomly select an item from the template list
-
-### smallint.fake.mode
-
-The fake mode of generating smallint data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `smallint.template` option
-
-### smallint.min
-
-The min value of smallint data that connector generated
-
-### smallint.max
-
-The max value of smallint data that connector generated
-
-### smallint.template
-
-The template list of smallint type that connector generated, if user configured it, connector will randomly select an item from the template list
-
-### int.fake.mode
-
-The fake mode of generating int data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `int.template` option
-
-### int.min
-
-The min value of int data that connector generated
-
-### int.max
-
-The max value of int data that connector generated
-
-### int.template
-
-The template list of int type that connector generated, if user configured it, connector will randomly select an item from the template list
-
-### bigint.fake.mode
-
-The fake mode of generating bigint data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `bigint.template` option
-
-### bigint.min
-
-The min value of bigint data that connector generated
-
-### bigint.max
-
-The max value of bigint data that connector generated
-
-### bigint.template
-
-The template list of bigint type that connector generated, if user configured it, connector will randomly select an item from the template list
-
-### float.fake.mode
-
-The fake mode of generating float data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `float.template` option
-
-### float.min
-
-The min value of float data that connector generated
-
-### float.max
-
-The max value of float data that connector generated
-
-### float.template
-
-The template list of float type that connector generated, if user configured it, connector will randomly select an item from the template list
-
-### double.fake.mode
-
-The fake mode of generating float data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `double.template` option
-
-### double.min
-
-The min value of double data that connector generated
-
-### double.max
-
-The max value of double data that connector generated
-
-### double.template
-
-The template list of double type that connector generated, if user configured it, connector will randomly select an item from the template list
-
-### common options
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
-
-## Example
-
-Auto generate data rows
+### Customize the data content Simple:
+
+> This is a self-defining data source information, defining whether each piece of data is an add or delete modification operation, and defining what each field stores
+
+```hocon
+source {
+  FakeSource {
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(30, 8)"
+        c_null = "null"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [{"a": "b"}, [101], "c_string", true, 117, 15987, 56387395, 7084913402530365000, 1.23, 1.23, "2924137191386439303744.39292216", null, "bWlJWmo=", "2023-04-22", "2023-04-22T23:20:58"]
+      }
+      {
+        kind = UPDATE_BEFORE
+        fields = [{"a": "c"}, [102], "c_string", true, 117, 15987, 56387395, 7084913402530365000, 1.23, 1.23, "2924137191386439303744.39292216", null, "bWlJWmo=", "2023-04-22", "2023-04-22T23:20:58"]
+      }
+      {
+        kind = UPDATE_AFTER
+        fields = [{"a": "e"}, [103], "c_string", true, 117, 15987, 56387395, 7084913402530365000, 1.23, 1.23, "2924137191386439303744.39292216", null, "bWlJWmo=", "2023-04-22", "2023-04-22T23:20:58"]
+      }
+      {
+        kind = DELETE
+        fields = [{"a": "f"}, [104], "c_string", true, 117, 15987, 56387395, 7084913402530365000, 1.23, 1.23, "2924137191386439303744.39292216", null, "bWlJWmo=", "2023-04-22", "2023-04-22T23:20:58"]
+      }
+    ]
+  }
+}
+```
+
+### Specified Data number Simple:
+
+> This case specifies the number of data generated and the length of the generated value
 
 ```hocon
 FakeSource {
@@ -316,45 +234,9 @@ FakeSource {
 }
 ```
 
-Using fake data rows
+### Template data Simple:
 
-```hocon
-FakeSource {
-  schema = {
-    fields {
-      pk_id = bigint
-      name = string
-      score = int
-    }
-  }
-  rows = [
-    {
-      kind = INSERT
-      fields = [1, "A", 100]
-    },
-    {
-      kind = INSERT
-      fields = [2, "B", 100]
-    },
-    {
-      kind = INSERT
-      fields = [3, "C", 100]
-    },
-    {
-      kind = UPDATE_BEFORE
-      fields = [1, "A", 100]
-    },
-    {
-      kind = UPDATE_AFTER
-      fields = [1, "A_1", 100]
-    },
-    {
-      kind = DELETE
-      fields = [2, "B", 100]
-    }
-  ]
-}
-```
+> Randomly generated according to the specified template
 
 Using template
 
@@ -389,7 +271,9 @@ FakeSource {
 }
 ```
 
-Use range
+### Range data Simple:
+
+> The specified data generation range is randomly generated
 
 ```hocon
 FakeSource {
@@ -418,6 +302,63 @@ FakeSource {
       c_double = double
     }
   }
+}
+```
+
+### Generate Multiple tables
+
+> This is a case of generating a multi-data source test.table1 and test.table2
+
+```hocon
+FakeSource {
+  table-names = ["test.table1", "test.table2"]
+  schema {
+    fields {
+      c_string = string
+      c_tinyint = tinyint
+      c_smallint = smallint
+      c_int = int
+      c_bigint = bigint
+      c_float = float
+      c_double = double
+    }
+  }
+}
+```
+
+### Options `rows` Case
+
+```hocon
+rows = [
+  {
+    kind = INSERT
+    fields = [1, "A", 100]
+  },
+  {
+    kind = UPDATE_BEFORE
+    fields = [1, "A", 100]
+  },
+  {
+    kind = UPDATE_AFTER
+    fields = [1, "A_1", 100]
+  },
+  {
+    kind = DELETE
+    fields = [1, "A_1", 100]
+  }
+]
+```
+
+### Options `table-names` Case
+
+```agsl
+FakeSource {
+    table-names = ["test.table1", "test.table2"]
+    schema = {
+        table = "database.schema.table"
+        ...
+    }
+    ...
 }
 ```
 

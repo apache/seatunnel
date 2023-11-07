@@ -47,13 +47,13 @@ public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<String>
     public static final String DATE = "date";
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
-        return toSeaTunnelType(connectorDataType, null);
+    public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
+        return toSeaTunnelType(field, connectorDataType, null);
     }
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            String connectorDataType, Map<String, Object> dataTypeProperties)
+            String field, String connectorDataType, Map<String, Object> dataTypeProperties)
             throws DataTypeConvertException {
         checkNotNull(connectorDataType, "connectorDataType can not be null");
         switch (connectorDataType) {
@@ -88,7 +88,9 @@ public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<String>
 
     @Override
     public String toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties)
             throws DataTypeConvertException {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType can not be null");
         SqlType sqlType = seaTunnelDataType.getSqlType();

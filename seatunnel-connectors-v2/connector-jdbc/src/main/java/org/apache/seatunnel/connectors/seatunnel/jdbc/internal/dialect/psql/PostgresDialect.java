@@ -17,15 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+
+import org.apache.commons.lang3.StringUtils;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -44,7 +51,7 @@ public class PostgresDialect implements JdbcDialect {
 
     @Override
     public String dialectName() {
-        return "PostgreSQL";
+        return DatabaseIdentifier.POSTGRESQL;
     }
 
     @Override
@@ -124,5 +131,33 @@ public class PostgresDialect implements JdbcDialect {
     @Override
     public String quoteDatabaseIdentifier(String identifier) {
         return "\"" + identifier + "\"";
+    }
+
+    @Override
+    public TablePath parse(String tablePath) {
+        return TablePath.of(tablePath, true);
+    }
+
+    @Override
+    public Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
+            throws SQLException {
+        if (StringUtils.isBlank(table.getQuery())) {
+            String rowCountQuery =
+                    String.format(
+                            "SELECT reltuples FROM pg_class r WHERE relkind = 'r' AND relname = '%s';",
+                            table.getTablePath().getTableName());
+            try (Statement stmt = connection.createStatement()) {
+                try (ResultSet rs = stmt.executeQuery(rowCountQuery)) {
+                    if (!rs.next()) {
+                        throw new SQLException(
+                                String.format(
+                                        "No result returned after running query [%s]",
+                                        rowCountQuery));
+                    }
+                    return rs.getLong(1);
+                }
+            }
+        }
+        return SQLUtils.countForSubquery(connection, table.getQuery());
     }
 }

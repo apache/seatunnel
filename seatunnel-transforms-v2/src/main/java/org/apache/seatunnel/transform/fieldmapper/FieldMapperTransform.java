@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.transform.fieldmapper;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -28,10 +24,8 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportTransform;
 import org.apache.seatunnel.transform.exception.FieldMapperTransformErrorCode;
 import org.apache.seatunnel.transform.exception.FieldMapperTransformException;
@@ -39,9 +33,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.apache.commons.collections4.CollectionUtils;
 
-import com.google.auto.service.AutoService;
 import com.google.common.collect.Lists;
-import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -51,8 +43,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
-@NoArgsConstructor
-@AutoService(SeaTunnelTransform.class)
 public class FieldMapperTransform extends AbstractCatalogSupportTransform {
     public static String PLUGIN_NAME = "FieldMapper";
     private FieldMapperTransformConfig config;
@@ -80,38 +70,6 @@ public class FieldMapperTransform extends AbstractCatalogSupportTransform {
     }
 
     @Override
-    protected void setConfig(Config pluginConfig) {
-        ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
-                .validate(new FieldMapperTransformFactory().optionRule());
-        config = FieldMapperTransformConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
-    }
-
-    @Override
-    protected SeaTunnelRowType transformRowType(SeaTunnelRowType inputRowType) {
-        Map<String, String> fieldMapper = config.getFieldMapper();
-        needReaderColIndex = new ArrayList<>(fieldMapper.size());
-        List<String> outputFiledNameList = new ArrayList<>(fieldMapper.size());
-        List<SeaTunnelDataType<?>> outputDataTypeList = new ArrayList<>(fieldMapper.size());
-        ArrayList<String> inputFieldNames = Lists.newArrayList(inputRowType.getFieldNames());
-        fieldMapper.forEach(
-                (key, value) -> {
-                    int fieldIndex = inputFieldNames.indexOf(key);
-                    if (fieldIndex < 0) {
-                        throw new FieldMapperTransformException(
-                                FieldMapperTransformErrorCode.INPUT_FIELD_NOT_FOUND,
-                                "Can not found field " + key + " from inputRowType");
-                    }
-                    needReaderColIndex.add(fieldIndex);
-                    outputFiledNameList.add(value);
-                    outputDataTypeList.add(inputRowType.getFieldTypes()[fieldIndex]);
-                });
-
-        return new SeaTunnelRowType(
-                outputFiledNameList.toArray(new String[0]),
-                outputDataTypeList.toArray(new SeaTunnelDataType[0]));
-    }
-
-    @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
         Map<String, String> fieldMapper = config.getFieldMapper();
         Object[] outputDataArray = new Object[fieldMapper.size()];
@@ -134,6 +92,7 @@ public class FieldMapperTransform extends AbstractCatalogSupportTransform {
         List<Column> outputColumns = new ArrayList<>(fieldMapper.size());
         needReaderColIndex = new ArrayList<>(fieldMapper.size());
         ArrayList<String> inputFieldNames = Lists.newArrayList(seaTunnelRowType.getFieldNames());
+        ArrayList<String> outputFieldNames = new ArrayList<>();
         fieldMapper.forEach(
                 (key, value) -> {
                     int fieldIndex = inputFieldNames.indexOf(key);
@@ -152,18 +111,32 @@ public class FieldMapperTransform extends AbstractCatalogSupportTransform {
                                     oldColumn.getDefaultValue(),
                                     oldColumn.getComment());
                     outputColumns.add(outputColumn);
+                    outputFieldNames.add(outputColumn.getName());
                     needReaderColIndex.add(fieldIndex);
                 });
 
         List<ConstraintKey> outputConstraintKeys =
                 inputCatalogTable.getTableSchema().getConstraintKeys().stream()
+                        .filter(
+                                key -> {
+                                    List<String> constraintColumnNames =
+                                            key.getColumnNames().stream()
+                                                    .map(
+                                                            ConstraintKey.ConstraintKeyColumn
+                                                                    ::getColumnName)
+                                                    .collect(Collectors.toList());
+                                    return outputFieldNames.containsAll(constraintColumnNames);
+                                })
                         .map(ConstraintKey::copy)
                         .collect(Collectors.toList());
 
-        PrimaryKey copiedPrimaryKey =
-                inputCatalogTable.getTableSchema().getPrimaryKey() == null
-                        ? null
-                        : inputCatalogTable.getTableSchema().getPrimaryKey().copy();
+        PrimaryKey copiedPrimaryKey = null;
+        if (inputCatalogTable.getTableSchema().getPrimaryKey() != null
+                && outputFieldNames.containsAll(
+                        inputCatalogTable.getTableSchema().getPrimaryKey().getColumnNames())) {
+            copiedPrimaryKey = inputCatalogTable.getTableSchema().getPrimaryKey().copy();
+        }
+
         return TableSchema.builder()
                 .primaryKey(copiedPrimaryKey)
                 .columns(outputColumns)

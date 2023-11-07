@@ -25,6 +25,7 @@ public enum JdbcITErrorCode implements SeaTunnelErrorCode {
     CREATE_TABLE_FAILED("JDBC-IT-02", "Fail to create table."),
     INSERT_DATA_FAILED("JDBC-IT-03", "Fail to inert data."),
     DRIVER_NOT_FOUND("JDBC-IT-04", "Can not get the driver."),
+    DATA_COMPARISON_FAILED("JDBC-IT-05", "Source data is inconsistent with target data."),
     ;
 
     private final String code;

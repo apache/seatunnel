@@ -34,6 +34,8 @@ import org.slf4j.LoggerFactory;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PLUGIN_NAME;
+
 @AutoService(SeaTunnelSink.class)
 public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private static final Logger LOG = LoggerFactory.getLogger(MaxcomputeSink.class);
@@ -42,7 +44,7 @@ public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public String getPluginName() {
-        return "Maxcompute";
+        return PLUGIN_NAME;
     }
 
     @Override

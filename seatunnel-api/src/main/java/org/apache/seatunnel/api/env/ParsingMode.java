@@ -54,5 +54,6 @@ public enum ParsingMode {
      * stock                      -> sink(stock)
      * </pre>
      */
+    @Deprecated
     MULTIPLEX
 }

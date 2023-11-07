@@ -20,6 +20,8 @@ package org.apache.seatunnel.translation.flink.source;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
+import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
@@ -33,19 +35,33 @@ public class RowCollector implements Collector<SeaTunnelRow> {
     protected final FlinkRowConverter rowSerialization;
     protected final Object checkpointLock;
 
+    private FlowControlGate flowControlGate;
+    private volatile boolean emptyThisPollNext;
+
     public RowCollector(
             SourceFunction.SourceContext<Row> internalCollector,
             Object checkpointLock,
-            SeaTunnelDataType<?> dataType) {
+            SeaTunnelDataType<?> dataType,
+            FlowControlStrategy flowControlStrategy) {
         this.internalCollector = internalCollector;
         this.checkpointLock = checkpointLock;
         this.rowSerialization = new FlinkRowConverter(dataType);
+        if (flowControlStrategy != null) {
+            this.flowControlGate = FlowControlGate.create(flowControlStrategy);
+        }
     }
 
     @Override
-    public void collect(SeaTunnelRow record) {
+    public void collect(SeaTunnelRow sourceRecord) {
         try {
-            internalCollector.collect(rowSerialization.convert(record));
+            if (sourceRecord != null) {
+                if (flowControlGate != null) {
+                    // Data source Speed limit
+                    flowControlGate.audit(sourceRecord);
+                }
+            }
+            internalCollector.collect(rowSerialization.convert(sourceRecord));
+            emptyThisPollNext = false;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -54,5 +70,15 @@ public class RowCollector implements Collector<SeaTunnelRow> {
     @Override
     public Object getCheckpointLock() {
         return this.checkpointLock;
+    }
+
+    @Override
+    public boolean isEmptyThisPollNext() {
+        return emptyThisPollNext;
+    }
+
+    @Override
+    public void resetEmptyThisPollNext() {
+        this.emptyThisPollNext = true;
     }
 }
