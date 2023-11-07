@@ -87,11 +87,10 @@ public class AmazonDynamoDBSourceReader
         while (!pendingSplits.isEmpty()) {
             synchronized (output.getCheckpointLock()) {
                 AmazonDynamoDBSourceSplit split = pendingSplits.poll();
-
                 read(split, output);
             }
         }
-        if (noMoreSplit) {
+        if (noMoreSplit && pendingSplits.isEmpty()) {
             context.signalNoMoreElement();
         }
     }
