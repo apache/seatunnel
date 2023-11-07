@@ -77,7 +77,7 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
                     CatalogTableUtil.getCatalogTables(
                             context.getOptions(), context.getClassLoader());
             SeaTunnelDataType<SeaTunnelRow> dataType =
-                    CatalogTableUtil.convertToDataType(catalogTables);
+                    CatalogTableUtil.convertToMultipleRowType(catalogTables);
             return (SeaTunnelSource<T, SplitT, StateT>)
                     new MongodbIncrementalSource<>(context.getOptions(), dataType, catalogTables);
         };
