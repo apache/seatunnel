@@ -21,8 +21,8 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import org.slf4j.Logger;
@@ -110,11 +110,7 @@ public class HiveTypeMapper implements JdbcDialectTypeMapper {
             case HIVE_UNIONTYPE:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format(
-                                "Doesn't support hive type '%s' on column '%s'  yet.",
-                                columnType, jdbcColumnName));
+                throw CommonError.convertToSeaTunnelTypeError(DatabaseIdentifier.HIVE, columnType, jdbcColumnName);
         }
     }
 }
