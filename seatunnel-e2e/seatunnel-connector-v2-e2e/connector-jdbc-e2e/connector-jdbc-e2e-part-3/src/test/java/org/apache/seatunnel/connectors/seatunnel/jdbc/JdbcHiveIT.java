@@ -141,7 +141,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() {}
+    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {
