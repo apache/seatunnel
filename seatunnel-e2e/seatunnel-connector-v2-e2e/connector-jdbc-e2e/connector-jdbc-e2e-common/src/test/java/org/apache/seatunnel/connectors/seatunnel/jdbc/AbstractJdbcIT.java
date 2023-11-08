@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.io.ByteStreams;
+import org.apache.seatunnel.shade.com.google.common.io.CharStreams;
+
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -37,23 +40,31 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 
 import com.github.dockerjava.api.model.Image;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.sql.Array;
+import java.sql.Blob;
+import java.sql.Clob;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -63,8 +74,9 @@ import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
 
-@Slf4j
 public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResource {
+
+    protected final Logger log = LoggerFactory.getLogger(getClass());
 
     protected static final String HOST = "HOST";
 
@@ -84,10 +96,11 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected JdbcCase jdbcCase;
     protected Connection connection;
     protected Catalog catalog;
+    protected URLClassLoader urlClassLoader;
 
     abstract JdbcCase getJdbcCase();
 
-    abstract void compareResult() throws SQLException, IOException;
+    abstract void compareResult(String executeKey) throws SQLException, IOException;
 
     abstract String driverUrl();
 
@@ -95,14 +108,38 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     abstract GenericContainer<?> initContainer();
 
+    protected URLClassLoader getUrlClassLoader() throws MalformedURLException {
+        if (urlClassLoader == null) {
+            urlClassLoader =
+                    new URLClassLoader(
+                            new URL[] {new URL(driverUrl())},
+                            AbstractJdbcIT.class.getClassLoader());
+            Thread.currentThread().setContextClassLoader(urlClassLoader);
+        }
+        return urlClassLoader;
+    }
+
+    protected Class<?> loadDriverClassFromUrl() {
+        try {
+            return getUrlClassLoader().loadClass(jdbcCase.getDriverClass());
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to load driver class: " + jdbcCase.getDriverClass(), e);
+        }
+    }
+
+    protected Class<?> loadDriverClass() {
+        try {
+            return Class.forName(jdbcCase.getDriverClass());
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to load driver class: " + jdbcCase.getDriverClass(), e);
+        }
+    }
+
     protected void initializeJdbcConnection(String jdbcUrl)
-            throws SQLException, ClassNotFoundException, MalformedURLException,
-                    InstantiationException, IllegalAccessException {
-        URLClassLoader urlClassLoader =
-                new URLClassLoader(
-                        new URL[] {new URL(driverUrl())}, AbstractJdbcIT.class.getClassLoader());
-        Thread.currentThread().setContextClassLoader(urlClassLoader);
-        Driver driver = (Driver) urlClassLoader.loadClass(jdbcCase.getDriverClass()).newInstance();
+            throws SQLException, InstantiationException, IllegalAccessException {
+        Driver driver = (Driver) loadDriverClass().newInstance();
         Properties props = new Properties();
 
         if (StringUtils.isNotBlank(jdbcCase.getUserName())) {
@@ -113,7 +150,11 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             props.put("password", jdbcCase.getPassword());
         }
 
-        this.connection = driver.connect(jdbcUrl.replace(HOST, dbServer.getHost()), props);
+        if (dbServer != null) {
+            jdbcUrl = jdbcUrl.replace(HOST, dbServer.getHost());
+        }
+
+        this.connection = driver.connect(jdbcUrl, props);
         connection.setAutoCommit(false);
     }
 
@@ -233,7 +274,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         Startables.deepStart(Stream.of(dbServer)).join();
 
         jdbcCase = getJdbcCase();
-
+        beforeStartUP();
         given().ignoreExceptions()
                 .await()
                 .atMost(360, TimeUnit.SECONDS)
@@ -244,6 +285,9 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         insertTestData();
         initCatalog();
     }
+
+    // before startUp For example, create a user
+    protected void beforeStartUP() {}
 
     @AfterAll
     @Override
@@ -266,7 +310,11 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                     "before remove image {}, list images: {}",
                     dbServer.getDockerImageName(),
                     images);
-            dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
+            try {
+                dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
+            } catch (Exception ignored) {
+                log.warn("Failed to delete the image. Another container may be in use", ignored);
+            }
             images =
                     dockerClient.listImagesCmd().exec().stream()
                             .map(Image::getId)
@@ -283,12 +331,14 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             throws IOException, InterruptedException, SQLException {
         List<String> configFiles = jdbcCase.getConfigFile();
         for (String configFile : configFiles) {
-            Container.ExecResult execResult = container.executeJob(configFile);
-            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            try {
+                Container.ExecResult execResult = container.executeJob(configFile);
+                Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+                compareResult(String.format("%s in [%s]", configFile, container.identifier()));
+            } finally {
+                clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
+            }
         }
-
-        compareResult();
-        clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
     }
 
     protected void initCatalog() {}
@@ -325,6 +375,76 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         if (createdDb) {
             catalog.dropDatabase(targetTablePath, false);
             Assertions.assertFalse(catalog.databaseExists(targetTablePath.getDatabaseName()));
+        }
+    }
+
+    protected Object[] toArrayResult(ResultSet resultSet, String[] fieldNames)
+            throws SQLException, IOException {
+        List<Object> result = new ArrayList<>(0);
+        while (resultSet.next()) {
+            Object[] rowArray = new Object[fieldNames.length];
+            for (int colIndex = 0; colIndex < fieldNames.length; colIndex++) {
+                rowArray[colIndex] = checkData(resultSet.getObject(fieldNames[colIndex]));
+            }
+            result.add(rowArray);
+        }
+        return result.toArray();
+    }
+
+    private Object checkData(Object data) throws SQLException, IOException {
+        if (data == null) {
+            return null;
+        } else if (data instanceof byte[]) {
+            return data;
+        } else if (data instanceof Clob) {
+            try (Reader reader = ((Clob) data).getCharacterStream()) {
+                return CharStreams.toString(reader);
+            }
+        } else if (data instanceof Blob) {
+            try (InputStream inputStream = ((Blob) data).getBinaryStream()) {
+                return ByteStreams.toByteArray(inputStream);
+            }
+        } else if (data instanceof Array) {
+            Object[] jdbcArray = (Object[]) ((Array) data).getArray();
+            Object[] javaArray = new Object[jdbcArray.length];
+            for (int index = 0; index < jdbcArray.length; index++) {
+                javaArray[index] = checkData(jdbcArray[index]);
+            }
+            return javaArray;
+        } else {
+            return data;
+        }
+    }
+
+    protected void defaultCompare(String executeKey, String[] fieldNames, String sortKey) {
+        try (Statement statement = connection.createStatement()) {
+            ResultSet source =
+                    statement.executeQuery(
+                            String.format(
+                                    "SELECT * FROM %s ORDER BY %s",
+                                    buildTableInfoWithSchema(
+                                            this.jdbcCase.getSchema(),
+                                            this.jdbcCase.getSourceTable()),
+                                    quoteIdentifier(sortKey)));
+            Object[] sourceResult = toArrayResult(source, fieldNames);
+            ResultSet sink =
+                    statement.executeQuery(
+                            String.format(
+                                    "SELECT * FROM %s ORDER BY %s",
+                                    buildTableInfoWithSchema(
+                                            this.jdbcCase.getSchema(),
+                                            this.jdbcCase.getSinkTable()),
+                                    quoteIdentifier(sortKey)));
+            Object[] sinkResult = toArrayResult(sink, fieldNames);
+            log.warn(
+                    "{}: source data count {}, sink data count {}.",
+                    executeKey,
+                    sourceResult.length,
+                    sinkResult.length);
+            Assertions.assertArrayEquals(
+                    sourceResult, sinkResult, String.format("[%s] data compare", executeKey));
+        } catch (SQLException | IOException e) {
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.DATA_COMPARISON_FAILED, e);
         }
     }
 }

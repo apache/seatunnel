@@ -48,6 +48,10 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | schema                      | Config  | No       | -       | Http and seatunnel data structure mapping                                                                                            |
 | schema.fields               | Config  | No       | -       | The schema fields of upstream data                                                                                                   |
 | json_field                  | Config  | No       | -       | This parameter helps you configure the schema,so this parameter must be used with schema.                                            |
+| pageing                     | Config  | No       | -       | This parameter is used for paging queries                                                                                            |
+| pageing.page_field          | String  | No       | -       | This parameter is used to specify the page field name in the request parameter                                                       |
+| pageing.total_page_size     | Int     | No       | -       | This parameter is used to control the total number of pages                                                                          |
+| pageing.batch_size          | Int     | No       | -       | The batch size returned per request is used to determine whether to continue when the total number of pages is unknown               |
 | content_json                | String  | No       | -       | This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`. |
 | format                      | String  | No       | json    | The format of upstream data, now only support `json` `text`, default `json`.                                                         |
 | method                      | String  | No       | get     | Http request method, only supports GET, POST method.                                                                                 |
@@ -309,6 +313,35 @@ source {
 
 - Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
 - See this link for task configuration [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
+
+### pageing
+
+```hocon
+source {
+    Http {
+      url = "http://localhost:8080/mock/queryData"
+      method = "GET"
+      format = "json"
+      params={
+       page: "${page}"
+      }
+      content_field = "$.data.*"
+      pageing={
+       total_page_size=20
+       page_field=page
+       #when don't know the total_page_size use batch_size if read size<batch_size finish ,otherwise continue
+       #batch_size=10
+      }
+      schema = {
+        fields {
+          name = string
+          age = string
+        }
+      }
+    }
+}
+
+```
 
 ## Changelog
 

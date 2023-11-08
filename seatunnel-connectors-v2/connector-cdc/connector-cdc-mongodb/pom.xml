@@ -30,7 +30,7 @@
 
     <properties>
         <mongo.driver.version>4.7.1</mongo.driver.version>
-        <avro.version>1.11.1</avro.version>
+        <avro.version>1.11.3</avro.version>
         <mongo-kafka-connect.version>1.10.1</mongo-kafka-connect.version>
     </properties>
 

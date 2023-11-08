@@ -36,6 +36,7 @@ public class RowCollector implements Collector<SeaTunnelRow> {
     protected final Object checkpointLock;
 
     private FlowControlGate flowControlGate;
+    private volatile boolean emptyThisPollNext;
 
     public RowCollector(
             SourceFunction.SourceContext<Row> internalCollector,
@@ -60,6 +61,7 @@ public class RowCollector implements Collector<SeaTunnelRow> {
                 }
             }
             internalCollector.collect(rowSerialization.convert(sourceRecord));
+            emptyThisPollNext = false;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -68,5 +70,15 @@ public class RowCollector implements Collector<SeaTunnelRow> {
     @Override
     public Object getCheckpointLock() {
         return this.checkpointLock;
+    }
+
+    @Override
+    public boolean isEmptyThisPollNext() {
+        return emptyThisPollNext;
+    }
+
+    @Override
+    public void resetEmptyThisPollNext() {
+        this.emptyThisPollNext = true;
     }
 }

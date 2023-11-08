@@ -57,14 +57,20 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      * @param seaTunnelRowType The row type info of sink.
      */
     @Deprecated
-    void setTypeInfo(SeaTunnelRowType seaTunnelRowType);
+    default void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+        throw new UnsupportedOperationException("setTypeInfo method is not supported");
+    }
 
     /**
      * Get the data type of the records consumed by this sink.
      *
+     * @deprecated instead by {@link org.apache.seatunnel.api.table.factory.Factory}
      * @return SeaTunnel data type.
      */
-    SeaTunnelDataType<IN> getConsumedType();
+    @Deprecated
+    default SeaTunnelDataType<IN> getConsumedType() {
+        throw new UnsupportedOperationException("getConsumedType method is not supported");
+    }
 
     /**
      * This method will be called to creat {@link SinkWriter}

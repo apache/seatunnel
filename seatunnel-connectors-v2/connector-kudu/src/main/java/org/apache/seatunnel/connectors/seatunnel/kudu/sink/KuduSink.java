@@ -17,16 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSinkState;
 
 import com.google.auto.service.AutoService;
 
@@ -37,10 +37,17 @@ import java.io.IOException;
  * {@link AbstractSimpleSink}.
  */
 @AutoService(SeaTunnelSink.class)
-public class KuduSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class KuduSink
+        implements SeaTunnelSink<
+                SeaTunnelRow, KuduSinkState, KuduCommitInfo, KuduAggregatedCommitInfo> {
 
-    private Config config;
+    private KuduSinkConfig kuduSinkConfig;
     private SeaTunnelRowType seaTunnelRowType;
+
+    public KuduSink(KuduSinkConfig kuduSinkConfig, CatalogTable catalogTable) {
+        this.kuduSinkConfig = kuduSinkConfig;
+        this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+    }
 
     @Override
     public String getPluginName() {
@@ -48,23 +55,8 @@ public class KuduSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-    }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return this.seaTunnelRowType;
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.config = pluginConfig;
-    }
-
-    @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
-        return new KuduSinkWriter(seaTunnelRowType, config);
+    public SinkWriter<SeaTunnelRow, KuduCommitInfo, KuduSinkState> createWriter(
+            SinkWriter.Context context) throws IOException {
+        return new KuduSinkWriter(seaTunnelRowType, kuduSinkConfig);
     }
 }

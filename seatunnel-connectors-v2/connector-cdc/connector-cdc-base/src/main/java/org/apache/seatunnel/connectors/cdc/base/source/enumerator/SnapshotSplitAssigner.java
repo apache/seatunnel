@@ -217,13 +217,13 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                 new SnapshotPhaseState(
                         alreadyProcessedTables,
                         remainingSplits.isEmpty()
-                                ? Collections.emptyList()
+                                ? new ArrayList<>()
                                 : new ArrayList<>(remainingSplits),
                         assignedSplits,
                         splitCompletedOffsets,
                         assignerCompleted,
                         remainingTables.isEmpty()
-                                ? Collections.emptyList()
+                                ? new ArrayList<>()
                                 : new ArrayList<>(remainingTables),
                         isTableIdCaseSensitive,
                         true);

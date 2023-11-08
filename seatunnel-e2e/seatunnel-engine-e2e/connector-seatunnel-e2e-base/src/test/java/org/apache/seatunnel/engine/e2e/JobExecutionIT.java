@@ -20,10 +20,11 @@ package org.apache.seatunnel.engine.e2e;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
@@ -48,11 +49,15 @@ public class JobExecutionIT {
 
     private static HazelcastInstanceImpl hazelcastInstance;
 
+    private static SeaTunnelConfig SEATUNNEL_CONFIG;
+
     @BeforeEach
     public void beforeClass() {
-        hazelcastInstance =
-                SeaTunnelServerStarter.createHazelcastInstance(
-                        TestUtils.getClusterName("JobExecutionIT"));
+        SEATUNNEL_CONFIG = ConfigProvider.locateAndGetSeaTunnelConfig();
+        SEATUNNEL_CONFIG
+                .getHazelcastConfig()
+                .setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(SEATUNNEL_CONFIG);
     }
 
     @Test
@@ -76,8 +81,8 @@ public class JobExecutionIT {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(filePath, jobConfig);
+        ClientJobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
@@ -103,8 +108,8 @@ public class JobExecutionIT {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(filePath, jobConfig);
+        ClientJobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
         JobStatus jobStatus1 = clientJobProxy.getJobStatus();
@@ -132,8 +137,8 @@ public class JobExecutionIT {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(filePath, jobConfig);
+        ClientJobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
         CompletableFuture<JobStatus> completableFuture =
                 CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
@@ -177,8 +182,8 @@ public class JobExecutionIT {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(filePath, jobConfig);
+        ClientJobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 

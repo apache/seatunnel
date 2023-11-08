@@ -73,7 +73,7 @@ public class DorisDataTypeConvertor implements DataTypeConvertor<String> {
     public static final Integer DEFAULT_SCALE = 0;
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
+    public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
         checkNotNull(connectorDataType, "connectorDataType can not be null");
         Map<String, Object> dataTypeProperties;
         switch (connectorDataType.toUpperCase(Locale.ROOT)) {
@@ -99,12 +99,12 @@ public class DorisDataTypeConvertor implements DataTypeConvertor<String> {
                 dataTypeProperties = Collections.emptyMap();
                 break;
         }
-        return toSeaTunnelType(connectorDataType, dataTypeProperties);
+        return toSeaTunnelType(field, connectorDataType, dataTypeProperties);
     }
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            String connectorDataType, Map<String, Object> dataTypeProperties)
+            String field, String connectorDataType, Map<String, Object> dataTypeProperties)
             throws DataTypeConvertException {
         checkNotNull(connectorDataType, "mysqlType can not be null");
         int precision;
@@ -145,13 +145,17 @@ public class DorisDataTypeConvertor implements DataTypeConvertor<String> {
                 return new DecimalType(precision, scale);
             default:
                 throw new UnsupportedOperationException(
-                        String.format("Doesn't support DORIS type '%s''  yet.", connectorDataType));
+                        String.format(
+                                "Doesn't support Doris type '%s' of the '%s' field yet.",
+                                connectorDataType, field));
         }
     }
 
     @Override
     public String toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties)
             throws DataTypeConvertException {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType cannot be null");
         SqlType sqlType = seaTunnelDataType.getSqlType();
@@ -189,7 +193,9 @@ public class DorisDataTypeConvertor implements DataTypeConvertor<String> {
                 return TIMESTAMP;
             default:
                 throw new UnsupportedOperationException(
-                        String.format("Doesn't support Doris type '%s''  yet.", sqlType));
+                        String.format(
+                                "Doris doesn't support SeaTunnel type '%s' of the '%s' field yet.",
+                                sqlType, field));
         }
     }
 
