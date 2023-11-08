@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class FieldMapperTransform extends AbstractCatalogSupportTransform {
     public static String PLUGIN_NAME = "FieldMapper";
-    private FieldMapperTransformConfig config;
+    private final FieldMapperTransformConfig config;
     private List<Integer> needReaderColIndex;
 
     public FieldMapperTransform(

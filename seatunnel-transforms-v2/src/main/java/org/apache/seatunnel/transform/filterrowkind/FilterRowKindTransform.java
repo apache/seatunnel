@@ -52,11 +52,9 @@ public class FilterRowKindTransform extends FilterRowTransform {
 
     private void initConfig(ReadonlyConfig config) {
         if (config.get(FilterRowKinkTransformConfig.INCLUDE_KINDS) == null) {
-            excludeKinds =
-                    new HashSet<RowKind>(config.get(FilterRowKinkTransformConfig.EXCLUDE_KINDS));
+            excludeKinds = new HashSet<>(config.get(FilterRowKinkTransformConfig.EXCLUDE_KINDS));
         } else {
-            includeKinds =
-                    new HashSet<RowKind>(config.get(FilterRowKinkTransformConfig.INCLUDE_KINDS));
+            includeKinds = new HashSet<>(config.get(FilterRowKinkTransformConfig.INCLUDE_KINDS));
         }
         if ((includeKinds.isEmpty() && excludeKinds.isEmpty())
                 || (!includeKinds.isEmpty() && !excludeKinds.isEmpty())) {

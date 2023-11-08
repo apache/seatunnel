@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
 public class FilterFieldTransform extends AbstractCatalogSupportTransform {
     public static final String PLUGIN_NAME = "Filter";
     private int[] inputValueIndex;
-    private String[] fields;
+    private final String[] fields;
 
     public FilterFieldTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable catalogTable) {
