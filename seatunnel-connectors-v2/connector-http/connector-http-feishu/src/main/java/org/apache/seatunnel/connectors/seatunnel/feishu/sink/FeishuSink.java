@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.feishu.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSink;
 
@@ -24,6 +26,10 @@ import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSink.class)
 public class FeishuSink extends HttpSink {
+    public FeishuSink(Config pluginConfig) {
+        super(pluginConfig);
+    }
+
     @Override
     public String getPluginName() {
         return "Feishu";

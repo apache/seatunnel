@@ -21,7 +21,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -61,20 +60,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     protected JobContext jobContext;
     protected DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
-    @Override
-    public String getPluginName() {
-        return "Http";
-    }
-
-    @Override
-    public Boundedness getBoundedness() {
-        return JobMode.BATCH.equals(jobContext.getJobMode())
-                ? Boundedness.BOUNDED
-                : Boundedness.UNBOUNDED;
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    public HttpSource(Config pluginConfig) {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL.key());
         if (!result.isSuccess()) {
             throw new HttpConnectorException(
@@ -86,6 +72,18 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         this.httpParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
         buildPagingWithConfig(pluginConfig);
+    }
+
+    @Override
+    public String getPluginName() {
+        return "Http";
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        return JobMode.BATCH.equals(jobContext.getJobMode())
+                ? Boundedness.BOUNDED
+                : Boundedness.UNBOUNDED;
     }
 
     private void buildPagingWithConfig(Config pluginConfig) {

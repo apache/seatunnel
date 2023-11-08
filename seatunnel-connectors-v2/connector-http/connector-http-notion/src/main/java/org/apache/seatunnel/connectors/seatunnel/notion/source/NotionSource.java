@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.notion.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -42,13 +41,8 @@ import lombok.extern.slf4j.Slf4j;
 public class NotionSource extends HttpSource {
     private final NotionSourceParameter notionSourceParameter = new NotionSourceParameter();
 
-    @Override
-    public String getPluginName() {
-        return "Notion";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    protected NotionSource(Config pluginConfig) {
+        super(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
@@ -63,7 +57,11 @@ public class NotionSource extends HttpSource {
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         notionSourceParameter.buildWithConfig(pluginConfig);
-        buildSchemaWithConfig(pluginConfig);
+    }
+
+    @Override
+    public String getPluginName() {
+        return "Notion";
     }
 
     @Override

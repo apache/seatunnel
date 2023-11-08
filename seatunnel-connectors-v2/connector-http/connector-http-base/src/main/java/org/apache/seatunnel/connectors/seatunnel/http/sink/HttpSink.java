@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.http.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -47,13 +46,7 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     protected SeaTunnelRowType seaTunnelRowType;
     protected Config pluginConfig;
 
-    @Override
-    public String getPluginName() {
-        return "Http";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    public HttpSink(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL.key());
         if (!result.isSuccess()) {
@@ -82,6 +75,11 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                                             entry -> String.valueOf(entry.getValue().unwrapped()),
                                             (v1, v2) -> v2)));
         }
+    }
+
+    @Override
+    public String getPluginName() {
+        return "Http";
     }
 
     @Override

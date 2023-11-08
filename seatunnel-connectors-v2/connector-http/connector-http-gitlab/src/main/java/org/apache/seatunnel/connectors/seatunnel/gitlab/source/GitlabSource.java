@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.gitlab.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -44,22 +43,8 @@ import lombok.extern.slf4j.Slf4j;
 public class GitlabSource extends HttpSource {
     private final GitlabSourceParameter gitlabSourceParameter = new GitlabSourceParameter();
 
-    @Override
-    public String getPluginName() {
-        return "Gitlab";
-    }
-
-    @Override
-    public Boundedness getBoundedness() {
-        if (JobMode.BATCH.equals(jobContext.getJobMode())) {
-            return Boundedness.BOUNDED;
-        }
-        throw new UnsupportedOperationException(
-                "Gitlab source connector not support unbounded operation");
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    public GitlabSource(Config pluginConfig) {
+        super(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
@@ -73,7 +58,20 @@ public class GitlabSource extends HttpSource {
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.gitlabSourceParameter.buildWithConfig(pluginConfig);
-        buildSchemaWithConfig(pluginConfig);
+    }
+
+    @Override
+    public String getPluginName() {
+        return "Gitlab";
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        if (JobMode.BATCH.equals(jobContext.getJobMode())) {
+            return Boundedness.BOUNDED;
+        }
+        throw new UnsupportedOperationException(
+                "Gitlab source connector not support unbounded operation");
     }
 
     @Override

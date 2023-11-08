@@ -45,6 +45,20 @@ public class GithubSource extends HttpSource {
 
     private final GithubSourceParameter githubSourceParam = new GithubSourceParameter();
 
+    public GithubSource(Config pluginConfig) {
+        super(pluginConfig);
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(pluginConfig, GithubSourceConfig.URL.key());
+        if (!result.isSuccess()) {
+            throw new GithubConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
+        }
+        githubSourceParam.buildWithConfig(pluginConfig);
+    }
+
     @Override
     public String getPluginName() {
         return PLUGIN_NAME;

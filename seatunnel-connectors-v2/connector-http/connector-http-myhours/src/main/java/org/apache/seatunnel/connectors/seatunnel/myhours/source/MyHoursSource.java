@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.myhours.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -50,13 +49,8 @@ import java.util.Map;
 public class MyHoursSource extends HttpSource {
     private final MyHoursSourceParameter myHoursSourceParameter = new MyHoursSourceParameter();
 
-    @Override
-    public String getPluginName() {
-        return "MyHours";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    protected MyHoursSource(Config pluginConfig) {
+        super(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
@@ -73,7 +67,11 @@ public class MyHoursSource extends HttpSource {
         // Login to get accessToken
         String accessToken = getAccessToken(pluginConfig);
         this.myHoursSourceParameter.buildWithConfig(pluginConfig, accessToken);
-        buildSchemaWithConfig(pluginConfig);
+    }
+
+    @Override
+    public String getPluginName() {
+        return "MyHours";
     }
 
     @Override

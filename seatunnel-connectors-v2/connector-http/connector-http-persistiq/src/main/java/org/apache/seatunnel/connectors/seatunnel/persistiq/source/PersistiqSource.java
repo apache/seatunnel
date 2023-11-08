@@ -41,13 +41,8 @@ public class PersistiqSource extends HttpSource {
     private final PersistiqSourceParameter persistiqSourceParameter =
             new PersistiqSourceParameter();
 
-    @Override
-    public String getPluginName() {
-        return "Persistiq";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    public PersistiqSource(Config pluginConfig) {
+        super(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
@@ -57,7 +52,11 @@ public class PersistiqSource extends HttpSource {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         persistiqSourceParameter.buildWithConfig(pluginConfig);
-        buildSchemaWithConfig(pluginConfig);
+    }
+
+    @Override
+    public String getPluginName() {
+        return "Persistiq";
     }
 
     @Override

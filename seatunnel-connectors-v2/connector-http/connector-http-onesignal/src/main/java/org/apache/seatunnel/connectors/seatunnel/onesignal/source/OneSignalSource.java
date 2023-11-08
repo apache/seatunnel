@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.onesignal.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -43,13 +42,8 @@ public class OneSignalSource extends HttpSource {
     private final OneSignalSourceParameter oneSignalSourceParameter =
             new OneSignalSourceParameter();
 
-    @Override
-    public String getPluginName() {
-        return "OneSignal";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    protected OneSignalSource(Config pluginConfig) {
+        super(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
@@ -63,7 +57,11 @@ public class OneSignalSource extends HttpSource {
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         oneSignalSourceParameter.buildWithConfig(pluginConfig);
-        buildSchemaWithConfig(pluginConfig);
+    }
+
+    @Override
+    public String getPluginName() {
+        return "OneSignal";
     }
 
     @Override

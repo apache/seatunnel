@@ -44,22 +44,8 @@ import static org.apache.seatunnel.connectors.seatunnel.http.util.AuthorizationU
 public class JiraSource extends HttpSource {
     private final JiraSourceParameter jiraSourceParameter = new JiraSourceParameter();
 
-    @Override
-    public String getPluginName() {
-        return "Jira";
-    }
-
-    @Override
-    public Boundedness getBoundedness() {
-        if (JobMode.BATCH.equals(jobContext.getJobMode())) {
-            return Boundedness.BOUNDED;
-        }
-        throw new UnsupportedOperationException(
-                "Jira source connector not support unbounded operation");
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    protected JiraSource(Config pluginConfig) {
+        super(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
@@ -75,7 +61,20 @@ public class JiraSource extends HttpSource {
                         pluginConfig.getString(JiraSourceConfig.EMAIL.key()),
                         pluginConfig.getString(JiraSourceConfig.API_TOKEN.key()));
         jiraSourceParameter.buildWithConfig(pluginConfig, accessToken);
-        buildSchemaWithConfig(pluginConfig);
+    }
+
+    @Override
+    public String getPluginName() {
+        return "Jira";
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        if (JobMode.BATCH.equals(jobContext.getJobMode())) {
+            return Boundedness.BOUNDED;
+        }
+        throw new UnsupportedOperationException(
+                "Jira source connector not support unbounded operation");
     }
 
     @Override

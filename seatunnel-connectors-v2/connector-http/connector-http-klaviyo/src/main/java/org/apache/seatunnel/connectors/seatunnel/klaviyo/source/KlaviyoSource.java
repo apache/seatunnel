@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.klaviyo.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -42,13 +41,8 @@ import lombok.extern.slf4j.Slf4j;
 public class KlaviyoSource extends HttpSource {
     private final KlaviyoSourceParameter klaviyoSourceParameter = new KlaviyoSourceParameter();
 
-    @Override
-    public String getPluginName() {
-        return "Klaviyo";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    public KlaviyoSource(Config pluginConfig) {
+        super(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
@@ -63,7 +57,11 @@ public class KlaviyoSource extends HttpSource {
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.klaviyoSourceParameter.buildWithConfig(pluginConfig);
-        buildSchemaWithConfig(pluginConfig);
+    }
+
+    @Override
+    public String getPluginName() {
+        return "Klaviyo";
     }
 
     @Override
