@@ -187,6 +187,9 @@ public class ZetaSQLFilter {
         if (regex.endsWith("_")) {
             regex = regex.substring(0, regex.length() - 1) + ".";
         }
+        if (regex.length() >= 3 && regex.substring(regex.length() - 3).endsWith("_.*")) {
+            regex = regex.substring(0, regex.length() - 3) + "..*";
+        }
         if (regex.startsWith("'") && regex.endsWith("'")) {
             regex = regex.substring(0, regex.length() - 1).substring(1);
         }
@@ -230,6 +233,9 @@ public class ZetaSQLFilter {
         }
         if (regex.endsWith("_")) {
             regex = regex.substring(0, regex.length() - 1) + ".";
+        }
+        if (regex.length() >= 3 && regex.substring(regex.length() - 3).endsWith("_.*")) {
+            regex = regex.substring(0, regex.length() - 3) + "..*";
         }
         if (regex.startsWith("'") && regex.endsWith("'")) {
             regex = regex.substring(0, regex.length() - 1).substring(1);
