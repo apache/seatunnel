@@ -135,7 +135,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
 
     @Override
     void compareResult(String executeKey) {
-        defaultCompare(executeKey, fieldNames, "DATE_COL");
+        defaultCompare(executeKey, fieldNames, "INTEGER_COL");
     }
 
     @Override
