@@ -19,8 +19,10 @@ package org.apache.seatunnel.engine.server.rest;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -33,6 +35,7 @@ import org.apache.seatunnel.engine.server.utils.RestUtil;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpPostCommand;
+import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.serialization.Data;
 
@@ -42,10 +45,12 @@ import java.util.Map;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOB_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOB_URL;
 
 public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostCommand> {
+
     private final Log4j2HttpPostCommandProcessor original;
 
     public RestHttpPostCommandProcessor(TextCommandService textCommandService) {
@@ -69,6 +74,8 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 handleSubmitJob(httpPostCommand, uri);
             } else if (uri.startsWith(STOP_JOB_URL)) {
                 handleStopJob(httpPostCommand, uri);
+            } else if (uri.startsWith(ENCRYPT_CONFIG)) {
+                handleEncrypt(httpPostCommand);
             } else {
                 original.handle(httpPostCommand);
             }
@@ -92,7 +99,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
             throws IllegalArgumentException {
         Map<String, String> requestParams = new HashMap<>();
         RestUtil.buildRequestParams(requestParams, uri);
-        Config config = RestUtil.buildConfig(requestHandle(httpPostCommand));
+        Config config = RestUtil.buildConfig(requestHandle(httpPostCommand), false);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(requestParams.get(RestConstant.JOB_NAME));
 
@@ -151,6 +158,15 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         this.prepareResponse(
                 httpPostCommand,
                 new JsonObject().add(RestConstant.JOB_ID, map.get(RestConstant.JOB_ID).toString()));
+    }
+
+    private void handleEncrypt(HttpPostCommand httpPostCommand) {
+        Config config = RestUtil.buildConfig(requestHandle(httpPostCommand), true);
+        Config encryptConfig = ConfigShadeUtils.encryptConfig(config);
+        String encryptString =
+                encryptConfig.root().render(ConfigRenderOptions.concise().setJson(true));
+        JsonObject jsonObject = Json.parse(encryptString).asObject();
+        this.prepareResponse(httpPostCommand, jsonObject);
     }
 
     @Override
