@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -65,11 +64,6 @@ public abstract class BaseFileSink
         this.seaTunnelRowType = seaTunnelRowType;
         this.fileSinkConfig = new FileSinkConfig(pluginConfig, seaTunnelRowType);
         this.fileSystemUtils = new FileSystemUtils(hadoopConf);
-    }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return seaTunnelRowType;
     }
 
     @Override

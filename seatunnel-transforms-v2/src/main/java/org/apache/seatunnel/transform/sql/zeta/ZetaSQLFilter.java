@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.transform.sql.zeta;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -100,7 +100,7 @@ public class ZetaSQLFilter {
             return parenthesisExpr((Parenthesis) whereExpr, inputFields);
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported SQL Expression: %s ", whereExpr));
     }
 
@@ -231,7 +231,7 @@ public class ZetaSQLFilter {
             return ((LocalTime) leftVal).isAfter((LocalTime) rightVal);
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format(
                         "Filed types not matched, left is: %s, right is: %s ",
                         leftVal.getClass().getSimpleName(), rightVal.getClass().getSimpleName()));
@@ -261,7 +261,7 @@ public class ZetaSQLFilter {
             return ((LocalTime) leftVal).isAfter((LocalTime) rightVal) || leftVal.equals(rightVal);
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format(
                         "Filed types not matched, left is: %s, right is: %s ",
                         leftVal.getClass().getSimpleName(), rightVal.getClass().getSimpleName()));
@@ -289,7 +289,7 @@ public class ZetaSQLFilter {
             return ((String) leftVal).compareTo((String) rightVal) < 0;
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format(
                         "Filed types not matched, left is: %s, right is: %s ",
                         leftVal.getClass().getSimpleName(), rightVal.getClass().getSimpleName()));
@@ -319,7 +319,7 @@ public class ZetaSQLFilter {
             return ((String) leftVal).compareTo((String) rightVal) <= 0;
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format(
                         "Filed types not matched, left is: %s, right is: %s ",
                         leftVal.getClass().getSimpleName(), rightVal.getClass().getSimpleName()));

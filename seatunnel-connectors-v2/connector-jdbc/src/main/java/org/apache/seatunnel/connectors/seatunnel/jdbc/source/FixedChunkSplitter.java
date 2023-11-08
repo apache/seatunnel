@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcNumericBetweenParametersProvider;
@@ -61,7 +61,7 @@ public class FixedChunkSplitter extends ChunkSplitter {
             int scale = ((DecimalType) splitKeyType).getScale();
             if (scale != 0) {
                 throw new JdbcConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         String.format(
                                 "The current field is DecimalType containing decimals: %d Unable to support",
                                 scale));
@@ -219,7 +219,7 @@ public class FixedChunkSplitter extends ChunkSplitter {
             } else {
                 // extends with other types if needed
                 throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "open() failed. Parameter "
                                 + i
                                 + " of type "
@@ -270,7 +270,7 @@ public class FixedChunkSplitter extends ChunkSplitter {
             return BigDecimal.valueOf(((Timestamp) o).getTime());
         } else {
             throw new JdbcConnectorException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                     "convert failed. Column "
                             + o.getClass()
                             + " of type "

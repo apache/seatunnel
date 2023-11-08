@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rocketmq.common;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 /** schema format type */
@@ -39,7 +39,7 @@ public enum SchemaFormat {
             }
         }
         throw new SeaTunnelJsonFormatException(
-                CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + name);
+                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + name);
     }
 
     public String getName() {

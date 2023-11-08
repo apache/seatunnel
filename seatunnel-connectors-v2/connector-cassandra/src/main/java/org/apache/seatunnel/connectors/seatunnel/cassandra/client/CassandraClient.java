@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.client;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -81,7 +81,7 @@ public class CassandraClient {
                     .getColumnDefinitions();
         } catch (Exception e) {
             throw new CassandraConnectorException(
-                    CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                    CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
                     "Cannot get table schema from cassandra",
                     e);
         }
