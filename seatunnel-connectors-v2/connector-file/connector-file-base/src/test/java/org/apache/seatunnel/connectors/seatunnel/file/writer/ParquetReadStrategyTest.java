@@ -32,8 +32,10 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.net.URL;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TimeZone;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
@@ -68,6 +70,37 @@ public class ParquetReadStrategyTest {
         System.out.println(seaTunnelRowTypeInfo);
         TestCollector testCollector = new TestCollector();
         parquetReadStrategy.read(path, testCollector);
+    }
+
+    @Test
+    public void testParquetReadUseSystemDefaultTimeZone() throws Exception {
+        URL resource = ParquetReadStrategyTest.class.getResource("/timestamp_as_int64.parquet");
+        Assertions.assertNotNull(resource);
+        String path = Paths.get(resource.toURI()).toString();
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+        System.out.println(seaTunnelRowTypeInfo);
+        int index = seaTunnelRowTypeInfo.indexOf("c_timestamp");
+        TimeZone tz1 = TimeZone.getTimeZone("Asia/Shanghai");
+        TimeZone.setDefault(tz1);
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(path, testCollector);
+        LocalDateTime time1 = (LocalDateTime) testCollector.getRows().get(0).getField(index);
+
+        TimeZone tz2 = TimeZone.getTimeZone("UTC");
+        TimeZone.setDefault(tz2);
+        TestCollector testCollector2 = new TestCollector();
+        parquetReadStrategy.read(path, testCollector2);
+        LocalDateTime time2 = (LocalDateTime) testCollector2.getRows().get(0).getField(index);
+
+        Assertions.assertTrue(time1.isAfter(time2));
+        Assertions.assertEquals(
+                time1.atZone(tz1.toZoneId()).withZoneSameInstant(tz2.toZoneId()).toLocalDateTime(),
+                time2);
     }
 
     @Test

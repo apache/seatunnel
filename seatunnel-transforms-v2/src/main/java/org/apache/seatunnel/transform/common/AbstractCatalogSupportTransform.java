@@ -30,10 +30,6 @@ public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelT
 
     protected volatile CatalogTable outputCatalogTable;
 
-    public AbstractCatalogSupportTransform() {
-        super();
-    }
-
     public AbstractCatalogSupportTransform(@NonNull CatalogTable inputCatalogTable) {
         this.inputCatalogTable = inputCatalogTable;
     }

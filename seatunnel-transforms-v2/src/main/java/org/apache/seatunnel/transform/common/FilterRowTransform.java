@@ -20,21 +20,13 @@ package org.apache.seatunnel.transform.common;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
-import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
-@NoArgsConstructor
 public abstract class FilterRowTransform extends AbstractCatalogSupportTransform {
 
     public FilterRowTransform(@NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
-    }
-
-    @Override
-    protected SeaTunnelRowType transformRowType(SeaTunnelRowType inputRowType) {
-        return inputRowType;
     }
 
     @Override

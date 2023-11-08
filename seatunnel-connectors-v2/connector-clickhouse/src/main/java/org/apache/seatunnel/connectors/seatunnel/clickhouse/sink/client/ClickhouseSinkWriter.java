@@ -90,7 +90,14 @@ public class ClickhouseSinkWriter
 
     @Override
     public Optional<CKCommitInfo> prepareCommit() throws IOException {
-        flush();
+        for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
+            JdbcBatchStatementExecutor statement = batchStatement.getJdbcBatchStatementExecutor();
+            IntHolder intHolder = batchStatement.getIntHolder();
+            if (intHolder.getValue() > 0) {
+                flush(statement);
+                intHolder.setValue(0);
+            }
+        }
         return Optional.empty();
     }
 

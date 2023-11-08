@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.assertion.rule;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
@@ -41,6 +42,10 @@ public class AssertRuleParser {
     public List<AssertFieldRule.AssertRule> parseRowRules(List<? extends Config> rowRuleList) {
 
         return assembleFieldValueRules(rowRuleList);
+    }
+
+    public AssertCatalogTableRule parseCatalogTableRule(Config catalogTableRule) {
+        return new AssertCatalogTableRuleParser().parseCatalogTableRule(catalogTableRule);
     }
 
     public List<AssertFieldRule> parseRules(List<? extends Config> ruleConfigList) {
@@ -105,5 +110,6 @@ public class AssertRuleParser {
         TYPES.put("datetime", LocalTimeType.LOCAL_DATE_TIME_TYPE);
         TYPES.put("date", LocalTimeType.LOCAL_DATE_TYPE);
         TYPES.put("time", LocalTimeType.LOCAL_TIME_TYPE);
+        TYPES.put("decimal", new DecimalType(38, 18));
     }
 }

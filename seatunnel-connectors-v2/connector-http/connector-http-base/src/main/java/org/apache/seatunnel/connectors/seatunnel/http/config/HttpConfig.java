@@ -29,6 +29,25 @@ public class HttpConfig {
     public static final boolean DEFAULT_ENABLE_MULTI_LINES = false;
     public static final Option<String> URL =
             Options.key("url").stringType().noDefaultValue().withDescription("Http request url");
+    public static final Option<Long> TOTAL_PAGE_SIZE =
+            Options.key("total_page_size")
+                    .longType()
+                    .defaultValue(0L)
+                    .withDescription("total page size");
+    public static final Option<Integer> BATCH_SIZE =
+            Options.key("batch_size")
+                    .intType()
+                    .defaultValue(100)
+                    .withDescription(
+                            "the batch size returned per request is used to determine whether to continue when the total number of pages is unknown");
+    public static final Option<String> PAGE_FIELD =
+            Options.key("page_field")
+                    .stringType()
+                    .defaultValue("page")
+                    .withDescription(
+                            "this parameter is used to specify the page field name in the request parameter");
+    public static final Option<Map<String, String>> PAGEING =
+            Options.key("pageing").mapType().noDefaultValue().withDescription("pageing");
     public static final Option<HttpRequestMethod> METHOD =
             Options.key("method")
                     .enumType(HttpRequestMethod.class)

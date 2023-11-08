@@ -25,15 +25,12 @@ echo Set SEATUNNEL_HOME to [%SEATUNNEL_HOME%]
 REM Connector default version is 2.3.3, you can also choose a custom version. eg: 2.1.2:  install-plugin.bat 2.1.2
 set "version=2.3.3"
 if not "%~1"=="" set "version=%~1"
-echo Install hadoop shade jar, usage version is %version%
 
 REM Create the lib directory
 if not exist "%SEATUNNEL_HOME%\lib" (
     mkdir "%SEATUNNEL_HOME%\lib"
     echo create lib directory
 )
-
-call "%SEATUNNEL_HOME%\mvnw.cmd" dependency:get -DgroupId="org.apache.seatunnel" -Dclassifier="optional" -DartifactId="seatunnel-hadoop3-3.1.4-uber" -Dversion="%version%" -Ddest="%SEATUNNEL_HOME%\lib"
 
 echo Install SeaTunnel connectors plugins, usage version is %version%
 
@@ -43,18 +40,12 @@ if not exist "%SEATUNNEL_HOME%\connectors" (
     echo create connectors directory
 )
 
-REM Create the seatunnel connectors directory (for v2)
-if not exist "%SEATUNNEL_HOME%\connectors\seatunnel" (
-    mkdir "%SEATUNNEL_HOME%\connectors\seatunnel"
-    echo create seatunnel connectors directory
-)
-
 for /f "usebackq delims=" %%a in ("%SEATUNNEL_HOME%\config\plugin_config") do (
     set "line=%%a"
     setlocal enabledelayedexpansion
     if "!line:~0,1!" neq "-" if "!line:~0,1!" neq "#" (
         echo install connector : !line!
-        call "%SEATUNNEL_HOME%\mvnw.cmd" dependency:get -DgroupId="org.apache.seatunnel" -DartifactId="!line!" -Dversion="%version%" -Ddest="%SEATUNNEL_HOME%\connectors\seatunnel"
+        call "%SEATUNNEL_HOME%\mvnw.cmd" dependency:get -DgroupId="org.apache.seatunnel" -DartifactId="!line!" -Dversion="%version%" -Ddest="%SEATUNNEL_HOME%\connectors"
     )
     endlocal
 )

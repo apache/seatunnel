@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -41,6 +42,7 @@ import org.bson.json.JsonWriterSettings;
 import org.bson.types.Decimal128;
 
 import com.mongodb.client.model.changestream.OperationType;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
 
@@ -64,21 +66,20 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DOCUMENT_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ENCODE_VALUE_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.FULL_DOCUMENT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.extractBsonDocument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
+@Slf4j
 public class MongoDBConnectorDeserializationSchema
         implements DebeziumDeserializationSchema<SeaTunnelRow> {
-
     private final SeaTunnelDataType<SeaTunnelRow> resultTypeInfo;
 
-    private final DeserializationRuntimeConverter physicalConverter;
+    private final Map<String, DeserializationRuntimeConverter> tableRowConverters;
 
     public MongoDBConnectorDeserializationSchema(
             SeaTunnelDataType<SeaTunnelRow> physicalDataType,
             SeaTunnelDataType<SeaTunnelRow> resultTypeInfo) {
-        this.physicalConverter = createConverter(physicalDataType);
+        this.tableRowConverters = createConverter(physicalDataType);
         this.resultTypeInfo = resultTypeInfo;
     }
 
@@ -93,33 +94,44 @@ public class MongoDBConnectorDeserializationSchema
                         Objects.requireNonNull(
                                 extractBsonDocument(value, valueSchema, DOCUMENT_KEY)));
         BsonDocument fullDocument = extractBsonDocument(value, valueSchema, FULL_DOCUMENT);
+        String tableId = extractTableId(record);
+        DeserializationRuntimeConverter tableRowConverter;
+        if (tableId == null && tableRowConverters.size() == 1) {
+            tableRowConverter = tableRowConverters.values().iterator().next();
+        } else {
+            tableRowConverter = tableRowConverters.get(tableId);
+        }
+        if (tableRowConverter == null) {
+            log.debug("Ignore newly added table {}", tableId);
+            return;
+        }
 
         switch (op) {
             case INSERT:
-                SeaTunnelRow insert = extractRowData(fullDocument);
+                SeaTunnelRow insert = extractRowData(tableRowConverter, fullDocument);
                 insert.setRowKind(RowKind.INSERT);
+                insert.setTableId(tableId);
                 emit(record, insert, out);
                 break;
             case DELETE:
-                SeaTunnelRow delete =
-                        new SeaTunnelRow(
-                                new Object[] {
-                                    documentKey.get(ID_FIELD).asObjectId().getValue().toString()
-                                });
+                SeaTunnelRow delete = extractRowData(tableRowConverter, documentKey);
                 delete.setRowKind(RowKind.DELETE);
+                delete.setTableId(tableId);
                 emit(record, delete, out);
                 break;
             case UPDATE:
                 if (fullDocument == null) {
                     break;
                 }
-                SeaTunnelRow updateAfter = extractRowData(fullDocument);
+                SeaTunnelRow updateAfter = extractRowData(tableRowConverter, fullDocument);
                 updateAfter.setRowKind(RowKind.UPDATE_AFTER);
+                updateAfter.setTableId(tableId);
                 emit(record, updateAfter, out);
                 break;
             case REPLACE:
-                SeaTunnelRow replaceAfter = extractRowData(fullDocument);
+                SeaTunnelRow replaceAfter = extractRowData(tableRowConverter, fullDocument);
                 replaceAfter.setRowKind(RowKind.UPDATE_AFTER);
+                replaceAfter.setTableId(tableId);
                 emit(record, replaceAfter, out);
                 break;
             case INVALIDATE:
@@ -150,9 +162,15 @@ public class MongoDBConnectorDeserializationSchema
         collector.collect(physicalRow);
     }
 
-    private SeaTunnelRow extractRowData(BsonDocument document) {
+    private SeaTunnelRow extractRowData(
+            DeserializationRuntimeConverter tableRowConverter, BsonDocument document) {
         checkNotNull(document);
-        return (SeaTunnelRow) physicalConverter.convert(document);
+        return (SeaTunnelRow) tableRowConverter.convert(document);
+    }
+
+    private String extractTableId(SourceRecord record) {
+        // TODO extract table id from record
+        return null;
     }
 
     // -------------------------------------------------------------------------------------
@@ -164,17 +182,24 @@ public class MongoDBConnectorDeserializationSchema
         Object convert(BsonValue bsonValue);
     }
 
-    public DeserializationRuntimeConverter createConverter(SeaTunnelDataType<?> type) {
-        SerializableFunction<BsonValue, Object> internalRowConverter =
-                createNullSafeInternalConverter(type);
-        return new DeserializationRuntimeConverter() {
-            private static final long serialVersionUID = 1L;
+    public Map<String, DeserializationRuntimeConverter> createConverter(
+            SeaTunnelDataType<?> inputDataType) {
+        Map<String, DeserializationRuntimeConverter> tableRowConverters = new HashMap<>();
+        for (Map.Entry<String, SeaTunnelRowType> item : (MultipleRowType) inputDataType) {
+            SerializableFunction<BsonValue, Object> internalRowConverter =
+                    createNullSafeInternalConverter(item.getValue());
+            DeserializationRuntimeConverter itemRowConverter =
+                    new DeserializationRuntimeConverter() {
+                        private static final long serialVersionUID = 1L;
 
-            @Override
-            public Object convert(BsonValue bsonValue) {
-                return internalRowConverter.apply(bsonValue);
-            }
-        };
+                        @Override
+                        public Object convert(BsonValue bsonValue) {
+                            return internalRowConverter.apply(bsonValue);
+                        }
+                    };
+            tableRowConverters.put(item.getKey(), itemRowConverter);
+        }
+        return tableRowConverters;
     }
 
     private static SerializableFunction<BsonValue, Object> createNullSafeInternalConverter(
@@ -190,9 +215,7 @@ public class MongoDBConnectorDeserializationSchema
             @Override
             public Object apply(BsonValue bsonValue) {
                 if (isBsonValueNull(bsonValue) || isBsonDecimalNaN(bsonValue)) {
-                    throw new MongodbConnectorException(
-                            UNSUPPORTED_OPERATION,
-                            "Unable to convert to <" + type + "> from nullable value " + bsonValue);
+                    return null;
                 }
                 return internalConverter.apply(bsonValue);
             }

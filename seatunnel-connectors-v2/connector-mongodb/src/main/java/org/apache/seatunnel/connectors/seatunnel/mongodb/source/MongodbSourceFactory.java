@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -46,7 +46,7 @@ public class MongodbSourceFactory implements TableSourceFactory {
                         MongodbConfig.URI,
                         MongodbConfig.DATABASE,
                         MongodbConfig.COLLECTION,
-                        CatalogTableUtil.SCHEMA)
+                        TableSchemaOptions.SCHEMA)
                 .optional(
                         MongodbConfig.PROJECTION,
                         MongodbConfig.MATCH_QUERY,

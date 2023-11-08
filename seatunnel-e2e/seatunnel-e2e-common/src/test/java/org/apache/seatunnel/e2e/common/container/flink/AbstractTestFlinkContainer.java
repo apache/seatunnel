@@ -123,6 +123,16 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     }
 
     @Override
+    protected String getSavePointCommand() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
+    protected String getRestoreCommand() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
     protected List<String> getExtraStartShellCommands() {
         return Collections.emptyList();
     }
@@ -138,5 +148,10 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         return executeJob(jobManager, confFile);
+    }
+
+    @Override
+    public String getServerLogs() {
+        return jobManager.getLogs();
     }
 }

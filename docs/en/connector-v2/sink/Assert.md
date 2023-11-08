@@ -12,19 +12,37 @@ A flink sink plugin which can assert illegal data by user defined rules
 
 ## Options
 
-|                   name                   |    type    | required | default value |
-|------------------------------------------|------------|----------|---------------|
-| rules                                    | ConfigMap  | yes      | -             |
-| rules.field_rules                        | string     | yes      | -             |
-| rules.field_rules.field_name             | string     | yes      | -             |
-| rules.field_rules.field_type             | string     | no       | -             |
-| rules.field_rules.field_value            | ConfigList | no       | -             |
-| rules.field_rules.field_value.rule_type  | string     | no       | -             |
-| rules.field_rules.field_value.rule_value | double     | no       | -             |
-| rules.row_rules                          | string     | yes      | -             |
-| rules.row_rules.rule_type                | string     | no       | -             |
-| rules.row_rules.rule_value               | string     | no       | -             |
-| common-options                           |            | no       | -             |
+|                                              name                                              |    type    | required | default value |
+|------------------------------------------------------------------------------------------------|------------|----------|---------------|
+| rules                                                                                          | ConfigMap  | yes      | -             |
+| rules.field_rules                                                                              | string     | yes      | -             |
+| rules.field_rules.field_name                                                                   | string     | yes      | -             |
+| rules.field_rules.field_type                                                                   | string     | no       | -             |
+| rules.field_rules.field_value                                                                  | ConfigList | no       | -             |
+| rules.field_rules.field_value.rule_type                                                        | string     | no       | -             |
+| rules.field_rules.field_value.rule_value                                                       | double     | no       | -             |
+| rules.row_rules                                                                                | string     | yes      | -             |
+| rules.row_rules.rule_type                                                                      | string     | no       | -             |
+| rules.row_rules.rule_value                                                                     | string     | no       | -             |
+| rules.catalog_table_rule                                                                       | ConfigMap  | no       | -             |
+| rules.catalog_table_rule.primary_key_rule                                                      | ConfigMap  | no       | -             |
+| rules.catalog_table_rule.primary_key_rule.primary_key_name                                     | string     | no       | -             |
+| rules.catalog_table_rule.primary_key_rule.primary_key_columns                                  | list       | no       | -             |
+| rules.catalog_table_rule.constraint_key_rule                                                   | ConfigList | no       | -             |
+| rules.catalog_table_rule.constraint_key_rule.constraint_key_name                               | string     | no       | -             |
+| rules.catalog_table_rule.constraint_key_rule.constraint_key_type                               | string     | no       | -             |
+| rules.catalog_table_rule.constraint_key_rule.constraint_key_columns                            | ConfigList | no       | -             |
+| rules.catalog_table_rule.constraint_key_rule.constraint_key_columns.constraint_key_column_name | string     | no       | -             |
+| rules.catalog_table_rule.constraint_key_rule.constraint_key_columns.constraint_key_sort_type   | string     | no       | -             |
+| rules.catalog_table_rule.column_rule                                                           | ConfigList | no       | -             |
+| rules.catalog_table_rule.column_rule.name                                                      | string     | no       | -             |
+| rules.catalog_table_rule.column_rule.type                                                      | string     | no       | -             |
+| rules.catalog_table_rule.column_rule.column_length                                             | int        | no       | -             |
+| rules.catalog_table_rule.column_rule.nullable                                                  | boolean    | no       | -             |
+| rules.catalog_table_rule.column_rule.default_value                                             | string     | no       | -             |
+| rules.catalog_table_rule.column_rule.comment                                                   | comment    | no       | -             |
+| rules.table-names                                                                              | list       | no       | -             |
+| common-options                                                                                 |            | no       | -             |
 
 ### rules [ConfigMap]
 
@@ -60,6 +78,14 @@ The following rules are supported for now
 ### rule_value [double]
 
 the value related to rule type
+
+### catalog_table_rule [ConfigMap]
+
+Used to assert the catalog table is same with the user defined table.
+
+### table-names [ConfigList]
+
+Used to assert the table should be in the data.
 
 ### common options
 
@@ -117,6 +143,38 @@ Assert {
           ]
         }
         ]
+        catalog_table_rule {
+            primary_key_rule = {
+                primary_key_name = "primary key"
+                primary_key_columns = ["id"]
+            }
+            constraint_key_rule = [
+                        {
+                        constraint_key_name = "unique_name"
+                        constraint_key_type = UNIQUE_KEY
+                        constraint_key_columns = [
+                            {
+                                constraint_key_column_name = "id"
+                                constraint_key_sort_type = ASC
+                            }
+                        ]
+                        }
+            ]
+            column_rule = [
+               {
+                name = "id"
+                type = bigint
+               },
+              {
+                name = "name"
+                type = string
+              },
+              {
+                name = "age"
+                type = int
+              }
+            ]
+        }
       }
 
   }
