@@ -33,7 +33,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarAdminConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
@@ -320,7 +320,8 @@ public class PulsarSource
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                            "Unsupported format: " + format);
             }
         } else {
             typeInfo = CatalogTableUtil.buildSimpleTextSchema();

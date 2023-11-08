@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.SchemaFormat;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
@@ -84,7 +84,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
                 return new JsonSerializationSchema(rowType);
             default:
                 throw new SeaTunnelJsonFormatException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported format: " + format);
         }
     }
 

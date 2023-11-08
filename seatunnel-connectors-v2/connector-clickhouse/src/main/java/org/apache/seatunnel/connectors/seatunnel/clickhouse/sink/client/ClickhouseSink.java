@@ -31,7 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
@@ -149,7 +149,7 @@ public class ClickhouseSink
         if (config.getBoolean(SPLIT_MODE.key())) {
             if (!"Distributed".equals(table.getEngine())) {
                 throw new ClickhouseConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         "split mode only support table which engine is "
                                 + "'Distributed' engine at now");
             }
@@ -193,7 +193,7 @@ public class ClickhouseSink
             String primaryKey = config.getString(PRIMARY_KEY.key());
             if (shardKey != null && !Objects.equals(primaryKey, shardKey)) {
                 throw new ClickhouseConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         "sharding_key and primary_key must be consistent to ensure correct processing of cdc events");
             }
             primaryKeys = new String[] {primaryKey};

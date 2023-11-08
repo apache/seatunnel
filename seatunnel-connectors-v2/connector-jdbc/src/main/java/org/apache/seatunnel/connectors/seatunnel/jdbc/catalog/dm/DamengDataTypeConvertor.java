@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm;
 
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -25,8 +24,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.collections4.MapUtils;
@@ -125,8 +123,7 @@ public class DamengDataTypeConvertor implements DataTypeConvertor<String> {
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            String field, String dataType, Map<String, Object> properties)
-            throws DataTypeConvertException {
+            String field, String dataType, Map<String, Object> properties) {
         switch (dataType.toUpperCase()) {
             case DM_BIT:
                 return BasicType.BOOLEAN_TYPE;
@@ -200,18 +197,14 @@ public class DamengDataTypeConvertor implements DataTypeConvertor<String> {
             case DM_TIMESTAMP_WITH_TIME_ZONE:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
             default:
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format(
-                                "Doesn't support DMDB type '%s' of the '%s' field yet.",
-                                dataType, field));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.DAMENG, dataType, field);
         }
     }
 
     @Override
     public String toConnectorType(
-            String field, SeaTunnelDataType<?> dataType, Map<String, Object> properties)
-            throws DataTypeConvertException {
+            String field, SeaTunnelDataType<?> dataType, Map<String, Object> properties) {
         SqlType sqlType = dataType.getSqlType();
         switch (sqlType) {
             case TINYINT:
@@ -241,10 +234,8 @@ public class DamengDataTypeConvertor implements DataTypeConvertor<String> {
             case BYTES:
                 return DM_BINARY;
             default:
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Doesn't support SeaTunnel type '%s' of the '%s' field yet.",
-                                dataType, field));
+                throw CommonError.convertToConnectorTypeError(
+                        DatabaseIdentifier.DAMENG, dataType.toString(), field);
         }
     }
 }

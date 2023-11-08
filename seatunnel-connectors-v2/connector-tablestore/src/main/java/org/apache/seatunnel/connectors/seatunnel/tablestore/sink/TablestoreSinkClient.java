@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.tablestore.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOptions;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.exception.TablestoreConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.exception.TablestoreConnectorException;
@@ -99,7 +99,7 @@ public class TablestoreSinkClient {
     private void checkFlushException() {
         if (flushException != null) {
             throw new TablestoreConnectorException(
-                    CommonErrorCode.FLUSH_DATA_FAILED,
+                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                     "Writing items to Tablestore failed.",
                     flushException);
         }

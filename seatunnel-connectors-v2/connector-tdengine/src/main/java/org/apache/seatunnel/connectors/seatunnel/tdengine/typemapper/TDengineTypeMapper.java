@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -144,7 +144,7 @@ public class TDengineTypeMapper {
             case TDENGINE_UNKNOWN:
             default:
                 throw new TDengineConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         String.format(
                                 "Doesn't support TDENGINE type '%s' on column '%s'  yet.",
                                 tdengineType));

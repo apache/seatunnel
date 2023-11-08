@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.format.json.JsonToRowConverters;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
@@ -132,7 +132,7 @@ public class CompatibleKafkaConnectDeserializationSchema
             return (SeaTunnelRow) runtimeConverter.convert(jsonData);
         } catch (Throwable t) {
             throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", jsonNode),
                     t);
         }

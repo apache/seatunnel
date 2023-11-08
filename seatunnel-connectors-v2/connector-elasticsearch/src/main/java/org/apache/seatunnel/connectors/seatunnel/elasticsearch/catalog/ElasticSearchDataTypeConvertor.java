@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog;
 
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -53,8 +52,7 @@ public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<String>
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            String field, String connectorDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field, String connectorDataType, Map<String, Object> dataTypeProperties) {
         checkNotNull(connectorDataType, "connectorDataType can not be null");
         switch (connectorDataType) {
             case STRING:
@@ -90,8 +88,7 @@ public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<String>
     public String toConnectorType(
             String field,
             SeaTunnelDataType<?> seaTunnelDataType,
-            Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            Map<String, Object> dataTypeProperties) {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType can not be null");
         SqlType sqlType = seaTunnelDataType.getSqlType();
         switch (sqlType) {

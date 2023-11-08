@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.fake.utils.FakeDataRandomUtils;
@@ -65,7 +65,7 @@ public class FakeDataGenerator {
             }
             return seaTunnelRow;
         } catch (IOException e) {
-            throw new FakeConnectorException(CommonErrorCode.JSON_OPERATION_FAILED, e);
+            throw new FakeConnectorException(CommonErrorCodeDeprecated.JSON_OPERATION_FAILED, e);
         }
     }
 
@@ -171,7 +171,7 @@ public class FakeDataGenerator {
             default:
                 // never got in there
                 throw new FakeConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "SeaTunnel Fake source connector not support this data type");
         }
     }
