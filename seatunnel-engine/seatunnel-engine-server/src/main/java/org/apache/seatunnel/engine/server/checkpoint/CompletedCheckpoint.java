@@ -22,10 +22,12 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 
 import java.io.Serializable;
 import java.util.Map;
 
+@ToString
 public class CompletedCheckpoint implements Checkpoint, Serializable {
     private static final long serialVersionUID = 1L;
     private final long jobId;

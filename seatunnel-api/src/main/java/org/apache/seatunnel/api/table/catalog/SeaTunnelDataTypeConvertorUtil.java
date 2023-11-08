@@ -94,7 +94,11 @@ public class SeaTunnelDataTypeConvertorUtil {
         if (column.startsWith(SqlType.DECIMAL.name())) {
             return parseDecimalType(column);
         }
-        return parseRowType(columnStr);
+        if (column.trim().startsWith("{")) {
+            return parseRowType(columnStr);
+        }
+        throw new UnsupportedOperationException(
+                String.format("the type[%s] is not support", columnStr));
     }
 
     private static SeaTunnelDataType<?> parseRowType(String columnStr) {

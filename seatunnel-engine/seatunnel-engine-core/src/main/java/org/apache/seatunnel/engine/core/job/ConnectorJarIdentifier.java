@@ -54,13 +54,11 @@ public class ConnectorJarIdentifier implements Serializable {
     }
 
     public static ConnectorJarIdentifier of(ConnectorJar connectorJar, String storagePath) {
-        ConnectorJarIdentifier connectorJarIdentifier =
-                ConnectorJarIdentifier.of(
-                        connectorJar.getConnectorJarID(),
-                        connectorJar.getType(),
-                        connectorJar.getFileName(),
-                        storagePath);
-        return connectorJarIdentifier;
+        return ConnectorJarIdentifier.of(
+                connectorJar.getConnectorJarID(),
+                connectorJar.getType(),
+                connectorJar.getFileName(),
+                storagePath);
     }
 
     public static ConnectorJarIdentifier of(

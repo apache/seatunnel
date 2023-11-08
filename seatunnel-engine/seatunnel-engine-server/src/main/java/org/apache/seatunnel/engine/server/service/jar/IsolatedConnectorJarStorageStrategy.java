@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.master;
+package org.apache.seatunnel.engine.server.service.jar;
 
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.core.job.CommonPluginJar;
@@ -45,29 +45,20 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
             return ConnectorJarIdentifier.of(connectorJar, storageFile.toString());
         }
         Optional<Path> optional = storageConnectorJarFileInternal(connectorJar, storageFile);
-        ConnectorJarIdentifier connectorJarIdentifier =
-                optional.isPresent()
-                        ? ConnectorJarIdentifier.of(connectorJar, optional.get().toString())
-                        : ConnectorJarIdentifier.of(connectorJar, "");
-        return connectorJarIdentifier;
+        return optional.map(path -> ConnectorJarIdentifier.of(connectorJar, path.toString()))
+                .orElseGet(() -> ConnectorJarIdentifier.of(connectorJar, ""));
     }
 
     @Override
     public boolean checkConnectorJarExisted(long jobId, ConnectorJar connectorJar) {
         File storageFile = getStorageLocation(jobId, connectorJar);
-        if (storageFile.exists()) {
-            return true;
-        }
-        return false;
+        return storageFile.exists();
     }
 
     @Override
     public void cleanUpWhenJobFinished(
             long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList) {
-        connectorJarIdentifierList.forEach(
-                connectorJarIdentifier -> {
-                    deleteConnectorJar(connectorJarIdentifier);
-                });
+        connectorJarIdentifierList.forEach(this::deleteConnectorJar);
     }
 
     @Override
@@ -95,10 +86,5 @@ public class IsolatedConnectorJarStorageStrategy extends AbstractConnectorJarSto
                     jobId,
                     connectorJar.getFileName());
         }
-    }
-
-    @Override
-    public byte[] readConnectorJarByteData(File connectorJarFile) {
-        return readConnectorJarByteDataInternal(connectorJarFile);
     }
 }
