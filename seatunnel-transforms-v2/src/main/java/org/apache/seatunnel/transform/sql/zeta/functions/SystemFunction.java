@@ -22,9 +22,11 @@ import org.apache.seatunnel.transform.exception.TransformException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 
 public class SystemFunction {
@@ -96,6 +98,14 @@ public class SystemFunction {
                 if (v1 instanceof LocalTime) {
                     return LocalDateTime.of(LocalDate.now(), (LocalTime) v1);
                 }
+                if (v1 instanceof Long) {
+                    Instant instant = Instant.ofEpochMilli(((Long) v1).longValue());
+                    ZoneId zone = ZoneId.systemDefault();
+                    return LocalDateTime.ofInstant(instant, zone);
+                }
+                throw new TransformException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format("Unsupported CAST AS type: %s", v2));
             case "DATE":
                 if (v1 instanceof LocalDateTime) {
                     return ((LocalDateTime) v1).toLocalDate();
@@ -103,16 +113,36 @@ public class SystemFunction {
                 if (v1 instanceof LocalDate) {
                     return v1;
                 }
+                if (v1 instanceof Integer) {
+                    int dateValue = ((Integer) v1).intValue();
+                    int year = dateValue / 10000;
+                    int month = (dateValue / 100) % 100;
+                    int day = dateValue % 100;
+                    return LocalDate.of(year, month, day);
+                }
+                throw new TransformException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format("Unsupported CAST AS type: %s", v2));
             case "TIME":
                 if (v1 instanceof LocalDateTime) {
                     return ((LocalDateTime) v1).toLocalTime();
                 }
                 if (v1 instanceof LocalDate) {
-                    return LocalDateTime.of((LocalDate) v1, LocalTime.of(0, 0, 0));
+                    return LocalTime.of(0, 0, 0);
                 }
                 if (v1 instanceof LocalTime) {
-                    return LocalDateTime.of(LocalDate.now(), (LocalTime) v1);
+                    return v1;
                 }
+                if (v1 instanceof Integer) {
+                    int intTime = ((Integer) v1).intValue();
+                    int hour = intTime / 10000;
+                    int minute = (intTime / 100) % 100;
+                    int second = intTime % 100;
+                    return LocalTime.of(hour, minute, second);
+                }
+                throw new TransformException(
+                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        String.format("Unsupported CAST AS type: %s", v2));
             case "DECIMAL":
                 BigDecimal bigDecimal = new BigDecimal(v1.toString());
                 Integer scale = (Integer) args.get(3);
