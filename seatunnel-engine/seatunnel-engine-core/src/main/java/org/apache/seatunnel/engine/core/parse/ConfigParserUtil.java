@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.apache.seatunnel.api.common.CommonOptions.FACTORY_ID;
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
 import static org.apache.seatunnel.api.common.CommonOptions.SOURCE_TABLE_NAME;
@@ -264,7 +263,7 @@ public final class ConfigParserUtil {
     }
 
     public static String getFactoryId(ReadonlyConfig readonlyConfig) {
-        return readonlyConfig.getOptional(FACTORY_ID).orElse(readonlyConfig.get(PLUGIN_NAME));
+        return readonlyConfig.get(PLUGIN_NAME);
     }
 
     public static String getFactoryId(Config config) {

@@ -55,8 +55,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public abstract class AbstractJdbcCatalog implements Catalog {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractJdbcCatalog.class);
@@ -408,6 +408,18 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         }
     }
 
+    public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {
+        checkNotNull(tablePath, "Table path cannot be null");
+        if (!databaseExists(tablePath.getDatabaseName())) {
+            if (ignoreIfNotExists) {
+                return;
+            }
+            throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
+        }
+        truncateTableInternal(tablePath);
+    }
+
     @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
@@ -420,7 +432,6 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             }
             throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
         }
-
         dropDatabaseInternal(tablePath.getDatabaseName());
     }
 
@@ -483,7 +494,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     // If sql is DDL, the execute() method always returns false, so the return value
     // should not be used to determine whether changes were made in database.
     protected boolean executeInternal(String url, String sql) throws SQLException {
-        LOG.info("create table sql is: {}", sql);
+        LOG.info("Execute sql : {}", sql);
         try (PreparedStatement ps = getConnection(url).prepareStatement(sql)) {
             return ps.execute();
         }
@@ -492,5 +503,48 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
         return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery);
+    }
+
+    protected void truncateTableInternal(TablePath tablePath) throws CatalogException {
+        try {
+            executeInternal(defaultUrl, getTruncateTableSql(tablePath));
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format(
+                            "Failed truncate table %s in catalog %s",
+                            tablePath.getFullName(), this.catalogName),
+                    e);
+        }
+    }
+
+    protected String getTruncateTableSql(TablePath tablePath) {
+        throw new UnsupportedOperationException();
+    }
+
+    protected String getCountSql(TablePath tablePath) {
+        throw new UnsupportedOperationException();
+    }
+
+    public void executeSql(TablePath tablePath, String sql) {
+        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
+        Connection connection = getConnection(dbUrl);
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            // Will there exist concurrent drop for one table?
+            ps.execute();
+        } catch (SQLException e) {
+            throw new CatalogException(String.format("Failed executeSql error %s", sql), e);
+        }
+    }
+
+    public boolean isExistsData(TablePath tablePath) {
+        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
+        Connection connection = getConnection(dbUrl);
+        String sql = getCountSql(tablePath);
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ResultSet resultSet = ps.executeQuery();
+            return resultSet.next();
+        } catch (SQLException e) {
+            throw new CatalogException(String.format("Failed executeSql error %s", sql), e);
+        }
     }
 }

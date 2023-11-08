@@ -18,11 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
 import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
@@ -31,8 +31,10 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCata
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 
+import java.util.Optional;
+
 public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
-        implements SupportDataSaveMode {
+        implements SupportSaveMode {
 
     private SeaTunnelRowType seaTunnelRowType;
     private final SinkConfig sinkConfig;
@@ -74,16 +76,16 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return this.seaTunnelRowType;
-    }
-
-    @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
         return new StarRocksSinkWriter(sinkConfig, seaTunnelRowType);
     }
 
     @Override
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        return Optional.empty();
+    }
+
+    /*@Override
     public DataSaveMode getUserConfigSaveMode() {
         return dataSaveMode;
     }
@@ -93,5 +95,5 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         if (catalogTable != null) {
             autoCreateTable(sinkConfig.getSaveModeCreateTemplate());
         }
-    }
+    }*/
 }

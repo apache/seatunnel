@@ -28,11 +28,10 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDagGenerator;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
-import org.apache.commons.lang3.tuple.ImmutablePair;
-
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -42,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -51,7 +51,10 @@ public abstract class AbstractJobEnvironment {
     protected final boolean isStartWithSavePoint;
 
     protected final List<Action> actions = new ArrayList<>();
+
     protected final Set<URL> jarUrls = new HashSet<>();
+
+    protected final Set<ConnectorJarIdentifier> connectorJarIdentifiers = new HashSet<>();
 
     protected final JobConfig jobConfig;
 
@@ -99,16 +102,52 @@ public abstract class AbstractJobEnvironment {
         return Collections.emptySet();
     }
 
+    public static void addCommonPluginJarsToAction(
+            Action action,
+            Set<URL> commonPluginJars,
+            Set<ConnectorJarIdentifier> commonJarIdentifiers) {
+        action.getJarUrls().addAll(commonPluginJars);
+        action.getConnectorJarIdentifiers().addAll(commonJarIdentifiers);
+        if (!action.getUpstream().isEmpty()) {
+            action.getUpstream()
+                    .forEach(
+                            upstreamAction -> {
+                                addCommonPluginJarsToAction(
+                                        upstreamAction, commonPluginJars, commonJarIdentifiers);
+                            });
+        }
+    }
+
+    public static Set<URL> getJarUrlsFromIdentifiers(
+            Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        Set<URL> jarUrls = new HashSet<>();
+        connectorJarIdentifiers.stream()
+                .map(
+                        connectorJarIdentifier -> {
+                            File storageFile = new File(connectorJarIdentifier.getStoragePath());
+                            try {
+                                return Optional.of(storageFile.toURI().toURL());
+                            } catch (MalformedURLException e) {
+                                LOGGER.warning(
+                                        String.format("Cannot get plugin URL: {%s}", storageFile));
+                                return Optional.empty();
+                            }
+                        })
+                .collect(Collectors.toList())
+                .forEach(
+                        optional -> {
+                            if (optional.isPresent()) {
+                                jarUrls.add((URL) optional.get());
+                            }
+                        });
+        return jarUrls;
+    }
+
     protected abstract MultipleTableJobConfigParser getJobConfigParser();
 
     protected LogicalDagGenerator getLogicalDagGenerator() {
         return new LogicalDagGenerator(actions, jobConfig, idGenerator);
     }
 
-    protected LogicalDag getLogicalDag() {
-        ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
-        actions.addAll(immutablePair.getLeft());
-        jarUrls.addAll(immutablePair.getRight());
-        return getLogicalDagGenerator().generate();
-    }
+    protected abstract LogicalDag getLogicalDag();
 }

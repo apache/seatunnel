@@ -88,13 +88,13 @@ public class SnowflakeDataTypeConvertor implements DataTypeConvertor<String> {
     private static final String SNOWFLAKE_OBJECT = "OBJECT";
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
-        return toSeaTunnelType(connectorDataType, Collections.emptyMap());
+    public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
+        return toSeaTunnelType(field, connectorDataType, Collections.emptyMap());
     }
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            String connectorDataType, Map<String, Object> dataTypeProperties)
+            String field, String connectorDataType, Map<String, Object> dataTypeProperties)
             throws DataTypeConvertException {
         checkNotNull(connectorDataType, "redshiftType cannot be null");
 
@@ -151,13 +151,16 @@ public class SnowflakeDataTypeConvertor implements DataTypeConvertor<String> {
             default:
                 throw new UnsupportedOperationException(
                         String.format(
-                                "Doesn't support SNOWFLAKE type '%s' yet.", connectorDataType));
+                                "Doesn't support SNOWFLAKE type '%s' of the '%s' field yet.",
+                                connectorDataType, field));
         }
     }
 
     @Override
     public String toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties)
             throws DataTypeConvertException {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType cannot be null");
         SqlType sqlType = seaTunnelDataType.getSqlType();
@@ -191,7 +194,8 @@ public class SnowflakeDataTypeConvertor implements DataTypeConvertor<String> {
             default:
                 throw new UnsupportedOperationException(
                         String.format(
-                                "Doesn't support SeaTunnel type '%s''  yet.", seaTunnelDataType));
+                                "Doesn't support SeaTunnel type '%s' of the '%s' field yet.",
+                                seaTunnelDataType.getSqlType(), field));
         }
     }
 

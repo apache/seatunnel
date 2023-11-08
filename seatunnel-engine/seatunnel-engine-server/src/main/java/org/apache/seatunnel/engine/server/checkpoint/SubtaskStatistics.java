@@ -19,9 +19,11 @@ package org.apache.seatunnel.engine.server.checkpoint;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.ToString;
 
 import java.io.Serializable;
 
+@ToString
 @Getter
 @AllArgsConstructor
 public class SubtaskStatistics implements Serializable {

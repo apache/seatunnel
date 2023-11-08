@@ -76,6 +76,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                         "Test",
                         nodeEngine.getSerializationService().toData(testLogicalDag),
                         config,
+                        Collections.emptyList(),
                         Collections.emptyList());
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
@@ -99,7 +100,8 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                         idGenerator.getNextId(),
                         "fake",
                         createFakeSource(),
-                        Sets.newHashSet(new URL("file:///fake.jar")));
+                        Sets.newHashSet(new URL("file:///fake.jar")),
+                        Collections.emptySet());
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 2);
 
         Action fake2 =
@@ -107,7 +109,8 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                         idGenerator.getNextId(),
                         "fake",
                         createFakeSource(),
-                        Sets.newHashSet(new URL("file:///fake.jar")));
+                        Sets.newHashSet(new URL("file:///fake.jar")),
+                        Collections.emptySet());
         LogicalVertex fake2Vertex = new LogicalVertex(fake2.getId(), fake2, 2);
 
         Action console =
@@ -119,7 +122,8 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                                         new String[] {"id"},
                                         new SeaTunnelDataType<?>[] {BasicType.INT_TYPE}),
                                 ReadonlyConfig.fromMap(new HashMap<>())),
-                        Sets.newHashSet(new URL("file:///console.jar")));
+                        Sets.newHashSet(new URL("file:///console.jar")),
+                        Collections.emptySet());
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 2);
 
         LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
@@ -138,6 +142,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                         "Test",
                         nodeEngine.getSerializationService().toData(logicalDag),
                         config,
+                        Collections.emptyList(),
                         Collections.emptyList());
 
         IMap<Object, Object> runningJobState =

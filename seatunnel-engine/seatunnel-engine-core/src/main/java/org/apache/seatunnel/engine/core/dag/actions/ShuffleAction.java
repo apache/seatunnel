@@ -25,7 +25,7 @@ import java.util.HashSet;
 public class ShuffleAction extends AbstractAction {
 
     public ShuffleAction(long id, @NonNull String name, @NonNull ShuffleConfig shuffleConfig) {
-        super(id, name, new ArrayList<>(), new HashSet<>(), shuffleConfig);
+        super(id, name, new ArrayList<>(), new HashSet<>(), new HashSet<>(), shuffleConfig);
     }
 
     @Override

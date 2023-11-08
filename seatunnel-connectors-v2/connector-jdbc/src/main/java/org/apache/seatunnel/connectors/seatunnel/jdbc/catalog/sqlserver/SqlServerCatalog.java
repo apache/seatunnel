@@ -105,7 +105,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
         int precision = resultSet.getInt("precision");
         int scale = resultSet.getInt("scale");
         long columnLength = resultSet.getLong("max_length");
-        SeaTunnelDataType<?> type = fromJdbcType(sourceType, precision, scale);
+        SeaTunnelDataType<?> type = fromJdbcType(columnName, sourceType, precision, scale);
         String comment = resultSet.getString("comment");
         Object defaultValue = resultSet.getObject("default_value");
         if (defaultValue != null) {
@@ -178,12 +178,13 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                 columnLength);
     }
 
-    private SeaTunnelDataType<?> fromJdbcType(String typeName, int precision, int scale) {
+    private SeaTunnelDataType<?> fromJdbcType(
+            String columnName, String typeName, int precision, int scale) {
         Pair<SqlServerType, Map<String, Object>> pair = SqlServerType.parse(typeName);
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(SqlServerDataTypeConvertor.PRECISION, precision);
         dataTypeProperties.put(SqlServerDataTypeConvertor.SCALE, scale);
-        return DATA_TYPE_CONVERTOR.toSeaTunnelType(pair.getLeft(), dataTypeProperties);
+        return DATA_TYPE_CONVERTOR.toSeaTunnelType(columnName, pair.getLeft(), dataTypeProperties);
     }
 
     @Override
