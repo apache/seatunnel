@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.klaviyo.source;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
@@ -33,11 +32,9 @@ import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSo
 import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.exception.KlaviyoConnectorException;
 
-import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@AutoService(SeaTunnelSource.class)
 public class KlaviyoSource extends HttpSource {
     private final KlaviyoSourceParameter klaviyoSourceParameter = new KlaviyoSourceParameter();
 

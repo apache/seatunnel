@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.http.sink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -33,19 +32,16 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 
-import com.google.auto.service.AutoService;
-
 import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@AutoService(SeaTunnelSink.class)
 public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     protected final HttpParameter httpParameter = new HttpParameter();
     protected SeaTunnelRowType seaTunnelRowType;
     protected Config pluginConfig;
 
-    public HttpSink(Config pluginConfig) {
+    public HttpSink(Config pluginConfig, SeaTunnelRowType rowType) {
         this.pluginConfig = pluginConfig;
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL.key());
         if (!result.isSuccess()) {
@@ -74,16 +70,12 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                                             entry -> String.valueOf(entry.getValue().unwrapped()),
                                             (v1, v2) -> v2)));
         }
+        this.seaTunnelRowType = rowType;
     }
 
     @Override
     public String getPluginName() {
         return "Http";
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override
