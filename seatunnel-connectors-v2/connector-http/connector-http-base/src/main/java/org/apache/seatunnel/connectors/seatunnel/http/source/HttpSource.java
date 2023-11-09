@@ -24,8 +24,13 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -45,16 +50,21 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
+import com.google.common.collect.Lists;
+
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     protected final HttpParameter httpParameter = new HttpParameter();
     protected PageInfo pageInfo;
-    protected SeaTunnelRowType rowType;
     protected JsonField jsonField;
     protected String contentField;
     protected JobContext jobContext;
     protected DeserializationSchema<SeaTunnelRow> deserializationSchema;
+
+    protected CatalogTable catalogTable;
 
     public HttpSource(Config pluginConfig) {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL.key());
@@ -108,7 +118,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     protected void buildSchemaWithConfig(Config pluginConfig) {
         if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
-            this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+            this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
             // default use json format
             HttpConfig.ResponseFormat format = HttpConfig.FORMAT.defaultValue();
             if (pluginConfig.hasPath(HttpConfig.FORMAT.key())) {
@@ -121,7 +131,8 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             switch (format) {
                 case JSON:
                     this.deserializationSchema =
-                            new JsonDeserializationSchema(false, false, rowType);
+                            new JsonDeserializationSchema(
+                                    false, false, catalogTable.getSeaTunnelRowType());
                     if (pluginConfig.hasPath(HttpConfig.JSON_FIELD.key())) {
                         jsonField =
                                 getJsonField(pluginConfig.getConfig(HttpConfig.JSON_FIELD.key()));
@@ -139,8 +150,33 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                                     format));
             }
         } else {
-            this.rowType = CatalogTableUtil.buildSimpleTextSchema();
-            this.deserializationSchema = new SimpleTextDeserializationSchema(this.rowType);
+            TableIdentifier tableIdentifier =
+                    TableIdentifier.of(HttpConfig.CONNECTOR_IDENTITY, null, null);
+            TableSchema tableSchema =
+                    TableSchema.builder()
+                            .column(
+                                    PhysicalColumn.of(
+                                            "content",
+                                            new SeaTunnelRowType(
+                                                    new String[] {"content"},
+                                                    new SeaTunnelDataType<?>[] {
+                                                        BasicType.STRING_TYPE
+                                                    }),
+                                            0,
+                                            false,
+                                            null,
+                                            null))
+                            .build();
+
+            this.catalogTable =
+                    CatalogTable.of(
+                            tableIdentifier,
+                            tableSchema,
+                            Collections.emptyMap(),
+                            Collections.emptyList(),
+                            null);
+            this.deserializationSchema =
+                    new SimpleTextDeserializationSchema(catalogTable.getSeaTunnelRowType());
         }
     }
 
@@ -150,8 +186,8 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.rowType;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Lists.newArrayList(catalogTable);
     }
 
     @Override
