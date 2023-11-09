@@ -180,6 +180,9 @@ public final class ContainerUtil {
         }
         if (connectorNames.contains(currentModule.getName())) {
             File targetPath = new File(currentModule.getAbsolutePath() + File.separator + "target");
+           if (currentModule.getAbsolutePath().indexOf("feishu")!=-1){
+               log.info("targetPath is {}",targetPath);
+           }
             for (File file : Objects.requireNonNull(targetPath.listFiles())) {
                 if (file.getName().startsWith(currentModule.getName())
                         && !file.getName().endsWith("javadoc.jar")
