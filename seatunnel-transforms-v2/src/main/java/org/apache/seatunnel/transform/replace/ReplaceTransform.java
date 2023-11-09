@@ -52,7 +52,7 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
 
     private void initOutputFields(SeaTunnelRowType inputRowType, String replaceField) {
         try {
-            inputRowType.indexOf(replaceField);
+            inputFieldIndex = inputRowType.indexOf(replaceField);
         } catch (IllegalArgumentException e) {
             throw TransformCommonError.cannotFindInputFieldError(getPluginName(), replaceField);
         }
