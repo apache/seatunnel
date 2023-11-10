@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.doris.config;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.DataSaveMode;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -44,7 +43,6 @@ import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_TA
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.FENODES;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.PASSWORD;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.QUERY_PORT;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SAVE_MODE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SAVE_MODE_CREATE_TEMPLATE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_BUFFER_COUNT;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_BUFFER_SIZE;
@@ -93,7 +91,6 @@ public class DorisConfig implements Serializable {
     private Properties streamLoadProps;
 
     // create table option
-    private DataSaveMode saveMode;
     private String createTableTemplate;
 
     public static DorisConfig of(Config pluginConfig) {
@@ -134,7 +131,6 @@ public class DorisConfig implements Serializable {
         dorisConfig.setEnableDelete(config.get(SINK_ENABLE_DELETE));
 
         // create table option
-        dorisConfig.setSaveMode(config.get(SAVE_MODE));
         dorisConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));
 
         return dorisConfig;

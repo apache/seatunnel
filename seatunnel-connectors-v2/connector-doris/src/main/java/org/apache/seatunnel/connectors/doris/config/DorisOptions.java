@@ -21,12 +21,8 @@ import org.apache.seatunnel.shade.com.google.common.collect.ImmutableMap;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.sink.DataSaveMode;
-import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 
-import java.util.Collections;
 import java.util.Map;
 
 public interface DorisOptions {
@@ -213,16 +209,6 @@ public interface DorisOptions {
                     .withDescription("");
 
     // create table
-
-    SingleChoiceOption<DataSaveMode> SAVE_MODE =
-            Options.key(SupportDataSaveMode.SAVE_MODE_KEY)
-                    .singleChoice(
-                            DataSaveMode.class,
-                            Collections.singletonList(DataSaveMode.KEEP_SCHEMA_AND_DATA))
-                    .noDefaultValue()
-                    .withDescription(
-                            "Table structure and data processing methods that already exist on the target end");
-
     Option<String> SAVE_MODE_CREATE_TEMPLATE =
             Options.key("save_mode_create_template")
                     .stringType()
@@ -241,8 +227,5 @@ public interface DorisOptions {
             OptionRule.builder().required(FENODES, USERNAME, PASSWORD, TABLE_IDENTIFIER);
 
     OptionRule.Builder CATALOG_RULE =
-            OptionRule.builder()
-                    .required(FENODES, QUERY_PORT, USERNAME, PASSWORD)
-                    .optional(SAVE_MODE)
-                    .conditional(SAVE_MODE, DataSaveMode.KEEP_SCHEMA_AND_DATA);
+            OptionRule.builder().required(FENODES, QUERY_PORT, USERNAME, PASSWORD);
 }
