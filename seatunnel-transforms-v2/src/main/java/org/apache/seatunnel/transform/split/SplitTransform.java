@@ -29,12 +29,10 @@ import org.apache.seatunnel.transform.exception.TransformCommonError;
 import lombok.NonNull;
 
 import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
 
 public class SplitTransform extends MultipleFieldOutputTransform {
-    private SplitTransformConfig splitTransformConfig;
-    private int splitFieldIndex;
+    private final SplitTransformConfig splitTransformConfig;
+    private final int splitFieldIndex;
 
     public SplitTransform(
             @NonNull SplitTransformConfig splitTransformConfig,
@@ -79,14 +77,11 @@ public class SplitTransform extends MultipleFieldOutputTransform {
 
     @Override
     protected Column[] getOutputColumns() {
-        List<PhysicalColumn> collect =
-                Arrays.stream(splitTransformConfig.getOutputFields())
-                        .map(
-                                fieldName -> {
-                                    return PhysicalColumn.of(
-                                            fieldName, BasicType.STRING_TYPE, 200, true, "", "");
-                                })
-                        .collect(Collectors.toList());
-        return collect.toArray(new Column[0]);
+        return Arrays.stream(splitTransformConfig.getOutputFields())
+                .map(
+                        fieldName ->
+                                PhysicalColumn.of(
+                                        fieldName, BasicType.STRING_TYPE, 200, true, "", ""))
+                .toArray(Column[]::new);
     }
 }

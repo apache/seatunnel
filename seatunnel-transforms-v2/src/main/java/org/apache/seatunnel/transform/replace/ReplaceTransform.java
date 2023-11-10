@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class ReplaceTransform extends SingleFieldOutputTransform {
-    private ReadonlyConfig config;
+    private final ReadonlyConfig config;
     private int inputFieldIndex;
 
     public ReplaceTransform(
@@ -66,9 +66,8 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
         }
 
         boolean isRegex =
-                config.get(ReplaceTransformConfig.KEY_IS_REGEX) == null
-                        ? false
-                        : config.get(ReplaceTransformConfig.KEY_IS_REGEX);
+                config.get(ReplaceTransformConfig.KEY_IS_REGEX) != null
+                        && config.get(ReplaceTransformConfig.KEY_IS_REGEX);
         if (isRegex) {
             if (config.get(ReplaceTransformConfig.KEY_REPLACE_FIRST)) {
                 return inputFieldValue

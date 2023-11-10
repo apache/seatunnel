@@ -41,10 +41,10 @@ import java.util.stream.Collectors;
 public class CopyFieldTransform extends MultipleFieldOutputTransform {
     public static final String PLUGIN_NAME = "Copy";
 
-    private CopyTransformConfig config;
+    private final CopyTransformConfig config;
     private List<String> fieldNames;
-    private List<Integer> fieldOriginalIndexs;
-    private List<SeaTunnelDataType> fieldTypes;
+    private List<Integer> fieldOriginalIndexes;
+    private List<SeaTunnelDataType<?>> fieldTypes;
 
     public CopyFieldTransform(CopyTransformConfig copyTransformConfig, CatalogTable catalogTable) {
         super(catalogTable);
@@ -61,8 +61,8 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
     private void initOutputFields(
             SeaTunnelRowType inputRowType, LinkedHashMap<String, String> fields) {
         List<String> fieldNames = new ArrayList<>();
-        List<Integer> fieldOriginalIndexs = new ArrayList<>();
-        List<SeaTunnelDataType> fieldsType = new ArrayList<>();
+        List<Integer> fieldOriginalIndexes = new ArrayList<>();
+        List<SeaTunnelDataType<?>> fieldsType = new ArrayList<>();
         for (Map.Entry<String, String> field : fields.entrySet()) {
             String srcField = field.getValue();
             int srcFieldIndex;
@@ -72,11 +72,11 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
                 throw TransformCommonError.cannotFindInputFieldError(getPluginName(), srcField);
             }
             fieldNames.add(field.getKey());
-            fieldOriginalIndexs.add(srcFieldIndex);
+            fieldOriginalIndexes.add(srcFieldIndex);
             fieldsType.add(inputRowType.getFieldType(srcFieldIndex));
         }
         this.fieldNames = fieldNames;
-        this.fieldOriginalIndexs = fieldOriginalIndexs;
+        this.fieldOriginalIndexes = fieldOriginalIndexes;
         this.fieldTypes = fieldsType;
     }
 
@@ -114,17 +114,17 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
     @Override
     protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
         Object[] fieldValues = new Object[fieldNames.size()];
-        for (int i = 0; i < fieldOriginalIndexs.size(); i++) {
+        for (int i = 0; i < fieldOriginalIndexes.size(); i++) {
             fieldValues[i] =
                     clone(
                             fieldNames.get(i),
                             fieldTypes.get(i),
-                            inputRow.getField(fieldOriginalIndexs.get(i)));
+                            inputRow.getField(fieldOriginalIndexes.get(i)));
         }
         return fieldValues;
     }
 
-    private Object clone(String field, SeaTunnelDataType dataType, Object value) {
+    private Object clone(String field, SeaTunnelDataTypee<?> dataType, Object value) {
         if (value == null) {
             return null;
         }
@@ -144,18 +144,12 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
                 return value;
             case BYTES:
                 byte[] bytes = (byte[]) value;
-                if (bytes == null) {
-                    return null;
-                }
                 byte[] newBytes = new byte[bytes.length];
                 System.arraycopy(bytes, 0, newBytes, 0, bytes.length);
                 return newBytes;
             case ARRAY:
                 ArrayType arrayType = (ArrayType) dataType;
                 Object[] array = (Object[]) value;
-                if (array == null) {
-                    return null;
-                }
                 Object newArray =
                         Array.newInstance(arrayType.getElementType().getTypeClass(), array.length);
                 for (int i = 0; i < array.length; i++) {
@@ -165,7 +159,7 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
             case MAP:
                 MapType mapType = (MapType) dataType;
                 Map map = (Map) value;
-                Map newMap = new HashMap();
+                Map<Object, Object> newMap = new HashMap<>();
                 for (Object key : map.keySet()) {
                     newMap.put(
                             clone(field, mapType.getKeyType(), key),
@@ -175,9 +169,6 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
             case ROW:
                 SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
                 SeaTunnelRow row = (SeaTunnelRow) value;
-                if (row == null) {
-                    return null;
-                }
 
                 Object[] newFields = new Object[rowType.getTotalFields()];
                 for (int i = 0; i < rowType.getTotalFields(); i++) {

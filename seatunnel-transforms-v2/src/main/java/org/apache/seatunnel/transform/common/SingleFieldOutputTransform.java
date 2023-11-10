@@ -67,9 +67,9 @@ public abstract class SingleFieldOutputTransform extends AbstractCatalogSupportT
 
         TableSchema.Builder builder = TableSchema.builder();
         if (inputCatalogTable.getTableSchema().getPrimaryKey() != null) {
-            builder = builder.primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey().copy());
+            builder.primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey().copy());
         }
-        builder = builder.constraintKey(copiedConstraintKeys);
+        builder.constraintKey(copiedConstraintKeys);
         List<Column> columns =
                 inputCatalogTable.getTableSchema().getColumns().stream()
                         .map(Column::copy)
