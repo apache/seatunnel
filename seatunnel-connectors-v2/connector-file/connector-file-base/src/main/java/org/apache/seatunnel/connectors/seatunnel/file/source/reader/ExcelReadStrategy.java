@@ -19,12 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
@@ -94,7 +95,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 || skipHeaderNumber < Integer.MIN_VALUE
                 || skipHeaderNumber > rowCount) {
             throw new FileConnectorException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     "Skip the number of rows exceeds the maximum or minimum limit of Sheet");
         }
         IntStream.range((int) skipHeaderNumber, rowCount)
@@ -132,7 +133,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         if (isNullOrEmpty(seaTunnelRowType.getFieldNames())
                 || isNullOrEmpty(seaTunnelRowType.getFieldTypes())) {
             throw new FileConnectorException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     "Schmea information is not set or incorrect schmea settings");
         }
         SeaTunnelRowType userDefinedRowTypeWithPartition =
@@ -165,7 +166,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path)
             throws FileConnectorException {
         throw new FileConnectorException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 "User must defined schema for json file type");
     }
 
@@ -185,7 +186,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 break;
             default:
                 throw new FileConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         String.format("[%s] type not support ", cellType));
         }
         return null;
@@ -233,7 +234,9 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case BYTES:
                 return field.toString().getBytes(StandardCharsets.UTF_8);
             case ROW:
-                String delimiter = pluginConfig.getString(BaseSourceConfig.DELIMITER.key());
+                String delimiter =
+                        ReadonlyConfig.fromConfig(pluginConfig)
+                                .get(BaseSourceConfig.FIELD_DELIMITER);
                 String[] context = field.toString().split(delimiter);
                 SeaTunnelRowType ft = (SeaTunnelRowType) fieldType;
                 int length = context.length;
@@ -244,7 +247,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 return seaTunnelRow;
             default:
                 throw new FileConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "User defined schema validation failed");
         }
     }

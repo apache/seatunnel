@@ -282,16 +282,8 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
       - name: run all modules unit test
-        if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -B -T 1 clean verify -D"maven.test.skip"=false -D"license.skipAddThirdParty"=true --no-snapshot-updates
-        env:
-          MAVEN_OPTS: -Xmx4096m
-
-      - name: run updated modules unit test
-        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''
-        run: |
-          ./mvnw -B -T 1 clean verify -D"maven.test.skip"=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
@@ -316,7 +308,13 @@ jobs:
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 7 0`
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          sub_modules=${sub_modules//,:seatunnel-engine-k8s-e2e/}
+          sub_modules=${sub_modules//:seatunnel-engine-k8s-e2e/}
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
         env:
           MAVEN_OPTS: -Xmx2048m
 
@@ -341,6 +339,8 @@ jobs:
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 1`
+          sub_modules=${sub_modules//,:seatunnel-engine-k8s-e2e/}
+          sub_modules=${sub_modules//:seatunnel-engine-k8s-e2e/}
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -370,6 +370,8 @@ jobs:
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 2`
+          sub_modules=${sub_modules//,:seatunnel-engine-k8s-e2e/}
+          sub_modules=${sub_modules//:seatunnel-engine-k8s-e2e/}
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -399,6 +401,8 @@ jobs:
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 3`
+          sub_modules=${sub_modules//,:seatunnel-engine-k8s-e2e/}
+          sub_modules=${sub_modules//:seatunnel-engine-k8s-e2e/}
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -427,6 +431,8 @@ jobs:
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 4`
+          sub_modules=${sub_modules//,:seatunnel-engine-k8s-e2e/}
+          sub_modules=${sub_modules//:seatunnel-engine-k8s-e2e/}
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -455,6 +461,8 @@ jobs:
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 5`
+          sub_modules=${sub_modules//,:seatunnel-engine-k8s-e2e/}
+          sub_modules=${sub_modules//:seatunnel-engine-k8s-e2e/}
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -483,6 +491,8 @@ jobs:
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 6`
+          sub_modules=${sub_modules//,:seatunnel-engine-k8s-e2e/}
+          sub_modules=${sub_modules//:seatunnel-engine-k8s-e2e/}
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -512,6 +522,8 @@ jobs:
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 7`
+          sub_modules=${sub_modules//,:seatunnel-engine-k8s-e2e/}
+          sub_modules=${sub_modules//:seatunnel-engine-k8s-e2e/}
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -543,7 +555,38 @@ jobs:
           ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
-
+  engine-k8s-it:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'seatunnel-engine-k8s-e2e')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 45
+    steps:
+      - name: install k8s
+        run: |
+          curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE=777 sh -s - --docker
+          cat /etc/rancher/k3s/k3s.yaml
+          mkdir -p ~/.kube
+          cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+        env:
+          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run seatunnel zeta on k8s test
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-engine-k8s-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   transform-v2-it-part-1:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true'

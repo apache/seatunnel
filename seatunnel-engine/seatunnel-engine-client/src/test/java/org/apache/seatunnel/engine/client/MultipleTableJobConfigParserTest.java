@@ -54,10 +54,10 @@ public class MultipleTableJobConfigParserTest {
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
-        Assertions.assertEquals("Sink[0]-LocalFile-default-identifier", actions.get(0).getName());
+        Assertions.assertEquals("Sink[0]-LocalFile", actions.get(0).getName());
         Assertions.assertEquals(1, actions.get(0).getUpstream().size());
         Assertions.assertEquals(
-                "Source[0]-FakeSource-fake", actions.get(0).getUpstream().get(0).getName());
+                "Source[0]-FakeSource", actions.get(0).getUpstream().get(0).getName());
 
         Assertions.assertEquals(3, actions.get(0).getUpstream().get(0).getParallelism());
         Assertions.assertEquals(3, actions.get(0).getParallelism());
@@ -75,10 +75,10 @@ public class MultipleTableJobConfigParserTest {
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
 
-        Assertions.assertEquals("Sink[0]-LocalFile-default-identifier", actions.get(0).getName());
+        Assertions.assertEquals("Sink[0]-LocalFile", actions.get(0).getName());
         Assertions.assertEquals(2, actions.get(0).getUpstream().size());
 
-        String[] expected = {"Source[0]-FakeSource-fake", "Source[0]-FakeSource-fake2"};
+        String[] expected = {"Source[0]-FakeSource", "Source[1]-FakeSource"};
         String[] actual = {
             actions.get(0).getUpstream().get(0).getName(),
             actions.get(0).getUpstream().get(1).getName()
@@ -106,8 +106,8 @@ public class MultipleTableJobConfigParserTest {
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(2, actions.size());
 
-        Assertions.assertEquals("Sink[0]-LocalFile-default-identifier", actions.get(0).getName());
-        Assertions.assertEquals("Sink[1]-LocalFile-default-identifier", actions.get(1).getName());
+        Assertions.assertEquals("Sink[0]-LocalFile", actions.get(0).getName());
+        Assertions.assertEquals("Sink[1]-LocalFile", actions.get(1).getName());
     }
 
     @Test
@@ -122,7 +122,7 @@ public class MultipleTableJobConfigParserTest {
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
-        Assertions.assertEquals("MultiTableSink-Console", actions.get(0).getName());
+        Assertions.assertEquals("Sink[0]-console-MultiTableSink", actions.get(0).getName());
         Assertions.assertFalse(
                 ((SinkAction) actions.get(0)).getSink().createCommitter().isPresent());
         Assertions.assertFalse(

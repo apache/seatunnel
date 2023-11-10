@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
@@ -37,7 +37,7 @@ public class ReadStrategyFactory {
                     String.format(
                             "File source connector not support this file type [%s], please check your config",
                             fileType);
-            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
+            throw new FileConnectorException(CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 }

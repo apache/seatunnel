@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.redshift;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
 import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcConnectorException;
 
@@ -50,7 +50,7 @@ public class RedshiftJdbcClient {
                                         config.getString(S3RedshiftConfig.JDBC_PASSWORD.key()));
                     } catch (SQLException | ClassNotFoundException e) {
                         throw new S3RedshiftJdbcConnectorException(
-                                CommonErrorCode.SQL_OPERATION_FAILED,
+                                CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
                                 "RedshiftJdbcClient init error",
                                 e);
                     }
@@ -75,7 +75,7 @@ public class RedshiftJdbcClient {
             flag = rs.next();
         } catch (SQLException e) {
             throw new S3RedshiftJdbcConnectorException(
-                    CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                    CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
                     String.format(
                             "Check table is or not existed failed, table name is %s ", tableName),
                     e);

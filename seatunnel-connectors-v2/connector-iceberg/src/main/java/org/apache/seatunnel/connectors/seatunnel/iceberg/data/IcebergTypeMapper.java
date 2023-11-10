@@ -25,8 +25,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
 
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -38,7 +37,7 @@ import java.util.List;
 
 public class IcebergTypeMapper {
 
-    public static SeaTunnelDataType<?> mapping(@NonNull Type icebergType) {
+    public static SeaTunnelDataType<?> mapping(String field, @NonNull Type icebergType) {
         switch (icebergType.typeId()) {
             case BOOLEAN:
                 return BasicType.BOOLEAN_TYPE;
@@ -67,13 +66,12 @@ public class IcebergTypeMapper {
             case STRUCT:
                 return mappingStructType((Types.StructType) icebergType);
             case LIST:
-                return mappingListType((Types.ListType) icebergType);
+                return mappingListType(field, (Types.ListType) icebergType);
             case MAP:
-                return mappingMapType((Types.MapType) icebergType);
+                return mappingMapType(field, (Types.MapType) icebergType);
             default:
-                throw new IcebergConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported iceberg data type: " + icebergType.typeId());
+                throw CommonError.convertToSeaTunnelTypeError(
+                        "Iceberg", icebergType.toString(), field);
         }
     }
 
@@ -83,13 +81,13 @@ public class IcebergTypeMapper {
         List<SeaTunnelDataType<?>> fieldTypes = new ArrayList<>(fields.size());
         for (Types.NestedField field : fields) {
             fieldNames.add(field.name());
-            fieldTypes.add(mapping(field.type()));
+            fieldTypes.add(mapping(field.name(), field.type()));
         }
         return new SeaTunnelRowType(
                 fieldNames.toArray(new String[0]), fieldTypes.toArray(new SeaTunnelDataType[0]));
     }
 
-    private static ArrayType mappingListType(Types.ListType listType) {
+    private static ArrayType mappingListType(String field, Types.ListType listType) {
         switch (listType.elementType().typeId()) {
             case BOOLEAN:
                 return ArrayType.BOOLEAN_ARRAY_TYPE;
@@ -104,14 +102,12 @@ public class IcebergTypeMapper {
             case STRING:
                 return ArrayType.STRING_ARRAY_TYPE;
             default:
-                throw new IcebergConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported iceberg list element type: "
-                                + listType.elementType().typeId());
+                throw CommonError.convertToSeaTunnelTypeError(
+                        "Iceberg", listType.toString(), field);
         }
     }
 
-    private static MapType mappingMapType(Types.MapType mapType) {
-        return new MapType(mapping(mapType.keyType()), mapping(mapType.valueType()));
+    private static MapType mappingMapType(String field, Types.MapType mapType) {
+        return new MapType(mapping(field, mapType.keyType()), mapping(field, mapType.valueType()));
     }
 }

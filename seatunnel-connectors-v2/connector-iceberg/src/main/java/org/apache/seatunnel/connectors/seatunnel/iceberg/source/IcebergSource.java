@@ -97,7 +97,7 @@ public class IcebergSource
         List<SeaTunnelDataType<?>> columnDataTypes = new ArrayList<>(tableSchema.columns().size());
         for (Types.NestedField column : tableSchema.columns()) {
             columnNames.add(column.name());
-            columnDataTypes.add(IcebergTypeMapper.mapping(column.type()));
+            columnDataTypes.add(IcebergTypeMapper.mapping(column.name(), column.type()));
         }
         SeaTunnelRowType originalRowType =
                 new SeaTunnelRowType(

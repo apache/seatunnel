@@ -140,7 +140,7 @@ public class SinkExecuteProcessor
                 Optional<SaveModeHandler> saveModeHandler = saveModeSink.getSaveModeHandler();
                 saveModeHandler.ifPresent(SaveModeHandler::handleSaveMode);
             }
-            SparkSinkInjector.inject(dataset.write(), sink)
+            SparkSinkInjector.inject(dataset.write(), sink, datasetTableInfo.getCatalogTable())
                     .option("checkpointLocation", "/tmp")
                     .save();
         }

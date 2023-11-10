@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
@@ -136,7 +136,7 @@ public class ClickhouseFileSinkWriter
                                         StandardOpenOption.CREATE_NEW);
                             } catch (IOException e) {
                                 throw new ClickhouseConnectorException(
-                                        CommonErrorCode.FILE_OPERATION_FAILED,
+                                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
                                         "can't create new file to save tmp data",
                                         e);
                             }
@@ -184,7 +184,7 @@ public class ClickhouseFileSinkWriter
                         detachedFiles.put(shard, clickhouseLocalFiles);
                     } catch (Exception e) {
                         throw new ClickhouseConnectorException(
-                                CommonErrorCode.FLUSH_DATA_FAILED,
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                                 "Flush data into clickhouse file error",
                                 e);
                     } finally {
@@ -293,7 +293,7 @@ public class ClickhouseFileSinkWriter
                 writer.write(String.format(CK_LOCAL_CONFIG_TEMPLATE, clickhouseLocalFile));
             } catch (IOException e) {
                 throw new ClickhouseConnectorException(
-                        CommonErrorCode.FILE_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
                         "Error occurs when create ck local config");
             }
             command.add("--config-file");

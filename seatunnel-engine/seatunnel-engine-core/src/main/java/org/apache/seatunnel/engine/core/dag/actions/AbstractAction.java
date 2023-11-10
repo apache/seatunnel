@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+
 import lombok.NonNull;
 
 import java.net.URL;
@@ -36,16 +38,14 @@ public abstract class AbstractAction implements Action {
 
     private final Config config;
 
-    protected AbstractAction(long id, @NonNull String name, @NonNull Set<URL> jarUrls) {
-        this(id, name, new ArrayList<>(), jarUrls);
-    }
+    private final Set<ConnectorJarIdentifier> connectorJarIdentifiers;
 
     protected AbstractAction(
             long id,
             @NonNull String name,
-            @NonNull List<Action> upstreams,
-            @NonNull Set<URL> jarUrls) {
-        this(id, name, upstreams, jarUrls, null);
+            @NonNull Set<URL> jarUrls,
+            @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        this(id, name, new ArrayList<>(), jarUrls, connectorJarIdentifiers);
     }
 
     protected AbstractAction(
@@ -53,11 +53,22 @@ public abstract class AbstractAction implements Action {
             @NonNull String name,
             @NonNull List<Action> upstreams,
             @NonNull Set<URL> jarUrls,
+            @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        this(id, name, upstreams, jarUrls, connectorJarIdentifiers, null);
+    }
+
+    protected AbstractAction(
+            long id,
+            @NonNull String name,
+            @NonNull List<Action> upstreams,
+            @NonNull Set<URL> jarUrls,
+            @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers,
             Config config) {
         this.id = id;
         this.name = name;
         this.upstreams = upstreams;
         this.jarUrls = jarUrls;
+        this.connectorJarIdentifiers = connectorJarIdentifiers;
         this.config = config;
     }
 
@@ -104,5 +115,10 @@ public abstract class AbstractAction implements Action {
     @Override
     public Config getConfig() {
         return config;
+    }
+
+    @Override
+    public Set<ConnectorJarIdentifier> getConnectorJarIdentifiers() {
+        return connectorJarIdentifiers;
     }
 }

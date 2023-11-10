@@ -22,8 +22,8 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -55,6 +55,7 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
     private static final String ORACLE_ROWID = "ROWID";
     private static final String ORACLE_CLOB = "CLOB";
     private static final String ORACLE_NCLOB = "NCLOB";
+    private static final String ORACLE_XML = "SYS.XMLTYPE";
 
     // ------------------------------time-------------------------
     private static final String ORACLE_DATE = "DATE";
@@ -106,6 +107,7 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
             case ORACLE_ROWID:
             case ORACLE_NCLOB:
             case ORACLE_CLOB:
+            case ORACLE_XML:
                 return BasicType.STRING_TYPE;
             case ORACLE_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
@@ -121,11 +123,8 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
             case ORACLE_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format(
-                                "Doesn't support ORACLE type '%s' on column '%s'  yet.",
-                                oracleType, jdbcColumnName));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.ORACLE, oracleType, jdbcColumnName);
         }
     }
 }

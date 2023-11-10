@@ -24,6 +24,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
@@ -47,6 +48,7 @@ import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
@@ -154,6 +156,8 @@ public class CoordinatorService {
 
     private final EngineConfig engineConfig;
 
+    private ConnectorPackageService connectorPackageService;
+
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
             @NonNull SeaTunnelServer seaTunnelServer,
@@ -223,6 +227,13 @@ public class CoordinatorService {
                                 .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
                         engineConfig.getHistoryJobExpireMinutes());
 
+        // If the user has configured the connector package service, create it  on the master node.
+        ConnectorJarStorageConfig connectorJarStorageConfig =
+                engineConfig.getConnectorJarStorageConfig();
+        if (connectorJarStorageConfig.getEnable()) {
+            connectorPackageService = new ConnectorPackageService(seaTunnelServer);
+        }
+
         List<CompletableFuture<Void>> collect =
                 runningJobInfoIMap.entrySet().stream()
                         .map(
@@ -275,7 +286,8 @@ public class CoordinatorService {
                         ownedSlotProfilesIMap,
                         runningJobInfoIMap,
                         metricsImap,
-                        engineConfig);
+                        engineConfig,
+                        seaTunnelServer);
 
         try {
             jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), true);
@@ -396,7 +408,8 @@ public class CoordinatorService {
                         ownedSlotProfilesIMap,
                         runningJobInfoIMap,
                         metricsImap,
-                        engineConfig);
+                        engineConfig,
+                        seaTunnelServer);
         executorService.submit(
                 () -> {
                     try {
@@ -769,5 +782,13 @@ public class CoordinatorService {
                 threadPoolExecutor.getPoolSize(),
                 threadPoolExecutor.getCompletedTaskCount(),
                 threadPoolExecutor.getTaskCount());
+    }
+
+    public ConnectorPackageService getConnectorPackageService() {
+        if (connectorPackageService == null) {
+            throw new SeaTunnelEngineException(
+                    "The user is not configured to enable connector package service, can not get connector package service service from master node.");
+        }
+        return connectorPackageService;
     }
 }

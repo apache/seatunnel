@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
 import lombok.AllArgsConstructor;
@@ -75,7 +75,7 @@ public class KeyExtractor implements Function<SeaTunnelRow, String>, Serializabl
                 case ARRAY:
                 case MAP:
                     throw new ElasticsearchConnectorException(
-                            CommonErrorCode.UNSUPPORTED_OPERATION,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                             "Unsupported type: " + fieldType);
                 case DATE:
                     LocalDate localDate = (LocalDate) row.getField(fieldIndex);

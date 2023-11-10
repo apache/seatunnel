@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
@@ -123,7 +123,8 @@ public class AmazonSqsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 return new DebeziumJsonSerializationSchema(rowType);
             default:
                 throw new SeaTunnelJsonFormatException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported format: " + format);
         }
     }
 }

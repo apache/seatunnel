@@ -28,7 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
@@ -72,7 +72,7 @@ public class FtpFileSource extends BaseFileSource {
                         pluginConfig.getString(FtpConfig.FILE_FORMAT_TYPE.key()).toUpperCase());
         if (fileFormat == FileFormat.ORC || fileFormat == FileFormat.PARQUET) {
             throw new FileConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "Ftp file source connector only support read [text, csv, json] files");
         }
         readStrategy =
@@ -103,12 +103,12 @@ public class FtpFileSource extends BaseFileSource {
                 case ORC:
                 case PARQUET:
                     throw new FileConnectorException(
-                            CommonErrorCode.UNSUPPORTED_OPERATION,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                             "SeaTunnel does not support user-defined schema for [parquet, orc] files");
                 default:
                     // never got in there
                     throw new FileConnectorException(
-                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                             "SeaTunnel does not supported this file format");
             }
         } else {
@@ -123,7 +123,7 @@ public class FtpFileSource extends BaseFileSource {
                 String errorMsg =
                         String.format("Get table schema from file [%s] failed", filePaths.get(0));
                 throw new FileConnectorException(
-                        CommonErrorCode.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
+                        CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
             }
         }
     }

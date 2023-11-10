@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog;
 
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -27,9 +26,8 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 
 import com.aliyun.odps.OdpsType;
 import com.aliyun.odps.type.ArrayTypeInfo;
@@ -48,19 +46,21 @@ import java.util.Map;
 public class MaxComputeDataTypeConvertor implements DataTypeConvertor<TypeInfo> {
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
+    public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
         if (connectorDataType.startsWith("MAP")) {
             // MAP<key,value>
             int i = connectorDataType.indexOf(",");
             return new MapType(
-                    toSeaTunnelType(connectorDataType.substring(4, i)),
+                    toSeaTunnelType(field, connectorDataType.substring(4, i)),
                     toSeaTunnelType(
+                            field,
                             connectorDataType.substring(i + 1, connectorDataType.length() - 1)));
         }
         if (connectorDataType.startsWith("ARRAY")) {
             // ARRAY<element>
             SeaTunnelDataType<?> seaTunnelType =
-                    toSeaTunnelType(connectorDataType.substring(6, connectorDataType.length() - 1));
+                    toSeaTunnelType(
+                            field, connectorDataType.substring(6, connectorDataType.length() - 1));
             switch (seaTunnelType.getSqlType()) {
                 case STRING:
                     return ArrayType.STRING_ARRAY_TYPE;
@@ -79,9 +79,8 @@ public class MaxComputeDataTypeConvertor implements DataTypeConvertor<TypeInfo> 
                 case DOUBLE:
                     return ArrayType.DOUBLE_ARRAY_TYPE;
                 default:
-                    throw new MaxcomputeConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                            "Unsupported array element type: " + seaTunnelType);
+                    throw CommonError.convertToSeaTunnelTypeError(
+                            MaxcomputeConfig.PLUGIN_NAME, connectorDataType, field);
             }
         }
         if (connectorDataType.startsWith("STRUCT")) {
@@ -92,9 +91,9 @@ public class MaxComputeDataTypeConvertor implements DataTypeConvertor<TypeInfo> 
             String[] fieldNames = new String[entryArray.length];
             SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType<?>[entryArray.length];
             for (int i = 0; i < entryArray.length; i++) {
-                String[] field = entryArray[i].split(":");
-                fieldNames[i] = field[0];
-                fieldTypes[i] = toSeaTunnelType(field[1]);
+                String[] fieldNameAndType = entryArray[i].split(":");
+                fieldNames[i] = fieldNameAndType[0];
+                fieldTypes[i] = toSeaTunnelType(fieldNameAndType[0], fieldNameAndType[1]);
             }
             return new SeaTunnelRowType(fieldNames, fieldTypes);
         }
@@ -139,24 +138,20 @@ public class MaxComputeDataTypeConvertor implements DataTypeConvertor<TypeInfo> 
             case "NULL":
                 return BasicType.VOID_TYPE;
             default:
-                throw new MaxcomputeConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        String.format(
-                                "SeaTunnel type not support this type [%s] now",
-                                connectorDataType));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        MaxcomputeConfig.PLUGIN_NAME, connectorDataType, field);
         }
     }
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            TypeInfo connectorDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field, TypeInfo connectorDataType, Map<String, Object> dataTypeProperties) {
         switch (connectorDataType.getOdpsType()) {
             case MAP:
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) connectorDataType;
                 return new MapType(
-                        toSeaTunnelType(mapTypeInfo.getKeyTypeInfo(), dataTypeProperties),
-                        toSeaTunnelType(mapTypeInfo.getValueTypeInfo(), dataTypeProperties));
+                        toSeaTunnelType(field, mapTypeInfo.getKeyTypeInfo(), dataTypeProperties),
+                        toSeaTunnelType(field, mapTypeInfo.getValueTypeInfo(), dataTypeProperties));
             case ARRAY:
                 ArrayTypeInfo arrayTypeInfo = (ArrayTypeInfo) connectorDataType;
                 switch (arrayTypeInfo.getElementTypeInfo().getOdpsType()) {
@@ -173,20 +168,19 @@ public class MaxComputeDataTypeConvertor implements DataTypeConvertor<TypeInfo> 
                     case STRING:
                         return ArrayType.STRING_ARRAY_TYPE;
                     default:
-                        throw new MaxcomputeConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                                String.format(
-                                        "SeaTunnel type not support this type [%s] now",
-                                        connectorDataType.getTypeName()));
+                        throw CommonError.convertToSeaTunnelTypeError(
+                                MaxcomputeConfig.PLUGIN_NAME,
+                                connectorDataType.getTypeName(),
+                                field);
                 }
             case STRUCT:
                 StructTypeInfo structTypeInfo = (StructTypeInfo) connectorDataType;
                 List<TypeInfo> fields = structTypeInfo.getFieldTypeInfos();
                 List<String> fieldNames = new ArrayList<>(fields.size());
                 List<SeaTunnelDataType<?>> fieldTypes = new ArrayList<>(fields.size());
-                for (TypeInfo field : fields) {
-                    fieldNames.add(field.getTypeName());
-                    fieldTypes.add(toSeaTunnelType(field, dataTypeProperties));
+                for (TypeInfo f : fields) {
+                    fieldNames.add(f.getTypeName());
+                    fieldTypes.add(toSeaTunnelType(f.getTypeName(), f, dataTypeProperties));
                 }
                 return new SeaTunnelRowType(
                         fieldNames.toArray(new String[0]),
@@ -225,35 +219,34 @@ public class MaxComputeDataTypeConvertor implements DataTypeConvertor<TypeInfo> 
             case INTERVAL_DAY_TIME:
             case INTERVAL_YEAR_MONTH:
             default:
-                throw new MaxcomputeConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        String.format(
-                                "SeaTunnel type not support this type [%s] now",
-                                connectorDataType.getTypeName()));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        MaxcomputeConfig.PLUGIN_NAME, connectorDataType.getTypeName(), field);
         }
     }
 
     @Override
     public TypeInfo toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties) {
         switch (seaTunnelDataType.getSqlType()) {
             case MAP:
                 MapType mapType = (MapType) seaTunnelDataType;
                 return TypeInfoFactory.getMapTypeInfo(
-                        toConnectorType(mapType.getKeyType(), dataTypeProperties),
-                        toConnectorType(mapType.getValueType(), dataTypeProperties));
+                        toConnectorType(field, mapType.getKeyType(), dataTypeProperties),
+                        toConnectorType(field, mapType.getValueType(), dataTypeProperties));
             case ARRAY:
                 ArrayType arrayType = (ArrayType) seaTunnelDataType;
                 return TypeInfoFactory.getArrayTypeInfo(
-                        toConnectorType(arrayType.getElementType(), dataTypeProperties));
+                        toConnectorType(field, arrayType.getElementType(), dataTypeProperties));
             case ROW:
                 SeaTunnelRowType rowType = (SeaTunnelRowType) seaTunnelDataType;
                 List<String> fieldNames = new ArrayList<>(rowType.getTotalFields());
                 List<TypeInfo> fieldTypes = new ArrayList<>(rowType.getTotalFields());
                 for (int i = 0; i < rowType.getTotalFields(); i++) {
                     fieldNames.add(rowType.getFieldName(i));
-                    fieldTypes.add(toConnectorType(rowType.getFieldType(i), dataTypeProperties));
+                    fieldTypes.add(
+                            toConnectorType(field, rowType.getFieldType(i), dataTypeProperties));
                 }
                 return TypeInfoFactory.getStructTypeInfo(fieldNames, fieldTypes);
             case TINYINT:
@@ -287,11 +280,10 @@ public class MaxComputeDataTypeConvertor implements DataTypeConvertor<TypeInfo> 
             case NULL:
                 return TypeInfoFactory.getPrimitiveTypeInfo(OdpsType.VOID);
             default:
-                throw new MaxcomputeConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        String.format(
-                                "Maxcompute type not support this type [%s] now",
-                                seaTunnelDataType.getSqlType()));
+                throw CommonError.convertToConnectorTypeError(
+                        MaxcomputeConfig.PLUGIN_NAME,
+                        seaTunnelDataType.getSqlType().toString(),
+                        field);
         }
     }
 

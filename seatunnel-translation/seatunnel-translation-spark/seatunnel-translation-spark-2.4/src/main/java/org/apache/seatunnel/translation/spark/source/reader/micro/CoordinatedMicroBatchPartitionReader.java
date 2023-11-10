@@ -155,7 +155,20 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
                                             while (flag.get()) {
                                                 try {
                                                     reader.pollNext(rowCollector);
-                                                    Thread.sleep(SLEEP_TIME_INTERVAL);
+                                                    if (rowCollector.isEmptyThisPollNext()) {
+                                                        Thread.sleep(100);
+                                                    } else {
+                                                        rowCollector.resetEmptyThisPollNext();
+                                                        /**
+                                                         * sleep(0) is used to prevent the current
+                                                         * thread from occupying CPU resources for a
+                                                         * long time, thus blocking the checkpoint
+                                                         * thread for a long time. It is mentioned
+                                                         * in this
+                                                         * https://github.com/apache/seatunnel/issues/5694
+                                                         */
+                                                        Thread.sleep(0L);
+                                                    }
                                                 } catch (Exception e) {
                                                     this.running = false;
                                                     flag.set(false);
