@@ -168,7 +168,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             Object arr = Array.newInstance(elementType.getTypeClass(), stringList.size());
             for (int i = 0; i < stringList.size(); i++) {
                 Object convertValue = convertValue(elementType, stringList.get(i));
-                Array.set(arr, 0, convertValue);
+                Array.set(arr, i, convertValue);
             }
             return arr;
         } else if (fieldType instanceof MapType) {
