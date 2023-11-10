@@ -124,7 +124,7 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
         return fieldValues;
     }
 
-    private Object clone(String field, SeaTunnelDataTypee<?> dataType, Object value) {
+    private Object clone(String field, SeaTunnelDataType<?> dataType, Object value) {
         if (value == null) {
             return null;
         }
