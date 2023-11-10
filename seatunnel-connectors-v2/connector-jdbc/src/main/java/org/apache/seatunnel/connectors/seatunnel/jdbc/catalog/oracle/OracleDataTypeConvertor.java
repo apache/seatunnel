@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle;
 
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -25,8 +24,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.collections4.MapUtils;
@@ -85,8 +83,7 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            String field, String connectorDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field, String connectorDataType, Map<String, Object> dataTypeProperties) {
         checkNotNull(connectorDataType, "Oracle Type cannot be null");
         connectorDataType = normalizeTimestamp(connectorDataType);
         switch (connectorDataType) {
@@ -140,11 +137,8 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
                 // Doesn't support yet
             case ORACLE_UNKNOWN:
             default:
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format(
-                                "Doesn't support ORACLE type '%s' of the '%s' field yet.",
-                                connectorDataType, field));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.ORACLE, connectorDataType, field);
         }
     }
 
@@ -152,8 +146,7 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
     public String toConnectorType(
             String field,
             SeaTunnelDataType<?> seaTunnelDataType,
-            Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            Map<String, Object> dataTypeProperties) {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType cannot be null");
         SqlType sqlType = seaTunnelDataType.getSqlType();
         switch (sqlType) {
@@ -180,10 +173,10 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
             case BYTES:
                 return ORACLE_BLOB;
             default:
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Doesn't support SeaTunnel type '%s' of the '%s' field yet.",
-                                seaTunnelDataType.getSqlType(), field));
+                throw CommonError.convertToConnectorTypeError(
+                        DatabaseIdentifier.ORACLE,
+                        seaTunnelDataType.getSqlType().toString(),
+                        field);
         }
     }
 

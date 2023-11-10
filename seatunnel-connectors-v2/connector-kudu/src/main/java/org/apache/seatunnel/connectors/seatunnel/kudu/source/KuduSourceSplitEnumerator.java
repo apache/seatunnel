@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat;
@@ -159,7 +159,7 @@ public class KuduSourceSplitEnumerator
     @Override
     public void handleSplitRequest(int subtaskId) {
         throw new KuduConnectorException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported handleSplitRequest: %d", subtaskId));
     }
 

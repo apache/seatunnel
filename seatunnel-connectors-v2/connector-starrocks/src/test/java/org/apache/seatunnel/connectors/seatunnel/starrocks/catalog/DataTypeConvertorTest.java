@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -38,26 +37,26 @@ public class DataTypeConvertorTest {
         MultipleRowType multipleRowType =
                 new MultipleRowType(new String[] {"table"}, new SeaTunnelRowType[] {rowType});
         StarRocksDataTypeConvertor starrocks = new StarRocksDataTypeConvertor();
-        DataTypeConvertException exception =
+        SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
-                        DataTypeConvertException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> starrocks.toSeaTunnelType("test", "UNSUPPORTED_TYPE"));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - Convert type: UNKNOWN of the test field to SeaTunnel data type error.",
+                "ErrorCode:[COMMON-17], ErrorDescription:['StarRocks' unsupported convert type 'UNKNOWN' of 'test' to SeaTunnel data type.]",
                 exception.getMessage());
-        DataTypeConvertException exception2 =
+        SeaTunnelRuntimeException exception2 =
                 Assertions.assertThrows(
-                        DataTypeConvertException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> starrocks.toSeaTunnelType("test", UNKNOWN, new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - Convert type: UNKNOWN of the test field to SeaTunnel data type error.",
+                "ErrorCode:[COMMON-17], ErrorDescription:['StarRocks' unsupported convert type 'UNKNOWN' of 'test' to SeaTunnel data type.]",
                 exception2.getMessage());
-        StarRocksConnectorException exception3 =
+        SeaTunnelRuntimeException exception3 =
                 Assertions.assertThrows(
-                        StarRocksConnectorException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> starrocks.toConnectorType("test", multipleRowType, new HashMap<>()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - Doris doesn't support type 'MULTIPLE_ROW' of the 'test' field yet",
+                "ErrorCode:[COMMON-19], ErrorDescription:['StarRocks' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
                 exception3.getMessage());
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -24,20 +26,53 @@ public class SeaTunnelDataTypeConvertorUtilTest {
 
     @Test
     void testParseWithUnsupportedType() {
-
-        UnsupportedOperationException exception =
+        SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("uuid"));
-        Assertions.assertEquals("the type[uuid] is not support", exception.getMessage());
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                        "test", "MULTIPLE_ROW"));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-07], ErrorDescription:['SeaTunnel' unsupported data type 'MULTIPLE_ROW' of 'test']",
+                exception.getMessage());
 
-        RuntimeException exception2 =
+        SeaTunnelRuntimeException exception2 =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                        "test", "map<string, MULTIPLE_ROW>"));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-07], ErrorDescription:['SeaTunnel' unsupported data type 'MULTIPLE_ROW' of 'test']",
+                exception2.getMessage());
+
+        SeaTunnelRuntimeException exception3 =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                        "test", "array<MULTIPLE_ROW>"));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-07], ErrorDescription:['SeaTunnel' unsupported data type 'MULTIPLE_ROW' of 'test']",
+                exception3.getMessage());
+
+        SeaTunnelRuntimeException exception4 =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                        "test", "uuid"));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-07], ErrorDescription:['SeaTunnel' unsupported data type 'uuid' of 'test']",
+                exception4.getMessage());
+
+        RuntimeException exception5 =
                 Assertions.assertThrows(
                         RuntimeException.class,
                         () ->
                                 SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
-                                        "{uuid}"));
+                                        "test", "{uuid}"));
         Assertions.assertEquals(
-                "String json deserialization exception.{uuid}", exception2.getMessage());
+                "String json deserialization exception.{uuid}", exception5.getMessage());
     }
 }

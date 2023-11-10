@@ -21,8 +21,8 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import java.sql.ResultSetMetaData;
@@ -130,9 +130,9 @@ public class KingbaseTypeMapper implements JdbcDialectTypeMapper {
             case KB_JSON:
             case KB_BYTEA:
             default:
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format("Doesn't support KingBaseES type '%s' yet", kbType));
+                final String jdbcColumnName = metadata.getColumnName(colIndex);
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.KINGBASE, kbType, jdbcColumnName);
         }
     }
 }
