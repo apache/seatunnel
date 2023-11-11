@@ -25,8 +25,10 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
@@ -63,10 +65,11 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
         List<SeaTunnelDataType<?>> fieldsType = new ArrayList<>();
         for (Map.Entry<String, String> field : fields.entrySet()) {
             String srcField = field.getValue();
-            int srcFieldIndex = inputRowType.indexOf(srcField);
-            if (srcFieldIndex == -1) {
-                throw new IllegalArgumentException(
-                        "Cannot find [" + srcField + "] field in input row type");
+            int srcFieldIndex;
+            try {
+                srcFieldIndex = inputRowType.indexOf(srcField);
+            } catch (IllegalArgumentException e) {
+                throw TransformCommonError.cannotFindInputFieldError(getPluginName(), srcField);
             }
             fieldNames.add(field.getKey());
             fieldOriginalIndexes.add(srcFieldIndex);
@@ -113,12 +116,15 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
         Object[] fieldValues = new Object[fieldNames.size()];
         for (int i = 0; i < fieldOriginalIndexes.size(); i++) {
             fieldValues[i] =
-                    clone(fieldTypes.get(i), inputRow.getField(fieldOriginalIndexes.get(i)));
+                    clone(
+                            fieldNames.get(i),
+                            fieldTypes.get(i),
+                            inputRow.getField(fieldOriginalIndexes.get(i)));
         }
         return fieldValues;
     }
 
-    private Object clone(SeaTunnelDataType<?> dataType, Object value) {
+    private Object clone(String field, SeaTunnelDataType<?> dataType, Object value) {
         if (value == null) {
             return null;
         }
@@ -147,7 +153,7 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
                 Object newArray =
                         Array.newInstance(arrayType.getElementType().getTypeClass(), array.length);
                 for (int i = 0; i < array.length; i++) {
-                    Array.set(newArray, i, clone(arrayType.getElementType(), array[i]));
+                    Array.set(newArray, i, clone(field, arrayType.getElementType(), array[i]));
                 }
                 return newArray;
             case MAP:
@@ -156,8 +162,8 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
                 Map<Object, Object> newMap = new HashMap<>();
                 for (Object key : map.keySet()) {
                     newMap.put(
-                            clone(mapType.getKeyType(), key),
-                            clone(mapType.getValueType(), map.get(key)));
+                            clone(field, mapType.getKeyType(), key),
+                            clone(field, mapType.getValueType(), map.get(key)));
                 }
                 return newMap;
             case ROW:
@@ -166,7 +172,11 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
 
                 Object[] newFields = new Object[rowType.getTotalFields()];
                 for (int i = 0; i < rowType.getTotalFields(); i++) {
-                    newFields[i] = clone(rowType.getFieldType(i), row.getField(i));
+                    newFields[i] =
+                            clone(
+                                    rowType.getFieldName(i),
+                                    rowType.getFieldType(i),
+                                    row.getField(i));
                 }
                 SeaTunnelRow newRow = new SeaTunnelRow(newFields);
                 newRow.setRowKind(row.getRowKind());
@@ -175,8 +185,8 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
             case NULL:
                 return null;
             default:
-                throw new UnsupportedOperationException(
-                        "Unsupported type: " + dataType.getSqlType());
+                throw CommonError.unsupportedDataType(
+                        getPluginName(), dataType.getSqlType().toString(), field);
         }
     }
 }
