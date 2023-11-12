@@ -18,7 +18,6 @@
 
 package org.apache.seatunnel.format.json.ogg;
 
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -64,17 +63,17 @@ public class OggJsonSerDeSchemaTest {
     public void testDeserializeNullRow() throws Exception {
         final OggJsonDeserializationSchema deserializationSchema =
                 createOggJsonDeserializationSchema(null, null);
-        final SimpleCollector collector = new SimpleCollector();
 
-        deserializationSchema.deserialize(null, collector);
-        assertEquals(0, collector.list.size());
+        List<SeaTunnelRow> seaTunnelRows = deserializationSchema.deserialize(null);
+        assertEquals(0, seaTunnelRows.size());
     }
 
     public void runTest(List<String> lines, OggJsonDeserializationSchema deserializationSchema)
             throws IOException {
-        SimpleCollector collector = new SimpleCollector();
+        List<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
         for (String line : lines) {
-            deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8), collector);
+            seaTunnelRows.addAll(
+                    deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8)));
         }
 
         List<String> expected =
@@ -100,14 +99,14 @@ public class OggJsonSerDeSchemaTest {
                         "SeaTunnelRow{tableId=, kind=+U, fields=[111, scooter, Big 2-wheel scooter , 5.17]}",
                         "SeaTunnelRow{tableId=, kind=-D, fields=[111, scooter, Big 2-wheel scooter , 5.17]}");
         List<String> actual =
-                collector.list.stream().map(Object::toString).collect(Collectors.toList());
+                seaTunnelRows.stream().map(Object::toString).collect(Collectors.toList());
         assertEquals(expected, actual);
 
         // test Serialization
         OggJsonSerializationSchema serializationSchema =
                 new OggJsonSerializationSchema(PHYSICAL_DATA_TYPE);
         List<String> result = new ArrayList<>();
-        for (SeaTunnelRow rowData : collector.list) {
+        for (SeaTunnelRow rowData : seaTunnelRows) {
             result.add(new String(serializationSchema.serialize(rowData), StandardCharsets.UTF_8));
         }
 
@@ -155,20 +154,5 @@ public class OggJsonSerDeSchemaTest {
         Assertions.assertNotNull(url);
         Path path = new File(url.getFile()).toPath();
         return Files.readAllLines(path);
-    }
-
-    private static class SimpleCollector implements Collector<SeaTunnelRow> {
-
-        private List<SeaTunnelRow> list = new ArrayList<>();
-
-        @Override
-        public void collect(SeaTunnelRow record) {
-            list.add(record);
-        }
-
-        @Override
-        public Object getCheckpointLock() {
-            return null;
-        }
     }
 }

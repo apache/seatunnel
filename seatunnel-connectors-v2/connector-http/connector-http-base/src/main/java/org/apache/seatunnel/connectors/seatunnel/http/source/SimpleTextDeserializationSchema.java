@@ -24,14 +24,17 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import lombok.AllArgsConstructor;
 
+import java.util.Collections;
+import java.util.List;
+
 @AllArgsConstructor
 public class SimpleTextDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
 
     private SeaTunnelRowType rowType;
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message) {
-        return new SeaTunnelRow(new Object[] {new String(message)});
+    public List<SeaTunnelRow> deserialize(byte[] message) {
+        return Collections.singletonList(new SeaTunnelRow(new Object[] {new String(message)}));
     }
 
     @Override

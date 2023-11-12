@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -97,16 +98,18 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                     .forEach(
                             line -> {
                                 try {
-                                    SeaTunnelRow seaTunnelRow =
+                                    List<SeaTunnelRow> seaTunnelRows =
                                             deserializationSchema.deserialize(line.getBytes());
-                                    if (isMergePartition) {
-                                        int index = seaTunnelRowType.getTotalFields();
-                                        for (String value : partitionsMap.values()) {
-                                            seaTunnelRow.setField(index++, value);
+                                    for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
+                                        if (isMergePartition) {
+                                            int index = seaTunnelRowType.getTotalFields();
+                                            for (String value : partitionsMap.values()) {
+                                                seaTunnelRow.setField(index++, value);
+                                            }
                                         }
+                                        seaTunnelRow.setTableId(tableId);
+                                        output.collect(seaTunnelRow);
                                     }
-                                    seaTunnelRow.setTableId(tableId);
-                                    output.collect(seaTunnelRow);
                                 } catch (IOException e) {
                                     String errorMsg =
                                             String.format(

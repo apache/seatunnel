@@ -20,7 +20,6 @@ package org.apache.seatunnel.format.compatible.kafka.connect.json;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -46,7 +45,9 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -87,7 +88,7 @@ public class CompatibleKafkaConnectDeserializationSchema
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message) throws IOException {
+    public List<SeaTunnelRow> deserialize(byte[] message) throws IOException {
         throw new UnsupportedEncodingException();
     }
 
@@ -95,10 +96,9 @@ public class CompatibleKafkaConnectDeserializationSchema
      * Deserialize kafka consumer record
      *
      * @param msg
-     * @param out
      * @throws Exception
      */
-    public void deserialize(ConsumerRecord<byte[], byte[]> msg, Collector<SeaTunnelRow> out)
+    public List<SeaTunnelRow> deserialize(ConsumerRecord<byte[], byte[]> msg)
             throws InvocationTargetException, IllegalAccessException {
         tryInitConverter();
         SinkRecord record = convertToSinkRecord(msg);
@@ -110,15 +110,17 @@ public class CompatibleKafkaConnectDeserializationSchema
         JsonNode payload = jsonNode.get(KAFKA_CONNECT_SINK_RECORD_PAYLOAD);
         if (payload.isArray()) {
             ArrayNode arrayNode = (ArrayNode) payload;
+            List<SeaTunnelRow> rows = new ArrayList<>();
             for (int i = 0; i < arrayNode.size(); i++) {
                 SeaTunnelRow row = convertJsonNode(arrayNode.get(i));
                 row.setRowKind(rowKind);
-                out.collect(row);
+                rows.add(row);
             }
+            return rows;
         } else {
             SeaTunnelRow row = convertJsonNode(payload);
             row.setRowKind(rowKind);
-            out.collect(row);
+            return Collections.singletonList(row);
         }
     }
 

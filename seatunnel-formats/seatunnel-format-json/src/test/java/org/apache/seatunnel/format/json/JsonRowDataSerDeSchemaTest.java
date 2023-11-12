@@ -35,6 +35,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.apache.seatunnel.api.table.type.ArrayType.INT_ARRAY_TYPE;
@@ -139,7 +140,9 @@ public class JsonRowDataSerDeSchemaTest {
         expected.setField(10, multiSet);
         expected.setField(11, nestedMap);
 
-        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(serializedJson);
+        List<SeaTunnelRow> seaTunnelRows = deserializationSchema.deserialize(serializedJson);
+        assertEquals(1, seaTunnelRows.size());
+        SeaTunnelRow seaTunnelRow = seaTunnelRows.get(0);
         assertEquals(expected, seaTunnelRow);
 
         // test serialization
@@ -186,7 +189,10 @@ public class JsonRowDataSerDeSchemaTest {
             row.put("f1", "this is row1");
             row.put("f2", 12);
             byte[] serializedJson = objectMapper.writeValueAsBytes(root);
-            SeaTunnelRow rowData = deserializationSchema.deserialize(serializedJson);
+            List<SeaTunnelRow> seaTunnelRows = deserializationSchema.deserialize(serializedJson);
+            assertEquals(1, seaTunnelRows.size());
+
+            SeaTunnelRow rowData = seaTunnelRows.get(0);
             byte[] actual = serializationSchema.serialize(rowData);
             assertEquals(new String(serializedJson), new String(actual));
         }
@@ -206,7 +212,10 @@ public class JsonRowDataSerDeSchemaTest {
             row.put("f1", "this is row2");
             row.putNull("f2");
             byte[] serializedJson = objectMapper.writeValueAsBytes(root);
-            SeaTunnelRow rowData = deserializationSchema.deserialize(serializedJson);
+            List<SeaTunnelRow> seaTunnelRows = deserializationSchema.deserialize(serializedJson);
+            assertEquals(1, seaTunnelRows.size());
+
+            SeaTunnelRow rowData = seaTunnelRows.get(0);
             byte[] actual = serializationSchema.serialize(rowData);
             assertEquals(new String(serializedJson), new String(actual));
         }
@@ -247,7 +256,10 @@ public class JsonRowDataSerDeSchemaTest {
 
         for (int i = 0; i < jsons.length; i++) {
             String json = jsons[i];
-            SeaTunnelRow row = deserializationSchema.deserialize(json.getBytes());
+            List<SeaTunnelRow> seaTunnelRows = deserializationSchema.deserialize(json.getBytes());
+            assertEquals(1, seaTunnelRows.size());
+
+            SeaTunnelRow row = seaTunnelRows.get(0);
             String result = new String(serializationSchema.serialize(row));
             assertEquals(expected[i], result);
         }
@@ -270,8 +282,8 @@ public class JsonRowDataSerDeSchemaTest {
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(true, false, schema);
-        SeaTunnelRow rowData = deserializationSchema.deserialize("".getBytes());
-        assertEquals(null, rowData);
+        List<SeaTunnelRow> seaTunnelRows = deserializationSchema.deserialize("".getBytes());
+        assertEquals(0, seaTunnelRows.size());
     }
 
     @Test
@@ -291,8 +303,7 @@ public class JsonRowDataSerDeSchemaTest {
                 new JsonDeserializationSchema(false, false, schema);
 
         SeaTunnelRow expected = new SeaTunnelRow(1);
-        SeaTunnelRow actual = deserializationSchema.deserialize(serializedJson);
-        assertEquals(expected, actual);
+        assertEquals(expected, deserializationSchema.deserialize(serializedJson).get(0));
 
         // fail on missing field
         deserializationSchema = new JsonDeserializationSchema(true, false, schema);
@@ -308,7 +319,7 @@ public class JsonRowDataSerDeSchemaTest {
 
         // ignore on parse error
         deserializationSchema = new JsonDeserializationSchema(false, true, schema);
-        assertEquals(expected, deserializationSchema.deserialize(serializedJson));
+        assertEquals(expected, deserializationSchema.deserialize(serializedJson).get(0));
 
         errorMessage =
                 "ErrorCode:[COMMON-06], ErrorDescription:[Illegal argument] - JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.";

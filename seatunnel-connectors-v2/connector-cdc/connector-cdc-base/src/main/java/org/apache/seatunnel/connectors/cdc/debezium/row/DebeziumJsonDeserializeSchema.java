@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.debezium.row;
 
-import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
@@ -27,6 +27,8 @@ import org.apache.kafka.connect.source.SourceRecord;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -46,9 +48,13 @@ public class DebeziumJsonDeserializeSchema implements DebeziumDeserializationSch
     }
 
     @Override
-    public void deserialize(SourceRecord record, Collector<SeaTunnelRow> out) throws Exception {
-        SeaTunnelRow row = deserializationSchema.deserialize(record);
-        out.collect(row);
+    public List<SeaTunnelRow> deserializeDataChangeRecord(SourceRecord record) throws Exception {
+        return Collections.singletonList(deserializationSchema.deserialize(record));
+    }
+
+    @Override
+    public List<SchemaChangeEvent> deserializeSchemaChangeEvent(SourceRecord record) {
+        return Collections.emptyList();
     }
 
     @Override

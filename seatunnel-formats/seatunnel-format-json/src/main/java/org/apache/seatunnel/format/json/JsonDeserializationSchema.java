@@ -36,6 +36,8 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -95,11 +97,16 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message) throws IOException {
+    public List<SeaTunnelRow> deserialize(byte[] message) throws IOException {
         if (message == null) {
-            return null;
+            return Collections.emptyList();
         }
-        return convertJsonNode(convertBytes(message));
+        SeaTunnelRow seaTunnelRow = convertJsonNode(convertBytes(message));
+        if (seaTunnelRow == null) {
+            return Collections.emptyList();
+        } else {
+            return Collections.singletonList(seaTunnelRow);
+        }
     }
 
     public SeaTunnelRow deserialize(String message) throws IOException {

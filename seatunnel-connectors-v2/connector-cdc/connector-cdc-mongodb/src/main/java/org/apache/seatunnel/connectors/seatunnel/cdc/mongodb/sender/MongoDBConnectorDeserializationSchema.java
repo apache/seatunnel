@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.sender;
 
-import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -54,6 +54,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,7 +85,7 @@ public class MongoDBConnectorDeserializationSchema
     }
 
     @Override
-    public void deserialize(@Nonnull SourceRecord record, Collector<SeaTunnelRow> out) {
+    public List<SeaTunnelRow> deserializeDataChangeRecord(@Nonnull SourceRecord record) {
         Struct value = (Struct) record.value();
         Schema valueSchema = record.valueSchema();
 
@@ -103,7 +104,7 @@ public class MongoDBConnectorDeserializationSchema
         }
         if (tableRowConverter == null) {
             log.debug("Ignore newly added table {}", tableId);
-            return;
+            return Collections.emptyList();
         }
 
         switch (op) {
@@ -111,14 +112,12 @@ public class MongoDBConnectorDeserializationSchema
                 SeaTunnelRow insert = extractRowData(tableRowConverter, fullDocument);
                 insert.setRowKind(RowKind.INSERT);
                 insert.setTableId(tableId);
-                emit(record, insert, out);
-                break;
+                return Collections.singletonList(insert);
             case DELETE:
                 SeaTunnelRow delete = extractRowData(tableRowConverter, documentKey);
                 delete.setRowKind(RowKind.DELETE);
                 delete.setTableId(tableId);
-                emit(record, delete, out);
-                break;
+                return Collections.singletonList(delete);
             case UPDATE:
                 if (fullDocument == null) {
                     break;
@@ -126,14 +125,12 @@ public class MongoDBConnectorDeserializationSchema
                 SeaTunnelRow updateAfter = extractRowData(tableRowConverter, fullDocument);
                 updateAfter.setRowKind(RowKind.UPDATE_AFTER);
                 updateAfter.setTableId(tableId);
-                emit(record, updateAfter, out);
-                break;
+                return Collections.singletonList(updateAfter);
             case REPLACE:
                 SeaTunnelRow replaceAfter = extractRowData(tableRowConverter, fullDocument);
                 replaceAfter.setRowKind(RowKind.UPDATE_AFTER);
                 replaceAfter.setTableId(tableId);
-                emit(record, replaceAfter, out);
-                break;
+                return Collections.singletonList(replaceAfter);
             case INVALIDATE:
             case DROP:
             case DROP_DATABASE:
@@ -142,6 +139,13 @@ public class MongoDBConnectorDeserializationSchema
             default:
                 break;
         }
+        return Collections.emptyList();
+    }
+
+    @Override
+    public List<SchemaChangeEvent> deserializeSchemaChangeEvent(SourceRecord record) {
+        // todo: support schema change event
+        return Collections.emptyList();
     }
 
     @Override
@@ -152,14 +156,6 @@ public class MongoDBConnectorDeserializationSchema
     private @Nonnull OperationType operationTypeFor(@Nonnull SourceRecord record) {
         Struct value = (Struct) record.value();
         return OperationType.fromString(value.getString("operationType"));
-    }
-
-    // TODO:The dynamic schema will be completed based on this method later.
-    private void emit(
-            SourceRecord inRecord,
-            SeaTunnelRow physicalRow,
-            @Nonnull Collector<SeaTunnelRow> collector) {
-        collector.collect(physicalRow);
     }
 
     private SeaTunnelRow extractRowData(

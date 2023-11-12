@@ -23,7 +23,6 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -32,7 +31,12 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
+import com.google.common.base.Preconditions;
+
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.regex.Pattern;
 
 import static java.lang.String.format;
@@ -104,8 +108,13 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        throw new UnsupportedOperationException();
+    public List<SeaTunnelRow> deserialize(byte[] message) throws IOException {
+        if (message == null) {
+            return Collections.emptyList();
+        }
+        ObjectNode jsonNode = (ObjectNode) convertBytes(message);
+        Preconditions.checkNotNull(jsonNode);
+        return deserialize(jsonNode);
     }
 
     @Override
@@ -113,23 +122,13 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         return this.physicalRowType;
     }
 
-    @Override
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
-        if (message == null) {
-            return;
-        }
-        ObjectNode jsonNode = (ObjectNode) convertBytes(message);
-        assert jsonNode != null;
-        deserialize(jsonNode, out);
-    }
-
-    public void deserialize(ObjectNode jsonNode, Collector<SeaTunnelRow> out) {
+    public List<SeaTunnelRow> deserialize(ObjectNode jsonNode) {
         if (database != null
                 && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
-            return;
+            return Collections.emptyList();
         }
         if (table != null && !tablePattern.matcher(jsonNode.get(FIELD_TABLE).asText()).matches()) {
-            return;
+            return Collections.emptyList();
         }
         JsonNode dataNode = jsonNode.get(FIELD_DATA);
         String type = jsonNode.get(FIELD_TYPE).asText();
@@ -137,19 +136,22 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         if (dataNode == null || dataNode.isNull()) {
             // We'll skip the query or create or alter event data
             if (OP_QUERY.equals(type) || OP_CREATE.equals(type) || OP_ALTER.equals(type)) {
-                return;
+                return Collections.emptyList();
             }
             throw new SeaTunnelJsonFormatException(
                     CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
                     format("Null data value \"%s\" Cannot send downstream", jsonNode));
         }
         if (OP_INSERT.equals(type)) {
+            List<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
             for (int i = 0; i < dataNode.size(); i++) {
                 SeaTunnelRow row = convertJsonNode(dataNode.get(i));
-                out.collect(row);
+                seaTunnelRows.add(row);
             }
+            return seaTunnelRows;
         } else if (OP_UPDATE.equals(type)) {
             final ArrayNode oldNode = (ArrayNode) jsonNode.get(FIELD_OLD);
+            List<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
             for (int i = 0; i < dataNode.size(); i++) {
                 SeaTunnelRow after = convertJsonNode(dataNode.get(i));
                 SeaTunnelRow before = convertJsonNode(oldNode.get(i));
@@ -167,16 +169,19 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                 before.setRowKind(RowKind.UPDATE_BEFORE);
                 assert after != null;
                 after.setRowKind(RowKind.UPDATE_AFTER);
-                out.collect(before);
-                out.collect(after);
+                seaTunnelRows.add(before);
+                seaTunnelRows.add(after);
             }
+            return seaTunnelRows;
         } else if (OP_DELETE.equals(type)) {
+            List<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
             for (int i = 0; i < dataNode.size(); i++) {
                 SeaTunnelRow row = convertJsonNode(dataNode.get(i));
                 assert row != null;
                 row.setRowKind(RowKind.DELETE);
-                out.collect(row);
+                seaTunnelRows.add(row);
             }
+            return seaTunnelRows;
         } else {
             if (!ignoreParseErrors) {
                 throw new SeaTunnelJsonFormatException(
@@ -186,6 +191,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                                 type, jsonNode.asText()));
             }
         }
+        return Collections.emptyList();
     }
 
     private JsonNode convertBytes(byte[] message) {

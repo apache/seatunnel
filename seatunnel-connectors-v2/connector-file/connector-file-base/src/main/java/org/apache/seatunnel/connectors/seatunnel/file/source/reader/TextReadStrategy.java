@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -94,32 +95,34 @@ public class TextReadStrategy extends AbstractReadStrategy {
                     .forEach(
                             line -> {
                                 try {
-                                    SeaTunnelRow seaTunnelRow =
+                                    List<SeaTunnelRow> seaTunnelRows =
                                             deserializationSchema.deserialize(line.getBytes());
-                                    if (!readColumns.isEmpty()) {
-                                        // need column projection
-                                        Object[] fields;
+                                    for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
+                                        if (!readColumns.isEmpty()) {
+                                            // need column projection
+                                            Object[] fields;
+                                            if (isMergePartition) {
+                                                fields =
+                                                        new Object
+                                                                [readColumns.size()
+                                                                        + partitionsMap.size()];
+                                            } else {
+                                                fields = new Object[readColumns.size()];
+                                            }
+                                            for (int i = 0; i < indexes.length; i++) {
+                                                fields[i] = seaTunnelRow.getField(indexes[i]);
+                                            }
+                                            seaTunnelRow = new SeaTunnelRow(fields);
+                                        }
                                         if (isMergePartition) {
-                                            fields =
-                                                    new Object
-                                                            [readColumns.size()
-                                                                    + partitionsMap.size()];
-                                        } else {
-                                            fields = new Object[readColumns.size()];
+                                            int index = seaTunnelRowType.getTotalFields();
+                                            for (String value : partitionsMap.values()) {
+                                                seaTunnelRow.setField(index++, value);
+                                            }
                                         }
-                                        for (int i = 0; i < indexes.length; i++) {
-                                            fields[i] = seaTunnelRow.getField(indexes[i]);
-                                        }
-                                        seaTunnelRow = new SeaTunnelRow(fields);
+                                        seaTunnelRow.setTableId(tableId);
+                                        output.collect(seaTunnelRow);
                                     }
-                                    if (isMergePartition) {
-                                        int index = seaTunnelRowType.getTotalFields();
-                                        for (String value : partitionsMap.values()) {
-                                            seaTunnelRow.setField(index++, value);
-                                        }
-                                    }
-                                    seaTunnelRow.setTableId(tableId);
-                                    output.collect(seaTunnelRow);
                                 } catch (IOException e) {
                                     String errorMsg =
                                             String.format(

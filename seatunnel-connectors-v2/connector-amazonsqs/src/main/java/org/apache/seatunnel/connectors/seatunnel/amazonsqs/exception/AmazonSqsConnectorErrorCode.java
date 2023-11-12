@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.serialization;
+package org.apache.seatunnel.connectors.seatunnel.amazonsqs.exception;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.List;
+public enum AmazonSqsConnectorErrorCode implements SeaTunnelErrorCode {
+    DESEARILIZATION_ERROR("AMAZONSQS-001", "Failed to deserialize origin data"),
+    ;
 
-public interface DeserializationSchema<T> extends Serializable {
+    private final String code;
+    private final String description;
 
-    /**
-     * Deserializes the byte message.
-     *
-     * @param message The message, as a byte array.
-     * @return The deserialized message as an SeaTunnel Row (Empty list if the message cannot be
-     *     deserialized).
-     */
-    List<T> deserialize(byte[] message) throws IOException;
+    AmazonSqsConnectorErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
+    }
 
-    SeaTunnelDataType<T> getProducedType();
+    @Override
+    public String getCode() {
+        return code;
+    }
+
+    @Override
+    public String getDescription() {
+        return description;
+    }
 }

@@ -25,6 +25,7 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import lombok.AllArgsConstructor;
 
 import java.io.IOException;
+import java.util.List;
 
 @AllArgsConstructor
 public class DeserializationCollector {
@@ -35,8 +36,8 @@ public class DeserializationCollector {
         if (deserializationSchema instanceof JsonDeserializationSchema) {
             ((JsonDeserializationSchema) deserializationSchema).collect(message, out);
         } else {
-            SeaTunnelRow deserialize = deserializationSchema.deserialize(message);
-            out.collect(deserialize);
+            List<SeaTunnelRow> seaTunnelRows = deserializationSchema.deserialize(message);
+            seaTunnelRows.forEach(out::collect);
         }
     }
 }

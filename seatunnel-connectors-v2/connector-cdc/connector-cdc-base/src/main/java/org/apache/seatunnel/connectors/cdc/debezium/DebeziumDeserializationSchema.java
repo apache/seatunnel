@@ -17,13 +17,15 @@
 
 package org.apache.seatunnel.connectors.cdc.debezium;
 
-import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
+import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 
 import org.apache.kafka.connect.source.SourceRecord;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * The deserialization schema describes how to turn the Debezium SourceRecord into data types
@@ -33,8 +35,24 @@ import java.io.Serializable;
  */
 public interface DebeziumDeserializationSchema<T> extends Serializable {
 
+    default boolean isDataChangeRecord(SourceRecord record) {
+        return SourceRecordUtils.isDataChangeRecord(record);
+    }
+
     /** Deserialize the Debezium record, it is represented in Kafka {@link SourceRecord}. */
-    void deserialize(SourceRecord record, Collector<T> out) throws Exception;
+    List<T> deserializeDataChangeRecord(SourceRecord record) throws Exception;
+
+    default boolean isSchemaChangeEvent(SourceRecord record) {
+        return SourceRecordUtils.isSchemaChangeEvent(record);
+    }
+
+    /**
+     * Deserialize the Debezium record to SchemaChangeEvent.
+     *
+     * @param record the record to deserialize.
+     * @return the deserialized SchemaChangeEvent.
+     */
+    List<SchemaChangeEvent> deserializeSchemaChangeEvent(SourceRecord record);
 
     SeaTunnelDataType<T> getProducedType();
 
