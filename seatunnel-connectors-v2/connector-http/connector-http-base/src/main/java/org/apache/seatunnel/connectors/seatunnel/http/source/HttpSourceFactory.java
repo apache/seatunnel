@@ -59,6 +59,7 @@ public class HttpSourceFactory implements TableSourceFactory {
                 .optional(HttpConfig.HEADERS)
                 .optional(HttpConfig.PARAMS)
                 .optional(HttpConfig.FORMAT)
+                .optional(HttpConfig.BODY)
                 .optional(HttpConfig.JSON_FIELD)
                 .optional(HttpConfig.CONTENT_FIELD)
                 .conditional(
