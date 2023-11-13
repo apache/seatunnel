@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog.MaxComputeDataTypeConvertor;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 
@@ -95,7 +95,8 @@ public class MaxcomputeTypeMapper implements Serializable {
                 seaTunnelDataTypes.add(seaTunnelDataType);
             }
         } catch (Exception e) {
-            throw new MaxcomputeConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED, e);
+            throw new MaxcomputeConnectorException(
+                    CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED, e);
         }
         return new SeaTunnelRowType(
                 fieldNames.toArray(new String[fieldNames.size()]),
@@ -126,7 +127,7 @@ public class MaxcomputeTypeMapper implements Serializable {
                         return origArray.toArray(new Double[0]);
                     default:
                         throw new MaxcomputeConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                                 String.format(
                                         "SeaTunnel type not support this type [%s] now",
                                         fieldType.getSqlType().name()));
@@ -185,7 +186,7 @@ public class MaxcomputeTypeMapper implements Serializable {
             case NULL:
             default:
                 throw new MaxcomputeConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         String.format(
                                 "SeaTunnel type not support this type [%s] now",
                                 fieldType.getSqlType().name()));
@@ -210,7 +211,7 @@ public class MaxcomputeTypeMapper implements Serializable {
                         return origArray;
                     default:
                         throw new MaxcomputeConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                                 String.format(
                                         "Maxcompute type not support this type [%s] now",
                                         typeInfo.getTypeName()));
@@ -267,7 +268,7 @@ public class MaxcomputeTypeMapper implements Serializable {
                 return Date.valueOf((LocalDate) field);
             default:
                 throw new MaxcomputeConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         String.format(
                                 "Maxcompute type not support this type [%s] now",
                                 typeInfo.getTypeName()));

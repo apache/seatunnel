@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
@@ -191,7 +191,8 @@ public class JsonToRowConverters implements Serializable {
                 return createMapConverter((MapType<?, ?>) type);
             default:
                 throw new SeaTunnelJsonFormatException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported type: " + type);
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported type: " + type);
         }
     }
 
@@ -270,7 +271,9 @@ public class JsonToRowConverters implements Serializable {
             return jsonNode.binaryValue();
         } catch (IOException e) {
             throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.JSON_OPERATION_FAILED, "Unable to deserialize byte array.", e);
+                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
+                    "Unable to deserialize byte array.",
+                    e);
         }
     }
 
@@ -322,7 +325,7 @@ public class JsonToRowConverters implements Serializable {
                         row.setField(i, convertedField);
                     } catch (Throwable t) {
                         throw new SeaTunnelJsonFormatException(
-                                CommonErrorCode.JSON_OPERATION_FAILED,
+                                CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
                                 String.format("Fail to deserialize at field: %s.", fieldName),
                                 t);
                     }
@@ -373,7 +376,7 @@ public class JsonToRowConverters implements Serializable {
         if (field == null) {
             if (failOnMissingField) {
                 throw new SeaTunnelJsonFormatException(
-                        CommonErrorCode.JSON_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
                         String.format("Could not find field with name %s .", fieldName));
             } else {
                 return null;

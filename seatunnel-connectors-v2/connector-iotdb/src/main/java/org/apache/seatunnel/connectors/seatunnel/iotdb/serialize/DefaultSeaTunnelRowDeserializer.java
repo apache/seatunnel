@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 
 import org.apache.iotdb.tsfile.read.common.Field;
@@ -47,7 +47,8 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         List<Field> fields = rowRecord.getFields();
         if (fields.size() != (rowType.getTotalFields() - 1)) {
             throw new IotdbConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT, "Illegal SeaTunnelRowType: " + rowRecord);
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    "Illegal SeaTunnelRowType: " + rowRecord);
         }
 
         Object[] seaTunnelFields = new Object[rowType.getTotalFields()];
@@ -77,7 +78,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                         return int32.intValue();
                     default:
                         throw new IotdbConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                                 "Unsupported data type: " + seaTunnelFieldType);
                 }
             case INT64:
@@ -92,7 +93,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 return field.getBoolV();
             default:
                 throw new IotdbConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "Unsupported data type: " + field.getDataType());
         }
     }
@@ -105,7 +106,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 return timestamp;
             default:
                 throw new IotdbConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "Unsupported data type: " + seaTunnelFieldType);
         }
     }

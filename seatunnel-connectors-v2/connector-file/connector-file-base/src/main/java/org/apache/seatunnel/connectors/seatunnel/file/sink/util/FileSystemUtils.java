@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.util;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
@@ -75,7 +75,7 @@ public class FileSystemUtils implements Serializable {
                                         + "principal [%s] and keytab path [%s]",
                                 principal, keytabPath);
                 throw new FileConnectorException(
-                        CommonErrorCode.KERBEROS_AUTHORIZED_FAILED, errorMsg, e);
+                        CommonErrorCodeDeprecated.KERBEROS_AUTHORIZED_FAILED, errorMsg, e);
             }
         }
     }
@@ -113,7 +113,8 @@ public class FileSystemUtils implements Serializable {
         Path path = new Path(filePath);
         if (!fileSystem.createNewFile(path)) {
             throw new FileConnectorException(
-                    CommonErrorCode.FILE_OPERATION_FAILED, "create file " + filePath + " error");
+                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
+                    "create file " + filePath + " error");
         }
     }
 
@@ -123,7 +124,8 @@ public class FileSystemUtils implements Serializable {
         if (fileSystem.exists(path)) {
             if (!fileSystem.delete(path, true)) {
                 throw new FileConnectorException(
-                        CommonErrorCode.FILE_OPERATION_FAILED, "delete file " + file + " error");
+                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
+                        "delete file " + file + " error");
             }
         }
     }
@@ -168,7 +170,7 @@ public class FileSystemUtils implements Serializable {
             log.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
         } else {
             throw new FileConnectorException(
-                    CommonErrorCode.FILE_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
                     "rename file :[" + oldPath + "] to [" + newPath + "] error");
         }
     }
@@ -178,7 +180,8 @@ public class FileSystemUtils implements Serializable {
         Path dfs = new Path(filePath);
         if (!fileSystem.mkdirs(dfs)) {
             throw new FileConnectorException(
-                    CommonErrorCode.FILE_OPERATION_FAILED, "create dir " + filePath + " error");
+                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
+                    "create dir " + filePath + " error");
         }
     }
 

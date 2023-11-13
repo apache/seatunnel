@@ -93,7 +93,7 @@ public class JsonPathTransformConfig implements Serializable {
             String destField = map.get(DEST_FIELD.key());
             String type = map.getOrDefault(DEST_TYPE.key(), DEST_TYPE.defaultValue());
             SeaTunnelDataType<?> dataType =
-                    SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(type);
+                    SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(srcField, type);
             ColumnConfig columnConfig = new ColumnConfig(path, srcField, destField, dataType);
             configs.add(columnConfig);
         }

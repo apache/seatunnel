@@ -19,13 +19,18 @@ package org.apache.seatunnel.transform.exception;
 
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-public enum FilterFieldTransformErrorCode implements SeaTunnelErrorCode {
-    FILTER_FIELD_NOT_FOUND("FILTER_FIELD_TRANSFORM-01", "filter field not found");
+enum TransformCommonErrorCode implements SeaTunnelErrorCode {
+    INPUT_FIELD_NOT_FOUND(
+            "TRANSFORM_COMMON-01",
+            "The input field '<field>' of '<transform>' transform not found in upstream schema"),
+    INPUT_FIELDS_NOT_FOUND(
+            "TRANSFORM_COMMON-02",
+            "The input fields '<fields>' of '<transform>' transform not found in upstream schema");
 
     private final String code;
     private final String description;
 
-    FilterFieldTransformErrorCode(String code, String description) {
+    TransformCommonErrorCode(String code, String description) {
         this.code = code;
         this.description = description;
     }

@@ -20,6 +20,7 @@ package org.apache.seatunnel.format.compatible.debezium.json;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.json.DecimalFormat;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.json.JsonConverterConfig;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -30,7 +31,8 @@ import lombok.RequiredArgsConstructor;
 import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 @RequiredArgsConstructor
 public class DebeziumJsonConverter implements Serializable {
@@ -68,10 +70,12 @@ public class DebeziumJsonConverter implements Serializable {
             synchronized (this) {
                 if (keyConverter == null) {
                     keyConverter = new JsonConverter();
-                    keyConverter.configure(
-                            Collections.singletonMap(
-                                    JsonConverterConfig.SCHEMAS_ENABLE_CONFIG, keySchemaEnable),
-                            true);
+                    Map<String, Object> configs = new HashMap<>();
+                    configs.put(JsonConverterConfig.SCHEMAS_ENABLE_CONFIG, keySchemaEnable);
+                    configs.put(
+                            JsonConverterConfig.DECIMAL_FORMAT_CONFIG,
+                            DecimalFormat.NUMERIC.name());
+                    keyConverter.configure(configs, true);
                     keyConverterMethod =
                             ReflectionUtils.getDeclaredMethod(
                                             JsonConverter.class,
@@ -88,10 +92,12 @@ public class DebeziumJsonConverter implements Serializable {
             synchronized (this) {
                 if (valueConverter == null) {
                     valueConverter = new JsonConverter();
-                    valueConverter.configure(
-                            Collections.singletonMap(
-                                    JsonConverterConfig.SCHEMAS_ENABLE_CONFIG, valueSchemaEnable),
-                            false);
+                    Map<String, Object> configs = new HashMap<>();
+                    configs.put(JsonConverterConfig.SCHEMAS_ENABLE_CONFIG, valueSchemaEnable);
+                    configs.put(
+                            JsonConverterConfig.DECIMAL_FORMAT_CONFIG,
+                            DecimalFormat.NUMERIC.name());
+                    valueConverter.configure(configs, false);
                     valueConverterMethod =
                             ReflectionUtils.getDeclaredMethod(
                                             JsonConverter.class,

@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
@@ -130,7 +130,7 @@ public class DateTimeFunction {
                 break;
             default:
                 throw new TransformException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format(
                                 "Unsupported dateTimeField: %s for function: %s",
                                 datetimeField, ZetaSQLFunction.DATEDIFF));
@@ -207,7 +207,7 @@ public class DateTimeFunction {
                 return Duration.between(datetime1, datetime2).toMillis();
             default:
                 throw new TransformException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format(
                                 "Unsupported dateTimeField: %s for function: %s",
                                 datetimeField, ZetaSQLFunction.DATEDIFF));
@@ -264,7 +264,7 @@ public class DateTimeFunction {
                 break;
             default:
                 throw new TransformException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format(
                                 "Unsupported dateTimeField: %s for function: %s",
                                 datetimeField, ZetaSQLFunction.DATEDIFF));
@@ -405,7 +405,7 @@ public class DateTimeFunction {
                 return dayOfYear(args);
             default:
                 throw new TransformException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format(
                                 "Unsupported dateTimeField: %s for function: %s",
                                 datetimeField, ZetaSQLFunction.EXTRACT));
@@ -489,7 +489,7 @@ public class DateTimeFunction {
             return LocalTime.parse(str, df);
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format(
                         "Unknown pattern letter %s for function: %s",
                         format, ZetaSQLFunction.PARSEDATETIME));

@@ -30,7 +30,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
@@ -125,7 +125,7 @@ public class KuduSourceFactory implements TableSourceFactory {
 
         } catch (Exception e) {
             throw new KuduConnectorException(
-                    CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                    CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
                     String.format(
                             "PluginName: %s, PluginType: %s, Message: %s",
                             "Kudu", PluginType.SOURCE, ExceptionUtils.getMessage(e)));

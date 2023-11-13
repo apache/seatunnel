@@ -31,7 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 
@@ -116,7 +116,7 @@ public class HudiSource
             this.filePath = HudiUtil.getParquetFileByPath(this.confFiles, tablePath);
             if (this.filePath == null) {
                 throw new HudiConnectorException(
-                        CommonErrorCode.FILE_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
                         String.format("%s has no parquet file, please check!", tablePath));
             }
             // should read from config or read from hudi metadata( wait catalog done)
