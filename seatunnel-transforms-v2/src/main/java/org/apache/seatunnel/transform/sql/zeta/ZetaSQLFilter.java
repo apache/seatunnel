@@ -193,9 +193,6 @@ public class ZetaSQLFilter {
         if (regex.startsWith("'") && regex.endsWith("'")) {
             regex = regex.substring(0, regex.length() - 1).substring(1);
         }
-        if (regex.startsWith("'") && regex.endsWith("'")) {
-            regex = regex.substring(0, regex.length() - 1).substring(1);
-        }
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(leftVal.toString());
 
