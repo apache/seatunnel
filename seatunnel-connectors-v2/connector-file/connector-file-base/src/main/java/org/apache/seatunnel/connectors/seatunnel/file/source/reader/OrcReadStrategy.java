@@ -74,7 +74,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
     private static final long MIN_SIZE = 16 * 1024;
 
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output)
+    public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         if (Boolean.FALSE.equals(checkFileType(path))) {
             String errorMsg =
@@ -120,6 +120,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                         }
                     }
                     SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                    seaTunnelRow.setTableId(tableId);
                     output.collect(seaTunnelRow);
                     num++;
                 }

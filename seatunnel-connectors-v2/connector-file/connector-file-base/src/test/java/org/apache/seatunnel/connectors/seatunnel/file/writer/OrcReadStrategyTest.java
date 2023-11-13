@@ -52,7 +52,7 @@ public class OrcReadStrategyTest {
                 orcReadStrategy.getSeaTunnelRowTypeInfo(localConf, orcFilePath);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         System.out.println(seaTunnelRowTypeInfo);
-        orcReadStrategy.read(orcFilePath, testCollector);
+        orcReadStrategy.read(orcFilePath, "", testCollector);
         for (SeaTunnelRow row : testCollector.getRows()) {
             Assertions.assertEquals(row.getField(0).getClass(), Boolean.class);
             Assertions.assertEquals(row.getField(1).getClass(), Byte.class);
@@ -78,7 +78,7 @@ public class OrcReadStrategyTest {
                 orcReadStrategy.getSeaTunnelRowTypeInfo(localConf, orcFilePath);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         System.out.println(seaTunnelRowTypeInfo);
-        orcReadStrategy.read(orcFilePath, testCollector);
+        orcReadStrategy.read(orcFilePath, "", testCollector);
         for (SeaTunnelRow row : testCollector.getRows()) {
             Assertions.assertEquals(row.getField(0).getClass(), Byte.class);
             Assertions.assertEquals(row.getField(1).getClass(), Boolean.class);

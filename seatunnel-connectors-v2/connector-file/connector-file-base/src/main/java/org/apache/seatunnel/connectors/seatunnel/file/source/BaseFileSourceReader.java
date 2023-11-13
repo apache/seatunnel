@@ -63,7 +63,9 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
             FileSourceSplit split = sourceSplits.poll();
             if (null != split) {
                 try {
-                    readStrategy.read(split.splitId(), output);
+                    // todo: If there is only one table , the tableId is not needed, but it's better
+                    // to set this
+                    readStrategy.read(split.splitId(), "", output);
                 } catch (Exception e) {
                     String errorMsg =
                             String.format("Read data from this file [%s] failed", split.splitId());
