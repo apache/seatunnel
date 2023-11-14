@@ -212,7 +212,8 @@ public class ClickhouseFileSinkWriter
         }
     }
 
-    private void saveDataToFile(FileChannel fileChannel, SeaTunnelRow row, Shard shard) throws IOException {
+    private void saveDataToFile(FileChannel fileChannel, SeaTunnelRow row, Shard shard)
+            throws IOException {
         String data =
                 this.readerOption.getFields().stream()
                                 .map(
@@ -231,18 +232,24 @@ public class ClickhouseFileSinkWriter
                                 .collect(Collectors.joining(readerOption.getFileFieldsDelimiter()))
                         + "\n";
 
-        MappedByteBuffer buffer = bufferCache.computeIfAbsent(
-                shard,
-                k -> {
-                    try{
-                        return fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, bufferSize);
-                    }catch (IOException e){
-                        throw new ClickhouseConnectorException(CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,"data_local file write failed", e);
-                    }
-                });
+        MappedByteBuffer buffer =
+                bufferCache.computeIfAbsent(
+                        shard,
+                        k -> {
+                            try {
+                                return fileChannel.map(
+                                        FileChannel.MapMode.READ_WRITE, 0, bufferSize);
+                            } catch (IOException e) {
+                                throw new ClickhouseConnectorException(
+                                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
+                                        "data_local file write failed",
+                                        e);
+                            }
+                        });
         byte[] byteData = data.getBytes(StandardCharsets.UTF_8);
-        if(buffer.position() + byteData.length > buffer.capacity()){
-            buffer = fileChannel.map(FileChannel.MapMode.READ_WRITE, fileChannel.size(), bufferSize);
+        if (buffer.position() + byteData.length > buffer.capacity()) {
+            buffer =
+                    fileChannel.map(FileChannel.MapMode.READ_WRITE, fileChannel.size(), bufferSize);
             bufferCache.put(shard, buffer);
         }
         buffer.put(byteData);
