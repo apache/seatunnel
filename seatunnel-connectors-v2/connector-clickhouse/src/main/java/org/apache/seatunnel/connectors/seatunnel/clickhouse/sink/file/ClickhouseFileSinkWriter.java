@@ -230,6 +230,7 @@ public class ClickhouseFileSinkWriter
                                         })
                                 .collect(Collectors.joining(readerOption.getFileFieldsDelimiter()))
                         + "\n";
+
         MappedByteBuffer buffer = bufferCache.computeIfAbsent(
                 shard,
                 k -> {
