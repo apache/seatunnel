@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationConverterFactory;
@@ -233,12 +234,14 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
 
     @Override
     public void restoreCheckpointProducedType(SeaTunnelDataType<SeaTunnelRow> checkpointDataType) {
-        if (!checkpointDataType.getSqlType().equals(resultTypeInfo.getSqlType())) {
-            throw new IllegalStateException(
-                    String.format(
-                            "The produced type %s of the SeaTunnel deserialization schema "
-                                    + "doesn't match the type %s of the restored snapshot.",
-                            resultTypeInfo.getSqlType(), checkpointDataType.getSqlType()));
+        if (SqlType.ROW.equals(checkpointDataType.getSqlType())
+                && SqlType.MULTIPLE_ROW.equals(resultTypeInfo.getSqlType())) {
+            // TODO: Older versions may have this issue
+            log.warn(
+                    "Skip incompatible restore type. produced type: {}, checkpoint type: {}",
+                    resultTypeInfo,
+                    checkpointDataType);
+            return;
         }
         if (checkpointDataType instanceof MultipleRowType) {
             MultipleRowType latestDataType = (MultipleRowType) resultTypeInfo;

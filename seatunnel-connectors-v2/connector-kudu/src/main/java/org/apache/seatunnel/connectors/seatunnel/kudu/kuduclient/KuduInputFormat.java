@@ -109,4 +109,8 @@ public class KuduInputFormat implements Serializable {
     public KuduScanner scanner(byte[] token) throws IOException {
         return KuduScanToken.deserializeIntoScanner(token, kuduClient);
     }
+
+    public SeaTunnelRowType getRowTypeInfo() {
+        return this.rowTypeInfo;
+    }
 }

@@ -123,6 +123,16 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     }
 
     @Override
+    protected String getSavePointCommand() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
+    protected String getRestoreCommand() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
     protected List<String> getExtraStartShellCommands() {
         return Collections.emptyList();
     }

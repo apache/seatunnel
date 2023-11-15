@@ -185,10 +185,22 @@ public class CheckpointCoordinator {
         this.pipelineTaskStatus = new ConcurrentHashMap<>();
         this.checkpointIdCounter = checkpointIdCounter;
         this.readyToCloseStartingTask = new CopyOnWriteArraySet<>();
+
+        LOG.info(
+                "Create CheckpointCoordinator for job({}@{}) with plan({})",
+                pipelineId,
+                jobId,
+                plan);
         if (pipelineState != null) {
             this.latestCompletedCheckpoint =
                     serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
             this.latestCompletedCheckpoint.setRestored(true);
+            LOG.info(
+                    "Restore job({}@{}) with checkpoint({}), data: {}",
+                    pipelineId,
+                    jobId,
+                    latestCompletedCheckpoint.getCheckpointId(),
+                    latestCompletedCheckpoint);
         }
         this.checkpointCoordinatorFuture = new CompletableFuture();
 
@@ -280,6 +292,10 @@ public class CheckpointCoordinator {
                                 ActionState actionState =
                                         latestCompletedCheckpoint.getTaskStates().get(tuple.f0());
                                 if (actionState == null) {
+                                    LOG.info(
+                                            "Not found task({}) state for key({})",
+                                            taskLocation,
+                                            tuple.f0());
                                     return;
                                 }
                                 if (COORDINATOR_INDEX.equals(tuple.f1())) {

@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 
@@ -117,7 +117,7 @@ public class HudiSourceReader implements SourceReader<SeaTunnelRow, HudiSourceSp
                         reader.close();
                     } catch (Exception e) {
                         throw new HudiConnectorException(
-                                CommonErrorCode.READER_OPERATION_FAILED, e);
+                                CommonErrorCodeDeprecated.READER_OPERATION_FAILED, e);
                     }
                 });
         context.signalNoMoreElement();

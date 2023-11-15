@@ -36,17 +36,20 @@ public interface ReadStrategy extends Serializable {
 
     Configuration getConfiguration(HadoopConf conf);
 
-    void read(String path, Collector<SeaTunnelRow> output)
+    void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException;
 
     SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path)
             throws FileConnectorException;
 
+    // todo: use CatalogTable
     void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType);
 
     List<String> getFileNamesByPath(HadoopConf hadoopConf, String path) throws IOException;
 
+    // todo: use ReadonlyConfig
     void setPluginConfig(Config pluginConfig);
 
+    // todo: use CatalogTable
     SeaTunnelRowType getActualSeaTunnelRowTypeInfo();
 }

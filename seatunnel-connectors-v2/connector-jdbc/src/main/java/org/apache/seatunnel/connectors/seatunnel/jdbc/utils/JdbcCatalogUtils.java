@@ -32,7 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
@@ -101,7 +101,7 @@ public class JdbcCatalogUtils {
         log.warn(
                 "Catalog not found, loading tables from jdbc directly. url : {}",
                 jdbcConnectionConfig.getUrl());
-        try (Connection connection = getConnection(jdbcConnectionConfig)) {
+        try (Connection connection = getConnection(jdbcConnectionConfig, jdbcDialect)) {
             log.info("Loading catalog tables for jdbc : {}", jdbcConnectionConfig.getUrl());
             for (JdbcSourceTableConfig tableConfig : tablesConfig) {
                 CatalogTable catalogTable = getCatalogTable(tableConfig, connection, jdbcDialect);
@@ -173,8 +173,86 @@ public class JdbcCatalogUtils {
         return jdbcCatalog.getTable(tableConfig.getQuery());
     }
 
-    private static CatalogTable mergeCatalogTable(
-            CatalogTable tableOfPath, CatalogTable tableOfQuery) {
+    static CatalogTable mergeCatalogTable(CatalogTable tableOfPath, CatalogTable tableOfQuery) {
+        TableSchema tableSchemaOfPath = tableOfPath.getTableSchema();
+        Map<String, Column> columnsOfPath =
+                tableSchemaOfPath.getColumns().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Column::getName,
+                                        Function.identity(),
+                                        (o1, o2) -> o1,
+                                        LinkedHashMap::new));
+        TableSchema tableSchemaOfQuery = tableOfQuery.getTableSchema();
+        Map<String, Column> columnsOfQuery =
+                tableSchemaOfQuery.getColumns().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Column::getName,
+                                        Function.identity(),
+                                        (o1, o2) -> o1,
+                                        LinkedHashMap::new));
+        Set<String> columnKeysOfQuery = columnsOfQuery.keySet();
+
+        List<Column> columnsOfMerge =
+                tableSchemaOfQuery.getColumns().stream()
+                        .filter(
+                                column ->
+                                        columnsOfPath.containsKey(column.getName())
+                                                && columnsOfPath
+                                                        .get(column.getName())
+                                                        .getDataType()
+                                                        .equals(
+                                                                columnsOfQuery
+                                                                        .get(column.getName())
+                                                                        .getDataType()))
+                        .map(column -> columnsOfPath.get(column.getName()))
+                        .collect(Collectors.toList());
+        boolean schemaIncludeAllColumns = columnsOfMerge.size() == columnKeysOfQuery.size();
+        boolean schemaEquals =
+                schemaIncludeAllColumns && columnsOfMerge.size() == columnsOfPath.size();
+        if (schemaEquals) {
+            return tableOfPath;
+        }
+
+        PrimaryKey primaryKeyOfPath = tableSchemaOfPath.getPrimaryKey();
+        List<ConstraintKey> constraintKeysOfPath = tableSchemaOfPath.getConstraintKeys();
+        List<String> partitionKeysOfPath = tableOfPath.getPartitionKeys();
+        PrimaryKey primaryKeyOfMerge = null;
+        List<ConstraintKey> constraintKeysOfMerge = new ArrayList<>();
+        List<String> partitionKeysOfMerge = new ArrayList<>();
+
+        if (primaryKeyOfPath != null
+                && columnKeysOfQuery.containsAll(primaryKeyOfPath.getColumnNames())) {
+            primaryKeyOfMerge = primaryKeyOfPath;
+        }
+        if (constraintKeysOfPath != null) {
+            for (ConstraintKey constraintKey : constraintKeysOfPath) {
+                Set<String> constraintKeyFields =
+                        constraintKey.getColumnNames().stream()
+                                .map(e -> e.getColumnName())
+                                .collect(Collectors.toSet());
+                if (columnKeysOfQuery.containsAll(constraintKeyFields)) {
+                    constraintKeysOfMerge.add(constraintKey);
+                }
+            }
+        }
+        if (partitionKeysOfPath != null && columnKeysOfQuery.containsAll(partitionKeysOfPath)) {
+            partitionKeysOfMerge = partitionKeysOfPath;
+        }
+        if (schemaIncludeAllColumns) {
+            return CatalogTable.of(
+                    tableOfPath.getTableId(),
+                    TableSchema.builder()
+                            .primaryKey(primaryKeyOfMerge)
+                            .constraintKey(constraintKeysOfMerge)
+                            .columns(columnsOfMerge)
+                            .build(),
+                    tableOfPath.getOptions(),
+                    partitionKeysOfMerge,
+                    tableOfPath.getComment());
+        }
+
         String catalogName =
                 tableOfQuery.getTableId() == null
                         ? DEFAULT_CATALOG_NAME
@@ -185,80 +263,17 @@ public class JdbcCatalogUtils {
                         tableOfPath.getTableId().getDatabaseName(),
                         tableOfPath.getTableId().getSchemaName(),
                         tableOfPath.getTableId().getTableName());
-
-        TableSchema tableSchemaOfPath = tableOfPath.getTableSchema();
-        Map<String, Column> columnsOfPath =
-                tableSchemaOfPath.getColumns().stream()
-                        .collect(Collectors.toMap(Column::getName, Function.identity()));
-        Set<String> columnKeysOfPath = columnsOfPath.keySet();
-        TableSchema tableSchemaOfQuery = tableOfQuery.getTableSchema();
-        Map<String, Column> columnsOfQuery =
-                tableSchemaOfQuery.getColumns().stream()
-                        .collect(Collectors.toMap(Column::getName, Function.identity()));
-        Set<String> columnKeysOfQuery = columnsOfQuery.keySet();
-
-        if (columnKeysOfPath.equals(columnKeysOfQuery)) {
-            boolean schemaEquals =
-                    columnKeysOfPath.stream()
-                            .allMatch(
-                                    key ->
-                                            columnsOfPath
-                                                    .get(key)
-                                                    .getDataType()
-                                                    .equals(columnsOfQuery.get(key).getDataType()));
-            if (schemaEquals) {
-                return CatalogTable.of(
-                        tableIdentifier,
-                        TableSchema.builder()
-                                .primaryKey(tableSchemaOfPath.getPrimaryKey())
-                                .constraintKey(tableSchemaOfPath.getConstraintKeys())
-                                .columns(tableSchemaOfQuery.getColumns())
-                                .build(),
-                        tableOfPath.getOptions(),
-                        tableOfPath.getPartitionKeys(),
-                        tableOfPath.getComment(),
-                        tableIdentifier.getCatalogName());
-            }
-        }
-
-        PrimaryKey primaryKeyOfPath = tableSchemaOfPath.getPrimaryKey();
-        List<ConstraintKey> constraintKeysOfPath = tableSchemaOfPath.getConstraintKeys();
-        List<String> partitionKeysOfPath = tableOfPath.getPartitionKeys();
-        PrimaryKey primaryKeyOfQuery = null;
-        List<ConstraintKey> constraintKeysOfQuery = new ArrayList<>();
-        List<String> partitionKeysOfQuery = new ArrayList<>();
-
-        if (primaryKeyOfPath != null
-                && columnKeysOfQuery.containsAll(primaryKeyOfPath.getColumnNames())) {
-            primaryKeyOfQuery = primaryKeyOfPath;
-        }
-        if (constraintKeysOfPath != null) {
-            for (ConstraintKey constraintKey : constraintKeysOfPath) {
-                Set<String> constraintKeyFields =
-                        constraintKey.getColumnNames().stream()
-                                .map(e -> e.getColumnName())
-                                .collect(Collectors.toSet());
-                if (columnKeysOfQuery.containsAll(constraintKeyFields)) {
-                    constraintKeysOfQuery.add(constraintKey);
-                }
-            }
-        }
-        if (partitionKeysOfPath != null && columnKeysOfQuery.containsAll(partitionKeysOfPath)) {
-            partitionKeysOfQuery = partitionKeysOfPath;
-        }
-
         CatalogTable mergedCatalogTable =
                 CatalogTable.of(
                         tableIdentifier,
                         TableSchema.builder()
-                                .primaryKey(primaryKeyOfQuery)
-                                .constraintKey(constraintKeysOfQuery)
+                                .primaryKey(primaryKeyOfMerge)
+                                .constraintKey(constraintKeysOfMerge)
                                 .columns(tableSchemaOfQuery.getColumns())
                                 .build(),
                         tableOfPath.getOptions(),
-                        partitionKeysOfQuery,
-                        tableOfPath.getComment(),
-                        tableIdentifier.getCatalogName());
+                        partitionKeysOfMerge,
+                        tableOfPath.getComment());
 
         log.info("Merged catalog table of path {}", tableOfPath.getTableId().toTablePath());
         return mergedCatalogTable;
@@ -316,9 +331,9 @@ public class JdbcCatalogUtils {
                 resultSetMetaData, jdbcDialect.getJdbcDialectTypeMapper());
     }
 
-    private static Connection getConnection(JdbcConnectionConfig config)
+    private static Connection getConnection(JdbcConnectionConfig config, JdbcDialect jdbcDialect)
             throws SQLException, ClassNotFoundException {
-        SimpleJdbcConnectionProvider connectionProvider = new SimpleJdbcConnectionProvider(config);
+        JdbcConnectionProvider connectionProvider = jdbcDialect.getJdbcConnectionProvider(config);
         return connectionProvider.getOrEstablishConnection();
     }
 

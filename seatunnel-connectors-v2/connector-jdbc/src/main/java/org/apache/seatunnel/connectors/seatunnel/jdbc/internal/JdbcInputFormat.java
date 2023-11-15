@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -151,12 +151,14 @@ public class JdbcInputFormat implements Serializable {
             return seaTunnelRow;
         } catch (SQLException se) {
             throw new JdbcConnectorException(
-                    CommonErrorCode.SQL_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
                     "Couldn't read data - " + se.getMessage(),
                     se);
         } catch (NullPointerException npe) {
             throw new JdbcConnectorException(
-                    CommonErrorCode.SQL_OPERATION_FAILED, "Couldn't access resultSet", npe);
+                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                    "Couldn't access resultSet",
+                    npe);
         }
     }
 }
