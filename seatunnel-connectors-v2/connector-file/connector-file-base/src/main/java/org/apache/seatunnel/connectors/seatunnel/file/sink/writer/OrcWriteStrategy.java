@@ -77,10 +77,13 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         int i = 0;
         int row = rowBatch.size++;
         for (Integer index : sinkColumnsIndexInRow) {
-            Object value = seaTunnelRow.getField(index);
-            ColumnVector vector = rowBatch.cols[i];
-            setColumn(value, vector, row);
-            i++;
+            boolean bo = index==null;
+            if (!bo) {
+                Object value = seaTunnelRow.getField(index);
+                ColumnVector vector = rowBatch.cols[i];
+                setColumn(value, vector, row);
+                i++;
+            }
         }
         try {
             writer.addRowBatch(rowBatch);
