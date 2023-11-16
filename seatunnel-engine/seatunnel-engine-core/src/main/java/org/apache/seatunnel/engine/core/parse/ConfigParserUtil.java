@@ -64,90 +64,12 @@ public final class ConfigParserUtil {
             List<? extends Config> sources,
             List<? extends Config> transforms,
             List<? extends Config> sinks) {
-        log.debug("Check whether this config file can generate DAG:");
+        log.debug("Check whether this config file can generate DAG");
         if (CollectionUtils.isEmpty(sources) || CollectionUtils.isEmpty(sinks)) {
             throw new JobDefineCheckException("Source And Sink can not be null");
         }
-        if (isSimpleGraph(sources, transforms, sinks)) {
-            checkSimpleGraph(sources, transforms, sinks);
-            return;
-        }
-        checkComplexGraph(sources, transforms, sinks);
-    }
 
-    private static boolean isSimpleGraph(
-            List<? extends Config> sources,
-            List<? extends Config> transforms,
-            List<? extends Config> sinks) {
-        return sources.size() == 1
-                && sinks.size() == 1
-                && (CollectionUtils.isEmpty(transforms) || transforms.size() == 1);
-    }
-
-    private static void checkSimpleGraph(
-            List<? extends Config> sources,
-            List<? extends Config> transforms,
-            List<? extends Config> sinks) {
-        log.debug("This is a simple DAG.");
-        ReadonlyConfig source = ReadonlyConfig.fromConfig(sources.get(0));
-        ReadonlyConfig sink = ReadonlyConfig.fromConfig(sinks.get(0));
-        if (transforms.size() == 0) {
-            checkEdge(source, sink);
-        } else {
-            ReadonlyConfig transform = ReadonlyConfig.fromConfig(transforms.get(0));
-            checkEdge(source, transform);
-            checkEdge(transform, sink);
-        }
-    }
-
-    @Deprecated
-    private static void checkEdge(ReadonlyConfig leftConfig, ReadonlyConfig rightConfig) {
-        String tableId = getTableId(leftConfig);
-        String inputTableId = getInputIds(rightConfig).get(0);
-        if (tableId.equals(inputTableId)) {
-            return;
-        }
-
-        // Compatible with previous issues
-        log.info(
-                String.format(
-                        "Currently, incorrect configuration of %s and %s options don't affect job running. In the future we will ban incorrect configurations.",
-                        SOURCE_TABLE_NAME.key(), RESULT_TABLE_NAME.key()));
-        if (DEFAULT_ID.equals(tableId)) {
-            log.warn(
-                    String.format(
-                            "This configuration is not recommended."
-                                    + "A source/transform(%s) is not configured with '%s' option, but subsequent transform/sink(%s) is configured with '%s' option value of '%s'.",
-                            getFactoryId(leftConfig),
-                            RESULT_TABLE_NAME.key(),
-                            getFactoryId(rightConfig),
-                            SOURCE_TABLE_NAME.key(),
-                            inputTableId));
-            return;
-        }
-        if (DEFAULT_ID.equals(inputTableId)) {
-            log.warn(
-                    String.format(
-                            "This configuration is not recommended."
-                                    + " A source/transform(%s) is configured with '%s' option value of '%s', but subsequent transform/sink(%s) is not configured with '%s' option.",
-                            getFactoryId(leftConfig),
-                            RESULT_TABLE_NAME.key(),
-                            tableId,
-                            getFactoryId(rightConfig),
-                            SOURCE_TABLE_NAME.key()));
-            return;
-        }
-        log.error(
-                String.format(
-                        "The '%s' option configured in [%s] is incorrect, and the source/transform[%s] is not found.",
-                        SOURCE_TABLE_NAME.key(), getFactoryId(rightConfig), inputTableId));
-    }
-
-    private static void checkComplexGraph(
-            List<? extends Config> sources,
-            List<? extends Config> transforms,
-            List<? extends Config> sinks) {
-        log.debug("Start checking the correctness of the complex DAG: ");
+        log.debug("Start checking the correctness of the DAG.");
         log.debug(
                 String.format(
                         "Phase 1: Check whether '%s' option is configured.",
@@ -165,11 +87,15 @@ public final class ConfigParserUtil {
         Map<String, Tuple2<Config, VertexStatus>> vertexStatusMap = new HashMap<>();
         fillVirtualVertices(sources, vertexStatusMap);
         fillVirtualVertices(transforms, vertexStatusMap);
+
         log.debug("Phase 4: Check if a non-existent vertex is used.");
         checkInputId(transforms, vertexStatusMap);
         checkInputId(sinks, vertexStatusMap);
+
         log.debug("Phase 5: Check if there are unused vertex.");
         checkLinked(vertexStatusMap);
+
+        log.debug("The DAG is correct.");
     }
 
     private static void fillVirtualVertices(

@@ -37,10 +37,10 @@ import org.apache.seatunnel.engine.common.utils.MDUtil;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDagGenerator;
-import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
+import org.apache.seatunnel.engine.core.job.JarUtils;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
@@ -81,7 +81,6 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.engine.core.job.AbstractJobEnvironment.getJarUrlsFromIdentifiers;
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
@@ -245,7 +244,7 @@ public class ConnectorPackageServiceTest {
             commonJarIdentifiers.add(commonJarIdentifier);
         }
 
-        Set<URL> commonPluginJarUrls = getJarUrlsFromIdentifiers(commonJarIdentifiers);
+        Set<URL> commonPluginJarUrls = JarUtils.getJarUrlsFromIdentifiers(commonJarIdentifiers);
         Set<ConnectorJarIdentifier> pluginJarIdentifiers = new HashSet<>();
         transformActionPluginJarUrls(
                 immutablePair.getLeft(),
@@ -253,7 +252,7 @@ public class ConnectorPackageServiceTest {
                 jobId,
                 connectorPackageService,
                 nodeEngine);
-        Set<URL> connectorPluginJarUrls = getJarUrlsFromIdentifiers(pluginJarIdentifiers);
+        Set<URL> connectorPluginJarUrls = JarUtils.getJarUrlsFromIdentifiers(pluginJarIdentifiers);
         List<ConnectorJarIdentifier> connectorJarIdentifiers = new ArrayList<>();
         List<URL> jarUrls = new ArrayList<>();
         connectorJarIdentifiers.addAll(commonJarIdentifiers);
@@ -263,7 +262,7 @@ public class ConnectorPackageServiceTest {
         List<Action> actions = immutablePair.getLeft();
         actions.forEach(
                 action -> {
-                    AbstractJobEnvironment.addCommonPluginJarsToAction(
+                    JarUtils.addCommonPluginJarsToAction(
                             action, commonPluginJarUrls, commonJarIdentifiers);
                 });
         LogicalDagGenerator logicalDagGenerator =
@@ -405,7 +404,7 @@ public class ConnectorPackageServiceTest {
                     // Reset the client URL of the jar package in Set
                     // add the URLs from remote master node
                     jarUrls.clear();
-                    jarUrls.addAll(getJarUrlsFromIdentifiers(jarIdentifiers));
+                    jarUrls.addAll(JarUtils.getJarUrlsFromIdentifiers(jarIdentifiers));
                     action.getConnectorJarIdentifiers().addAll(jarIdentifiers);
                     if (!action.getUpstream().isEmpty()) {
                         transformActionPluginJarUrls(

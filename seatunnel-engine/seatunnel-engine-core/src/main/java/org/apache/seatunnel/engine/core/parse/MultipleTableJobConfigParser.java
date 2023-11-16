@@ -173,7 +173,7 @@ public class MultipleTableJobConfigParser {
         LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap =
                 new LinkedHashMap<>();
 
-        log.info("start generating all sources.");
+        log.info("Start generating all sources.");
         for (int configIndex = 0; configIndex < sourceConfigs.size(); configIndex++) {
             Config sourceConfig = sourceConfigs.get(configIndex);
             Tuple2<String, List<Tuple2<CatalogTable, Action>>> tuple2 =
@@ -181,15 +181,16 @@ public class MultipleTableJobConfigParser {
             tableWithActionMap.put(tuple2._1(), tuple2._2());
         }
 
-        log.info("start generating all transforms.");
+        log.info("Start generating all transforms.");
         parseTransforms(transformConfigs, classLoader, tableWithActionMap);
 
-        log.info("start generating all sinks.");
+        log.info("Start generating all sinks.");
         List<Action> sinkActions = new ArrayList<>();
         for (int configIndex = 0; configIndex < sinkConfigs.size(); configIndex++) {
             Config sinkConfig = sinkConfigs.get(configIndex);
             sinkActions.addAll(parseSink(configIndex, sinkConfig, classLoader, tableWithActionMap));
         }
+        // print graph
         Set<URL> factoryUrls = getUsedFactoryUrls(sinkActions);
         return new ImmutablePair<>(sinkActions, factoryUrls);
     }
@@ -244,6 +245,7 @@ public class MultipleTableJobConfigParser {
     }
 
     private void fillJobConfig() {
+        log.info("Fill job config from env.");
         jobConfig.getJobContext().setJobMode(envOptions.get(EnvCommonOptions.JOB_MODE));
         if (StringUtils.isEmpty(jobConfig.getName())
                 || jobConfig.getName().equals(Constants.LOGO)) {

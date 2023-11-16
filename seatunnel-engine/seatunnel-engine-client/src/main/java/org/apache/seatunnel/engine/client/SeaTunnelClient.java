@@ -50,11 +50,11 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
 
     @Override
     public ClientJobExecutionEnvironment createExecutionContext(
-            @NonNull String filePath,
+            @NonNull String jobFilePath,
             @NonNull JobConfig jobConfig,
             @NonNull SeaTunnelConfig seaTunnelConfig) {
         return new ClientJobExecutionEnvironment(
-                jobConfig, filePath, hazelcastClient, seaTunnelConfig);
+                jobConfig, jobFilePath, hazelcastClient, seaTunnelConfig);
     }
 
     @Override

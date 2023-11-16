@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;
+import org.apache.seatunnel.engine.core.job.JarUtils;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
@@ -79,7 +80,7 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
         jarUrls.addAll(immutablePair.getRight());
         actions.forEach(
                 action -> {
-                    addCommonPluginJarsToAction(
+                    JarUtils.addCommonPluginJarsToAction(
                             action, new HashSet<>(commonPluginJars), Collections.emptySet());
                 });
         return getLogicalDagGenerator().generate();
