@@ -173,18 +173,20 @@ public abstract class AbstractTestContainer implements TestContainer {
                     commandStr,
                     execResult.getStdout());
         }
-        if (execResult.getStderr() != null && !execResult.getStderr().isEmpty()) {
-            LOG.error(
-                    "Container[{}] command {} STDERR:"
-                            + "\n==================== STDERR start ====================\n"
-                            + "{}"
-                            + "\n==================== STDERR end   ====================",
-                    container.getDockerImageName(),
-                    commandStr,
-                    execResult.getStderr());
-        }
 
         if (execResult.getExitCode() != 0) {
+            // The hazelcast log is too long, so we only print if the exit code is not 0.
+            if (execResult.getStderr() != null && !execResult.getStderr().isEmpty()) {
+                LOG.error(
+                        "Container[{}] command {} STDERR:"
+                                + "\n==================== STDERR start ====================\n"
+                                + "{}"
+                                + "\n==================== STDERR end   ====================",
+                        container.getDockerImageName(),
+                        commandStr,
+                        execResult.getStderr());
+            }
+
             LOG.info(
                     "Container[{}] command {} Server Log:"
                             + "\n==================== Server Log start ====================\n"
