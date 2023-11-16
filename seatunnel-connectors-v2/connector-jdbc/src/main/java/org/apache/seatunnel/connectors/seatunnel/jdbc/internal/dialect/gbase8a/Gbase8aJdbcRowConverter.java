@@ -18,10 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.gbase8a;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 public class Gbase8aJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
-        return "Gbase8a";
+        return DatabaseIdentifier.GBASE_8A;
     }
 }

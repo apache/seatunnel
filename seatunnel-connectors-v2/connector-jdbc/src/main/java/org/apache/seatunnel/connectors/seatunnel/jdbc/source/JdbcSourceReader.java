@@ -19,7 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcInputFormat;
 
 import lombok.extern.slf4j.Slf4j;
@@ -28,17 +31,19 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 @Slf4j
 public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSplit> {
-    SourceReader.Context context;
-    Deque<JdbcSourceSplit> splits = new ConcurrentLinkedDeque<>();
-    JdbcInputFormat inputFormat;
+    private final Context context;
+    private final JdbcInputFormat inputFormat;
+    private final Deque<JdbcSourceSplit> splits = new ConcurrentLinkedDeque<>();
     private volatile boolean noMoreSplit;
 
-    public JdbcSourceReader(JdbcInputFormat inputFormat, SourceReader.Context context) {
-        this.inputFormat = inputFormat;
+    public JdbcSourceReader(
+            Context context, JdbcSourceConfig config, Map<TablePath, SeaTunnelRowType> tables) {
+        this.inputFormat = new JdbcInputFormat(config, tables);
         this.context = context;
     }
 
@@ -58,12 +63,15 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
         synchronized (output.getCheckpointLock()) {
             JdbcSourceSplit split = splits.poll();
             if (null != split) {
-                inputFormat.open(split);
-                while (!inputFormat.reachedEnd()) {
-                    SeaTunnelRow seaTunnelRow = inputFormat.nextRecord();
-                    output.collect(seaTunnelRow);
+                try {
+                    inputFormat.open(split);
+                    while (!inputFormat.reachedEnd()) {
+                        SeaTunnelRow seaTunnelRow = inputFormat.nextRecord();
+                        output.collect(seaTunnelRow);
+                    }
+                } finally {
+                    inputFormat.close();
                 }
-                inputFormat.close();
             } else if (noMoreSplit && splits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
                 log.info("Closed the bounded jdbc source");

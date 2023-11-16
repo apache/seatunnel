@@ -238,3 +238,116 @@ network:
 
 ------------------------------------------------------------------------------------------
 
+### Stop Job.
+
+<details>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
+
+#### Body
+
+```json
+{
+    "jobId": 733584788375666689,
+    "isStopWithSavePoint": false # if job is stopped with save point
+}
+```
+
+#### Responses
+
+```json
+{
+"jobId": 733584788375666689
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Encrypt Config.
+
+<details>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>
+For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../connector-v2/Config-Encryption-Decryption.md).
+
+#### Body
+
+```json
+{
+    "env": {
+        "execution.parallelism": 1,
+        "shade.identifier":"base64"
+    },
+    "source": [
+        {
+            "plugin_name": "MySQL-CDC",
+            "schema" : {
+                "fields": {
+                    "name": "string",
+                    "age": "int"
+                }
+            },
+            "result_table_name": "fake",
+            "parallelism": 1,
+            "hostname": "127.0.0.1",
+            "username": "seatunnel",
+            "password": "seatunnel_password",
+            "table-name": "inventory_vwyw0n"
+        }
+    ],
+    "transform": [
+    ],
+    "sink": [
+        {
+            "plugin_name": "Clickhouse",
+            "host": "localhost:8123",
+            "database": "default",
+            "table": "fake_all",
+            "username": "seatunnel",
+            "password": "seatunnel_password"
+        }
+    ]
+}
+```
+
+#### Responses
+
+```json
+{
+    "env": {
+        "execution.parallelism": 1,
+        "shade.identifier": "base64"
+    },
+    "source": [
+        {
+            "plugin_name": "MySQL-CDC",
+            "schema": {
+                "fields": {
+                    "name": "string",
+                    "age": "int"
+                }
+            },
+            "result_table_name": "fake",
+            "parallelism": 1,
+            "hostname": "127.0.0.1",
+            "username": "c2VhdHVubmVs",
+            "password": "c2VhdHVubmVsX3Bhc3N3b3Jk",
+            "table-name": "inventory_vwyw0n"
+        }
+    ],
+    "transform": [],
+    "sink": [
+        {
+            "plugin_name": "Clickhouse",
+            "host": "localhost:8123",
+            "database": "default",
+            "table": "fake_all",
+            "username": "c2VhdHVubmVs",
+            "password": "c2VhdHVubmVsX3Bhc3N3b3Jk"
+        }
+    ]
+}
+```
+
+</details>
+

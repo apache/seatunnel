@@ -83,9 +83,14 @@ public class TypeConverterUtilsTest {
 
     @Test
     public void convertBigDecimalType() {
+        /**
+         * To solve lost precision and scale of {@link
+         * org.apache.seatunnel.api.table.type.DecimalType}, use {@link
+         * org.apache.flink.api.common.typeinfo.BasicTypeInfo#STRING_TYPE_INFO} as the convert
+         * result of {@link org.apache.seatunnel.api.table.type.DecimalType} instance.
+         */
         Assertions.assertEquals(
-                BasicTypeInfo.BIG_DEC_TYPE_INFO,
-                TypeConverterUtils.convert(new DecimalType(30, 2)));
+                BasicTypeInfo.STRING_TYPE_INFO, TypeConverterUtils.convert(new DecimalType(30, 2)));
     }
 
     @Test

@@ -110,7 +110,7 @@ public class JdbcGBase8aIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() {}
+    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {
@@ -161,6 +161,11 @@ public class JdbcGBase8aIT extends AbstractJdbcIT {
         }
 
         return Pair.of(fieldNames, rows);
+    }
+
+    @Override
+    protected Class<?> loadDriverClass() {
+        return super.loadDriverClassFromUrl();
     }
 
     @Override

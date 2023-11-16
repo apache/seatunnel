@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.DateTimeFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
@@ -231,7 +231,7 @@ public class ZetaSQLFunction {
             return executeCastExpr(castExpression, leftValue);
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported SQL Expression: %s ", expression.toString()));
     }
 
@@ -416,7 +416,7 @@ public class ZetaSQLFunction {
                     }
                 }
                 throw new TransformException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format("Unsupported function: %s", functionName));
         }
     }
@@ -434,7 +434,7 @@ public class ZetaSQLFunction {
                 return DateTimeFunction.currentTimestamp();
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported TimeKey expression: %s", timeKeyExpr));
     }
 
@@ -550,7 +550,7 @@ public class ZetaSQLFunction {
             }
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported SQL Expression: %s ", binaryExpression));
     }
 }

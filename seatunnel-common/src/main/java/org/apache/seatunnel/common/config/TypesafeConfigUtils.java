@@ -88,7 +88,10 @@ public final class TypesafeConfigUtils {
 
     @SuppressWarnings("unchecked")
     public static <T> T getConfig(
-            final Config config, final String configKey, @NonNull final T defaultValue) {
+            final Config config, final String configKey, final T defaultValue) {
+        if (!config.hasPath(configKey) && defaultValue == null) {
+            return defaultValue;
+        }
         if (defaultValue.getClass().equals(Long.class)) {
             return config.hasPath(configKey)
                     ? (T) Long.valueOf(config.getString(configKey))

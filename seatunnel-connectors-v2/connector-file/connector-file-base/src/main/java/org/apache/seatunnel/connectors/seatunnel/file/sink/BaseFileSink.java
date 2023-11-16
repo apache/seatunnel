@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -51,7 +50,6 @@ public abstract class BaseFileSink
     protected HadoopConf hadoopConf;
     protected FileSystemUtils fileSystemUtils;
     protected FileSinkConfig fileSinkConfig;
-    protected WriteStrategy writeStrategy;
     protected JobContext jobContext;
     protected String jobId;
 
@@ -65,22 +63,13 @@ public abstract class BaseFileSink
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.fileSinkConfig = new FileSinkConfig(pluginConfig, seaTunnelRowType);
-        this.writeStrategy =
-                WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
         this.fileSystemUtils = new FileSystemUtils(hadoopConf);
-        this.writeStrategy.setSeaTunnelRowTypeInfo(seaTunnelRowType);
-        this.writeStrategy.setFileSystemUtils(fileSystemUtils);
-    }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return seaTunnelRowType;
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(
             SinkWriter.Context context, List<FileSinkState> states) throws IOException {
-        return new BaseFileSinkWriter(writeStrategy, hadoopConf, context, jobId, states);
+        return new BaseFileSinkWriter(createWriteStrategy(), hadoopConf, context, jobId, states);
     }
 
     @Override
@@ -92,7 +81,7 @@ public abstract class BaseFileSink
     @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
-        return new BaseFileSinkWriter(writeStrategy, hadoopConf, context, jobId);
+        return new BaseFileSinkWriter(createWriteStrategy(), hadoopConf, context, jobId);
     }
 
     @Override
@@ -120,5 +109,13 @@ public abstract class BaseFileSink
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
+    }
+
+    protected WriteStrategy createWriteStrategy() {
+        WriteStrategy writeStrategy =
+                WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
+        writeStrategy.setSeaTunnelRowTypeInfo(seaTunnelRowType);
+        writeStrategy.setFileSystemUtils(fileSystemUtils);
+        return writeStrategy;
     }
 }

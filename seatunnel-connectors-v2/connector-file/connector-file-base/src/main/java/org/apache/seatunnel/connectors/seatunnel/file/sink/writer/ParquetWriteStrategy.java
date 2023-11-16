@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
@@ -55,7 +55,7 @@ import lombok.NonNull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -105,7 +105,8 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
             writer.write(record);
         } catch (IOException e) {
             String errorMsg = String.format("Write data to file [%s] error", filePath);
-            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, errorMsg, e);
         }
     }
 
@@ -121,7 +122,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                                         "Close file [%s] parquet writer failed, error msg: [%s]",
                                         k, e.getMessage());
                         throw new FileConnectorException(
-                                CommonErrorCode.WRITER_OPERATION_FAILED, errorMsg, e);
+                                CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
                     }
                     needMoveFiles.put(k, getTargetLocation(k));
                 });
@@ -156,7 +157,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
             } catch (IOException e) {
                 String errorMsg = String.format("Get parquet writer for file [%s] error", filePath);
                 throw new FileConnectorException(
-                        CommonErrorCode.WRITER_OPERATION_FAILED, errorMsg, e);
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
             }
         }
         return writer;
@@ -189,7 +190,10 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
             case DATE:
                 return data;
             case TIMESTAMP:
-                return ((LocalDateTime) data).toInstant(ZoneOffset.of("+8")).toEpochMilli();
+                return ((LocalDateTime) data)
+                        .atZone(ZoneId.systemDefault())
+                        .toInstant()
+                        .toEpochMilli();
             case BYTES:
                 return ByteBuffer.wrap((byte[]) data);
             case ROW:
@@ -216,7 +220,8 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                         String.format(
                                 "SeaTunnel file connector is not supported for this data type [%s]",
                                 seaTunnelDataType.getSqlType());
-                throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
 
@@ -319,7 +324,8 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                         String.format(
                                 "SeaTunnel file connector is not supported for this data type [%s]",
                                 seaTunnelDataType.getSqlType());
-                throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
 

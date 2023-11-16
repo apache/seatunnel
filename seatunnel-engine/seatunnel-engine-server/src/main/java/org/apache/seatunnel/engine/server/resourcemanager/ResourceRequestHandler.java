@@ -27,7 +27,6 @@ import org.apache.seatunnel.engine.server.service.slot.SlotAndWorkerProfile;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
-import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -139,7 +138,7 @@ public class ResourceRequestHandler {
 
     private CompletableFuture<SlotAndWorkerProfile> singleResourceRequestToMember(
             int i, ResourceProfile r, WorkerProfile workerProfile) {
-        InvocationFuture<SlotAndWorkerProfile> future =
+        CompletableFuture<SlotAndWorkerProfile> future =
                 resourceManager.sendToMember(
                         new RequestSlotOperation(jobId, r), workerProfile.getAddress());
         return future.whenComplete(

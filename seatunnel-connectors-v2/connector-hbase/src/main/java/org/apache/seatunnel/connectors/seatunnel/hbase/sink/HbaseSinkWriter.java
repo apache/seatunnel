@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
@@ -187,7 +187,8 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         String.format(
                                 "Hbase connector does not support this column type [%s]",
                                 fieldType.getSqlType());
-                throw new HbaseConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw new HbaseConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
 }

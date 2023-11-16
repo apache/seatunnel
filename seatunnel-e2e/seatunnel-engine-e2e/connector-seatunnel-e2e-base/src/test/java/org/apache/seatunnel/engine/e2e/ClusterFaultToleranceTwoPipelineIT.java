@@ -22,8 +22,8 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -115,8 +115,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -127,7 +128,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -243,8 +244,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -255,7 +257,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -341,8 +343,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -354,7 +357,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -375,7 +378,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -456,8 +459,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -473,7 +477,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // Wait some tasks commit finished, and we can get rows from the
                                 // sink target dir
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -495,7 +499,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -586,8 +590,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -599,7 +604,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -620,7 +625,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -696,8 +701,9 @@ public class ClusterFaultToleranceTwoPipelineIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -710,7 +716,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                 // Wait some tasks commit finished, and we can get rows from the
                                 // sink target dir
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -731,7 +737,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
                             () -> {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())

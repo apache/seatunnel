@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class SeaTunnelRowTest {
@@ -86,5 +87,13 @@ public class SeaTunnelRowTest {
                             new String[] {"test2", "test", "3333.333"}
                         });
         Assertions.assertEquals(181, row2.getBytesSize());
+    }
+
+    @Test
+    void testWithLinkHashMap() {
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("key", "value");
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {map});
+        Assertions.assertEquals(8, row.getBytesSize());
     }
 }

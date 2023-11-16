@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import net.sf.jsqlparser.expression.BinaryExpression;
@@ -145,7 +145,7 @@ public class ZetaSQLType {
             }
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported SQL Expression: %s ", expression.toString()));
     }
 
@@ -179,7 +179,7 @@ public class ZetaSQLType {
                 return LocalTimeType.LOCAL_TIME_TYPE;
             default:
                 throw new TransformException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format("Unsupported CAST AS type: %s", dataType));
         }
     }
@@ -288,7 +288,7 @@ public class ZetaSQLType {
                         return LocalTimeType.LOCAL_TIME_TYPE;
                     }
                     throw new TransformException(
-                            CommonErrorCode.UNSUPPORTED_OPERATION,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                             String.format(
                                     "Unknown pattern letter %s for function: %s",
                                     format, function.getName()));
@@ -322,7 +322,7 @@ public class ZetaSQLType {
                     }
                 }
                 throw new TransformException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format("Unsupported function: %s ", function.getName()));
         }
     }
@@ -340,7 +340,7 @@ public class ZetaSQLType {
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
                 throw new TransformException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format(
                                 "Unsupported TimeKey expression: %s ",
                                 timeKeyExpression.getStringValue()));

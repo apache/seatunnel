@@ -44,7 +44,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITER_OPERATION_FAILED;
+import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED;
 
 @Slf4j
 public class MongodbWriter implements SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> {

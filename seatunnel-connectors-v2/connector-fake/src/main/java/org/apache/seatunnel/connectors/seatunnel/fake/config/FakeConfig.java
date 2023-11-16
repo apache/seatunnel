@@ -20,7 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.fake.config;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.api.table.catalog.CatalogOptions;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
 
 import lombok.AllArgsConstructor;
@@ -146,6 +149,9 @@ public class FakeConfig implements Serializable {
 
     private List<RowData> fakeRows;
 
+    @Builder.Default private List<TableIdentifier> tableIdentifiers = new ArrayList<>();
+
+    // todo: use ReadonlyConfig
     public static FakeConfig buildWithConfig(Config config) {
         FakeConfigBuilder builder = FakeConfig.builder();
         if (config.hasPath(ROW_NUM.key())) {
@@ -224,7 +230,7 @@ public class FakeConfig implements Serializable {
             if (tinyintMin < TINYINT_MIN.defaultValue()
                     || tinyintMin > TINYINT_MAX.defaultValue()) {
                 throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         TINYINT_MIN.key()
                                 + " should >= "
                                 + TINYINT_MIN.defaultValue()
@@ -238,7 +244,7 @@ public class FakeConfig implements Serializable {
             if (tinyintMax < TINYINT_MIN.defaultValue()
                     || tinyintMax > TINYINT_MAX.defaultValue()) {
                 throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         TINYINT_MAX.key()
                                 + " should >= "
                                 + TINYINT_MIN.defaultValue()
@@ -252,7 +258,7 @@ public class FakeConfig implements Serializable {
             if (smallintMin < SMALLINT_MIN.defaultValue()
                     || smallintMin > SMALLINT_MAX.defaultValue()) {
                 throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         SMALLINT_MIN.key()
                                 + " should >= "
                                 + SMALLINT_MIN.defaultValue()
@@ -266,7 +272,7 @@ public class FakeConfig implements Serializable {
             if (smallintMax < SMALLINT_MIN.defaultValue()
                     || smallintMax > SMALLINT_MAX.defaultValue()) {
                 throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         SMALLINT_MAX.key()
                                 + " should >= "
                                 + SMALLINT_MIN.defaultValue()
@@ -279,7 +285,7 @@ public class FakeConfig implements Serializable {
             int intMin = config.getInt(INT_MIN.key());
             if (intMin < INT_MIN.defaultValue() || intMin > INT_MAX.defaultValue()) {
                 throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         INT_MIN.key()
                                 + " should >= "
                                 + INT_MIN.defaultValue()
@@ -292,7 +298,7 @@ public class FakeConfig implements Serializable {
             int intMax = config.getInt(INT_MAX.key());
             if (intMax < INT_MIN.defaultValue() || intMax > INT_MAX.defaultValue()) {
                 throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         INT_MAX.key()
                                 + " should >= "
                                 + INT_MIN.defaultValue()
@@ -305,7 +311,7 @@ public class FakeConfig implements Serializable {
             long bigintMin = config.getLong(BIGINT_MIN.key());
             if (bigintMin < BIGINT_MIN.defaultValue() || bigintMin > BIGINT_MAX.defaultValue()) {
                 throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         BIGINT_MIN.key()
                                 + " should >= "
                                 + BIGINT_MIN.defaultValue()
@@ -318,7 +324,7 @@ public class FakeConfig implements Serializable {
             long bigintMax = config.getLong(BIGINT_MAX.key());
             if (bigintMax < BIGINT_MIN.defaultValue() || bigintMax > BIGINT_MAX.defaultValue()) {
                 throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         BIGINT_MAX.key()
                                 + " should >= "
                                 + BIGINT_MIN.defaultValue()
@@ -331,7 +337,7 @@ public class FakeConfig implements Serializable {
             double floatMin = config.getDouble(FLOAT_MIN.key());
             if (floatMin < FLOAT_MIN.defaultValue() || floatMin > FLOAT_MAX.defaultValue()) {
                 throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         FLOAT_MIN.key()
                                 + " should >= "
                                 + FLOAT_MIN.defaultValue()
@@ -344,7 +350,7 @@ public class FakeConfig implements Serializable {
             double floatMax = config.getDouble(FLOAT_MAX.key());
             if (floatMax < FLOAT_MIN.defaultValue() || floatMax > FLOAT_MAX.defaultValue()) {
                 throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         FLOAT_MAX.key()
                                 + " should >= "
                                 + FLOAT_MIN.defaultValue()
@@ -357,7 +363,7 @@ public class FakeConfig implements Serializable {
             double doubleMin = config.getDouble(DOUBLE_MIN.key());
             if (doubleMin < DOUBLE_MIN.defaultValue() || doubleMin > DOUBLE_MAX.defaultValue()) {
                 throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         DOUBLE_MIN.key()
                                 + " should >= "
                                 + DOUBLE_MIN.defaultValue()
@@ -370,7 +376,7 @@ public class FakeConfig implements Serializable {
             double doubleMax = config.getDouble(DOUBLE_MAX.key());
             if (doubleMax < DOUBLE_MIN.defaultValue() || doubleMax > DOUBLE_MAX.defaultValue()) {
                 throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         DOUBLE_MAX.key()
                                 + " should >= "
                                 + DOUBLE_MIN.defaultValue()
@@ -405,6 +411,14 @@ public class FakeConfig implements Serializable {
         if (config.hasPath(DOUBLE_FAKE_MODE.key())) {
             builder.doubleFakeMode(
                     FakeOption.FakeMode.parse(config.getString(DOUBLE_FAKE_MODE.key())));
+        }
+        if (config.hasPath(CatalogOptions.TABLE_NAMES.key())) {
+            List<String> tableNames = config.getStringList(CatalogOptions.TABLE_NAMES.key());
+            List<TableIdentifier> tableIdentifiers = new ArrayList<>(tableNames.size());
+            for (String tableName : tableNames) {
+                tableIdentifiers.add(TableIdentifier.of("FakeSource", TablePath.of(tableName)));
+            }
+            builder.tableIdentifiers(tableIdentifiers);
         }
         return builder.build();
     }
