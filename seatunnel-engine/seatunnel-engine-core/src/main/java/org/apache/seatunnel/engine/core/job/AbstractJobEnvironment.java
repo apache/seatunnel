@@ -33,17 +33,14 @@ import com.hazelcast.logging.Logger;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public abstract class AbstractJobEnvironment {
     protected static ILogger LOGGER = null;
@@ -69,24 +66,11 @@ public abstract class AbstractJobEnvironment {
         this.idGenerator = new IdGenerator();
         this.commonPluginJars.addAll(searchPluginJars());
         this.commonPluginJars.addAll(
-                new ArrayList<>(
-                        Common.getThirdPartyJars(
-                                        jobConfig
-                                                .getEnvOptions()
-                                                .getOrDefault(EnvCommonOptions.JARS.key(), "")
-                                                .toString())
-                                .stream()
-                                .map(Path::toUri)
-                                .map(
-                                        uri -> {
-                                            try {
-                                                return uri.toURL();
-                                            } catch (MalformedURLException e) {
-                                                throw new SeaTunnelEngineException(
-                                                        "the uri of jar illegal:" + uri, e);
-                                            }
-                                        })
-                                .collect(Collectors.toList())));
+                Common.getThirdPartyJarsURL(
+                        jobConfig
+                                .getEnvOptions()
+                                .getOrDefault(EnvCommonOptions.JARS.key(), "")
+                                .toString()));
         LOGGER.info("add common jar in plugins :" + commonPluginJars);
     }
 

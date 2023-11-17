@@ -17,14 +17,18 @@
 
 package org.apache.seatunnel.common.config;
 
+import org.apache.seatunnel.common.utils.SeaTunnelException;
+
 import org.apache.commons.lang3.StringUtils;
 
 import com.google.common.annotations.VisibleForTesting;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -161,6 +165,21 @@ public class Common {
                 .filter(s -> !"".equals(s))
                 .filter(it -> it.endsWith(".jar"))
                 .map(path -> Paths.get(URI.create(path)))
+                .collect(Collectors.toSet());
+    }
+
+    public static Set<URL> getThirdPartyJarsURL(String paths) {
+        return Arrays.stream(paths.split(";"))
+                .filter(StringUtils::isNotBlank)
+                .filter(it -> it.endsWith(".jar"))
+                .map(
+                        path -> {
+                            try {
+                                return new URL(path);
+                            } catch (MalformedURLException e) {
+                                throw new SeaTunnelException("the uri of jar illegal:" + path, e);
+                            }
+                        })
                 .collect(Collectors.toSet());
     }
 
