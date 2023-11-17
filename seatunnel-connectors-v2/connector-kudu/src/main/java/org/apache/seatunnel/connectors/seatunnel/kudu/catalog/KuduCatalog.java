@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.ADMIN_OPERATION_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.ENABLE_KERBEROS;
@@ -87,6 +88,11 @@ public class KuduCatalog implements Catalog {
         } catch (KuduException e) {
             throw new CatalogException("Failed close kudu client", e);
         }
+    }
+
+    @Override
+    public String name() {
+        return catalogName;
     }
 
     @Override
@@ -143,17 +149,20 @@ public class KuduCatalog implements Catalog {
             kuduTable.getPartitionSchema();
             List<ColumnSchema> columnSchemaList = schema.getColumns();
             Optional<PrimaryKey> primaryKey = getPrimaryKey(schema.getPrimaryKeyColumns());
-            for (int i = 0; i < columnSchemaList.size(); i++) {
-                SeaTunnelDataType<?> type = KuduTypeMapper.mapping(columnSchemaList, i);
-                builder.column(
-                        PhysicalColumn.of(
+            buildColumnsWithErrorCheck(
+                    tablePath,
+                    builder,
+                    IntStream.range(0, columnSchemaList.size()).iterator(),
+                    i -> {
+                        SeaTunnelDataType<?> type = KuduTypeMapper.mapping(columnSchemaList, i);
+                        return PhysicalColumn.of(
                                 columnSchemaList.get(i).getName(),
                                 type,
                                 columnSchemaList.get(i).getTypeSize(),
                                 columnSchemaList.get(i).isNullable(),
                                 columnSchemaList.get(i).getDefaultValue(),
-                                columnSchemaList.get(i).getComment()));
-            }
+                                columnSchemaList.get(i).getComment());
+                    });
 
             primaryKey.ifPresent(builder::primaryKey);
 
