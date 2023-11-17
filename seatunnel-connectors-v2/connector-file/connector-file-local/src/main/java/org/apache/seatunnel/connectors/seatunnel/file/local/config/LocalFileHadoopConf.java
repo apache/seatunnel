@@ -15,8 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.local.source.config;
+package org.apache.seatunnel.connectors.seatunnel.file.local.config;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
-public class LocalSourceConfig extends BaseSourceConfig {}
+import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
+
+public class LocalFileHadoopConf extends HadoopConf {
+    private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
+    private static final String SCHEMA = "file";
+
+    public LocalFileHadoopConf() {
+        super(CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT);
+    }
+
+    @Override
+    public String getFsHdfsImpl() {
+        return HDFS_IMPL;
+    }
+
+    @Override
+    public String getSchema() {
+        return SCHEMA;
+    }
+}

@@ -15,25 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fake.source;
+package org.apache.seatunnel.connectors.seatunnel.file.local.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 
-@Data
-@AllArgsConstructor
-public class FakeSourceSplit implements SourceSplit {
+public class LocalFileSourceSplit implements SourceSplit {
 
-    private String tableId;
+    private static final long serialVersionUID = 1L;
 
-    private int splitId;
+    @Getter private final String tableId;
+    @Getter private final String filePath;
 
-    private int rowNum;
+    public LocalFileSourceSplit(String tableId, String filePath) {
+        this.tableId = tableId;
+        this.filePath = filePath;
+    }
 
     @Override
     public String splitId() {
-        return tableId + "_" + splitId;
+        return tableId + "_" + filePath;
     }
 }

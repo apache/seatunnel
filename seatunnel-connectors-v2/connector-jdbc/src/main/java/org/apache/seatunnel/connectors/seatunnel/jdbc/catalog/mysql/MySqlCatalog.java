@@ -219,9 +219,9 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                 "TRUNCATE TABLE `%s`.`%s`;", tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
-    public String getCountSql(TablePath tablePath) {
+    public String getExistDataSql(TablePath tablePath) {
         return String.format(
-                "select * from `%s`.`%s` limit 1;",
+                "SELECT * FROM `%s`.`%s` LIMIT 1;",
                 tablePath.getDatabaseName(), tablePath.getTableName());
     }
 }
