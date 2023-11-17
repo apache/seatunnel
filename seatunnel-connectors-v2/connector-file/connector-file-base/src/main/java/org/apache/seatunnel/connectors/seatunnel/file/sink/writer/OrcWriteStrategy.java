@@ -81,8 +81,8 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                 Object value = seaTunnelRow.getField(index);
                 ColumnVector vector = rowBatch.cols[i];
                 setColumn(value, vector, row);
-                i++;
             }
+            i++;
         }
         try {
             writer.addRowBatch(rowBatch);
