@@ -134,7 +134,7 @@ public class RestApiIT {
     @Test
     public void testSubmitJob() {
         Response response = submitJob("BATCH");
-        response.then().statusCode(200).body("jobName", equalTo("test"));
+        response.then().statusCode(200).body("jobName", equalTo("test测试"));
         String jobId = response.getBody().jsonPath().getString("jobId");
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer)
@@ -349,7 +349,7 @@ public class RestApiIT {
                         + "        }\n"
                         + "    ]\n"
                         + "}";
-        String parameters = "jobName=test";
+        String parameters = "jobName=test测试";
         if (isStartWithSavePoint) {
             parameters = parameters + "&isStartWithSavePoint=true";
         }

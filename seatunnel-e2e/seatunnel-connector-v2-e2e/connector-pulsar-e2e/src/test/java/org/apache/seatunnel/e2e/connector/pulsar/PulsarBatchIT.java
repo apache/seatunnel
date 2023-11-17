@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.e2e.connector.pulsar;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -52,12 +53,13 @@ import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URL;
+import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -144,32 +146,20 @@ public class PulsarBatchIT extends TestSuiteBase implements TestResource {
     private void produceData() {
 
         try {
-            FakeConfig fakeConfig = FakeConfig.buildWithConfig(ConfigFactory.empty());
-            FakeDataGenerator fakeDataGenerator =
-                    new FakeDataGenerator(SEATUNNEL_ROW_TYPE, fakeConfig);
-            SimpleCollector simpleCollector = new SimpleCollector();
-            fakeDataGenerator.collectFakedRows(100, simpleCollector);
+            URL resource = PulsarBatchIT.class.getResource("/fake_source.conf");
+            Config config =
+                    ConfigFactory.parseFile(new File(Paths.get(resource.toURI()).toString()));
+
+            FakeConfig fakeConfig = FakeConfig.buildWithConfig(ReadonlyConfig.fromConfig(config));
+            FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+            List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows(100);
             JsonSerializationSchema jsonSerializationSchema =
                     new JsonSerializationSchema(SEATUNNEL_ROW_TYPE);
-            for (SeaTunnelRow seaTunnelRow : simpleCollector.getList()) {
+            for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
                 producer.send(jsonSerializationSchema.serialize(seaTunnelRow));
             }
-        } catch (PulsarClientException e) {
+        } catch (Exception e) {
             throw new RuntimeException("produce data error", e);
-        }
-    }
-
-    private static class SimpleCollector implements Collector<SeaTunnelRow> {
-        @Getter private List<SeaTunnelRow> list = new ArrayList<>();
-
-        @Override
-        public void collect(SeaTunnelRow record) {
-            list.add(record);
-        }
-
-        @Override
-        public Object getCheckpointLock() {
-            return null;
         }
     }
 
