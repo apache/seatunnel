@@ -46,6 +46,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | abort_drop_partition_metadata | boolean | no       | true          |
 | compress_codec                | string  | no       | none          |
 | common-options                |         | no       | -             |
+| row_delimiter                 | string  | no       | \n            |
 
 ### table_name [string]
 
@@ -95,6 +96,10 @@ The compress codec of files and the details that supported as the following show
 - csv: `lzo` `none`
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
+
+### row_delimiter
+
+The separator between rows in a file. Only needed by `text` and `csv` file format.
 
 ### common options
 

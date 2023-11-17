@@ -64,6 +64,7 @@ It only supports hadoop version **2.9.X+**.
 | file_filter_pattern       | string  | no       | -                   |
 | compress_codec            | string  | no       | none                |
 | common-options            |         | no       | -                   |
+| row_delimiter             | string  | no       | \n                  |
 
 ### path [string]
 
@@ -262,6 +263,10 @@ The compress codec of files and the details that supported as the following show
 - csv: `lzo` `none`
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
+
+### row_delimiter
+
+The separator between rows in a file. Only needed by `text` and `csv` file format.
 
 ### common options
 

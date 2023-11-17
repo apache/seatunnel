@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -61,6 +62,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
             BaseSourceConfig.DATETIME_FORMAT.defaultValue();
     private TimeUtils.Formatter timeFormat = BaseSourceConfig.TIME_FORMAT.defaultValue();
     private CompressFormat compressFormat = BaseSourceConfig.COMPRESS_CODEC.defaultValue();
+    private String rowDelimiter = BaseSourceConfig.ROW_DELIMITER.defaultValue();
     private int[] indexes;
 
     @Override
@@ -94,32 +96,21 @@ public class TextReadStrategy extends AbstractReadStrategy {
                     .forEach(
                             line -> {
                                 try {
-                                    SeaTunnelRow seaTunnelRow =
-                                            deserializationSchema.deserialize(line.getBytes());
-                                    if (!readColumns.isEmpty()) {
-                                        // need column projection
-                                        Object[] fields;
-                                        if (isMergePartition) {
-                                            fields =
-                                                    new Object
-                                                            [readColumns.size()
-                                                                    + partitionsMap.size()];
-                                        } else {
-                                            fields = new Object[readColumns.size()];
-                                        }
-                                        for (int i = 0; i < indexes.length; i++) {
-                                            fields[i] = seaTunnelRow.getField(indexes[i]);
-                                        }
-                                        seaTunnelRow = new SeaTunnelRow(fields);
-                                    }
-                                    if (isMergePartition) {
-                                        int index = seaTunnelRowType.getTotalFields();
-                                        for (String value : partitionsMap.values()) {
-                                            seaTunnelRow.setField(index++, value);
+                                    if (StringUtils.isBlank(rowDelimiter)) {
+                                        SeaTunnelRow seaTunnelRow =
+                                                deserializeRow(line, partitionsMap, tableId);
+                                        output.collect(seaTunnelRow);
+                                    } else {
+                                        String[] rows = line.split(rowDelimiter, -1);
+                                        for (String row : rows) {
+                                            if (StringUtils.isNotBlank(row)) {
+                                                SeaTunnelRow seaTunnelRow =
+                                                        deserializeRow(
+                                                                line, partitionsMap, tableId);
+                                                output.collect(seaTunnelRow);
+                                            }
                                         }
                                     }
-                                    seaTunnelRow.setTableId(tableId);
-                                    output.collect(seaTunnelRow);
                                 } catch (IOException e) {
                                     String errorMsg =
                                             String.format(
@@ -233,5 +224,34 @@ public class TextReadStrategy extends AbstractReadStrategy {
             String compressCodec = pluginConfig.getString(BaseSourceConfig.COMPRESS_CODEC.key());
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
+        if (pluginConfig.hasPath(BaseSourceConfig.ROW_DELIMITER.key())) {
+            rowDelimiter = pluginConfig.getString(BaseSourceConfig.ROW_DELIMITER.key());
+        }
+    }
+
+    private SeaTunnelRow deserializeRow(
+            String line, Map<String, String> partitionsMap, String tableId) throws IOException {
+        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(line.getBytes());
+        if (!readColumns.isEmpty()) {
+            // need column projection
+            Object[] fields;
+            if (isMergePartition) {
+                fields = new Object[readColumns.size() + partitionsMap.size()];
+            } else {
+                fields = new Object[readColumns.size()];
+            }
+            for (int i = 0; i < indexes.length; i++) {
+                fields[i] = seaTunnelRow.getField(indexes[i]);
+            }
+            seaTunnelRow = new SeaTunnelRow(fields);
+        }
+        if (isMergePartition) {
+            int index = seaTunnelRowType.getTotalFields();
+            for (String value : partitionsMap.values()) {
+                seaTunnelRow.setField(index++, value);
+            }
+        }
+        seaTunnelRow.setTableId(tableId);
+        return seaTunnelRow;
     }
 }

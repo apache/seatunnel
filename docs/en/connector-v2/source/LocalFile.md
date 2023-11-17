@@ -58,6 +58,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | compress_codec            | string  | no       | none                                 |
 | common-options            |         | no       | -                                    |
 | tables_configs            | list    | no       | used to define a multiple table task |
+| row_delimiter             | string  | no       | \n                                   |
 
 ### path [string]
 
@@ -248,6 +249,10 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ### tables_configs
 
 Used to define a multiple table task, when you have multiple tables to read, you can use this option to define multiple tables.
+
+### row_delimiter
+
+The separator between rows in a file. Only needed by `text` and `csv` file format.
 
 ## Example
 

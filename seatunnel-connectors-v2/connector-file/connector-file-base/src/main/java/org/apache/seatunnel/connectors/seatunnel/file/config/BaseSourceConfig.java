@@ -27,6 +27,9 @@ import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import java.util.List;
 
 public class BaseSourceConfig {
+
+    public static final String DEFAULT_ROW_DELIMITER = "\n";
+
     public static final Option<FileFormat> FILE_FORMAT_TYPE =
             Options.key("file_format_type")
                     .objectType(FileFormat.class)
@@ -126,4 +129,11 @@ public class BaseSourceConfig {
                     .enumType(CompressFormat.class)
                     .defaultValue(CompressFormat.NONE)
                     .withDescription("Compression codec");
+
+    public static final Option<String> ROW_DELIMITER =
+            Options.key("row_delimiter")
+                    .stringType()
+                    .defaultValue(DEFAULT_ROW_DELIMITER)
+                    .withDescription(
+                            "The separator between rows in a file. Only needed by `text` and `csv` file format");
 }
