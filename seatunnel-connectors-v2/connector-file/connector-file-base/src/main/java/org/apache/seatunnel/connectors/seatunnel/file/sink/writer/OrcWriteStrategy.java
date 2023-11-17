@@ -76,7 +76,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         VectorizedRowBatch rowBatch = schema.createRowBatch();
         int row = rowBatch.size++;
         for (int i = 0; i < sinkColumnsIndexInRow.size(); i++) {
-            Integer index = sinkColumnsIndexInRow.indexOf(i);
+            Integer index = sinkColumnsIndexInRow.get(i);
             if (index != null) {
                 Object value = seaTunnelRow.getField(index);
                 ColumnVector vector = rowBatch.cols[i];
