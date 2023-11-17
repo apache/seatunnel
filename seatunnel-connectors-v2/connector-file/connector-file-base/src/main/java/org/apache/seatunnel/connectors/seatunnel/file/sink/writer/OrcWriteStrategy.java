@@ -82,7 +82,6 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                 ColumnVector vector = rowBatch.cols[i];
                 setColumn(value, vector, row);
             }
-            i++;
         }
         try {
             writer.addRowBatch(rowBatch);
