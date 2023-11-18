@@ -25,12 +25,15 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class FakeSourceSplit implements SourceSplit {
+
+    private String tableId;
+
     private int splitId;
 
     private int rowNum;
 
     @Override
     public String splitId() {
-        return String.valueOf(splitId);
+        return tableId + "_" + splitId;
     }
 }

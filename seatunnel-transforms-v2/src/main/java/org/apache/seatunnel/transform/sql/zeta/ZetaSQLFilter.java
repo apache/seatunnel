@@ -66,7 +66,15 @@ public class ZetaSQLFilter {
             return inExpr((InExpression) whereExpr, inputFields);
         }
         if (whereExpr instanceof LikeExpression) {
-            return likeExpr((LikeExpression) whereExpr, inputFields);
+            boolean isNotLike = ((LikeExpression) whereExpr).isNot();
+            // not like SQL parsing
+            if (isNotLike) {
+                return notLikeExpr((LikeExpression) whereExpr, inputFields);
+            }
+            // like SQL parsing
+            if (!isNotLike) {
+                return likeExpr((LikeExpression) whereExpr, inputFields);
+            }
         }
         if (whereExpr instanceof ComparisonOperator) {
             Pair<Object, Object> pair =
@@ -148,7 +156,7 @@ public class ZetaSQLFilter {
     }
 
     /**
-     * Like expression filter, unsupported yet
+     * Like expression filter
      *
      * @param likeExpression like expression
      * @param inputFields input fields
@@ -162,11 +170,26 @@ public class ZetaSQLFilter {
         }
         Expression rightExpr = likeExpression.getRightExpression();
         Object rightVal = zetaSQLFunction.computeForValue(rightExpr, inputFields);
-        if (rightVal == null) {
+        String regex = rightVal.toString();
+        if (rightVal == null && regex.length() > 0) {
             return false;
         }
-
-        String regex = rightVal.toString().replace("%", ".*").replace("_", ".");
+        String likeIdent = "%";
+        if (regex.startsWith(likeIdent)) {
+            regex = regex.replaceFirst(likeIdent, ".*");
+        }
+        if (regex.endsWith(likeIdent)) {
+            regex = regex.substring(0, regex.length() - 1) + ".*";
+        }
+        if (regex.startsWith("_")) {
+            regex = regex.replaceFirst("_", ".");
+        }
+        if (regex.endsWith("_")) {
+            regex = regex.substring(0, regex.length() - 1) + ".";
+        }
+        if (regex.length() >= 3 && regex.substring(regex.length() - 3).endsWith("_.*")) {
+            regex = regex.substring(0, regex.length() - 3) + "..*";
+        }
         if (regex.startsWith("'") && regex.endsWith("'")) {
             regex = regex.substring(0, regex.length() - 1).substring(1);
         }
@@ -174,6 +197,50 @@ public class ZetaSQLFilter {
         Matcher matcher = pattern.matcher(leftVal.toString());
 
         return matcher.matches();
+    }
+
+    /**
+     * Not Like expression filter
+     *
+     * @param likeExpression not like expression
+     * @param inputFields input fields
+     * @return filter result
+     */
+    private boolean notLikeExpr(LikeExpression likeExpression, Object[] inputFields) {
+        Expression leftExpr = likeExpression.getLeftExpression();
+        Object leftVal = zetaSQLFunction.computeForValue(leftExpr, inputFields);
+        if (leftVal == null) {
+            return false;
+        }
+        Expression rightExpr = likeExpression.getRightExpression();
+        Object rightVal = zetaSQLFunction.computeForValue(rightExpr, inputFields);
+        String regex = rightVal.toString();
+        if (rightVal == null && regex.length() > 0) {
+            return false;
+        }
+        String likeIdent = "%";
+        if (regex.startsWith(likeIdent)) {
+            regex = regex.replaceFirst(likeIdent, ".*");
+        }
+        if (regex.endsWith(likeIdent)) {
+            regex = regex.substring(0, regex.length() - 1) + ".*";
+        }
+        if (regex.startsWith("_")) {
+            regex = regex.replaceFirst("_", ".");
+        }
+        if (regex.endsWith("_")) {
+            regex = regex.substring(0, regex.length() - 1) + ".";
+        }
+        if (regex.length() >= 3 && regex.substring(regex.length() - 3).endsWith("_.*")) {
+            regex = regex.substring(0, regex.length() - 3) + "..*";
+        }
+        if (regex.startsWith("'") && regex.endsWith("'")) {
+            regex = regex.substring(0, regex.length() - 1).substring(1);
+        }
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(leftVal.toString());
+
+        return !matcher.matches();
     }
 
     private Pair<Object, Object> executeComparisonOperator(
