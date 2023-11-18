@@ -36,6 +36,7 @@ public class JdbcConnectionConfig implements Serializable {
     public String username;
     public String password;
     public String query;
+    public String beforeQuery;
 
     public boolean autoCommit = JdbcOptions.AUTO_COMMIT.defaultValue();
 
@@ -66,6 +67,7 @@ public class JdbcConnectionConfig implements Serializable {
         builder.maxRetries(config.get(JdbcOptions.MAX_RETRIES));
         builder.connectionCheckTimeoutSeconds(config.get(JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC));
         builder.batchSize(config.get(JdbcOptions.BATCH_SIZE));
+        builder.beforeQuery(config.get(JdbcOptions.BEFORE_QUERY));
         if (config.get(JdbcOptions.IS_EXACTLY_ONCE)) {
             builder.xaDataSourceClassName(config.get(JdbcOptions.XA_DATA_SOURCE_CLASS_NAME));
             builder.maxCommitAttempts(config.get(JdbcOptions.MAX_COMMIT_ATTEMPTS));
@@ -128,6 +130,10 @@ public class JdbcConnectionConfig implements Serializable {
         return maxCommitAttempts;
     }
 
+    public String getBeforeQuery() {
+        return beforeQuery;
+    }
+
     public Optional<Integer> getTransactionTimeoutSec() {
         return transactionTimeoutSec < 0 ? Optional.empty() : Optional.of(transactionTimeoutSec);
     }
@@ -150,6 +156,7 @@ public class JdbcConnectionConfig implements Serializable {
         private String username;
         private String password;
         private String query;
+        private String beforeQuery;
         private boolean autoCommit = JdbcOptions.AUTO_COMMIT.defaultValue();
         private int batchSize = JdbcOptions.BATCH_SIZE.defaultValue();
         private String xaDataSourceClassName;
@@ -200,6 +207,11 @@ public class JdbcConnectionConfig implements Serializable {
 
         public Builder query(String query) {
             this.query = query;
+            return this;
+        }
+
+        public Builder beforeQuery(String beforeQuery) {
+            this.beforeQuery = beforeQuery;
             return this;
         }
 
@@ -273,6 +285,7 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.krb5Path = this.krb5Path;
             jdbcConnectionConfig.properties =
                     this.properties == null ? new HashMap<>() : this.properties;
+            jdbcConnectionConfig.beforeQuery = this.beforeQuery;
             return jdbcConnectionConfig;
         }
     }

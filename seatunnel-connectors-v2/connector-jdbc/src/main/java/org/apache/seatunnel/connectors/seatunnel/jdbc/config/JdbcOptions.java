@@ -58,6 +58,9 @@ public interface JdbcOptions {
     Option<String> QUERY =
             Options.key("query").stringType().noDefaultValue().withDescription("query");
 
+    Option<String> BEFORE_QUERY =
+            Options.key("before_query").stringType().noDefaultValue().withDescription("before_query");
+
     Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
             Options.key("schema_save_mode")
                     .enumType(SchemaSaveMode.class)

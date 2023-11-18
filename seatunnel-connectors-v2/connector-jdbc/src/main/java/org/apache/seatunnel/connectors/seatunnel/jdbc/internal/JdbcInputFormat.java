@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -56,6 +57,7 @@ public class JdbcInputFormat implements Serializable {
     private final JdbcRowConverter jdbcRowConverter;
     private final Map<TablePath, SeaTunnelRowType> tables;
     private final ChunkSplitter chunkSplitter;
+    private final String beforeQuery;
 
     private transient String splitTableId;
     private transient SeaTunnelRowType splitRowType;
@@ -70,9 +72,18 @@ public class JdbcInputFormat implements Serializable {
         this.chunkSplitter = ChunkSplitter.create(config);
         this.jdbcRowConverter = jdbcDialect.getRowConverter();
         this.tables = tables;
+        this.beforeQuery = config.getJdbcConnectionConfig().getBeforeQuery();
     }
 
-    public void openInputFormat() {}
+    public void openInputFormat() throws SQLException {
+        // Set specific configuration
+        if (StringUtils.isNoneBlank(beforeQuery)) {
+            String[] customConfig = beforeQuery.split(";");
+            for (String config : customConfig) {
+                statement.execute(config);
+            }
+        }
+    }
 
     public void closeInputFormat() throws IOException {
         close();
@@ -86,7 +97,7 @@ public class JdbcInputFormat implements Serializable {
      * Connects to the source database and executes the query
      *
      * @param inputSplit which is ignored if this InputFormat is executed as a non-parallel source,
-     *     a "hook" to the query parameters otherwise (using its <i>parameterId</i>)
+     *                   a "hook" to the query parameters otherwise (using its <i>parameterId</i>)
      * @throws IOException if there's an error during the execution of the query
      */
     public void open(JdbcSourceSplit inputSplit) throws IOException {
@@ -136,7 +147,9 @@ public class JdbcInputFormat implements Serializable {
         return !hasNext;
     }
 
-    /** Convert a row of data to seatunnelRow */
+    /**
+     * Convert a row of data to seatunnelRow
+     */
     public SeaTunnelRow nextRecord() {
         try {
             if (!hasNext) {
