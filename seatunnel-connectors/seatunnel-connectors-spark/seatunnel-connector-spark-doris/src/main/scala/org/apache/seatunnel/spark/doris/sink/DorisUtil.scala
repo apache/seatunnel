@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.spark.doris.sink
 
+import com.google.gson.Gson
 import org.apache.commons.net.util.Base64
 import org.apache.http.HttpHeaders
 import org.apache.http.client.config.RequestConfig
@@ -48,10 +49,11 @@ object DorisUtil extends Serializable {
                  messages: String,
                  api: String,
                  user: String,
-                 password: String): (Boolean, CloseableHttpClient, CloseableHttpResponse) = {
+                 password: String): (Boolean, String) = {
 
     var response: CloseableHttpResponse = null
     var status = true
+    var msg = ""
     try {
       val httpPut = new HttpPut(api)
       val requestConfig = RequestConfig.custom()
@@ -87,11 +89,20 @@ object DorisUtil extends Serializable {
            |Batch Messages Response:
            |${stringBuffer.toString}
            |""".stripMargin)
+      val respJson = new Gson()
+      val map = respJson.fromJson(stringBuffer.toString, classOf[java.util.Map[String, AnyRef]])
+      val respStatus = map.get("Status")
+      LOG.info(s"reponse status: $respStatus")
+      if (respStatus == null || "Fail".equalsIgnoreCase(respStatus.toString)) {
+        status = false
+        msg = stringBuffer.toString
+      }
     } catch {
-      case _: Exception => status = false
-        (status, httpclient, response)
+      case e: Exception =>
+        status = false
+        msg = e.toString
     }
-    (status, httpclient, response)
+    (status, msg)
   }
 
 
@@ -106,15 +117,13 @@ object DorisUtil extends Serializable {
 class DorisUtil(httpHeader: Map[String, String], apiUrl: String, user: String, password: String) {
   def saveMessages(messages: String): Unit = {
     val httpClient = DorisUtil.createClient
-    val result = Try(DorisUtil.streamLoad(httpClient, httpHeader, messages, apiUrl, user, password))
-    result match {
-      case Success(_) =>
+    val (status, errMessage) = DorisUtil.streamLoad(httpClient, httpHeader, messages, apiUrl, user, password)
+    status match {
+      case true =>
         httpClient.close()
-        result.get._2.close()
-      case Failure(var1: Exception) =>
+      case false =>
         httpClient.close()
-        result.get._2.close()
-        throw new RuntimeException(var1.getMessage)
+        throw new RuntimeException(errMessage)
     }
   }
 }
