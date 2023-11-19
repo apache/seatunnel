@@ -74,8 +74,8 @@ import static java.lang.String.format;
 public class KuduWIthMultipleTableIT extends TestSuiteBase implements TestResource {
 
     private static final String IMAGE = "apache/kudu:1.15.0";
-    private static final Integer KUDU_MASTER_PORT = 7053;
-    private static final Integer KUDU_TSERVER_PORT = 7052;
+    private static final Integer KUDU_MASTER_PORT = 7051;
+    private static final Integer KUDU_TSERVER_PORT = 7054;
     private GenericContainer<?> master;
     private GenericContainer<?> tServers;
     private KuduClient kuduClient;
@@ -94,12 +94,9 @@ public class KuduWIthMultipleTableIT extends TestSuiteBase implements TestResour
                 new GenericContainer<>(IMAGE)
                         .withExposedPorts(KUDU_MASTER_PORT)
                         .withCommand("master")
-                        .withEnv(
-                                "MASTER_ARGS",
-                                "--default_num_replicas=1 --rpc_bind_addresses=kudu-master:7053 --webserver_port=8052")
-                        .withEnv("KUDU_MASTERS", "kudu-master:" + KUDU_MASTER_PORT)
+                        .withEnv("MASTER_ARGS", "--default_num_replicas=1")
                         .withNetwork(NETWORK)
-                        .withNetworkAliases("kudu-master")
+                        .withNetworkAliases("kudu-master-multiple")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)));
 
@@ -118,7 +115,7 @@ public class KuduWIthMultipleTableIT extends TestSuiteBase implements TestResour
                 new GenericContainer<>(IMAGE)
                         .withExposedPorts(KUDU_TSERVER_PORT)
                         .withCommand("tserver")
-                        .withEnv("KUDU_MASTERS", "kudu-master:" + KUDU_MASTER_PORT)
+                        .withEnv("KUDU_MASTERS", "kudu-master-multiple:" + KUDU_MASTER_PORT)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(instanceName)
                         .dependsOn(master)
