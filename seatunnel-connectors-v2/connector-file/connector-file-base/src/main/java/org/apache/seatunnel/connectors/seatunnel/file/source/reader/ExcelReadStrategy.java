@@ -88,7 +88,6 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                         : workbook.getSheetAt(0);
         cellCount = seaTunnelRowType.getTotalFields();
         cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
-        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         int rowCount = sheet.getPhysicalNumberOfRows();
         if (skipHeaderNumber > Integer.MAX_VALUE
@@ -103,6 +102,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 .filter(Objects::nonNull)
                 .forEach(
                         rowData -> {
+                            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
                             int[] cellIndexes =
                                     indexes == null
                                             ? IntStream.range(0, cellCount).toArray()
@@ -185,6 +185,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 return cell.getNumericCellValue();
             case ERROR:
                 break;
+            case BLANK:
+                return null;
             default:
                 throw new FileConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
@@ -195,8 +197,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
 
     @SneakyThrows
     private Object convert(Object field, SeaTunnelDataType<?> fieldType) {
-        if (field == null) {
-            return "";
+        if (field == null || field == "") {
+            return null;
         }
         SqlType sqlType = fieldType.getSqlType();
         switch (sqlType) {
