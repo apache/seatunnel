@@ -106,7 +106,7 @@ public class KuduWIthMultipleTableIT extends TestSuiteBase implements TestResour
                         .withNetworkAliases(TOXIPROXY_NETWORK_ALIAS);
         toxiProxy.start();
 
-        String instanceName = "kudu-tserver";
+        String instanceName = "kudu-tserver-multiple";
 
         ToxiproxyContainer.ContainerProxy proxy =
                 toxiProxy.getProxy(instanceName, KUDU_TSERVER_PORT);
