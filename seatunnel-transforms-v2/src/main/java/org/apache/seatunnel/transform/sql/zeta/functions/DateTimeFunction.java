@@ -23,10 +23,12 @@ import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
 import java.text.DateFormatSymbols;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
@@ -540,5 +542,21 @@ public class DateTimeFunction {
         }
         LocalDate localDate = convertToLocalDate(datetime);
         return localDate.getYear();
+    }
+
+    public static String fromUnixTime(List<Object> args) {
+        Long unixTime = (Long) args.get(0);
+        if (unixTime == null) {
+            return null;
+        }
+        String format = (String) args.get(1);
+        ZoneId zoneId = ZoneId.systemDefault();
+        if (args.size() == 3) {
+            String timeZone = (String) args.get(2);
+            zoneId = ZoneId.of(timeZone);
+        }
+        DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
+        LocalDateTime datetime = Instant.ofEpochSecond(unixTime).atZone(zoneId).toLocalDateTime();
+        return df.format(datetime);
     }
 }

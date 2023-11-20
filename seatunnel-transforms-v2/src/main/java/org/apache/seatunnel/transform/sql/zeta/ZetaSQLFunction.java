@@ -155,6 +155,7 @@ public class ZetaSQLFunction {
     public static final String SECOND = "SECOND";
     public static final String WEEK = "WEEK";
     public static final String YEAR = "YEAR";
+    public static final String FROM_UNIXTIME = "FROM_UNIXTIME";
 
     // -------------------------system functions----------------------------
     public static final String COALESCE = "COALESCE";
@@ -377,6 +378,8 @@ public class ZetaSQLFunction {
                 return DateTimeFunction.dayOfWeek(args);
             case DAY_OF_YEAR:
                 return DateTimeFunction.dayOfYear(args);
+            case FROM_UNIXTIME:
+                return DateTimeFunction.fromUnixTime(args);
             case EXTRACT:
                 return DateTimeFunction.extract(args);
             case FORMATDATETIME:
