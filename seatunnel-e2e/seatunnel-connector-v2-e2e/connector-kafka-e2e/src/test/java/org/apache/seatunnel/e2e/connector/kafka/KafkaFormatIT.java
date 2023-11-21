@@ -78,7 +78,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -495,7 +494,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         LOG.info("==================== start kafka ogg format to pg check ====================");
 
         List<List<Object>> postgresqlEexpectedResult = getPostgreSinkTableList(PG_SINK_TABLE1);
-        Set<List<Object>> checkArraysResult =
+        List<List<Object>> checkArraysResult =
                 Stream.<List<Object>>of(
                                 Arrays.asList(
                                         101,
@@ -529,7 +528,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                                         "jacket",
                                         "new water resistent white wind breaker",
                                         "0.5"))
-                        .collect(Collectors.toSet());
+                        .collect(Collectors.toList());
         Assertions.assertIterableEquals(postgresqlEexpectedResult, checkArraysResult);
     }
 

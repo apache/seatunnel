@@ -97,9 +97,20 @@ public class DebeziumRowConverter implements Serializable {
                     throw new RuntimeException("Invalid bytes field", e);
                 }
             case DATE:
-                return LocalDate.ofEpochDay(value.intValue());
+                try {
+                    int d = Integer.parseInt(value.toString());
+                    return LocalDate.ofEpochDay(d);
+                } catch (NumberFormatException e) {
+                    return LocalDate.parse(
+                            value.textValue(), DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+                }
             case TIME:
-                return LocalTime.ofNanoOfDay(value.longValue() * 1000L);
+                try {
+                    long t = Long.parseLong(value.toString());
+                    return LocalTime.ofNanoOfDay(t * 1000L);
+                } catch (NumberFormatException e) {
+                    return LocalTime.parse(value.textValue());
+                }
             case TIMESTAMP:
                 try {
                     long timestamp = Long.parseLong(value.toString());
