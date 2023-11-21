@@ -70,7 +70,7 @@ import static java.lang.String.format;
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK do not support cdc")
+        disabledReason = "Currently SPARK/FLINK do not support multiple table read")
 public class KuduWIthMultipleTableIT extends TestSuiteBase implements TestResource {
 
     private static final String IMAGE = "apache/kudu:1.15.0";
