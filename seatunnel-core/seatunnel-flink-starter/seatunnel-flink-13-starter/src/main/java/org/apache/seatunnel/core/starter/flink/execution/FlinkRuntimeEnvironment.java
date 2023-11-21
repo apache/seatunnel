@@ -64,7 +64,6 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
     private StreamExecutionEnvironment environment;
 
     private StreamTableEnvironment tableEnvironment;
-
     private JobMode jobMode;
 
     private String jobName = Constants.LOGO;

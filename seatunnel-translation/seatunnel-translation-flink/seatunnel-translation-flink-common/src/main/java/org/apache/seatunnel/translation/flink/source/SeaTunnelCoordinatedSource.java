@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.flink.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
@@ -27,9 +29,10 @@ public class SeaTunnelCoordinatedSource extends BaseSeaTunnelSourceFunction {
 
     protected static final String COORDINATED_SOURCE_STATE_NAME = "coordinated-source-states";
 
-    public SeaTunnelCoordinatedSource(SeaTunnelSource<SeaTunnelRow, ?, ?> source) {
+    public SeaTunnelCoordinatedSource(
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source, Config envConfigs) {
         // TODO: Make sure the source is coordinated.
-        super(source);
+        super(source, envConfigs);
     }
 
     @Override

@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
 import org.apache.paimon.types.ArrayType;
@@ -162,7 +162,7 @@ public class RowTypeConverter {
                     return DataTypes.ROW(dataTypes);
                 default:
                     throw new PaimonConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             "Unsupported data type: " + dataType.getSqlType());
             }
         }
@@ -282,7 +282,7 @@ public class RowTypeConverter {
                                     "Array type not support this genericType [%s]",
                                     seaTunnelArrayType);
                     throw new PaimonConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
             }
         }
 
@@ -306,7 +306,8 @@ public class RowTypeConverter {
         @Override
         protected SeaTunnelDataType defaultMethod(DataType dataType) {
             throw new PaimonConnectorException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported data type: " + dataType);
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                    "Unsupported data type: " + dataType);
         }
     }
 }

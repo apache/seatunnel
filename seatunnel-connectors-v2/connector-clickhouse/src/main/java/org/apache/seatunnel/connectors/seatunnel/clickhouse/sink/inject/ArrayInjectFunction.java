@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 
 import java.sql.PreparedStatement;
@@ -79,7 +79,7 @@ public class ArrayInjectFunction implements ClickhouseFieldInjectFunction {
                 break;
             default:
                 throw new ClickhouseConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "array inject error, unsupported data type: " + type);
         }
         statement.setArray(index, statement.getConnection().createArrayOf(sqlType, elements));

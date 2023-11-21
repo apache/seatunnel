@@ -17,46 +17,72 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.kudu.client.SessionConfiguration;
 
-import lombok.Data;
-import lombok.NonNull;
+import lombok.Getter;
+import lombok.ToString;
 
-@Data
-public class KuduSinkConfig {
+import java.util.Locale;
 
-    public static final Option<String> KUDU_MASTER =
-            Options.key("kudu_master")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("kudu master address");
+@Getter
+@ToString
+public class KuduSinkConfig extends CommonConfig {
 
-    public static final Option<SaveMode> KUDU_SAVE_MODE =
+    public static final Option<SaveMode> SAVE_MODE =
             Options.key("save_mode")
                     .enumType(SaveMode.class)
-                    .noDefaultValue()
+                    .defaultValue(SaveMode.APPEND)
                     .withDescription("Storage mode,append is now supported");
 
-    public static final Option<String> KUDU_TABLE_NAME =
-            Options.key("kudu_table")
+    public static final Option<String> FLUSH_MODE =
+            Options.key("session_flush_mode")
                     .stringType()
-                    .noDefaultValue()
-                    .withDescription("kudu table name");
+                    .defaultValue(SessionConfiguration.FlushMode.AUTO_FLUSH_SYNC.name())
+                    .withDescription("Kudu flush mode. Default AUTO_FLUSH_SYNC");
+
+    public static final Option<Integer> BATCH_SIZE =
+            Options.key("batch_size")
+                    .intType()
+                    .defaultValue(1024)
+                    .withDescription(
+                            "the flush max size (includes all append, upsert and delete records), over this number"
+                                    + " of records, will flush data. The default value is 100.");
+
+    public static final Option<Integer> BUFFER_FLUSH_INTERVAL =
+            Options.key("buffer_flush_interval")
+                    .intType()
+                    .defaultValue(10000)
+                    .withDescription(
+                            "the flush interval mills, over this time, asynchronous threads will flush data. The "
+                                    + "default value is 1s.");
+
+    public static final Option<Boolean> IGNORE_NOT_FOUND =
+            Options.key("ignore_not_found")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("if true, ignore all not found rows");
+
+    public static final Option<Boolean> IGNORE_DUPLICATE =
+            Options.key("ignore_not_duplicate")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("if true, ignore all dulicate rows");
 
     private SaveMode saveMode;
 
-    private String kuduMaster;
+    private SessionConfiguration.FlushMode flushMode;
 
-    /** Specifies the name of the table */
-    private String kuduTableName;
+    private int maxBufferSize;
+
+    private int flushInterval;
+
+    private boolean ignoreNotFound;
+
+    private boolean ignoreDuplicate;
 
     public enum SaveMode {
         APPEND(),
@@ -71,22 +97,25 @@ public class KuduSinkConfig {
         }
     }
 
-    public KuduSinkConfig(@NonNull Config pluginConfig) {
-        if (pluginConfig.hasPath(KUDU_SAVE_MODE.key())
-                && pluginConfig.hasPath(KUDU_MASTER.key())
-                && pluginConfig.hasPath(KUDU_TABLE_NAME.key())) {
-            this.saveMode =
-                    StringUtils.isBlank(pluginConfig.getString(KUDU_SAVE_MODE.key()))
-                            ? SaveMode.APPEND
-                            : SaveMode.fromStr(pluginConfig.getString(KUDU_SAVE_MODE.key()));
-            this.kuduMaster = pluginConfig.getString(KUDU_MASTER.key());
-            this.kuduTableName = pluginConfig.getString(KUDU_TABLE_NAME.key());
-        } else {
-            throw new KuduConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            "Kudu", PluginType.SINK, "Missing Sink configuration parameters"));
+    public KuduSinkConfig(ReadonlyConfig config) {
+        super(config);
+        this.saveMode = config.get(SAVE_MODE);
+        this.flushMode = fromStrFlushMode(config.get(FLUSH_MODE));
+        this.maxBufferSize = config.get(BATCH_SIZE);
+        this.flushInterval = config.get(BUFFER_FLUSH_INTERVAL);
+        this.ignoreNotFound = config.get(IGNORE_NOT_FOUND);
+        this.ignoreDuplicate = config.get(IGNORE_DUPLICATE);
+    }
+
+    private SessionConfiguration.FlushMode fromStrFlushMode(String flushMode) {
+        switch (flushMode.toUpperCase(Locale.ENGLISH)) {
+            case "MANUAL_FLUSH":
+                return SessionConfiguration.FlushMode.MANUAL_FLUSH;
+            case "AUTO_FLUSH_BACKGROUND":
+                return SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND;
+            case "AUTO_FLUSH_SYNC":
+            default:
+                return SessionConfiguration.FlushMode.AUTO_FLUSH_SYNC;
         }
     }
 }

@@ -65,14 +65,27 @@ public class ConfigBuilder {
                 adapterSupplier
                         .map(adapter -> of(adapter, filePath))
                         .orElseGet(() -> ofInner(filePath));
-        log.info("Parsed config file: {}", config.root().render(CONFIG_RENDER_OPTIONS));
+        log.info("Parsed config file: \n{}", config.root().render(CONFIG_RENDER_OPTIONS));
         return config;
     }
 
     public static Config of(@NonNull Map<String, Object> objectMap) {
+        return of(objectMap, false);
+    }
+
+    public static Config of(@NonNull Map<String, Object> objectMap, boolean isEncrypt) {
         log.info("Loading config file from objectMap");
-        Config config = ConfigFactory.parseMap(objectMap);
-        return ConfigShadeUtils.decryptConfig(config);
+        Config config =
+                ConfigFactory.parseMap(objectMap)
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        if (!isEncrypt) {
+            config = ConfigShadeUtils.decryptConfig(config);
+        }
+        log.info("Parsed config file: \n{}", config.root().render(CONFIG_RENDER_OPTIONS));
+        return config;
     }
 
     public static Config of(@NonNull ConfigAdapter configAdapter, @NonNull Path filePath) {

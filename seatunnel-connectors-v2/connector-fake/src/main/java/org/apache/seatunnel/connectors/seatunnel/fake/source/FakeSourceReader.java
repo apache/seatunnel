@@ -21,8 +21,8 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.MultipleTableFakeSourceConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,7 +30,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSplit> {
@@ -38,16 +40,34 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     private final SourceReader.Context context;
     private final Deque<FakeSourceSplit> splits = new ConcurrentLinkedDeque<>();
 
-    private final FakeConfig config;
-    private final FakeDataGenerator fakeDataGenerator;
+    private final MultipleTableFakeSourceConfig multipleTableFakeSourceConfig;
+    // TableFullName to FakeDataGenerator
+    private final Map<String, FakeDataGenerator> fakeDataGeneratorMap;
     private volatile boolean noMoreSplit;
+    private final long minSplitReadInterval;
     private volatile long latestTimestamp = 0;
 
     public FakeSourceReader(
-            SourceReader.Context context, SeaTunnelRowType rowType, FakeConfig fakeConfig) {
+            SourceReader.Context context,
+            MultipleTableFakeSourceConfig multipleTableFakeSourceConfig) {
         this.context = context;
-        this.config = fakeConfig;
-        this.fakeDataGenerator = new FakeDataGenerator(rowType, fakeConfig);
+        this.multipleTableFakeSourceConfig = multipleTableFakeSourceConfig;
+        this.fakeDataGeneratorMap =
+                multipleTableFakeSourceConfig.getFakeConfigs().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        fakeConfig ->
+                                                fakeConfig
+                                                        .getCatalogTable()
+                                                        .getTableId()
+                                                        .toTablePath()
+                                                        .toString(),
+                                        FakeDataGenerator::new));
+        this.minSplitReadInterval =
+                multipleTableFakeSourceConfig.getFakeConfigs().stream()
+                        .map(FakeConfig::getSplitReadInterval)
+                        .min(Integer::compareTo)
+                        .get();
     }
 
     @Override
@@ -64,19 +84,23 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     @SuppressWarnings("MagicNumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
         long currentTimestamp = Instant.now().toEpochMilli();
-        if (currentTimestamp <= latestTimestamp + config.getSplitReadInterval()) {
+        if (currentTimestamp <= latestTimestamp + minSplitReadInterval) {
             return;
         }
         latestTimestamp = currentTimestamp;
         synchronized (output.getCheckpointLock()) {
             FakeSourceSplit split = splits.poll();
             if (null != split) {
+                FakeDataGenerator fakeDataGenerator = fakeDataGeneratorMap.get(split.getTableId());
                 // Randomly generated data are sent directly to the downstream operator
-                fakeDataGenerator.collectFakedRows(split.getRowNum(), output);
+                List<SeaTunnelRow> seaTunnelRows =
+                        fakeDataGenerator.generateFakedRows(split.getRowNum());
+                seaTunnelRows.forEach(output::collect);
                 log.info(
-                        "{} rows of data have been generated in split({}). Generation time: {}",
-                        split.getRowNum(),
+                        "{} rows of data have been generated in split({}) for table {}. Generation time: {}",
+                        seaTunnelRows.size(),
                         split.splitId(),
+                        split.getTableId(),
                         latestTimestamp);
             } else {
                 if (!noMoreSplit) {

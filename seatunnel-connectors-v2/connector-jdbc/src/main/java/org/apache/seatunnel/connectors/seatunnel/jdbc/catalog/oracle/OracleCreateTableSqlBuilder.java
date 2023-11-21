@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -91,7 +92,7 @@ public class OracleCreateTableSqlBuilder {
         columnSql.append("\"").append(column.getName()).append("\" ");
 
         String columnType =
-                sourceCatalogName.equals("oracle")
+                StringUtils.equalsIgnoreCase(DatabaseIdentifier.ORACLE, sourceCatalogName)
                         ? column.getSourceType()
                         : buildColumnType(column);
         columnSql.append(columnType);
@@ -121,7 +122,9 @@ public class OracleCreateTableSqlBuilder {
                     return "CLOB";
                 }
             default:
-                String type = oracleDataTypeConvertor.toConnectorType(column.getDataType(), null);
+                String type =
+                        oracleDataTypeConvertor.toConnectorType(
+                                column.getName(), column.getDataType(), null);
                 if (type.equals("NUMBER")) {
                     if (column.getDataType() instanceof DecimalType) {
                         DecimalType decimalType = (DecimalType) column.getDataType();

@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.starrocks.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -67,7 +67,8 @@ public class StarRocksBaseSerializer {
                 return new String((byte[]) val);
             default:
                 throw new StarRocksConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, dataType + " is not supported ");
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        dataType + " is not supported ");
         }
     }
 }

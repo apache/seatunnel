@@ -23,15 +23,19 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlserverTypeMapper;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -101,7 +105,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
         int precision = resultSet.getInt("precision");
         int scale = resultSet.getInt("scale");
         long columnLength = resultSet.getLong("max_length");
-        SeaTunnelDataType<?> type = fromJdbcType(sourceType, precision, scale);
+        SeaTunnelDataType<?> type = fromJdbcType(columnName, sourceType, precision, scale);
         String comment = resultSet.getString("comment");
         Object defaultValue = resultSet.getObject("default_value");
         if (defaultValue != null) {
@@ -174,12 +178,13 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                 columnLength);
     }
 
-    private SeaTunnelDataType<?> fromJdbcType(String typeName, int precision, int scale) {
+    private SeaTunnelDataType<?> fromJdbcType(
+            String columnName, String typeName, int precision, int scale) {
         Pair<SqlServerType, Map<String, Object>> pair = SqlServerType.parse(typeName);
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(SqlServerDataTypeConvertor.PRECISION, precision);
         dataTypeProperties.put(SqlServerDataTypeConvertor.SCALE, scale);
-        return DATA_TYPE_CONVERTOR.toSeaTunnelType(pair.getLeft(), dataTypeProperties);
+        return DATA_TYPE_CONVERTOR.toSeaTunnelType(columnName, pair.getLeft(), dataTypeProperties);
     }
 
     @Override
@@ -211,5 +216,25 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getUrlFromDatabaseName(String databaseName) {
         return baseUrl + ";databaseName=" + databaseName + ";" + suffix;
+    }
+
+    @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        try {
+            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
+                return databaseExists(tablePath.getDatabaseName())
+                        && listTables(tablePath.getDatabaseName())
+                                .contains(tablePath.getSchemaAndTableName());
+            }
+            return listTables(defaultDatabase).contains(tablePath.getSchemaAndTableName());
+        } catch (DatabaseNotExistException e) {
+            return false;
+        }
+    }
+
+    @Override
+    public CatalogTable getTable(String sqlQuery) throws SQLException {
+        Connection defaultConnection = getConnection(defaultUrl);
+        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new SqlserverTypeMapper());
     }
 }
