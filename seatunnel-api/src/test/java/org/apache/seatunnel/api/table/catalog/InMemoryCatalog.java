@@ -27,9 +27,10 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.common.exception.CommonError;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -97,14 +98,14 @@ public class InMemoryCatalog implements Catalog {
         CatalogTable catalogTable1 =
                 CatalogTable.of(
                         TableIdentifier.of(name, TablePath.of("st", "public", "table1")),
-                    TableSchema.builder().build(),
+                        TableSchema.builder().build(),
                         new HashMap<>(),
                         new ArrayList<>(),
                         "In Memory Table");
         CatalogTable catalogTable2 =
                 CatalogTable.of(
                         TableIdentifier.of(name, TablePath.of("st", "public", "table2")),
-                    TableSchema.builder().build(),
+                        TableSchema.builder().build(),
                         new HashMap<>(),
                         new ArrayList<>(),
                         "In Memory Table",
@@ -112,22 +113,23 @@ public class InMemoryCatalog implements Catalog {
         tables.add(catalogTable1);
         tables.add(catalogTable2);
 
-
         CatalogTable unsupportedTable1 =
-            CatalogTable.of(
-                TableIdentifier.of(name, TablePath.of(UNSUPPORTED_DATABASE, "public", "table1")),
-                tableSchema,
-                new HashMap<>(),
-                new ArrayList<>(),
-                "In Memory Table");
+                CatalogTable.of(
+                        TableIdentifier.of(
+                                name, TablePath.of(UNSUPPORTED_DATABASE, "public", "table1")),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "In Memory Table");
         CatalogTable unsupportedTable2 =
-            CatalogTable.of(
-                TableIdentifier.of(name, TablePath.of(UNSUPPORTED_DATABASE, "public", "table2")),
-                tableSchema,
-                new HashMap<>(),
-                new ArrayList<>(),
-                "In Memory Table",
-                name);
+                CatalogTable.of(
+                        TableIdentifier.of(
+                                name, TablePath.of(UNSUPPORTED_DATABASE, "public", "table2")),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "In Memory Table",
+                        name);
         this.catalogTables.get(UNSUPPORTED_DATABASE).add(unsupportedTable1);
         this.catalogTables.get(UNSUPPORTED_DATABASE).add(unsupportedTable2);
     }
@@ -195,10 +197,17 @@ public class InMemoryCatalog implements Catalog {
             throws CatalogException, TableNotExistException {
         if (catalogTables.containsKey(tablePath.getDatabaseName())) {
             if (tablePath.getDatabaseName().equals(UNSUPPORTED_DATABASE)) {
-                List<Pair<String, String>> unsupportedFields = Arrays.asList(Pair.of("field1", "interval"), Pair.of("field2", "interval2"));
-                buildColumnsWithErrorCheck(tablePath, new TableSchema.Builder(), unsupportedFields.iterator(), field -> {
-                    throw CommonError.convertToSeaTunnelTypeError(name(), field.getValue(), field.getKey());
-                });
+                List<Pair<String, String>> unsupportedFields =
+                        Arrays.asList(
+                                Pair.of("field1", "interval"), Pair.of("field2", "interval2"));
+                buildColumnsWithErrorCheck(
+                        tablePath,
+                        new TableSchema.Builder(),
+                        unsupportedFields.iterator(),
+                        field -> {
+                            throw CommonError.convertToSeaTunnelTypeError(
+                                    name(), field.getValue(), field.getKey());
+                        });
             }
             List<CatalogTable> tables = catalogTables.get(tablePath.getDatabaseName());
             return tables.stream()

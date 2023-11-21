@@ -46,28 +46,47 @@ public class CatalogTableTest {
 
     @Test
     public void testReadCatalogTableWithUnsupportedType() {
-        Catalog catalog = new InMemoryCatalogFactory().createCatalog("InMemory", ReadonlyConfig.fromMap(new HashMap<>()));
-        SeaTunnelRuntimeException exception = Assertions.assertThrows(SeaTunnelRuntimeException.class, () -> catalog.getTables(ReadonlyConfig.fromMap(new HashMap<String, Object>() {{
-            put(CatalogOptions.TABLE_NAMES.key(), Arrays.asList("unsupported.public.table1", "unsupported.public.table2"));
-        }})));
-        Assertions.assertEquals("ErrorCode:[COMMON-21], ErrorDescription:['InMemory' tables unsupported get catalog table，the corresponding field types in the following tables are not supported: '{\"unsupported.public.table1\":{\"field1\":\"interval\",\"field2\":\"interval2\"},\"unsupported.public.table2\":{\"field1\":\"interval\",\"field2\":\"interval2\"}}']", exception.getMessage());
+        Catalog catalog =
+                new InMemoryCatalogFactory()
+                        .createCatalog("InMemory", ReadonlyConfig.fromMap(new HashMap<>()));
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                catalog.getTables(
+                                        ReadonlyConfig.fromMap(
+                                                new HashMap<String, Object>() {
+                                                    {
+                                                        put(
+                                                                CatalogOptions.TABLE_NAMES.key(),
+                                                                Arrays.asList(
+                                                                        "unsupported.public.table1",
+                                                                        "unsupported.public.table2"));
+                                                    }
+                                                })));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-21], ErrorDescription:['InMemory' tables unsupported get catalog table，"
+                        + "the corresponding field types in the following tables are not supported: '{\"unsupported.public.table1\""
+                        + ":{\"field1\":\"interval\",\"field2\":\"interval2\"},\"unsupported.public.table2\":{\"field1\":\"interval\","
+                        + "\"field2\":\"interval2\"}}']",
+                exception.getMessage());
         Map<String, Map<String, String>> result = new LinkedHashMap<>();
         result.put(
-            "unsupported.public.table1",
-            new HashMap<String, String>() {
-                {
-                    put("field1", "interval");
-                    put("field2", "interval2");
-                }
-            });
+                "unsupported.public.table1",
+                new HashMap<String, String>() {
+                    {
+                        put("field1", "interval");
+                        put("field2", "interval2");
+                    }
+                });
         result.put(
-            "unsupported.public.table2",
-            new HashMap<String, String>() {
-                {
-                    put("field1", "interval");
-                    put("field2", "interval2");
-                }
-            });
+                "unsupported.public.table2",
+                new HashMap<String, String>() {
+                    {
+                        put("field1", "interval");
+                        put("field2", "interval2");
+                    }
+                });
         Assertions.assertEquals(result, exception.getParamsValueAs("tableUnsupportedTypes"));
     }
 }
