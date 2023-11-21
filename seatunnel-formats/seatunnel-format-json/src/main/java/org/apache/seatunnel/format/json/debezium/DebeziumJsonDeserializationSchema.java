@@ -29,8 +29,6 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-
 import java.io.IOException;
 
 public class DebeziumJsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
@@ -159,8 +157,8 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         }
     }
 
-    private SeaTunnelRow convertJsonNode(JsonNode root) throws JsonProcessingException {
-        return debeziumRowConverter.serializeValue(root.toString());
+    private SeaTunnelRow convertJsonNode(JsonNode root) {
+        return debeziumRowConverter.serializeValue(root);
     }
 
     @Override

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.format.json.debezium;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -24,10 +26,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -47,15 +45,13 @@ import java.util.Map;
 
 public class DebeziumRowConverter implements Serializable {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final SeaTunnelRowType rowType;
 
     public DebeziumRowConverter(SeaTunnelRowType rowType) {
         this.rowType = rowType;
     }
 
-    public SeaTunnelRow serializeValue(String json) throws JsonProcessingException {
-        JsonNode node = OBJECT_MAPPER.readTree(json);
+    public SeaTunnelRow serializeValue(JsonNode node) {
         return (SeaTunnelRow) getValue(rowType, node);
     }
 
