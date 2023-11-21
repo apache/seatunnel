@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
+@Deprecated
 public enum SqlServerType implements SQLType {
     UNKNOWN("unknown", 999, Object.class),
     TINYINT("tinyint", java.sql.Types.TINYINT, Short.class),
