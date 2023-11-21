@@ -18,7 +18,6 @@
 package org.apache.seatunnel.format.json.debezium;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.connector.DeserializationFormat;
 import org.apache.seatunnel.api.table.connector.SerializationFormat;
@@ -58,13 +57,6 @@ public class DebeziumJsonFormatFactory
         Map<String, String> options = context.getOptions().toMap();
         boolean ignoreParseErrors = DebeziumJsonFormatOptions.getIgnoreParseErrors(options);
         boolean schemaInclude = DebeziumJsonFormatOptions.getSchemaInclude(options);
-
-        // TODO config SeaTunnelRowType
-        return new DeserializationFormat() {
-            @Override
-            public DeserializationSchema createDeserializationSchema() {
-                return new DebeziumJsonDeserializationSchema(null, ignoreParseErrors);
-            }
-        };
+        return () -> new DebeziumJsonDeserializationSchema(null, ignoreParseErrors);
     }
 }
