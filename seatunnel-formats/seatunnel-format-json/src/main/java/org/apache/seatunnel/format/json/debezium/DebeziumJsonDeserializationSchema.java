@@ -32,7 +32,6 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 
 public class DebeziumJsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
     private static final long serialVersionUID = 1L;
@@ -160,8 +159,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         }
     }
 
-    private SeaTunnelRow convertJsonNode(JsonNode root)
-            throws InvocationTargetException, IllegalAccessException, JsonProcessingException {
+    private SeaTunnelRow convertJsonNode(JsonNode root) throws JsonProcessingException {
         return debeziumRowConverter.serializeValue(root.toString());
     }
 
