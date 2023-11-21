@@ -98,6 +98,7 @@
                 <teradata.version>17.20.00.12</teradata.version>
                 <redshift.version>2.1.0.9</redshift.version>
                 <snowflake.version>3.13.29</snowflake.version>
+                <xugu.version>12.1.12</xugu.version>
 
                 <!-- Imap storage dependency package  -->
                 <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
@@ -620,6 +621,13 @@
                     <groupId>net.snowflake</groupId>
                     <artifactId>snowflake-jdbc</artifactId>
                     <version>${snowflake.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>com.xugudb</groupId>
+                    <artifactId>xugu-jdbc</artifactId>
+                    <version>${xugu.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <!-- jdbc driver end -->
