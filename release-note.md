@@ -208,3 +208,4 @@
 - [Docs] Replace username by user in the options of FtpFile (#5421)
 - [Docs] Add how to configure logging related parameters of SeaTunnel-E2E Test (#5589)
 - [Docs] Remove redundant double quotation mark from an example code (#5845)
+- [Docs] Add Hive JDBC reference value (#5882)
