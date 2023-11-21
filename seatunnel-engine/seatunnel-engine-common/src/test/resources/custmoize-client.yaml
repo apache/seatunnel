@@ -17,7 +17,9 @@
 
 hazelcast-client:
   cluster-name: custmoize
-
+  connection-strategy:
+    connection-retry:
+      cluster-connect-timeout-millis: 3000
   network:
     cluster-members:
       - host:5801
