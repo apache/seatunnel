@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.client;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 
+import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.impl.ClientDelegatingFuture;
 import com.hazelcast.client.impl.clientside.ClientMessageDecoder;
@@ -40,19 +41,10 @@ public class SeaTunnelHazelcastClient {
     private final HazelcastClientInstanceImpl hazelcastClient;
     private final SerializationService serializationService;
 
-    private static final int CONNECT_TIMEOUT = 3000;
-
     public SeaTunnelHazelcastClient(@NonNull ClientConfig clientConfig) {
-        Preconditions.checkNotNull(clientConfig, "config");
-        clientConfig
-                .getConnectionStrategyConfig()
-                .getConnectionRetryConfig()
-                .setClusterConnectTimeoutMillis(CONNECT_TIMEOUT);
+        Preconditions.checkNotNull(clientConfig, "hazelcast client config cannot be null");
         this.hazelcastClient =
-                ((HazelcastClientProxy)
-                                com.hazelcast.client.HazelcastClient.newHazelcastClient(
-                                        clientConfig))
-                        .client;
+                ((HazelcastClientProxy) HazelcastClient.newHazelcastClient(clientConfig)).client;
         this.serializationService = hazelcastClient.getSerializationService();
         ExceptionUtil.registerSeaTunnelExceptions(hazelcastClient.getClientExceptionFactory());
     }
