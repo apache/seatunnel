@@ -65,8 +65,8 @@ import static org.awaitility.Awaitility.await;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK do not support cdc")
+        type = {EngineType.SPARK},
+        disabledReason = "Currently SPARK do not support cdc")
 public class MongodbCDCIT extends TestSuiteBase implements TestResource {
 
     // ----------------------------------------------------------------------------
@@ -201,6 +201,28 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                                             .collect(Collectors.toList()),
                                     querySql());
                         });
+
+        cleanSourceTable();
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    readMongodbData().stream()
+                                            .peek(e -> e.remove("_id"))
+                                            .map(Document::entrySet)
+                                            .map(Set::stream)
+                                            .map(
+                                                    entryStream ->
+                                                            entryStream
+                                                                    .map(Map.Entry::getValue)
+                                                                    .collect(
+                                                                            Collectors.toCollection(
+                                                                                    ArrayList
+                                                                                            ::new)))
+                                            .collect(Collectors.toList()),
+                                    querySql());
+                        });
     }
 
     private Connection getJdbcConnection() throws SQLException {
@@ -231,6 +253,10 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
 
     private void upsertDeleteSourceTable() {
         mongodbContainer.executeCommandFileInDatabase("inventoryDDL", MONGODB_DATABASE);
+    }
+
+    private void cleanSourceTable() {
+        mongodbContainer.executeCommandFileInDatabase("inventoryClean", MONGODB_DATABASE);
     }
 
     public void initConnection() {

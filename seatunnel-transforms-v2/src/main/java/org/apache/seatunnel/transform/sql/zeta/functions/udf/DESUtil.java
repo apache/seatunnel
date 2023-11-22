@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform.sql.zeta.functions.udf;
 
+import lombok.extern.slf4j.Slf4j;
+
 import javax.crypto.Cipher;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.DESKeySpec;
@@ -25,6 +27,7 @@ import javax.crypto.spec.IvParameterSpec;
 import java.security.Key;
 import java.util.Base64;
 
+@Slf4j
 public class DESUtil {
 
     private static final String IV_PARAMETER = "12345678";
@@ -56,7 +59,7 @@ public class DESUtil {
             return new String(Base64.getEncoder().encode(bytes));
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Encrypt failed", e);
             return data;
         }
     }
@@ -74,7 +77,7 @@ public class DESUtil {
             return new String(
                     cipher.doFinal(Base64.getDecoder().decode(data.getBytes(CHARSET))), CHARSET);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Decrypt failed", e);
             return data;
         }
     }

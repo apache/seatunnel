@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
+import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 
@@ -36,6 +37,7 @@ import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
 import com.jayway.jsonpath.ReadContext;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
@@ -46,8 +48,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 @Slf4j
+@Setter
 public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     protected final SingleSplitReaderContext context;
     protected final HttpParameter httpParameter;
@@ -61,6 +65,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final String contentJson;
     private final Configuration jsonConfiguration =
             Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
+    private boolean noMoreElementFlag = true;
+    private Optional<PageInfo> pageInfoOptional = Optional.empty();
 
     public HttpSourceReader(
             HttpParameter httpParameter,
@@ -75,6 +81,21 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         this.contentJson = contentJson;
     }
 
+    public HttpSourceReader(
+            HttpParameter httpParameter,
+            SingleSplitReaderContext context,
+            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            JsonField jsonField,
+            String contentJson,
+            PageInfo pageInfo) {
+        this.context = context;
+        this.httpParameter = httpParameter;
+        this.deserializationCollector = new DeserializationCollector(deserializationSchema);
+        this.jsonField = jsonField;
+        this.contentJson = contentJson;
+        this.pageInfoOptional = Optional.ofNullable(pageInfo);
+    }
+
     @Override
     public void open() {
         httpClient = new HttpClientProvider(httpParameter);
@@ -87,40 +108,72 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
-    @Override
-    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        try {
-            HttpResponse response =
-                    httpClient.execute(
-                            this.httpParameter.getUrl(),
-                            this.httpParameter.getMethod().getMethod(),
-                            this.httpParameter.getHeaders(),
-                            this.httpParameter.getParams(),
-                            this.httpParameter.getBody());
-            if (HttpResponse.STATUS_OK == response.getCode()) {
-                String content = response.getContent();
-                if (!Strings.isNullOrEmpty(content)) {
-                    if (this.httpParameter.isEnableMultilines()) {
-                        StringReader stringReader = new StringReader(content);
-                        BufferedReader bufferedReader = new BufferedReader(stringReader);
-                        String lineStr;
-                        while ((lineStr = bufferedReader.readLine()) != null) {
-                            collect(output, lineStr);
-                        }
-                    } else {
-                        collect(output, content);
+    public void pollAndCollectData(Collector<SeaTunnelRow> output) throws Exception {
+        HttpResponse response =
+                httpClient.execute(
+                        this.httpParameter.getUrl(),
+                        this.httpParameter.getMethod().getMethod(),
+                        this.httpParameter.getHeaders(),
+                        this.httpParameter.getParams(),
+                        this.httpParameter.getBody());
+        if (HttpResponse.STATUS_OK == response.getCode()) {
+            String content = response.getContent();
+            if (!Strings.isNullOrEmpty(content)) {
+                if (this.httpParameter.isEnableMultilines()) {
+                    StringReader stringReader = new StringReader(content);
+                    BufferedReader bufferedReader = new BufferedReader(stringReader);
+                    String lineStr;
+                    while ((lineStr = bufferedReader.readLine()) != null) {
+                        collect(output, lineStr);
                     }
+                } else {
+                    collect(output, content);
                 }
-                return;
             }
+            log.info(
+                    "http client execute success request param:[{}], http response status code:[{}], content:[{}]",
+                    httpParameter.getParams(),
+                    response.getCode(),
+                    response.getContent());
+        } else {
             log.error(
                     "http client execute exception, http response status code:[{}], content:[{}]",
                     response.getCode(),
                     response.getContent());
+        }
+    }
+
+    private void updateRequestParam(PageInfo pageInfo) {
+        if (this.httpParameter.getParams() == null) {
+            httpParameter.setParams(new HashMap<>());
+        }
+        this.httpParameter
+                .getParams()
+                .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
+    }
+
+    @Override
+    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        try {
+            if (pageInfoOptional.isPresent()) {
+                noMoreElementFlag = false;
+                Long pageIndex = 1L;
+                while (!noMoreElementFlag) {
+                    PageInfo info = pageInfoOptional.get();
+                    // increment page
+                    info.setPageIndex(pageIndex);
+                    // set request param
+                    updateRequestParam(info);
+                    pollAndCollectData(output);
+                    pageIndex += 1;
+                }
+            } else {
+                pollAndCollectData(output);
+            }
         } catch (Exception e) {
             log.error(e.getMessage(), e);
         } finally {
-            if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            if (Boundedness.BOUNDED.equals(context.getBoundedness()) && noMoreElementFlag) {
                 // signal to the source that we have reached the end of the data.
                 log.info("Closed the bounded http source");
                 context.signalNoMoreElement();
@@ -139,6 +192,21 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         if (jsonField != null) {
             this.initJsonPath(jsonField);
             data = JsonUtils.toJsonNode(parseToMap(decodeJSON(data), jsonField)).toString();
+        }
+        // page increase
+        if (pageInfoOptional.isPresent()) {
+            // Determine whether the task is completed by specifying the presence of the 'total
+            // page' field
+            PageInfo pageInfo = pageInfoOptional.get();
+            if (pageInfo.getTotalPageSize() > 0) {
+                noMoreElementFlag = pageInfo.getPageIndex() >= pageInfo.getTotalPageSize();
+            } else {
+                // no 'total page' configured
+                int readSize = JsonUtils.stringToJsonNode(data).size();
+                // if read size < BatchSize : read finish
+                // if read size = BatchSize : read next page.
+                noMoreElementFlag = readSize < pageInfo.getBatchSize();
+            }
         }
         deserializationCollector.collect(data.getBytes(), output);
     }

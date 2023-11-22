@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionMark;
+import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertCatalogTableRule;
 
 import lombok.Data;
 
@@ -31,4 +32,7 @@ public class Rules {
 
     @OptionMark(description = "field rules for field validation")
     private List<FieldRule> fieldRules;
+
+    @OptionMark(description = "catalog table rule for catalog table validation")
+    private AssertCatalogTableRule catalogTableRule;
 }

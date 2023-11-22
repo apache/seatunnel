@@ -54,7 +54,7 @@ import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProper
 
 public class PulsarConfigUtil {
 
-    public static final String IDENTIFIER = "pulsar";
+    public static final String IDENTIFIER = "Pulsar";
 
     private PulsarConfigUtil() {}
 

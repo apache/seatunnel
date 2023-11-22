@@ -30,10 +30,6 @@ if [ -n "$1" ]; then
     version="$1"
 fi
 
-echo "Install hadoop shade jar, usage version is ${version}"
-
-${SEATUNNEL_HOME}/mvnw dependency:get -DgroupId=org.apache.seatunnel -Dclassifier=optional -DartifactId=seatunnel-hadoop3-3.1.4-uber -Dversion=${version} -Ddest=${SEATUNNEL_HOME}/lib
-
 echo "Install SeaTunnel connectors plugins, usage version is ${version}"
 
 # create the connectors directory
@@ -44,7 +40,9 @@ if [ ! -d ${SEATUNNEL_HOME}/connectors ];
 fi
 
 while read line; do
-    if  [ ${line:0:1} != "-" ] && [ ${line:0:1} != "#" ]
+    first_char=$(echo "$line" | cut -c 1)
+
+    if [ "$first_char" != "-" ] && [ "$first_char" != "#" ]
       	then
       		echo "install connector : " $line
       		${SEATUNNEL_HOME}/mvnw dependency:get -DgroupId=org.apache.seatunnel -DartifactId=${line} -Dversion=${version} -Ddest=${SEATUNNEL_HOME}/connectors

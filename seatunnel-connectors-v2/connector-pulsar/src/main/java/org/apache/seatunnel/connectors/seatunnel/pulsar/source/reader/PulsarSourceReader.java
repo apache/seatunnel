@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.common.Handover;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConsumerConfig;
@@ -118,7 +118,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                 pulsarSplitReaderThread.close();
             } catch (IOException e) {
                 throw new PulsarConnectorException(
-                        CommonErrorCode.READER_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
                         "Failed to close the split reader thread.",
                         e);
             }
@@ -178,7 +178,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                 LOG.info("PulsarSplitReaderThread = {} start", splitReaderThread.getName());
             } catch (PulsarClientException e) {
                 throw new PulsarConnectorException(
-                        CommonErrorCode.READER_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
                         "Failed to start the split reader thread.",
                         e);
             }
@@ -241,7 +241,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                     pulsarSplitReaderThread.close();
                 } catch (IOException e) {
                     throw new PulsarConnectorException(
-                            CommonErrorCode.READER_OPERATION_FAILED,
+                            CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
                             "Failed to close the split reader thread.",
                             e);
                 }

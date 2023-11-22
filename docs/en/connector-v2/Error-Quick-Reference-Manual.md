@@ -194,6 +194,8 @@ problems encountered by users.
 | JDBC-04 | Connector database failed                                      | When users encounter this error code, it means that database connection failure, check whether the url is correct or whether the corresponding service is normal                                            |
 | JDBC-05 | transaction operation failed, such as (commit, rollback) etc.. | When users encounter this error code, it means that if a sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure             |
 | JDBC-06 | No suitable dialect factory found                              | When users encounter this error code, it means that may be an unsupported dialect type                                                                                                                      |
+| JDBC-07 | The jdbc type don't support sink                               | When users encounter this error code, it means that jdbc type don't support sink                                                                                                                            |
+| JDBC-08 | Kerberos authentication failed                                 | When users encounter this error code, it means that database connection Kerberos authentication failed                                                                                                      |
 
 ## Pulsar Connector Error Codes
 

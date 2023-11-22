@@ -21,20 +21,16 @@ package org.apache.seatunnel.api.sink;
  * The SaveMode for the Sink connectors that use table or other table structures to organize data
  */
 public enum DataSaveMode {
-    // Will drop table in MySQL, Will drop path for File Connector.
-    DROP_SCHEMA,
 
-    // Only drop the data in MySQL, Only drop the files in the path for File Connector.
-    KEEP_SCHEMA_DROP_DATA,
+    // Preserve database structure and delete data
+    DROP_DATA,
 
-    // Keep the table and data and continue to write data to the existing table for MySQL. Keep the
-    // path and files in the path, create new files in the path.
-    KEEP_SCHEMA_AND_DATA,
+    // Preserve database structure, preserve data
+    APPEND_DATA,
 
-    // The connector provides custom processing methods, such as running user provided SQL or shell
-    // scripts, etc
+    // User defined processing
     CUSTOM_PROCESSING,
 
-    // Throw error when table is exists for MySQL. Throw error when path is exists.
-    ERROR_WHEN_EXISTS
+    // When there exist data, an error will be reported
+    ERROR_WHEN_DATA_EXISTS
 }

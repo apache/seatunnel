@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import lombok.ToString;
+
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
@@ -24,6 +26,7 @@ import java.util.List;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
+@ToString
 public class TaskStatistics implements Serializable {
     /** ID of the task the statistics belong to. */
     private final Long jobVertexId;

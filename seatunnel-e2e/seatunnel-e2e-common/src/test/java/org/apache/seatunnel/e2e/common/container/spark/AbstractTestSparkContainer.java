@@ -82,6 +82,16 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
     }
 
     @Override
+    protected String getSavePointCommand() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
+    protected String getRestoreCommand() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
     protected List<String> getExtraStartShellCommands() {
         return Arrays.asList("--master local", "--deploy-mode client");
     }
@@ -95,5 +105,10 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         return executeJob(master, confFile);
+    }
+
+    @Override
+    public String getServerLogs() {
+        return master.getLogs();
     }
 }

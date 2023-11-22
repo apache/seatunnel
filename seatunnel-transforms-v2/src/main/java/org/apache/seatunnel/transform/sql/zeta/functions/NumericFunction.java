@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
@@ -49,7 +49,7 @@ public class NumericFunction {
         }
 
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format(
                         "Unsupported arg type %s of function %s",
                         arg.getClass().getName(), ZetaSQLFunction.ABS));
@@ -102,7 +102,8 @@ public class NumericFunction {
         }
         double d = Math.tan(arg.doubleValue());
         if (d == 0) {
-            throw new TransformException(CommonErrorCode.UNSUPPORTED_OPERATION, "Division by zero");
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, "Division by zero");
         }
         return 1d / d;
     }
@@ -161,7 +162,8 @@ public class NumericFunction {
             return null;
         }
         if (rightValue.doubleValue() == 0) {
-            throw new TransformException(CommonErrorCode.UNSUPPORTED_OPERATION, "Mod by zero");
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, "Mod by zero");
         }
         BigDecimal leftBD = BigDecimal.valueOf(leftValue.doubleValue());
         BigDecimal rightBD = BigDecimal.valueOf(rightValue.doubleValue());
@@ -182,7 +184,7 @@ public class NumericFunction {
             return res[1];
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format(
                         "Unsupported arg type %s of function %s",
                         rightValue.getClass().getName(), ZetaSQLFunction.MOD));
@@ -299,7 +301,7 @@ public class NumericFunction {
         }
         if (v1.doubleValue() <= 0) {
             throw new TransformException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("Unsupported function LN() argument: %s", v1));
         }
         return Math.log(v1.doubleValue());
@@ -312,7 +314,7 @@ public class NumericFunction {
         }
         if (v1.doubleValue() <= 0) {
             throw new TransformException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("Unsupported function LOG() base: %s", v1));
         }
         Number v2 = (Number) args.get(1);
@@ -321,7 +323,7 @@ public class NumericFunction {
         }
         if (v2.doubleValue() <= 0) {
             throw new TransformException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("Unsupported function LOG() argument: %s", v1));
         }
         if (v1.doubleValue() == Math.E) {
@@ -340,7 +342,7 @@ public class NumericFunction {
         }
         if (v1.doubleValue() <= 0) {
             throw new TransformException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("Unsupported function LOG10() argument: %s", v1));
         }
         return Math.log10(v1.doubleValue());
@@ -380,7 +382,7 @@ public class NumericFunction {
 
     public static Double random(List<Object> args) {
         Random random = new Random();
-        if (args.size() >= 1) {
+        if (!args.isEmpty()) {
             Number v1 = (Number) args.get(0);
             if (v1 != null) {
                 random.setSeed(v1.intValue());
@@ -425,7 +427,7 @@ public class NumericFunction {
             return value == 0 || Double.isNaN(value) ? 0 : value < 0 ? -1 : 1;
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format(
                         "Unsupported function SIGN() argument type: %s", v1.getClass().getName()));
     }

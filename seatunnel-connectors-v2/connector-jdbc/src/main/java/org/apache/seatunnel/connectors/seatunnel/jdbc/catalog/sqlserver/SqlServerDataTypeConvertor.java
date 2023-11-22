@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver;
 
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -25,8 +24,8 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -43,16 +42,17 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
     public static final Integer DEFAULT_SCALE = 0;
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(@NonNull String connectorDataType) {
+    public SeaTunnelDataType<?> toSeaTunnelType(String field, @NonNull String connectorDataType) {
         Pair<SqlServerType, Map<String, Object>> sqlServerType =
                 SqlServerType.parse(connectorDataType);
-        return toSeaTunnelType(sqlServerType.getLeft(), sqlServerType.getRight());
+        return toSeaTunnelType(field, sqlServerType.getLeft(), sqlServerType.getRight());
     }
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            @NonNull SqlServerType connectorDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field,
+            @NonNull SqlServerType connectorDataType,
+            Map<String, Object> dataTypeProperties) {
         switch (connectorDataType) {
             case BIT:
                 return BasicType.BOOLEAN_TYPE;
@@ -80,6 +80,7 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
             case NTEXT:
             case NVARCHAR:
             case TEXT:
+            case XML:
                 return BasicType.STRING_TYPE;
             case DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
@@ -97,16 +98,16 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
                 return PrimitiveByteArrayType.INSTANCE;
             case UNKNOWN:
             default:
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format("Doesn't support SQLSERVER type '%s'", connectorDataType));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.SQLSERVER, connectorDataType.toString(), field);
         }
     }
 
     @Override
     public SqlServerType toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties) {
         SqlType sqlType = seaTunnelDataType.getSqlType();
         switch (sqlType) {
             case STRING:
@@ -136,14 +137,15 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
             case TIMESTAMP:
                 return SqlServerType.DATETIME2;
             default:
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        String.format("Doesn't support SqlServer type '%s' yet", sqlType));
+                throw CommonError.convertToConnectorTypeError(
+                        DatabaseIdentifier.SQLSERVER,
+                        seaTunnelDataType.getSqlType().toString(),
+                        field);
         }
     }
 
     @Override
     public String getIdentity() {
-        return "SqlServer";
+        return DatabaseIdentifier.SQLSERVER;
     }
 }

@@ -38,8 +38,6 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
-import static org.apache.seatunnel.translation.source.CoordinatedSource.SLEEP_TIME_INTERVAL;
-
 public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serializable>
         implements BaseSourceFunction<T> {
     private static final Logger LOG = LoggerFactory.getLogger(ParallelSource.class);
@@ -134,7 +132,17 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
                 future.get();
             }
             reader.pollNext(collector);
-            Thread.sleep(SLEEP_TIME_INTERVAL);
+            if (collector.isEmptyThisPollNext()) {
+                Thread.sleep(100);
+            } else {
+                collector.resetEmptyThisPollNext();
+                /**
+                 * sleep(0) is used to prevent the current thread from occupying CPU resources for a
+                 * long time, thus blocking the checkpoint thread for a long time. It is mentioned
+                 * in this https://github.com/apache/seatunnel/issues/5694
+                 */
+                Thread.sleep(0L);
+            }
         }
         LOG.debug("Parallel source runs complete.");
     }

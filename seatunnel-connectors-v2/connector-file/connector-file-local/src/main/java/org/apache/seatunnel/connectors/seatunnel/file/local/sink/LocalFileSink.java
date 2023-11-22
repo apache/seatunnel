@@ -22,10 +22,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalConf;
+import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileHadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
-
-import org.apache.hadoop.fs.CommonConfigurationKeys;
 
 import com.google.auto.service.AutoService;
 
@@ -40,6 +38,6 @@ public class LocalFileSink extends BaseFileSink {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         super.prepare(pluginConfig);
-        hadoopConf = new LocalConf(CommonConfigurationKeys.FS_DEFAULT_NAME_DEFAULT);
+        hadoopConf = new LocalFileHadoopConf();
     }
 }

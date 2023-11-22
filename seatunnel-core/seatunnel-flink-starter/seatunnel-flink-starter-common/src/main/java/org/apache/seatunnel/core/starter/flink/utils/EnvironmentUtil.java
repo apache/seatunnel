@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.flink.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import org.apache.seatunnel.common.config.CheckResult;
 
@@ -29,6 +30,7 @@ import org.apache.flink.configuration.PipelineOptions;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -114,6 +116,17 @@ public final class EnvironmentUtil {
             if (pipeline.hasPath("classpaths")) {
                 configuration.setString(
                         PipelineOptions.CLASSPATHS.key(), pipeline.getString("classpaths"));
+            }
+        }
+        String prefixConf = "flink.";
+        if (!config.isEmpty()) {
+            for (Map.Entry<String, ConfigValue> entryConfKey : config.entrySet()) {
+                String confKey = entryConfKey.getKey().trim();
+
+                if (confKey.startsWith(prefixConf)) {
+                    configuration.setString(
+                            confKey.replaceFirst(prefixConf, ""), entryConfKey.getValue().render());
+                }
             }
         }
     }

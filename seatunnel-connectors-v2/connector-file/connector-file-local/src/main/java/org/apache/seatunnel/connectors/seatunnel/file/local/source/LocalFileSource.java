@@ -17,34 +17,37 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.local.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
+import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalConf;
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.LocalSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.LocalFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.MultipleTableLocalFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.local.source.reader.MultipleTableLocalFileSourceReader;
+import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.MultipleTableLocalFileSourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.file.local.source.state.LocalFileSourceState;
 
-import org.apache.hadoop.fs.CommonConfigurationKeys;
+import java.util.List;
+import java.util.stream.Collectors;
 
-import com.google.auto.service.AutoService;
+public class LocalFileSource
+        implements SeaTunnelSource<SeaTunnelRow, LocalFileSourceSplit, LocalFileSourceState>,
+                SupportParallelism,
+                SupportColumnProjection {
 
-import java.io.IOException;
+    private final MultipleTableLocalFileSourceConfig multipleTableLocalFileSourceConfig;
 
-@AutoService(SeaTunnelSource.class)
-public class LocalFileSource extends BaseFileSource {
+    public LocalFileSource(ReadonlyConfig readonlyConfig) {
+        this.multipleTableLocalFileSourceConfig =
+                new MultipleTableLocalFileSourceConfig(readonlyConfig);
+    }
 
     @Override
     public String getPluginName() {
@@ -52,70 +55,36 @@ public class LocalFileSource extends BaseFileSource {
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        LocalSourceConfig.FILE_PATH.key(),
-                        LocalSourceConfig.FILE_FORMAT_TYPE.key());
-        if (!result.isSuccess()) {
-            throw new FileConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        readStrategy =
-                ReadStrategyFactory.of(
-                        pluginConfig.getString(LocalSourceConfig.FILE_FORMAT_TYPE.key()));
-        readStrategy.setPluginConfig(pluginConfig);
-        String path = pluginConfig.getString(LocalSourceConfig.FILE_PATH.key());
-        hadoopConf = new LocalConf(CommonConfigurationKeys.FS_DEFAULT_NAME_DEFAULT);
-        try {
-            filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
-        } catch (IOException e) {
-            String errorMsg = String.format("Get file list from this path [%s] failed", path);
-            throw new FileConnectorException(
-                    FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
-        }
-        // support user-defined schema
-        FileFormat fileFormat =
-                FileFormat.valueOf(
-                        pluginConfig
-                                .getString(LocalSourceConfig.FILE_FORMAT_TYPE.key())
-                                .toUpperCase());
-        // only json text csv type support user-defined schema now
-        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
-            switch (fileFormat) {
-                case CSV:
-                case TEXT:
-                case JSON:
-                case EXCEL:
-                    SeaTunnelRowType userDefinedSchema =
-                            CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-                    readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
-                    rowType = readStrategy.getActualSeaTunnelRowTypeInfo();
-                    break;
-                case ORC:
-                case PARQUET:
-                    throw new FileConnectorException(
-                            CommonErrorCode.UNSUPPORTED_OPERATION,
-                            "SeaTunnel does not support user-defined schema for [parquet, orc] files");
-                default:
-                    // never got in there
-                    throw new FileConnectorException(
-                            CommonErrorCode.ILLEGAL_ARGUMENT,
-                            "SeaTunnel does not supported this file format");
-            }
-        } else {
-            try {
-                rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
-            } catch (FileConnectorException e) {
-                String errorMsg =
-                        String.format("Get table schema from file [%s] failed", filePaths.get(0));
-                throw new FileConnectorException(
-                        CommonErrorCode.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
-            }
-        }
+    public Boundedness getBoundedness() {
+        return Boundedness.BOUNDED;
+    }
+
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return multipleTableLocalFileSourceConfig.getLocalFileSourceConfigs().stream()
+                .map(LocalFileSourceConfig::getCatalogTable)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public SourceReader<SeaTunnelRow, LocalFileSourceSplit> createReader(
+            SourceReader.Context readerContext) {
+        return new MultipleTableLocalFileSourceReader(
+                readerContext, multipleTableLocalFileSourceConfig);
+    }
+
+    @Override
+    public SourceSplitEnumerator<LocalFileSourceSplit, LocalFileSourceState> createEnumerator(
+            SourceSplitEnumerator.Context<LocalFileSourceSplit> enumeratorContext) {
+        return new MultipleTableLocalFileSourceSplitEnumerator(
+                enumeratorContext, multipleTableLocalFileSourceConfig);
+    }
+
+    @Override
+    public SourceSplitEnumerator<LocalFileSourceSplit, LocalFileSourceState> restoreEnumerator(
+            SourceSplitEnumerator.Context<LocalFileSourceSplit> enumeratorContext,
+            LocalFileSourceState checkpointState) {
+        return new MultipleTableLocalFileSourceSplitEnumerator(
+                enumeratorContext, multipleTableLocalFileSourceConfig, checkpointState);
     }
 }

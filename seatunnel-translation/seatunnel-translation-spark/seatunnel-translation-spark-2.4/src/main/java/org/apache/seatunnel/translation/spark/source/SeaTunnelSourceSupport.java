@@ -42,6 +42,7 @@ import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.Optional;
 
 public class SeaTunnelSourceSupport
@@ -64,7 +65,8 @@ public class SeaTunnelSourceSupport
     public DataSourceReader createReader(DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
         int parallelism = options.getInt(CommonOptions.PARALLELISM.key(), 1);
-        return new BatchSourceReader(seaTunnelSource, parallelism);
+        Map<String, String> envOptions = options.asMap();
+        return new BatchSourceReader(seaTunnelSource, parallelism, envOptions);
     }
 
     @Override
@@ -86,6 +88,7 @@ public class SeaTunnelSourceSupport
                         .orElse(FileSystem.getDefaultUri(configuration).toString());
         String hdfsUser = options.get(Constants.HDFS_USER).orElse("");
         Integer checkpointId = options.getInt(Constants.CHECKPOINT_ID, 1);
+        Map<String, String> envOptions = options.asMap();
         return new MicroBatchSourceReader(
                 seaTunnelSource,
                 parallelism,
@@ -93,7 +96,8 @@ public class SeaTunnelSourceSupport
                 checkpointInterval,
                 checkpointPath,
                 hdfsRoot,
-                hdfsUser);
+                hdfsUser,
+                envOptions);
     }
 
     private SeaTunnelSource<SeaTunnelRow, ?, ?> getSeaTunnelSource(DataSourceOptions options) {

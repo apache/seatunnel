@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -134,10 +136,8 @@ public class RedshiftTypeMapper implements JdbcDialectTypeMapper {
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Doesn't support REDSHIFT type '%s' on column '%s'  yet.",
-                                redshiftType, jdbcColumnName));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.REDSHIFT, redshiftType, jdbcColumnName);
         }
     }
 }

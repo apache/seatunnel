@@ -21,7 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.exception.GoogleSheetsConnectorException;
 
 import java.io.IOException;
@@ -54,7 +54,7 @@ public class GoogleSheetsDeserializer implements SeaTunnelRowDeserializer {
             return deserializationSchema.deserialize(rowStr.getBytes());
         } catch (IOException e) {
             throw new GoogleSheetsConnectorException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
                     "Object json deserialization failed.",
                     e);
         }
