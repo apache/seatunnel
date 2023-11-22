@@ -60,7 +60,9 @@ public class RowCollector implements Collector<SeaTunnelRow> {
                     flowControlGate.audit(sourceRecord);
                 }
             }
-            internalCollector.collect(rowSerialization.convert(sourceRecord));
+            synchronized (checkpointLock) {
+                internalCollector.collect(rowSerialization.convert(sourceRecord));
+            }
             emptyThisPollNext = false;
         } catch (IOException e) {
             throw new RuntimeException(e);

@@ -59,26 +59,25 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        synchronized (output.getCheckpointLock()) {
-            FileSourceSplit split = sourceSplits.poll();
-            if (null != split) {
-                try {
-                    // todo: If there is only one table , the tableId is not needed, but it's better
-                    // to set this
-                    readStrategy.read(split.splitId(), "", output);
-                } catch (Exception e) {
-                    String errorMsg =
-                            String.format("Read data from this file [%s] failed", split.splitId());
-                    throw new FileConnectorException(
-                            CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, errorMsg, e);
-                }
-            } else if (noMoreSplit && sourceSplits.isEmpty()) {
-                // signal to the source that we have reached the end of the data.
-                log.info("Closed the bounded File source");
-                context.signalNoMoreElement();
-            } else {
-                Thread.sleep(1000L);
+        FileSourceSplit split = sourceSplits.peek();
+        if (null != split) {
+            try {
+                // todo: If there is only one table , the tableId is not needed, but it's better
+                // to set this
+                readStrategy.read(split.splitId(), "", output);
+                sourceSplits.poll();
+            } catch (Exception e) {
+                String errorMsg =
+                        String.format("Read data from this file [%s] failed", split.splitId());
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, errorMsg, e);
             }
+        } else if (noMoreSplit && sourceSplits.isEmpty()) {
+            // signal to the source that we have reached the end of the data.
+            log.info("Closed the bounded File source");
+            context.signalNoMoreElement();
+        } else {
+            Thread.sleep(1000L);
         }
     }
 

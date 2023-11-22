@@ -35,9 +35,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 @Slf4j
 public class ElasticsearchSourceReader
@@ -51,7 +51,7 @@ public class ElasticsearchSourceReader
 
     private final SeaTunnelRowDeserializer deserializer;
 
-    Deque<ElasticsearchSourceSplit> splits = new LinkedList<>();
+    Deque<ElasticsearchSourceSplit> splits = new ConcurrentLinkedDeque<>();
     boolean noMoreSplit;
 
     private final long pollNextWaitTime = 1000L;
@@ -75,31 +75,30 @@ public class ElasticsearchSourceReader
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        synchronized (output.getCheckpointLock()) {
-            ElasticsearchSourceSplit split = splits.poll();
-            if (split != null) {
-                SourceIndexInfo sourceIndexInfo = split.getSourceIndexInfo();
-                ScrollResult scrollResult =
-                        esRestClient.searchByScroll(
-                                sourceIndexInfo.getIndex(),
-                                sourceIndexInfo.getSource(),
-                                sourceIndexInfo.getQuery(),
-                                sourceIndexInfo.getScrollTime(),
-                                sourceIndexInfo.getScrollSize());
+        ElasticsearchSourceSplit split = splits.peek();
+        if (split != null) {
+            SourceIndexInfo sourceIndexInfo = split.getSourceIndexInfo();
+            ScrollResult scrollResult =
+                    esRestClient.searchByScroll(
+                            sourceIndexInfo.getIndex(),
+                            sourceIndexInfo.getSource(),
+                            sourceIndexInfo.getQuery(),
+                            sourceIndexInfo.getScrollTime(),
+                            sourceIndexInfo.getScrollSize());
+            outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
+            while (scrollResult.getDocs() != null && scrollResult.getDocs().size() > 0) {
+                scrollResult =
+                        esRestClient.searchWithScrollId(
+                                scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
                 outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
-                while (scrollResult.getDocs() != null && scrollResult.getDocs().size() > 0) {
-                    scrollResult =
-                            esRestClient.searchWithScrollId(
-                                    scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
-                    outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
-                }
-            } else if (noMoreSplit) {
-                // signal to the source that we have reached the end of the data.
-                log.info("Closed the bounded ELasticsearch source");
-                context.signalNoMoreElement();
-            } else {
-                Thread.sleep(pollNextWaitTime);
             }
+            splits.poll();
+        } else if (noMoreSplit) {
+            // signal to the source that we have reached the end of the data.
+            log.info("Closed the bounded ELasticsearch source");
+            context.signalNoMoreElement();
+        } else {
+            Thread.sleep(pollNextWaitTime);
         }
     }
 
