@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.configuration.Options;
 
 public class RedisConfig {
 
+    public static final String CONNECTOR_IDENTITY = "Redis";
+
     public enum RedisMode {
         SINGLE,
         CLUSTER;
@@ -81,16 +83,16 @@ public class RedisConfig {
                     .noDefaultValue()
                     .withDescription("redis data types, support key hash list set zset.");
 
-    public static final Option<RedisConfig.Format> FORMAT =
+    public static final Option<Format> FORMAT =
             Options.key("format")
-                    .enumType(RedisConfig.Format.class)
-                    .defaultValue(RedisConfig.Format.JSON)
+                    .enumType(Format.class)
+                    .defaultValue(Format.JSON)
                     .withDescription(
                             "the format of upstream data, now only support json and text, default json.");
 
-    public static final Option<RedisConfig.RedisMode> MODE =
+    public static final Option<RedisMode> MODE =
             Options.key("mode")
-                    .enumType(RedisConfig.RedisMode.class)
+                    .enumType(RedisMode.class)
                     .defaultValue(RedisMode.SINGLE)
                     .withDescription(
                             "redis mode, support single or cluster, default value is single");
@@ -102,9 +104,9 @@ public class RedisConfig {
                     .withDescription(
                             "redis nodes information, used in cluster mode, must like as the following format: [host1:port1, host2:port2]");
 
-    public static final Option<RedisConfig.HashKeyParseMode> HASH_KEY_PARSE_MODE =
+    public static final Option<HashKeyParseMode> HASH_KEY_PARSE_MODE =
             Options.key("hash_key_parse_mode")
-                    .enumType(RedisConfig.HashKeyParseMode.class)
+                    .enumType(HashKeyParseMode.class)
                     .defaultValue(HashKeyParseMode.ALL)
                     .withDescription(
                             "hash key parse mode, support all or kv, default value is all");

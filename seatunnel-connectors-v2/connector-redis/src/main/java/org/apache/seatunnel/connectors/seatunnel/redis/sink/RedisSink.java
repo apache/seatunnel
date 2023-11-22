@@ -19,10 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.redis.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -34,24 +33,17 @@ import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
-import com.google.auto.service.AutoService;
-
 import java.io.IOException;
 
-@AutoService(SeaTunnelSink.class)
 public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private final RedisParameters redisParameters = new RedisParameters();
     private SeaTunnelRowType seaTunnelRowType;
     private Config pluginConfig;
+    private CatalogTable catalogTable;
 
-    @Override
-    public String getPluginName() {
-        return "Redis";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.pluginConfig = pluginConfig;
+    public RedisSink(Config config, CatalogTable table) {
+        this.pluginConfig = config;
+        this.catalogTable = table;
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
@@ -67,11 +59,12 @@ public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
         this.redisParameters.buildWithConfig(pluginConfig);
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    public String getPluginName() {
+        return RedisConfig.CONNECTOR_IDENTITY;
     }
 
     @Override
