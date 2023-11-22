@@ -17,29 +17,18 @@
 
 package org.apache.seatunnel.e2e.connector.pulsar;
 
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
-import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeDataGenerator;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
-import org.apache.pulsar.client.api.Producer;
+import org.apache.pulsar.client.api.Consumer;
+import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.PulsarClient;
-import org.apache.pulsar.client.api.PulsarClientException;
-import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.client.api.SubscriptionInitialPosition;
+import org.apache.pulsar.client.api.SubscriptionType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -52,13 +41,12 @@ import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -69,45 +57,8 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
 
     private static final String PULSAR_IMAGE_NAME = "apachepulsar/pulsar:2.3.1";
     public static final String PULSAR_HOST = "pulsar.e2e.sink";
-    public static final String TOPIC = "topic-test01";
+    public static final String TOPIC = "topic-test02";
     private PulsarContainer pulsarContainer;
-    private PulsarClient client;
-    private Producer<byte[]> producer;
-
-    private static final SeaTunnelRowType SEATUNNEL_ROW_TYPE =
-            new SeaTunnelRowType(
-                    new String[] {
-                        "c_map",
-                        "c_array",
-                        "c_string",
-                        "c_boolean",
-                        "c_tinyint",
-                        "c_smallint",
-                        "c_int",
-                        "c_bigint",
-                        "c_float",
-                        "c_double",
-                        "c_decimal",
-                        "c_bytes",
-                        "c_date",
-                        "c_timestamp"
-                    },
-                    new SeaTunnelDataType[] {
-                        new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
-                        ArrayType.INT_ARRAY_TYPE,
-                        BasicType.STRING_TYPE,
-                        BasicType.BOOLEAN_TYPE,
-                        BasicType.BYTE_TYPE,
-                        BasicType.SHORT_TYPE,
-                        BasicType.INT_TYPE,
-                        BasicType.LONG_TYPE,
-                        BasicType.FLOAT_TYPE,
-                        BasicType.DOUBLE_TYPE,
-                        new DecimalType(38, 10),
-                        PrimitiveByteArrayType.INSTANCE,
-                        LocalTimeType.LOCAL_DATE_TYPE,
-                        LocalTimeType.LOCAL_DATE_TIME_TYPE
-                    });
 
     @Override
     @BeforeAll
@@ -126,58 +77,57 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
                 .ignoreExceptions()
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
-                .atMost(180, TimeUnit.SECONDS)
-                .untilAsserted(this::initTopic);
+                .atMost(180, TimeUnit.SECONDS);
     }
 
     @Override
     public void tearDown() throws Exception {
         pulsarContainer.close();
-        client.close();
-        producer.close();
     }
 
-    private void initTopic() throws PulsarClientException {
-        client = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
-        producer = client.newProducer(Schema.BYTES).topic(TOPIC).create();
-        produceData();
-    }
-
-    private void produceData() {
-
+    private Map<String, String> getPulsarConsumerData() {
+        Map<String, String> data = new HashMap<>();
         try {
-            FakeConfig fakeConfig = FakeConfig.buildWithConfig(ConfigFactory.empty());
-            FakeDataGenerator fakeDataGenerator =
-                    new FakeDataGenerator(SEATUNNEL_ROW_TYPE, fakeConfig);
-            SimpleCollector simpleCollector = new SimpleCollector();
-            fakeDataGenerator.collectFakedRows(100, simpleCollector);
-            JsonSerializationSchema jsonSerializationSchema =
-                    new JsonSerializationSchema(SEATUNNEL_ROW_TYPE);
-            for (SeaTunnelRow seaTunnelRow : simpleCollector.getList()) {
-                producer.send(jsonSerializationSchema.serialize(seaTunnelRow));
+            PulsarClient client =
+                    PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
+
+            Consumer consumer =
+                    client.newConsumer()
+                            .topic(TOPIC)
+                            .subscriptionName("PulsarSubTest01")
+                            .subscriptionType(SubscriptionType.Exclusive)
+                            .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                            .subscribe();
+
+            while (true) {
+                Message msg = consumer.receive();
+                if (msg != null) {
+                    data.put(msg.getKey(), new String(msg.getData()));
+                    System.out.println("key:" + msg.getKey());
+                    System.out.println("data:" + msg.getData());
+                    consumer.acknowledge(msg.getMessageId());
+                }
+                if (msg.getMessageId() == consumer.getLastMessageId()) {
+                    break;
+                }
             }
-        } catch (PulsarClientException e) {
-            throw new RuntimeException("produce data error", e);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-    }
-
-    private static class SimpleCollector implements Collector<SeaTunnelRow> {
-        @Getter private List<SeaTunnelRow> list = new ArrayList<>();
-
-        @Override
-        public void collect(SeaTunnelRow record) {
-            list.add(record);
-        }
-
-        @Override
-        public Object getCheckpointLock() {
-            return null;
-        }
+        return data;
     }
 
     @TestTemplate
-    void testPulsarSink(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/pulsar_to_pulsar.conf");
+    public void testSinkKafka(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/fake_to_pulsar.conf");
         Assertions.assertEquals(execResult.getExitCode(), 0);
+
+        Map<String, String> data = getPulsarConsumerData();
+        ObjectMapper objectMapper = new ObjectMapper();
+        String key = data.keySet().iterator().next();
+        ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
+        Assertions.assertTrue(objectNode.has("c_map"));
+        Assertions.assertTrue(objectNode.has("c_string"));
+        Assertions.assertEquals(10, data.size());
     }
 }

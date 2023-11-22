@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSemantics;
@@ -288,7 +289,7 @@ public class PulsarSinkWriter
             for (String partitionKeyField : partitionKeyFields) {
                 if (!rowTypeFieldNames.contains(partitionKeyField)) {
                     throw new PulsarConnectorException(
-                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                             String.format(
                                     "Partition key field not found: %s, rowType: %s",
                                     partitionKeyField, rowTypeFieldNames));

@@ -2,35 +2,45 @@
 
 > Apache Pulsar sink connector
 
-## Description
+## Support Those Engines
 
-Sink connector for Apache Pulsar.
+> Spark<br/>
+> Flink<br/>
+> Seatunnel Zeta<br/>
 
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
-## Options
+## Description
 
-|         name         |  type  | required |    default value    |
-|----------------------|--------|----------|---------------------|
-| topic                | String | Yes      | -                   |
-| client.service-url   | String | Yes      | -                   |
-| admin.service-url    | String | Yes      | -                   |
-| auth.plugin-class    | String | No       | -                   |
-| auth.params          | String | No       | -                   |
-| format               | String | No       | json                |
-| field_delimiter      | String | No       | ,                   |
-| semantics            | Enum   | No       | AT_LEAST_ONCE       |
-| transaction_timeout  | Int    | No       | 600                 |
-| pulsar.              | String | No       | -                   |
-| message.routing.mode | Enum   | No       | RoundRobinPartition |
-| partition_key_fields | array  | No       | -                   |
-| common-options       | config | no       | -                   |
+Sink connector for Apache Pulsar.
 
-### topic [String]
+## Supported DataSource Info
 
-sink pulsar topic name.
+| Datasource | Supported Versions |
+|------------|--------------------|
+| Pulsar     | Universal          |
+
+## Sink Options
+
+|         Name         |  Type  | Required |       Default       |                                               Description                                                |
+|----------------------|--------|----------|---------------------|----------------------------------------------------------------------------------------------------------|
+| topic                | String | Yes      | -                   | sink pulsar topic                                                                                        |
+| client.service-url   | String | Yes      | -                   | Service URL provider for Pulsar service.                                                                 |
+| admin.service-url    | String | Yes      | -                   | The Pulsar service HTTP URL for the admin endpoint.                                                      |
+| auth.plugin-class    | String | No       | -                   | Name of the authentication plugin.                                                                       |
+| auth.params          | String | No       | -                   | Parameters for the authentication plugin.                                                                |
+| format               | String | No       | json                | Data format. The default format is json. Optional text format.                                           |
+| field_delimiter      | String | No       | ,                   | Customize the field delimiter for data format.                                                           |
+| semantics            | Enum   | No       | AT_LEAST_ONCE       | Consistency semantics for writing to pulsar.                                                             |
+| transaction_timeout  | Int    | No       | 600                 | The transaction timeout is specified as 10 minutes by default.                                           |
+| pulsar.              | String | No       | -                   | In addition to the above parameters that must be specified by the Pulsar producer client.                |
+| message.routing.mode | Enum   | No       | RoundRobinPartition | Default routing mode for messages to partition.                                                          |
+| partition_key_fields | array  | No       | -                   | Configure which fields are used as the key of the pulsar message.                                        |
+| common-options       | config | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details. |
+
+## Parameter Interpretation
 
 ### client.service-url [String]
 
@@ -118,9 +128,34 @@ The selected field must be an existing field in the upstream.
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
-## Example
+## Task Example
 
-```Jdbc {
+### Simple:
+
+> This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to Pulsar Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target topic is test_topic will also be 16 rows of data in the topic. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
+
+```hocon
+# Defining the runtime environment
+env {
+  # You can set flink configuration here
+  execution.parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    parallelism = 1
+    result_table_name = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
 sink {
   Pulsar {
   	topic = "example"
