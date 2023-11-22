@@ -41,6 +41,9 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
         int isNullable = metadata.isNullable(colIndex);
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
+        if ("number".equalsIgnoreCase(nativeType) && scale == -127) {
+            nativeType = "float";
+        }
 
         BasicTypeDefine typeDefine =
                 BasicTypeDefine.builder()
