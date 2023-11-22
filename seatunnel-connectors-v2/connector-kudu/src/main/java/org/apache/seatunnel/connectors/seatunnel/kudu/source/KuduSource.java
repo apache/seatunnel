@@ -22,29 +22,27 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat;
+import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSourceState;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class KuduSource
         implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit, KuduSourceState>,
                 SupportParallelism {
-
-    private SeaTunnelRowType rowTypeInfo;
-    private KuduInputFormat kuduInputFormat;
     private KuduSourceConfig kuduSourceConfig;
 
-    public KuduSource(KuduSourceConfig kuduSourceConfig, KuduInputFormat kuduInputFormat) {
+    public KuduSource(KuduSourceConfig kuduSourceConfig) {
         this.kuduSourceConfig = kuduSourceConfig;
-        this.kuduInputFormat = kuduInputFormat;
-        this.rowTypeInfo = kuduInputFormat.getRowTypeInfo();
     }
 
     @Override
@@ -53,28 +51,29 @@ public class KuduSource
     }
 
     @Override
-    public SeaTunnelRowType getProducedType() {
-        return this.rowTypeInfo;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return kuduSourceConfig.getTableConfigList().stream()
+                .map(KuduSourceTableConfig::getCatalogTable)
+                .collect(Collectors.toList());
     }
 
     @Override
     public SourceReader<SeaTunnelRow, KuduSourceSplit> createReader(
             SourceReader.Context readerContext) {
-        return new KuduSourceReader(kuduInputFormat, readerContext);
+        return new KuduSourceReader(readerContext, kuduSourceConfig);
     }
 
     @Override
     public SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> createEnumerator(
             SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext) {
-        return new KuduSourceSplitEnumerator(enumeratorContext, kuduSourceConfig, kuduInputFormat);
+        return new KuduSourceSplitEnumerator(enumeratorContext, kuduSourceConfig);
     }
 
     @Override
     public SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> restoreEnumerator(
             SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext,
             KuduSourceState checkpointState) {
-        return new KuduSourceSplitEnumerator(
-                enumeratorContext, kuduSourceConfig, kuduInputFormat, checkpointState);
+        return new KuduSourceSplitEnumerator(enumeratorContext, kuduSourceConfig, checkpointState);
     }
 
     @Override
