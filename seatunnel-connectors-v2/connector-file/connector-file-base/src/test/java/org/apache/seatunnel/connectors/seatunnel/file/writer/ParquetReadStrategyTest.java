@@ -234,18 +234,14 @@ public class ParquetReadStrategyTest {
 
         public static void generateTestData() throws IOException {
             deleteFile();
-            // 定义 Avro Schema
             String schemaString =
                     "{\"type\":\"record\",\"name\":\"User\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"salary\",\"type\":\"double\"},{\"name\":\"skills\",\"type\":{\"type\":\"array\",\"items\":\"string\"}}]}";
             Schema schema = new Schema.Parser().parse(schemaString);
 
-            // 创建 Configuration 实例
             Configuration conf = new Configuration();
 
-            // 指定 Parquet 文件输出路径
             Path file = new Path(DATA_FILE_PATH);
 
-            // 创建 ParquetWriter 实例
             ParquetWriter<GenericRecord> writer =
                     AvroParquetWriter.<GenericRecord>builder(file)
                             .withSchema(schema)
@@ -253,7 +249,6 @@ public class ParquetReadStrategyTest {
                             .withCompressionCodec(CompressionCodecName.SNAPPY)
                             .build();
 
-            // 创建数据并写入 Parquet 文件
             GenericRecord record1 = new GenericData.Record(schema);
             record1.put("id", 1);
             record1.put("name", "Alice");
@@ -276,7 +271,6 @@ public class ParquetReadStrategyTest {
             record2.put("skills", skills2);
             writer.write(record2);
 
-            // 关闭 ParquetWriter
             writer.close();
         }
 
