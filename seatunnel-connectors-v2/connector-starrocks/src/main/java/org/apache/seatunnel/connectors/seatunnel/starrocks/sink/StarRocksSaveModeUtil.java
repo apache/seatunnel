@@ -46,10 +46,22 @@ public class StarRocksSaveModeUtil {
                             .map(r -> "`" + r + "`")
                             .collect(Collectors.joining(","));
         }
+        String uniqueKey = "";
+        if (!tableSchema.getConstraintKeys().isEmpty()) {
+            uniqueKey =
+                    tableSchema.getConstraintKeys().stream()
+                            .flatMap(c -> c.getColumnNames().stream())
+                            .map(r -> "`" + r.getColumnName() + "`")
+                            .collect(Collectors.joining(","));
+        }
         template =
                 template.replaceAll(
                         String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_PRIMARY_KEY),
                         primaryKey);
+        template =
+                template.replaceAll(
+                        String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_UNIQUE_KEY),
+                        uniqueKey);
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
         template = mergeColumnInTemplate(columnInTemplate, tableSchema, template);
