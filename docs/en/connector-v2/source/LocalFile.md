@@ -41,22 +41,23 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Options
 
-|           name            |  type   | required |    default value    |
-|---------------------------|---------|----------|---------------------|
-| path                      | string  | yes      | -                   |
-| file_format_type          | string  | yes      | -                   |
-| read_columns              | list    | no       | -                   |
-| delimiter/field_delimiter | string  | no       | \001                |
-| parse_partition_from_path | boolean | no       | true                |
-| date_format               | string  | no       | yyyy-MM-dd          |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | no       | HH:mm:ss            |
-| skip_header_row_number    | long    | no       | 0                   |
-| schema                    | config  | no       | -                   |
-| sheet_name                | string  | no       | -                   |
-| file_filter_pattern       | string  | no       | -                   |
-| compress_codec            | string  | no       | none                |
-| common-options            |         | no       | -                   |
+|           name            |  type   | required |            default value             |
+|---------------------------|---------|----------|--------------------------------------|
+| path                      | string  | yes      | -                                    |
+| file_format_type          | string  | yes      | -                                    |
+| read_columns              | list    | no       | -                                    |
+| delimiter/field_delimiter | string  | no       | \001                                 |
+| parse_partition_from_path | boolean | no       | true                                 |
+| date_format               | string  | no       | yyyy-MM-dd                           |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss                  |
+| time_format               | string  | no       | HH:mm:ss                             |
+| skip_header_row_number    | long    | no       | 0                                    |
+| schema                    | config  | no       | -                                    |
+| sheet_name                | string  | no       | -                                    |
+| file_filter_pattern       | string  | no       | -                                    |
+| compress_codec            | string  | no       | none                                 |
+| common-options            |         | no       | -                                    |
+| tables_configs            | list    | no       | used to define a multiple table task |
 
 ### path [string]
 
@@ -244,7 +245,13 @@ The compress codec of files and the details that supported as the following show
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
+### tables_configs
+
+Used to define a multiple table task, when you have multiple tables to read, you can use this option to define multiple tables.
+
 ## Example
+
+### One Table
 
 ```hocon
 
@@ -266,6 +273,59 @@ LocalFile {
   }
   path = "/apps/hive/demo/student"
   file_format_type = "json"
+}
+
+```
+
+### Multiple Table
+
+```hocon
+
+LocalFile {
+  tables_configs = [
+    {
+      schema {
+        table = "student"
+      }
+      path = "/apps/hive/demo/student"
+      file_format_type = "parquet"
+    },
+    {
+      schema {
+        table = "teacher"
+      }
+      path = "/apps/hive/demo/teacher"
+      file_format_type = "parquet"
+    }
+  ]
+}
+
+```
+
+```hocon
+
+LocalFile {
+  tables_configs = [
+    {
+      schema {
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/apps/hive/demo/student"
+      file_format_type = "json"
+    },
+    {
+      schema {
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/apps/hive/demo/teacher"
+      file_format_type = "json"
+    }
 }
 
 ```

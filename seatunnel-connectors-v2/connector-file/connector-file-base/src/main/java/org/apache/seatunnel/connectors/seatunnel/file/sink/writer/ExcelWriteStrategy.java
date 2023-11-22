@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.ExcelGenerator;
@@ -57,7 +57,7 @@ public class ExcelWriteStrategy extends AbstractWriteStrategy {
                         fileOutputStream.close();
                     } catch (IOException e) {
                         throw new FileConnectorException(
-                                CommonErrorCode.FILE_OPERATION_FAILED,
+                                CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
                                 "can not get output file stream");
                     }
                     needMoveFiles.put(k, getTargetLocation(k));

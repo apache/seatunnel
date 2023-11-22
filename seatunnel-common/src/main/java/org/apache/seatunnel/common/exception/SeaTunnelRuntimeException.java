@@ -17,23 +17,51 @@
 
 package org.apache.seatunnel.common.exception;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /** SeaTunnel global exception, used to tell user more clearly error messages */
 public class SeaTunnelRuntimeException extends RuntimeException {
     private final SeaTunnelErrorCode seaTunnelErrorCode;
+    private final Map<String, String> params;
 
     public SeaTunnelRuntimeException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode.getErrorMessage() + " - " + errorMessage);
         this.seaTunnelErrorCode = seaTunnelErrorCode;
+        this.params = new HashMap<>();
+        ExceptionParamsUtil.assertParamsMatchWithDescription(
+                seaTunnelErrorCode.getDescription(), params);
     }
 
     public SeaTunnelRuntimeException(
             SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode.getErrorMessage() + " - " + errorMessage, cause);
         this.seaTunnelErrorCode = seaTunnelErrorCode;
+        this.params = new HashMap<>();
+        ExceptionParamsUtil.assertParamsMatchWithDescription(
+                seaTunnelErrorCode.getDescription(), params);
     }
 
     public SeaTunnelRuntimeException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
         super(seaTunnelErrorCode.getErrorMessage(), cause);
         this.seaTunnelErrorCode = seaTunnelErrorCode;
+        this.params = new HashMap<>();
+        ExceptionParamsUtil.assertParamsMatchWithDescription(
+                seaTunnelErrorCode.getDescription(), params);
+    }
+
+    public SeaTunnelRuntimeException(
+            SeaTunnelErrorCode seaTunnelErrorCode, Map<String, String> params) {
+        super(ExceptionParamsUtil.getDescription(seaTunnelErrorCode.getErrorMessage(), params));
+        this.seaTunnelErrorCode = seaTunnelErrorCode;
+        this.params = params;
+    }
+
+    public SeaTunnelErrorCode getSeaTunnelErrorCode() {
+        return seaTunnelErrorCode;
+    }
+
+    public Map<String, String> getParams() {
+        return params;
     }
 }

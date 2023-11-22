@@ -24,10 +24,12 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.format.json.JsonToRowConverters;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import com.jayway.jsonpath.JsonPath;
@@ -42,7 +44,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode.JSON_PATH_COMPILE_ERROR;
-import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode.SRC_FIELD_NOT_FOUND;
 
 @Slf4j
 public class JsonPathTransform extends MultipleFieldOutputTransform {
@@ -108,10 +109,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
             ColumnConfig columnConfig = columnConfigs.get(i);
             String srcField = columnConfig.getSrcField();
             if (!fieldNameSet.contains(srcField)) {
-                throw new TransformException(
-                        SRC_FIELD_NOT_FOUND,
-                        String.format(
-                                "JsonPathTransform config not found src_field:[%s]", srcField));
+                throw TransformCommonError.cannotFindInputFieldError(getPluginName(), srcField);
             }
             this.srcFieldIndexArr[i] = seaTunnelRowType.indexOf(srcField);
         }
@@ -161,9 +159,10 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
                     jsonString = JsonUtils.toJsonString(row.getFields());
                     break;
                 default:
-                    throw new UnsupportedOperationException(
-                            "JsonPathTransform unsupported sourceDataType: "
-                                    + inputDataType.getSqlType());
+                    throw CommonError.unsupportedDataType(
+                            getPluginName(),
+                            inputDataType.getSqlType().toString(),
+                            columnConfig.getSrcField());
             }
             Object result = JSON_PATH_CACHE.get(columnConfig.getPath()).read(jsonString);
             JsonNode jsonNode = JsonUtils.toJsonNode(result);

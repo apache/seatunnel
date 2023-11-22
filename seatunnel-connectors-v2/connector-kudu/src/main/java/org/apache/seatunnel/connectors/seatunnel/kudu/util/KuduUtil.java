@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.util;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
@@ -74,7 +74,7 @@ public class KuduUtil {
     private static UserGroupInformation loginAndReturnUgi(CommonConfig config) throws IOException {
         if (StringUtils.isBlank(config.getPrincipal()) || StringUtils.isBlank(config.getKeytab())) {
             throw new KuduConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     String.format(ERROR_MESSAGE, config.getPrincipal(), config.getKeytab()));
         }
         if (StringUtils.isNotBlank(config.getKrb5conf())) {

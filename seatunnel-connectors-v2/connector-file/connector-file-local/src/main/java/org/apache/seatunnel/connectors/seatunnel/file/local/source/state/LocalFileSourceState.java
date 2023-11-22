@@ -15,28 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.exception;
+package org.apache.seatunnel.connectors.seatunnel.file.local.source.state;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileSourceSplit;
 
-public enum FilterFieldTransformErrorCode implements SeaTunnelErrorCode {
-    FILTER_FIELD_NOT_FOUND("FILTER_FIELD_TRANSFORM-01", "filter field not found");
+import java.io.Serializable;
+import java.util.Set;
 
-    private final String code;
-    private final String description;
+public class LocalFileSourceState implements Serializable {
 
-    FilterFieldTransformErrorCode(String code, String description) {
-        this.code = code;
-        this.description = description;
+    private static final long serialVersionUID = 1L;
+
+    private final Set<LocalFileSourceSplit> assignedSplit;
+
+    public LocalFileSourceState(Set<LocalFileSourceSplit> assignedSplit) {
+        this.assignedSplit = assignedSplit;
     }
 
-    @Override
-    public String getCode() {
-        return this.code;
-    }
-
-    @Override
-    public String getDescription() {
-        return this.description;
+    public Set<LocalFileSourceSplit> getAssignedSplit() {
+        return assignedSplit;
     }
 }

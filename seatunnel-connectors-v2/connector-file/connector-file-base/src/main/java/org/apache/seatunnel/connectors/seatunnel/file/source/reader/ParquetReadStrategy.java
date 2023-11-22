@@ -28,7 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -81,7 +81,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private int[] indexes;
 
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output)
+    public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         if (Boolean.FALSE.equals(checkFileType(path))) {
             String errorMsg =
@@ -119,6 +119,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     fields[i] = resolveObject(data, seaTunnelRowType.getFieldType(i));
                 }
                 SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                seaTunnelRow.setTableId(tableId);
                 output.collect(seaTunnelRow);
             }
         }
@@ -156,7 +157,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                                         "SeaTunnel array type not support this type [%s] now",
                                         fieldType.getSqlType());
                         throw new FileConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
                 }
             case MAP:
                 HashMap<Object, Object> dataMap = new HashMap<>();
@@ -216,7 +217,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 // do nothing
                 // never got in there
                 throw new FileConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "SeaTunnel not support this data type now");
         }
     }
@@ -235,7 +236,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         } catch (IOException e) {
             String errorMsg =
                     String.format("Create parquet reader for this file [%s] failed", path);
-            throw new FileConnectorException(CommonErrorCode.READER_OPERATION_FAILED, errorMsg, e);
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED, errorMsg, e);
         }
         FileMetaData fileMetaData = metadata.getFileMetaData();
         MessageType originalSchema = fileMetaData.getSchema();
@@ -277,7 +279,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                         default:
                             String errorMsg = String.format("Not support this type [%s]", type);
                             throw new FileConnectorException(
-                                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
                     }
                 case INT64:
                     if (type.asPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
@@ -314,7 +316,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 default:
                     String errorMsg = String.format("Not support this type [%s]", type);
                     throw new FileConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
             }
         } else {
             LogicalTypeAnnotation logicalTypeAnnotation =
@@ -372,11 +374,11 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                                                 "SeaTunnel array type not supported this genericType [%s] yet",
                                                 fieldType);
                                 throw new FileConnectorException(
-                                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
                         }
                     default:
                         throw new FileConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                                 "SeaTunnel file connector not support this nest type");
                 }
             }

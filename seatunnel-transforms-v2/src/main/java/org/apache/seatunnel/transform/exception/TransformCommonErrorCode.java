@@ -19,14 +19,18 @@ package org.apache.seatunnel.transform.exception;
 
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-public enum FieldMapperTransformErrorCode implements SeaTunnelErrorCode {
+enum TransformCommonErrorCode implements SeaTunnelErrorCode {
     INPUT_FIELD_NOT_FOUND(
-            "FIELD_MAPPER_TRANSFORM-01", "field mapper input field not found in inputRowType");
+            "TRANSFORM_COMMON-01",
+            "The input field '<field>' of '<transform>' transform not found in upstream schema"),
+    INPUT_FIELDS_NOT_FOUND(
+            "TRANSFORM_COMMON-02",
+            "The input fields '<fields>' of '<transform>' transform not found in upstream schema");
 
     private final String code;
     private final String description;
 
-    FieldMapperTransformErrorCode(String code, String description) {
+    TransformCommonErrorCode(String code, String description) {
         this.code = code;
         this.description = description;
     }

@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
@@ -102,7 +102,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
         throw new SeaTunnelJsonFormatException(
-                CommonErrorCode.JSON_OPERATION_FAILED,
+                CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
                 String.format("Failed to deserialize JSON '%s'.", new String(message)));
     }
 
@@ -166,7 +166,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
             SeaTunnelRow before = convertJsonNode(dataBefore);
             if (before == null) {
                 throw new SeaTunnelJsonFormatException(
-                        CommonErrorCode.JSON_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
                         format(
                                 "The data %s the %s cannot be null \"%s\" ",
                                 "BEFORE", "DELETE", new String(message)));
@@ -176,7 +176,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
         } else {
             if (!ignoreParseErrors) {
                 throw new SeaTunnelJsonFormatException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         format(
                                 "Unknown \"type\" value \"%s\". The Canal JSON message is '%s'",
                                 op, new String(message)));
@@ -192,7 +192,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                 return null;
             }
             throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", new String(message)),
                     t);
         }

@@ -44,8 +44,7 @@ public interface DataTypeConvertor<T> {
      */
     // todo: If the origin data type contains the properties, we can remove the dataTypeProperties.
     SeaTunnelDataType<?> toSeaTunnelType(
-            String field, T connectorDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException;
+            String field, T connectorDataType, Map<String, Object> dataTypeProperties);
 
     /**
      * Transfer the data type from SeaTunnel to connector.
@@ -60,8 +59,7 @@ public interface DataTypeConvertor<T> {
     T toConnectorType(
             String field,
             SeaTunnelDataType<?> seaTunnelDataType,
-            Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException;
+            Map<String, Object> dataTypeProperties);
 
     String getIdentity();
 }

@@ -15,25 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.local.config;
+package org.apache.seatunnel.connectors.seatunnel.file.local.source.split;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.api.source.SourceSplit;
 
-public class LocalConf extends HadoopConf {
-    private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-    private static final String SCHEMA = "file";
+import lombok.Getter;
 
-    public LocalConf(String hdfsNameKey) {
-        super(hdfsNameKey);
+public class LocalFileSourceSplit implements SourceSplit {
+
+    private static final long serialVersionUID = 1L;
+
+    @Getter private final String tableId;
+    @Getter private final String filePath;
+
+    public LocalFileSourceSplit(String tableId, String filePath) {
+        this.tableId = tableId;
+        this.filePath = filePath;
     }
 
     @Override
-    public String getFsHdfsImpl() {
-        return HDFS_IMPL;
-    }
-
-    @Override
-    public String getSchema() {
-        return SCHEMA;
+    public String splitId() {
+        return tableId + "_" + filePath;
     }
 }
