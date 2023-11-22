@@ -50,13 +50,16 @@ public class RedisSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        RedisConfig.HOST, RedisConfig.PORT, RedisConfig.KEY, RedisConfig.DATA_TYPE)
+                        RedisConfig.HOST,
+                        RedisConfig.PORT,
+                        RedisConfig.KEY_PATTERN,
+                        RedisConfig.DATA_TYPE)
                 .optional(
                         RedisConfig.MODE,
                         RedisConfig.HASH_KEY_PARSE_MODE,
                         RedisConfig.AUTH,
                         RedisConfig.USER,
-                        RedisConfig.KEY_PATTERN)
+                        RedisConfig.KEY)
                 .conditional(RedisConfig.MODE, RedisConfig.RedisMode.CLUSTER, RedisConfig.NODES)
                 .bundled(RedisConfig.FORMAT, TableSchemaOptions.SCHEMA)
                 .build();

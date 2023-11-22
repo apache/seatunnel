@@ -24,12 +24,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -45,7 +40,6 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import com.google.common.collect.Lists;
 
-import java.util.Collections;
 import java.util.List;
 
 public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
@@ -99,31 +93,7 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                         new JsonDeserializationSchema(false, false, seaTunnelRowType);
             }
         } else {
-            TableIdentifier tableIdentifier =
-                    TableIdentifier.of(RedisConfig.CONNECTOR_IDENTITY, null, null);
-            TableSchema tableSchema =
-                    TableSchema.builder()
-                            .column(
-                                    PhysicalColumn.of(
-                                            "content",
-                                            new SeaTunnelRowType(
-                                                    new String[] {"content"},
-                                                    new SeaTunnelDataType<?>[] {
-                                                        BasicType.STRING_TYPE
-                                                    }),
-                                            0,
-                                            false,
-                                            null,
-                                            null))
-                            .build();
-
-            this.catalogTable =
-                    CatalogTable.of(
-                            tableIdentifier,
-                            tableSchema,
-                            Collections.emptyMap(),
-                            Collections.emptyList(),
-                            null);
+            this.catalogTable = CatalogTableUtil.buildSimpleTextTable();
             this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
             this.deserializationSchema = null;
         }
