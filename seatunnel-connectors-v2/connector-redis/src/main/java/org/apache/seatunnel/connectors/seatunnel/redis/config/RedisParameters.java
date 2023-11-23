@@ -56,7 +56,6 @@ public class RedisParameters implements Serializable {
         this.port = config.get(RedisConfig.PORT);
         // set db_num
         this.dbNum = config.get(RedisConfig.DB_NUM);
-
         // set auth
         if (config.getOptional(RedisConfig.AUTH).isPresent()) {
             this.auth = config.get(RedisConfig.AUTH);
