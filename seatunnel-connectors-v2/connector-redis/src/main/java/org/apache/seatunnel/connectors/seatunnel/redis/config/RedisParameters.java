@@ -54,13 +54,11 @@ public class RedisParameters implements Serializable {
         this.host = config.get(RedisConfig.HOST);
         // set port
         this.port = config.get(RedisConfig.PORT);
+        // set db_num
+        this.dbNum = config.get(RedisConfig.DB_NUM);
         // set auth
         if (config.getOptional(RedisConfig.AUTH).isPresent()) {
             this.auth = config.get(RedisConfig.AUTH);
-        }
-        // set db_num
-        if (config.getOptional(RedisConfig.DB_NUM).isPresent()) {
-            this.dbNum = config.get(RedisConfig.DB_NUM);
         }
         // set user
         if (config.getOptional(RedisConfig.USER).isPresent()) {
@@ -68,17 +66,13 @@ public class RedisParameters implements Serializable {
         }
         // set mode
         if (config.getOptional(RedisConfig.MODE).isPresent()) {
-            this.mode =
-                    RedisConfig.RedisMode.valueOf(
-                            config.get(RedisConfig.MODE).name().toUpperCase());
+            this.mode = config.get(RedisConfig.MODE);
         } else {
             this.mode = RedisConfig.MODE.defaultValue();
         }
         // set hash key mode
         if (config.getOptional(RedisConfig.HASH_KEY_PARSE_MODE).isPresent()) {
-            this.hashKeyParseMode =
-                    RedisConfig.HashKeyParseMode.valueOf(
-                            config.get(RedisConfig.HASH_KEY_PARSE_MODE).name().toUpperCase());
+            this.hashKeyParseMode = config.get(RedisConfig.HASH_KEY_PARSE_MODE);
         } else {
             this.hashKeyParseMode = RedisConfig.HASH_KEY_PARSE_MODE.defaultValue();
         }
