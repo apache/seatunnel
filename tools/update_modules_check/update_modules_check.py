@@ -163,8 +163,10 @@ def get_sub_update_it_modules(modules, total_num, current_num):
     modules = modules[1:]
     # connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> [connector-jdbc-e2e-common, connector-jdbc-e2e-part-1]
     module_list = modules.split(",:")
-    module_list.remove("connector-kudu-e2e")
-    module_list.remove("connector-amazonsqs-e2e")
+    if "connector-kudu-e2e" in module_list
+        module_list.remove("connector-kudu-e2e")
+    if "connector-amazonsqs-e2e" in module_list
+        module_list.remove("connector-amazonsqs-e2e")
     for i, module in enumerate(module_list):
         if len(module) > 0 and i % int(total_num) == int(current_num):
             final_modules.append(":" + module)
