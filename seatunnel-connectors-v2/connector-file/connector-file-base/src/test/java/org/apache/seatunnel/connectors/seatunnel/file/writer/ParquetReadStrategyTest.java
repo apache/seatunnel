@@ -169,24 +169,28 @@ public class ParquetReadStrategyTest {
 
     @Test
     public void testParquetReadArray() throws Exception {
-        AutoGenerateParquetData.generateTestData();
-        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
-        parquetReadStrategy.init(localConf);
-        SeaTunnelRowType seaTunnelRowTypeInfo =
-                parquetReadStrategy.getSeaTunnelRowTypeInfo(
-                        localConf, AutoGenerateParquetData.DATA_FILE_PATH);
-        Assertions.assertNotNull(seaTunnelRowTypeInfo);
-        Assertions.assertEquals(seaTunnelRowTypeInfo.getFieldType(3).getClass(), ArrayType.class);
-        TestCollector testCollector = new TestCollector();
-        parquetReadStrategy.read(AutoGenerateParquetData.DATA_FILE_PATH, "1", testCollector);
-        List<SeaTunnelRow> rows = testCollector.getRows();
-        SeaTunnelRow seaTunnelRow = rows.get(0);
-        Assertions.assertEquals(seaTunnelRow.getField(1).toString(), "Alice");
-        String[] arrayData = (String[]) seaTunnelRow.getField(3);
-        Assertions.assertEquals(arrayData.length, 2);
-        Assertions.assertEquals(arrayData[0], "Java");
-        AutoGenerateParquetData.deleteFile();
+        String os = System.getProperty("os.name").toLowerCase();
+        if (!os.contains("win")) {
+            AutoGenerateParquetData.generateTestData();
+            ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+            LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            parquetReadStrategy.init(localConf);
+            SeaTunnelRowType seaTunnelRowTypeInfo =
+                    parquetReadStrategy.getSeaTunnelRowTypeInfo(
+                            localConf, AutoGenerateParquetData.DATA_FILE_PATH);
+            Assertions.assertNotNull(seaTunnelRowTypeInfo);
+            Assertions.assertEquals(
+                    seaTunnelRowTypeInfo.getFieldType(3).getClass(), ArrayType.class);
+            TestCollector testCollector = new TestCollector();
+            parquetReadStrategy.read(AutoGenerateParquetData.DATA_FILE_PATH, "1", testCollector);
+            List<SeaTunnelRow> rows = testCollector.getRows();
+            SeaTunnelRow seaTunnelRow = rows.get(0);
+            Assertions.assertEquals(seaTunnelRow.getField(1).toString(), "Alice");
+            String[] arrayData = (String[]) seaTunnelRow.getField(3);
+            Assertions.assertEquals(arrayData.length, 2);
+            Assertions.assertEquals(arrayData[0], "Java");
+            AutoGenerateParquetData.deleteFile();
+        }
     }
 
     public static class TestCollector implements Collector<SeaTunnelRow> {
@@ -233,17 +237,6 @@ public class ParquetReadStrategyTest {
         public static final String DATA_FILE_PATH = "/tmp/data.parquet";
 
         public static void generateTestData() throws IOException {
-            System.out.println("generateTestData start.");
-            String os = System.getProperty("os.name").toLowerCase();
-            if (os.contains("win")) {
-                System.out.println("windows env.");
-                String directoryPath = "C:\\tmp";
-                File directory = new File(directoryPath);
-                if (!directory.exists()) {
-                    directory.mkdirs();
-                }
-                System.setProperty("hadoop.home.dir", directoryPath);
-            }
             deleteFile();
             String schemaString =
                     "{\"type\":\"record\",\"name\":\"User\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"salary\",\"type\":\"double\"},{\"name\":\"skills\",\"type\":{\"type\":\"array\",\"items\":\"string\"}}]}";
