@@ -41,9 +41,7 @@ public class RedisSourceFactory implements TableSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new RedisSource(context.getOptions().toConfig());
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new RedisSource(context.getOptions());
     }
 
     @Override

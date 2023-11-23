@@ -37,7 +37,7 @@ public class RedisSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         CatalogTable catalogTable = context.getCatalogTable();
-        return () -> new RedisSink(context.getOptions().toConfig(), catalogTable);
+        return () -> new RedisSink(context.getOptions(), catalogTable);
     }
 
     @Override

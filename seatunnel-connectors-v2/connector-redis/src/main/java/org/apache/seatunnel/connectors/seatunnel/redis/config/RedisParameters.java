@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
@@ -50,57 +49,57 @@ public class RedisParameters implements Serializable {
     private List<String> redisNodes = Collections.emptyList();
     private long expire = RedisConfig.EXPIRE.defaultValue();
 
-    public void buildWithConfig(Config config) {
+    public void buildWithConfig(ReadonlyConfig config) {
         // set host
-        this.host = config.getString(RedisConfig.HOST.key());
+        this.host = config.get(RedisConfig.HOST);
         // set port
-        this.port = config.getInt(RedisConfig.PORT.key());
+        this.port = config.get(RedisConfig.PORT);
         // set auth
-        if (config.hasPath(RedisConfig.AUTH.key())) {
-            this.auth = config.getString(RedisConfig.AUTH.key());
+        if (config.getOptional(RedisConfig.AUTH).isPresent()) {
+            this.auth = config.get(RedisConfig.AUTH);
         }
         // set db_num
-        if (config.hasPath(RedisConfig.DB_NUM.key())) {
-            this.dbNum = config.getInt(RedisConfig.DB_NUM.key());
+        if (config.getOptional(RedisConfig.DB_NUM).isPresent()) {
+            this.dbNum = config.get(RedisConfig.DB_NUM);
         }
         // set user
-        if (config.hasPath(RedisConfig.USER.key())) {
-            this.user = config.getString(RedisConfig.USER.key());
+        if (config.getOptional(RedisConfig.USER).isPresent()) {
+            this.user = config.get(RedisConfig.USER);
         }
         // set mode
-        if (config.hasPath(RedisConfig.MODE.key())) {
+        if (config.getOptional(RedisConfig.MODE).isPresent()) {
             this.mode =
                     RedisConfig.RedisMode.valueOf(
-                            config.getString(RedisConfig.MODE.key()).toUpperCase());
+                            config.get(RedisConfig.MODE).name().toUpperCase());
         } else {
             this.mode = RedisConfig.MODE.defaultValue();
         }
         // set hash key mode
-        if (config.hasPath(RedisConfig.HASH_KEY_PARSE_MODE.key())) {
+        if (config.getOptional(RedisConfig.HASH_KEY_PARSE_MODE).isPresent()) {
             this.hashKeyParseMode =
                     RedisConfig.HashKeyParseMode.valueOf(
-                            config.getString(RedisConfig.HASH_KEY_PARSE_MODE.key()).toUpperCase());
+                            config.get(RedisConfig.HASH_KEY_PARSE_MODE).name().toUpperCase());
         } else {
             this.hashKeyParseMode = RedisConfig.HASH_KEY_PARSE_MODE.defaultValue();
         }
         // set redis nodes information
-        if (config.hasPath(RedisConfig.NODES.key())) {
-            this.redisNodes = config.getStringList(RedisConfig.NODES.key());
+        if (config.getOptional(RedisConfig.NODES).isPresent()) {
+            this.redisNodes = config.get(RedisConfig.NODES);
         }
         // set key
-        if (config.hasPath(RedisConfig.KEY.key())) {
-            this.keyField = config.getString(RedisConfig.KEY.key());
+        if (config.getOptional(RedisConfig.KEY).isPresent()) {
+            this.keyField = config.get(RedisConfig.KEY);
         }
         // set keysPattern
-        if (config.hasPath(RedisConfig.KEY_PATTERN.key())) {
-            this.keysPattern = config.getString(RedisConfig.KEY_PATTERN.key());
+        if (config.getOptional(RedisConfig.KEY_PATTERN).isPresent()) {
+            this.keysPattern = config.get(RedisConfig.KEY_PATTERN);
         }
-        if (config.hasPath(RedisConfig.EXPIRE.key())) {
-            this.expire = config.getLong(RedisConfig.EXPIRE.key());
+        if (config.getOptional(RedisConfig.EXPIRE).isPresent()) {
+            this.expire = config.get(RedisConfig.EXPIRE);
         }
         // set redis data type
         try {
-            String dataType = config.getString(RedisConfig.DATA_TYPE.key());
+            String dataType = config.get(RedisConfig.DATA_TYPE);
             this.redisDataType = RedisDataType.valueOf(dataType.toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new RedisConnectorException(
