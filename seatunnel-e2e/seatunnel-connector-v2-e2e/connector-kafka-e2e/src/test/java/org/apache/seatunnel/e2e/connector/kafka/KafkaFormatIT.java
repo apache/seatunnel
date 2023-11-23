@@ -90,6 +90,11 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     private static final String MAXWELL_DATA_PATH = "/maxwell/maxwell_data.txt";
     private static final String MAXWELL_KAFKA_SOURCE_TOPIC = "maxwell-test-cdc_mds";
     private static final String MAXWELL_KAFKA_SINK_TOPIC = "test-maxwell-sink";
+    // ---------------------------MaxWell Format Parameter All
+    // Type---------------------------------------
+    private static final String MAXWELL_DATA_ALL_TYPE_PATH = "/maxwell/maxwell_data_all_type.txt";
+    private static final String MAXWELL_KAFKA_ALL_TYPE_SOURCE_TOPIC =
+            "maxwell-test-cdc_mds-all-type";
 
     // ---------------------------Canal Format Parameter---------------------------------------
     private static final String CANAL_KAFKA_SINK_TOPIC = "test-canal-sink";
@@ -119,6 +124,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                         put(COMPATIBLE_DATA_PATH, COMPATIBLE_KAFKA_SOURCE_TOPIC);
                         put(DEBEZIUM_DATA_PATH, DEBEZIUM_KAFKA_SOURCE_TOPIC);
                         put(MAXWELL_DATA_PATH, MAXWELL_KAFKA_SOURCE_TOPIC);
+                        put(MAXWELL_DATA_ALL_TYPE_PATH, MAXWELL_KAFKA_ALL_TYPE_SOURCE_TOPIC);
                     }
                 };
     }
@@ -290,6 +296,13 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/maxwellForMatIt/kafkasource_maxwell_cdc_to_pgsql.conf");
         Assertions.assertEquals(
                 0, execWaxWellResultToPgSql.getExitCode(), execWaxWellResultToPgSql.getStderr());
+        Container.ExecResult execMaxWellAllTypeResultKafka =
+                container.executeJob("/maxwellForMatIt/kafkasource_maxwell_all_type_to_kafka.conf");
+        Assertions.assertEquals(
+                0,
+                execMaxWellAllTypeResultKafka.getExitCode(),
+                execMaxWellAllTypeResultKafka.getStderr());
+
         // Check MaxWell
         checkMaxWellFormat();
     }
