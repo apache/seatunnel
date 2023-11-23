@@ -40,6 +40,8 @@ import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.io.File;
 import java.io.IOException;
@@ -167,30 +169,27 @@ public class ParquetReadStrategyTest {
         parquetReadStrategy.read(path, "", testCollector);
     }
 
+    @DisabledOnOs(OS.WINDOWS)
     @Test
     public void testParquetReadArray() throws Exception {
-        String os = System.getProperty("os.name").toLowerCase();
-        if (!os.contains("win")) {
-            AutoGenerateParquetData.generateTestData();
-            ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-            LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
-            parquetReadStrategy.init(localConf);
-            SeaTunnelRowType seaTunnelRowTypeInfo =
-                    parquetReadStrategy.getSeaTunnelRowTypeInfo(
-                            localConf, AutoGenerateParquetData.DATA_FILE_PATH);
-            Assertions.assertNotNull(seaTunnelRowTypeInfo);
-            Assertions.assertEquals(
-                    seaTunnelRowTypeInfo.getFieldType(3).getClass(), ArrayType.class);
-            TestCollector testCollector = new TestCollector();
-            parquetReadStrategy.read(AutoGenerateParquetData.DATA_FILE_PATH, "1", testCollector);
-            List<SeaTunnelRow> rows = testCollector.getRows();
-            SeaTunnelRow seaTunnelRow = rows.get(0);
-            Assertions.assertEquals(seaTunnelRow.getField(1).toString(), "Alice");
-            String[] arrayData = (String[]) seaTunnelRow.getField(3);
-            Assertions.assertEquals(arrayData.length, 2);
-            Assertions.assertEquals(arrayData[0], "Java");
-            AutoGenerateParquetData.deleteFile();
-        }
+        AutoGenerateParquetData.generateTestData();
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                parquetReadStrategy.getSeaTunnelRowTypeInfo(
+                        localConf, AutoGenerateParquetData.DATA_FILE_PATH);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+        Assertions.assertEquals(seaTunnelRowTypeInfo.getFieldType(3).getClass(), ArrayType.class);
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(AutoGenerateParquetData.DATA_FILE_PATH, "1", testCollector);
+        List<SeaTunnelRow> rows = testCollector.getRows();
+        SeaTunnelRow seaTunnelRow = rows.get(0);
+        Assertions.assertEquals(seaTunnelRow.getField(1).toString(), "Alice");
+        String[] arrayData = (String[]) seaTunnelRow.getField(3);
+        Assertions.assertEquals(arrayData.length, 2);
+        Assertions.assertEquals(arrayData[0], "Java");
+        AutoGenerateParquetData.deleteFile();
     }
 
     public static class TestCollector implements Collector<SeaTunnelRow> {
