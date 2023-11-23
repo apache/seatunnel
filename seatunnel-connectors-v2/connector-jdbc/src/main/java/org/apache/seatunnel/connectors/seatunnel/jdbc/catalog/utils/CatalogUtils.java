@@ -134,13 +134,14 @@ public class CatalogUtils {
 
     public static List<ConstraintKey> getConstraintKeys(
             DatabaseMetaData metadata, TablePath tablePath) throws SQLException {
+        // We set approximate to true to avoid querying the statistics table, which is slow.
         ResultSet resultSet =
                 metadata.getIndexInfo(
                         tablePath.getDatabaseName(),
                         tablePath.getSchemaName(),
                         tablePath.getTableName(),
                         false,
-                        false);
+                        true);
         // index name -> index
         Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
         while (resultSet.next()) {
