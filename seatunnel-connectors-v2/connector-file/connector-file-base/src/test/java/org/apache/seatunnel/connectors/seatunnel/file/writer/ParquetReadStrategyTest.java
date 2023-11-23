@@ -233,9 +233,16 @@ public class ParquetReadStrategyTest {
         public static final String DATA_FILE_PATH = "/tmp/data.parquet";
 
         public static void generateTestData() throws IOException {
+            System.out.println("generateTestData start.");
             String os = System.getProperty("os.name").toLowerCase();
             if (os.contains("win")) {
-                System.setProperty("hadoop.home.dir", "C:\\tmp");
+                System.out.println("windows env.");
+                String directoryPath = "C:\\tmp";
+                File directory = new File(directoryPath);
+                if (!directory.exists()) {
+                    directory.mkdirs();
+                }
+                System.setProperty("hadoop.home.dir", directoryPath);
             }
             deleteFile();
             String schemaString =
