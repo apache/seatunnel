@@ -67,9 +67,7 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                                 "Must config schema when format parameter been config"));
             }
 
-            RedisConfig.Format format =
-                    RedisConfig.Format.valueOf(
-                            readonlyConfig.get(RedisConfig.FORMAT).name().toUpperCase());
+            RedisConfig.Format format = readonlyConfig.get(RedisConfig.FORMAT);
             if (RedisConfig.Format.JSON.equals(format)) {
                 this.catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
                 this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
