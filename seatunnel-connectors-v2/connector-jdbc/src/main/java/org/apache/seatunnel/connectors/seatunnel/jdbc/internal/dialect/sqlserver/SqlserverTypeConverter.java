@@ -74,6 +74,8 @@ public class SqlserverTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final int DEFAULT_SCALE = 18;
     public static final int MAX_CHAR_LENGTH = 8000;
     public static final int MAX_BINARY_LENGTH = 8000;
+    public static final int MAX_TIME_SCALE = 7;
+    public static final int MAX_TIMESTAMP_SCALE = 7;
     public static final String MAX_VARBINARY = String.format("%s(%s)", SQLSERVER_VARBINARY, "MAX");
     public static final String MAX_VARCHAR = String.format("%s(%s)", SQLSERVER_VARCHAR, "MAX");
 
@@ -359,8 +361,18 @@ public class SqlserverTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(SQLSERVER_DATE);
                 break;
             case TIME:
-                if (column.getScale() != null) {
-                    int timeScale = Math.min(7, column.getScale());
+                if (column.getScale() != null && column.getScale() > 0) {
+                    int timeScale = column.getScale();
+                    if (timeScale > MAX_TIME_SCALE) {
+                        timeScale = MAX_TIME_SCALE;
+                        log.warn(
+                                "The scale of time column {} is {}, which exceeds the maximum scale of {}, "
+                                        + "the scale will be set to {}",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_TIME_SCALE,
+                                MAX_TIME_SCALE);
+                    }
                     builder.columnType(String.format("%s(%s)", SQLSERVER_TIME, timeScale));
                     builder.scale(timeScale);
                 } else {
@@ -369,8 +381,18 @@ public class SqlserverTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(SQLSERVER_TIME);
                 break;
             case TIMESTAMP:
-                if (column.getScale() != null) {
-                    int timestampScale = Math.min(7, column.getScale());
+                if (column.getScale() != null && column.getScale() > 0) {
+                    int timestampScale = column.getScale();
+                    if (timestampScale > MAX_TIMESTAMP_SCALE) {
+                        timestampScale = MAX_TIMESTAMP_SCALE;
+                        log.warn(
+                                "The scale of timestamp column {} is {}, which exceeds the maximum scale of {}, "
+                                        + "the scale will be set to {}",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_TIMESTAMP_SCALE,
+                                MAX_TIMESTAMP_SCALE);
+                    }
                     builder.columnType(
                             String.format("%s(%s)", SQLSERVER_DATETIME2, timestampScale));
                     builder.scale(timestampScale);

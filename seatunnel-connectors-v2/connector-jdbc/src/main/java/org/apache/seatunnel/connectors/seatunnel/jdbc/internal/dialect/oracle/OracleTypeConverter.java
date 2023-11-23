@@ -72,6 +72,7 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final int DEFAULT_PRECISION = 38;
     public static final int DEFAULT_SCALE = 18;
     public static final int TIMESTAMP_DEFAULT_SCALE = 6;
+    public static final int MAX_TIMESTAMP_SCALE = 9;
     public static final long RAW_DEFAULT_LENGTH = 2000;
     public static final long ROWID_DEFAULT_LENGTH = 18;
     public static final long CHAR_DEFAULT_LENGTH = 2000;
@@ -300,11 +301,22 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 if (column.getScale() == null || column.getScale() <= 0) {
                     builder.columnType(ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE);
                 } else {
+                    int timestampScale = column.getScale();
+                    if (column.getScale() > MAX_TIMESTAMP_SCALE) {
+                        timestampScale = MAX_TIMESTAMP_SCALE;
+                        log.warn(
+                                "The scale of timestamp column {} is {}, which exceeds the maximum scale of {}, "
+                                        + "the scale will be set to {}",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_TIMESTAMP_SCALE,
+                                MAX_TIMESTAMP_SCALE);
+                    }
                     builder.columnType(
-                            String.format("TIMESTAMP(%s) WITH LOCAL TIME ZONE", column.getScale()));
+                            String.format("TIMESTAMP(%s) WITH LOCAL TIME ZONE", timestampScale));
+                    builder.scale(timestampScale);
                 }
                 builder.dataType(ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE);
-                builder.scale(column.getScale());
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(

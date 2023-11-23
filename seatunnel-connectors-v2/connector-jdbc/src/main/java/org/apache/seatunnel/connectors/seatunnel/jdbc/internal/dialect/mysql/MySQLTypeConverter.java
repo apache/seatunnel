@@ -89,6 +89,8 @@ public class MySQLTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
 
     public static final int DEFAULT_PRECISION = 38;
     public static final int DEFAULT_SCALE = 18;
+    public static final int MAX_TIME_SCALE = 6;
+    public static final int MAX_TIMESTAMP_SCALE = 6;
     public static final long POWER_2_8 = (long) Math.pow(2, 8);
     public static final long POWER_2_16 = (long) Math.pow(2, 16);
     public static final long POWER_2_24 = (long) Math.pow(2, 24);
@@ -393,23 +395,45 @@ public class MySQLTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 break;
             case TIME:
                 builder.nativeType(MysqlType.TIME);
+                builder.dataType(MYSQL_TIME);
                 if (column.getScale() != null && column.getScale() > 0) {
-                    builder.columnType(String.format("%s(%s)", MYSQL_TIME, column.getScale()));
+                    int timeScale = column.getScale();
+                    if (timeScale > MAX_TIME_SCALE) {
+                        timeScale = MAX_TIME_SCALE;
+                        log.warn(
+                                "The scale of time column {} is {}, which exceeds the maximum scale of {}, "
+                                        + "the scale will be set to {}",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_TIME_SCALE,
+                                MAX_TIME_SCALE);
+                    }
+                    builder.columnType(String.format("%s(%s)", MYSQL_TIME, timeScale));
+                    builder.scale(timeScale);
                 } else {
                     builder.columnType(MYSQL_TIME);
                 }
-                builder.dataType(MYSQL_TIME);
-                builder.scale(column.getScale());
                 break;
             case TIMESTAMP:
                 builder.nativeType(MysqlType.TIMESTAMP);
+                builder.dataType(MYSQL_TIMESTAMP);
                 if (column.getScale() != null && column.getScale() > 0) {
-                    builder.columnType(String.format("%s(%s)", MYSQL_TIMESTAMP, column.getScale()));
+                    int timestampScale = column.getScale();
+                    if (timestampScale > MAX_TIMESTAMP_SCALE) {
+                        timestampScale = MAX_TIMESTAMP_SCALE;
+                        log.warn(
+                                "The scale of timestamp column {} is {}, which exceeds the maximum scale of {}, "
+                                        + "the scale will be set to {}",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_TIMESTAMP_SCALE,
+                                MAX_TIMESTAMP_SCALE);
+                    }
+                    builder.columnType(String.format("%s(%s)", MYSQL_TIMESTAMP, timestampScale));
+                    builder.scale(timestampScale);
                 } else {
                     builder.columnType(MYSQL_TIMESTAMP);
                 }
-                builder.dataType(MYSQL_TIMESTAMP);
-                builder.scale(column.getScale());
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(

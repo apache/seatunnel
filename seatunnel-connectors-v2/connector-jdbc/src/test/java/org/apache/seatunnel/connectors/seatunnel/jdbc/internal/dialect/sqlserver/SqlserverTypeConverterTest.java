@@ -31,8 +31,6 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import com.mysql.cj.MysqlType;
-
 public class SqlserverTypeConverterTest {
 
     @Test
@@ -547,7 +545,7 @@ public class SqlserverTypeConverterTest {
                         .comment("test")
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_BIT, typeDefine.getColumnType());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_BIT, typeDefine.getDataType());
@@ -560,7 +558,7 @@ public class SqlserverTypeConverterTest {
     public void testReconvertByte() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.BYTE_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 SqlserverTypeConverter.SQLSERVER_TINYINT, typeDefine.getColumnType());
@@ -572,7 +570,7 @@ public class SqlserverTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.SHORT_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 SqlserverTypeConverter.SQLSERVER_SMALLINT, typeDefine.getColumnType());
@@ -584,7 +582,7 @@ public class SqlserverTypeConverterTest {
     public void testReconvertInt() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.INT_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_INT, typeDefine.getColumnType());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_INT, typeDefine.getDataType());
@@ -594,7 +592,7 @@ public class SqlserverTypeConverterTest {
     public void testReconvertLong() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.LONG_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 SqlserverTypeConverter.SQLSERVER_BIGINT, typeDefine.getColumnType());
@@ -606,7 +604,7 @@ public class SqlserverTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.FLOAT_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_REAL, typeDefine.getColumnType());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_REAL, typeDefine.getDataType());
@@ -617,7 +615,7 @@ public class SqlserverTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.DOUBLE_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_FLOAT, typeDefine.getColumnType());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_FLOAT, typeDefine.getDataType());
@@ -628,7 +626,7 @@ public class SqlserverTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(new DecimalType(0, 0)).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format(
@@ -658,7 +656,7 @@ public class SqlserverTypeConverterTest {
                         .columnLength(null)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(SqlserverTypeConverter.MAX_VARBINARY, typeDefine.getColumnType());
         Assertions.assertEquals(
@@ -704,7 +702,7 @@ public class SqlserverTypeConverterTest {
                         .columnLength(null)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_TEXT, typeDefine.getColumnType());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_TEXT, typeDefine.getDataType());
@@ -746,7 +744,7 @@ public class SqlserverTypeConverterTest {
                         .dataType(LocalTimeType.LOCAL_DATE_TYPE)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_DATE, typeDefine.getColumnType());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_DATE, typeDefine.getDataType());
@@ -760,7 +758,7 @@ public class SqlserverTypeConverterTest {
                         .dataType(LocalTimeType.LOCAL_TIME_TYPE)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_TIME, typeDefine.getColumnType());
         Assertions.assertEquals(SqlserverTypeConverter.SQLSERVER_TIME, typeDefine.getDataType());
@@ -789,7 +787,7 @@ public class SqlserverTypeConverterTest {
                         .dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 SqlserverTypeConverter.SQLSERVER_DATETIME2, typeDefine.getColumnType());

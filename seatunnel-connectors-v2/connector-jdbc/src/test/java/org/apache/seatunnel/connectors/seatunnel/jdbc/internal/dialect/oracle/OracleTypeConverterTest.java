@@ -31,8 +31,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MyS
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import com.mysql.cj.MysqlType;
-
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.BYTES_2GB;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.BYTES_4GB;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.RAW_DEFAULT_LENGTH;
@@ -499,7 +497,7 @@ public class OracleTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.BOOLEAN_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format("%s(%s)", OracleTypeConverter.ORACLE_NUMBER, 1),
@@ -512,7 +510,7 @@ public class OracleTypeConverterTest {
     public void testReconvertByte() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.BYTE_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getDataType());
@@ -523,7 +521,7 @@ public class OracleTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.SHORT_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getDataType());
@@ -533,7 +531,7 @@ public class OracleTypeConverterTest {
     public void testReconvertInt() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.INT_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getDataType());
@@ -543,7 +541,7 @@ public class OracleTypeConverterTest {
     public void testReconvertLong() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.LONG_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getDataType());
@@ -554,7 +552,7 @@ public class OracleTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.FLOAT_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 OracleTypeConverter.ORACLE_BINARY_FLOAT, typeDefine.getColumnType());
@@ -566,7 +564,7 @@ public class OracleTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.DOUBLE_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 OracleTypeConverter.ORACLE_BINARY_DOUBLE, typeDefine.getColumnType());
@@ -578,7 +576,7 @@ public class OracleTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(new DecimalType(0, 0)).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format(
@@ -608,7 +606,7 @@ public class OracleTypeConverterTest {
                         .columnLength(null)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getDataType());
@@ -661,7 +659,7 @@ public class OracleTypeConverterTest {
                         .columnLength(null)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_CLOB, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_CLOB, typeDefine.getDataType());
@@ -716,7 +714,7 @@ public class OracleTypeConverterTest {
                         .dataType(LocalTimeType.LOCAL_DATE_TYPE)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_DATE, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_DATE, typeDefine.getDataType());
@@ -730,7 +728,7 @@ public class OracleTypeConverterTest {
                         .dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 OracleTypeConverter.ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE,
