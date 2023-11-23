@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.Abstrac
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcUtils;
 
+import java.sql.Array;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -111,8 +113,25 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                 case NULL:
                     fields[fieldIndex] = null;
                     break;
-                case MAP:
                 case ARRAY:
+                    Array jdbcArray = rs.getArray(resultSetIndex);
+                    if (jdbcArray == null) {
+                        fields[fieldIndex] = null;
+                        break;
+                    }
+
+                    Object arrayObject = jdbcArray.getArray();
+                    if (((ArrayType) seaTunnelDataType)
+                            .getTypeClass()
+                            .equals(arrayObject.getClass())) {
+                        fields[fieldIndex] = arrayObject;
+                    } else {
+                        throw new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                                "Unexpected value: " + seaTunnelDataType.getTypeClass());
+                    }
+                    break;
+                case MAP:
                 case ROW:
                 default:
                     throw new JdbcConnectorException(

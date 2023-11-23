@@ -175,8 +175,15 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 case NULL:
                     statement.setNull(statementIndex, java.sql.Types.NULL);
                     break;
-                case MAP:
                 case ARRAY:
+                    Object[] array = (Object[]) row.getField(fieldIndex);
+                    if (array == null) {
+                        statement.setNull(statementIndex, java.sql.Types.ARRAY);
+                        break;
+                    }
+                    statement.setObject(statementIndex, array);
+                    break;
+                case MAP:
                 case ROW:
                 default:
                     throw new JdbcConnectorException(
