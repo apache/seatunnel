@@ -47,6 +47,14 @@ public class JdbcConnectionConfig implements Serializable {
 
     public int transactionTimeoutSec = JdbcOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
 
+    public boolean useKerberos = JdbcOptions.USE_KERBEROS.defaultValue();
+
+    public String kerberosPrincipal;
+
+    public String kerberosKeytabPath;
+
+    public String krb5Path = JdbcOptions.KRB5_PATH.defaultValue();
+
     private Map<String, String> properties;
 
     public static JdbcConnectionConfig of(ReadonlyConfig config) {
@@ -64,7 +72,12 @@ public class JdbcConnectionConfig implements Serializable {
             builder.transactionTimeoutSec(config.get(JdbcOptions.TRANSACTION_TIMEOUT_SEC));
             builder.maxRetries(0);
         }
-
+        if (config.get(JdbcOptions.USE_KERBEROS)) {
+            builder.useKerberos(config.get(JdbcOptions.USE_KERBEROS));
+            builder.kerberosPrincipal(config.get(JdbcOptions.KERBEROS_PRINCIPAL));
+            builder.kerberosKeytabPath(config.get(JdbcOptions.KERBEROS_KEYTAB_PATH));
+            builder.kerberosKeytabPath(config.get(JdbcOptions.KRB5_PATH));
+        }
         config.getOptional(JdbcOptions.USER).ifPresent(builder::username);
         config.getOptional(JdbcOptions.PASSWORD).ifPresent(builder::password);
         config.getOptional(JdbcOptions.PROPERTIES).ifPresent(builder::properties);
@@ -143,6 +156,10 @@ public class JdbcConnectionConfig implements Serializable {
         private int maxCommitAttempts = JdbcOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
         private int transactionTimeoutSec = JdbcOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
         private Map<String, String> properties;
+        public boolean useKerberos = JdbcOptions.USE_KERBEROS.defaultValue();
+        public String kerberosPrincipal;
+        public String kerberosKeytabPath;
+        public String krb5Path = JdbcOptions.KRB5_PATH.defaultValue();
 
         private Builder() {}
 
@@ -211,6 +228,26 @@ public class JdbcConnectionConfig implements Serializable {
             return this;
         }
 
+        public Builder useKerberos(boolean useKerberos) {
+            this.useKerberos = useKerberos;
+            return this;
+        }
+
+        public Builder kerberosPrincipal(String kerberosPrincipal) {
+            this.kerberosPrincipal = kerberosPrincipal;
+            return this;
+        }
+
+        public Builder kerberosKeytabPath(String kerberosKeytabPath) {
+            this.kerberosKeytabPath = kerberosKeytabPath;
+            return this;
+        }
+
+        public Builder krb5Path(String krb5Path) {
+            this.krb5Path = krb5Path;
+            return this;
+        }
+
         public Builder properties(Map<String, String> properties) {
             this.properties = properties;
             return this;
@@ -230,6 +267,10 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.transactionTimeoutSec = this.transactionTimeoutSec;
             jdbcConnectionConfig.maxCommitAttempts = this.maxCommitAttempts;
             jdbcConnectionConfig.xaDataSourceClassName = this.xaDataSourceClassName;
+            jdbcConnectionConfig.useKerberos = this.useKerberos;
+            jdbcConnectionConfig.kerberosPrincipal = this.kerberosPrincipal;
+            jdbcConnectionConfig.kerberosKeytabPath = this.kerberosKeytabPath;
+            jdbcConnectionConfig.krb5Path = this.krb5Path;
             jdbcConnectionConfig.properties =
                     this.properties == null ? new HashMap<>() : this.properties;
             return jdbcConnectionConfig;

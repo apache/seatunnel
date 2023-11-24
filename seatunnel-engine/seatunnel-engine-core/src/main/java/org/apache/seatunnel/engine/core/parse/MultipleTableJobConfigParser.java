@@ -174,9 +174,10 @@ public class MultipleTableJobConfigParser {
                 new LinkedHashMap<>();
 
         log.info("start generating all sources.");
-        for (Config sourceConfig : sourceConfigs) {
+        for (int configIndex = 0; configIndex < sourceConfigs.size(); configIndex++) {
+            Config sourceConfig = sourceConfigs.get(configIndex);
             Tuple2<String, List<Tuple2<CatalogTable, Action>>> tuple2 =
-                    parseSource(sourceConfig, classLoader);
+                    parseSource(configIndex, sourceConfig, classLoader);
             tableWithActionMap.put(tuple2._1(), tuple2._2());
         }
 
@@ -286,7 +287,7 @@ public class MultipleTableJobConfigParser {
     }
 
     public Tuple2<String, List<Tuple2<CatalogTable, Action>>> parseSource(
-            Config sourceConfig, ClassLoader classLoader) {
+            int configIndex, Config sourceConfig, ClassLoader classLoader) {
         final ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sourceConfig);
         final String factoryId = getFactoryId(readonlyConfig);
         final String tableId =
@@ -307,29 +308,23 @@ public class MultipleTableJobConfigParser {
             return new Tuple2<>(tableId, Collections.singletonList(tuple));
         }
 
-        List<Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>>>
-                sources =
-                        FactoryUtil.createAndPrepareSource(readonlyConfig, classLoader, factoryId);
+        Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> tuple2 =
+                FactoryUtil.createAndPrepareSource(readonlyConfig, classLoader, factoryId);
 
         Set<URL> factoryUrls = new HashSet<>();
         factoryUrls.addAll(getSourcePluginJarPaths(sourceConfig));
 
         List<Tuple2<CatalogTable, Action>> actions = new ArrayList<>();
-        for (int configIndex = 0; configIndex < sources.size(); configIndex++) {
-            Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> tuple2 =
-                    sources.get(configIndex);
-            long id = idGenerator.getNextId();
-            String actionName =
-                    JobConfigParser.createSourceActionName(configIndex, factoryId, tableId);
-            SeaTunnelSource<Object, SourceSplit, Serializable> source = tuple2._1();
-            source.setJobContext(jobConfig.getJobContext());
-            PluginUtil.ensureJobModeMatch(jobConfig.getJobContext(), source);
-            SourceAction<Object, SourceSplit, Serializable> action =
-                    new SourceAction<>(id, actionName, tuple2._1(), factoryUrls, new HashSet<>());
-            action.setParallelism(parallelism);
-            for (CatalogTable catalogTable : tuple2._2()) {
-                actions.add(new Tuple2<>(catalogTable, action));
-            }
+        long id = idGenerator.getNextId();
+        String actionName = JobConfigParser.createSourceActionName(configIndex, factoryId);
+        SeaTunnelSource<Object, SourceSplit, Serializable> source = tuple2._1();
+        source.setJobContext(jobConfig.getJobContext());
+        PluginUtil.ensureJobModeMatch(jobConfig.getJobContext(), source);
+        SourceAction<Object, SourceSplit, Serializable> action =
+                new SourceAction<>(id, actionName, tuple2._1(), factoryUrls, new HashSet<>());
+        action.setParallelism(parallelism);
+        for (CatalogTable catalogTable : tuple2._2()) {
+            actions.add(new Tuple2<>(catalogTable, action));
         }
         return new Tuple2<>(tableId, actions);
     }
@@ -421,9 +416,9 @@ public class MultipleTableJobConfigParser {
                         catalogTable, readonlyConfig, classLoader, factoryId);
         transform.setJobContext(jobConfig.getJobContext());
         long id = idGenerator.getNextId();
-        String actionName =
-                JobConfigParser.createTransformActionName(
-                        0, factoryId, JobConfigParser.getTableName(config));
+        // TODO If you need to support snapshot transform state, you need to use ordered index to
+        // generate unique names.
+        String actionName = JobConfigParser.createTransformActionName(0, factoryId);
 
         TransformAction transformAction =
                 new TransformAction(
@@ -574,7 +569,8 @@ public class MultipleTableJobConfigParser {
             sinkActions.add(sinkAction);
         }
         Optional<SinkAction<?, ?, ?, ?>> multiTableSink =
-                tryGenerateMultiTableSink(sinkActions, readonlyConfig, classLoader);
+                tryGenerateMultiTableSink(
+                        sinkActions, readonlyConfig, classLoader, factoryId, configIndex);
         return multiTableSink
                 .<List<SinkAction<?, ?, ?, ?>>>map(Collections::singletonList)
                 .orElse(sinkActions);
@@ -583,7 +579,9 @@ public class MultipleTableJobConfigParser {
     private Optional<SinkAction<?, ?, ?, ?>> tryGenerateMultiTableSink(
             List<SinkAction<?, ?, ?, ?>> sinkActions,
             ReadonlyConfig options,
-            ClassLoader classLoader) {
+            ClassLoader classLoader,
+            String factoryId,
+            int configIndex) {
         if (sinkActions.stream()
                 .anyMatch(action -> !(action.getSink() instanceof SupportMultiTableSink))) {
             log.info("Unsupported multi table sink api, rollback to sink template");
@@ -602,10 +600,12 @@ public class MultipleTableJobConfigParser {
                 });
         SeaTunnelSink<?, ?, ?, ?> sink =
                 FactoryUtil.createMultiTableSink(sinks, options, classLoader);
+        String actionName =
+                JobConfigParser.createSinkActionName(configIndex, factoryId, "MultiTableSink");
         SinkAction<?, ?, ?, ?> multiTableAction =
                 new SinkAction<>(
                         idGenerator.getNextId(),
-                        "MultiTableSink-" + sinkActions.get(0).getSink().getPluginName(),
+                        actionName,
                         sinkActions.get(0).getUpstream(),
                         sink,
                         jars,

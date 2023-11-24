@@ -26,16 +26,11 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.MultipleTableFakeSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
-
-import org.apache.commons.collections4.CollectionUtils;
-
-import com.google.common.collect.Lists;
 
 import java.util.Collections;
 import java.util.List;
@@ -47,14 +42,10 @@ public class FakeSource
                 SupportColumnProjection {
 
     private JobContext jobContext;
-    private CatalogTable catalogTable;
-    private FakeConfig fakeConfig;
-
-    public FakeSource() {}
+    private final MultipleTableFakeSourceConfig multipleTableFakeSourceConfig;
 
     public FakeSource(ReadonlyConfig readonlyConfig) {
-        this.catalogTable = CatalogTableUtil.buildWithConfig(getPluginName(), readonlyConfig);
-        this.fakeConfig = FakeConfig.buildWithConfig(readonlyConfig.toConfig());
+        this.multipleTableFakeSourceConfig = new MultipleTableFakeSourceConfig(readonlyConfig);
     }
 
     @Override
@@ -66,29 +57,16 @@ public class FakeSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        // If tableNames is empty, means this is only one catalogTable, return the original
-        // catalogTable
-        if (CollectionUtils.isEmpty(fakeConfig.getTableIdentifiers())) {
-            return Lists.newArrayList(catalogTable);
-        }
-        // Otherwise, return the catalogTables with the tableNames
-        return fakeConfig.getTableIdentifiers().stream()
-                .map(
-                        tableIdentifier ->
-                                CatalogTable.of(
-                                        TableIdentifier.of(
-                                                getPluginName(), tableIdentifier.toTablePath()),
-                                        catalogTable.getTableSchema(),
-                                        catalogTable.getOptions(),
-                                        catalogTable.getPartitionKeys(),
-                                        catalogTable.getComment()))
+        return multipleTableFakeSourceConfig.getFakeConfigs().stream()
+                .map(FakeConfig::getCatalogTable)
                 .collect(Collectors.toList());
     }
 
     @Override
     public SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) throws Exception {
-        return new FakeSourceSplitEnumerator(enumeratorContext, fakeConfig, Collections.emptySet());
+            SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) {
+        return new FakeSourceSplitEnumerator(
+                enumeratorContext, multipleTableFakeSourceConfig, Collections.emptySet());
     }
 
     @Override
@@ -96,13 +74,15 @@ public class FakeSource
             SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext,
             FakeSourceState checkpointState) {
         return new FakeSourceSplitEnumerator(
-                enumeratorContext, fakeConfig, checkpointState.getAssignedSplits());
+                enumeratorContext,
+                multipleTableFakeSourceConfig,
+                checkpointState.getAssignedSplits());
     }
 
     @Override
     public SourceReader<SeaTunnelRow, FakeSourceSplit> createReader(
             SourceReader.Context readerContext) {
-        return new FakeSourceReader(readerContext, catalogTable.getSeaTunnelRowType(), fakeConfig);
+        return new FakeSourceReader(readerContext, multipleTableFakeSourceConfig);
     }
 
     @Override

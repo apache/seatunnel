@@ -24,6 +24,8 @@ import java.util.Map;
 
 public class HttpConfig {
     public static final String BASIC = "Basic";
+    public static final String CONNECTOR_IDENTITY = "Http";
+
     public static final int DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS = 100;
     public static final int DEFAULT_RETRY_BACKOFF_MAX_MS = 10000;
     public static final boolean DEFAULT_ENABLE_MULTI_LINES = false;

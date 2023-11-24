@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.persistiq.source;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
@@ -32,22 +31,15 @@ import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.persistiq.source.config.PersistiqSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.persistiq.source.config.PersistiqSourceParameter;
 
-import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@AutoService(SeaTunnelSource.class)
 public class PersistiqSource extends HttpSource {
     private final PersistiqSourceParameter persistiqSourceParameter =
             new PersistiqSourceParameter();
 
-    @Override
-    public String getPluginName() {
-        return "Persistiq";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    public PersistiqSource(Config pluginConfig) {
+        super(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
@@ -57,7 +49,11 @@ public class PersistiqSource extends HttpSource {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         persistiqSourceParameter.buildWithConfig(pluginConfig);
-        buildSchemaWithConfig(pluginConfig);
+    }
+
+    @Override
+    public String getPluginName() {
+        return "Persistiq";
     }
 
     @Override

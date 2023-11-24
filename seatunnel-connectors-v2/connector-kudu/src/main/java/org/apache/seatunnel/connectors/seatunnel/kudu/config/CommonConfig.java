@@ -90,9 +90,6 @@ public class CommonConfig implements Serializable {
                             "Kerberos krb5 conf. Note that all zeta nodes require have this file.");
 
     protected String masters;
-
-    protected String table;
-
     protected Integer workerCount;
 
     protected Long operationTimeout;
@@ -106,7 +103,6 @@ public class CommonConfig implements Serializable {
 
     public CommonConfig(ReadonlyConfig config) {
         this.masters = config.get(MASTER);
-        this.table = config.get(TABLE_NAME);
         this.workerCount = config.get(WORKER_COUNT);
         this.operationTimeout = config.get(OPERATION_TIMEOUT);
         this.adminOperationTimeout = config.get(ADMIN_OPERATION_TIMEOUT);

@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
@@ -108,7 +108,7 @@ public class KingbaseJdbcRowConverter extends AbstractJdbcRowConverter {
                 case ARRAY:
                 default:
                     throw new JdbcConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             "Unexpected value: " + seaTunnelDataType);
             }
         }
@@ -180,7 +180,7 @@ public class KingbaseJdbcRowConverter extends AbstractJdbcRowConverter {
                 case ARRAY:
                 default:
                     throw new JdbcConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             "Unexpected value: " + seaTunnelDataType);
             }
         }

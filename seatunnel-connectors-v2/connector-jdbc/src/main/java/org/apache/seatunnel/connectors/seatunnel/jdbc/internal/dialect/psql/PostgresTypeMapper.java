@@ -23,8 +23,8 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import org.slf4j.Logger;
@@ -164,9 +164,9 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
             case PG_TIME_ARRAY:
             case PG_DATE_ARRAY:
             default:
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format("Doesn't support Postgres type '%s' yet", pgType));
+                final String jdbcColumnName = metadata.getColumnName(colIndex);
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.POSTGRESQL, pgType, jdbcColumnName);
         }
     }
 }

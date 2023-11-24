@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.common.SingleFieldOutputTransform;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -32,7 +33,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class ReplaceTransform extends SingleFieldOutputTransform {
-    private ReadonlyConfig config;
+    private final ReadonlyConfig config;
     private int inputFieldIndex;
 
     public ReplaceTransform(
@@ -50,10 +51,10 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
     }
 
     private void initOutputFields(SeaTunnelRowType inputRowType, String replaceField) {
-        inputFieldIndex = inputRowType.indexOf(replaceField);
-        if (inputFieldIndex == -1) {
-            throw new IllegalArgumentException(
-                    "Cannot find [" + replaceField + "] field in input row type");
+        try {
+            inputFieldIndex = inputRowType.indexOf(replaceField);
+        } catch (IllegalArgumentException e) {
+            throw TransformCommonError.cannotFindInputFieldError(getPluginName(), replaceField);
         }
     }
 
@@ -65,9 +66,8 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
         }
 
         boolean isRegex =
-                config.get(ReplaceTransformConfig.KEY_IS_REGEX) == null
-                        ? false
-                        : config.get(ReplaceTransformConfig.KEY_IS_REGEX);
+                config.get(ReplaceTransformConfig.KEY_IS_REGEX) != null
+                        && config.get(ReplaceTransformConfig.KEY_IS_REGEX);
         if (isRegex) {
             if (config.get(ReplaceTransformConfig.KEY_REPLACE_FIRST)) {
                 return inputFieldValue
@@ -103,10 +103,8 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
                                                                         .KEY_REPLACE_FIELD)))
                         .collect(Collectors.toList());
         if (CollectionUtils.isEmpty(collect)) {
-            throw new IllegalArgumentException(
-                    "Cannot find ["
-                            + config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD)
-                            + "] field in input catalog table");
+            throw TransformCommonError.cannotFindInputFieldError(
+                    getPluginName(), config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD));
         }
         return collect.get(0).copy();
     }

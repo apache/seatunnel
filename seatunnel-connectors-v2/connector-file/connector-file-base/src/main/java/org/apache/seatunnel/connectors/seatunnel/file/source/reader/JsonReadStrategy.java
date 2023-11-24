@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -69,7 +69,7 @@ public class JsonReadStrategy extends AbstractReadStrategy {
     }
 
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output)
+    public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         Configuration conf = getConfiguration();
         FileSystem fs = FileSystem.get(conf);
@@ -105,6 +105,7 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                                             seaTunnelRow.setField(index++, value);
                                         }
                                     }
+                                    seaTunnelRow.setTableId(tableId);
                                     output.collect(seaTunnelRow);
                                 } catch (IOException e) {
                                     String errorMsg =
@@ -112,7 +113,8 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                                                     "Read data from this file [%s] failed",
                                                     filePath);
                                     throw new FileConnectorException(
-                                            CommonErrorCode.FILE_OPERATION_FAILED, errorMsg);
+                                            CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
+                                            errorMsg);
                                 }
                             });
         }
@@ -122,7 +124,7 @@ public class JsonReadStrategy extends AbstractReadStrategy {
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path)
             throws FileConnectorException {
         throw new FileConnectorException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 "User must defined schema for json file type");
     }
 }
