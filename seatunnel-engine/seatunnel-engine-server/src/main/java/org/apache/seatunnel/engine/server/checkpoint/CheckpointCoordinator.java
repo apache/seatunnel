@@ -330,6 +330,9 @@ public class CheckpointCoordinator {
         if (coordinatorConfig.isCheckpointEnable()) {
             LOG.info("checkpoint is enabled, start schedule trigger pending checkpoint.");
             scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
+        } else {
+            LOG.warn(
+                    "checkpoint is disabled, because in batch mode and 'checkpoint.interval' of env is missing");
         }
     }
 
