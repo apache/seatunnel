@@ -25,7 +25,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] parquet
   - [x] orc
   - [x] json
-  - [x] hive_text
+  - [x] hive_text : support the text storage format of hive collection data type, array, map, struct.
 - [x] compress codec
   - [x] lzo
 
