@@ -37,6 +37,8 @@ import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDisc
 
 import org.apache.commons.lang3.StringUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -58,6 +60,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /** A Starter to generate spark-submit command for SeaTunnel job on spark. */
+@Slf4j
 public class SparkStarter implements Starter {
 
     /** original commandline args */
@@ -83,7 +86,7 @@ public class SparkStarter implements Starter {
     public static void main(String[] args) throws IOException {
         SparkStarter starter = getInstance(args);
         List<String> command = starter.buildCommands();
-        System.out.println(String.join(" ", command));
+        log.info(String.join(" ", command));
     }
 
     /**

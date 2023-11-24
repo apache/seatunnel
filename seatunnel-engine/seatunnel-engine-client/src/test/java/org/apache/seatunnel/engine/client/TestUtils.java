@@ -67,6 +67,6 @@ public class TestUtils {
                     return s1.getSubmitTime() > s2.getSubmitTime() ? -1 : 1;
                 });
         String r = ContentFormatUtil.format(statusDataList);
-        System.out.println(r);
+        log.info(r);
     }
 }

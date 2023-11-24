@@ -95,16 +95,16 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             engineClient = new SeaTunnelClient(clientConfig);
             if (clientCommandArgs.isListJob()) {
                 String jobStatus = engineClient.getJobClient().listJobStatus(true);
-                System.out.println(jobStatus);
+                log.info(jobStatus);
             } else if (clientCommandArgs.isGetRunningJobMetrics()) {
                 String runningJobMetrics = engineClient.getJobClient().getRunningJobMetrics();
-                System.out.println(runningJobMetrics);
+                log.info(runningJobMetrics);
             } else if (null != clientCommandArgs.getJobId()) {
                 String jobState =
                         engineClient
                                 .getJobClient()
                                 .getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
-                System.out.println(jobState);
+                log.info(jobState);
             } else if (null != clientCommandArgs.getCancelJobId()) {
                 engineClient
                         .getJobClient()
@@ -114,7 +114,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                         engineClient
                                 .getJobClient()
                                 .getJobMetrics(Long.parseLong(clientCommandArgs.getMetricsJobId()));
-                System.out.println(jobMetrics);
+                log.info(jobMetrics);
             } else if (null != clientCommandArgs.getSavePointJobId()) {
                 engineClient
                         .getJobClient()
