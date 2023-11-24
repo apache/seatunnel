@@ -98,16 +98,17 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
                             .subscriptionType(SubscriptionType.Exclusive)
                             .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                             .subscribe();
-
+            System.out.println("consumer.getLastMessageId()： " + consumer.getLastMessageId());
             while (true) {
                 Message msg = consumer.receive();
                 if (msg != null) {
                     data.put(msg.getKey(), new String(msg.getData()));
-                    System.out.println("key:" + msg.getKey());
-                    System.out.println("data:" + msg.getData());
+                    System.out.println("key: " + msg.getKey());
+                    System.out.println("data: " + new String(msg.getData()));
+                    System.out.println("MessageId: " + msg.getMessageId());
                     consumer.acknowledge(msg.getMessageId());
                 }
-                if (msg.getMessageId() == consumer.getLastMessageId()) {
+                if (msg.getMessageId().equals(consumer.getLastMessageId())) {
                     break;
                 }
             }
