@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.master;
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -274,6 +275,9 @@ public class JobMaster {
             jobCheckpointConfig.setCheckpointInterval(
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()).toString()));
+        } else if (jobEnv.containsKey(EnvCommonOptions.JOB_MODE.key())
+                && jobEnv.get(EnvCommonOptions.JOB_MODE.key()).equals(JobMode.BATCH.name())) {
+            jobCheckpointConfig.setCheckpointEnable(false);
         }
         if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
             jobCheckpointConfig.setCheckpointTimeout(

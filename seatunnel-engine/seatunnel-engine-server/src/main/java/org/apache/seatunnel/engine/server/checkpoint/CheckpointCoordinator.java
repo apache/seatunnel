@@ -327,7 +327,10 @@ public class CheckpointCoordinator {
         InvocationFuture<?>[] futures = notifyTaskStart();
         CompletableFuture.allOf(futures).join();
         notifyCompleted(latestCompletedCheckpoint);
-        scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
+        if (coordinatorConfig.isCheckpointEnable()) {
+            LOG.info("checkpoint is enabled, start schedule trigger pending checkpoint.");
+            scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
+        }
     }
 
     private void notifyCompleted(CompletedCheckpoint completedCheckpoint) {
