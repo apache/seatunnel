@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.util;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 
@@ -113,23 +114,27 @@ public class KuduUtil {
     }
 
     public static List<KuduScanToken> getKuduScanToken(
-            KuduSourceConfig kuduSourceConfig, String[] columnName) throws IOException {
-        try (KuduClient client = KuduUtil.getKuduClient(kuduSourceConfig)) {
-            KuduTable kuduTable = client.openTable(kuduSourceConfig.getTable());
-            List<String> columnNameList = Arrays.asList(columnName);
+            KuduClient kuduClient,
+            KuduSourceConfig kuduSourceConfig,
+            KuduSourceTableConfig kuduSourceTableConfig)
+            throws IOException {
+        KuduTable kuduTable =
+                kuduClient.openTable(kuduSourceTableConfig.getTablePath().getFullName());
+        List<String> columnNameList =
+                Arrays.asList(
+                        kuduSourceTableConfig
+                                .getCatalogTable()
+                                .getSeaTunnelRowType()
+                                .getFieldNames());
+        KuduScanToken.KuduScanTokenBuilder builder =
+                kuduClient
+                        .newScanTokenBuilder(kuduTable)
+                        .batchSizeBytes(kuduSourceConfig.getBatchSizeBytes())
+                        .setTimeout(kuduSourceConfig.getQueryTimeout())
+                        .setProjectedColumnNames(columnNameList);
 
-            KuduScanToken.KuduScanTokenBuilder builder =
-                    client.newScanTokenBuilder(kuduTable)
-                            .batchSizeBytes(kuduSourceConfig.getBatchSizeBytes())
-                            .setTimeout(kuduSourceConfig.getQueryTimeout())
-                            .setProjectedColumnNames(columnNameList);
-
-            addPredicates(builder, kuduSourceConfig.getFilter(), kuduTable.getSchema());
-
-            return builder.build();
-        } catch (Exception e) {
-            throw new IOException("Get ScanToken error", e);
-        }
+        addPredicates(builder, kuduSourceTableConfig.getFilter(), kuduTable.getSchema());
+        return builder.build();
     }
 
     private static void addPredicates(
