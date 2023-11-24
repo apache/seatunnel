@@ -98,14 +98,10 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
                             .subscriptionType(SubscriptionType.Exclusive)
                             .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                             .subscribe();
-            System.out.println("consumer.getLastMessageId()： " + consumer.getLastMessageId());
             while (true) {
                 Message msg = consumer.receive();
                 if (msg != null) {
                     data.put(msg.getKey(), new String(msg.getData()));
-                    System.out.println("key: " + msg.getKey());
-                    System.out.println("data: " + new String(msg.getData()));
-                    System.out.println("MessageId: " + msg.getMessageId());
                     consumer.acknowledge(msg.getMessageId());
                 }
                 if (msg.getMessageId().equals(consumer.getLastMessageId())) {
@@ -125,10 +121,13 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
 
         Map<String, String> data = getPulsarConsumerData();
         ObjectMapper objectMapper = new ObjectMapper();
-        String key = data.keySet().iterator().next();
-        ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
+        String values = data.values().iterator().next();
+        ObjectNode objectNode = objectMapper.readValue(values, ObjectNode.class);
         Assertions.assertTrue(objectNode.has("c_map"));
+        Assertions.assertTrue(objectNode.has("c_array"));
         Assertions.assertTrue(objectNode.has("c_string"));
+        Assertions.assertTrue(objectNode.has("c_boolean"));
+        Assertions.assertTrue(objectNode.has("c_double"));
         Assertions.assertEquals(10, data.size());
     }
 }
