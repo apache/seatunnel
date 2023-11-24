@@ -72,13 +72,13 @@ public class StarRocksSaveModeUtil {
         return String.format(
                 "`%s` %s %s ",
                 column.getName(),
-            dataTypeToStarrocksType(
-                column.getDataType(),
-                Math.max(
-                    column.getColumnLength() == null ? 0 : column.getColumnLength(),
-                    column.getLongColumnLength() == null
-                        ? 0
-                        : column.getLongColumnLength())),
+                dataTypeToStarrocksType(
+                        column.getDataType(),
+                        Math.max(
+                                column.getColumnLength() == null ? 0 : column.getColumnLength(),
+                                column.getLongColumnLength() == null
+                                        ? 0
+                                        : column.getLongColumnLength())),
                 column.isNullable() ? "NULL" : "NOT NULL");
     }
 
@@ -157,8 +157,8 @@ public class StarRocksSaveModeUtil {
                 return "DATETIME";
             case ARRAY:
                 return "ARRAY<"
-                    + dataTypeToStarrocksType(
-                    ((ArrayType<?, ?>) dataType).getElementType(), Long.MAX_VALUE)
+                        + dataTypeToStarrocksType(
+                                ((ArrayType<?, ?>) dataType).getElementType(), Long.MAX_VALUE)
                         + ">";
             case DECIMAL:
                 DecimalType decimalType = (DecimalType) dataType;
