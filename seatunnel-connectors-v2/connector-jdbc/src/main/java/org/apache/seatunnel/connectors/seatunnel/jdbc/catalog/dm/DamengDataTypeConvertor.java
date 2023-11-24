@@ -17,15 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter;
 
 import org.apache.commons.collections4.MapUtils;
 
@@ -34,82 +32,19 @@ import com.google.auto.service.AutoService;
 import java.util.Collections;
 import java.util.Map;
 
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter.DM_DEC;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter.DM_DECIMAL;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter.DM_NUMBER;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter.DM_NUMERIC;
+
+/** @deprecated instead by {@link DmdbTypeConverter} */
+@Deprecated
 @AutoService(DataTypeConvertor.class)
 public class DamengDataTypeConvertor implements DataTypeConvertor<String> {
     public static final String PRECISION = "precision";
     public static final String SCALE = "scale";
     public static final Integer DEFAULT_PRECISION = 38;
     public static final Integer DEFAULT_SCALE = 18;
-
-    // ============================data types=====================
-    private static final String DM_BIT = "BIT";
-
-    // ----------------------------number-------------------------
-    private static final String DM_NUMERIC = "NUMERIC";
-    private static final String DM_NUMBER = "NUMBER";
-    private static final String DM_DECIMAL = "DECIMAL";
-    /** same to DECIMAL */
-    private static final String DM_DEC = "DEC";
-
-    // ----------------------------int-----------------------------
-    private static final String DM_INTEGER = "INTEGER";
-    private static final String DM_INT = "INT";
-    public static final String DM_PLS_INTEGER = "PLS_INTEGER";
-    private static final String DM_BIGINT = "BIGINT";
-    private static final String DM_TINYINT = "TINYINT";
-    private static final String DM_BYTE = "BYTE";
-    private static final String DM_SMALLINT = "SMALLINT";
-
-    // dm float is double for Cpp.
-    private static final String DM_FLOAT = "FLOAT";
-    private static final String DM_DOUBLE = "DOUBLE";
-    private static final String DM_DOUBLE_PRECISION = "DOUBLE PRECISION";
-    private static final String DM_REAL = "REAL";
-
-    // DM_CHAR DM_CHARACTER DM_VARCHAR DM_VARCHAR2 max is 32767
-    private static final String DM_CHAR = "CHAR";
-    private static final String DM_CHARACTER = "CHARACTER";
-    private static final String DM_VARCHAR = "VARCHAR";
-    private static final String DM_VARCHAR2 = "VARCHAR2";
-    private static final String DM_LONGVARCHAR = "LONGVARCHAR";
-    private static final String DM_CLOB = "CLOB";
-    private static final String DM_TEXT = "TEXT";
-    private static final String DM_LONG = "LONG";
-
-    // ------------------------------time-------------------------
-    private static final String DM_DATE = "DATE";
-    private static final String DM_TIME = "TIME";
-    private static final String DM_TIMESTAMP = "TIMESTAMP";
-    private static final String DM_DATETIME = "DATETIME";
-
-    // ---------------------------binary---------------------------
-    private static final String DM_BINARY = "BINARY";
-    private static final String DM_VARBINARY = "VARBINARY";
-
-    // -------------------------time interval-----------------------
-    private static final String DM_INTERVAL_YEAR_TO_MONTH = "INTERVAL YEAR TO MONTH";
-    private static final String DM_INTERVAL_YEAR = "INTERVAL YEAR";
-    private static final String DM_INTERVAL_MONTH = "INTERVAL MONTH";
-    private static final String DM_INTERVAL_DAY = "INTERVAL DAY";
-    private static final String DM_INTERVAL_DAY_TO_HOUR = "INTERVAL DAY TO HOUR";
-    private static final String DM_INTERVAL_DAY_TO_MINUTE = "INTERVAL DAY TO MINUTE";
-    private static final String DM_INTERVAL_DAY_TO_SECOND = "INTERVAL DAY TO SECOND";
-    private static final String DM_INTERVAL_HOUR = "INTERVAL HOUR";
-    private static final String DM_INTERVAL_HOUR_TO_MINUTE = "INTERVAL HOUR TO MINUTE";
-    private static final String DM_INTERVAL_HOUR_TO_SECOND = "INTERVAL HOUR TO SECOND";
-    private static final String DM_INTERVAL_MINUTE = "INTERVAL MINUTE";
-    private static final String DM_INTERVAL_MINUTE_TO_SECOND = "INTERVAL MINUTE TO SECOND";
-    private static final String DM_INTERVAL_SECOND = "INTERVAL SECOND";
-    // time zone
-    private static final String DM_TIME_WITH_TIME_ZONE = "TIME WITH TIME ZONE";
-    private static final String DM_TIMESTAMP_WITH_TIME_ZONE = "TIMESTAMP WITH TIME ZONE";
-    private static final String TIMESTAMP_WITH_LOCAL_TIME_ZONE = "TIMESTAMP WITH LOCAL TIME ZONE";
-
-    // ------------------------------blob-------------------------
-    public static final String DM_BLOB = "BLOB";
-    public static final String DM_BFILE = "BFILE";
-    public static final String DM_IMAGE = "IMAGE";
-    public static final String DM_LONGVARBINARY = "LONGVARBINARY";
 
     @Override
     public String getIdentity() {
@@ -124,118 +59,47 @@ public class DamengDataTypeConvertor implements DataTypeConvertor<String> {
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
             String field, String dataType, Map<String, Object> properties) {
+        Integer precision = null;
+        Integer scale = null;
         switch (dataType.toUpperCase()) {
-            case DM_BIT:
-                return BasicType.BOOLEAN_TYPE;
-            case DM_TINYINT:
-            case DM_BYTE:
-                return BasicType.BYTE_TYPE;
-            case DM_SMALLINT:
-                return BasicType.SHORT_TYPE;
-            case DM_INT:
-            case DM_INTEGER:
-            case DM_PLS_INTEGER:
-                return BasicType.INT_TYPE;
-            case DM_BIGINT:
-                return BasicType.LONG_TYPE;
             case DM_NUMERIC:
             case DM_NUMBER:
             case DM_DECIMAL:
             case DM_DEC:
-                int precision = MapUtils.getInteger(properties, PRECISION, DEFAULT_PRECISION);
-                int scale = MapUtils.getInteger(properties, SCALE, DEFAULT_SCALE);
-                if (precision > 0) {
-                    return new DecimalType(precision, scale);
-                }
-                return new DecimalType(38, 18);
-            case DM_REAL:
-                return BasicType.FLOAT_TYPE;
-            case DM_FLOAT:
-            case DM_DOUBLE_PRECISION:
-            case DM_DOUBLE:
-                return BasicType.DOUBLE_TYPE;
-            case DM_CHAR:
-            case DM_CHARACTER:
-            case DM_VARCHAR:
-            case DM_VARCHAR2:
-                // 100G-1 byte
-            case DM_TEXT:
-            case DM_LONG:
-            case DM_LONGVARCHAR:
-            case DM_CLOB:
-                return BasicType.STRING_TYPE;
-            case DM_TIMESTAMP:
-            case DM_DATETIME:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case DM_TIME:
-                return LocalTimeType.LOCAL_TIME_TYPE;
-            case DM_DATE:
-                return LocalTimeType.LOCAL_DATE_TYPE;
-                // 100G-1 byte
-            case DM_BLOB:
-            case DM_BINARY:
-            case DM_VARBINARY:
-            case DM_LONGVARBINARY:
-            case DM_IMAGE:
-            case DM_BFILE:
-                return PrimitiveByteArrayType.INSTANCE;
-                // Doesn't support yet
-            case DM_INTERVAL_YEAR_TO_MONTH:
-            case DM_INTERVAL_YEAR:
-            case DM_INTERVAL_MONTH:
-            case DM_INTERVAL_DAY:
-            case DM_INTERVAL_DAY_TO_HOUR:
-            case DM_INTERVAL_DAY_TO_MINUTE:
-            case DM_INTERVAL_DAY_TO_SECOND:
-            case DM_INTERVAL_HOUR:
-            case DM_INTERVAL_HOUR_TO_MINUTE:
-            case DM_INTERVAL_HOUR_TO_SECOND:
-            case DM_INTERVAL_MINUTE:
-            case DM_INTERVAL_MINUTE_TO_SECOND:
-            case DM_INTERVAL_SECOND:
-            case DM_TIME_WITH_TIME_ZONE:
-            case DM_TIMESTAMP_WITH_TIME_ZONE:
-            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                precision = MapUtils.getInteger(properties, PRECISION, DEFAULT_PRECISION);
+                scale = MapUtils.getInteger(properties, SCALE, DEFAULT_SCALE);
+                break;
             default:
-                throw CommonError.convertToSeaTunnelTypeError(
-                        DatabaseIdentifier.DAMENG, dataType, field);
+                break;
         }
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(field)
+                        .columnType(dataType)
+                        .dataType(dataType)
+                        .length(precision == null ? null : precision.longValue())
+                        .precision(precision == null ? null : precision.longValue())
+                        .scale(scale)
+                        .build();
+
+        return DmdbTypeConverter.INSTANCE.convert(typeDefine).getDataType();
     }
 
     @Override
     public String toConnectorType(
             String field, SeaTunnelDataType<?> dataType, Map<String, Object> properties) {
-        SqlType sqlType = dataType.getSqlType();
-        switch (sqlType) {
-            case TINYINT:
-                return DM_TINYINT;
-            case SMALLINT:
-                return DM_SMALLINT;
-            case INT:
-                return DM_INT;
-            case BIGINT:
-                return DM_BIGINT;
-            case FLOAT:
-                return DM_REAL;
-            case DOUBLE:
-                return DM_DOUBLE;
-            case DECIMAL:
-                return DM_DECIMAL;
-            case BOOLEAN:
-                return DM_BIT;
-            case STRING:
-                return DM_VARCHAR2;
-            case DATE:
-                return DM_DATE;
-            case TIME:
-                return DM_TIME;
-            case TIMESTAMP:
-                return DM_TIMESTAMP;
-            case BYTES:
-                return DM_BINARY;
-            default:
-                throw CommonError.convertToConnectorTypeError(
-                        DatabaseIdentifier.DAMENG, dataType.toString(), field);
-        }
+        Long precision = MapUtils.getLong(properties, PRECISION);
+        Integer scale = MapUtils.getInteger(properties, SCALE);
+        Column column =
+                PhysicalColumn.builder()
+                        .name(field)
+                        .dataType(dataType)
+                        .columnLength(precision)
+                        .scale(scale)
+                        .nullable(true)
+                        .build();
+
+        BasicTypeDefine typeDefine = DmdbTypeConverter.INSTANCE.reconvert(column);
+        return typeDefine.getColumnType();
     }
 }
