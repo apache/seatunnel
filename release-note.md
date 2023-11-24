@@ -20,7 +20,7 @@
 ### Formats
 - [Canal]Support read canal format message #3950
 - [Debezium]Support debezium canal format message #3981
- 
+
 ### Connector-V2
 
 - [Json-format] [Canal-Json] Fix json deserialize NPE (#4195)
@@ -78,6 +78,7 @@
 - [Zeta] Fix cpu load problem (#4828)
 - [zeta] Fix the deadlock issue with JDBC driver loading (#4878)
 - [zeta] dynamically replace the value of the variable at runtime (#4950)
+- [Zeta] Add from_unixtime function (#5462)
 - [zeta] Fix CDC task restore throw NPE (#5507)
 
 ### E2E
@@ -206,3 +207,5 @@
 - [Docs] Add Value types in Java to Schema features (#5087)
 - [Docs] Replace username by user in the options of FtpFile (#5421)
 - [Docs] Add how to configure logging related parameters of SeaTunnel-E2E Test (#5589)
+- [Docs] Remove redundant double quotation mark from an example code (#5845)
+- [Docs] Add Hive JDBC reference value (#5882)
