@@ -33,6 +33,7 @@ import com.google.common.base.Preconditions;
 import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
 
+// reference https://dev.mysql.com/doc/refman/8.0/en/data-types.html
 @Slf4j
 @AutoService(TypeConverter.class)
 public class MySQLTypeConverter implements TypeConverter<BasicTypeDefine<MysqlType>> {

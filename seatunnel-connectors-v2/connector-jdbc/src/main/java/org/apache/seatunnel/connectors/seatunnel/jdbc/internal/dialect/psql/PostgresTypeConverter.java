@@ -33,6 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+// reference http://www.postgres.cn/docs/13/datatype.html
 @Slf4j
 @AutoService(TypeConverter.class)
 public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
@@ -45,14 +46,17 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String PG_BYTEA = "bytea";
     // smallint <=> smallserial <=> int2
     public static final String PG_SMALLINT = "int2";
+    public static final String PG_SMALLSERIAL = "smallserial";
     // smallint[] <=> int2[] <=> _int2
     public static final String PG_SMALLINT_ARRAY = "_int2";
     // integer <=> serial <=> int <=> int4
     public static final String PG_INTEGER = "int4";
+    public static final String PG_SERIAL = "serial";
     // integer[] <=> int[] <=> _int4
     public static final String PG_INTEGER_ARRAY = "_int4";
     // bigint <=> bigserial <=> int8
     public static final String PG_BIGINT = "int8";
+    public static final String PG_BIGSERIAL = "bigserial";
     // bigint[] <=> _int8
     public static final String PG_BIGINT_ARRAY = "_int8";
     // real <=> float4
@@ -67,10 +71,12 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String PG_NUMERIC = "numeric";
     // char <=> character <=> bpchar
     public static final String PG_CHAR = "bpchar";
+    public static final String PG_CHARACTER = "character";
     // char[] <=> _character <=> _bpchar
     public static final String PG_CHAR_ARRAY = "_bpchar";
     // character varying <=> varchar
     public static final String PG_VARCHAR = "varchar";
+    public static final String PG_CHARACTER_VARYING = "character varying";
     // character varying[] <=> varchar[] <=> _varchar
     public static final String PG_VARCHAR_ARRAY = "_varchar";
     public static final String PG_TEXT = "text";
@@ -118,6 +124,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
             case PG_BOOLEAN_ARRAY:
                 builder.dataType(ArrayType.BOOLEAN_ARRAY_TYPE);
                 break;
+            case PG_SMALLSERIAL:
             case PG_SMALLINT:
                 builder.dataType(BasicType.SHORT_TYPE);
                 break;
@@ -125,12 +132,14 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(ArrayType.SHORT_ARRAY_TYPE);
                 break;
             case PG_INTEGER:
+            case PG_SERIAL:
                 builder.dataType(BasicType.INT_TYPE);
                 break;
             case PG_INTEGER_ARRAY:
                 builder.dataType(ArrayType.INT_ARRAY_TYPE);
                 break;
             case PG_BIGINT:
+            case PG_BIGSERIAL:
                 builder.dataType(BasicType.LONG_TYPE);
                 break;
             case PG_BIGINT_ARRAY:
@@ -160,6 +169,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(decimalType);
                 break;
             case PG_CHAR:
+            case PG_CHARACTER:
                 builder.dataType(BasicType.STRING_TYPE);
                 if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
                     builder.columnLength(1L);
@@ -168,6 +178,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 }
                 break;
             case PG_VARCHAR:
+            case PG_CHARACTER_VARYING:
                 builder.dataType(BasicType.STRING_TYPE);
                 // The length of varchar type is empty, it will be set to null
                 builder.columnLength(typeDefine.getLength());

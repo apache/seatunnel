@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+// reference https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Data-Types.html
 @Slf4j
 @AutoService(TypeConverter.class)
 public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
