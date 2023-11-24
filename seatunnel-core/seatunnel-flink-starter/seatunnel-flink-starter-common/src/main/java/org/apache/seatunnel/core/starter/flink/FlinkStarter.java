@@ -23,14 +23,11 @@ import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 /** The SeaTunnel flink starter, used to generate the final flink job execute command. */
-@Slf4j
 public class FlinkStarter implements Starter {
     private static final String APP_NAME = SeaTunnelFlink.class.getName();
     public static final String APP_JAR_NAME = EngineType.FLINK15.getStarterJarName();
@@ -49,7 +46,7 @@ public class FlinkStarter implements Starter {
 
     public static void main(String[] args) {
         FlinkStarter flinkStarter = new FlinkStarter(args);
-        log.info(String.join(" ", flinkStarter.buildCommands()));
+        System.out.println(String.join(" ", flinkStarter.buildCommands()));
     }
 
     @Override
