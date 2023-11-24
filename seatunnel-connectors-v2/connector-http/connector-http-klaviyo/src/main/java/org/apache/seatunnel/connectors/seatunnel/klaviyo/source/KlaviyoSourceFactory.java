@@ -18,17 +18,31 @@
 package org.apache.seatunnel.connectors.seatunnel.klaviyo.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSourceConfig;
 
 import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class KlaviyoSourceFactory extends HttpSourceFactory {
     @Override
     public String factoryIdentifier() {
         return "Klaviyo";
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new KlaviyoSource(context.getOptions().toConfig());
     }
 
     @Override
