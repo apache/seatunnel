@@ -56,6 +56,10 @@ public class RedisParameters implements Serializable {
         this.port = config.get(RedisConfig.PORT);
         // set db_num
         this.dbNum = config.get(RedisConfig.DB_NUM);
+        // set hash key mode
+        this.hashKeyParseMode = config.get(RedisConfig.HASH_KEY_PARSE_MODE);
+        // set expire
+        this.expire = config.get(RedisConfig.EXPIRE);
         // set auth
         if (config.getOptional(RedisConfig.AUTH).isPresent()) {
             this.auth = config.get(RedisConfig.AUTH);
@@ -65,17 +69,7 @@ public class RedisParameters implements Serializable {
             this.user = config.get(RedisConfig.USER);
         }
         // set mode
-        if (config.getOptional(RedisConfig.MODE).isPresent()) {
-            this.mode = config.get(RedisConfig.MODE);
-        } else {
-            this.mode = RedisConfig.MODE.defaultValue();
-        }
-        // set hash key mode
-        if (config.getOptional(RedisConfig.HASH_KEY_PARSE_MODE).isPresent()) {
-            this.hashKeyParseMode = config.get(RedisConfig.HASH_KEY_PARSE_MODE);
-        } else {
-            this.hashKeyParseMode = RedisConfig.HASH_KEY_PARSE_MODE.defaultValue();
-        }
+        this.mode = config.get(RedisConfig.MODE);
         // set redis nodes information
         if (config.getOptional(RedisConfig.NODES).isPresent()) {
             this.redisNodes = config.get(RedisConfig.NODES);
@@ -88,19 +82,8 @@ public class RedisParameters implements Serializable {
         if (config.getOptional(RedisConfig.KEY_PATTERN).isPresent()) {
             this.keysPattern = config.get(RedisConfig.KEY_PATTERN);
         }
-        if (config.getOptional(RedisConfig.EXPIRE).isPresent()) {
-            this.expire = config.get(RedisConfig.EXPIRE);
-        }
-        // set redis data type
-        try {
-            String dataType = config.get(RedisConfig.DATA_TYPE);
-            this.redisDataType = RedisDataType.valueOf(dataType.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new RedisConnectorException(
-                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                    "Redis source connector only support these data types [key, hash, list, set, zset]",
-                    e);
-        }
+        // set redis data type verification factory createAndPrepareSource
+        this.redisDataType = config.get(RedisConfig.DATA_TYPE);
     }
 
     public Jedis buildJedis() {

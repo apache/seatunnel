@@ -79,9 +79,9 @@ public class RedisConfig {
                     .noDefaultValue()
                     .withDescription("The value of key you want to write to redis.");
 
-    public static final Option<String> DATA_TYPE =
+    public static final Option<RedisDataType> DATA_TYPE =
             Options.key("data_type")
-                    .stringType()
+                    .enumType(RedisDataType.class)
                     .noDefaultValue()
                     .withDescription("redis data types, support key hash list set zset.");
 
