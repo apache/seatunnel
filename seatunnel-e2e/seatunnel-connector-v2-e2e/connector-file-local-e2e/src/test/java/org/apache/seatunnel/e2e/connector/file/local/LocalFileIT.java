@@ -38,9 +38,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 @DisabledOnContainer(
-        value = {TestContainerId.SPARK_2_4},
+        value = {TestContainerId.SPARK_2_4, TestContainerId.FLINK_1_15},
         type = {},
-        disabledReason = "The apache-compress version is not compatible with apache-poi")
+        disabledReason = "The apache-compress version is not compatible with apache-poi, Flink 1.15.3's SideOutputDataStream.class conflict with Flink 1.16.2's")
 public class LocalFileIT extends TestSuiteBase {
 
     /** Copy data files to container */
@@ -120,6 +120,8 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/orc/local_file_orc_to_assert.conf");
         // test read local orc file with projection
         helper.execute("/orc/local_file_orc_projection_to_assert.conf");
+        // test read local text file write local orc file
+        helper.execute("/orc/local_file_text_to_local_file_orc.conf");
         // test write local parquet file
         helper.execute("/parquet/fake_to_local_file_parquet.conf");
         // test read local parquet file
