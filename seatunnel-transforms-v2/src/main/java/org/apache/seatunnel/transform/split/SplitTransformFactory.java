@@ -21,11 +21,10 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
+import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 
 import com.google.auto.service.AutoService;
-import lombok.NonNull;
 
 @AutoService(Factory.class)
 public class SplitTransformFactory implements TableTransformFactory {
@@ -45,9 +44,9 @@ public class SplitTransformFactory implements TableTransformFactory {
     }
 
     @Override
-    public TableTransform createTransform(@NonNull TableFactoryContext context) {
+    public TableTransform createTransform(TableTransformFactoryContext context) {
         SplitTransformConfig splitTransformConfig = SplitTransformConfig.of(context.getOptions());
-        CatalogTable catalogTable = context.getCatalogTable();
+        CatalogTable catalogTable = context.getCatalogTables().get(0);
         return () -> new SplitTransform(splitTransformConfig, catalogTable);
     }
 }

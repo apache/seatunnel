@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
@@ -44,7 +44,6 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
     protected final WriteStrategy writeStrategy;
     private final FileSystemUtils fileSystemUtils;
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public BaseFileSinkWriter(
             WriteStrategy writeStrategy,
             HadoopConf hadoopConf,
@@ -93,7 +92,7 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
                 String errorMsg =
                         String.format("Try to process these fileStates %s failed", fileSinkStates);
                 throw new FileConnectorException(
-                        CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, errorMsg, e);
             }
             writeStrategy.beginTransaction(fileSinkStates.get(0).getCheckpointId() + 1);
         } else {
@@ -126,7 +125,8 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
             writeStrategy.write(element);
         } catch (FileConnectorException e) {
             String errorMsg = String.format("Write this data [%s] to file failed", element);
-            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, errorMsg, e);
         }
     }
 

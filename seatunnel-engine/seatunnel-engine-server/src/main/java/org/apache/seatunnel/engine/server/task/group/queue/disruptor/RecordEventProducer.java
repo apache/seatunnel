@@ -26,7 +26,6 @@ import com.lmax.disruptor.RingBuffer;
 
 public class RecordEventProducer {
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static void onData(
             Record<?> record,
             RingBuffer<RecordEvent> ringBuffer,

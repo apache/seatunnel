@@ -80,7 +80,6 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
         return null;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @SneakyThrows
     @Override
     public Map<Object, Object> loadAll(Collection<Object> keys) {

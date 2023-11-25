@@ -22,7 +22,6 @@ Write data to InfluxDB.
 | key_time                    | string | no       | processing time              |
 | key_tags                    | array  | no       | exclude `field` & `key_time` |
 | batch_size                  | int    | no       | 1024                         |
-| batch_interval_ms           | int    | no       | -                            |
 | max_retries                 | int    | no       | -                            |
 | retry_backoff_multiplier_ms | int    | no       | -                            |
 | connect_timeout_ms          | long   | no       | 15000                        |
@@ -63,11 +62,7 @@ If not specified, include all fields with `influxDB` measurement field
 
 ### batch_size [int]
 
-For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the influxDB
-
-### batch_interval_ms [int]
-
-For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the influxDB
+For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `checkpoint.interval`, the data will be flushed into the influxDB
 
 ### max_retries [int]
 

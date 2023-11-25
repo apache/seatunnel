@@ -96,7 +96,6 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     public void testMetricsOnJobRestart() throws InterruptedException {
 
         long jobId3 = System.currentTimeMillis() + 323475L;
@@ -157,6 +156,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                         isStartWithSavePoint,
                         nodeEngine.getSerializationService().toData(testLogicalDag),
                         testLogicalDag.getJobConfig(),
+                        Collections.emptyList(),
                         Collections.emptyList());
 
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);

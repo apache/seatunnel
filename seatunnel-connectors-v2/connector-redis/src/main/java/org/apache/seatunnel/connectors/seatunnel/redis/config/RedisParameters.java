@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -40,6 +40,7 @@ public class RedisParameters implements Serializable {
     private String host;
     private int port;
     private String auth = "";
+    private int dbNum;
     private String user = "";
     private String keysPattern;
     private String keyField;
@@ -47,6 +48,7 @@ public class RedisParameters implements Serializable {
     private RedisConfig.RedisMode mode;
     private RedisConfig.HashKeyParseMode hashKeyParseMode;
     private List<String> redisNodes = Collections.emptyList();
+    private long expire = RedisConfig.EXPIRE.defaultValue();
 
     public void buildWithConfig(Config config) {
         // set host
@@ -56,6 +58,10 @@ public class RedisParameters implements Serializable {
         // set auth
         if (config.hasPath(RedisConfig.AUTH.key())) {
             this.auth = config.getString(RedisConfig.AUTH.key());
+        }
+        // set db_num
+        if (config.hasPath(RedisConfig.DB_NUM.key())) {
+            this.dbNum = config.getInt(RedisConfig.DB_NUM.key());
         }
         // set user
         if (config.hasPath(RedisConfig.USER.key())) {
@@ -89,13 +95,16 @@ public class RedisParameters implements Serializable {
         if (config.hasPath(RedisConfig.KEY_PATTERN.key())) {
             this.keysPattern = config.getString(RedisConfig.KEY_PATTERN.key());
         }
+        if (config.hasPath(RedisConfig.EXPIRE.key())) {
+            this.expire = config.getLong(RedisConfig.EXPIRE.key());
+        }
         // set redis data type
         try {
             String dataType = config.getString(RedisConfig.DATA_TYPE.key());
             this.redisDataType = RedisDataType.valueOf(dataType.toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new RedisConnectorException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                     "Redis source connector only support these data types [key, hash, list, set, zset]",
                     e);
         }
@@ -111,6 +120,7 @@ public class RedisParameters implements Serializable {
                 if (StringUtils.isNotBlank(user)) {
                     jedis.aclSetUser(user);
                 }
+                jedis.select(dbNum);
                 return jedis;
             case CLUSTER:
                 HashSet<HostAndPort> nodes = new HashSet<>();
@@ -121,7 +131,7 @@ public class RedisParameters implements Serializable {
                         String[] splits = redisNode.split(":");
                         if (splits.length != 2) {
                             throw new RedisConnectorException(
-                                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                                     "Invalid redis node information,"
                                             + "redis node information must like as the following: [host:port]");
                         }
@@ -144,11 +154,14 @@ public class RedisParameters implements Serializable {
                 } else {
                     jedisCluster = new JedisCluster(nodes);
                 }
-                return new JedisWrapper(jedisCluster);
+                JedisWrapper jedisWrapper = new JedisWrapper(jedisCluster);
+                jedisWrapper.select(dbNum);
+                return jedisWrapper;
             default:
                 // do nothing
                 throw new RedisConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION, "Not support this redis mode");
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                        "Not support this redis mode");
         }
     }
 }

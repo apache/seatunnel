@@ -74,7 +74,7 @@ The File does not have a specific type list, and we can indicate which SeaTunenl
 
 ## Source Options
 
-|           Name            |  Type   | Required |    default value    |                                                                                                                                                                                                 Description                                                                                                                                                                                                  |
+| Name                      | Type    | Required | default value       | Description                                                                                                                                                                                                                                                                                                                                                                                                  |
 |---------------------------|---------|----------|---------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                      | String  | Yes      | -                   | The source file path.                                                                                                                                                                                                                                                                                                                                                                                        |
 | file_format_type          | String  | Yes      | -                   | Please check #file_format_type below                                                                                                                                                                                                                                                                                                                                                                         |
@@ -84,7 +84,7 @@ The File does not have a specific type list, and we can indicate which SeaTunenl
 | access_key                | String  | No       | -                   | The access key of oss file system.                                                                                                                                                                                                                                                                                                                                                                           |
 | access_secret             | String  | No       | -                   | The access secret of oss file system.                                                                                                                                                                                                                                                                                                                                                                        |
 | file_filter_pattern       | String  | No       | -                   | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                                              |
-| delimiter                 | String  | No       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files. <br/> Default `\001`, the same as hive's default delimiter                                                                                                                                                                                                                                                     |
+| delimiter/field_delimiter | String  | No       | \001                | **delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead. <br/> Field delimiter, used to tell connector how to slice and dice fields when reading text files. <br/> Default `\001`, the same as hive's default delimiter                                                                                                                                           |
 | parse_partition_from_path | Boolean | No       | true                | Control whether parse the partition keys and values from file path <br/> For example if you read a file from path `oss://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26` <br/> Every record data from file will be added these two fields: <br/>      name       age  <br/> tyrantlucifer  26   <br/> Tips: **Do not define partition fields in schema option**                              |
 | date_format               | String  | No       | yyyy-MM-dd          | Date type format, used to tell connector how to convert string to date, supported as the following formats: <br/> `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` <br/> default `yyyy-MM-dd`                                                                                                                                                                                                                          |
 | datetime_format           | String  | No       | yyyy-MM-dd HH:mm:ss | Datetime type format, used to tell connector how to convert string to datetime, supported as the following formats: <br/> `yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss` <br/> default `yyyy-MM-dd HH:mm:ss`                                                                                                                                                             |
@@ -92,6 +92,8 @@ The File does not have a specific type list, and we can indicate which SeaTunenl
 | skip_header_row_number    | Long    | No       | 0                   | Skip the first few lines, but only for the txt and csv. <br/> For example, set like following: <br/> `skip_header_row_number = 2` <br/> then SeaTunnel will skip the first 2 lines from source files                                                                                                                                                                                                         |
 | sheet_name                | String  | No       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                                                                                                        |
 | schema                    | Config  | No       | -                   | Please check #schema below                                                                                                                                                                                                                                                                                                                                                                                   |
+| file_filter_pattern       | string  | no       | -                   | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                                              |
+| compress_codec            | string  | no       | none                | Please check #compress_codec below                                                                                                                                                                                                                                                                                                                                                                           |
 | common-options            |         | No       | -                   | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                                                                                                                                                                                                                                                                                     |
 
 ### file_format_type [string]
@@ -159,13 +161,13 @@ If you do not assign data schema connector will treat the upstream data as the f
 |-----------------------|
 | tyrantlucifer#26#male |
 
-If you assign data schema, you should also assign the option `delimiter` too except CSV file type
+If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
 
 you should assign schema and delimiter as the following:
 
 ```hocon
 
-delimiter = "#"
+field_delimiter = "#"
 schema {
     fields {
         name = string
@@ -184,9 +186,21 @@ connector will generate data as the following:
 
 ### schema [config]
 
+Only need to be configured when the file_format_type are text, json, excel or csv ( Or other format we can't read the schema from metadata).
+
 #### fields [Config]
 
 The schema of upstream data.
+
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc/parquet:  
+  automatically recognizes the compression type, no additional settings required.
 
 ## How to Create a Oss Data Synchronization Jobs
 

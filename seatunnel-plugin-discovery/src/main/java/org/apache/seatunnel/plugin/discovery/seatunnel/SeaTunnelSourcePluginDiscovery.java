@@ -26,11 +26,11 @@ import java.util.function.BiConsumer;
 public class SeaTunnelSourcePluginDiscovery extends AbstractPluginDiscovery<SeaTunnelSource> {
 
     public SeaTunnelSourcePluginDiscovery() {
-        super("seatunnel");
+        super();
     }
 
     public SeaTunnelSourcePluginDiscovery(BiConsumer<ClassLoader, URL> addURLToClassLoader) {
-        super("seatunnel", addURLToClassLoader);
+        super(addURLToClassLoader);
     }
 
     @Override

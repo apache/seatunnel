@@ -26,8 +26,8 @@ import org.bson.BsonDocument;
 import org.bson.BsonValue;
 
 import static org.apache.seatunnel.api.table.type.SqlType.STRING;
-import static org.apache.seatunnel.common.exception.CommonErrorCode.ILLEGAL_ARGUMENT;
-import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_OPERATION;
+import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
+import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION;
 
 public class DocumentRowDataDeserializer implements DocumentDeserializer<SeaTunnelRow> {
 

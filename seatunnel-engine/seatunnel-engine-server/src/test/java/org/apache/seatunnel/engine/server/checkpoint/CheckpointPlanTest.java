@@ -21,12 +21,16 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -46,6 +50,7 @@ import com.google.common.collect.ImmutableMap;
 import com.hazelcast.map.IMap;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
@@ -67,6 +72,7 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                         "Test",
                         nodeEngine.getSerializationService().toData(logicalDag),
                         config,
+                        Collections.emptyList(),
                         Collections.emptyList());
 
         IMap<Object, Object> runningJobState =
@@ -85,7 +91,7 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                                 runningJobState,
                                 runningJobStateTimestamp,
                                 QueueType.BLOCKINGQUEUE,
-                                new CheckpointConfig())
+                                new EngineConfig())
                         .f1();
         Assertions.assertNotNull(checkpointPlans);
         Assertions.assertEquals(2, checkpointPlans.size());
@@ -107,27 +113,39 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
             IdGenerator idGenerator, LogicalDag logicalDag, int parallelism) {
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(JobMode.BATCH);
-        FakeSource fakeSource = new FakeSource();
         Config fakeSourceConfig =
                 ConfigFactory.parseMap(
                         Collections.singletonMap(
                                 "schema",
                                 Collections.singletonMap(
                                         "fields", ImmutableMap.of("id", "int", "name", "string"))));
-        fakeSource.prepare(fakeSourceConfig);
+        FakeSource fakeSource = new FakeSource(ReadonlyConfig.fromConfig(fakeSourceConfig));
         fakeSource.setJobContext(jobContext);
 
         Action fake =
                 new SourceAction<>(
-                        idGenerator.getNextId(), "fake", fakeSource, Collections.emptySet());
+                        idGenerator.getNextId(),
+                        "fake",
+                        fakeSource,
+                        Collections.emptySet(),
+                        Collections.emptySet());
         fake.setParallelism(parallelism);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, parallelism);
 
-        ConsoleSink consoleSink = new ConsoleSink();
+        ConsoleSink consoleSink =
+                new ConsoleSink(
+                        new SeaTunnelRowType(
+                                new String[] {"id"},
+                                new SeaTunnelDataType<?>[] {BasicType.INT_TYPE}),
+                        ReadonlyConfig.fromMap(new HashMap<>()));
         consoleSink.setJobContext(jobContext);
         Action console =
                 new SinkAction<>(
-                        idGenerator.getNextId(), "console", consoleSink, Collections.emptySet());
+                        idGenerator.getNextId(),
+                        "console",
+                        consoleSink,
+                        Collections.emptySet(),
+                        Collections.emptySet());
         console.setParallelism(parallelism);
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, parallelism);
 

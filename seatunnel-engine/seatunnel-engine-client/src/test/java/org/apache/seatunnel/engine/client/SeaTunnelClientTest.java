@@ -22,9 +22,9 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobClient;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -56,7 +56,6 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVE
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 import static org.awaitility.Awaitility.await;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 @DisabledOnOs(OS.WINDOWS)
 public class SeaTunnelClientTest {
 
@@ -99,8 +98,8 @@ public class SeaTunnelClientTest {
         SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
 
         try {
-            JobExecutionEnvironment jobExecutionEnv =
-                    seaTunnelClient.createExecutionContext(filePath, jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(
@@ -134,8 +133,8 @@ public class SeaTunnelClientTest {
         JobClient jobClient = seaTunnelClient.getJobClient();
 
         try {
-            JobExecutionEnvironment jobExecutionEnv =
-                    seaTunnelClient.createExecutionContext(filePath, jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(
@@ -180,8 +179,8 @@ public class SeaTunnelClientTest {
         JobClient jobClient = seaTunnelClient.getJobClient();
 
         try {
-            JobExecutionEnvironment jobExecutionEnv =
-                    seaTunnelClient.createExecutionContext(filePath, jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -227,7 +226,9 @@ public class SeaTunnelClientTest {
         JobClient jobClient = seaTunnelClient.getJobClient();
 
         ClientJobProxy execute1 =
-                seaTunnelClient.createExecutionContext(filePath, jobConfig).execute();
+                seaTunnelClient
+                        .createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG)
+                        .execute();
         long jobId1 = execute1.getJobId();
 
         execute1.waitForJobComplete();
@@ -236,9 +237,13 @@ public class SeaTunnelClientTest {
         jobConfig = new JobConfig();
         jobConfig.setName("fake_to_console2");
         ClientJobProxy execute2 =
-                seaTunnelClient.createExecutionContext(filePath, jobConfig).execute();
+                seaTunnelClient
+                        .createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG)
+                        .execute();
         ClientJobProxy execute3 =
-                seaTunnelClient.createExecutionContext(filePath, jobConfig).execute();
+                seaTunnelClient
+                        .createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG)
+                        .execute();
 
         long jobId2 = execute2.getJobId();
         long jobId3 = execute3.getJobId();
@@ -278,8 +283,8 @@ public class SeaTunnelClientTest {
         SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
         JobClient jobClient = seaTunnelClient.getJobClient();
         try {
-            JobExecutionEnvironment jobExecutionEnv =
-                    seaTunnelClient.createExecutionContext(filePath, jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
@@ -316,8 +321,8 @@ public class SeaTunnelClientTest {
         JobClient jobClient = seaTunnelClient.getJobClient();
 
         try {
-            JobExecutionEnvironment jobExecutionEnv =
-                    seaTunnelClient.createExecutionContext(filePath, jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             long jobId = clientJobProxy.getJobId();
@@ -364,8 +369,8 @@ public class SeaTunnelClientTest {
         JobClient jobClient = seaTunnelClient.getJobClient();
 
         try {
-            JobExecutionEnvironment jobExecutionEnv =
-                    seaTunnelClient.createExecutionContext(filePath, jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             long jobId = clientJobProxy.getJobId();
@@ -402,7 +407,9 @@ public class SeaTunnelClientTest {
                                             "FINISHED", jobClient.getJobStatus(jobId)));
 
             Thread.sleep(1000);
-            seaTunnelClient.restoreExecutionContext(filePath, jobConfig, jobId).execute();
+            seaTunnelClient
+                    .restoreExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG, jobId)
+                    .execute();
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
                     .untilAsserted(

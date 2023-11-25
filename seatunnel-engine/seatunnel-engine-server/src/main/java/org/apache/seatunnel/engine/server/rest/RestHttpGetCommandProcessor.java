@@ -203,8 +203,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         } catch (JsonProcessingException | NullPointerException e) {
             return metricsMap;
         }
-        metricsMap.put("sourceReceivedCount", sourceReadCount);
-        metricsMap.put("sinkWriteCount", sinkWriteCount);
+        metricsMap.put(SOURCE_RECEIVED_COUNT, sourceReadCount);
+        metricsMap.put(SINK_WRITE_COUNT, sinkWriteCount);
 
         return metricsMap;
     }
@@ -243,28 +243,33 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         JobStatus jobStatus = getSeaTunnelServer().getCoordinatorService().getJobStatus(jobId);
 
         jobInfoJson
-                .add("jobId", jobId)
-                .add("jobName", logicalDag.getJobConfig().getName())
-                .add("jobStatus", jobStatus.toString())
-                .add("envOptions", JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
+                .add(RestConstant.JOB_ID, String.valueOf(jobId))
+                .add(RestConstant.JOB_NAME, logicalDag.getJobConfig().getName())
+                .add(RestConstant.JOB_STATUS, jobStatus.toString())
                 .add(
-                        "createTime",
+                        RestConstant.ENV_OPTIONS,
+                        JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
+                .add(
+                        RestConstant.CREATE_TIME,
                         new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
                                 .format(new Date(jobImmutableInformation.getCreateTime())))
-                .add("jobDag", logicalDag.getLogicalDagAsJson())
+                .add(RestConstant.JOB_DAG, logicalDag.getLogicalDagAsJson())
                 .add(
-                        "pluginJarsUrls",
+                        RestConstant.PLUGIN_JARS_URLS,
                         (JsonValue)
                                 jobImmutableInformation.getPluginJarsUrls().stream()
                                         .map(
                                                 url -> {
                                                     JsonObject jarUrl = new JsonObject();
-                                                    jarUrl.add("jarPath", url.toString());
+                                                    jarUrl.add(
+                                                            RestConstant.JAR_PATH, url.toString());
                                                     return jarUrl;
                                                 })
                                         .collect(JsonArray::new, JsonArray::add, JsonArray::add))
-                .add("isStartWithSavePoint", jobImmutableInformation.isStartWithSavePoint())
-                .add("metrics", JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
+                .add(
+                        RestConstant.IS_START_WITH_SAVE_POINT,
+                        jobImmutableInformation.isStartWithSavePoint())
+                .add(RestConstant.METRICS, JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
 
         return jobInfoJson;
     }

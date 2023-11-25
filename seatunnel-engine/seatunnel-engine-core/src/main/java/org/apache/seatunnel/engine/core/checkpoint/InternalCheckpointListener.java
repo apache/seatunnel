@@ -41,4 +41,14 @@ public interface InternalCheckpointListener extends CheckpointListener {
      */
     @Override
     default void notifyCheckpointAborted(long checkpointId) throws Exception {}
+
+    /**
+     * The notification that the checkpoint has ended means that the notifyCheckpointComplete method
+     * has been called for all tasks.
+     *
+     * @param checkpointId The ID of the checkpoint .
+     * @throws Exception This method can propagate exceptions, which leads to a failure/recovery for
+     *     the task or job.
+     */
+    default void notifyCheckpointEnd(long checkpointId) throws Exception {}
 }

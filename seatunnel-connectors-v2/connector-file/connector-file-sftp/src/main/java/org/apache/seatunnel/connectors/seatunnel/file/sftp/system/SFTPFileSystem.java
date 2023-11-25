@@ -208,7 +208,6 @@ public class SFTPFileSystem extends FileSystem {
         return fileStat;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private FileStatus getFileStatus(ChannelSftp channel, LsEntry sftpFile, Path parentPath)
             throws IOException {
 

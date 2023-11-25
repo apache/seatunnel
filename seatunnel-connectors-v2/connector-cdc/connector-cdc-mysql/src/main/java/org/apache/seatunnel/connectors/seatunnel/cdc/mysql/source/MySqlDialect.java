@@ -32,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.b
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.scan.MySqlSnapshotFetchTask;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.TableDiscoveryUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
@@ -55,7 +56,7 @@ public class MySqlDialect implements JdbcDataSourceDialect {
 
     @Override
     public String getName() {
-        return "MySQL";
+        return DatabaseIdentifier.MYSQL;
     }
 
     @Override

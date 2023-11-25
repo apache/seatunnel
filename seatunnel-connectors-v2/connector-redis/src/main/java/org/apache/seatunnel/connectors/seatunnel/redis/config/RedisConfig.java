@@ -48,6 +48,13 @@ public class RedisConfig {
                     .withDescription(
                             "redis authentication password, you need it when you connect to an encrypted cluster");
 
+    public static final Option<Integer> DB_NUM =
+            Options.key("db_num")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "Redis  database index id, it is connected to db 0 by default");
+
     public static final Option<String> USER =
             Options.key("user")
                     .stringType()
@@ -101,6 +108,12 @@ public class RedisConfig {
                     .defaultValue(HashKeyParseMode.ALL)
                     .withDescription(
                             "hash key parse mode, support all or kv, default value is all");
+
+    public static final Option<Long> EXPIRE =
+            Options.key("expire")
+                    .longType()
+                    .defaultValue(-1L)
+                    .withDescription("Set redis expiration time.");
 
     public enum Format {
         JSON,

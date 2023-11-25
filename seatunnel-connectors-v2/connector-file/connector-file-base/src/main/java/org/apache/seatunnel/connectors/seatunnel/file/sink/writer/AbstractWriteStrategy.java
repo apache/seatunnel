@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.Constants;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.VariablesSubstitute;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
@@ -292,7 +292,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
             fileSystemUtils.deleteFile(getTransactionDir(transactionId));
         } catch (IOException e) {
             throw new FileConnectorException(
-                    CommonErrorCode.FILE_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
                     "Abort transaction "
                             + transactionId
                             + " error, delete transaction directory failed",

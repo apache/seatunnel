@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
@@ -28,17 +28,12 @@ import org.apache.iotdb.rpc.StatementExecutionException;
 import org.apache.iotdb.session.Session;
 import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class IoTDBSinkClient {
@@ -47,8 +42,6 @@ public class IoTDBSinkClient {
     private final List<IoTDBRecord> batchList;
 
     private Session session;
-    private ScheduledExecutorService scheduler;
-    private ScheduledFuture<?> scheduledFuture;
     private volatile boolean initialize;
     private volatile Exception flushException;
 
@@ -95,26 +88,6 @@ public class IoTDBSinkClient {
                     "Initialize IoTDB client failed.",
                     e);
         }
-
-        if (sinkConfig.getBatchIntervalMs() != null) {
-            scheduler =
-                    Executors.newSingleThreadScheduledExecutor(
-                            new ThreadFactoryBuilder()
-                                    .setNameFormat("IoTDB-sink-output-%s")
-                                    .build());
-            scheduledFuture =
-                    scheduler.scheduleAtFixedRate(
-                            () -> {
-                                try {
-                                    flush();
-                                } catch (IOException e) {
-                                    flushException = e;
-                                }
-                            },
-                            sinkConfig.getBatchIntervalMs(),
-                            sinkConfig.getBatchIntervalMs(),
-                            TimeUnit.MILLISECONDS);
-        }
         initialize = true;
     }
 
@@ -129,11 +102,6 @@ public class IoTDBSinkClient {
     }
 
     public synchronized void close() throws IOException {
-        if (scheduledFuture != null) {
-            scheduledFuture.cancel(false);
-            scheduler.shutdown();
-        }
-
         flush();
 
         try {
@@ -174,7 +142,7 @@ public class IoTDBSinkClient {
                 log.error("Writing records to IoTDB failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
                     throw new IotdbConnectorException(
-                            CommonErrorCode.FLUSH_DATA_FAILED,
+                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                             "Writing records to IoTDB failed.",
                             e);
                 }
@@ -188,7 +156,7 @@ public class IoTDBSinkClient {
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     throw new IotdbConnectorException(
-                            CommonErrorCode.FLUSH_DATA_FAILED,
+                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                             "Unable to flush; interrupted while doing another attempt.",
                             e);
                 }
@@ -201,7 +169,7 @@ public class IoTDBSinkClient {
     private void checkFlushException() {
         if (flushException != null) {
             throw new IotdbConnectorException(
-                    CommonErrorCode.FLUSH_DATA_FAILED,
+                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                     "Writing records to IoTDB failed.",
                     flushException);
         }

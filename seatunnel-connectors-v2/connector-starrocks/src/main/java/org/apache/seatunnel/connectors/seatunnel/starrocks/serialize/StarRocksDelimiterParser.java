@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.serialize;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
 import com.google.common.base.Strings;
@@ -40,18 +40,18 @@ public class StarRocksDelimiterParser {
         // check hex str
         if (hexStr.isEmpty()) {
             throw new StarRocksConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "Failed to parse delimiter: `Hex str is empty`");
         }
         if (hexStr.length() % 2 != 0) {
             throw new StarRocksConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "Failed to parse delimiter: `Hex str is empty`");
         }
         for (char hexChar : hexStr.toUpperCase().toCharArray()) {
             if (HEX_STRING.indexOf(hexChar) == -1) {
                 throw new StarRocksConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         "Failed to parse delimiter: `Hex str is empty`");
             }
         }

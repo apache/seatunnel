@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.transform.copy;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -29,12 +25,10 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
-
-import com.google.auto.service.AutoService;
-import lombok.NoArgsConstructor;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
@@ -44,15 +38,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@NoArgsConstructor
-@AutoService(SeaTunnelTransform.class)
 public class CopyFieldTransform extends MultipleFieldOutputTransform {
     public static final String PLUGIN_NAME = "Copy";
 
-    private CopyTransformConfig config;
+    private final CopyTransformConfig config;
     private List<String> fieldNames;
-    private List<Integer> fieldOriginalIndexs;
-    private List<SeaTunnelDataType> fieldTypes;
+    private List<Integer> fieldOriginalIndexes;
+    private List<SeaTunnelDataType<?>> fieldTypes;
 
     public CopyFieldTransform(CopyTransformConfig copyTransformConfig, CatalogTable catalogTable) {
         super(catalogTable);
@@ -66,47 +58,26 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
         return PLUGIN_NAME;
     }
 
-    @Override
-    protected void setConfig(Config pluginConfig) {
-        ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
-                .validate(new CopyFieldTransformFactory().optionRule());
-        this.config = CopyTransformConfig.of(ReadonlyConfig.fromConfig(pluginConfig));
-    }
-
-    @Override
-    protected void setInputRowType(SeaTunnelRowType inputRowType) {
-        initOutputFields(inputRowType, config.getFields());
-    }
-
     private void initOutputFields(
             SeaTunnelRowType inputRowType, LinkedHashMap<String, String> fields) {
         List<String> fieldNames = new ArrayList<>();
-        List<Integer> fieldOriginalIndexs = new ArrayList<>();
-        List<SeaTunnelDataType> fieldsType = new ArrayList<>();
+        List<Integer> fieldOriginalIndexes = new ArrayList<>();
+        List<SeaTunnelDataType<?>> fieldsType = new ArrayList<>();
         for (Map.Entry<String, String> field : fields.entrySet()) {
             String srcField = field.getValue();
-            int srcFieldIndex = inputRowType.indexOf(srcField);
-            if (srcFieldIndex == -1) {
-                throw new IllegalArgumentException(
-                        "Cannot find [" + srcField + "] field in input row type");
+            int srcFieldIndex;
+            try {
+                srcFieldIndex = inputRowType.indexOf(srcField);
+            } catch (IllegalArgumentException e) {
+                throw TransformCommonError.cannotFindInputFieldError(getPluginName(), srcField);
             }
             fieldNames.add(field.getKey());
-            fieldOriginalIndexs.add(srcFieldIndex);
+            fieldOriginalIndexes.add(srcFieldIndex);
             fieldsType.add(inputRowType.getFieldType(srcFieldIndex));
         }
         this.fieldNames = fieldNames;
-        this.fieldOriginalIndexs = fieldOriginalIndexs;
+        this.fieldOriginalIndexes = fieldOriginalIndexes;
         this.fieldTypes = fieldsType;
-    }
-
-    @Override
-    protected String[] getOutputFieldNames() {
-        return fieldNames.toArray(new String[0]);
-    }
-
-    @Override
-    protected SeaTunnelDataType[] getOutputFieldDataTypes() {
-        return fieldTypes.toArray(new SeaTunnelDataType[0]);
     }
 
     @Override
@@ -143,14 +114,17 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
     @Override
     protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
         Object[] fieldValues = new Object[fieldNames.size()];
-        for (int i = 0; i < fieldOriginalIndexs.size(); i++) {
+        for (int i = 0; i < fieldOriginalIndexes.size(); i++) {
             fieldValues[i] =
-                    clone(fieldTypes.get(i), inputRow.getField(fieldOriginalIndexs.get(i)));
+                    clone(
+                            fieldNames.get(i),
+                            fieldTypes.get(i),
+                            inputRow.getField(fieldOriginalIndexes.get(i)));
         }
         return fieldValues;
     }
 
-    private Object clone(SeaTunnelDataType dataType, Object value) {
+    private Object clone(String field, SeaTunnelDataType<?> dataType, Object value) {
         if (value == null) {
             return null;
         }
@@ -170,44 +144,39 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
                 return value;
             case BYTES:
                 byte[] bytes = (byte[]) value;
-                if (bytes == null) {
-                    return null;
-                }
                 byte[] newBytes = new byte[bytes.length];
                 System.arraycopy(bytes, 0, newBytes, 0, bytes.length);
                 return newBytes;
             case ARRAY:
                 ArrayType arrayType = (ArrayType) dataType;
                 Object[] array = (Object[]) value;
-                if (array == null) {
-                    return null;
-                }
                 Object newArray =
                         Array.newInstance(arrayType.getElementType().getTypeClass(), array.length);
                 for (int i = 0; i < array.length; i++) {
-                    Array.set(newArray, i, clone(arrayType.getElementType(), array[i]));
+                    Array.set(newArray, i, clone(field, arrayType.getElementType(), array[i]));
                 }
                 return newArray;
             case MAP:
                 MapType mapType = (MapType) dataType;
                 Map map = (Map) value;
-                Map newMap = new HashMap();
+                Map<Object, Object> newMap = new HashMap<>();
                 for (Object key : map.keySet()) {
                     newMap.put(
-                            clone(mapType.getKeyType(), key),
-                            clone(mapType.getValueType(), map.get(key)));
+                            clone(field, mapType.getKeyType(), key),
+                            clone(field, mapType.getValueType(), map.get(key)));
                 }
                 return newMap;
             case ROW:
                 SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
                 SeaTunnelRow row = (SeaTunnelRow) value;
-                if (row == null) {
-                    return null;
-                }
 
                 Object[] newFields = new Object[rowType.getTotalFields()];
                 for (int i = 0; i < rowType.getTotalFields(); i++) {
-                    newFields[i] = clone(rowType.getFieldType(i), row.getField(i));
+                    newFields[i] =
+                            clone(
+                                    rowType.getFieldName(i),
+                                    rowType.getFieldType(i),
+                                    row.getField(i));
                 }
                 SeaTunnelRow newRow = new SeaTunnelRow(newFields);
                 newRow.setRowKind(row.getRowKind());
@@ -216,8 +185,8 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
             case NULL:
                 return null;
             default:
-                throw new UnsupportedOperationException(
-                        "Unsupported type: " + dataType.getSqlType());
+                throw CommonError.unsupportedDataType(
+                        getPluginName(), dataType.getSqlType().toString(), field);
         }
     }
 }
