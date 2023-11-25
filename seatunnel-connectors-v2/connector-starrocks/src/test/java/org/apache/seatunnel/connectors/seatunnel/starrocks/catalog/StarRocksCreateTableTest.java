@@ -29,10 +29,13 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.StarRocksSaveMod
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+@Slf4j
 public class StarRocksCreateTableTest {
 
     @Test
@@ -71,7 +74,7 @@ public class StarRocksCreateTableTest {
                                 .columns(columns)
                                 .build());
 
-        System.out.println(result);
+        log.info(result);
     }
 
     @Test
