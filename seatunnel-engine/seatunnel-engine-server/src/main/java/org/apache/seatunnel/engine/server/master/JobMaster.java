@@ -277,7 +277,7 @@ public class JobMaster {
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()).toString()));
         } else if (jobEnv.containsKey(EnvCommonOptions.JOB_MODE.key())
                 && jobEnv.get(EnvCommonOptions.JOB_MODE.key()).equals(JobMode.BATCH.name())) {
-            LOGGER.warning(
+            LOGGER.info(
                     "in batch mode, the 'checkpoint.interval' configuration of env is missing, so checkpoint will be disabled");
             jobCheckpointConfig.setCheckpointEnable(false);
         }

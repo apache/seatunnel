@@ -48,15 +48,27 @@ public class CheckpointEnableIT extends TestSuiteBase {
             throws IOException, InterruptedException {
         // checkpoint disable, log don't contains 'CHECKPOINT_TYPE'
         Container.ExecResult disableExecResult =
-                container.executeJob("/batch_fakesource_to_console_checkpoint_disable.conf");
-        Assertions.assertFalse(container.getServerLogs().contains("CHECKPOINT_TYPE"));
+                container.executeJob(
+                        "/checkpoint-disable-test-resources/batch_fakesource_to_localfile_checkpoint_disable.conf");
+        Assertions.assertTrue(container.getServerLogs().contains("checkpoint is disabled"));
         Assertions.assertEquals(0, disableExecResult.getExitCode());
+        // check sink file is right
+        Container.ExecResult disableSinkFileExecResult =
+                container.executeJob(
+                        "/checkpoint-disable-test-resources/sink_file_text_to_assert.conf");
+        Assertions.assertEquals(0, disableSinkFileExecResult.getExitCode());
 
         // checkpoint enable, log contains 'CHECKPOINT_TYPE'
         Container.ExecResult enableExecResult =
-                container.executeJob("/batch_fakesource_to_console_checkpoint_enable.conf");
-        Assertions.assertTrue(container.getServerLogs().contains("CHECKPOINT_TYPE"));
+                container.executeJob(
+                        "/checkpoint-enable-test-resources/batch_fakesource_to_localfile_checkpoint_enable.conf");
+        Assertions.assertTrue(container.getServerLogs().contains("checkpoint is enabled"));
         Assertions.assertEquals(0, enableExecResult.getExitCode());
+        // check sink file is right
+        Container.ExecResult enableSinkFileExecResult =
+                container.executeJob(
+                        "/checkpoint-enable-test-resources/sink_file_text_to_assert.conf");
+        Assertions.assertEquals(0, enableSinkFileExecResult.getExitCode());
     }
 
     @TestTemplate
@@ -73,7 +85,8 @@ public class CheckpointEnableIT extends TestSuiteBase {
          * checkpoint by configuring tasks with 'checkpoint.interval'.
          */
         Container.ExecResult enableExecResult =
-                container.executeJob("/batch_fakesource_to_console_checkpoint_enable.conf");
+                container.executeJob(
+                        "/checkpoint-enable-test-resources/batch_fakesource_to_localfile_checkpoint_enable.conf");
         // obtain flink job configuration
         Matcher matcher =
                 Pattern.compile("JobID\\s([a-fA-F0-9]+)").matcher(enableExecResult.getStdout());
@@ -110,7 +123,8 @@ public class CheckpointEnableIT extends TestSuiteBase {
          * checkpoint by configuring tasks with 'checkpoint.interval'.
          */
         Container.ExecResult enableExecResult =
-                container.executeJob("/batch_fakesource_to_console_checkpoint_enable.conf");
+                container.executeJob(
+                        "/checkpoint-enable-test-resources/batch_fakesource_to_localfile_checkpoint_enable.conf");
         // according to logs, if checkpoint.interval is configured, spark also ignores this
         // configuration
         Assertions.assertTrue(
