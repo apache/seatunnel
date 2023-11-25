@@ -37,20 +37,21 @@ Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For ex
 
 ## Data Type Mapping
 
-|                                        SQLserver Data type                                        |                SeaTunnel Data type                 |
-|---------------------------------------------------------------------------------------------------|----------------------------------------------------|
-| CHAR<br/>VARCHAR<br/>NCHAR<br/>NVARCHAR<br/>STRUCT<br/>CLOB<br/>LONGVARCHAR<br/>LONGNVARCHAR<br/> | STRING                                             |
-| BLOB                                                                                              | BYTES                                              |
-| INTEGER                                                                                           | INT                                                |
-| SMALLINT<br/>TINYINT<br/>                                                                         | SMALLINT                                           |
-| BIGINT                                                                                            | BIGINT                                             |
-| FLOAT<br/>REAL<br/>                                                                               | FLOAT                                              |
-| DOUBLE                                                                                            | DOUBLE                                             |
-| NUMERIC<br/>DECIMAL(column.length(), column.scale().orElse(0))<br/>                               | DECIMAL(column.length(), column.scale().orElse(0)) |
-| TIMESTAMP                                                                                         | TIMESTAMP                                          |
-| DATE                                                                                              | DATE                                               |
-| TIME                                                                                              | TIME                                               |
-| BOOLEAN     <br/>BIT<br/>                                                                         | BOOLEAN                                            |
+|                         SQLserver Data type                          | SeaTunnel Data type |
+|----------------------------------------------------------------------|---------------------|
+| CHAR<br/>VARCHAR<br/>NCHAR<br/>NVARCHAR<br/>TEXT<br/>NTEXT<br/>XML   | STRING              |
+| BINARY<br/>VARBINARY<br/>IMAGE                                       | BYTES               |
+| INTEGER<br/>INT                                                      | INT                 |
+| SMALLINT<br/>TINYINT                                                 | SMALLINT            |
+| BIGINT                                                               | BIGINT              |
+| FLOAT(1~24)<br/>REAL                                                 | FLOAT               |
+| DOUBLE<br/>FLOAT(>24)                                                | DOUBLE              |
+| NUMERIC(p,s)<br/>DECIMAL(p,s)<br/>MONEY<br/>SMALLMONEY               | DECIMAL(p, s)       |
+| TIMESTAMP                                                            | BYTES               |
+| DATE                                                                 | DATE                |
+| TIME(s)                                                              | TIME(s)             |
+| DATETIME(s)<br/>DATETIME2(s)<br/>DATETIMEOFFSET(s)<br/>SMALLDATETIME | TIMESTAMP(s)        |
+| BOOLEAN<br/>BIT<br/>                                                 | BOOLEAN             |
 
 ## Source Options
 

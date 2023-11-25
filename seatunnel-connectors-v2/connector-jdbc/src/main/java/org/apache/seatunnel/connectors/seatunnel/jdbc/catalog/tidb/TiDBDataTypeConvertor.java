@@ -109,7 +109,7 @@ public class TiDBDataTypeConvertor implements DataTypeConvertor<MysqlType> {
             if (CommonErrorCode.CONVERT_TO_CONNECTOR_TYPE_ERROR_SIMPLE.equals(
                     e.getSeaTunnelErrorCode())) {
                 throw CommonError.convertToConnectorTypeError(
-                        DatabaseIdentifier.TIDB, seaTunnelDataType.toString(), field);
+                        DatabaseIdentifier.TIDB, seaTunnelDataType.getSqlType().name(), field);
             }
             throw e;
         }
