@@ -46,7 +46,7 @@ public class LocalFileWithRowDelimiterIT extends TestSuiteBase {
                         container);
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e_row_delimiter.txt",
-                        "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e_row_delimiter.txt",
+                        "/seatunnel/read/text/e2e_row_delimiter.txt",
                         container);
                 container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
             };
