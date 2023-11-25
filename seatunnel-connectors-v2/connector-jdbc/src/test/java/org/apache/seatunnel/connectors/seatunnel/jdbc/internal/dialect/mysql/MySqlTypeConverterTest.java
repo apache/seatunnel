@@ -33,14 +33,14 @@ import org.junit.jupiter.api.Test;
 
 import com.mysql.cj.MysqlType;
 
-public class MySQLTypeConverterTest {
+public class MySqlTypeConverterTest {
 
     @Test
     public void testConvertUnsupported() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("aaa").dataType("aaa").build();
         try {
-            MySQLTypeConverter.INSTANCE.convert(typeDefine);
+            MySqlTypeConverter.INSTANCE.convert(typeDefine);
             Assertions.fail();
         } catch (SeaTunnelRuntimeException e) {
             // ignore
@@ -60,7 +60,7 @@ public class MySQLTypeConverterTest {
                         .defaultValue("null")
                         .comment("null")
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.VOID_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -78,7 +78,7 @@ public class MySQLTypeConverterTest {
                         .dataType("bit")
                         .length(1L)
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.BOOLEAN_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -90,7 +90,7 @@ public class MySQLTypeConverterTest {
                         .dataType("bit")
                         .length(9L)
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
         Assertions.assertEquals(2, column.getColumnLength());
@@ -106,7 +106,7 @@ public class MySQLTypeConverterTest {
                         .dataType("tinyint")
                         .length(1L)
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.BOOLEAN_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -118,7 +118,7 @@ public class MySQLTypeConverterTest {
                         .dataType("tinyint")
                         .length(2L)
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.BYTE_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -129,7 +129,7 @@ public class MySQLTypeConverterTest {
                         .columnType("tinyint unsigned")
                         .dataType("tinyint unsigned")
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.SHORT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -141,7 +141,7 @@ public class MySQLTypeConverterTest {
                         .dataType("tinyint")
                         .unsigned(true)
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.SHORT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -155,7 +155,7 @@ public class MySQLTypeConverterTest {
                         .columnType("smallint")
                         .dataType("smallint")
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.SHORT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -166,7 +166,7 @@ public class MySQLTypeConverterTest {
                         .columnType("smallint unsigned")
                         .dataType("smallint unsigned")
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -180,7 +180,7 @@ public class MySQLTypeConverterTest {
                         .columnType("mediumint")
                         .dataType("mediumint")
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -191,7 +191,7 @@ public class MySQLTypeConverterTest {
                         .columnType("mediumint unsigned")
                         .dataType("mediumint unsigned")
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -201,7 +201,7 @@ public class MySQLTypeConverterTest {
     public void testConvertInt() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("int").dataType("int").build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -212,7 +212,7 @@ public class MySQLTypeConverterTest {
                         .columnType("integer")
                         .dataType("integer")
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -223,7 +223,7 @@ public class MySQLTypeConverterTest {
                         .columnType("int unsigned")
                         .dataType("int unsigned")
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.LONG_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -234,7 +234,7 @@ public class MySQLTypeConverterTest {
                         .columnType("integer unsigned")
                         .dataType("integer unsigned")
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.LONG_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -248,7 +248,7 @@ public class MySQLTypeConverterTest {
                         .columnType("bigint")
                         .dataType("bigint")
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.LONG_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -259,7 +259,7 @@ public class MySQLTypeConverterTest {
                         .columnType("bigint unsigned")
                         .dataType("bigint unsigned")
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(20, 0), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -273,7 +273,7 @@ public class MySQLTypeConverterTest {
                         .columnType("float")
                         .dataType("float")
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.FLOAT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -284,7 +284,7 @@ public class MySQLTypeConverterTest {
                         .columnType("float unsigned")
                         .dataType("float unsigned")
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.FLOAT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -298,7 +298,7 @@ public class MySQLTypeConverterTest {
                         .columnType("double")
                         .dataType("double")
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.DOUBLE_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -309,7 +309,7 @@ public class MySQLTypeConverterTest {
                         .columnType("double unsigned")
                         .dataType("double unsigned")
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.DOUBLE_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -325,7 +325,7 @@ public class MySQLTypeConverterTest {
                         .precision(38L)
                         .scale(2)
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(38, 2), column.getDataType());
         Assertions.assertEquals(38, column.getColumnLength());
@@ -340,11 +340,11 @@ public class MySQLTypeConverterTest {
                         .precision(39L)
                         .scale(2)
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(
                 new DecimalType(
-                        MySQLTypeConverter.DEFAULT_PRECISION, MySQLTypeConverter.DEFAULT_SCALE),
+                        MySqlTypeConverter.DEFAULT_PRECISION, MySqlTypeConverter.DEFAULT_SCALE),
                 column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
@@ -356,7 +356,7 @@ public class MySQLTypeConverterTest {
                         .precision(38L)
                         .scale(2)
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(39, 2), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -371,7 +371,7 @@ public class MySQLTypeConverterTest {
                         .dataType("enum")
                         .length(3L)
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(3, column.getColumnLength());
@@ -387,7 +387,7 @@ public class MySQLTypeConverterTest {
                         .dataType("char")
                         .length(2L)
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(2, column.getColumnLength());
@@ -400,7 +400,7 @@ public class MySQLTypeConverterTest {
                         .dataType("varchar")
                         .length(2L)
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(2, column.getColumnLength());
@@ -415,7 +415,7 @@ public class MySQLTypeConverterTest {
                         .columnType("tinytext")
                         .dataType("tinytext")
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(255, column.getColumnLength());
@@ -423,7 +423,7 @@ public class MySQLTypeConverterTest {
 
         typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("text").dataType("text").build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(65535, column.getColumnLength());
@@ -435,7 +435,7 @@ public class MySQLTypeConverterTest {
                         .columnType("mediumtext")
                         .dataType("mediumtext")
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(16777215, column.getColumnLength());
@@ -447,7 +447,7 @@ public class MySQLTypeConverterTest {
                         .columnType("longtext")
                         .dataType("longtext")
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(4294967295L, column.getColumnLength());
@@ -458,7 +458,7 @@ public class MySQLTypeConverterTest {
     public void testConvertJson() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("json").dataType("json").build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(null, column.getColumnLength());
@@ -474,7 +474,7 @@ public class MySQLTypeConverterTest {
                         .dataType("binary")
                         .length(1L)
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
         Assertions.assertEquals(1, column.getColumnLength());
@@ -487,7 +487,7 @@ public class MySQLTypeConverterTest {
                         .dataType("varbinary")
                         .length(1L)
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
         Assertions.assertEquals(1, column.getColumnLength());
@@ -502,7 +502,7 @@ public class MySQLTypeConverterTest {
                         .columnType("tinyblob")
                         .dataType("tinyblob")
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
         Assertions.assertEquals(255, column.getColumnLength());
@@ -510,7 +510,7 @@ public class MySQLTypeConverterTest {
 
         typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("blob").dataType("blob").build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
         Assertions.assertEquals(65535, column.getColumnLength());
@@ -522,7 +522,7 @@ public class MySQLTypeConverterTest {
                         .columnType("mediumblob")
                         .dataType("mediumblob")
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
         Assertions.assertEquals(16777215, column.getColumnLength());
@@ -534,7 +534,7 @@ public class MySQLTypeConverterTest {
                         .columnType("longblob")
                         .dataType("longblob")
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
         Assertions.assertEquals(4294967295L, column.getColumnLength());
@@ -549,7 +549,7 @@ public class MySQLTypeConverterTest {
                         .columnType("geometry")
                         .dataType("geometry")
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -559,7 +559,7 @@ public class MySQLTypeConverterTest {
     public void testConvertDate() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("date").dataType("date").build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -574,7 +574,7 @@ public class MySQLTypeConverterTest {
                         .dataType("time")
                         .scale(3)
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
@@ -589,7 +589,7 @@ public class MySQLTypeConverterTest {
                         .columnType("datetime")
                         .dataType("datetime")
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -601,7 +601,7 @@ public class MySQLTypeConverterTest {
                         .dataType("datetime")
                         .scale(3)
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
@@ -616,7 +616,7 @@ public class MySQLTypeConverterTest {
                         .columnType("timestamp")
                         .dataType("timestamp")
                         .build();
-        Column column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -628,7 +628,7 @@ public class MySQLTypeConverterTest {
                         .dataType("timestamp")
                         .scale(3)
                         .build();
-        column = MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        column = MySqlTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
@@ -646,7 +646,7 @@ public class MySQLTypeConverterTest {
                         null,
                         null);
         try {
-            MySQLTypeConverter.INSTANCE.reconvert(column);
+            MySqlTypeConverter.INSTANCE.reconvert(column);
             Assertions.fail();
         } catch (SeaTunnelRuntimeException e) {
             // ignore
@@ -660,11 +660,11 @@ public class MySQLTypeConverterTest {
         Column column =
                 PhysicalColumn.of("test", BasicType.VOID_TYPE, (Long) null, true, "null", "null");
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.NULL, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_NULL, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_NULL, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_NULL, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_NULL, typeDefine.getDataType());
         Assertions.assertEquals(column.isNullable(), typeDefine.isNullable());
         Assertions.assertEquals(column.getDefaultValue(), typeDefine.getDefaultValue());
         Assertions.assertEquals(column.getComment(), typeDefine.getComment());
@@ -675,13 +675,13 @@ public class MySQLTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.BOOLEAN_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.BOOLEAN, typeDefine.getNativeType());
         Assertions.assertEquals(
-                String.format("%s(%s)", MySQLTypeConverter.MYSQL_TINYINT, 1),
+                String.format("%s(%s)", MySqlTypeConverter.MYSQL_TINYINT, 1),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_TINYINT, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TINYINT, typeDefine.getDataType());
         Assertions.assertEquals(1, typeDefine.getLength());
     }
 
@@ -689,11 +689,11 @@ public class MySQLTypeConverterTest {
     public void testReconvertByte() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.BYTE_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.TINYINT, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_TINYINT, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_TINYINT, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TINYINT, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TINYINT, typeDefine.getDataType());
     }
 
     @Test
@@ -701,33 +701,33 @@ public class MySQLTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.SHORT_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.SMALLINT, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_SMALLINT, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_SMALLINT, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_SMALLINT, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_SMALLINT, typeDefine.getDataType());
     }
 
     @Test
     public void testReconvertInt() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.INT_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.INT, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_INT, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_INT, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_INT, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_INT, typeDefine.getDataType());
     }
 
     @Test
     public void testReconvertLong() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.LONG_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.BIGINT, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_BIGINT, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_BIGINT, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_BIGINT, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_BIGINT, typeDefine.getDataType());
     }
 
     @Test
@@ -735,11 +735,11 @@ public class MySQLTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.FLOAT_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.FLOAT, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_FLOAT, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_FLOAT, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_FLOAT, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_FLOAT, typeDefine.getDataType());
     }
 
     @Test
@@ -747,11 +747,11 @@ public class MySQLTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.DOUBLE_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.DOUBLE, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_DOUBLE, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_DOUBLE, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_DOUBLE, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_DOUBLE, typeDefine.getDataType());
     }
 
     @Test
@@ -759,27 +759,27 @@ public class MySQLTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(new DecimalType(0, 0)).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.DECIMAL, typeDefine.getNativeType());
         Assertions.assertEquals(
                 String.format(
                         "%s(%s,%s)",
-                        MySQLTypeConverter.MYSQL_DECIMAL,
-                        MySQLTypeConverter.DEFAULT_PRECISION,
-                        MySQLTypeConverter.DEFAULT_SCALE),
+                        MySqlTypeConverter.MYSQL_DECIMAL,
+                        MySqlTypeConverter.DEFAULT_PRECISION,
+                        MySqlTypeConverter.DEFAULT_SCALE),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_DECIMAL, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_DECIMAL, typeDefine.getDataType());
 
         column = PhysicalColumn.builder().name("test").dataType(new DecimalType(10, 2)).build();
 
-        typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.DECIMAL, typeDefine.getNativeType());
         Assertions.assertEquals(
-                String.format("%s(%s,%s)", MySQLTypeConverter.MYSQL_DECIMAL, 10, 2),
+                String.format("%s(%s,%s)", MySqlTypeConverter.MYSQL_DECIMAL, 10, 2),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_DECIMAL, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_DECIMAL, typeDefine.getDataType());
     }
 
     @Test
@@ -791,11 +791,11 @@ public class MySQLTypeConverterTest {
                         .columnLength(null)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.LONGBLOB, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_LONGBLOB, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_LONGBLOB, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_LONGBLOB, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_LONGBLOB, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -804,14 +804,14 @@ public class MySQLTypeConverterTest {
                         .columnLength(255L)
                         .build();
 
-        typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.VARBINARY, typeDefine.getNativeType());
         Assertions.assertEquals(
                 String.format(
-                        "%s(%s)", MySQLTypeConverter.MYSQL_VARBINARY, column.getColumnLength()),
+                        "%s(%s)", MySqlTypeConverter.MYSQL_VARBINARY, column.getColumnLength()),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_VARBINARY, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_VARBINARY, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -820,11 +820,11 @@ public class MySQLTypeConverterTest {
                         .columnLength(65535L)
                         .build();
 
-        typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.BLOB, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_BLOB, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_BLOB, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_BLOB, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_BLOB, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -833,11 +833,11 @@ public class MySQLTypeConverterTest {
                         .columnLength(16777215L)
                         .build();
 
-        typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.MEDIUMBLOB, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_MEDIUMBLOB, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_MEDIUMBLOB, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_MEDIUMBLOB, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_MEDIUMBLOB, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -846,11 +846,11 @@ public class MySQLTypeConverterTest {
                         .columnLength(4294967295L)
                         .build();
 
-        typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.LONGBLOB, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_LONGBLOB, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_LONGBLOB, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_LONGBLOB, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_LONGBLOB, typeDefine.getDataType());
     }
 
     @Test
@@ -862,11 +862,11 @@ public class MySQLTypeConverterTest {
                         .columnLength(null)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.LONGTEXT, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_LONGTEXT, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_LONGTEXT, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_LONGTEXT, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_LONGTEXT, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -875,13 +875,13 @@ public class MySQLTypeConverterTest {
                         .columnLength(255L)
                         .build();
 
-        typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.VARCHAR, typeDefine.getNativeType());
         Assertions.assertEquals(
-                String.format("%s(%s)", MySQLTypeConverter.MYSQL_VARCHAR, column.getColumnLength()),
+                String.format("%s(%s)", MySqlTypeConverter.MYSQL_VARCHAR, column.getColumnLength()),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_VARCHAR, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_VARCHAR, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -890,11 +890,11 @@ public class MySQLTypeConverterTest {
                         .columnLength(65535L)
                         .build();
 
-        typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.TEXT, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_TEXT, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_TEXT, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TEXT, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TEXT, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -903,11 +903,11 @@ public class MySQLTypeConverterTest {
                         .columnLength(16777215L)
                         .build();
 
-        typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.MEDIUMTEXT, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_MEDIUMTEXT, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_MEDIUMTEXT, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_MEDIUMTEXT, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_MEDIUMTEXT, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -916,11 +916,11 @@ public class MySQLTypeConverterTest {
                         .columnLength(4294967295L)
                         .build();
 
-        typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.LONGTEXT, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_LONGTEXT, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_LONGTEXT, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_LONGTEXT, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_LONGTEXT, typeDefine.getDataType());
     }
 
     @Test
@@ -931,11 +931,11 @@ public class MySQLTypeConverterTest {
                         .dataType(LocalTimeType.LOCAL_DATE_TYPE)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.DATE, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_DATE, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_DATE, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_DATE, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_DATE, typeDefine.getDataType());
     }
 
     @Test
@@ -946,11 +946,11 @@ public class MySQLTypeConverterTest {
                         .dataType(LocalTimeType.LOCAL_TIME_TYPE)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.TIME, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_TIME, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_TIME, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIME, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIME, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -959,13 +959,13 @@ public class MySQLTypeConverterTest {
                         .scale(3)
                         .build();
 
-        typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.TIME, typeDefine.getNativeType());
         Assertions.assertEquals(
-                String.format("%s(%s)", MySQLTypeConverter.MYSQL_TIME, column.getScale()),
+                String.format("%s(%s)", MySqlTypeConverter.MYSQL_TIME, column.getScale()),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_TIME, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIME, typeDefine.getDataType());
         Assertions.assertEquals(column.getScale(), typeDefine.getScale());
     }
 
@@ -977,11 +977,11 @@ public class MySQLTypeConverterTest {
                         .dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.TIMESTAMP, typeDefine.getNativeType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_TIMESTAMP, typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_TIMESTAMP, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -990,13 +990,13 @@ public class MySQLTypeConverterTest {
                         .scale(3)
                         .build();
 
-        typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.TIMESTAMP, typeDefine.getNativeType());
         Assertions.assertEquals(
-                String.format("%s(%s)", MySQLTypeConverter.MYSQL_TIMESTAMP, column.getScale()),
+                String.format("%s(%s)", MySqlTypeConverter.MYSQL_TIMESTAMP, column.getScale()),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(MySQLTypeConverter.MYSQL_TIMESTAMP, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getDataType());
         Assertions.assertEquals(column.getScale(), typeDefine.getScale());
     }
 }

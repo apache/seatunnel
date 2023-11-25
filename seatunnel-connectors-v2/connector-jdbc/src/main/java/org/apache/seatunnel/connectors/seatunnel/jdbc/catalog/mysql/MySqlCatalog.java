@@ -29,7 +29,7 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySQLTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeMapper;
 
 import com.google.common.base.Preconditions;
@@ -155,7 +155,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                         .defaultValue(defaultValue)
                         .comment(comment)
                         .build();
-        return MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        return MySqlTypeConverter.INSTANCE.convert(typeDefine);
     }
 
     @Override

@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySQLTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import org.apache.commons.collections4.MapUtils;
 
@@ -36,7 +36,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-/** @deprecated instead by {@link MySQLTypeConverter} */
+/** @deprecated instead by {@link MySqlTypeConverter} */
 @Deprecated
 @AutoService(DataTypeConvertor.class)
 public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
@@ -102,7 +102,7 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
                         .scale(scale)
                         .build();
 
-        return MySQLTypeConverter.INSTANCE.convert(typeDefine).getDataType();
+        return MySqlTypeConverter.INSTANCE.convert(typeDefine).getDataType();
     }
 
     @Override
@@ -122,7 +122,7 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
                         .nullable(true)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySQLTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         return typeDefine.getNativeType();
     }
 

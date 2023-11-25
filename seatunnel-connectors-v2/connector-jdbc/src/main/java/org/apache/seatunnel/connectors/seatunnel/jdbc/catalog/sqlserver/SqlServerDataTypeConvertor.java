@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlserverTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter;
 
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -33,7 +33,7 @@ import lombok.NonNull;
 
 import java.util.Map;
 
-/** @deprecated instead by {@link SqlserverTypeConverter} */
+/** @deprecated instead by {@link SqlServerTypeConverter} */
 @Deprecated
 @AutoService(DataTypeConvertor.class)
 public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerType> {
@@ -70,7 +70,7 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
                         .scale(scale)
                         .build();
 
-        return SqlserverTypeConverter.INSTANCE.convert(typeDefine).getDataType();
+        return SqlServerTypeConverter.INSTANCE.convert(typeDefine).getDataType();
     }
 
     @Override
@@ -90,7 +90,7 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
                         .nullable(true)
                         .build();
 
-        BasicTypeDefine typeDefine = SqlserverTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = SqlServerTypeConverter.INSTANCE.reconvert(column);
         return SqlServerType.parse(typeDefine.getColumnType()).getLeft();
     }
 

@@ -28,7 +28,7 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
 
     @Override
     public Column mappingColumn(BasicTypeDefine typeDefine) {
-        return MySQLTypeConverter.INSTANCE.convert(typeDefine);
+        return MySqlTypeConverter.INSTANCE.convert(typeDefine);
     }
 
     @Override

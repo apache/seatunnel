@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils;
 
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySQLTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import io.debezium.relational.Column;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +38,7 @@ public class MySqlTypeUtils {
                         .scale(column.scale().orElse(0))
                         .build();
         org.apache.seatunnel.api.table.catalog.Column seaTunnelColumn =
-                MySQLTypeConverter.INSTANCE.convert(typeDefine);
+                MySqlTypeConverter.INSTANCE.convert(typeDefine);
         return seaTunnelColumn.getDataType();
     }
 }

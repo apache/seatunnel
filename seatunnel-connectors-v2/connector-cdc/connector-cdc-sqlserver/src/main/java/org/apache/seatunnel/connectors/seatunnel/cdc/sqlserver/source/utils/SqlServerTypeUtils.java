@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils;
 
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlserverTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter;
 
 import io.debezium.relational.Column;
 
@@ -36,7 +36,7 @@ public class SqlServerTypeUtils {
                         .scale(column.scale().orElse(0))
                         .build();
         org.apache.seatunnel.api.table.catalog.Column seaTunnelColumn =
-                SqlserverTypeConverter.INSTANCE.convert(typeDefine);
+                SqlServerTypeConverter.INSTANCE.convert(typeDefine);
         return seaTunnelColumn.getDataType();
     }
 }

@@ -24,7 +24,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlDataTypeConvertor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySQLTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableMap;
@@ -35,7 +35,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-/** @deprecated instead by {@link MySQLTypeConverter} */
+/** @deprecated instead by {@link MySqlTypeConverter} */
 @Deprecated
 @AutoService(DataTypeConvertor.class)
 public class TiDBDataTypeConvertor implements DataTypeConvertor<MysqlType> {

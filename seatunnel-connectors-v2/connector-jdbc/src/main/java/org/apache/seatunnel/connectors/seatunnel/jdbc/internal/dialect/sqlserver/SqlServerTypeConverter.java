@@ -34,7 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 // reference https://learn.microsoft.com/zh-cn/sql/t-sql/data-types/data-types-transact-sql
 @Slf4j
 @AutoService(TypeConverter.class)
-public class SqlserverTypeConverter implements TypeConverter<BasicTypeDefine> {
+public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
     // -------------------------number----------------------------
     public static final String SQLSERVER_BIT = "BIT";
     public static final String SQLSERVER_TINYINT = "TINYINT";
@@ -83,7 +83,7 @@ public class SqlserverTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String MAX_NVARCHAR = String.format("%s(%s)", SQLSERVER_NVARCHAR, "MAX");
     public static final long POWER_2_30 = (long) Math.pow(2, 30);
     public static final long POWER_2_31 = (long) Math.pow(2, 31);
-    public static final SqlserverTypeConverter INSTANCE = new SqlserverTypeConverter();
+    public static final SqlServerTypeConverter INSTANCE = new SqlServerTypeConverter();
 
     @Override
     public String identifier() {

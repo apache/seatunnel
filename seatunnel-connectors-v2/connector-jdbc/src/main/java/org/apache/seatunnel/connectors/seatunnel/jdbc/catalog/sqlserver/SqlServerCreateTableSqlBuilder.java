@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlserverTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -196,7 +196,7 @@ public class SqlServerCreateTableSqlBuilder {
         if (StringUtils.equals(catalogName, DatabaseIdentifier.SQLSERVER)) {
             columnSqls.add(column.getSourceType());
         } else {
-            columnSqls.add(SqlserverTypeConverter.INSTANCE.reconvert(column).getColumnType());
+            columnSqls.add(SqlServerTypeConverter.INSTANCE.reconvert(column).getColumnType());
         }
         // nullable
         if (column.isNullable()) {

@@ -31,7 +31,7 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
 
     @Override
     public Column mappingColumn(BasicTypeDefine typeDefine) {
-        return SqlserverTypeConverter.INSTANCE.convert(typeDefine);
+        return SqlServerTypeConverter.INSTANCE.convert(typeDefine);
     }
 
     @Override

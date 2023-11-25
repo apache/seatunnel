@@ -36,7 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 // reference https://dev.mysql.com/doc/refman/8.0/en/data-types.html
 @Slf4j
 @AutoService(TypeConverter.class)
-public class MySQLTypeConverter implements TypeConverter<BasicTypeDefine<MysqlType>> {
+public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlType>> {
 
     // ============================data types=====================
     static final String MYSQL_NULL = "NULL";
@@ -96,7 +96,7 @@ public class MySQLTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     public static final long POWER_2_16 = (long) Math.pow(2, 16);
     public static final long POWER_2_24 = (long) Math.pow(2, 24);
     public static final long POWER_2_32 = (long) Math.pow(2, 32);
-    public static final MySQLTypeConverter INSTANCE = new MySQLTypeConverter();
+    public static final MySqlTypeConverter INSTANCE = new MySqlTypeConverter();
 
     @Override
     public String identifier() {
