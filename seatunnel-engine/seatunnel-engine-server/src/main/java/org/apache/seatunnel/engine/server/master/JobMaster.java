@@ -666,6 +666,7 @@ public class JobMaster {
                         "Begin do save point for Job %s (%s) ",
                         jobImmutableInformation.getJobConfig().getName(),
                         jobImmutableInformation.getJobId()));
+        physicalPlan.savepointJob();
         PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
                 checkpointManager.triggerSavePoints();
         return CompletableFuture.allOf(passiveCompletableFutures);

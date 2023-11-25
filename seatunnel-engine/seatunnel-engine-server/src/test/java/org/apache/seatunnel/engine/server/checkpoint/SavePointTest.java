@@ -82,7 +82,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
                         () -> {
                             Assertions.assertEquals(
                                     server.getCoordinatorService().getJobStatus(JOB_ID),
-                                    JobStatus.FINISHED);
+                                    JobStatus.SAVEPOINT_DONE);
                         });
 
         Thread.sleep(1000);
