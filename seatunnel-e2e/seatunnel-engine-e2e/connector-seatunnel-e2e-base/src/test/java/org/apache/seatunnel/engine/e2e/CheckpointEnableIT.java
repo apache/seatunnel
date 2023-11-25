@@ -32,8 +32,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static org.awaitility.Awaitility.await;
 
 @Slf4j
 public class CheckpointEnableIT extends TestSuiteBase {
@@ -44,31 +49,169 @@ public class CheckpointEnableIT extends TestSuiteBase {
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
                     "depending on the engine, the logic for determining whether a checkpoint is enabled is different")
-    public void testZetaCheckpointEnable(TestContainer container)
+    public void testZetaBatchCheckpointEnable(TestContainer container)
             throws IOException, InterruptedException {
-        // checkpoint disable, log don't contains 'CHECKPOINT_TYPE'
+        // checkpoint disable, log don't contains 'checkpoint is disabled'
         Container.ExecResult disableExecResult =
                 container.executeJob(
-                        "/checkpoint-disable-test-resources/batch_fakesource_to_localfile_checkpoint_disable.conf");
+                        "/checkpoint-batch-disable-test-resources/batch_fakesource_to_localfile_checkpoint_disable.conf");
         Assertions.assertTrue(container.getServerLogs().contains("checkpoint is disabled"));
         Assertions.assertEquals(0, disableExecResult.getExitCode());
         // check sink file is right
         Container.ExecResult disableSinkFileExecResult =
                 container.executeJob(
-                        "/checkpoint-disable-test-resources/sink_file_text_to_assert.conf");
+                        "/checkpoint-batch-disable-test-resources/sink_file_text_to_assert.conf");
         Assertions.assertEquals(0, disableSinkFileExecResult.getExitCode());
 
-        // checkpoint enable, log contains 'CHECKPOINT_TYPE'
+        // checkpoint enable, log contains 'checkpoint is enabled'
         Container.ExecResult enableExecResult =
                 container.executeJob(
-                        "/checkpoint-enable-test-resources/batch_fakesource_to_localfile_checkpoint_enable.conf");
+                        "/checkpoint-batch-enable-test-resources/batch_fakesource_to_localfile_checkpoint_enable.conf");
         Assertions.assertTrue(container.getServerLogs().contains("checkpoint is enabled"));
         Assertions.assertEquals(0, enableExecResult.getExitCode());
         // check sink file is right
         Container.ExecResult enableSinkFileExecResult =
                 container.executeJob(
-                        "/checkpoint-enable-test-resources/sink_file_text_to_assert.conf");
+                        "/checkpoint-batch-enable-test-resources/sink_file_text_to_assert.conf");
         Assertions.assertEquals(0, enableSinkFileExecResult.getExitCode());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "depending on the engine, the logic for determining whether a checkpoint is enabled is different")
+    public void testZetaStreamingCheckpointInterval(TestContainer container)
+            throws IOException, InterruptedException {
+        // start job
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/checkpoint-streaming-enable-test-resources/stream_fakesource_to_localfile_interval.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // wait obtain job id
+        AtomicReference<String> jobId = new AtomicReference<>();
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Pattern jobIdPattern =
+                                    Pattern.compile(
+                                            ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*",
+                                            Pattern.DOTALL);
+                            Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
+                            if (matcher.matches()) {
+                                jobId.set(matcher.group(1));
+                            }
+                            Assertions.assertNotNull(jobId.get());
+                        });
+
+        Thread.sleep(15000);
+        Assertions.assertTrue(container.getServerLogs().contains("checkpoint is enabled"));
+        Assertions.assertEquals(0, container.savepointJob(jobId.get()).getExitCode());
+
+        // restore job
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container
+                                .restoreJob(
+                                        "/checkpoint-streaming-enable-test-resources/stream_fakesource_to_localfile_interval.conf",
+                                        jobId.get())
+                                .getExitCode();
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // check sink file is right
+        AtomicReference<Boolean> checkSinkFile = new AtomicReference<>(false);
+        await().atMost(300000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Container.ExecResult disableSinkFileExecResult =
+                                    container.executeJob(
+                                            "/checkpoint-streaming-enable-test-resources/sink_file_text_to_assert.conf");
+                            checkSinkFile.set(0 == disableSinkFileExecResult.getExitCode());
+                            Assertions.assertEquals(0, disableSinkFileExecResult.getExitCode());
+                        });
+        Assertions.assertTrue(checkSinkFile.get());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "depending on the engine, the logic for determining whether a checkpoint is enabled is different")
+    public void testZetaStreamingCheckpointNoInterval(TestContainer container)
+            throws IOException, InterruptedException {
+        // start job
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/checkpoint-streaming-enable-test-resources/stream_fakesource_to_localfile.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // wait obtain job id
+        AtomicReference<String> jobId = new AtomicReference<>();
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Pattern jobIdPattern =
+                                    Pattern.compile(
+                                            ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*",
+                                            Pattern.DOTALL);
+                            Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
+                            if (matcher.matches()) {
+                                jobId.set(matcher.group(1));
+                            }
+                            Assertions.assertNotNull(jobId.get());
+                        });
+
+        Thread.sleep(15000);
+        Assertions.assertTrue(container.getServerLogs().contains("checkpoint is enabled"));
+        Assertions.assertEquals(0, container.savepointJob(jobId.get()).getExitCode());
+
+        // restore job
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container
+                                .restoreJob(
+                                        "/checkpoint-streaming-enable-test-resources/stream_fakesource_to_localfile.conf",
+                                        jobId.get())
+                                .getExitCode();
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // check sink file is right
+        AtomicReference<Boolean> checkSinkFile = new AtomicReference<>(false);
+        await().atMost(300000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Container.ExecResult disableSinkFileExecResult =
+                                    container.executeJob(
+                                            "/checkpoint-streaming-enable-test-resources/sink_file_text_to_assert.conf");
+                            checkSinkFile.set(0 == disableSinkFileExecResult.getExitCode());
+                            Assertions.assertEquals(0, disableSinkFileExecResult.getExitCode());
+                        });
+        Assertions.assertTrue(checkSinkFile.get());
     }
 
     @TestTemplate
@@ -86,7 +229,7 @@ public class CheckpointEnableIT extends TestSuiteBase {
          */
         Container.ExecResult enableExecResult =
                 container.executeJob(
-                        "/checkpoint-enable-test-resources/batch_fakesource_to_localfile_checkpoint_enable.conf");
+                        "/checkpoint-batch-enable-test-resources/batch_fakesource_to_localfile_checkpoint_enable.conf");
         // obtain flink job configuration
         Matcher matcher =
                 Pattern.compile("JobID\\s([a-fA-F0-9]+)").matcher(enableExecResult.getStdout());
@@ -124,7 +267,7 @@ public class CheckpointEnableIT extends TestSuiteBase {
          */
         Container.ExecResult enableExecResult =
                 container.executeJob(
-                        "/checkpoint-enable-test-resources/batch_fakesource_to_localfile_checkpoint_enable.conf");
+                        "/checkpoint-batch-enable-test-resources/batch_fakesource_to_localfile_checkpoint_enable.conf");
         // according to logs, if checkpoint.interval is configured, spark also ignores this
         // configuration
         Assertions.assertTrue(
