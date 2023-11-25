@@ -37,6 +37,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | enable_upsert_delete        | boolean | no       | false           | Whether to enable upsert/delete, only supports PrimaryKey model.                                                                                                                                                  |
 | save_mode_create_template   | string  | no       | see below       | see below                                                                                                                                                                                                         |
 | starrocks.config            | map     | no       | -               | The parameter of the stream load `data_desc`                                                                                                                                                                      |
+| http_socket_timeout_ms      | int     | no       | 180000          | Set http socket timeout, default is 3 minutes.                                                                                                                                                                    |
 
 ### save_mode_create_template
 
