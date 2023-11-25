@@ -45,8 +45,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -86,8 +86,8 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
         pulsarContainer.close();
     }
 
-    private Map<String, String> getPulsarConsumerData() {
-        Map<String, String> data = new HashMap<>();
+    private List<String> getPulsarConsumerData() {
+        List<String> data = new ArrayList<>();
         try {
             PulsarClient client =
                     PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
@@ -100,19 +100,14 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
                             .subscriptionType(SubscriptionType.Exclusive)
                             .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                             .subscribe();
-            log.info("consumer.getLastMessageId:{}", consumer.getLastMessageId());
             int i = 0;
             while (true) {
                 i++;
                 Message msg = consumer.receive();
                 if (msg != null) {
-                    data.put(msg.getKey(), new String(msg.getData()));
+                    data.add(new String(msg.getData()));
                     consumer.acknowledge(msg.getMessageId());
-                    log.info(
-                            "key:{},value:{},messageId:{}",
-                            msg.getKey(),
-                            new String(msg.getData()),
-                            msg.getMessageId());
+                    log.info("value:{}", new String(msg.getData()));
                 }
                 if (i == 10) {
                     break;
@@ -129,11 +124,10 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/fake_to_pulsar.conf");
         Assertions.assertEquals(execResult.getExitCode(), 0);
 
-        Map<String, String> data = getPulsarConsumerData();
+        List<String> data = getPulsarConsumerData();
         log.info("data size:{}", data.size());
         ObjectMapper objectMapper = new ObjectMapper();
-        String values = data.values().iterator().next();
-        ObjectNode objectNode = objectMapper.readValue(values, ObjectNode.class);
+        ObjectNode objectNode = objectMapper.readValue(data.get(0), ObjectNode.class);
         Assertions.assertTrue(objectNode.has("c_map"));
         Assertions.assertTrue(objectNode.has("c_array"));
         Assertions.assertTrue(objectNode.has("c_string"));
