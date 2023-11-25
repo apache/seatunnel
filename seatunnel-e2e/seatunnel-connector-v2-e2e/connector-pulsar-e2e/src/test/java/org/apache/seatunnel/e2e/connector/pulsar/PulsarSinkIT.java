@@ -101,7 +101,9 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
                             .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                             .subscribe();
             log.info("consumer.getLastMessageId:{}", consumer.getLastMessageId());
+            int i = 0;
             while (true) {
+                i++;
                 Message msg = consumer.receive();
                 if (msg != null) {
                     data.put(msg.getKey(), new String(msg.getData()));
@@ -109,10 +111,10 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
                     log.info(
                             "key:{},value:{},messageId:{}",
                             msg.getKey(),
-                            msg.getData(),
+                            new String(msg.getData()),
                             msg.getMessageId());
                 }
-                if (msg.getMessageId().equals(consumer.getLastMessageId())) {
+                if (i == 10) {
                     break;
                 }
             }
