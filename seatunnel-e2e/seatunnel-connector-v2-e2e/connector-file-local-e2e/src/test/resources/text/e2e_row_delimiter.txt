@@ -1,0 +1,3 @@
+a,b,c|a,e,c|a,k,c
+a,bg,c|a,eh,c|a,kt,c
+a,b1g,c|a,eyh,c|a,ktp,c
