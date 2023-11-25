@@ -333,7 +333,11 @@ public class CheckpointCoordinator {
     private void notifyCompleted(CompletedCheckpoint completedCheckpoint) {
         if (completedCheckpoint != null) {
             try {
-                LOG.info("start notify checkpoint completed, checkpoint:{}", completedCheckpoint);
+                LOG.info(
+                        "start notify checkpoint completed, job id: {}, pipeline id: {}, checkpoint id:{}",
+                        completedCheckpoint.getJobId(),
+                        completedCheckpoint.getPipelineId(),
+                        completedCheckpoint.getCheckpointId());
                 InvocationFuture<?>[] invocationFutures =
                         notifyCheckpointCompleted(completedCheckpoint);
                 CompletableFuture.allOf(invocationFutures).join();
