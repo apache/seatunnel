@@ -44,9 +44,11 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -91,18 +93,21 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
             PulsarClient client =
                     PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
 
+            Random random = new Random();
             Consumer consumer =
                     client.newConsumer()
                             .topic(TOPIC)
-                            .subscriptionName("PulsarSubTest01")
+                            .subscriptionName("PulsarSubTest"+random.nextInt())
                             .subscriptionType(SubscriptionType.Exclusive)
                             .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                             .subscribe();
+            log.info("consumer.getLastMessageId:{}",consumer.getLastMessageId());
             while (true) {
                 Message msg = consumer.receive();
                 if (msg != null) {
                     data.put(msg.getKey(), new String(msg.getData()));
                     consumer.acknowledge(msg.getMessageId());
+                    log.info("key:{},value:{},messageId:{}",msg.getKey(),msg.getData(),msg.getMessageId());
                 }
                 if (msg.getMessageId().equals(consumer.getLastMessageId())) {
                     break;
@@ -120,6 +125,7 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(execResult.getExitCode(), 0);
 
         Map<String, String> data = getPulsarConsumerData();
+        log.info("data size:{}",data.size());
         ObjectMapper objectMapper = new ObjectMapper();
         String values = data.values().iterator().next();
         ObjectNode objectNode = objectMapper.readValue(values, ObjectNode.class);
