@@ -23,9 +23,12 @@ import org.apache.seatunnel.engine.core.job.JobStatusData;
 
 import org.junit.jupiter.api.Test;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 public class TestUtils {
     public static String getResource(String confFile) {
         return System.getProperty("user.dir") + "/src/test/resources/" + confFile;
