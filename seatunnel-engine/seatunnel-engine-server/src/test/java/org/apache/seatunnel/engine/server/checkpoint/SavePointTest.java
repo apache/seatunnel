@@ -75,6 +75,8 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
 
         // 3 start savePoint
         server.getCoordinatorService().savePoint(JOB_ID);
+        JobStatus status = server.getCoordinatorService().getJobStatus(JOB_ID);
+        Assertions.assertEquals(JobStatus.DOING_SAVEPOINT, status);
 
         // 4 Wait for savePoint to complete
         await().atMost(120000, TimeUnit.MILLISECONDS)
