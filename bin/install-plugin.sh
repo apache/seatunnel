@@ -42,7 +42,7 @@ fi
 while read line; do
     first_char=$(echo "$line" | cut -c 1)
 
-    if [ "$first_char" != "-" ] && [ "$first_char" != "#" ]
+    if [ "$first_char" != "-" ] && [ "$first_char" != "#" ] && [ ! -z $first_char ]
       	then
       		echo "install connector : " $line
       		${SEATUNNEL_HOME}/mvnw dependency:get -DgroupId=org.apache.seatunnel -DartifactId=${line} -Dversion=${version} -Ddest=${SEATUNNEL_HOME}/connectors
