@@ -39,6 +39,9 @@ CONF_DIR=${APP_DIR}/config
 APP_JAR=${APP_DIR}/starter/seatunnel-starter.jar
 APP_MAIN="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer"
 OUT="${APP_DIR}/logs/seatunnel-server.out"
+if [ -d ${APP_DIR}/logs ]; then
+  mkdir -p ${APP_DIR}/logs
+fi
 HELP=false
 
 if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
