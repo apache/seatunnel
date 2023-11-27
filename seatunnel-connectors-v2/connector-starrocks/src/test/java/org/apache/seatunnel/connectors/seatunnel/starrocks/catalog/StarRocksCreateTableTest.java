@@ -155,4 +155,62 @@ public class StarRocksCreateTableTest {
                         + ")";
         Assertions.assertEquals(result, expected);
     }
+
+    @Test
+    public void testWithVarchar() {
+
+        List<Column> columns = new ArrayList<>();
+
+        columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, null, true, null, ""));
+        columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, null, true, null, ""));
+        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, null, true, null, ""));
+        columns.add(PhysicalColumn.of("comment", BasicType.STRING_TYPE, 500, true, null, ""));
+        columns.add(PhysicalColumn.of("description", BasicType.STRING_TYPE, 70000, true, null, ""));
+
+        String result =
+                StarRocksSaveModeUtil.fillingCreateSql(
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (                                                                                                                                                   \n"
+                                + "${rowtype_primary_key}  ,       \n"
+                                + "`create_time` DATETIME NOT NULL ,  \n"
+                                + "${rowtype_fields}  \n"
+                                + ") ENGINE=OLAP  \n"
+                                + "PRIMARY KEY(${rowtype_primary_key},`create_time`)  \n"
+                                + "PARTITION BY RANGE (`create_time`)(  \n"
+                                + "   PARTITION p20230329 VALUES LESS THAN (\"2023-03-29\")                                                                                                                                                           \n"
+                                + ")                                      \n"
+                                + "DISTRIBUTED BY HASH (${rowtype_primary_key})  \n"
+                                + "PROPERTIES (                           \n"
+                                + "    \"dynamic_partition.enable\" = \"true\",                                                                                                                                                                       \n"
+                                + "    \"dynamic_partition.time_unit\" = \"DAY\",                                                                                                                                                                     \n"
+                                + "    \"dynamic_partition.end\" = \"3\", \n"
+                                + "    \"dynamic_partition.prefix\" = \"p\"                                                                                                                                                                           \n"
+                                + ");",
+                        "test1",
+                        "test2",
+                        TableSchema.builder()
+                                .primaryKey(PrimaryKey.of("", Arrays.asList("id", "age")))
+                                .columns(columns)
+                                .build());
+
+        Assertions.assertEquals(
+                "CREATE TABLE IF NOT EXISTS `test1`.`test2` (                                                                                                                                                   \n"
+                        + "`id` BIGINT NULL ,`age` INT NULL   ,       \n"
+                        + "`create_time` DATETIME NOT NULL ,  \n"
+                        + "`name` STRING NULL ,\n"
+                        + "`comment` VARCHAR(500) NULL ,\n"
+                        + "`description` STRING NULL   \n"
+                        + ") ENGINE=OLAP  \n"
+                        + "PRIMARY KEY(`id`,`age`,`create_time`)  \n"
+                        + "PARTITION BY RANGE (`create_time`)(  \n"
+                        + "   PARTITION p20230329 VALUES LESS THAN (\"2023-03-29\")                                                                                                                                                           \n"
+                        + ")                                      \n"
+                        + "DISTRIBUTED BY HASH (`id`,`age`)  \n"
+                        + "PROPERTIES (                           \n"
+                        + "    \"dynamic_partition.enable\" = \"true\",                                                                                                                                                                       \n"
+                        + "    \"dynamic_partition.time_unit\" = \"DAY\",                                                                                                                                                                     \n"
+                        + "    \"dynamic_partition.end\" = \"3\", \n"
+                        + "    \"dynamic_partition.prefix\" = \"p\"                                                                                                                                                                           \n"
+                        + ");",
+                result);
+    }
 }
