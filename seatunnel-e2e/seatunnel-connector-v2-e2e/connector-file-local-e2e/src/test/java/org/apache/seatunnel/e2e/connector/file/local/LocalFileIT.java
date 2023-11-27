@@ -38,7 +38,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 @DisabledOnContainer(
-        value = {TestContainerId.SPARK_2_4, TestContainerId.FLINK_1_15},
+        value = {TestContainerId.SPARK_2_4},
         type = {},
         disabledReason =
                 "The apache-compress version is not compatible with apache-poi, flink-1.15.3's SideOutputDataStream.class is conflicting with flink-1.16.2's")
