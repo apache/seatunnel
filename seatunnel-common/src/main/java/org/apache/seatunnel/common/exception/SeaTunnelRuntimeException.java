@@ -17,11 +17,18 @@
 
 package org.apache.seatunnel.common.exception;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.HashMap;
 import java.util.Map;
 
 /** SeaTunnel global exception, used to tell user more clearly error messages */
 public class SeaTunnelRuntimeException extends RuntimeException {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private final SeaTunnelErrorCode seaTunnelErrorCode;
     private final Map<String, String> params;
 
@@ -63,5 +70,22 @@ public class SeaTunnelRuntimeException extends RuntimeException {
 
     public Map<String, String> getParams() {
         return params;
+    }
+
+    public Map<String, String> getParamsValueAsMap(String key) {
+        try {
+            return OBJECT_MAPPER.readValue(
+                    params.get(key), new TypeReference<Map<String, String>>() {});
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public <T> T getParamsValueAs(String key) {
+        try {
+            return OBJECT_MAPPER.readValue(params.get(key), new TypeReference<T>() {});
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

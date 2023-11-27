@@ -19,9 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.lemlist.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
@@ -34,23 +32,16 @@ import org.apache.seatunnel.connectors.seatunnel.lemlist.source.config.LemlistSo
 import org.apache.seatunnel.connectors.seatunnel.lemlist.source.config.LemlistSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.lemlist.source.exception.LemlistConnectorException;
 
-import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import static org.apache.seatunnel.connectors.seatunnel.http.util.AuthorizationUtil.getTokenByBasicAuth;
 
 @Slf4j
-@AutoService(SeaTunnelSource.class)
 public class LemlistSource extends HttpSource {
     private final LemlistSourceParameter lemlistSourceParameter = new LemlistSourceParameter();
 
-    @Override
-    public String getPluginName() {
-        return "Lemlist";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    public LemlistSource(Config pluginConfig) {
+        super(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
@@ -67,7 +58,11 @@ public class LemlistSource extends HttpSource {
         String accessToken =
                 getTokenByBasicAuth("", pluginConfig.getString(LemlistSourceConfig.PASSWORD.key()));
         lemlistSourceParameter.buildWithConfig(pluginConfig, accessToken);
-        buildSchemaWithConfig(pluginConfig);
+    }
+
+    @Override
+    public String getPluginName() {
+        return "Lemlist";
     }
 
     @Override

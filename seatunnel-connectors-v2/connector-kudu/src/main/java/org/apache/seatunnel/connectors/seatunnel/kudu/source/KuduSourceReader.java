@@ -19,7 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat;
 
 import org.apache.kudu.client.KuduScanner;
@@ -30,8 +33,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSplit> {
@@ -43,9 +48,22 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
 
     boolean noMoreSplit;
 
-    public KuduSourceReader(KuduInputFormat kuduInputFormat, SourceReader.Context context) {
+    private final Map<TablePath, SeaTunnelRowType> tables;
+
+    public KuduSourceReader(Context context, KuduSourceConfig kuduSourceConfig) {
         this.context = context;
-        this.kuduInputFormat = kuduInputFormat;
+        this.kuduInputFormat = new KuduInputFormat(kuduSourceConfig);
+        Map<TablePath, SeaTunnelRowType> tables = new HashMap<>();
+        kuduSourceConfig
+                .getTableConfigList()
+                .forEach(
+                        kuduSourceTableConfig ->
+                                tables.put(
+                                        kuduSourceTableConfig.getTablePath(),
+                                        kuduSourceTableConfig
+                                                .getCatalogTable()
+                                                .getSeaTunnelRowType()));
+        this.tables = tables;
     }
 
     @Override
@@ -63,12 +81,16 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
         synchronized (output.getCheckpointLock()) {
             KuduSourceSplit split = splits.poll();
             if (null != split) {
+                TablePath tablePath = split.getTablePath();
+                SeaTunnelRowType seaTunnelRowType = tables.get(tablePath);
                 KuduScanner kuduScanner = kuduInputFormat.scanner(split.getToken());
                 while (kuduScanner.hasMoreRows()) {
                     RowResultIterator rowResults = kuduScanner.nextRows();
                     while (rowResults.hasNext()) {
                         RowResult rowResult = rowResults.next();
-                        SeaTunnelRow seaTunnelRow = kuduInputFormat.toInternal(rowResult);
+                        SeaTunnelRow seaTunnelRow =
+                                kuduInputFormat.toInternal(rowResult, seaTunnelRowType);
+                        seaTunnelRow.setTableId(tablePath.toString());
                         output.collect(seaTunnelRow);
                     }
                 }

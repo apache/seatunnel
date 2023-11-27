@@ -29,6 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadS
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.File;
 import java.net.URL;
 import java.nio.file.Paths;
@@ -39,6 +41,7 @@ import java.util.TimeZone;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
+@Slf4j
 public class ParquetReadStrategyTest {
     @Test
     public void testParquetRead1() throws Exception {
@@ -51,7 +54,7 @@ public class ParquetReadStrategyTest {
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
-        System.out.println(seaTunnelRowTypeInfo);
+        log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
         parquetReadStrategy.read(path, "", testCollector);
     }
@@ -67,7 +70,7 @@ public class ParquetReadStrategyTest {
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
-        System.out.println(seaTunnelRowTypeInfo);
+        log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
         parquetReadStrategy.read(path, "", testCollector);
     }
@@ -83,7 +86,7 @@ public class ParquetReadStrategyTest {
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
-        System.out.println(seaTunnelRowTypeInfo);
+        log.info(seaTunnelRowTypeInfo.toString());
         int index = seaTunnelRowTypeInfo.indexOf("c_timestamp");
         TimeZone tz1 = TimeZone.getTimeZone("Asia/Shanghai");
         TimeZone.setDefault(tz1);
@@ -119,7 +122,7 @@ public class ParquetReadStrategyTest {
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
-        System.out.println(seaTunnelRowTypeInfo);
+        log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
         parquetReadStrategy.read(path, "", testCollector);
         List<SeaTunnelRow> rows = testCollector.getRows();
@@ -149,7 +152,7 @@ public class ParquetReadStrategyTest {
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
-        System.out.println(seaTunnelRowTypeInfo);
+        log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
         parquetReadStrategy.read(path, "", testCollector);
     }
@@ -164,7 +167,7 @@ public class ParquetReadStrategyTest {
 
         @Override
         public void collect(SeaTunnelRow record) {
-            System.out.println(record);
+            log.info(record.toString());
             rows.add(record);
         }
 
