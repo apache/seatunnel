@@ -49,3 +49,4 @@ while read line; do
     fi
 
 done < ${SEATUNNEL_HOME}/config/plugin_config
+
