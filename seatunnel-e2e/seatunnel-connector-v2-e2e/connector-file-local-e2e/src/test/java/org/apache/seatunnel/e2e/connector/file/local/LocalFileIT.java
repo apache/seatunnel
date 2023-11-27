@@ -40,7 +40,7 @@ import java.nio.file.Paths;
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4, TestContainerId.FLINK_1_15},
         type = {},
-        disabledReason = "The apache-compress version is not compatible with apache-poi, Flink 1.15.3's SideOutputDataStream.class conflict with Flink 1.16.2's")
+        disabledReason = "The apache-compress version is not compatible with apache-poi, flink-1.15.3's SideOutputDataStream.class is conflicting with flink-1.16.2's")
 public class LocalFileIT extends TestSuiteBase {
 
     /** Copy data files to container */
@@ -130,7 +130,6 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
         // test read filtered local file
         helper.execute("/excel/local_filter_excel_to_assert.conf");
-
         // test read empty directory
         helper.execute("/json/local_file_to_console.conf");
         helper.execute("/parquet/local_file_to_console.conf");
