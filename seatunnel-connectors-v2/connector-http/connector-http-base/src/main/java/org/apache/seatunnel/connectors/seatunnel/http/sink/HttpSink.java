@@ -75,7 +75,7 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public String getPluginName() {
-        return "Http";
+        return HttpConfig.CONNECTOR_IDENTITY;
     }
 
     @Override
