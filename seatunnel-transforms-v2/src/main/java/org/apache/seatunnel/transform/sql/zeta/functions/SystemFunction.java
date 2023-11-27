@@ -104,7 +104,7 @@ public class SystemFunction {
                     return LocalDateTime.ofInstant(instant, zone);
                 }
                 throw new TransformException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format("Unsupported CAST AS type: %s", v2));
             case "DATE":
                 if (v1 instanceof LocalDateTime) {
@@ -121,7 +121,7 @@ public class SystemFunction {
                     return LocalDate.of(year, month, day);
                 }
                 throw new TransformException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format("Unsupported CAST AS type: %s", v2));
             case "TIME":
                 if (v1 instanceof LocalDateTime) {
@@ -141,7 +141,7 @@ public class SystemFunction {
                     return LocalTime.of(hour, minute, second);
                 }
                 throw new TransformException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format("Unsupported CAST AS type: %s", v2));
             case "DECIMAL":
                 BigDecimal bigDecimal = new BigDecimal(v1.toString());
