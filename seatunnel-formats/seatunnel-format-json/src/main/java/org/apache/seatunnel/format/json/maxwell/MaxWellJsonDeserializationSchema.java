@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
@@ -56,9 +56,9 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
 
     private static final String FIELD_TABLE = "table";
 
-    private String database;
+    private final String database;
 
-    private String table;
+    private final String table;
 
     /** Names of fields. */
     private final String[] fieldNames;
@@ -66,7 +66,7 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
     /** Number of fields. */
     private final int fieldCount;
 
-    private boolean ignoreParseErrors;
+    private final boolean ignoreParseErrors;
 
     /** Pattern of the specific database. */
     private final Pattern databasePattern;
@@ -153,7 +153,7 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
         } else {
             if (!ignoreParseErrors) {
                 throw new SeaTunnelJsonFormatException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                         format(
                                 "Unknown \"type\" value \"%s\". The MaxWell JSON message is '%s'",
                                 type, new String(message)));
@@ -169,7 +169,7 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
                 return null;
             }
             throw new SeaTunnelJsonFormatException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
+                    CommonErrorCode.CONVERT_TO_CONNECTOR_TYPE_ERROR_SIMPLE,
                     String.format("Failed to deserialize JSON '%s'.", new String(message)),
                     t);
         }
