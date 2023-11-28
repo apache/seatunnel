@@ -74,6 +74,8 @@ public class KuduSinkConfig extends CommonConfig {
 
     private SaveMode saveMode;
 
+    private String table;
+
     private SessionConfiguration.FlushMode flushMode;
 
     private int maxBufferSize;
@@ -99,6 +101,7 @@ public class KuduSinkConfig extends CommonConfig {
 
     public KuduSinkConfig(ReadonlyConfig config) {
         super(config);
+        this.table = config.get(TABLE_NAME);
         this.saveMode = config.get(SAVE_MODE);
         this.flushMode = fromStrFlushMode(config.get(FLUSH_MODE));
         this.maxBufferSize = config.get(BATCH_SIZE);

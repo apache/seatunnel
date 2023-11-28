@@ -31,6 +31,9 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistExce
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 
@@ -49,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -170,8 +174,23 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                     ResultSet resultSet = ps.executeQuery()) {
 
                 TableSchema.Builder builder = TableSchema.builder();
+                Map<String, String> unsupported = new LinkedHashMap<>();
                 while (resultSet.next()) {
-                    builder.column(buildColumn(resultSet));
+                    try {
+                        builder.column(buildColumn(resultSet));
+                    } catch (SeaTunnelRuntimeException e) {
+                        if (e.getSeaTunnelErrorCode()
+                                .equals(CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE)) {
+                            unsupported.put(
+                                    e.getParams().get("field"), e.getParams().get("dataType"));
+                        } else {
+                            throw e;
+                        }
+                    }
+                }
+                if (!unsupported.isEmpty()) {
+                    throw CommonError.getCatalogTableWithUnsupportedType(
+                            catalogName, tablePath.getFullName(), unsupported);
                 }
                 // add primary key
                 primaryKey.ifPresent(builder::primaryKey);
@@ -186,7 +205,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                         "",
                         catalogName);
             }
-
+        } catch (SeaTunnelRuntimeException e) {
+            throw e;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed getting table %s", tablePath.getFullName()), e);
@@ -521,7 +541,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         throw new UnsupportedOperationException();
     }
 
-    protected String getCountSql(TablePath tablePath) {
+    protected String getExistDataSql(TablePath tablePath) {
         throw new UnsupportedOperationException();
     }
 
@@ -539,7 +559,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     public boolean isExistsData(TablePath tablePath) {
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         Connection connection = getConnection(dbUrl);
-        String sql = getCountSql(tablePath);
+        String sql = getExistDataSql(tablePath);
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ResultSet resultSet = ps.executeQuery();
             return resultSet.next();

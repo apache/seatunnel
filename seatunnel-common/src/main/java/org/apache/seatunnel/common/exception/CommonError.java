@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.common.exception;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.common.constants.PluginType;
 
 import java.util.HashMap;
@@ -26,6 +29,8 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_C
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_CONNECTOR_TYPE_ERROR_SIMPLE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_TABLES_WITH_UNSUPPORTED_TYPE_ERROR;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE;
 
 /**
@@ -36,6 +41,8 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_
  * construct the corresponding error instance.
  */
 public class CommonError {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public static SeaTunnelRuntimeException unsupportedDataType(
             String identifier, String dataType, String field) {
@@ -82,5 +89,33 @@ public class CommonError {
         params.put("dataType", dataType);
         params.put("field", field);
         return new SeaTunnelRuntimeException(CONVERT_TO_CONNECTOR_TYPE_ERROR_SIMPLE, params);
+    }
+
+    public static SeaTunnelRuntimeException getCatalogTableWithUnsupportedType(
+            String catalogName, String tableName, Map<String, String> fieldWithDataTypes) {
+        Map<String, String> params = new HashMap<>();
+        params.put("catalogName", catalogName);
+        params.put("tableName", tableName);
+        try {
+            params.put("fieldWithDataTypes", OBJECT_MAPPER.writeValueAsString(fieldWithDataTypes));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+        return new SeaTunnelRuntimeException(GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR, params);
+    }
+
+    public static SeaTunnelRuntimeException getCatalogTablesWithUnsupportedType(
+            String catalogName, Map<String, Map<String, String>> tableUnsupportedTypes) {
+        Map<String, String> params = new HashMap<>();
+        params.put("catalogName", catalogName);
+        try {
+            params.put(
+                    "tableUnsupportedTypes",
+                    OBJECT_MAPPER.writeValueAsString(tableUnsupportedTypes));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+        return new SeaTunnelRuntimeException(
+                GET_CATALOG_TABLES_WITH_UNSUPPORTED_TYPE_ERROR, params);
     }
 }

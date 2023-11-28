@@ -283,7 +283,7 @@ public class JdbcOutputFormatBuilder {
                 rowConverter);
     }
 
-    private static Function<SeaTunnelRow, SeaTunnelRow> createKeyExtractor(int[] pkFields) {
+    static Function<SeaTunnelRow, SeaTunnelRow> createKeyExtractor(int[] pkFields) {
         return row -> {
             Object[] fields = new Object[pkFields.length];
             for (int i = 0; i < pkFields.length; i++) {
@@ -291,7 +291,6 @@ public class JdbcOutputFormatBuilder {
             }
             SeaTunnelRow newRow = new SeaTunnelRow(fields);
             newRow.setTableId(row.getTableId());
-            newRow.setRowKind(row.getRowKind());
             return newRow;
         };
     }

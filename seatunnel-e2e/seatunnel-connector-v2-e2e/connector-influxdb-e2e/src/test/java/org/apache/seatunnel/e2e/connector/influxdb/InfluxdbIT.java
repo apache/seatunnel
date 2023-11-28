@@ -208,6 +208,40 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @TestTemplate
+    public void testInfluxdbWithTz(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/influxdb-to-influxdb-with-tz.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        String sourceSql =
+                String.format("select * from %s order by time", INFLUXDB_SOURCE_MEASUREMENT);
+        String sinkSql = String.format("select * from %s order by time", INFLUXDB_SINK_MEASUREMENT);
+        QueryResult sourceQueryResult = influxDB.query(new Query(sourceSql, INFLUXDB_DATABASE));
+        QueryResult sinkQueryResult = influxDB.query(new Query(sinkSql, INFLUXDB_DATABASE));
+        // assert data count
+        Assertions.assertEquals(
+                sourceQueryResult.getResults().size(), sinkQueryResult.getResults().size());
+        // assert data values
+        List<List<Object>> sourceValues =
+                sourceQueryResult.getResults().get(0).getSeries().get(0).getValues();
+        List<List<Object>> sinkValues =
+                sinkQueryResult.getResults().get(0).getSeries().get(0).getValues();
+        int rowSize = sourceValues.size();
+        int colSize = sourceValues.get(0).size();
+
+        for (int row = 0; row < rowSize; row++) {
+            for (int col = 0; col < colSize; col++) {
+                Object sourceColValue = sourceValues.get(row).get(col);
+                Object sinkColValue = sinkValues.get(row).get(col);
+
+                if (!Objects.deepEquals(sourceColValue, sinkColValue)) {
+                    Assertions.assertEquals(sourceColValue, sinkColValue);
+                }
+            }
+        }
+    }
+
     private void initializeInfluxDBClient() throws ConnectException {
         InfluxDBConfig influxDBConfig = new InfluxDBConfig(influxDBConnectUrl);
         influxDB = InfluxDBClient.getInfluxDB(influxDBConfig);

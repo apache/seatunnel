@@ -138,4 +138,10 @@ public interface StarRocksSinkOptions {
                     .defaultValue(DataSaveMode.APPEND_DATA)
                     .withDescription(
                             "Table structure and data processing methods that already exist on the target end");
+
+    Option<Integer> HTTP_SOCKET_TIMEOUT_MS =
+            Options.key("http_socket_timeout_ms")
+                    .intType()
+                    .defaultValue(3 * 60 * 1000)
+                    .withDescription("Set http socket timeout, default is 3 minutes.");
 }

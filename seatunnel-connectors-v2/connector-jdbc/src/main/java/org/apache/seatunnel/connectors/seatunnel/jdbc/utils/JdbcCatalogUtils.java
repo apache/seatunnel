@@ -27,6 +27,9 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
@@ -73,22 +76,40 @@ public class JdbcCatalogUtils {
                 log.info("Loading catalog tables for catalog : {}", jdbcCatalog.getClass());
 
                 jdbcCatalog.open();
+                Map<String, Map<String, String>> unsupportedTable = new HashMap<>();
                 for (JdbcSourceTableConfig tableConfig : tablesConfig) {
-                    CatalogTable catalogTable =
-                            getCatalogTable(tableConfig, jdbcCatalog, jdbcDialect);
-                    TablePath tablePath = catalogTable.getTableId().toTablePath();
-                    JdbcSourceTable jdbcSourceTable =
-                            JdbcSourceTable.builder()
-                                    .tablePath(tablePath)
-                                    .query(tableConfig.getQuery())
-                                    .partitionColumn(tableConfig.getPartitionColumn())
-                                    .partitionNumber(tableConfig.getPartitionNumber())
-                                    .partitionStart(tableConfig.getPartitionStart())
-                                    .partitionEnd(tableConfig.getPartitionEnd())
-                                    .catalogTable(catalogTable)
-                                    .build();
-                    tables.put(tablePath, jdbcSourceTable);
-                    log.info("Loaded catalog table : {}, {}", tablePath, jdbcSourceTable);
+                    try {
+                        CatalogTable catalogTable =
+                                getCatalogTable(tableConfig, jdbcCatalog, jdbcDialect);
+                        TablePath tablePath = catalogTable.getTableId().toTablePath();
+                        JdbcSourceTable jdbcSourceTable =
+                                JdbcSourceTable.builder()
+                                        .tablePath(tablePath)
+                                        .query(tableConfig.getQuery())
+                                        .partitionColumn(tableConfig.getPartitionColumn())
+                                        .partitionNumber(tableConfig.getPartitionNumber())
+                                        .partitionStart(tableConfig.getPartitionStart())
+                                        .partitionEnd(tableConfig.getPartitionEnd())
+                                        .catalogTable(catalogTable)
+                                        .build();
+                        tables.put(tablePath, jdbcSourceTable);
+                        log.info("Loaded catalog table : {}, {}", tablePath, jdbcSourceTable);
+                    } catch (SeaTunnelRuntimeException e) {
+                        if (e.getSeaTunnelErrorCode()
+                                .equals(
+                                        CommonErrorCode
+                                                .GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR)) {
+                            unsupportedTable.put(
+                                    e.getParams().get("tableName"),
+                                    e.getParamsValueAsMap("fieldWithDataTypes"));
+                        } else {
+                            throw e;
+                        }
+                    }
+                }
+                if (!unsupportedTable.isEmpty()) {
+                    throw CommonError.getCatalogTablesWithUnsupportedType(
+                            jdbcDialect.dialectName(), unsupportedTable);
                 }
                 log.info(
                         "Loaded {} catalog tables for catalog : {}",
@@ -328,7 +349,7 @@ public class JdbcCatalogUtils {
         ResultSetMetaData resultSetMetaData =
                 jdbcDialect.getResultSetMetaData(connection, sqlQuery);
         return CatalogUtils.getCatalogTable(
-                resultSetMetaData, jdbcDialect.getJdbcDialectTypeMapper());
+                resultSetMetaData, jdbcDialect.getJdbcDialectTypeMapper(), sqlQuery);
     }
 
     private static Connection getConnection(JdbcConnectionConfig config, JdbcDialect jdbcDialect)
