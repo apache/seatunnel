@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+import org.apache.seatunnel.engine.core.job.JarUtils;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
@@ -97,17 +98,18 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
             Set<ConnectorJarIdentifier> commonJarIdentifiers =
                     connectorPackageClient.uploadCommonPluginJars(
                             Long.parseLong(jobConfig.getJobContext().getJobId()), commonPluginJars);
-            Set<URL> commonPluginJarUrls = getJarUrlsFromIdentifiers(commonJarIdentifiers);
+            Set<URL> commonPluginJarUrls = JarUtils.getJarUrlsFromIdentifiers(commonJarIdentifiers);
             Set<ConnectorJarIdentifier> pluginJarIdentifiers = new HashSet<>();
             uploadActionPluginJar(actions, pluginJarIdentifiers);
-            Set<URL> connectorPluginJarUrls = getJarUrlsFromIdentifiers(pluginJarIdentifiers);
+            Set<URL> connectorPluginJarUrls =
+                    JarUtils.getJarUrlsFromIdentifiers(pluginJarIdentifiers);
             connectorJarIdentifiers.addAll(commonJarIdentifiers);
             connectorJarIdentifiers.addAll(pluginJarIdentifiers);
             jarUrls.addAll(commonPluginJarUrls);
             jarUrls.addAll(connectorPluginJarUrls);
             actions.forEach(
                     action -> {
-                        addCommonPluginJarsToAction(
+                        JarUtils.addCommonPluginJarsToAction(
                                 action, commonPluginJarUrls, commonJarIdentifiers);
                     });
         } else {
@@ -115,7 +117,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
             jarUrls.addAll(immutablePair.getRight());
             actions.forEach(
                     action -> {
-                        addCommonPluginJarsToAction(
+                        JarUtils.addCommonPluginJarsToAction(
                                 action, new HashSet<>(commonPluginJars), Collections.emptySet());
                     });
         }
@@ -144,7 +146,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                     // Reset the client URL of the jar package in Set
                     // add the URLs from remote master node
                     jarUrls.clear();
-                    jarUrls.addAll(getJarUrlsFromIdentifiers(jarIdentifiers));
+                    jarUrls.addAll(JarUtils.getJarUrlsFromIdentifiers(jarIdentifiers));
                     action.getConnectorJarIdentifiers().addAll(jarIdentifiers);
                     if (!action.getUpstream().isEmpty()) {
                         uploadActionPluginJar(action.getUpstream(), result);
@@ -153,12 +155,14 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
     }
 
     public ClientJobProxy execute() throws ExecutionException, InterruptedException {
+        LogicalDag logicalDag = getLogicalDag();
+        LOGGER.info("Generate logic dag: " + logicalDag.toString());
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         Long.parseLong(jobConfig.getJobContext().getJobId()),
                         jobConfig.getName(),
                         isStartWithSavePoint,
-                        seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
+                        seaTunnelHazelcastClient.getSerializationService().toData(logicalDag),
                         jobConfig,
                         new ArrayList<>(jarUrls),
                         new ArrayList<>(connectorJarIdentifiers));

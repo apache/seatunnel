@@ -31,7 +31,6 @@ import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -41,12 +40,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public abstract class AbstractJobEnvironment {
-    protected static ILogger LOGGER = null;
+    protected ILogger LOGGER = Logger.getLogger(getClass().getName());
 
     protected final boolean isStartWithSavePoint;
 
@@ -63,30 +61,11 @@ public abstract class AbstractJobEnvironment {
     protected final List<URL> commonPluginJars = new ArrayList<>();
 
     public AbstractJobEnvironment(JobConfig jobConfig, boolean isStartWithSavePoint) {
-        LOGGER = Logger.getLogger(getClass().getName());
         this.jobConfig = jobConfig;
         this.isStartWithSavePoint = isStartWithSavePoint;
         this.idGenerator = new IdGenerator();
         this.commonPluginJars.addAll(searchPluginJars());
-        this.commonPluginJars.addAll(
-                new ArrayList<>(
-                        Common.getThirdPartyJars(
-                                        jobConfig
-                                                .getEnvOptions()
-                                                .getOrDefault(EnvCommonOptions.JARS.key(), "")
-                                                .toString())
-                                .stream()
-                                .map(Path::toUri)
-                                .map(
-                                        uri -> {
-                                            try {
-                                                return uri.toURL();
-                                            } catch (MalformedURLException e) {
-                                                throw new SeaTunnelEngineException(
-                                                        "the uri of jar illegal:" + uri, e);
-                                            }
-                                        })
-                                .collect(Collectors.toList())));
+        this.commonPluginJars.addAll(searchThirdPartyJars());
         LOGGER.info("add common jar in plugins :" + commonPluginJars);
     }
 
@@ -102,45 +81,24 @@ public abstract class AbstractJobEnvironment {
         return Collections.emptySet();
     }
 
-    public static void addCommonPluginJarsToAction(
-            Action action,
-            Set<URL> commonPluginJars,
-            Set<ConnectorJarIdentifier> commonJarIdentifiers) {
-        action.getJarUrls().addAll(commonPluginJars);
-        action.getConnectorJarIdentifiers().addAll(commonJarIdentifiers);
-        if (!action.getUpstream().isEmpty()) {
-            action.getUpstream()
-                    .forEach(
-                            upstreamAction -> {
-                                addCommonPluginJarsToAction(
-                                        upstreamAction, commonPluginJars, commonJarIdentifiers);
-                            });
-        }
-    }
-
-    public static Set<URL> getJarUrlsFromIdentifiers(
-            Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
-        Set<URL> jarUrls = new HashSet<>();
-        connectorJarIdentifiers.stream()
+    protected List<URL> searchThirdPartyJars() {
+        return Common.getThirdPartyJars(
+                        jobConfig
+                                .getEnvOptions()
+                                .getOrDefault(EnvCommonOptions.JARS.key(), "")
+                                .toString())
+                .stream()
+                .map(Path::toUri)
                 .map(
-                        connectorJarIdentifier -> {
-                            File storageFile = new File(connectorJarIdentifier.getStoragePath());
+                        uri -> {
                             try {
-                                return Optional.of(storageFile.toURI().toURL());
+                                return uri.toURL();
                             } catch (MalformedURLException e) {
-                                LOGGER.warning(
-                                        String.format("Cannot get plugin URL: {%s}", storageFile));
-                                return Optional.empty();
+                                throw new SeaTunnelEngineException(
+                                        "the uri of jar illegal:" + uri, e);
                             }
                         })
-                .collect(Collectors.toList())
-                .forEach(
-                        optional -> {
-                            if (optional.isPresent()) {
-                                jarUrls.add((URL) optional.get());
-                            }
-                        });
-        return jarUrls;
+                .collect(Collectors.toList());
     }
 
     protected abstract MultipleTableJobConfigParser getJobConfigParser();
