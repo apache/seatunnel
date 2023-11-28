@@ -253,7 +253,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                                                 Assertions.assertIterableEquals(
                                                         querySql(
                                                                 getSourceQuerySQL(
-                                                                        DATABASE, SINK_TABLE1)),
+                                                                        DATABASE, SOURCE_TABLE1)),
                                                         querySql(
                                                                 getSourceQuerySQL(
                                                                         DATABASE, SINK_TABLE1)))));
