@@ -54,11 +54,11 @@ public class OracleIncrementalSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.USERNAME,
                         JdbcSourceOptions.PASSWORD,
                         CatalogOptions.TABLE_NAMES)
-                //        OracleSourceOptions.SCHEMA_NAMES)
                 .bundled(JdbcSourceOptions.HOSTNAME, JdbcSourceOptions.PORT)
                 .optional(
                         JdbcCatalogOptions.BASE_URL,
                         JdbcSourceOptions.DATABASE_NAMES,
+                        OracleSourceOptions.SCHEMA_NAMES,
                         JdbcSourceOptions.SERVER_TIME_ZONE,
                         JdbcSourceOptions.CONNECT_TIMEOUT_MS,
                         JdbcSourceOptions.CONNECT_MAX_RETRIES,
