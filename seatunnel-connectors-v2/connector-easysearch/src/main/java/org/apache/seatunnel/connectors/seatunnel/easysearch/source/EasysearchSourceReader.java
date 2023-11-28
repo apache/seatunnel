@@ -33,17 +33,21 @@ import org.apache.seatunnel.connectors.seatunnel.easysearch.serialize.source.Sea
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 public class EasysearchSourceReader implements SourceReader<SeaTunnelRow, EasysearchSourceSplit> {
 
     private final SeaTunnelRowDeserializer deserializer;
     private final long pollNextWaitTime = 1000L;
+    private final Config pluginConfig;
     SourceReader.Context context;
     Deque<EasysearchSourceSplit> splits = new LinkedList<>();
     boolean noMoreSplit;
-    private Config pluginConfig;
     private EasysearchClient ezsClient;
 
     public EasysearchSourceReader(

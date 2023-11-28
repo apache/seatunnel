@@ -19,8 +19,5 @@ package org.apache.seatunnel.connectors.seatunnel.easysearch.state;
 
 import java.io.Serializable;
 
-/**
- * Todo: we need to add a default
- */
-public class EasysearchAggregatedCommitInfo implements Serializable {
-}
+/** Todo: we need to add a default */
+public class EasysearchAggregatedCommitInfo implements Serializable {}

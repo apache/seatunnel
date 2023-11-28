@@ -17,15 +17,28 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.source;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.*;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SourceConfig.*;
+import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.HOSTS;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.TLS_KEY_STORE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.TLS_TRUST_STORE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.TLS_VERIFY_HOSTNAME;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SourceConfig.INDEX;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SourceConfig.QUERY;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SourceConfig.SCROLL_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SourceConfig.SCROLL_TIME;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SourceConfig.SOURCE;
 
 @AutoService(Factory.class)
 public class EasysearchSourceFactory implements TableSourceFactory {

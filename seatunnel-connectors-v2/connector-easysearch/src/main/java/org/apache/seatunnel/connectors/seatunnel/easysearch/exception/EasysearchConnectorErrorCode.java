@@ -20,11 +20,16 @@ package org.apache.seatunnel.connectors.seatunnel.easysearch.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum EasysearchConnectorErrorCode implements SeaTunnelErrorCode {
+    UNSUPPORTED_OPERATION("EASYSEARCH-COMMON-01", "Unsupported operation"),
+    JSON_OPERATION_FAILED("EASYSEARCH-COMMON-02", "Json covert/parse operation failed"),
+    SQL_OPERATION_FAILED(
+            "EASYSEARCH-COMMON-04",
+            "Sql operation failed, such as (execute,addBatch,close) etc..."),
+    UNSUPPORTED_DATA_TYPE("EASYSEARCH-COMMON-03", "Unsupported data type"),
     BULK_RESPONSE_ERROR("EASYSEARCH-01", "Bulk ezs response error"),
     GET_EZS_VERSION_FAILED("EASYSEARCH-02", "Get easysearch version failed"),
     SCROLL_REQUEST_ERROR("EASYSEARCH-03", "Fail to scroll request"),
-    GET_INDEX_DOCS_COUNT_FAILED(
-            "EASYSEARCH-04", "Get easysearch document index count failed"),
+    GET_INDEX_DOCS_COUNT_FAILED("EASYSEARCH-04", "Get easysearch document index count failed"),
     LIST_INDEX_FAILED("EASYSEARCH-05", "List easysearch index failed"),
     DROP_INDEX_FAILED("EASYSEARCH-06", "Drop easysearch index failed"),
     CREATE_INDEX_FAILED("EASYSEARCH-07", "Create easysearch index failed"),

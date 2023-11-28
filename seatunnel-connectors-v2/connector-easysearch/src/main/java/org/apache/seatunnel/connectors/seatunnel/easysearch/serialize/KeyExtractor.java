@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.serialize;
 
-import lombok.AllArgsConstructor;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorException;
+
+import lombok.AllArgsConstructor;
 
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -31,6 +31,8 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorErrorCode.UNSUPPORTED_OPERATION;
 
 @AllArgsConstructor
 public class KeyExtractor implements Function<SeaTunnelRow, String>, Serializable {
@@ -61,8 +63,7 @@ public class KeyExtractor implements Function<SeaTunnelRow, String>, Serializabl
                 case ARRAY:
                 case MAP:
                     throw new EasysearchConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            "Unsupported type: " + fieldType);
+                            UNSUPPORTED_OPERATION, "Unsupported type: " + fieldType);
                 case DATE:
                     LocalDate localDate = (LocalDate) row.getField(fieldIndex);
                     return localDate.toString();

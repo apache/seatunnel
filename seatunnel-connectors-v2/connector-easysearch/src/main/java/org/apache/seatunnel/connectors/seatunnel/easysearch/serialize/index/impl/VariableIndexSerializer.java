@@ -25,9 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * index include variable
- */
+/** index include variable */
 public class VariableIndexSerializer implements IndexSerializer {
 
     private final String index;

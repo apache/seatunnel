@@ -17,23 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.serialize;
 
-import lombok.NonNull;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.serialize.index.IndexSerializer;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.serialize.index.IndexSerializerFactory;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.serialize.type.IndexTypeSerializer;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.serialize.type.IndexTypeSerializerFactory;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
+import lombok.NonNull;
 
 import java.time.temporal.Temporal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorErrorCode.JSON_OPERATION_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorErrorCode.UNSUPPORTED_OPERATION;
 
 public class EasysearchRowSerializer implements SeaTunnelRowSerializer {
     private final SeaTunnelRowType seaTunnelRowType;
@@ -41,14 +43,9 @@ public class EasysearchRowSerializer implements SeaTunnelRowSerializer {
 
     private final IndexSerializer indexSerializer;
 
-    private final IndexTypeSerializer indexTypeSerializer;
     private final Function<SeaTunnelRow, String> keyExtractor;
 
-    public EasysearchRowSerializer(
-            IndexInfo indexInfo,
-            SeaTunnelRowType seaTunnelRowType) {
-        this.indexTypeSerializer =
-                IndexTypeSerializerFactory.getIndexTypeSerializer();
+    public EasysearchRowSerializer(IndexInfo indexInfo, SeaTunnelRowType seaTunnelRowType) {
         this.indexSerializer =
                 IndexSerializerFactory.getIndexSerializer(indexInfo.getIndex(), seaTunnelRowType);
         this.seaTunnelRowType = seaTunnelRowType;
@@ -68,8 +65,7 @@ public class EasysearchRowSerializer implements SeaTunnelRowSerializer {
                 return serializeDelete(row);
             default:
                 throw new EasysearchConnectorException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                        "Unsupported write row kind: " + row.getRowKind());
+                        UNSUPPORTED_OPERATION, "Unsupported write row kind: " + row.getRowKind());
         }
     }
 
@@ -110,9 +106,7 @@ public class EasysearchRowSerializer implements SeaTunnelRowSerializer {
             }
         } catch (JsonProcessingException e) {
             throw new EasysearchConnectorException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                    "Object json deserialization exception.",
-                    e);
+                    JSON_OPERATION_FAILED, "Object json deserialization exception.", e);
         }
     }
 
@@ -131,9 +125,7 @@ public class EasysearchRowSerializer implements SeaTunnelRowSerializer {
                     .toString();
         } catch (JsonProcessingException e) {
             throw new EasysearchConnectorException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                    "Object json deserialization exception.",
-                    e);
+                    JSON_OPERATION_FAILED, "Object json deserialization exception.", e);
         }
     }
 
@@ -162,7 +154,6 @@ public class EasysearchRowSerializer implements SeaTunnelRowSerializer {
     private Map<String, String> createMetadata(@NonNull SeaTunnelRow row) {
         Map<String, String> actionMetadata = new HashMap<>(2);
         actionMetadata.put("_index", indexSerializer.serialize(row));
-        indexTypeSerializer.fillType(actionMetadata);
         return actionMetadata;
     }
 }

@@ -30,14 +30,6 @@ public class SinkConfig {
                     .noDefaultValue()
                     .withDescription(
                             "Easysearch index name.Index support contains variables of field name,such as seatunnel_${age},and the field must appear at seatunnel row. If not, we will treat it as a normal index");
-
-    public static final Option<String> INDEX_TYPE =
-            Options.key("index_type")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Easysearch index type, it is recommended not to specify in easysearch 6 and above");
-
     public static final Option<List<String>> PRIMARY_KEYS =
             Options.key("primary_keys")
                     .listType(String.class)

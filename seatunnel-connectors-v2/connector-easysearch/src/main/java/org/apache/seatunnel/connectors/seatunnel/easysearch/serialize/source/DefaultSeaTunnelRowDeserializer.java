@@ -17,15 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.serialize.source;
 
-import org.apache.seatunnel.api.table.type.*;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
+
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorException;
 
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
@@ -38,7 +46,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.seatunnel.api.table.type.BasicType.*;
+import static org.apache.seatunnel.api.table.type.BasicType.BOOLEAN_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.BYTE_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.DOUBLE_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.SHORT_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorErrorCode.UNSUPPORTED_DATA_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorErrorCode.UNSUPPORTED_OPERATION;
 
 public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer {
 
@@ -107,7 +125,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             }
         } catch (Exception ex) {
             throw new EasysearchConnectorException(
-                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    UNSUPPORTED_OPERATION,
                     String.format(
                             "error fieldName=%s,fieldValue=%s,seaTunnelDataType=%s,rowRecord=%s",
                             fieldName, value, seaTunnelDataType, JsonUtils.toJsonString(rowRecord)),
@@ -160,8 +178,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
 
             SeaTunnelDataType<?> valueType = mapType.getValueType();
             Map<String, String> stringMap =
-                    mapper.readValue(fieldValue, new TypeReference<HashMap<String, String>>() {
-                    });
+                    mapper.readValue(fieldValue, new TypeReference<HashMap<String, String>>() {});
             Map<Object, Object> convertMap = new HashMap<Object, Object>();
             for (Map.Entry<String, String> entry : stringMap.entrySet()) {
                 Object convertKey = convertValue(keyType, entry.getKey());
@@ -175,8 +192,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             return null;
         } else {
             throw new EasysearchConnectorException(
-                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                    "Unexpected value: " + fieldType);
+                    UNSUPPORTED_DATA_TYPE, "Unexpected value: " + fieldType);
         }
     }
 
@@ -196,7 +212,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         DateTimeFormatter dateTimeFormatter = dateTimeFormatterMap.get(formatDate.length());
         if (dateTimeFormatter == null) {
             throw new EasysearchConnectorException(
-                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, "unsupported date format");
+                    UNSUPPORTED_OPERATION, "unsupported date format");
         }
         return LocalDateTime.parse(formatDate, dateTimeFormatter);
     }

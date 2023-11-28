@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.easysearch.source;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.client.EasysearchClient;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.IndexDocsCount;
@@ -30,21 +29,28 @@ import org.apache.seatunnel.connectors.seatunnel.easysearch.exception.Easysearch
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorErrorCode.UNSUPPORTED_OPERATION;
 
 @Slf4j
 public class EasysearchSourceSplitEnumerator
         implements SourceSplitEnumerator<EasysearchSourceSplit, EasysearchSourceState> {
 
     private final Object stateLock = new Object();
-    private SourceSplitEnumerator.Context<EasysearchSourceSplit> context;
-    private Config pluginConfig;
+    private final SourceSplitEnumerator.Context<EasysearchSourceSplit> context;
+    private final Config pluginConfig;
+    private final Map<Integer, List<EasysearchSourceSplit>> pendingSplit;
+    private final List<String> source;
     private EasysearchClient ezsClient;
-    private Map<Integer, List<EasysearchSourceSplit>> pendingSplit;
-
-    private List<String> source;
-
     private volatile boolean shouldEnumerate;
 
     public EasysearchSourceSplitEnumerator(
@@ -185,8 +191,7 @@ public class EasysearchSourceSplitEnumerator
     @Override
     public void handleSplitRequest(int subtaskId) {
         throw new EasysearchConnectorException(
-                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                "Unsupported handleSplitRequest: " + subtaskId);
+                UNSUPPORTED_OPERATION, "Unsupported handleSplitRequest: " + subtaskId);
     }
 
     @Override

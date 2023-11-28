@@ -17,11 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.catalog;
 
-import org.apache.seatunnel.api.table.catalog.*;
-import org.apache.seatunnel.api.table.catalog.exception.*;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.util.ConfigUtil;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.client.EasysearchClient;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.EasysearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.IndexDocsCount;

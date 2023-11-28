@@ -28,15 +28,11 @@ import lombok.Data;
 public class IndexInfo {
 
     private String index;
-    private String type;
     private String[] primaryKeys;
     private String keyDelimiter;
 
     public IndexInfo(Config pluginConfig) {
         index = pluginConfig.getString(SinkConfig.INDEX.key());
-        if (pluginConfig.hasPath(SinkConfig.INDEX_TYPE.key())) {
-            type = pluginConfig.getString(SinkConfig.INDEX_TYPE.key());
-        }
         if (pluginConfig.hasPath(SinkConfig.PRIMARY_KEYS.key())) {
             primaryKeys =
                     pluginConfig

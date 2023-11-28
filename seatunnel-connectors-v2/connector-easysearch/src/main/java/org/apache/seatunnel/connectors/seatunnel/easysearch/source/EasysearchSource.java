@@ -17,10 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.source;
 
-import org.apache.seatunnel.api.source.*;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -39,8 +44,8 @@ import java.util.Map;
 @AutoService(SeaTunnelSource.class)
 public class EasysearchSource
         implements SeaTunnelSource<SeaTunnelRow, EasysearchSourceSplit, EasysearchSourceState>,
-        SupportParallelism,
-        SupportColumnProjection {
+                SupportParallelism,
+                SupportColumnProjection {
 
     private Config pluginConfig;
 

@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.sink;
 
-import com.google.auto.service.AutoService;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -26,7 +27,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.state.EasysearchAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.state.EasysearchCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.state.EasysearchSinkState;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.auto.service.AutoService;
 
 import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SinkConfig.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SinkConfig.MAX_RETRY_COUNT;
@@ -34,10 +36,10 @@ import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SinkCo
 @AutoService(SeaTunnelSink.class)
 public class EasysearchSink
         implements SeaTunnelSink<
-        SeaTunnelRow,
-        EasysearchSinkState,
-        EasysearchCommitInfo,
-        EasysearchAggregatedCommitInfo> {
+                SeaTunnelRow,
+                EasysearchSinkState,
+                EasysearchCommitInfo,
+                EasysearchAggregatedCommitInfo> {
 
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;

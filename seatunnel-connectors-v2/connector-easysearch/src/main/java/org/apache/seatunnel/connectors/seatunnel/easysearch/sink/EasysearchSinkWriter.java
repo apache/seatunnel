@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.sink;
 
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.RetryUtils.RetryMaterial;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.client.EasysearchClient;
@@ -34,16 +34,17 @@ import org.apache.seatunnel.connectors.seatunnel.easysearch.serialize.Easysearch
 import org.apache.seatunnel.connectors.seatunnel.easysearch.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.state.EasysearchCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.state.EasysearchSinkState;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * EasysearchSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Easysearch.
- */
+import static org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorErrorCode.SQL_OPERATION_FAILED;
+
+/** EasysearchSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Easysearch. */
 @Slf4j
 public class EasysearchSinkWriter
         implements SinkWriter<SeaTunnelRow, EasysearchCommitInfo, EasysearchSinkState> {
@@ -67,8 +68,7 @@ public class EasysearchSinkWriter
 
         IndexInfo indexInfo = new IndexInfo(pluginConfig);
         ezsClient = EasysearchClient.createInstance(pluginConfig);
-        this.seaTunnelRowSerializer =
-                new EasysearchRowSerializer(indexInfo, seaTunnelRowType);
+        this.seaTunnelRowSerializer = new EasysearchRowSerializer(indexInfo, seaTunnelRowType);
 
         this.requestEzsList = new ArrayList<>(maxBatchSize);
         this.retryMaterial =
@@ -95,8 +95,7 @@ public class EasysearchSinkWriter
     }
 
     @Override
-    public void abortPrepare() {
-    }
+    public void abortPrepare() {}
 
     public synchronized void bulkEzsWithRetry(
             EasysearchClient ezsClient, List<String> requestEzsList) {
@@ -119,9 +118,7 @@ public class EasysearchSinkWriter
             requestEzsList.clear();
         } catch (Exception e) {
             throw new EasysearchConnectorException(
-                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
-                    "Easysearch execute batch statement error",
-                    e);
+                    SQL_OPERATION_FAILED, "Easysearch execute batch statement error", e);
         }
     }
 

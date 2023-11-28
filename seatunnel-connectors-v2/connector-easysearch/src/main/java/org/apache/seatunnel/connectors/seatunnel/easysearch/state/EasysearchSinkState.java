@@ -19,5 +19,4 @@ package org.apache.seatunnel.connectors.seatunnel.easysearch.state;
 
 import java.io.Serializable;
 
-public class EasysearchSinkState implements Serializable {
-}
+public class EasysearchSinkState implements Serializable {}

@@ -17,7 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.client;
 
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.BulkResponse;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.EasysearchClusterInfo;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.IndexDocsCount;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.ScrollResult;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.util.SSLUtils;
+
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpStatus;
@@ -30,28 +45,23 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.ssl.SSLContexts;
 import org.apache.http.util.Asserts;
 import org.apache.http.util.EntityUtils;
-import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.BulkResponse;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.EasysearchClusterInfo;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.IndexDocsCount;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.ScrollResult;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.util.SSLUtils;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.easysearch.client.Request;
 import org.easysearch.client.Response;
 import org.easysearch.client.RestClient;
 import org.easysearch.client.RestClientBuilder;
 
+import lombok.extern.slf4j.Slf4j;
+
 import javax.net.ssl.SSLContext;
+
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -89,7 +99,8 @@ public class EasysearchClient {
                 EzsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.defaultValue();
         if (pluginConfig.hasPath(EzsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.key())) {
             tlsVerifyCertificate =
-                    pluginConfig.getBoolean(EzsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.key());
+                    pluginConfig.getBoolean(
+                            EzsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.key());
         }
         if (tlsVerifyCertificate) {
             if (pluginConfig.hasPath(EzsClusterConnectionConfig.TLS_KEY_STORE_PATH.key())) {
@@ -242,8 +253,7 @@ public class EasysearchClient {
                         Collectors.toMap(
                                 Function.identity(),
                                 fieldName -> {
-                                    String fieldType =
-                                            allEasysearchFieldTypeInfoMap.get(fieldName);
+                                    String fieldType = allEasysearchFieldTypeInfoMap.get(fieldName);
                                     if (fieldType == null) {
                                         log.warn(
                                                 "fail to get easysearch field {} mapping type,so give a default type text",
@@ -320,8 +330,8 @@ public class EasysearchClient {
     /**
      * first time to request search documents by scroll call /${index}/_search?scroll=${scroll}
      *
-     * @param index      index name
-     * @param source     select fields
+     * @param index index name
+     * @param source select fields
      * @param scrollTime such as:1m
      * @param scrollSize fetch documents count in one request
      */
@@ -334,7 +344,7 @@ public class EasysearchClient {
         Map<String, Object> param = new HashMap<>();
         param.put("query", query);
         param.put("_source", source);
-        param.put("sort", new String[]{"_doc"});
+        param.put("sort", new String[] {"_doc"});
         param.put("size", scrollSize);
         String endpoint = "/" + index + "/_search?scroll=" + scrollTime;
         ScrollResult scrollResult =
@@ -345,7 +355,7 @@ public class EasysearchClient {
     /**
      * scroll to get result call _search/scroll
      *
-     * @param scrollId   the scroll id of the last request
+     * @param scrollId the scroll id of the last request
      * @param scrollTime such as:1m
      */
     public ScrollResult searchWithScrollId(String scrollId, String scrollTime) {
@@ -414,7 +424,7 @@ public class EasysearchClient {
             doc.put("_id", hitNode.get("_id").textValue());
             JsonNode source = hitNode.get("_source");
             for (Iterator<Map.Entry<String, JsonNode>> iterator = source.fields();
-                 iterator.hasNext(); ) {
+                    iterator.hasNext(); ) {
                 Map.Entry<String, JsonNode> entry = iterator.next();
                 String fieldName = entry.getKey();
                 if (entry.getValue() instanceof TextNode) {
