@@ -103,6 +103,8 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
                     }
                     needMoveFiles.put(key, getTargetLocation(key));
                 });
+        beingWrittenOutputStream.clear();
+        isFirstWrite.clear();
     }
 
     private FSDataOutputStream getOrCreateOutputStream(@NonNull String filePath) {
