@@ -66,7 +66,7 @@ import static org.awaitility.Awaitility.given;
 public class EasysearchIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(EasysearchIT.class);
-    private static final String EZS_DOCKER_IMAGE = "infnilabs/easysearch:seatunnel";
+    private static final String EZS_DOCKER_IMAGE = "infinilabs/easysearch-amd64:seatunnel";
 
     private static final String HOST = "easysearch_e2e";
 
@@ -89,13 +89,13 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
                                         DockerLoggerFactory.getLogger(EZS_DOCKER_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 9200, 9200)));
         Startables.deepStart(Stream.of(container)).join();
-        log.info("Easysearch container started");
+        String endpoint = String.format("https://%s:%s", container.getHost(), 9200);
+        LOG.info("Easysearch container started with " + endpoint);
         // wait for easysearch fully start
-        given().ignoreExceptions().await().atMost(120, TimeUnit.SECONDS);
+        given().ignoreExceptions().await().atMost(1200, TimeUnit.SECONDS);
         esRestClient =
                 EasysearchClient.createInstance(
-                        Lists.newArrayList(
-                                String.format("https://%s:%s", container.getHost(), 9200)),
+                        Lists.newArrayList(endpoint),
                         Optional.of("admin"),
                         Optional.of("admin"),
                         false,
@@ -111,17 +111,13 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     /** create a index,and bulk some documents */
     private void createIndexDocs() {
         StringBuilder requestBody = new StringBuilder();
-        Map<String, String> indexInner = new HashMap<>();
-        indexInner.put("_index", "_doc");
-
-        Map<String, Map<String, String>> indexParam = new HashMap<>();
-        indexParam.put("index", indexInner);
-        String indexHeader = "{\"index\":{\"_index\":\"st_index\"}\n";
+        String indexHeader = "{\"index\":{\"_index\":\"st_index\"}}\n";
         for (int i = 0; i < testDataset.size(); i++) {
             String row = testDataset.get(i);
             requestBody.append(indexHeader);
+            requestBody.append("{\"doc\":");
             requestBody.append(row);
-            requestBody.append("\n");
+            requestBody.append("}\n");
         }
         esRestClient.bulk(requestBody.toString());
     }
