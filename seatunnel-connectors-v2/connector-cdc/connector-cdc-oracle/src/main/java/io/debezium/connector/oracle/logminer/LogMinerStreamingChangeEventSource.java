@@ -20,7 +20,6 @@ package io.debezium.connector.oracle.logminer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.debezium.DebeziumException;
 import io.debezium.config.Configuration;
 import io.debezium.connector.oracle.OracleConnection;
 import io.debezium.connector.oracle.OracleConnectorConfig;
@@ -111,7 +110,10 @@ public class LogMinerStreamingChangeEventSource
         this.schema = schema;
         this.connectorConfig = connectorConfig;
         this.strategy = connectorConfig.getLogMiningStrategy();
-        this.isContinuousMining = connectorConfig.isContinuousMining();
+        this.isContinuousMining =
+                jdbcConnection.getOracleVersion().getMajor() >= 19
+                        ? false
+                        : connectorConfig.isContinuousMining();
         this.errorHandler = errorHandler;
         this.streamingMetrics = streamingMetrics;
         this.jdbcConfiguration = JdbcConfiguration.adapt(jdbcConfig);
@@ -141,17 +143,28 @@ public class LogMinerStreamingChangeEventSource
             try {
                 startScn = offsetContext.getScn();
 
+                Scn firstOnlineLogScn;
                 if (!isContinuousMining
                         && startScn.compareTo(
-                                        getFirstOnlineLogScn(
-                                                jdbcConnection,
-                                                archiveLogRetention,
-                                                archiveDestinationName))
+                                        (firstOnlineLogScn =
+                                                getFirstOnlineLogScn(
+                                                        jdbcConnection,
+                                                        archiveLogRetention,
+                                                        archiveDestinationName)))
                                 < 0) {
-                    throw new DebeziumException(
-                            "Online REDO LOG files or archive log files do not contain the offset scn "
-                                    + startScn
-                                    + ".  Please perform a new snapshot.");
+                    // throw new DebeziumException(
+                    //        "Online REDO LOG files or archive log files do not contain the offset
+                    // scn "
+                    //                + startScn
+                    //                + ".  Please perform a new snapshot.");
+
+                    //
+                    LOGGER.warn(
+                            "Online REDO LOG files or archive log files do not contain the offset scn {}."
+                                    + "Turn start scn to online log first scn: {}.",
+                            startScn,
+                            firstOnlineLogScn);
+                    startScn = firstOnlineLogScn;
                 }
 
                 setNlsSessionParameters(jdbcConnection);

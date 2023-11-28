@@ -37,6 +37,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -61,8 +62,8 @@ import static org.junit.Assert.assertNotNull;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK do not support cdc")
+        type = {EngineType.SPARK},
+        disabledReason = "Currently SPARK do not support cdc")
 public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String ORACLE_IMAGE = "jark/oracle-xe-11g-r2-cdc:0.1";
@@ -97,6 +98,16 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_SQL = "select * from DEBEZIUM.FULL_TYPES ORDER BY ID";
     private static final String SINK_SQL = "select * from DEBEZIUM.FULL_TYPES_SINK ORDER BY ID";
 
+    private static final String DATABASE = "DEBEZIUM";
+    private static final String SOURCE_TABLE1 = "FULL_TYPES";
+    private static final String SOURCE_TABLE2 = "FULL_TYPES2";
+
+    private static final String SINK_TABLE1 = "SINK_FULL_TYPES";
+    private static final String SINK_TABLE2 = "SINK_FULL_TYPES2";
+    private static final String SINK_TABLE = "FULL_TYPES_SINK";
+
+    private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s ORDER BY ID";
+
     private String driverUrl() {
         return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
     }
@@ -121,22 +132,22 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
         log.info("Starting containers...");
         Startables.deepStart(Stream.of(ORACLE_CONTAINER)).join();
         log.info("Containers are started.");
+        createAndInitialize(ORACLE_CONTAINER, "column_type_test");
     }
 
     @TestTemplate
-    public void test(TestContainer container) throws Exception {
-        createAndInitialize(ORACLE_CONTAINER, "column_type_test");
+    public void testOracleCdcCheckDataE2e(TestContainer container) throws Exception {
 
-        CompletableFuture<Void> executeJobFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                container.executeJob("/oraclecdc_to_console.conf");
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                            return null;
-                        });
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/oraclecdc_to_console.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
 
         // snapshot stage
         await().atMost(240000, TimeUnit.MILLISECONDS)
@@ -147,7 +158,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                         });
 
         // insert update delete
-        updateSourceTable();
+        updateSourceTable(DATABASE, SOURCE_TABLE1);
 
         // stream stage
         await().atMost(240000, TimeUnit.MILLISECONDS)
@@ -156,6 +167,157 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                             Assertions.assertIterableEquals(
                                     querySql(SOURCE_SQL), querySql(SINK_SQL));
                         });
+
+        clearTable(DATABASE, SOURCE_TABLE1);
+        clearTable(DATABASE, SINK_TABLE);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support multi table")
+    public void testMysqlCdcMultiTableE2e(TestContainer container)
+            throws IOException, InterruptedException {
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/oraclecdc_to_oracle_with_multi_table_mode_two_table.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        updateSourceTable(DATABASE, SOURCE_TABLE1);
+        updateSourceTable(DATABASE, SOURCE_TABLE2);
+
+        // stream stage
+        await().atMost(240000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SOURCE_TABLE1)),
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SINK_TABLE1))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SOURCE_TABLE2)),
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SINK_TABLE2)))));
+
+        clearTable(DATABASE, SOURCE_TABLE1);
+        clearTable(DATABASE, SOURCE_TABLE2);
+        clearTable(DATABASE, SINK_TABLE2);
+        clearTable(DATABASE, SINK_TABLE2);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support multi table")
+    public void testMultiTableWithRestore(TestContainer container)
+            throws IOException, InterruptedException {
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/oraclecdc_to_oracle_with_multi_table_mode_one_table.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // insert update delete
+        updateSourceTable(DATABASE, SOURCE_TABLE1);
+
+        // stream stage
+        await().atMost(240000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SINK_TABLE1)),
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SINK_TABLE1)))));
+
+        Pattern jobIdPattern =
+                Pattern.compile(
+                        ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*", Pattern.DOTALL);
+        Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
+        String jobId;
+        if (matcher.matches()) {
+            jobId = matcher.group(1);
+        } else {
+            throw new RuntimeException("Can not find jobId");
+        }
+
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+
+        // Restore job with add a new table
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/oraclecdc_to_oracle_with_multi_table_mode_two_table.conf", jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        updateSourceTable(DATABASE, SOURCE_TABLE2);
+
+        // stream stage
+        await().atMost(240000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SOURCE_TABLE1)),
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SINK_TABLE1))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SOURCE_TABLE2)),
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SINK_TABLE2)))));
+
+        log.info("****************** container logs start ******************");
+        String containerLogs = container.getServerLogs();
+        log.info(containerLogs);
+        Assertions.assertFalse(containerLogs.contains("ERROR"));
+        log.info("****************** container logs end ******************");
+
+        clearTable(DATABASE, SOURCE_TABLE1);
+        clearTable(DATABASE, SOURCE_TABLE2);
+        clearTable(DATABASE, SINK_TABLE2);
+        clearTable(DATABASE, SINK_TABLE2);
     }
 
     public static void createAndInitialize(OracleContainer oracleContainer, String sqlFile)
@@ -223,12 +385,37 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                 oracleContainer.getJdbcUrl(), CONNECTOR_USER, CONNECTOR_PWD);
     }
 
-    private void updateSourceTable() {
+    public static Connection getJdbcConnection(
+            OracleContainer oracleContainer, String username, String password) throws SQLException {
+        return DriverManager.getConnection(oracleContainer.getJdbcUrl(), username, password);
+    }
+
+    private void executeSql(String sql, String username, String password) {
+        try (Connection connection = getJdbcConnection(ORACLE_CONTAINER, username, password)) {
+            connection.createStatement().execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String getSourceQuerySQL(String database, String tableName) {
+        return String.format(SOURCE_SQL_TEMPLATE, database, tableName);
+    }
+
+    private void updateSourceTable(String database, String tableName) {
         executeSql(
-                "INSERT INTO DEBEZIUM.FULL_TYPES VALUES (2, 'vc2', 'vc2', 'nvc2', 'c', 'nc',1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,1, 22, 333, 4444, 5555, 1, 99, 9999, 999999999, 999999999999999999,94, 9949, 999999994, 999999999999999949, 99999999999999999999999999999999999949,TO_DATE('2022-10-30', 'yyyy-mm-dd'),TO_TIMESTAMP('2022-10-30 12:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'))");
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " VALUES (2, 'vc2', 'vc2', 'nvc2', 'c', 'nc',1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,1, 22, 333, 4444, 5555, 1, 99, 9999, 999999999, 999999999999999999,94, 9949, 999999994, 999999999999999949, 99999999999999999999999999999999999949,TO_DATE('2022-10-30', 'yyyy-mm-dd'),TO_TIMESTAMP('2022-10-30 12:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'))");
 
         executeSql(
-                "INSERT INTO DEBEZIUM.FULL_TYPES VALUES (\n"
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " VALUES (\n"
                         + "    3, 'vc2', 'vc2', 'nvc2', 'c', 'nc',\n"
                         + "    1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,\n"
                         + "    1, 22, 333, 4444, 5555, 1, 99, 9999, 999999999, 999999999999999999,\n"
@@ -241,9 +428,14 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                         + "    TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5')\n"
                         + ")");
 
-        executeSql("DELETE FROM DEBEZIUM.FULL_TYPES where id = 2");
+        executeSql("DELETE FROM " + database + "." + tableName + " where id = 2");
 
-        executeSql("UPDATE DEBEZIUM.FULL_TYPES SET VAL_VARCHAR = 'vc3' where id = 1");
+        executeSql(
+                "UPDATE " + database + "." + tableName + " SET VAL_VARCHAR = 'vc3' where id = 1");
+    }
+
+    private void clearTable(String database, String tableName) {
+        executeSql("truncate table " + database + "." + tableName, SCHEMA_USER, SCHEMA_PWD);
     }
 
     @AfterAll

@@ -36,29 +36,29 @@ import java.util.List;
  */
 public class OracleErrorHandler extends ErrorHandler {
 
-    private static final List<String> retryOracleErrors = new ArrayList<>();
-    private static final List<String> retryOracleMessageContainsTexts = new ArrayList<>();
+    private static final List<String> RETRY_ORACLE_ERRORS = new ArrayList<>();
+    private static final List<String> RETRY_ORACLE_MESSAGE_CONTAINS_TEXTS = new ArrayList<>();
 
     static {
         // Contents of this list should only be ORA-xxxxx errors
         // The error check uses starts-with semantics
-        retryOracleErrors.add("ORA-03135"); // connection lost
-        retryOracleErrors.add("ORA-12543"); // TNS:destination host unreachable
-        retryOracleErrors.add("ORA-00604"); // error occurred at recursive SQL level 1
-        retryOracleErrors.add("ORA-01089"); // Oracle immediate shutdown in progress
-        retryOracleErrors.add("ORA-01333"); // Failed to establish LogMiner dictionary
-        retryOracleErrors.add("ORA-01284"); // Redo/Archive log cannot be opened, likely locked
-        retryOracleErrors.add(
+        RETRY_ORACLE_ERRORS.add("ORA-03135"); // connection lost
+        RETRY_ORACLE_ERRORS.add("ORA-12543"); // TNS:destination host unreachable
+        RETRY_ORACLE_ERRORS.add("ORA-00604"); // error occurred at recursive SQL level 1
+        RETRY_ORACLE_ERRORS.add("ORA-01089"); // Oracle immediate shutdown in progress
+        RETRY_ORACLE_ERRORS.add("ORA-01333"); // Failed to establish LogMiner dictionary
+        RETRY_ORACLE_ERRORS.add("ORA-01284"); // Redo/Archive log cannot be opened, likely locked
+        RETRY_ORACLE_ERRORS.add(
                 "ORA-26653"); // Apply DBZXOUT did not start properly and is currently in state
         // INITIAL
-        retryOracleErrors.add("ORA-01291"); // missing logfile
-        retryOracleErrors.add(
+        RETRY_ORACLE_ERRORS.add("ORA-01291"); // missing logfile
+        RETRY_ORACLE_ERRORS.add(
                 "ORA-01327"); // failed to exclusively lock system dictionary as required BUILD
-        retryOracleErrors.add("ORA-04030"); // out of process memory
+        RETRY_ORACLE_ERRORS.add("ORA-04030"); // out of process memory
 
         // Contents of this list should be any type of error message text
         // The error check uses case-insensitive contains semantics
-        retryOracleMessageContainsTexts.add("No more data to read from socket");
+        RETRY_ORACLE_MESSAGE_CONTAINS_TEXTS.add("No more data to read from socket");
     }
 
     public OracleErrorHandler(String logicalName, ChangeEventQueue<?> queue) {
@@ -77,13 +77,13 @@ public class OracleErrorHandler extends ErrorHandler {
             final String message = throwable.getMessage();
             if (message != null && message.length() > 0) {
                 // Check Oracle error codes
-                for (String errorCode : retryOracleErrors) {
+                for (String errorCode : RETRY_ORACLE_ERRORS) {
                     if (message.startsWith(errorCode)) {
                         return true;
                     }
                 }
                 // Check Oracle error message texts
-                for (String messageText : retryOracleMessageContainsTexts) {
+                for (String messageText : RETRY_ORACLE_MESSAGE_CONTAINS_TEXTS) {
                     if (message.toUpperCase().contains(messageText.toUpperCase())) {
                         return true;
                     }

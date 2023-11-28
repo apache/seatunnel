@@ -367,8 +367,7 @@ public final class TransactionalBuffer implements AutoCloseable {
         // commit a transaction(s) which were already committed.
         // Currently we cannot use ">=", because we may lose normal commit which may happen at the
         // same time. TODO use audit table to prevent duplications
-        if ((offsetContext.getCommitScn() != null
-                        && offsetContext.getCommitScn().compareTo(scn) >= 0)
+        if (offsetContext.getCommitScn() != null && offsetContext.getCommitScn().compareTo(scn) >= 0
                 || lastCommittedScn.compareTo(scn) > 0) {
             LOGGER.debug(
                     "Transaction {} already processed, ignored. Committed SCN in offset is {}, commit SCN of the transaction is {}, last committed SCN is {}",
@@ -413,8 +412,7 @@ public final class TransactionalBuffer implements AutoCloseable {
                                 event.getEntry().getOldValues(),
                                 event.getEntry().getNewValues(),
                                 schema.tableFor(event.getTableId()),
-                                clock,
-                                event.rowId));
+                                clock));
             }
 
             lastCommittedScn = Scn.valueOf(scn.longValue());
@@ -689,6 +687,7 @@ public final class TransactionalBuffer implements AutoCloseable {
      * @return the parsed statement
      * @throws DebeziumException if an unexpected SQL fragment is provided that cannot be parsed
      */
+    @SuppressWarnings("checkstyle:MagicNumber")
     private String parseLobWriteSql(String sql) {
         if (sql == null) {
             return null;
@@ -717,6 +716,7 @@ public final class TransactionalBuffer implements AutoCloseable {
      *
      * @param transaction transaction to be reconciled, never {@code null}
      */
+    @SuppressWarnings("checkstyle:MissingSwitchDefault")
     private void reconcileTransaction(Transaction transaction) {
         // Do not perform reconciliation if LOB support is not enabled.
         if (!connectorConfig.isLobEnabled()) {
