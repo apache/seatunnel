@@ -105,8 +105,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
                                         for (String row : rows) {
                                             if (StringUtils.isNotBlank(row)) {
                                                 SeaTunnelRow seaTunnelRow =
-                                                        deserializeRow(
-                                                                line, partitionsMap, tableId);
+                                                        deserializeRow(row, partitionsMap, tableId);
                                                 output.collect(seaTunnelRow);
                                             }
                                         }
