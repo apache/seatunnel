@@ -17,15 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopLoginFactory;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.hive.source.config.HiveSourceOptions;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
@@ -47,14 +47,20 @@ public class HiveMetaStoreProxy {
     private HiveMetaStoreClient hiveMetaStoreClient;
     private static volatile HiveMetaStoreProxy INSTANCE = null;
 
-    private HiveMetaStoreProxy(Config config) {
-        String metastoreUri = config.getString(HiveConfig.METASTORE_URI.key());
-
+    private HiveMetaStoreProxy(ReadonlyConfig readonlyConfig) {
+        String metastoreUri = readonlyConfig.get(HiveSourceOptions.METASTORE_URI);
+        HiveConf hiveConf = new HiveConf();
+        hiveConf.set("hive.metastore.uris", metastoreUri);
+        if (readonlyConfig.getOptional(HiveSourceOptions.KERBEROS_PRINCIPAL).isPresent()
+                && readonlyConfig.getOptional(HiveSourceOptions.KERBEROS_KEYTAB_PATH).isPresent()) {
+            String principal = readonlyConfig.get(HiveSourceOptions.KERBEROS_PRINCIPAL);
+            String keytabPath = readonlyConfig.get(HiveSourceOptions.KERBEROS_KEYTAB_PATH);
+            Configuration configuration = new Configuration();
+            FileSystemUtils.doKerberosAuthentication(configuration, principal, keytabPath);
+        }
         try {
-            HiveConf hiveConf = new HiveConf();
-            hiveConf.set("hive.metastore.uris", metastoreUri);
-            if (config.hasPath(HiveConfig.HIVE_SITE_PATH.key())) {
-                String hiveSitePath = config.getString(HiveConfig.HIVE_SITE_PATH.key());
+            if (StringUtils.isNotEmpty(readonlyConfig.get(HiveSourceOptions.HIVE_SITE_PATH))) {
+                String hiveSitePath = readonlyConfig.get(HiveSourceOptions.HIVE_SITE_PATH);
                 hiveConf.addResource(new File(hiveSitePath).toURI().toURL());
             }
             if (HiveMetaStoreProxyUtils.enableKerberos(config)) {
@@ -76,7 +82,7 @@ public class HiveMetaStoreProxy {
                 this.hiveMetaStoreClient =
                         HadoopLoginFactory.loginWithRemoteUser(
                                 new Configuration(),
-                                config.getString(BaseSourceConfigOptions.REMOTE_USER.key()),
+                                readonlyConfig.get(BaseSourceConfigOptions.REMOTE_USER.key()),
                                 (configuration, userGroupInformation) ->
                                         new HiveMetaStoreClient(hiveConf));
                 return;
@@ -95,7 +101,7 @@ public class HiveMetaStoreProxy {
                     String.format(
                             "Using this hive uris [%s], hive conf [%s] to initialize "
                                     + "hive metastore client instance failed",
-                            metastoreUri, config.getString(HiveConfig.HIVE_SITE_PATH.key()));
+                            metastoreUri, readonlyConfig.get(HiveSourceOptions.HIVE_SITE_PATH));
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errorMsg, e);
         } catch (Exception e) {
@@ -106,11 +112,11 @@ public class HiveMetaStoreProxy {
         }
     }
 
-    public static HiveMetaStoreProxy getInstance(Config config) {
+    public static HiveMetaStoreProxy getInstance(ReadonlyConfig readonlyConfig) {
         if (INSTANCE == null) {
             synchronized (HiveMetaStoreProxy.class) {
                 if (INSTANCE == null) {
-                    INSTANCE = new HiveMetaStoreProxy(config);
+                    INSTANCE = new HiveMetaStoreProxy(readonlyConfig);
                 }
             }
         }

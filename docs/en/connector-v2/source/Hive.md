@@ -59,10 +59,6 @@ Hive metastore uri
 
 The path of `hdfs-site.xml`, used to load ha configuration of namenodes
 
-### hive_site_path [string]
-
-The path of `hive-site.xml`, used to authentication hive metastore
-
 ### read_partitions [list]
 
 The target partitions that user want to read from hive table, if user does not set this parameter, it will read all the data from hive table.
@@ -102,11 +98,32 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ## Example
 
+### Example 1: Single table
+
 ```bash
 
   Hive {
     table_name = "default.seatunnel_orc"
     metastore_uri = "thrift://namenode001:9083"
+  }
+
+```
+
+### Example 2: Multiple tables
+
+```bash
+
+  Hive {
+    tables_configs = [
+        {
+          table_name = "default.seatunnel_orc_1"
+          metastore_uri = "thrift://namenode001:9083"
+        },
+        {
+          table_name = "default.seatunnel_orc_2"
+          metastore_uri = "thrift://namenode001:9083"
+        }
+    ]
   }
 
 ```
