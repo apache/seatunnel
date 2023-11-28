@@ -95,16 +95,12 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
     public static final Pattern COMMENT_PATTERN = Pattern.compile("^(.*)--.*$");
 
-    private static final String SOURCE_SQL = "select * from DEBEZIUM.FULL_TYPES ORDER BY ID";
-    private static final String SINK_SQL = "select * from DEBEZIUM.FULL_TYPES_SINK ORDER BY ID";
-
     private static final String DATABASE = "DEBEZIUM";
     private static final String SOURCE_TABLE1 = "FULL_TYPES";
     private static final String SOURCE_TABLE2 = "FULL_TYPES2";
 
     private static final String SINK_TABLE1 = "SINK_FULL_TYPES";
     private static final String SINK_TABLE2 = "SINK_FULL_TYPES2";
-    private static final String SINK_TABLE = "FULL_TYPES_SINK";
 
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s ORDER BY ID";
 
@@ -138,6 +134,11 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testOracleCdcCheckDataE2e(TestContainer container) throws Exception {
 
+        clearTable(DATABASE, SOURCE_TABLE1);
+        clearTable(DATABASE, SOURCE_TABLE2);
+        clearTable(DATABASE, SINK_TABLE2);
+        clearTable(DATABASE, SINK_TABLE2);
+
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
@@ -154,7 +155,8 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
-                                    querySql(SINK_SQL), querySql(SOURCE_SQL));
+                                    querySql(getSourceQuerySQL(DATABASE, SOURCE_TABLE1)),
+                                    querySql(getSourceQuerySQL(DATABASE, SINK_TABLE1)));
                         });
 
         // insert update delete
@@ -165,11 +167,9 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
-                                    querySql(SOURCE_SQL), querySql(SINK_SQL));
+                                    querySql(getSourceQuerySQL(DATABASE, SOURCE_TABLE1)),
+                                    querySql(getSourceQuerySQL(DATABASE, SINK_TABLE1)));
                         });
-
-        clearTable(DATABASE, SOURCE_TABLE1);
-        clearTable(DATABASE, SINK_TABLE);
     }
 
     @TestTemplate
@@ -179,6 +179,12 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently SPARK and FLINK do not support multi table")
     public void testMysqlCdcMultiTableE2e(TestContainer container)
             throws IOException, InterruptedException {
+
+        clearTable(DATABASE, SOURCE_TABLE1);
+        clearTable(DATABASE, SOURCE_TABLE2);
+        clearTable(DATABASE, SINK_TABLE2);
+        clearTable(DATABASE, SINK_TABLE2);
+
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
@@ -215,11 +221,6 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                                                         querySql(
                                                                 getSourceQuerySQL(
                                                                         DATABASE, SINK_TABLE2)))));
-
-        clearTable(DATABASE, SOURCE_TABLE1);
-        clearTable(DATABASE, SOURCE_TABLE2);
-        clearTable(DATABASE, SINK_TABLE2);
-        clearTable(DATABASE, SINK_TABLE2);
     }
 
     @TestTemplate
@@ -229,6 +230,11 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently SPARK and FLINK do not support multi table")
     public void testMultiTableWithRestore(TestContainer container)
             throws IOException, InterruptedException {
+
+        clearTable(DATABASE, SOURCE_TABLE1);
+        clearTable(DATABASE, SOURCE_TABLE2);
+        clearTable(DATABASE, SINK_TABLE2);
+        clearTable(DATABASE, SINK_TABLE2);
 
         CompletableFuture.supplyAsync(
                 () -> {
@@ -431,7 +437,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
         executeSql("DELETE FROM " + database + "." + tableName + " where id = 2");
 
         executeSql(
-                "UPDATE " + database + "." + tableName + " SET VAL_VARCHAR = 'vc3' where id = 1");
+                "UPDATE " + database + "." + tableName + " SET VAL_VARCHAR = 'vc3' where id = 3");
     }
 
     private void clearTable(String database, String tableName) {
