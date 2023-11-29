@@ -46,7 +46,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | abort_drop_partition_metadata | boolean | no       | true          |
 | compress_codec                | string  | no       | none          |
 | common-options                |         | no       | -             |
-| row_delimiter                 | string  | no       | \n            |
+| row_delimiter                 | string  | no       | \\n           |
 
 ### table_name [string]
 

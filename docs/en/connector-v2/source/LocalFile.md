@@ -58,7 +58,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | compress_codec            | string  | no       | none                                 |
 | common-options            |         | no       | -                                    |
 | tables_configs            | list    | no       | used to define a multiple table task |
-| row_delimiter             | string  | no       | \n                                   |
+| row_delimiter             | string  | no       | \\n                                  |
 
 ### path [string]
 

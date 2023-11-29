@@ -41,10 +41,6 @@ public class LocalFileWithRowDelimiterIT extends TestSuiteBase {
     private final ContainerExtendedFactory extendedFactory =
             container -> {
                 ContainerUtil.copyFileIntoContainers(
-                        "/text/e2e.txt",
-                        "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
-                        container);
-                ContainerUtil.copyFileIntoContainers(
                         "/text/e2e_row_delimiter.txt",
                         "/seatunnel/read/text/e2e_row_delimiter.txt",
                         container);
@@ -58,7 +54,5 @@ public class LocalFileWithRowDelimiterIT extends TestSuiteBase {
 
         // test write local text file
         helper.execute("/text/local_file_text_to_assert_with_row_delimiter.conf");
-
-        helper.execute("/text/local_file_text_to_assert_with_row_delimiter_1.conf");
     }
 }

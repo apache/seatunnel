@@ -63,7 +63,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | file_filter_pattern       | string  | no       | -                   |
 | compress_codec            | string  | no       | none                |
 | common-options            |         | no       | -                   |
-| row_delimiter             | string  | no       | \n                  |
+| row_delimiter             | string  | no       | \\n                 |
 
 ### path [string]
 

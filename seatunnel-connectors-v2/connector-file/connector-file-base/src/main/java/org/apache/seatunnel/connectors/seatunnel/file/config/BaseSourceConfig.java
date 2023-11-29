@@ -28,7 +28,7 @@ import java.util.List;
 
 public class BaseSourceConfig {
 
-    public static final String DEFAULT_ROW_DELIMITER = "\n";
+    public static final String DEFAULT_ROW_DELIMITER = "\\n";
 
     public static final Option<FileFormat> FILE_FORMAT_TYPE =
             Options.key("file_format_type")
