@@ -18,6 +18,8 @@ You can configure whether the task is in batch mode or stream mode through `job.
 
 Gets the interval in which checkpoints are periodically scheduled.
 
+In `STREAMING` mode, checkpoints is required, if you do not set it, it will be obtained from the application configuration file `seatunnel.yaml`. In `BATCH` mode, you can disable checkpoints by not setting this parameter.
+
 ## parallelism
 
 This parameter configures the parallelism of source and sink.
