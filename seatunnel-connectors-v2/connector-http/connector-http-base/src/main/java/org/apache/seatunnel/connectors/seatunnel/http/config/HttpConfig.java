@@ -67,7 +67,7 @@ public class HttpConfig {
     public static final Option<ResponseFormat> FORMAT =
             Options.key("format")
                     .enumType(ResponseFormat.class)
-                    .defaultValue(ResponseFormat.JSON)
+                    .noDefaultValue()
                     .withDescription("Http response format");
     public static final Option<Integer> POLL_INTERVAL_MILLS =
             Options.key("poll_interval_millis")
