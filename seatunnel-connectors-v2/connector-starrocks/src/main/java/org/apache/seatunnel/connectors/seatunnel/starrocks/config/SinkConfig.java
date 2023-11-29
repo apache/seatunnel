@@ -60,6 +60,8 @@ public class SinkConfig implements Serializable {
 
     private DataSaveMode dataSaveMode;
 
+    private int httpSocketTimeout;
+
     @Getter private final Map<String, Object> streamLoadProps = new HashMap<>();
 
     public static SinkConfig of(ReadonlyConfig config) {
@@ -90,6 +92,7 @@ public class SinkConfig implements Serializable {
                 .ifPresent(sinkConfig::setColumnSeparator);
         sinkConfig.setLoadFormat(config.get(StarRocksSinkOptions.LOAD_FORMAT));
         sinkConfig.setDataSaveMode(config.get(StarRocksSinkOptions.SAVE_MODE));
+        sinkConfig.setHttpSocketTimeout(config.get(StarRocksSinkOptions.HTTP_SOCKET_TIMEOUT_MS));
         return sinkConfig;
     }
 }

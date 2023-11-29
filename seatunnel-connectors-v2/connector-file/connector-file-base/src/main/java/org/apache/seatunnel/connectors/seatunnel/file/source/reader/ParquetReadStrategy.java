@@ -37,6 +37,7 @@ import org.apache.avro.Conversions;
 import org.apache.avro.data.TimeConversions;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.util.Utf8;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -132,7 +133,16 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         switch (fieldType.getSqlType()) {
             case ARRAY:
                 ArrayList<Object> origArray = new ArrayList<>();
-                ((GenericData.Array<?>) field).iterator().forEachRemaining(origArray::add);
+                ((GenericData.Array<?>) field)
+                        .iterator()
+                        .forEachRemaining(
+                                ele -> {
+                                    if (ele instanceof Utf8) {
+                                        origArray.add(ele.toString());
+                                    } else {
+                                        origArray.add(ele);
+                                    }
+                                });
                 SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
                 switch (elementType.getSqlType()) {
                     case STRING:

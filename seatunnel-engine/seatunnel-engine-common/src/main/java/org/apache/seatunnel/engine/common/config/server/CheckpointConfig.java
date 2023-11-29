@@ -35,6 +35,8 @@ public class CheckpointConfig implements Serializable {
 
     private CheckpointStorageConfig storage = ServerConfigOptions.CHECKPOINT_STORAGE.defaultValue();
 
+    private boolean checkpointEnable = true;
+
     public void setCheckpointInterval(long checkpointInterval) {
         checkArgument(
                 checkpointInterval >= MINIMAL_CHECKPOINT_TIME,
