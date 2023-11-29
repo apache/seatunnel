@@ -62,8 +62,9 @@ import static org.junit.Assert.assertNotNull;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK},
-        disabledReason = "Currently SPARK do not support cdc")
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason =
+                "Currently SPARK do not support cdc,Flink is prone to time out, temporarily disable")
 public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String ORACLE_IMAGE = "jark/oracle-xe-11g-r2-cdc:0.1";
