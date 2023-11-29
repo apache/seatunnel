@@ -68,7 +68,7 @@
         <log4j2.version>2.17.1</log4j2.version>
         <log4j2-disruptor.version>3.4.4</log4j2-disruptor.version>
         <log4j.version>1.2.17</log4j.version>
-        <logback.version>1.2.3</logback.version>
+        <logback.version>1.3.12</logback.version>
         <commons-logging.version>1.2</commons-logging.version>
         <iceberg.version>0.13.1</iceberg.version>
         <flink.1.13.6.version>1.13.6</flink.1.13.6.version>
