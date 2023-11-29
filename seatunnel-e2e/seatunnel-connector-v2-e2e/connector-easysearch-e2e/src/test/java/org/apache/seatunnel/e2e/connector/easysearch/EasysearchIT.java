@@ -17,34 +17,31 @@
 
 package org.apache.seatunnel.e2e.connector.easysearch;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-
+import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.client.EasysearchClient;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.ScrollResult;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -60,40 +57,53 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.awaitility.Awaitility.given;
-
 @Slf4j
 public class EasysearchIT extends TestSuiteBase implements TestResource {
 
-    private static final Logger LOG = LoggerFactory.getLogger(EasysearchIT.class);
     private static final String EZS_DOCKER_IMAGE = "infinilabs/easysearch-amd64:seatunnel";
 
-    private static final String HOST = "easysearch_e2e";
+    private static final String HOST = "e2e_easysearch";
 
+    private static final int PORT = 9200;
     private List<String> testDataset;
 
-    private GenericContainer<?> container;
+    private GenericContainer<?> easysearchServer;
 
-    private EasysearchClient esRestClient;
+    private EasysearchClient easysearchClient;
 
     @BeforeEach
     @Override
     public void startUp() throws Exception {
-        container =
+        easysearchServer =
                 new GenericContainer<>(EZS_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
                         .withPrivilegedMode(true)
+                        .withEnv("cluster.routing.allocation.disk.threshold_enabled", "false")
+                        .withStartupAttempts(5)
+                        .withStartupTimeout(Duration.ofMinutes(5))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(EZS_DOCKER_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 9200, 9200)));
-        Startables.deepStart(Stream.of(container)).join();
-        String endpoint = String.format("https://%s:%s", container.getHost(), 9200);
-        LOG.info("Easysearch container started with " + endpoint);
+        easysearchServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, PORT)));
+        Startables.deepStart(Stream.of(easysearchServer)).join();
+        log.info("Easysearch container started");
         // wait for easysearch fully start
-        given().ignoreExceptions().await().atMost(1200, TimeUnit.SECONDS);
-        esRestClient =
+        Awaitility.given()
+                .ignoreExceptions()
+                .atLeast(10L, TimeUnit.SECONDS)
+                .pollInterval(20L, TimeUnit.SECONDS)
+                .atMost(180L, TimeUnit.SECONDS)
+                .untilAsserted(this::initConnection);
+
+        testDataset = generateTestDataSet();
+        createIndexDocs();
+    }
+
+    private void initConnection() {
+        String host = easysearchServer.getContainerIpAddress();
+        String endpoint = String.format("https://%s:%d", host, PORT);
+        easysearchClient =
                 EasysearchClient.createInstance(
                         Lists.newArrayList(endpoint),
                         Optional.of("admin"),
@@ -104,8 +114,6 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty());
-        testDataset = generateTestDataSet();
-        createIndexDocs();
     }
 
     /** create a index,and bulk some documents */
@@ -115,11 +123,10 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         for (int i = 0; i < testDataset.size(); i++) {
             String row = testDataset.get(i);
             requestBody.append(indexHeader);
-            requestBody.append("{\"doc\":");
             requestBody.append(row);
-            requestBody.append("}\n");
+            requestBody.append("\n");
         }
-        esRestClient.bulk(requestBody.toString());
+        easysearchClient.bulk(requestBody.toString());
     }
 
     @TestTemplate
@@ -207,7 +214,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         Map<String, Object> query = new HashMap<>();
         query.put("range", range);
         ScrollResult scrollResult =
-                esRestClient.searchByScroll("st_index2", source, query, "1m", 1000);
+                easysearchClient.searchByScroll("st_index2", source, query, "1m", 1000);
         scrollResult
                 .getDocs()
                 .forEach(
@@ -251,9 +258,9 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     @AfterEach
     @Override
     public void tearDown() {
-        if (Objects.nonNull(esRestClient)) {
-            esRestClient.close();
+        if (Objects.nonNull(easysearchClient)) {
+            easysearchClient.close();
         }
-        container.close();
+        easysearchServer.close();
     }
 }
