@@ -62,9 +62,8 @@ import static org.junit.Assert.assertNotNull;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason =
-                "Currently SPARK do not support cdc,Flink is prone to time out, temporarily disable")
+        type = {EngineType.SPARK},
+        disabledReason = "Currently SPARK do not support cdc")
 public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String ORACLE_IMAGE = "jark/oracle-xe-11g-r2-cdc:0.1";
@@ -137,7 +136,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
         clearTable(DATABASE, SOURCE_TABLE1);
         clearTable(DATABASE, SOURCE_TABLE2);
-        clearTable(DATABASE, SINK_TABLE2);
+        clearTable(DATABASE, SINK_TABLE1);
         clearTable(DATABASE, SINK_TABLE2);
 
         insertSourceTable(DATABASE, SOURCE_TABLE1);
@@ -185,7 +184,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
         clearTable(DATABASE, SOURCE_TABLE1);
         clearTable(DATABASE, SOURCE_TABLE2);
-        clearTable(DATABASE, SINK_TABLE2);
+        clearTable(DATABASE, SINK_TABLE1);
         clearTable(DATABASE, SINK_TABLE2);
 
         insertSourceTable(DATABASE, SOURCE_TABLE1);
@@ -202,6 +201,28 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                     }
                     return null;
                 });
+
+        // stream stage
+        await().atMost(240000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SOURCE_TABLE1)),
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SINK_TABLE1))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SOURCE_TABLE2)),
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SINK_TABLE2)))));
 
         updateSourceTable(DATABASE, SOURCE_TABLE1);
         updateSourceTable(DATABASE, SOURCE_TABLE2);
@@ -239,7 +260,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
         clearTable(DATABASE, SOURCE_TABLE1);
         clearTable(DATABASE, SOURCE_TABLE2);
-        clearTable(DATABASE, SINK_TABLE2);
+        clearTable(DATABASE, SINK_TABLE1);
         clearTable(DATABASE, SINK_TABLE2);
 
         insertSourceTable(DATABASE, SOURCE_TABLE1);
@@ -255,6 +276,20 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                         throw new RuntimeException(e);
                     }
                 });
+
+        // stream stage
+        await().atMost(240000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SOURCE_TABLE1)),
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SINK_TABLE1)))));
 
         // insert update delete
         updateSourceTable(DATABASE, SOURCE_TABLE1);
@@ -299,6 +334,28 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                     return null;
                 });
 
+        // stream stage
+        await().atMost(240000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SOURCE_TABLE1)),
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SINK_TABLE1))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SOURCE_TABLE2)),
+                                                        querySql(
+                                                                getSourceQuerySQL(
+                                                                        DATABASE, SINK_TABLE2)))));
+
         updateSourceTable(DATABASE, SOURCE_TABLE2);
 
         // stream stage
@@ -331,7 +388,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
         clearTable(DATABASE, SOURCE_TABLE1);
         clearTable(DATABASE, SOURCE_TABLE2);
-        clearTable(DATABASE, SINK_TABLE2);
+        clearTable(DATABASE, SINK_TABLE1);
         clearTable(DATABASE, SINK_TABLE2);
     }
 
