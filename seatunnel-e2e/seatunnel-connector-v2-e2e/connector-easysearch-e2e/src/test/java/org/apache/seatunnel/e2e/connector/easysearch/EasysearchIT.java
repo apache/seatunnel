@@ -88,16 +88,15 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         easysearchServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, PORT)));
         Startables.deepStart(Stream.of(easysearchServer)).join();
         log.info("Easysearch container started");
+        // prepare test dataset
+        testDataset = generateTestDataSet();
         // wait for easysearch fully start
         Awaitility.given()
                 .ignoreExceptions()
-                .atLeast(10L, TimeUnit.SECONDS)
-                .pollInterval(20L, TimeUnit.SECONDS)
-                .atMost(180L, TimeUnit.SECONDS)
+                .atLeast(5L, TimeUnit.SECONDS)
+                .pollInterval(1L, TimeUnit.SECONDS)
+                .atMost(120L, TimeUnit.SECONDS)
                 .untilAsserted(this::initConnection);
-
-        testDataset = generateTestDataSet();
-        createIndexDocs();
     }
 
     private void initConnection() {
@@ -114,6 +113,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty());
+        createIndexDocs();
     }
 
     /** create a index,and bulk some documents */
