@@ -427,8 +427,9 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private List<List<Object>> querySql(String sql) {
-        try (Connection connection = getJdbcConnection(ORACLE_CONTAINER)) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+        try (Connection connection = getJdbcConnection(ORACLE_CONTAINER);
+                Statement statement = connection.createStatement()) {
+            ResultSet resultSet = statement.executeQuery(sql);
             List<List<Object>> result = new ArrayList<>();
             int columnCount = resultSet.getMetaData().getColumnCount();
             while (resultSet.next()) {
@@ -445,8 +446,9 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private void executeSql(String sql) {
-        try (Connection connection = getJdbcConnection(ORACLE_CONTAINER)) {
-            connection.createStatement().execute(sql);
+        try (Connection connection = getJdbcConnection(ORACLE_CONTAINER);
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -464,8 +466,9 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private void executeSql(String sql, String username, String password) {
-        try (Connection connection = getJdbcConnection(ORACLE_CONTAINER, username, password)) {
-            connection.createStatement().execute(sql);
+        try (Connection connection = getJdbcConnection(ORACLE_CONTAINER, username, password);
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
