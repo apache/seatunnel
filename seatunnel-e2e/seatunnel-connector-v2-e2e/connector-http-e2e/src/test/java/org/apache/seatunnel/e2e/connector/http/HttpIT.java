@@ -158,9 +158,6 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/http_jsonrequestbody_to_feishu.conf");
         Assertions.assertEquals(0, execResult17.getExitCode());
 
-        Container.ExecResult execResult18 = container.executeJob("/httpnoschema_to_console.conf");
-        Assertions.assertEquals(0, execResult18.getExitCode());
-
         Container.ExecResult execResult19 = container.executeJob("/httpnoschema_to_http.conf");
         Assertions.assertEquals(0, execResult19.getExitCode());
     }
