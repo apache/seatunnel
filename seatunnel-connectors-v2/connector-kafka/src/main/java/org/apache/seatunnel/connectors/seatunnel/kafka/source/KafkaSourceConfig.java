@@ -39,6 +39,7 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+import org.apache.seatunnel.format.json.maxwell.MaxWellJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.ogg.OggJsonDeserializationSchema;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
@@ -223,6 +224,11 @@ public class KafkaSourceConfig implements Serializable {
                 return OggJsonDeserializationSchema.builder(seaTunnelRowType)
                         .setIgnoreParseErrors(true)
                         .build();
+            case MAXWELL_JSON:
+                return MaxWellJsonDeserializationSchema.builder(seaTunnelRowType)
+                        .setIgnoreParseErrors(true)
+                        .build();
+
             case COMPATIBLE_KAFKA_CONNECT_JSON:
                 Boolean keySchemaEnable =
                         readonlyConfig.get(
