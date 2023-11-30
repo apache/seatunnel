@@ -225,6 +225,13 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
     }
 
     @Override
+    public Container.ExecResult executeJob(String confFile, float timeoutSeconds)
+            throws IOException, InterruptedException {
+        log.info("test in container: {}", identifier());
+        return executeJob(server1, confFile, timeoutSeconds);
+    }
+
+    @Override
     public String getServerLogs() {
         return server1.getLogs();
     }
