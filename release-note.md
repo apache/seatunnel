@@ -101,6 +101,10 @@
 - [Core] [Starter] Add check of sink and source config to avoid null pointer exception. (#4734)
 - [Core] [Flink] Remove useless stage type related codes. (#5650)
 
+### Formats
+
+- [Json] Remove assert key word. (#5919)
+
 ### Connector-V2
 
 - [Connector-V2] [CDC] Improve startup.mode/stop.mode options (#4360)
