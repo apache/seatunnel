@@ -127,10 +127,6 @@ public abstract class AbstractTestContainer implements TestContainer {
     protected Container.ExecResult savepointJob(GenericContainer<?> container, String jobId)
             throws IOException, InterruptedException {
         final List<String> command = new ArrayList<>();
-        if (timeoutSeconds > 0) {
-            command.add("timeout");
-            command.add("" + timeoutSeconds);
-        }
         String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
         // base command
         command.add(adaptPathForWin(binPath));
