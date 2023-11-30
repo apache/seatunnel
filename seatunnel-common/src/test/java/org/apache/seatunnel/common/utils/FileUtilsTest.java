@@ -26,6 +26,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class FileUtilsTest {
@@ -82,9 +83,18 @@ public class FileUtilsTest {
 
     @Test
     public void createNewFile() throws IOException {
+        // create new file
         FileUtils.createNewFile("/tmp/test.txt");
         Assertions.assertEquals("", FileUtils.readFileToStr(Paths.get("/tmp/test.txt")));
 
+        // delete exist file and create new file
+        FileUtils.writeStringToFile("/tmp/test2.txt", "test");
+        Path test2 = Paths.get("/tmp/test2.txt");
+        Assertions.assertEquals("test\n", FileUtils.readFileToStr(test2));
+        FileUtils.createNewFile("/tmp/test2.txt");
+        Assertions.assertEquals("", FileUtils.readFileToStr(test2));
+
+        // create new file with not exist folder
         FileUtils.createNewFile("/tmp/newfolder/test.txt");
         Assertions.assertEquals("", FileUtils.readFileToStr(Paths.get("/tmp/newfolder/test.txt")));
 
