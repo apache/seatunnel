@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 public class TextFormatSchemaTest {
@@ -136,7 +137,10 @@ public class TextFormatSchemaTest {
                         .seaTunnelRowType(seaTunnelRowType)
                         .delimiter("\u0001")
                         .build();
-        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
+        List<SeaTunnelRow> seaTunnelRows = deserializationSchema.deserialize(content.getBytes());
+        Assertions.assertEquals(seaTunnelRows.size(), 1);
+
+        SeaTunnelRow seaTunnelRow = seaTunnelRows.get(0);
         String data = new String(serializationSchema.serialize(seaTunnelRow));
         Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(1))).get("tyrantlucifer"), 18);
         Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(1))).get("Kris"), 21);

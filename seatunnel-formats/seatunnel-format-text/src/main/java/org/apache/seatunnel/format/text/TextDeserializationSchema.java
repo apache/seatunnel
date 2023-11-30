@@ -38,7 +38,9 @@ import lombok.NonNull;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class TextDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
@@ -112,14 +114,14 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message) throws IOException {
+    public List<SeaTunnelRow> deserialize(byte[] message) throws IOException {
         String content = new String(message);
         Map<Integer, String> splitsMap = splitLineBySeaTunnelRowType(content, seaTunnelRowType, 0);
         Object[] objects = new Object[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < objects.length; i++) {
             objects[i] = convert(splitsMap.get(i), seaTunnelRowType.getFieldType(i), 0);
         }
-        return new SeaTunnelRow(objects);
+        return Collections.singletonList(new SeaTunnelRow(objects));
     }
 
     @Override

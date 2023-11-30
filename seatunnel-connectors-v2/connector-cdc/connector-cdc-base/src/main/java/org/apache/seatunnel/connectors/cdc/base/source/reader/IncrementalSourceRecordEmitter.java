@@ -152,7 +152,27 @@ public class IncrementalSourceRecordEmitter<T>
 
     protected void emitElement(SourceRecord element, Collector<T> output) throws Exception {
         outputCollector.output = output;
-        debeziumDeserializationSchema.deserialize(element, outputCollector);
+        if (isSchemaChangeBeforeWatermarkEvent(element)) {
+            output.markSchemaChangeBeforeCheckpoint();
+            return;
+        }
+        if (isSchemaChangeAfterWatermarkEvent(element)) {
+            output.markSchemaChangeAfterCheckpoint();
+            return;
+        }
+        if (debeziumDeserializationSchema.isSchemaChangeEvent(element)) {
+            debeziumDeserializationSchema
+                    .deserializeSchemaChangeEvent(element)
+                    .forEach(outputCollector::collect);
+            return;
+        }
+        if (debeziumDeserializationSchema.isDataChangeRecord(element)) {
+            debeziumDeserializationSchema
+                    .deserializeDataChangeRecord(element)
+                    .forEach(outputCollector::collect);
+            return;
+        }
+        log.debug("Unsupported record {}, just skip.", element);
     }
 
     private static class OutputCollector<T> implements Collector<T> {

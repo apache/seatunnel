@@ -157,8 +157,9 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
                                                     List<MessageExt> messages =
                                                             groupRecords.get(messageQueue);
                                                     for (MessageExt record : messages) {
-                                                        deserializationSchema.deserialize(
-                                                                record.getBody(), output);
+                                                        deserializationSchema
+                                                                .deserialize(record.getBody())
+                                                                .forEach(output::collect);
                                                         if (Boundedness.BOUNDED.equals(
                                                                         context.getBoundedness())
                                                                 && record.getQueueOffset()

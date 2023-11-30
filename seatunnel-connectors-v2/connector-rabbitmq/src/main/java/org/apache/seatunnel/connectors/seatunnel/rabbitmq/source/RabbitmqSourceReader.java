@@ -127,7 +127,7 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
                     return;
                 }
                 deliveryTagsProcessedForCurrentSnapshot.add(envelope.getDeliveryTag());
-                deserializationSchema.deserialize(body, output);
+                deserializationSchema.deserialize(body).forEach(output::collect);
             }
 
             if (Boundedness.BOUNDED.equals(context.getBoundedness())) {

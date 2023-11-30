@@ -22,7 +22,6 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -31,7 +30,11 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
+import com.google.common.collect.Lists;
+
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 import java.util.regex.Pattern;
 
 import static java.lang.String.format;
@@ -100,21 +103,10 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        throw new SeaTunnelJsonFormatException(
-                CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                String.format("Failed to deserialize JSON '%s'.", new String(message)));
-    }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.physicalRowType;
-    }
-
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
+    public List<SeaTunnelRow> deserialize(byte[] message) throws IOException {
         if (message == null || message.length == 0) {
             // skip tombstone messages
-            return;
+            return Collections.emptyList();
         }
         ObjectNode jsonNode = (ObjectNode) convertBytes(message);
         assert jsonNode != null;
@@ -123,20 +115,20 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                 && !databasePattern
                         .matcher(jsonNode.get(FIELD_DATABASE_TABLE).asText().split("\\.")[0])
                         .matches()) {
-            return;
+            return Collections.emptyList();
         }
         if (table != null
                 && !tablePattern
                         .matcher(jsonNode.get(FIELD_DATABASE_TABLE).asText().split("\\.")[1])
                         .matches()) {
-            return;
+            return Collections.emptyList();
         }
         String op = jsonNode.get(FIELD_TYPE).asText().trim();
         if (OP_INSERT.equals(op)) {
             // Gets the data for the INSERT operation
             JsonNode dataBefore = jsonNode.get(DATA_AFTER);
             SeaTunnelRow row = convertJsonNode(dataBefore);
-            out.collect(row);
+            return Collections.singletonList(row);
         } else if (OP_UPDATE.equals(op)) {
             JsonNode dataBefore = jsonNode.get(DATA_BEFORE);
             // Modify Operation Data cannot be empty before modification
@@ -151,11 +143,10 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
             SeaTunnelRow after = convertJsonNode(dataAfter);
             assert before != null;
             before.setRowKind(RowKind.UPDATE_BEFORE);
-            out.collect(before);
+
             assert after != null;
             after.setRowKind(RowKind.UPDATE_AFTER);
-            out.collect(after);
-
+            return Lists.newArrayList(before, after);
         } else if (OP_DELETE.equals(op)) {
             JsonNode dataBefore = jsonNode.get(DATA_BEFORE);
             if (dataBefore == null || dataBefore.isNull()) {
@@ -172,7 +163,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                                 "BEFORE", "DELETE", new String(message)));
             }
             before.setRowKind(RowKind.DELETE);
-            out.collect(before);
+            return Collections.singletonList(before);
         } else {
             if (!ignoreParseErrors) {
                 throw new SeaTunnelJsonFormatException(
@@ -182,6 +173,12 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                                 op, new String(message)));
             }
         }
+        return Collections.emptyList();
+    }
+
+    @Override
+    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
+        return this.physicalRowType;
     }
 
     private JsonNode convertBytes(byte[] message) {

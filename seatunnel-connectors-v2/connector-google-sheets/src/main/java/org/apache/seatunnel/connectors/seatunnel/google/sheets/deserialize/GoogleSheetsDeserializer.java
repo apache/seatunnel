@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.exception.GoogleSheetsConnectorException;
 
+import org.apache.commons.collections4.CollectionUtils;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -51,7 +53,16 @@ public class GoogleSheetsDeserializer implements SeaTunnelRowDeserializer {
                 }
             }
             String rowStr = objectMapper.writeValueAsString(map);
-            return deserializationSchema.deserialize(rowStr.getBytes());
+            List<SeaTunnelRow> seaTunnelRows = deserializationSchema.deserialize(rowStr.getBytes());
+            if (CollectionUtils.isEmpty(seaTunnelRows)) {
+                return null;
+            }
+            if (seaTunnelRows.size() != 1) {
+                throw new GoogleSheetsConnectorException(
+                        CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
+                        "Object json deserialization failed, the data contains multiple rows");
+            }
+            return seaTunnelRows.get(0);
         } catch (IOException e) {
             throw new GoogleSheetsConnectorException(
                     CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,

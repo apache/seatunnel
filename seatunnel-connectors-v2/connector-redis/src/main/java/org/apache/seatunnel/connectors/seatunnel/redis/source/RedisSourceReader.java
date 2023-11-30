@@ -85,11 +85,14 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                             SeaTunnelDataType<SeaTunnelRow> seaTunnelRowType =
                                     deserializationSchema.getProducedType();
                             valuesMap.put(((SeaTunnelRowType) seaTunnelRowType).getFieldName(0), k);
-                            deserializationSchema.deserialize(
-                                    JsonUtils.toJsonString(valuesMap).getBytes(), output);
+                            deserializationSchema
+                                    .deserialize(JsonUtils.toJsonString(valuesMap).getBytes())
+                                    .forEach(output::collect);
                         }
                     } else {
-                        deserializationSchema.deserialize(value.getBytes(), output);
+                        deserializationSchema
+                                .deserialize(value.getBytes())
+                                .forEach(output::collect);
                     }
                 }
             }

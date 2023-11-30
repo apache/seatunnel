@@ -18,7 +18,6 @@
 
 package org.apache.seatunnel.format.json.canal;
 
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -63,17 +62,17 @@ public class CanalJsonSerDeSchemaTest {
     public void testDeserializeNullRow() throws Exception {
         final CanalJsonDeserializationSchema deserializationSchema =
                 createCanalJsonDeserializationSchema(null, null);
-        final SimpleCollector collector = new SimpleCollector();
 
-        deserializationSchema.deserialize((byte[]) null, collector);
-        assertEquals(0, collector.list.size());
+        List<SeaTunnelRow> seaTunnelRows = deserializationSchema.deserialize((byte[]) null);
+        assertEquals(0, seaTunnelRows.size());
     }
 
     public void runTest(List<String> lines, CanalJsonDeserializationSchema deserializationSchema)
             throws IOException {
-        SimpleCollector collector = new SimpleCollector();
+        List<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
         for (String line : lines) {
-            deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8), collector);
+            seaTunnelRows.addAll(
+                    deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8)));
         }
 
         List<String> expected =
@@ -105,14 +104,14 @@ public class CanalJsonSerDeSchemaTest {
                         "SeaTunnelRow{tableId=, kind=-D, fields=[102, car battery, 12V car battery, 5.17]}",
                         "SeaTunnelRow{tableId=, kind=-D, fields=[103, 12-pack drill bits, 12-pack of drill bits with sizes ranging from #40 to #3, 0.8]}");
         List<String> actual =
-                collector.list.stream().map(Object::toString).collect(Collectors.toList());
+                seaTunnelRows.stream().map(Object::toString).collect(Collectors.toList());
         assertEquals(expected, actual);
 
         // test Serialization
         CanalJsonSerializationSchema serializationSchema =
                 new CanalJsonSerializationSchema(PHYSICAL_DATA_TYPE);
         List<String> result = new ArrayList<>();
-        for (SeaTunnelRow rowData : collector.list) {
+        for (SeaTunnelRow rowData : seaTunnelRows) {
             result.add(new String(serializationSchema.serialize(rowData), StandardCharsets.UTF_8));
         }
 
@@ -165,20 +164,5 @@ public class CanalJsonSerDeSchemaTest {
         assert url != null;
         Path path = new File(url.getFile()).toPath();
         return Files.readAllLines(path);
-    }
-
-    private static class SimpleCollector implements Collector<SeaTunnelRow> {
-
-        private List<SeaTunnelRow> list = new ArrayList<>();
-
-        @Override
-        public void collect(SeaTunnelRow record) {
-            list.add(record);
-        }
-
-        @Override
-        public Object getCheckpointLock() {
-            return null;
-        }
     }
 }

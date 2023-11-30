@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source;
 
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -28,11 +27,8 @@ import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import lombok.Getter;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 
 public class PulsarCanalDecoratorTest {
@@ -61,27 +57,13 @@ public class PulsarCanalDecoratorTest {
         PulsarCanalDecorator pulsarCanalDecorator =
                 new PulsarCanalDecorator(canalJsonDeserializationSchema);
 
-        SimpleCollector simpleCollector = new SimpleCollector();
-        pulsarCanalDecorator.deserialize(json.getBytes(StandardCharsets.UTF_8), simpleCollector);
-        Assertions.assertFalse(simpleCollector.getList().isEmpty());
-        for (SeaTunnelRow seaTunnelRow : simpleCollector.list) {
+        List<SeaTunnelRow> seaTunnelRows =
+                pulsarCanalDecorator.deserialize(json.getBytes(StandardCharsets.UTF_8));
+        Assertions.assertFalse(seaTunnelRows.isEmpty());
+        for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
             for (Object field : seaTunnelRow.getFields()) {
                 Assertions.assertNotNull(field);
             }
-        }
-    }
-
-    private static class SimpleCollector implements Collector<SeaTunnelRow> {
-        @Getter private List<SeaTunnelRow> list = new ArrayList<>();
-
-        @Override
-        public void collect(SeaTunnelRow record) {
-            list.add(record);
-        }
-
-        @Override
-        public Object getCheckpointLock() {
-            return null;
         }
     }
 }

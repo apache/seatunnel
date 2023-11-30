@@ -29,6 +29,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.List;
 
 public class CompatibleDebeziumJsonDeserializationSchema
         implements DeserializationSchema<SeaTunnelRow> {
@@ -51,7 +52,7 @@ public class CompatibleDebeziumJsonDeserializationSchema
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message) throws IOException {
+    public List<SeaTunnelRow> deserialize(byte[] message) throws IOException {
         throw new UnsupportedEncodingException();
     }
 

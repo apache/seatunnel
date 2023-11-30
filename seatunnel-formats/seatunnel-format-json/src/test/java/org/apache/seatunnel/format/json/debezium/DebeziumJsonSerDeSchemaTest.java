@@ -18,7 +18,6 @@
 
 package org.apache.seatunnel.format.json.debezium;
 
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -53,11 +52,11 @@ public class DebeziumJsonSerDeSchemaTest {
     void testNullRowMessages() throws Exception {
         DebeziumJsonDeserializationSchema deserializationSchema =
                 new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
-        SimpleCollector collector = new SimpleCollector();
+        List<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
 
-        deserializationSchema.deserialize(null, collector);
-        deserializationSchema.deserialize(new byte[0], collector);
-        assertEquals(0, collector.list.size());
+        seaTunnelRows.addAll(deserializationSchema.deserialize(null));
+        seaTunnelRows.addAll(deserializationSchema.deserialize(new byte[0]));
+        assertEquals(0, seaTunnelRows.size());
     }
 
     @Test
@@ -71,10 +70,11 @@ public class DebeziumJsonSerDeSchemaTest {
         DebeziumJsonDeserializationSchema deserializationSchema =
                 new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, true, schemaInclude);
 
-        SimpleCollector collector = new SimpleCollector();
+        List<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
 
         for (String line : lines) {
-            deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8), collector);
+            seaTunnelRows.addAll(
+                    deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8)));
         }
 
         List<String> expected =
@@ -100,14 +100,14 @@ public class DebeziumJsonSerDeSchemaTest {
                         "SeaTunnelRow{tableId=, kind=+U, fields=[111, scooter, Big 2-wheel scooter , 5.17]}",
                         "SeaTunnelRow{tableId=, kind=-D, fields=[111, scooter, Big 2-wheel scooter , 5.17]}");
         List<String> actual =
-                collector.list.stream().map(Object::toString).collect(Collectors.toList());
+                seaTunnelRows.stream().map(Object::toString).collect(Collectors.toList());
         assertEquals(expected, actual);
 
         DebeziumJsonSerializationSchema serializationSchema =
                 new DebeziumJsonSerializationSchema(PHYSICAL_DATA_TYPE);
 
         actual = new ArrayList<>();
-        for (SeaTunnelRow rowData : collector.list) {
+        for (SeaTunnelRow rowData : seaTunnelRows) {
             actual.add(new String(serializationSchema.serialize(rowData), StandardCharsets.UTF_8));
         }
 
@@ -144,20 +144,5 @@ public class DebeziumJsonSerDeSchemaTest {
         Assertions.assertNotNull(url);
         Path path = new File(url.getFile()).toPath();
         return Files.readAllLines(path);
-    }
-
-    private static class SimpleCollector implements Collector<SeaTunnelRow> {
-
-        private List<SeaTunnelRow> list = new ArrayList<>();
-
-        @Override
-        public void collect(SeaTunnelRow record) {
-            list.add(record);
-        }
-
-        @Override
-        public Object getCheckpointLock() {
-            return null;
-        }
     }
 }
