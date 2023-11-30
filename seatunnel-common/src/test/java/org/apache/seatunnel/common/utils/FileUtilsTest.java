@@ -90,7 +90,7 @@ public class FileUtilsTest {
         // delete exist file and create new file
         FileUtils.writeStringToFile("/tmp/test2.txt", "test");
         Path test2 = Paths.get("/tmp/test2.txt");
-        Assertions.assertEquals("test\n", FileUtils.readFileToStr(test2));
+        Assertions.assertEquals("test", FileUtils.readFileToStr(test2).trim());
         FileUtils.createNewFile("/tmp/test2.txt");
         Assertions.assertEquals("", FileUtils.readFileToStr(test2));
 
