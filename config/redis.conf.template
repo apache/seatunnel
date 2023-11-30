@@ -18,20 +18,22 @@
 env {
   execution.parallelism = 1
   job.mode = "BATCH"
+  shade.identifier = "base64"
+
+
 }
 
 source {
-  Http {
-    url = "http://mockserver:1080/example/jsonBody"
-    method = "POST"
-    body="{"id":1}"
-
+  Redis {
+    host = "127.0.0.1"
+    port = 6379
+    keys = "1*"
+    data_type = key
   }
 }
 
 sink {
-    Console {
+  Console {
 
-      }
-
+  }
 }
