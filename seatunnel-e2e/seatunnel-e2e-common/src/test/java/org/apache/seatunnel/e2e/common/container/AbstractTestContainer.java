@@ -93,6 +93,11 @@ public abstract class AbstractTestContainer implements TestContainer {
                 container, this.startModuleFullPath, SEATUNNEL_HOME);
     }
 
+    protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile)
+            throws IOException, InterruptedException {
+        return executeJob(container, confFile, -1);
+    }
+
     protected Container.ExecResult executeJob(
             GenericContainer<?> container, String confFile, float timeoutSeconds)
             throws IOException, InterruptedException {
