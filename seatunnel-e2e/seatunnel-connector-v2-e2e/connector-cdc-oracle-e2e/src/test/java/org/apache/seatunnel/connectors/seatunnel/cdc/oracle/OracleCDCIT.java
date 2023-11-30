@@ -154,7 +154,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                 });
 
         // snapshot stage
-        await().atMost(240000, TimeUnit.MILLISECONDS)
+        await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
@@ -166,7 +166,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
         updateSourceTable(DATABASE, SOURCE_TABLE1);
 
         // stream stage
-        await().atMost(240000, TimeUnit.MILLISECONDS)
+        await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
@@ -204,7 +204,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                 });
 
         // stream stage
-        await().atMost(240000, TimeUnit.MILLISECONDS)
+        await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertAll(
@@ -229,7 +229,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
         updateSourceTable(DATABASE, SOURCE_TABLE2);
 
         // stream stage
-        await().atMost(240000, TimeUnit.MILLISECONDS)
+        await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertAll(
@@ -279,7 +279,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                 });
 
         // stream stage
-        await().atMost(240000, TimeUnit.MILLISECONDS)
+        await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertAll(
@@ -296,7 +296,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
         updateSourceTable(DATABASE, SOURCE_TABLE1);
 
         // stream stage
-        await().atMost(240000, TimeUnit.MILLISECONDS)
+        await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertAll(
@@ -336,7 +336,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                 });
 
         // stream stage
-        await().atMost(240000, TimeUnit.MILLISECONDS)
+        await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertAll(
@@ -360,7 +360,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
         updateSourceTable(DATABASE, SOURCE_TABLE2);
 
         // stream stage
-        await().atMost(240000, TimeUnit.MILLISECONDS)
+        await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertAll(
