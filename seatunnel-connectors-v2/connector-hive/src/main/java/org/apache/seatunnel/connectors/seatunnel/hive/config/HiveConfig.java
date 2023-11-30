@@ -38,11 +38,19 @@ public class HiveConfig {
                     .noDefaultValue()
                     .withDescription("Hive metastore uri");
 
+    public static final Option<Boolean> ABORT_DROP_PARTITION_METADATA =
+            Options.key("abort_drop_partition_metadata")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).");
+
     public static final Option<String> HIVE_SITE_PATH =
             Options.key("hive_site_path")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The path of hive-site.xml");
+
     public static final String TEXT_INPUT_FORMAT_CLASSNAME =
             "org.apache.hadoop.mapred.TextInputFormat";
     public static final String TEXT_OUTPUT_FORMAT_CLASSNAME =

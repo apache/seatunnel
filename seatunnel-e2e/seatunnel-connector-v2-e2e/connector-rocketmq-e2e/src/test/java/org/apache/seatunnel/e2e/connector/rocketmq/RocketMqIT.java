@@ -282,7 +282,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     }
 
     @SneakyThrows
-    @SuppressWarnings("checkstyle:Indentation")
     private void generateTestData(
             ProducerRecordConverter converter, String topic, int start, int end) {
         for (int i = start; i < end; i++) {

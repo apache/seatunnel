@@ -19,9 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class StarRocksJsonSerializer extends StarRocksBaseSerializer
@@ -38,10 +39,22 @@ public class StarRocksJsonSerializer extends StarRocksBaseSerializer
 
     @Override
     public String serialize(SeaTunnelRow row) {
-        Map<String, Object> rowMap = new HashMap<>(row.getFields().length);
+        Map<String, Object> rowMap = new LinkedHashMap<>(row.getFields().length);
 
         for (int i = 0; i < row.getFields().length; i++) {
-            Object value = convert(seaTunnelRowType.getFieldType(i), row.getField(i));
+            SqlType sqlType = seaTunnelRowType.getFieldType(i).getSqlType();
+            Object value;
+            if (sqlType == SqlType.ARRAY
+                    || sqlType == SqlType.MAP
+                    || sqlType == SqlType.ROW
+                    || sqlType == SqlType.MULTIPLE_ROW) {
+                // If the field type is complex type, we should keep the origin value.
+                // It will be transformed to json string in the next step
+                // JsonUtils.toJsonString(rowMap).
+                value = row.getField(i);
+            } else {
+                value = convert(seaTunnelRowType.getFieldType(i), row.getField(i));
+            }
             rowMap.put(seaTunnelRowType.getFieldName(i), value);
         }
         if (enableUpsertDelete) {

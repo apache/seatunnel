@@ -21,23 +21,20 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.Collections;
 import java.util.stream.Stream;
 
@@ -87,19 +84,26 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         Startables.deepStart(Stream.of(ftpContainer)).join();
         log.info("ftp container started");
 
-        Path jsonPath = ContainerUtil.getResourcesFile("/json/e2e.json").toPath();
-        Path textPath = ContainerUtil.getResourcesFile("/text/e2e.txt").toPath();
-        Path excelPath = ContainerUtil.getResourcesFile("/excel/e2e.xlsx").toPath();
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
+                ftpContainer);
 
-        ftpContainer.copyFileToContainer(
-                MountableFile.forHostPath(jsonPath),
-                "/home/vsftpd/seatunnel/tmp/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json");
-        ftpContainer.copyFileToContainer(
-                MountableFile.forHostPath(textPath),
-                "/home/vsftpd/seatunnel/tmp/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt");
-        ftpContainer.copyFileToContainer(
-                MountableFile.forHostPath(excelPath),
-                "/home/vsftpd/seatunnel/tmp/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx");
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
+                ftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
+                "/excel/e2e.xlsx",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
+                ftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
+                "/excel/e2e.xlsx",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/excel_filter/name=tyrantlucifer/hobby=coding/e2e_filter.xlsx",
+                ftpContainer);
+
         ftpContainer.execInContainer("sh", "-c", "chmod -R 777 /home/vsftpd/seatunnel/");
         ftpContainer.execInContainer("sh", "-c", "chown -R ftp:ftp /home/vsftpd/seatunnel/");
     }
@@ -107,51 +111,31 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testFtpFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
         // test write ftp excel file
-        Container.ExecResult excelWriteResult =
-                container.executeJob("/excel/fake_source_to_ftp_excel.conf");
-        Assertions.assertEquals(0, excelWriteResult.getExitCode(), excelWriteResult.getStderr());
+        helper.execute("/excel/fake_source_to_ftp_excel.conf");
         // test read ftp excel file
-        Container.ExecResult excelReadResult =
-                container.executeJob("/excel/ftp_excel_to_assert.conf");
-        Assertions.assertEquals(0, excelReadResult.getExitCode(), excelReadResult.getStderr());
+        helper.execute("/excel/ftp_excel_to_assert.conf");
         // test read ftp excel file with projection
-        Container.ExecResult excelProjectionReadResult =
-                container.executeJob("/excel/ftp_excel_projection_to_assert.conf");
-        Assertions.assertEquals(
-                0, excelProjectionReadResult.getExitCode(), excelProjectionReadResult.getStderr());
+        helper.execute("/excel/ftp_excel_projection_to_assert.conf");
+        // test read ftp excel file with filter
+        helper.execute("/excel/ftp_filter_excel_to_assert.conf");
         // test write ftp text file
-        Container.ExecResult textWriteResult =
-                container.executeJob("/text/fake_to_ftp_file_text.conf");
-        Assertions.assertEquals(0, textWriteResult.getExitCode());
+        helper.execute("/text/fake_to_ftp_file_text.conf");
         // test read skip header
-        Container.ExecResult textWriteAndSkipResult =
-                container.executeJob("/text/ftp_file_text_skip_headers.conf");
-        Assertions.assertEquals(0, textWriteAndSkipResult.getExitCode());
+        helper.execute("/text/ftp_file_text_skip_headers.conf");
         // test read ftp text file
-        Container.ExecResult textReadResult =
-                container.executeJob("/text/ftp_file_text_to_assert.conf");
-        Assertions.assertEquals(0, textReadResult.getExitCode());
+        helper.execute("/text/ftp_file_text_to_assert.conf");
         // test read ftp text file with projection
-        Container.ExecResult textProjectionResult =
-                container.executeJob("/text/ftp_file_text_projection_to_assert.conf");
-        Assertions.assertEquals(0, textProjectionResult.getExitCode());
+        helper.execute("/text/ftp_file_text_projection_to_assert.conf");
         // test write ftp json file
-        Container.ExecResult jsonWriteResult =
-                container.executeJob("/json/fake_to_ftp_file_json.conf");
-        Assertions.assertEquals(0, jsonWriteResult.getExitCode());
+        helper.execute("/json/fake_to_ftp_file_json.conf");
         // test read ftp json file
-        Container.ExecResult jsonReadResult =
-                container.executeJob("/json/ftp_file_json_to_assert.conf");
-        Assertions.assertEquals(0, jsonReadResult.getExitCode());
+        helper.execute("/json/ftp_file_json_to_assert.conf");
         // test write ftp parquet file
-        Container.ExecResult parquetWriteResult =
-                container.executeJob("/parquet/fake_to_ftp_file_parquet.conf");
-        Assertions.assertEquals(0, parquetWriteResult.getExitCode());
+        helper.execute("/parquet/fake_to_ftp_file_parquet.conf");
         // test write ftp orc file
-        Container.ExecResult orcWriteResult =
-                container.executeJob("/orc/fake_to_ftp_file_orc.conf");
-        Assertions.assertEquals(0, orcWriteResult.getExitCode());
+        helper.execute("/orc/fake_to_ftp_file_orc.conf");
     }
 
     @AfterAll

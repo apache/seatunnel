@@ -124,7 +124,7 @@ We supported as the following file types:
 
 `text` `csv` `parquet` `orc` `json`
 
-Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
+Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
 ### filename_time_format [string]
 

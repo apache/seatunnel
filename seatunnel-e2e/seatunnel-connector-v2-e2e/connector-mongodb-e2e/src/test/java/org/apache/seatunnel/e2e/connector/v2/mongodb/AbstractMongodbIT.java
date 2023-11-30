@@ -82,6 +82,11 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     protected static final String MONGODB_CDC_RESULT_TABLE = "test_cdc_table";
 
+    protected static final String MONGODB_TRANSACTION_SINK_TABLE =
+            "test_source_transaction_sink_table";
+    protected static final String MONGODB_TRANSACTION_UPSERT_TABLE =
+            "test_source_upsert_transaction_table";
+
     protected GenericContainer<?> mongodbContainer;
 
     protected MongoClient client;

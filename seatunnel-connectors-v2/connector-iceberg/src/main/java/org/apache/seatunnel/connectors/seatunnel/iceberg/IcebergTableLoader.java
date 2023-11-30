@@ -31,7 +31,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 public class IcebergTableLoader implements Closeable, Serializable {
 

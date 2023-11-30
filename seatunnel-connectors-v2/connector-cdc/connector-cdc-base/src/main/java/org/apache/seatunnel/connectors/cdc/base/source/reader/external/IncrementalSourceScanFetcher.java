@@ -107,7 +107,8 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
     }
 
     @Override
-    public Iterator<SourceRecords> pollSplitRecords() throws InterruptedException {
+    public Iterator<SourceRecords> pollSplitRecords()
+            throws InterruptedException, SeaTunnelException {
         checkReadException();
 
         if (hasNextElement.get()) {
@@ -133,9 +134,16 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
 
                     if (highWatermark == null && isHighWatermarkEvent(record)) {
                         highWatermark = record;
-                        // snapshot events capture end and begin to capture binlog events
-                        reachChangeLogStart = true;
-                        continue;
+                        // snapshot events capture end
+                        if (taskContext.isExactlyOnce()) {
+                            // begin to capture binlog events
+                            reachChangeLogStart = true;
+                            continue;
+                        } else {
+                            // not support exactly-once, stop the loop
+                            reachChangeLogEnd = true;
+                            break;
+                        }
                     }
 
                     if (reachChangeLogStart && isEndWatermarkEvent(record)) {
@@ -215,14 +223,11 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
 
     private boolean isChangeRecordInChunkRange(SourceRecord record) {
         if (taskContext.isDataChangeRecord(record)) {
+            // fix the between condition
             return taskContext.isRecordBetween(
                     record,
-                    null == currentSnapshotSplit.getSplitStart()
-                            ? null
-                            : new Object[] {currentSnapshotSplit.getSplitStart()},
-                    null == currentSnapshotSplit.getSplitEnd()
-                            ? null
-                            : new Object[] {currentSnapshotSplit.getSplitEnd()});
+                    currentSnapshotSplit.getSplitStart(),
+                    currentSnapshotSplit.getSplitEnd());
         }
         return false;
     }

@@ -20,8 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 
 import java.io.Serializable;
+import java.util.Random;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /**
  * This class defines a range of server id. The boundaries of the range are inclusive.
@@ -32,27 +33,27 @@ public class ServerIdRange implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /** Start of the range (inclusive). */
-    private final int startServerId;
+    private final long startServerId;
 
     /** End of the range (inclusive). */
-    private final int endServerId;
+    private final long endServerId;
 
-    public ServerIdRange(int startServerId, int endServerId) {
+    public ServerIdRange(long startServerId, long endServerId) {
         this.startServerId = startServerId;
         this.endServerId = endServerId;
     }
 
-    public int getStartServerId() {
+    public long getStartServerId() {
         return startServerId;
     }
 
-    public int getEndServerId() {
+    public long getEndServerId() {
         return endServerId;
     }
 
-    public int getServerId(int subTaskId) {
+    public long getServerId(int subTaskId) {
         checkArgument(subTaskId >= 0, "Subtask ID %s shouldn't be a negative number.", subTaskId);
-        if (subTaskId > getNumberOfServerIds()) {
+        if ((long) subTaskId > getNumberOfServerIds()) {
             throw new IllegalArgumentException(
                     String.format(
                             "Subtask ID %s is out of server id range %s, "
@@ -64,8 +65,8 @@ public class ServerIdRange implements Serializable {
         return startServerId + subTaskId;
     }
 
-    public int getNumberOfServerIds() {
-        return endServerId - startServerId + 1;
+    public long getNumberOfServerIds() {
+        return endServerId - startServerId + 1L;
     }
 
     @Override
@@ -83,7 +84,11 @@ public class ServerIdRange implements Serializable {
      */
     public static ServerIdRange from(String range) {
         if (range == null) {
-            return null;
+            long start = (new Random().nextInt(Integer.MAX_VALUE)) + 6500L;
+            // 1024000 is the maybe max number of parallelism
+            // mysql server id should be in range [1, 2^32-1]
+            long end = start + 1024000L;
+            return new ServerIdRange(start, end);
         }
         if (range.contains("-")) {
             String[] idArray = range.split("-");
@@ -96,14 +101,14 @@ public class ServerIdRange implements Serializable {
             return new ServerIdRange(
                     parseServerId(idArray[0].trim()), parseServerId(idArray[1].trim()));
         } else {
-            int serverId = parseServerId(range);
+            long serverId = parseServerId(range);
             return new ServerIdRange(serverId, serverId);
         }
     }
 
-    private static int parseServerId(String serverIdValue) {
+    private static long parseServerId(String serverIdValue) {
         try {
-            return Integer.parseInt(serverIdValue);
+            return Long.parseLong(serverIdValue);
         } catch (NumberFormatException e) {
             throw new IllegalStateException(
                     String.format("The server id %s is not a valid numeric.", serverIdValue), e);

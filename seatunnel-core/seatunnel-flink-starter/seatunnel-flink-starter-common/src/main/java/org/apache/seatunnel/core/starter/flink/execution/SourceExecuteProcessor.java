@@ -23,9 +23,13 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
-import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.core.starter.enums.PluginType;
+import org.apache.seatunnel.core.starter.execution.PluginUtil;
+import org.apache.seatunnel.core.starter.execution.SourceTableInfo;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 import org.apache.seatunnel.translation.flink.source.BaseSeaTunnelSourceFunction;
 import org.apache.seatunnel.translation.flink.source.SeaTunnelCoordinatedSource;
@@ -33,7 +37,6 @@ import org.apache.seatunnel.translation.flink.source.SeaTunnelParallelSource;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Boundedness;
-import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.ParallelSourceFunction;
@@ -41,6 +44,7 @@ import org.apache.flink.streaming.api.operators.StreamSource;
 import org.apache.flink.types.Row;
 
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -49,42 +53,60 @@ import java.util.List;
 import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
+import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
 
-public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SeaTunnelSource> {
+@Slf4j
+@SuppressWarnings("unchecked,rawtypes")
+public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SourceTableInfo> {
     private static final String PLUGIN_TYPE = PluginType.SOURCE.getType();
+    private Config envConfigs;
 
-    public SourceExecuteProcessor(
-            List<URL> jarPaths, List<? extends Config> sourceConfigs, JobContext jobContext) {
-        super(jarPaths, sourceConfigs, jobContext);
+    public SourceExecuteProcessor(List<URL> jarPaths, Config ConfigsInfo, JobContext jobContext) {
+        super(jarPaths, ConfigsInfo.getConfigList(Constants.SOURCE), jobContext);
+        this.envConfigs = ConfigsInfo.getConfig("env");
     }
 
     @Override
-    public List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) {
+    public List<DataStreamTableInfo> execute(List<DataStreamTableInfo> upstreamDataStreams) {
         StreamExecutionEnvironment executionEnvironment =
                 flinkRuntimeEnvironment.getStreamExecutionEnvironment();
-        List<DataStream<Row>> sources = new ArrayList<>();
+        List<DataStreamTableInfo> sources = new ArrayList<>();
         for (int i = 0; i < plugins.size(); i++) {
-            SeaTunnelSource internalSource = plugins.get(i);
+            SourceTableInfo sourceTableInfo = plugins.get(i);
+            SeaTunnelSource internalSource = sourceTableInfo.getSource();
+            Config pluginConfig = pluginConfigs.get(i);
             BaseSeaTunnelSourceFunction sourceFunction;
             if (internalSource instanceof SupportCoordinate) {
-                sourceFunction = new SeaTunnelCoordinatedSource(internalSource);
+                sourceFunction = new SeaTunnelCoordinatedSource(internalSource, envConfigs);
+
+                registerAppendStream(pluginConfig);
             } else {
-                sourceFunction = new SeaTunnelParallelSource(internalSource);
+                sourceFunction = new SeaTunnelParallelSource(internalSource, envConfigs);
             }
+            boolean bounded =
+                    internalSource.getBoundedness()
+                            == org.apache.seatunnel.api.source.Boundedness.BOUNDED;
+
             DataStreamSource<Row> sourceStream =
                     addSource(
                             executionEnvironment,
                             sourceFunction,
                             "SeaTunnel " + internalSource.getClass().getSimpleName(),
-                            internalSource.getBoundedness()
-                                    == org.apache.seatunnel.api.source.Boundedness.BOUNDED);
-            Config pluginConfig = pluginConfigs.get(i);
+                            bounded);
+
             if (pluginConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 int parallelism = pluginConfig.getInt(CommonOptions.PARALLELISM.key());
                 sourceStream.setParallelism(parallelism);
             }
             registerResultTable(pluginConfig, sourceStream);
-            sources.add(sourceStream);
+            sources.add(
+                    new DataStreamTableInfo(
+                            sourceStream,
+                            sourceTableInfo.getCatalogTables().get(0),
+                            pluginConfig.hasPath(RESULT_TABLE_NAME.key())
+                                    ? pluginConfig.getString(RESULT_TABLE_NAME.key())
+                                    : null));
         }
         return sources;
     }
@@ -115,31 +137,30 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
     }
 
     @Override
-    protected List<SeaTunnelSource> initializePlugins(
+    protected List<SourceTableInfo> initializePlugins(
             List<URL> jarPaths, List<? extends Config> pluginConfigs) {
         SeaTunnelSourcePluginDiscovery sourcePluginDiscovery =
                 new SeaTunnelSourcePluginDiscovery(ADD_URL_TO_CLASSLOADER);
-        List<SeaTunnelSource> sources = new ArrayList<>();
+
+        SeaTunnelFactoryDiscovery factoryDiscovery =
+                new SeaTunnelFactoryDiscovery(TableSourceFactory.class, ADD_URL_TO_CLASSLOADER);
+
+        List<SourceTableInfo> sources = new ArrayList<>();
         Set<URL> jars = new HashSet<>();
         for (Config sourceConfig : pluginConfigs) {
             PluginIdentifier pluginIdentifier =
                     PluginIdentifier.of(
-                            ENGINE_TYPE, PLUGIN_TYPE, sourceConfig.getString(PLUGIN_NAME));
+                            ENGINE_TYPE, PLUGIN_TYPE, sourceConfig.getString(PLUGIN_NAME.key()));
             jars.addAll(
                     sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-            SeaTunnelSource seaTunnelSource =
-                    sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
-            seaTunnelSource.prepare(sourceConfig);
-            seaTunnelSource.setJobContext(jobContext);
-            if (jobContext.getJobMode() == JobMode.BATCH
-                    && seaTunnelSource.getBoundedness()
-                            == org.apache.seatunnel.api.source.Boundedness.UNBOUNDED) {
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "'%s' source don't support off-line job.",
-                                seaTunnelSource.getPluginName()));
-            }
-            sources.add(seaTunnelSource);
+            SourceTableInfo source =
+                    PluginUtil.createSource(
+                            factoryDiscovery,
+                            sourcePluginDiscovery,
+                            pluginIdentifier,
+                            sourceConfig,
+                            jobContext);
+            sources.add(source);
         }
         jarPaths.addAll(jars);
         return sources;

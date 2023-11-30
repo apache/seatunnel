@@ -19,9 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -41,6 +42,8 @@ import org.apache.commons.lang3.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Throwables;
+
 import javax.transaction.xa.Xid;
 
 import java.io.IOException;
@@ -48,10 +51,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
-public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> {
+public class JdbcExactlyOnceSinkWriter
+        implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState>,
+                SupportMultiTableSinkWriter<Void> {
     private static final Logger LOG = LoggerFactory.getLogger(JdbcExactlyOnceSinkWriter.class);
 
     private final SinkWriter.Context sinkcontext;
@@ -113,7 +118,7 @@ public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidIn
                 beginTx();
             } catch (Exception e) {
                 throw new JdbcConnectorException(
-                        CommonErrorCode.WRITER_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                         "unable to open JDBC exactly one writer",
                         e);
             }
@@ -137,11 +142,22 @@ public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidIn
     @Override
     public Optional<XidInfo> prepareCommit() throws IOException {
         tryOpen();
-        prepareCurrentTx();
+
+        boolean emptyXaTransaction = false;
+        try {
+            prepareCurrentTx();
+        } catch (Exception e) {
+            if (Throwables.getRootCause(e) instanceof XaFacade.EmptyXaTransactionException) {
+                emptyXaTransaction = true;
+                LOG.info("skip prepare empty xa transaction, xid={}", currentXid);
+            } else {
+                throw e;
+            }
+        }
         this.currentXid = null;
         beginTx();
         checkState(prepareXid != null, "prepare xid must not be null");
-        return Optional.of(new XidInfo(prepareXid, 0));
+        return emptyXaTransaction ? Optional.empty() : Optional.of(new XidInfo(prepareXid, 0));
     }
 
     @Override
@@ -161,7 +177,7 @@ public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidIn
             xaFacade.close();
         } catch (Exception e) {
             throw new JdbcConnectorException(
-                    CommonErrorCode.WRITER_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                     "unable to close JDBC exactly one writer",
                     e);
         }
@@ -186,14 +202,22 @@ public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidIn
     private void prepareCurrentTx() throws IOException {
         checkState(currentXid != null, "no current xid");
         outputFormat.flush();
+
+        Exception endAndPrepareException = null;
         try {
             xaFacade.endAndPrepare(currentXid);
-            prepareXid = currentXid;
         } catch (Exception e) {
+            endAndPrepareException = e;
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.XA_OPERATION_FAILED,
                     "unable to prepare current xa transaction",
                     e);
+        } finally {
+            if (endAndPrepareException == null
+                    || Throwables.getRootCause(endAndPrepareException)
+                            instanceof XaFacade.EmptyXaTransactionException) {
+                prepareXid = currentXid;
+            }
         }
     }
 }

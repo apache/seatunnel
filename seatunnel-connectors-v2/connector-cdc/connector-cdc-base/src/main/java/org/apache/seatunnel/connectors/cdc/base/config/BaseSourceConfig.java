@@ -39,6 +39,7 @@ public abstract class BaseSourceConfig implements SourceConfig {
     @Getter protected final double distributionFactorLower;
     @Getter protected final int sampleShardingThreshold;
     @Getter protected final int inverseSamplingRate;
+    @Getter protected final boolean exactlyOnce;
 
     // --------------------------------------------------------------------------------------------
     // Debezium Configurations
@@ -53,6 +54,7 @@ public abstract class BaseSourceConfig implements SourceConfig {
             double distributionFactorLower,
             int sampleShardingThreshold,
             int inverseSamplingRate,
+            boolean exactlyOnce,
             Properties dbzProperties) {
         this.startupConfig = startupConfig;
         this.stopConfig = stopConfig;
@@ -61,6 +63,7 @@ public abstract class BaseSourceConfig implements SourceConfig {
         this.distributionFactorLower = distributionFactorLower;
         this.sampleShardingThreshold = sampleShardingThreshold;
         this.inverseSamplingRate = inverseSamplingRate;
+        this.exactlyOnce = exactlyOnce;
         this.dbzProperties = dbzProperties;
     }
 

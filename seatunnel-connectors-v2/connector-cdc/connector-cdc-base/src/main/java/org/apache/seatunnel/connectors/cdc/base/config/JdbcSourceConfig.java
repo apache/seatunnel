@@ -64,7 +64,8 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
             String serverTimeZone,
             long connectTimeoutMillis,
             int connectMaxRetries,
-            int connectionPoolSize) {
+            int connectionPoolSize,
+            boolean exactlyOnce) {
         super(
                 startupConfig,
                 stopConfig,
@@ -73,6 +74,7 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
                 distributionFactorLower,
                 sampleShardingThreshold,
                 inverseSamplingRate,
+                exactlyOnce,
                 dbzProperties);
         this.driverClassName = driverClassName;
         this.hostname = hostname;

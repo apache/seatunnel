@@ -18,11 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.teradata;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 public class TeradataJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
     public String converterName() {
-        return "Teradata";
+        return DatabaseIdentifier.TERADATA;
     }
 }

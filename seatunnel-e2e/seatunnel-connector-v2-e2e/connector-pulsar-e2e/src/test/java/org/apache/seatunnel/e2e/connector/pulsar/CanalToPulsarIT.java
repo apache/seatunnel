@@ -90,7 +90,7 @@ public class CanalToPulsarIT extends TestSuiteBase implements TestResource {
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V5_7);
 
     private final UniqueDatabase inventoryDatabase =
-            new UniqueDatabase(MYSQL_CONTAINER, "canal", "mysqluser", "mysqlpw");
+            new UniqueDatabase(MYSQL_CONTAINER, "canal", "mysqluser", "mysqlpw", "canal");
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         MySqlContainer mySqlContainer =
@@ -337,5 +337,16 @@ public class CanalToPulsarIT extends TestSuiteBase implements TestResource {
                         Arrays.asList(107, "rocks", "box of assorted rocks", "7.88"),
                         Arrays.asList(108, "jacket", "water resistent black wind breaker", "0.1"));
         Assertions.assertIterableEquals(expected, actual);
+
+        try (Connection connection =
+                DriverManager.getConnection(
+                        POSTGRESQL_CONTAINER.getJdbcUrl(),
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword())) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("truncate table sink");
+                LOG.info("testSinkCDCChangelog truncate table sink");
+            }
+        }
     }
 }

@@ -2,6 +2,10 @@
 
 > JDBC Mysql Source Connector
 
+## Support Mysql Version
+
+- 5.5/5.6/5.7/8.0
+
 ## Support Those Engines
 
 > Spark<br/>
@@ -16,6 +20,7 @@
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [support multiple table reading](../../concept/connector-v2-features.md)
 
 > supports query SQL and can achieve projection effect.
 
@@ -56,24 +61,35 @@ Read external data source data through JDBC.
 
 ## Source Options
 
-|             Name             |  Type  | Required |     Default     |                                                                                                                            Description                                                                                                                            |
-|------------------------------|--------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                          | String | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                                            |
-| driver                       | String | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                                     |
-| user                         | String | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
-| password                     | String | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
-| query                        | String | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
-| connection_check_timeout_sec | Int    | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
-| partition_column             | String | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                     |
-| partition_lower_bound        | Long   | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
-| partition_upper_bound        | Long   | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
-| partition_num                | Int    | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
-| fetch_size                   | Int    | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
-| common-options               |        | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
+|                    Name                    |    Type    | Required |     Default     |                                                                                                                                                                                                                                                                                                     Description                                                                                                                                                                                                                                                                                                      |
+|--------------------------------------------|------------|----------|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                                        | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| driver                                     | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| user                                       | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| password                                   | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| query                                      | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| connection_check_timeout_sec               | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| partition_column                           | String     | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| partition_lower_bound                      | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| partition_upper_bound                      | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| partition_num                              | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| fetch_size                                 | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value.                                                                                                                                                                                                                                                                                                                                                    |
+| properties                                 | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                                                                                                                                                                                                                                                                                                                                                                       |
+| table_path                                 | Int        | No       | 0               | The path to the full path of table, you can use this configuration instead of `query`. <br/>examples: <br/>mysql: "testdb.table1" <br/>oracle: "test_schema.table1" <br/>sqlserver: "testdb.test_schema.table1" <br/>postgresql: "testdb.test_schema.table1"                                                                                                                                                                                                                                                                                                                                                         |
+| table_list                                 | Array      | No       | 0               | The list of tables to be read, you can use this configuration instead of `table_path` example: ```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select * id, name from testdb.table2"}]```                                                                                                                                                                                                                                                                                                                                                                                               |
+| where_condition                            | String     | No       | -               | Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| split.size                                 | Int        | No       | 8096            | The split size (number of rows) of table, captured tables are split into multiple splits when read of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| split.even-distribution.factor.lower-bound | Double     | No       | 0.05            | The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
+| split.even-distribution.factor.upper-bound | Double     | No       | 100             | The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0. |
+| split.sample-sharding.threshold            | Int        | No       | 10000           | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
+| split.inverse-sampling.rate                | Int        | No       | 1000            | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
+| common-options                             |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks , When your shard read field is a large number type such as bigint(30) and above and the data is not evenly distributed, it is recommended to set the parallelism level to 1 to ensure that the data skew problem is resolved
+>
+> Use `table_path` to replace `query` for single table reading. If you need to read multiple tables, use `table_list`.
 
 ## Task Example
 
@@ -90,7 +106,7 @@ env {
 }
 source{
     Jdbc {
-        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
         user = "root"
@@ -114,9 +130,13 @@ sink {
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
 
 ```
+env {
+  execution.parallelism = 10
+  job.mode = "BATCH"
+}
 source {
     Jdbc {
-        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
         user = "root"
@@ -127,7 +147,13 @@ source {
         partition_column = "id"
         # Number of fragments
         partition_num = 10
+        properties {
+         useSSL=false
+        }
     }
+}
+sink {
+  Console {}
 }
 ```
 
@@ -138,7 +164,7 @@ source {
 ```
 source {
     Jdbc {
-        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
         user = "root"
@@ -151,7 +177,80 @@ source {
         # Read end boundary
         partition_upper_bound = 500
         partition_num = 10
+        properties {
+         useSSL=false
+        }
     }
+}
+```
+
+### Using `table_path` read:
+
+***Configuring `table_path` will turn on auto split, you can configure `split.*` to adjust the split strategy***
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+source {
+  Jdbc {
+    url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+    driver = "com.mysql.cj.jdbc.Driver"
+    connection_check_timeout_sec = 100
+    user = "root"
+    password = "123456"
+
+    table_path = "testdb.table1"
+    #split.size = 8096
+    #split.even-distribution.factor.upper-bound = 100
+    #split.even-distribution.factor.lower-bound = 0.05
+    #split.sample-sharding.threshold = 1000
+    #split.inverse-sampling.rate = 1000
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+### Multiple table read:
+
+***Configuring `table_list` will turn on auto split, you can configure `split.*` to adjust the split strategy***
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+source {
+  Jdbc {
+    url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+    driver = "com.mysql.cj.jdbc.Driver"
+    connection_check_timeout_sec = 100
+    user = "root"
+    password = "123456"
+
+    table_list = [
+      {
+        table_path = "testdb.table1"
+      },
+      {
+        table_path = "testdb.table2"
+        # Use query filetr rows & columns
+        query = "select id, name from testdb.table2 where id > 100"
+      }
+    ]
+    #where_condition= "where id > 100"
+    #split.size = 8096
+    #split.even-distribution.factor.upper-bound = 100
+    #split.even-distribution.factor.lower-bound = 0.05
+    #split.sample-sharding.threshold = 1000
+    #split.inverse-sampling.rate = 1000
+  }
+}
+
+sink {
+  Console {}
 }
 ```
 

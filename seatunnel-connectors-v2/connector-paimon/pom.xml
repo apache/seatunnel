@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : Paimon</name>
 
     <properties>
-        <paimon.version>0.4-SNAPSHOT</paimon.version>
+        <paimon.version>0.4.0-incubating</paimon.version>
     </properties>
 
     <dependencies>

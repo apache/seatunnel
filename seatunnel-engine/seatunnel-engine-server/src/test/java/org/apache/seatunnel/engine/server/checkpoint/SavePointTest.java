@@ -45,7 +45,6 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
     public static long JOB_ID = 823342L;
 
     @Test
-    @Disabled()
     public void testSavePoint() throws InterruptedException {
         savePointAndRestore(false);
     }
@@ -135,6 +134,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
                         isStartWithSavePoint,
                         nodeEngine.getSerializationService().toData(testLogicalDag),
                         testLogicalDag.getJobConfig(),
+                        Collections.emptyList(),
                         Collections.emptyList());
 
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);

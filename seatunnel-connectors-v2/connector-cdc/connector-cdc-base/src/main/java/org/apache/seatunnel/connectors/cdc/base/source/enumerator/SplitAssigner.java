@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.state.CheckpointListener;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
-import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
@@ -114,6 +113,6 @@ public interface SplitAssigner {
         private final Map<String, SnapshotSplit> assignedSnapshotSplit;
 
         /** key: SnapshotSplit id */
-        private final Map<String, Offset> splitCompletedOffsets;
+        private final Map<String, SnapshotSplitWatermark> splitCompletedOffsets;
     }
 }

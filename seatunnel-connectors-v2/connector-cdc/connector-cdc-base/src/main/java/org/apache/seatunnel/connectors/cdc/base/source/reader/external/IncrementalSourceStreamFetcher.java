@@ -18,25 +18,37 @@
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.split.CompletedSnapshotSplitInfo;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent;
+import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 
 import org.apache.kafka.connect.source.SourceRecord;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
+import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+
+import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getTableId;
 
 /**
  * Fetcher to fetch data from table split, the split is the incremental split {@link
@@ -45,7 +57,10 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, SourceSplitBase> {
     private final FetchTask.Context taskContext;
+    private final SchemaChangeResolver schemaChangeResolver;
     private final ExecutorService executorService;
+    // has entered pure binlog mode
+    private final Set<TableId> pureBinlogPhaseTables;
     private volatile ChangeEventQueue<DataChangeEvent> queue;
     private volatile Throwable readException;
 
@@ -55,13 +70,23 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
 
     private Offset splitStartWatermark;
 
+    // maximum watermark for each table
+    private Map<TableId, Offset> maxSplitHighWatermarkMap;
+    // finished spilt info
+    private Map<TableId, List<CompletedSnapshotSplitInfo>> finishedSplitsInfo;
+
     private static final long READER_CLOSE_TIMEOUT_SECONDS = 30L;
 
-    public IncrementalSourceStreamFetcher(FetchTask.Context taskContext, int subTaskId) {
+    public IncrementalSourceStreamFetcher(
+            FetchTask.Context taskContext,
+            int subTaskId,
+            SchemaChangeResolver schemaChangeResolver) {
         this.taskContext = taskContext;
+        this.schemaChangeResolver = schemaChangeResolver;
         ThreadFactory threadFactory =
                 new ThreadFactoryBuilder().setNameFormat("debezium-reader-" + subTaskId).build();
         this.executorService = Executors.newSingleThreadExecutor(threadFactory);
+        this.pureBinlogPhaseTables = new HashSet<>();
     }
 
     @Override
@@ -92,12 +117,28 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     }
 
     @Override
-    public Iterator<SourceRecords> pollSplitRecords() throws InterruptedException {
+    public Iterator<SourceRecords> pollSplitRecords()
+            throws InterruptedException, SeaTunnelException {
         checkReadException();
-        final List<SourceRecord> sourceRecords = new ArrayList<>();
+
+        Iterator<SourceRecords> sourceRecordsIterator = Collections.emptyIterator();
         if (streamFetchTask.isRunning()) {
             List<DataChangeEvent> batch = queue.poll();
-            for (DataChangeEvent event : batch) {
+            if (!batch.isEmpty()) {
+                if (schemaChangeResolver != null) {
+                    sourceRecordsIterator = splitSchemaChangeStream(batch);
+                } else {
+                    sourceRecordsIterator = splitNormalStream(batch);
+                }
+            }
+        }
+        return sourceRecordsIterator;
+    }
+
+    private Iterator<SourceRecords> splitNormalStream(List<DataChangeEvent> batchEvents) {
+        List<SourceRecord> sourceRecords = new ArrayList<>();
+        if (streamFetchTask.isRunning()) {
+            for (DataChangeEvent event : batchEvents) {
                 if (shouldEmit(event.getRecord())) {
                     sourceRecords.add(event.getRecord());
                 }
@@ -105,6 +146,92 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         }
         List<SourceRecords> sourceRecordsSet = new ArrayList<>();
         sourceRecordsSet.add(new SourceRecords(sourceRecords));
+        return sourceRecordsSet.iterator();
+    }
+
+    /**
+     * Split schema change stream.
+     *
+     * <p>For example 1:
+     *
+     * <p>Before event batch: [a, b, c, SchemaChangeEvent-1, SchemaChangeEvent-2, d, e]
+     *
+     * <p>After event batch: [a, b, c, checkpoint-before] [SchemaChangeEvent-1, SchemaChangeEvent-2,
+     * checkpoint-after] [d, e]
+     *
+     * <p>For example 2:
+     *
+     * <p>Before event batch: [SchemaChangeEvent-1, SchemaChangeEvent-2, a, b, c, d, e]
+     *
+     * <p>After event batch: [checkpoint-before] [SchemaChangeEvent-1, SchemaChangeEvent-2,
+     * checkpoint-after] [a, b, c, d, e]
+     */
+    private Iterator<SourceRecords> splitSchemaChangeStream(List<DataChangeEvent> batchEvents) {
+        List<SourceRecords> sourceRecordsSet = new ArrayList<>();
+
+        List<SourceRecord> sourceRecordList = new ArrayList<>();
+        SourceRecord previousRecord = null;
+        for (int i = 0; i < batchEvents.size(); i++) {
+            DataChangeEvent event = batchEvents.get(i);
+            SourceRecord currentRecord = event.getRecord();
+            if (!shouldEmit(currentRecord)) {
+                continue;
+            }
+            if (!SourceRecordUtils.isDataChangeRecord(currentRecord)
+                    && !SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
+                sourceRecordList.add(currentRecord);
+                continue;
+            }
+
+            if (SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
+                if (!schemaChangeResolver.support(currentRecord)) {
+                    continue;
+                }
+
+                if (previousRecord == null) {
+                    // add schema-change-before to first
+                    sourceRecordList.add(
+                            WatermarkEvent.createSchemaChangeBeforeWatermark(currentRecord));
+                    sourceRecordsSet.add(new SourceRecords(sourceRecordList));
+                    sourceRecordList = new ArrayList<>();
+                    sourceRecordList.add(currentRecord);
+                } else if (SourceRecordUtils.isSchemaChangeEvent(previousRecord)) {
+                    sourceRecordList.add(currentRecord);
+                } else {
+                    sourceRecordList.add(
+                            WatermarkEvent.createSchemaChangeBeforeWatermark(currentRecord));
+                    sourceRecordsSet.add(new SourceRecords(sourceRecordList));
+                    sourceRecordList = new ArrayList<>();
+                    sourceRecordList.add(currentRecord);
+                }
+            } else if (SourceRecordUtils.isDataChangeRecord(currentRecord)) {
+                if (previousRecord == null
+                        || SourceRecordUtils.isDataChangeRecord(previousRecord)) {
+                    sourceRecordList.add(currentRecord);
+                } else {
+                    sourceRecordList.add(
+                            WatermarkEvent.createSchemaChangeAfterWatermark(currentRecord));
+                    sourceRecordsSet.add(new SourceRecords(sourceRecordList));
+                    sourceRecordList = new ArrayList<>();
+                    sourceRecordList.add(currentRecord);
+                }
+            }
+            previousRecord = currentRecord;
+            if (i == batchEvents.size() - 1) {
+                if (SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
+                    sourceRecordList.add(
+                            WatermarkEvent.createSchemaChangeAfterWatermark(currentRecord));
+                }
+                sourceRecordsSet.add(new SourceRecords(sourceRecordList));
+            }
+        }
+
+        if (sourceRecordsSet.size() > 1) {
+            log.debug(
+                    "Split events stream into {} batches and mark schema checkpoint before/after",
+                    sourceRecordsSet.size());
+        }
+
         return sourceRecordsSet.iterator();
     }
 
@@ -146,14 +273,79 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     private boolean shouldEmit(SourceRecord sourceRecord) {
         if (taskContext.isDataChangeRecord(sourceRecord)) {
             Offset position = taskContext.getStreamOffset(sourceRecord);
-            return position.isAfter(splitStartWatermark);
-            // TODO only the table who captured snapshot splits need to filter( Used to support
-            // Exactly-Once )
+            TableId tableId = getTableId(sourceRecord);
+            if (!taskContext.isExactlyOnce()) {
+                log.trace(
+                        "The table {} is not support exactly-once, so ignore the watermark check",
+                        tableId);
+                return position.isAfter(splitStartWatermark);
+            }
+            // check whether the pure binlog mode has been entered
+            if (hasEnterPureBinlogPhase(tableId, position)) {
+                return true;
+            }
+            // not enter pure binlog mode and need to check whether the current record meets the
+            // emitting conditions.
+            if (finishedSplitsInfo.containsKey(tableId)) {
+                for (CompletedSnapshotSplitInfo splitInfo : finishedSplitsInfo.get(tableId)) {
+                    if (taskContext.isRecordBetween(
+                                    sourceRecord,
+                                    splitInfo.getSplitStart(),
+                                    splitInfo.getSplitEnd())
+                            && position.isAfter(splitInfo.getWatermark().getHighWatermark())) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
         return true;
     }
 
+    private boolean hasEnterPureBinlogPhase(TableId tableId, Offset position) {
+        // only the table who captured snapshot splits need to filter
+        if (pureBinlogPhaseTables.contains(tableId)) {
+            return true;
+        }
+        // the existed tables those have finished snapshot reading
+        if (maxSplitHighWatermarkMap.containsKey(tableId)
+                && position.isAtOrAfter(maxSplitHighWatermarkMap.get(tableId))) {
+            pureBinlogPhaseTables.add(tableId);
+            return true;
+        }
+        return false;
+    }
+
     private void configureFilter() {
         splitStartWatermark = currentIncrementalSplit.getStartupOffset();
+        Map<TableId, List<CompletedSnapshotSplitInfo>> splitsInfoMap = new HashMap<>();
+        Map<TableId, Offset> tableIdBinlogPositionMap = new HashMap<>();
+        List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos =
+                currentIncrementalSplit.getCompletedSnapshotSplitInfos();
+
+        // latest-offset mode
+        if (completedSnapshotSplitInfos.isEmpty()) {
+            for (TableId tableId : currentIncrementalSplit.getTableIds()) {
+                tableIdBinlogPositionMap.put(tableId, currentIncrementalSplit.getStartupOffset());
+            }
+        }
+
+        // calculate the max high watermark of every table
+        for (CompletedSnapshotSplitInfo finishedSplitInfo : completedSnapshotSplitInfos) {
+            TableId tableId = finishedSplitInfo.getTableId();
+            List<CompletedSnapshotSplitInfo> list =
+                    splitsInfoMap.getOrDefault(tableId, new ArrayList<>());
+            list.add(finishedSplitInfo);
+            splitsInfoMap.put(tableId, list);
+
+            Offset highWatermark = finishedSplitInfo.getWatermark().getHighWatermark();
+            Offset maxHighWatermark = tableIdBinlogPositionMap.get(tableId);
+            if (maxHighWatermark == null || highWatermark.isAfter(maxHighWatermark)) {
+                tableIdBinlogPositionMap.put(tableId, highWatermark);
+            }
+        }
+        this.finishedSplitsInfo = splitsInfoMap;
+        this.maxSplitHighWatermarkMap = tableIdBinlogPositionMap;
+        this.pureBinlogPhaseTables.clear();
     }
 }

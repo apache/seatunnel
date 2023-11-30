@@ -50,7 +50,7 @@ import java.util.stream.Stream;
 public class UniqueDatabase {
 
     private static final String[] CREATE_DATABASE_DDL =
-            new String[] {"CREATE DATABASE $DBNAME$;", "USE $DBNAME$;"};
+            new String[] {"CREATE DATABASE IF NOT EXISTS $DBNAME$;", "USE $DBNAME$;"};
     private static final Pattern COMMENT_PATTERN = Pattern.compile("^(.*)--.*$");
 
     private final MySqlContainer container;
@@ -59,14 +59,26 @@ public class UniqueDatabase {
     private final String username;
     private final String password;
 
+    /**
+     * @param container mysql docker container
+     * @param databaseName name of the database
+     * @param username Connection user name
+     * @param password Connection password
+     * @param templateName Execute ddl/ directory file name
+     */
     public UniqueDatabase(
-            MySqlContainer container, String databaseName, String username, String password) {
+            MySqlContainer container,
+            String databaseName,
+            String username,
+            String password,
+            String templateName) {
         this(
                 container,
                 databaseName,
                 Integer.toUnsignedString(new Random().nextInt(), 36),
                 username,
-                password);
+                password,
+                (!templateName.isEmpty() && templateName != null) ? templateName : password);
     }
 
     private UniqueDatabase(
@@ -74,12 +86,21 @@ public class UniqueDatabase {
             String databaseName,
             final String identifier,
             String username,
-            String password) {
+            String password,
+            String templateName) {
         this.container = container;
         this.databaseName = databaseName + "_" + identifier;
-        this.templateName = databaseName;
+        this.templateName = templateName;
         this.username = username;
         this.password = password;
+    }
+
+    public UniqueDatabase(MySqlContainer container, String databaseName) {
+        this.container = container;
+        this.databaseName = databaseName;
+        this.templateName = databaseName;
+        this.username = container.getUsername();
+        this.password = container.getPassword();
     }
 
     public String getHost() {

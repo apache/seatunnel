@@ -110,17 +110,23 @@ public class JdbcPhoenixIT extends AbstractJdbcIT {
                     String.format(
                             "delete from %s where 1=1", buildTableInfoWithSchema(schema, table));
             statement.execute(truncate);
+            connection.commit();
         } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException exception) {
+                throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, exception);
+            }
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, e);
         }
     }
 
     @Override
-    void compareResult() {}
+    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {
-        return "https://maven.aliyun.com/repository/public/com/aliyun/phoenix/ali-phoenix-shaded-thin-client/5.2.5-HBase-2.x/ali-phoenix-shaded-thin-client-5.2.5-HBase-2.x.jar";
+        return "https://repo1.maven.org/maven2/com/aliyun/phoenix/ali-phoenix-shaded-thin-client/5.2.5-HBase-2.x/ali-phoenix-shaded-thin-client-5.2.5-HBase-2.x.jar";
     }
 
     @Override

@@ -26,13 +26,12 @@ import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
@@ -61,6 +60,7 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PRIMARY_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SERVER_TIME_ZONE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SHARDING_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SPLIT_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SUPPORT_UPSERT;
@@ -78,7 +78,6 @@ public class ClickhouseSink
         return "Clickhouse";
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =
@@ -101,6 +100,7 @@ public class ClickhouseSink
                 ImmutableMap.<String, Object>builder()
                         .put(BULK_SIZE.key(), BULK_SIZE.defaultValue())
                         .put(SPLIT_MODE.key(), SPLIT_MODE.defaultValue())
+                        .put(SERVER_TIME_ZONE.key(), SERVER_TIME_ZONE.defaultValue())
                         .build();
 
         config = config.withFallback(ConfigFactory.parseMap(defaultConfig));
@@ -111,6 +111,7 @@ public class ClickhouseSink
                     ClickhouseUtil.createNodes(
                             config.getString(HOST.key()),
                             config.getString(DATABASE.key()),
+                            config.getString(SERVER_TIME_ZONE.key()),
                             null,
                             null);
         } else {
@@ -118,6 +119,7 @@ public class ClickhouseSink
                     ClickhouseUtil.createNodes(
                             config.getString(HOST.key()),
                             config.getString(DATABASE.key()),
+                            config.getString(SERVER_TIME_ZONE.key()),
                             config.getString(USERNAME.key()),
                             config.getString(PASSWORD.key()));
         }
@@ -147,7 +149,7 @@ public class ClickhouseSink
         if (config.getBoolean(SPLIT_MODE.key())) {
             if (!"Distributed".equals(table.getEngine())) {
                 throw new ClickhouseConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         "split mode only support table which engine is "
                                 + "'Distributed' engine at now");
             }
@@ -191,7 +193,7 @@ public class ClickhouseSink
             String primaryKey = config.getString(PRIMARY_KEY.key());
             if (shardKey != null && !Objects.equals(primaryKey, shardKey)) {
                 throw new ClickhouseConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         "sharding_key and primary_key must be consistent to ensure correct processing of cdc events");
             }
             primaryKeys = new String[] {primaryKey};
@@ -239,10 +241,5 @@ public class ClickhouseSink
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.option.setSeaTunnelRowType(seaTunnelRowType);
-    }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return this.option.getSeaTunnelRowType();
     }
 }

@@ -21,6 +21,8 @@ package org.apache.seatunnel.connectors.cdc.base.source.split.wartermark;
 public enum WatermarkKind {
     LOW,
     HIGH,
+    SCHEMA_CHANGE_BEFORE,
+    SCHEMA_CHANGE_AFTER,
     END;
 
     public WatermarkKind fromString(String kindString) {
@@ -28,6 +30,10 @@ public enum WatermarkKind {
             return LOW;
         } else if (HIGH.name().equalsIgnoreCase(kindString)) {
             return HIGH;
+        } else if (SCHEMA_CHANGE_BEFORE.name().equalsIgnoreCase(kindString)) {
+            return SCHEMA_CHANGE_BEFORE;
+        } else if (SCHEMA_CHANGE_AFTER.name().equalsIgnoreCase(kindString)) {
+            return SCHEMA_CHANGE_AFTER;
         } else {
             return END;
         }

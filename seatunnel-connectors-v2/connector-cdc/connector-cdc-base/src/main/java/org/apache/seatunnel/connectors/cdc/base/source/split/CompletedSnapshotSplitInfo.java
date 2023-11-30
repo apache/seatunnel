@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.base.source.split;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 
 import io.debezium.relational.TableId;
 import lombok.Getter;
@@ -32,7 +32,7 @@ public class CompletedSnapshotSplitInfo implements Serializable {
     private final SeaTunnelRowType splitKeyType;
     private final Object[] splitStart;
     private final Object[] splitEnd;
-    private final Offset watermark;
+    private final SnapshotSplitWatermark watermark;
 
     public CompletedSnapshotSplitInfo(
             String splitId,
@@ -40,7 +40,7 @@ public class CompletedSnapshotSplitInfo implements Serializable {
             SeaTunnelRowType splitKeyType,
             Object[] splitStart,
             Object[] splitEnd,
-            Offset watermark) {
+            SnapshotSplitWatermark watermark) {
         this.splitId = splitId;
         this.tableId = tableId;
         this.splitKeyType = splitKeyType;
@@ -50,6 +50,13 @@ public class CompletedSnapshotSplitInfo implements Serializable {
     }
 
     public SnapshotSplit asSnapshotSplit() {
-        return new SnapshotSplit(splitId, tableId, splitKeyType, splitStart, splitEnd, watermark);
+        return new SnapshotSplit(
+                splitId,
+                tableId,
+                splitKeyType,
+                splitStart,
+                splitEnd,
+                watermark.getLowWatermark(),
+                watermark.getHighWatermark());
     }
 }

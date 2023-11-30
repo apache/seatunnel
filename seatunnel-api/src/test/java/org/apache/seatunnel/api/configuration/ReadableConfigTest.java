@@ -35,11 +35,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@SuppressWarnings("checkstyle:StaticVariableName")
 public class ReadableConfigTest {
     private static final String CONFIG_PATH = "/conf/option-test.conf";
     private static ReadonlyConfig config;
-    private static Map<String, String> map;
+    private static Map<String, Object> map;
 
     @BeforeAll
     public static void prepare() throws URISyntaxException {
@@ -53,9 +52,11 @@ public class ReadableConfigTest {
                                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
         config = ReadonlyConfig.fromConfig(rawConfig.getConfigList("source").get(0));
         map = new HashMap<>();
-        map.put("inner.path", "mac");
-        map.put("inner.name", "ashulin");
-        map.put("inner.map", "{\"fantasy\":\"final\"}");
+        Map<String, String> inner = new HashMap<>();
+        inner.put("path", "mac");
+        inner.put("name", "ashulin");
+        inner.put("map", "{\"fantasy\":\"final\"}");
+        map.put("inner", inner);
         map.put("type", "source");
         map.put("patch.note", "hollow");
         map.put("name", "saitou");
@@ -183,7 +184,11 @@ public class ReadableConfigTest {
     @Test
     public void testBasicMapOption() {
         Assertions.assertEquals(
-                map, config.get(Options.key("option.map").mapType().noDefaultValue()));
+                map,
+                config.get(
+                        Options.key("option.map")
+                                .type(new TypeReference<Map<String, Object>>() {})
+                                .noDefaultValue()));
         Map<String, String> newMap = new HashMap<>();
         newMap.put("fantasy", "final");
         Assertions.assertEquals(
@@ -223,23 +228,33 @@ public class ReadableConfigTest {
 
     @Test
     public void testComplexTypeOption() {
-        List<Map<String, List<Map<String, String>>>> complexType =
+        List<Map<String, Map<String, List<Map<String, Object>>>>> complexType =
                 config.get(
                         Options.key("option.complex-type")
                                 .type(
                                         new TypeReference<
-                                                List<Map<String, List<Map<String, String>>>>>() {})
+                                                List<
+                                                        Map<
+                                                                String,
+                                                                Map<
+                                                                        String,
+                                                                        List<
+                                                                                Map<
+                                                                                        String,
+                                                                                        Object>>>>>>() {})
                                 .noDefaultValue());
         Assertions.assertEquals(1, complexType.size());
-        Assertions.assertEquals(2, complexType.get(0).size());
+        Assertions.assertEquals(2, complexType.get(0).get("inner").size());
         complexType
                 .get(0)
+                .get("inner")
                 .values()
                 .forEach(
                         value -> {
-                            Assertions.assertEquals(1, value.size());
                             Assertions.assertEquals(map, value.get(0));
                         });
+        Assertions.assertEquals(complexType.get(0).get("inner").get("list").size(), 2);
+        Assertions.assertEquals(complexType.get(0).get("inner").get("list-2").size(), 1);
     }
 
     @Test
@@ -297,5 +312,13 @@ public class ReadableConfigTest {
         map.put("username", "ark");
         readonlyConfig = ReadonlyConfig.fromMap(map);
         Assertions.assertEquals("ark", readonlyConfig.get(usernameOption));
+    }
+
+    @Test
+    public void testNullValue() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("user", null);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(map);
+        Assertions.assertNull(readonlyConfig.toMap().get("user"));
     }
 }

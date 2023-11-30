@@ -89,7 +89,8 @@ const sidebars = {
                 "concept/config",
                 "concept/connector-v2-features",
                 'concept/schema-feature',
-                'concept/JobEnvConfig'
+                'concept/JobEnvConfig',
+                'concept/speed-limit'
             ]
         },
         "Connector-v2-release-state",
@@ -170,9 +171,11 @@ const sidebars = {
                 "seatunnel-engine/deployment",
                 "seatunnel-engine/local-mode",
                 "seatunnel-engine/cluster-mode",
+                "seatunnel-engine/savepoint",
                 "seatunnel-engine/checkpoint-storage",
                 "seatunnel-engine/rest-api",
-                "seatunnel-engine/tcp"
+                "seatunnel-engine/tcp",
+                "seatunnel-engine/engine-jar-storage-mode"
             ]
         },
         {

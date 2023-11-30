@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -41,6 +42,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.service.jar.ServerConnectorPackageClient;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
@@ -134,6 +136,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     private final ScheduledExecutorService scheduledExecutorService;
 
+    private final ServerConnectorPackageClient serverConnectorPackageClient;
+
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
@@ -152,6 +156,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 0,
                 seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
                 TimeUnit.SECONDS);
+
+        serverConnectorPackageClient =
+                new ServerConnectorPackageClient(nodeEngine, seaTunnelConfig);
     }
 
     public void start() {
@@ -252,9 +259,25 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         taskImmutableInfo.getExecutionId()));
         TaskGroup taskGroup = null;
         try {
+            Set<ConnectorJarIdentifier> connectorJarIdentifiers =
+                    taskImmutableInfo.getConnectorJarIdentifiers();
             Set<URL> jars = taskImmutableInfo.getJars();
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-            if (!CollectionUtils.isEmpty(jars)) {
+            if (!CollectionUtils.isEmpty(connectorJarIdentifiers)) {
+                // Prioritize obtaining the jar package file required for the current task execution
+                // from the local, if it does not exist locally, it will be downloaded from the
+                // master node.
+                Set<URL> connectorJarPath =
+                        serverConnectorPackageClient.getConnectorJarFromLocal(
+                                connectorJarIdentifiers);
+                classLoader =
+                        new SeaTunnelChildFirstClassLoader(Lists.newArrayList(connectorJarPath));
+                taskGroup =
+                        CustomClassLoadedObject.deserializeWithCustomClassLoader(
+                                nodeEngine.getSerializationService(),
+                                classLoader,
+                                taskImmutableInfo.getGroup());
+            } else if (!CollectionUtils.isEmpty(jars)) {
                 classLoader = new SeaTunnelChildFirstClassLoader(Lists.newArrayList(jars));
                 taskGroup =
                         CustomClassLoadedObject.deserializeWithCustomClassLoader(
@@ -298,7 +321,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return deployLocalTask(taskGroup, Thread.currentThread().getContextClassLoader());
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
             @NonNull TaskGroup taskGroup, @NonNull ClassLoader classLoader) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
@@ -378,7 +400,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private void notifyTaskStatusToMaster(
             TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState) {
         long sleepTime = 1000;
@@ -605,10 +626,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
+            ProgressState result = null;
             try {
                 startedLatch.countDown();
                 t.init();
-                ProgressState result;
                 do {
                     result = t.call();
                 } while (!result.isDone()
@@ -625,10 +646,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 taskGroupExecutionTracker.exception(e);
             } finally {
                 taskGroupExecutionTracker.taskDone(t);
-                try {
-                    tracker.task.close();
-                } catch (IOException e) {
-                    logger.severe("Close task error", e);
+                if (result == null || !result.isDone()) {
+                    try {
+                        tracker.task.close();
+                    } catch (IOException e) {
+                        logger.severe("Close task error", e);
+                    }
                 }
             }
             Thread.currentThread().setContextClassLoader(oldClassLoader);
@@ -662,7 +685,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         private Future<?> thisTaskFuture;
         private BlockingQueue<Future<?>> futureBlockingQueue;
 
-        @SuppressWarnings("checkstyle:MagicNumber")
         public CooperativeTaskWorker(
                 LinkedBlockingDeque<TaskTracker> taskqueue,
                 RunBusWorkSupplier runBusWorkSupplier,
@@ -884,5 +906,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         boolean executionCompletedExceptionally() {
             return executionException.get() != null;
         }
+    }
+
+    public ServerConnectorPackageClient getServerConnectorPackageClient() {
+        return serverConnectorPackageClient;
     }
 }

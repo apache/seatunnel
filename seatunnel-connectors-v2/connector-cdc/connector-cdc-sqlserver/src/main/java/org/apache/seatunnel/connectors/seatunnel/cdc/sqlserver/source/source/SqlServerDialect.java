@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
@@ -33,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.rea
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch.transactionlog.SqlServerTransactionLogFetchTask;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.TableDiscoveryUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
@@ -47,7 +47,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.uti
 public class SqlServerDialect implements JdbcDataSourceDialect {
 
     private static final long serialVersionUID = 1L;
-    private final SourceConfig sourceConfig;
+    private final SqlServerSourceConfig sourceConfig;
 
     private transient SqlServerSchema sqlServerSchema;
 
@@ -57,7 +57,7 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
 
     @Override
     public String getName() {
-        return "SqlServer";
+        return DatabaseIdentifier.SQLSERVER;
     }
 
     @Override
@@ -95,7 +95,7 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
     @Override
     public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
         if (sqlServerSchema == null) {
-            sqlServerSchema = new SqlServerSchema();
+            sqlServerSchema = new SqlServerSchema(sourceConfig.getDbzConnectorConfig());
         }
         return sqlServerSchema.getTableSchema(jdbc, tableId);
     }

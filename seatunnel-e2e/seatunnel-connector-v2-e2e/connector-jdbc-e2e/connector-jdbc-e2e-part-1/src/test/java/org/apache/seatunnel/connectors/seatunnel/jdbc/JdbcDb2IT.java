@@ -29,7 +29,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -41,7 +40,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Slf4j
 public class JdbcDb2IT extends AbstractJdbcIT {
 
     private static final String DB2_CONTAINER_HOST = "db2-e2e";
@@ -120,7 +118,7 @@ public class JdbcDb2IT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() {}
+    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {
@@ -205,9 +203,17 @@ public class JdbcDb2IT extends AbstractJdbcIT {
     @Override
     public void clearTable(String schema, String table) {
         try (Statement statement = connection.createStatement()) {
-            String truncate = String.format("delete from \"%s\".%s where 1=1;", schema, table);
+            String truncate =
+                    String.format(
+                            "delete from %s where 1=1;", buildTableInfoWithSchema(schema, table));
             statement.execute(truncate);
+            connection.commit();
         } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException exception) {
+                throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, exception);
+            }
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, e);
         }
     }

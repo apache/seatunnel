@@ -20,25 +20,32 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataDocumentSerializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataToBsonConverters;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.commit.MongodbSinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.DocumentBulk;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommitInfo;
 
 import com.google.auto.service.AutoService;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
 @AutoService(SeaTunnelSink.class)
-public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class MongodbSink
+        implements SeaTunnelSink<
+                SeaTunnelRow, DocumentBulk, MongodbCommitInfo, MongodbAggregatedCommitInfo> {
 
     private MongodbWriterOptions options;
 
@@ -89,6 +96,10 @@ public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
             if (pluginConfig.hasPath(MongodbConfig.RETRY_INTERVAL.key())) {
                 builder.withRetryInterval(pluginConfig.getLong(MongodbConfig.RETRY_INTERVAL.key()));
             }
+
+            if (pluginConfig.hasPath(MongodbConfig.TRANSACTION.key())) {
+                builder.withTransaction(pluginConfig.getBoolean(MongodbConfig.TRANSACTION.key()));
+            }
             this.options = builder.build();
         }
     }
@@ -104,12 +115,8 @@ public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return seaTunnelRowType;
-    }
-
-    @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
+    public SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> createWriter(
+            SinkWriter.Context context) {
         return new MongodbWriter(
                 new RowDataDocumentSerializer(
                         RowDataToBsonConverters.createConverter(seaTunnelRowType),
@@ -117,5 +124,28 @@ public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                         new MongoKeyExtractor(options)),
                 options,
                 context);
+    }
+
+    @Override
+    public Optional<Serializer<DocumentBulk>> getWriterStateSerializer() {
+        return options.transaction ? Optional.of(new DefaultSerializer<>()) : Optional.empty();
+    }
+
+    @Override
+    public Optional<SinkAggregatedCommitter<MongodbCommitInfo, MongodbAggregatedCommitInfo>>
+            createAggregatedCommitter() {
+        return options.transaction
+                ? Optional.of(new MongodbSinkAggregatedCommitter(options))
+                : Optional.empty();
+    }
+
+    @Override
+    public Optional<Serializer<MongodbAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
+        return options.transaction ? Optional.of(new DefaultSerializer<>()) : Optional.empty();
+    }
+
+    @Override
+    public Optional<Serializer<MongodbCommitInfo>> getCommitInfoSerializer() {
+        return options.transaction ? Optional.of(new DefaultSerializer<>()) : Optional.empty();
     }
 }

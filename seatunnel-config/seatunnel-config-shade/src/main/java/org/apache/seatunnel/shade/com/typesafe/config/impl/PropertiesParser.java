@@ -7,8 +7,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigOrigin;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -58,7 +57,15 @@ final class PropertiesParser {
     }
 
     private static <K, V> Map<Path, Object> getPathMap(Set<Map.Entry<K, V>> entries) {
-        Map<Path, Object> pathMap = new LinkedHashMap<Path, Object>();
+        Map<Path, Object> pathMap = new LinkedHashMap<>();
+        System.getProperties()
+                .forEach(
+                        (key, value) -> {
+                            if (key instanceof String) {
+                                Path path = pathFromPropertyKey((String) key);
+                                pathMap.put(path, value);
+                            }
+                        });
         for (Map.Entry<K, V> entry : entries) {
             Object key = entry.getKey();
             if (key instanceof String) {
@@ -74,7 +81,7 @@ final class PropertiesParser {
     }
 
     static AbstractConfigObject fromPathMap(ConfigOrigin origin, Map<?, ?> pathExpressionMap) {
-        Map<Path, Object> pathMap = new LinkedHashMap<Path, Object>();
+        Map<Path, Object> pathMap = new LinkedHashMap<>();
         for (Map.Entry<?, ?> entry : pathExpressionMap.entrySet()) {
             Object keyObj = entry.getKey();
             if (!(keyObj instanceof String)) {
@@ -93,8 +100,8 @@ final class PropertiesParser {
          * First, build a list of paths that will have values, either string or
          * object values.
          */
-        Set<Path> scopePaths = new LinkedHashSet<Path>();
-        Set<Path> valuePaths = new LinkedHashSet<Path>();
+        Set<Path> scopePaths = new LinkedHashSet<>();
+        Set<Path> valuePaths = new LinkedHashSet<>();
         for (Path path : pathMap.keySet()) {
             // add value's path
             valuePaths.add(path);
@@ -129,13 +136,11 @@ final class PropertiesParser {
         /*
          * Create maps for the object-valued values.
          */
-        Map<String, AbstractConfigValue> root = new LinkedHashMap<String, AbstractConfigValue>();
-        Map<Path, Map<String, AbstractConfigValue>> scopes =
-                new LinkedHashMap<Path, Map<String, AbstractConfigValue>>();
+        Map<String, AbstractConfigValue> root = new LinkedHashMap<>();
+        Map<Path, Map<String, AbstractConfigValue>> scopes = new LinkedHashMap<>();
 
         for (Path path : scopePaths) {
-            Map<String, AbstractConfigValue> scope =
-                    new LinkedHashMap<String, AbstractConfigValue>();
+            Map<String, AbstractConfigValue> scope = new LinkedHashMap<>();
             scopes.put(path, scope);
         }
 
@@ -150,7 +155,17 @@ final class PropertiesParser {
             AbstractConfigValue value;
             if (convertedFromProperties) {
                 if (rawValue instanceof String) {
-                    value = new ConfigString.Quoted(origin, (String) rawValue);
+                    if (((String) rawValue).startsWith("[") && ((String) rawValue).endsWith("]")) {
+                        List<String> list =
+                                Arrays.asList(
+                                        ((String) rawValue)
+                                                .substring(1, ((String) rawValue).length() - 1)
+                                                .split(","));
+                        value = ConfigImpl.fromAnyRef(list, origin, FromMapMode.KEYS_ARE_PATHS);
+                    } else {
+                        value = new ConfigString.Quoted(origin, (String) rawValue);
+                    }
+
                 } else {
                     // silently ignore non-string values in Properties
                     value = null;
@@ -167,19 +182,14 @@ final class PropertiesParser {
          * Make a list of scope paths from longest to shortest, so children go
          * before parents.
          */
-        List<Path> sortedScopePaths = new ArrayList<Path>();
-        sortedScopePaths.addAll(scopePaths);
+        List<Path> sortedScopePaths = new ArrayList<>(scopePaths);
         // sort descending by length
-        Collections.sort(
-                sortedScopePaths,
-                new Comparator<Path>() {
-                    @Override
-                    public int compare(Path a, Path b) {
-                        // Path.length() is O(n) so in theory this sucks
-                        // but in practice we can make Path precompute length
-                        // if it ever matters.
-                        return b.length() - a.length();
-                    }
+        sortedScopePaths.sort(
+                (a, b) -> {
+                    // Path.length() is O(n) so in theory this sucks
+                    // but in practice we can make Path precompute length
+                    // if it ever matters.
+                    return b.length() - a.length();
                 });
 
         /*
