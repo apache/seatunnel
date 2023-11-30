@@ -68,14 +68,14 @@ You could start the application by the following commands
 flink version between `1.12.x` and `1.14.x`
 
 ```shell
-cd "apache-seatunnel-incubating-${version}"
+cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-flink-13-connector-v2.sh --config ./config/v2.streaming.conf.template
 ```
 
 flink version between `1.15.x` and `1.16.x`
 
 ```shell
-cd "apache-seatunnel-incubating-${version}"
+cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-flink-15-connector-v2.sh --config ./config/v2.streaming.conf.template
 ```
 

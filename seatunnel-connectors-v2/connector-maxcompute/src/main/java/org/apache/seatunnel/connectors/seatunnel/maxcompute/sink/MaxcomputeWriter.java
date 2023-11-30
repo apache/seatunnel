@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
@@ -42,9 +42,10 @@ import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.Maxcom
 
 @Slf4j
 public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-    private final RecordWriter recordWriter;
+    private RecordWriter recordWriter;
     private final TableTunnel.UploadSession session;
     private final TableSchema tableSchema;
+    private static final Long BLOCK_0 = 0L;
 
     public MaxcomputeWriter(Config pluginConfig) {
         try {
@@ -65,10 +66,11 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                                 pluginConfig.getString(PROJECT.key()),
                                 pluginConfig.getString(TABLE_NAME.key()));
             }
-            this.recordWriter = session.openRecordWriter(Thread.currentThread().getId());
+            this.recordWriter = session.openRecordWriter(BLOCK_0);
             log.info("open record writer success");
         } catch (Exception e) {
-            throw new MaxcomputeConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
+            throw new MaxcomputeConnectorException(
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);
         }
     }
 
@@ -80,11 +82,15 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void close() throws IOException {
-        this.recordWriter.close();
-        try {
-            this.session.commit(new Long[] {Thread.currentThread().getId()});
-        } catch (Exception e) {
-            throw new MaxcomputeConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
+        if (recordWriter != null) {
+            recordWriter.close();
+            try {
+                session.commit(new Long[] {BLOCK_0});
+            } catch (Exception e) {
+                throw new MaxcomputeConnectorException(
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);
+            }
+            recordWriter = null;
         }
     }
 }

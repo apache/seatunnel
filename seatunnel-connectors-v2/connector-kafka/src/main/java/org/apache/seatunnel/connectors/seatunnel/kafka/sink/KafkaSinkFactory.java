@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 
@@ -43,19 +43,23 @@ public class KafkaSinkFactory implements TableSinkFactory {
                 .conditional(
                         Config.FORMAT,
                         Arrays.asList(
-                                MessageFormat.JSON, MessageFormat.CANAL_JSON, MessageFormat.TEXT),
+                                MessageFormat.JSON,
+                                MessageFormat.CANAL_JSON,
+                                MessageFormat.TEXT,
+                                MessageFormat.OGG_JSON),
                         Config.TOPIC)
                 .optional(
                         Config.KAFKA_CONFIG,
                         Config.ASSIGN_PARTITIONS,
                         Config.TRANSACTION_PREFIX,
-                        Config.SEMANTICS)
-                .exclusive(Config.PARTITION, Config.PARTITION_KEY_FIELDS)
+                        Config.SEMANTICS,
+                        Config.PARTITION,
+                        Config.PARTITION_KEY_FIELDS)
                 .build();
     }
 
     @Override
-    public TableSink createSink(TableFactoryContext context) {
+    public TableSink createSink(TableSinkFactoryContext context) {
         return () ->
                 new KafkaSink(
                         context.getOptions(),

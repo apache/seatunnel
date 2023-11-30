@@ -25,8 +25,8 @@ import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobMetricsRunner;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
@@ -69,7 +69,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         this.clientCommandArgs = clientCommandArgs;
     }
 
-    @SuppressWarnings({"checkstyle:RegexpSingleline", "checkstyle:MagicNumber"})
     @Override
     public void execute() throws CommandExecuteException {
         JobMetricsRunner.JobMetricsSummary jobMetricsSummary = null;
@@ -97,6 +96,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             if (clientCommandArgs.isListJob()) {
                 String jobStatus = engineClient.getJobClient().listJobStatus(true);
                 System.out.println(jobStatus);
+            } else if (clientCommandArgs.isGetRunningJobMetrics()) {
+                String runningJobMetrics = engineClient.getJobClient().getRunningJobMetrics();
+                System.out.println(runningJobMetrics);
             } else if (null != clientCommandArgs.getJobId()) {
                 String jobState =
                         engineClient
@@ -121,17 +123,19 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);
                 checkConfigExist(configFile);
                 JobConfig jobConfig = new JobConfig();
-                JobExecutionEnvironment jobExecutionEnv;
+                ClientJobExecutionEnvironment jobExecutionEnv;
                 jobConfig.setName(clientCommandArgs.getJobName());
                 if (null != clientCommandArgs.getRestoreJobId()) {
                     jobExecutionEnv =
                             engineClient.restoreExecutionContext(
                                     configFile.toString(),
                                     jobConfig,
+                                    seaTunnelConfig,
                                     Long.parseLong(clientCommandArgs.getRestoreJobId()));
                 } else {
                     jobExecutionEnv =
-                            engineClient.createExecutionContext(configFile.toString(), jobConfig);
+                            engineClient.createExecutionContext(
+                                    configFile.toString(), jobConfig, seaTunnelConfig);
                 }
 
                 // get job start time
@@ -230,13 +234,13 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     private HazelcastInstance createServerInLocal(
             String clusterName, SeaTunnelConfig seaTunnelConfig) {
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
+        seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
         return HazelcastInstanceFactory.newHazelcastInstance(
                 seaTunnelConfig.getHazelcastConfig(),
                 Thread.currentThread().getName(),
                 new SeaTunnelNodeContext(seaTunnelConfig));
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private String creatRandomClusterName(String namePrefix) {
         Random random = new Random();
         return namePrefix + "-" + random.nextInt(1000000);

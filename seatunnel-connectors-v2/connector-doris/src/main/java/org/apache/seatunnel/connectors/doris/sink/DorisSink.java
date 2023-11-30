@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.doris.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -26,7 +27,6 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -54,6 +54,7 @@ public class DorisSink
 
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
+    private String jobId;
 
     @Override
     public String getPluginName() {
@@ -79,13 +80,13 @@ public class DorisSink
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    public void setJobContext(JobContext jobContext) {
+        this.jobId = jobContext.getJobId();
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return this.seaTunnelRowType;
+    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override
@@ -93,7 +94,7 @@ public class DorisSink
             SinkWriter.Context context) throws IOException {
         DorisSinkWriter dorisSinkWriter =
                 new DorisSinkWriter(
-                        context, Collections.emptyList(), seaTunnelRowType, pluginConfig);
+                        context, Collections.emptyList(), seaTunnelRowType, pluginConfig, jobId);
         dorisSinkWriter.initializeLoad(Collections.emptyList());
         return dorisSinkWriter;
     }
@@ -102,7 +103,7 @@ public class DorisSink
     public SinkWriter<SeaTunnelRow, DorisCommitInfo, DorisSinkState> restoreWriter(
             SinkWriter.Context context, List<DorisSinkState> states) throws IOException {
         DorisSinkWriter dorisWriter =
-                new DorisSinkWriter(context, states, seaTunnelRowType, pluginConfig);
+                new DorisSinkWriter(context, states, seaTunnelRowType, pluginConfig, jobId);
         dorisWriter.initializeLoad(states);
         return dorisWriter;
     }

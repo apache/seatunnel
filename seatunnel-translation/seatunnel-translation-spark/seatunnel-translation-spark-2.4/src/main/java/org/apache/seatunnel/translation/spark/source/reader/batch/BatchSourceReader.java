@@ -30,15 +30,21 @@ import org.apache.spark.sql.types.StructType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class BatchSourceReader implements DataSourceReader {
 
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
+    private Map<String, String> envOptions;
 
-    public BatchSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism) {
+    public BatchSourceReader(
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            Integer parallelism,
+            Map<String, String> envOptions) {
         this.source = source;
         this.parallelism = parallelism;
+        this.envOptions = envOptions;
     }
 
     @Override
@@ -51,11 +57,12 @@ public class BatchSourceReader implements DataSourceReader {
         List<InputPartition<InternalRow>> virtualPartitions;
         if (source instanceof SupportCoordinate) {
             virtualPartitions = new ArrayList<>(1);
-            virtualPartitions.add(new BatchPartition(source, parallelism, 0));
+            virtualPartitions.add(new BatchPartition(source, parallelism, 0, envOptions));
         } else {
             virtualPartitions = new ArrayList<>(parallelism);
             for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
-                virtualPartitions.add(new BatchPartition(source, parallelism, subtaskId));
+                virtualPartitions.add(
+                        new BatchPartition(source, parallelism, subtaskId, envOptions));
             }
         }
         return virtualPartitions;

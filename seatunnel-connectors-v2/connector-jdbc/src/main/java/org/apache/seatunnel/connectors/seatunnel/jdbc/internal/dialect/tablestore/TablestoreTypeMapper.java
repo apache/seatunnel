@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.tablesto
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +49,6 @@ public class TablestoreTypeMapper implements JdbcDialectTypeMapper {
     private static final String TABLESTORE_VARBINARY = "VARBINARY";
     private static final String TABLESTORE_MEDIUMBLOB = "MEDIUMBLOB";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
@@ -71,11 +70,8 @@ public class TablestoreTypeMapper implements JdbcDialectTypeMapper {
             case TABLESTORE_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format(
-                                "Doesn't support TABLESTORE type '%s' on column '%s'  yet.",
-                                tablestoreServerType, jdbcColumnName));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.TABLE_STORE, tablestoreServerType, jdbcColumnName);
         }
     }
 }

@@ -25,6 +25,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoField;
 import java.util.concurrent.TimeUnit;
 
 /** Temporal conversion constants. */
@@ -66,6 +67,11 @@ public final class TemporalConversions {
             return LocalDate.of(date.getYear() + 1900, date.getMonth() + 1, date.getDate());
         }
         if (obj instanceof Long) {
+            if ((Long) obj > ChronoField.EPOCH_DAY.range().getMaximum()) {
+                return Instant.ofEpochMilli((Long) obj)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate();
+            }
             // Assume the value is the epoch day number
             return LocalDate.ofEpochDay((Long) obj);
         }

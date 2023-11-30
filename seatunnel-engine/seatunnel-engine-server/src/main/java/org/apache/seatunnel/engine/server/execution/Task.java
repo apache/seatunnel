@@ -49,6 +49,10 @@ public interface Task
 
     default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {}
 
+    default TaskExecutionContext getExecutionContext() {
+        return null;
+    }
+
     default void triggerBarrier(Barrier barrier) throws Exception {}
 
     @Override

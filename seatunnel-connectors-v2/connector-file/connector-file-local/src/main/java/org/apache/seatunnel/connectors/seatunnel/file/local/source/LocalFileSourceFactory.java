@@ -19,16 +19,20 @@ package org.apache.seatunnel.connectors.seatunnel.file.local.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.LocalSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.LocalFileSourceOptions;
 
 import com.google.auto.service.AutoService;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
 @AutoService(Factory.class)
@@ -39,22 +43,31 @@ public class LocalFileSourceFactory implements TableSourceFactory {
     }
 
     @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new LocalFileSource(context.getOptions());
+    }
+
+    @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(LocalSourceConfig.FILE_PATH)
-                .required(BaseSourceConfig.FILE_FORMAT_TYPE)
+                .optional(LocalFileSourceOptions.tables_configs)
+                .optional(BaseSourceConfig.FILE_PATH)
+                .optional(BaseSourceConfig.FILE_FORMAT_TYPE)
                 .conditional(
                         BaseSourceConfig.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
-                        BaseSourceConfig.DELIMITER)
+                        BaseSourceConfig.FIELD_DELIMITER)
                 .conditional(
                         BaseSourceConfig.FILE_FORMAT_TYPE,
-                        Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
-                        CatalogTableUtil.SCHEMA)
+                        Arrays.asList(
+                                FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
+                        TableSchemaOptions.SCHEMA)
                 .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
                 .optional(BaseSourceConfig.DATE_FORMAT)
                 .optional(BaseSourceConfig.DATETIME_FORMAT)
                 .optional(BaseSourceConfig.TIME_FORMAT)
+                .optional(BaseSourceConfig.FILE_FILTER_PATTERN)
                 .build();
     }
 

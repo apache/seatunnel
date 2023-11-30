@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarAdminConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
@@ -113,7 +113,7 @@ public class PulsarSplitEnumerator
                 && partitionDiscoveryIntervalMs > 0
                 && Boundedness.BOUNDED == stopCursor.getBoundedness()) {
             throw new PulsarConnectorException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     "Bounded streams do not support dynamic partition discovery.");
         }
         this.context = context;
@@ -189,11 +189,12 @@ public class PulsarSplitEnumerator
     }
 
     private Set<TopicPartition> getNewPartitions(Set<TopicPartition> fetchedPartitions) {
-        Consumer<TopicPartition> dedupOrMarkAsRemoved = fetchedPartitions::remove;
-        assignedPartitions.forEach(dedupOrMarkAsRemoved);
+        Consumer<TopicPartition> duplicateOrMarkAsRemoved = fetchedPartitions::remove;
+        assignedPartitions.forEach(duplicateOrMarkAsRemoved);
         pendingPartitionSplits.forEach(
                 (reader, splits) ->
-                        splits.forEach(split -> dedupOrMarkAsRemoved.accept(split.getPartition())));
+                        splits.forEach(
+                                split -> duplicateOrMarkAsRemoved.accept(split.getPartition())));
 
         if (!fetchedPartitions.isEmpty()) {
             LOG.info("Discovered new partitions: {}", fetchedPartitions);
@@ -216,7 +217,6 @@ public class PulsarSplitEnumerator
                 subscriptionName);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     static int getSplitOwner(TopicPartition tp, int numReaders) {
         int startIndex = ((tp.getTopic().hashCode() * 31) & 0x7FFFFFFF) % numReaders;
 

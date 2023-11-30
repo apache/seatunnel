@@ -122,7 +122,6 @@ public class FakeDataRandomUtils {
         return randomLocalDateTime().toLocalTime();
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public LocalDateTime randomLocalDateTime() {
         int year;
         int month;

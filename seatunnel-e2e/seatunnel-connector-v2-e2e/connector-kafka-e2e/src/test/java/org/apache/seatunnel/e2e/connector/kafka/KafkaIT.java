@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunne
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -68,9 +69,11 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -80,6 +83,9 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 @Slf4j
+@DisabledOnContainer(
+        value = {},
+        disabledReason = "Override TestSuiteBase @DisabledOnContainer")
 public class KafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.3.3";
@@ -136,7 +142,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testSinkKafka(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/kafkasink_fake_to_kafka.conf");
+        Container.ExecResult execResult = container.executeJob("/kafka_sink_fake_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         String topicName = "test_topic";
@@ -161,11 +167,24 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testTextFormatSinkKafka(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/kafkaTextsink_fake_to_kafka.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/textFormatIT/fake_source_to_text_sink_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         String topicName = "test_text_topic";
         Map<String, String> data = getKafkaConsumerData(topicName);
+        Assertions.assertEquals(10, data.size());
+    }
+
+    @TestTemplate
+    public void testDefaultRandomSinkKafka(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/kafka_default_sink_fake_to_kafka.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        String topicName = "topic_default_sink_test";
+        List<String> data = getKafkaConsumerListData(topicName);
         Assertions.assertEquals(10, data.size());
     }
 
@@ -197,7 +216,25 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 row -> new ProducerRecord<>("test_topic_text", null, serializer.serialize(row)),
                 0,
                 100);
-        Container.ExecResult execResult = container.executeJob("/kafkasource_text_to_console.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/textFormatIT/kafka_source_text_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaTextToConsoleAssertCatalogTable(TestContainer container)
+            throws IOException, InterruptedException {
+        TextSerializationSchema serializer =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(SEATUNNEL_ROW_TYPE)
+                        .delimiter(",")
+                        .build();
+        generateTestData(
+                row -> new ProducerRecord<>("test_topic_text", null, serializer.serialize(row)),
+                0,
+                100);
+        Container.ExecResult execResult =
+                container.executeJob("/textFormatIT/kafka_source_text_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -211,7 +248,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), 0, 100);
-        Container.ExecResult execResult = container.executeJob("/kafkasource_json_to_console.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/jsonFormatIT/kafka_source_json_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -327,7 +365,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         return props;
     }
 
-    @SuppressWarnings("checkstyle:Indentation")
     private void generateTestData(ProducerRecordConverter converter, int start, int end) {
         for (int i = start; i < end; i++) {
             SeaTunnelRow row =
@@ -410,6 +447,28 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 for (ConsumerRecord<String, String> record : records) {
                     if (lastProcessedOffset < record.offset()) {
                         data.put(keyProvider.apply(record), record.value());
+                    }
+                    lastProcessedOffset = record.offset();
+                }
+            } while (lastProcessedOffset < endOffset - 1);
+        }
+        return data;
+    }
+
+    private List<String> getKafkaConsumerListData(String topicName) {
+        List<String> data = new ArrayList<>();
+        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
+            consumer.subscribe(Arrays.asList(topicName));
+            Map<TopicPartition, Long> offsets =
+                    consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
+            Long endOffset = offsets.entrySet().iterator().next().getValue();
+            Long lastProcessedOffset = -1L;
+
+            do {
+                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+                for (ConsumerRecord<String, String> record : records) {
+                    if (lastProcessedOffset < record.offset()) {
+                        data.add(record.value());
                     }
                     lastProcessedOffset = record.offset();
                 }

@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
@@ -73,6 +73,8 @@ public class ClickhouseFileSinkWriter
     private final ClickhouseTable clickhouseTable;
     private final Map<Shard, List<String>> shardLocalDataPaths;
     private final Map<Shard, FileChannel> rowCache;
+    private final Map<Shard, MappedByteBuffer> bufferCache;
+    private final Integer bufferSize = 1024 * 128;
 
     private final Map<Shard, String> shardTempFile;
 
@@ -91,6 +93,7 @@ public class ClickhouseFileSinkWriter
                         this.readerOption.getShardMetadata().getDatabase(),
                         this.readerOption.getShardMetadata().getTable());
         rowCache = new HashMap<>(Common.COLLECTION_SIZE);
+        bufferCache = new HashMap<>(Common.COLLECTION_SIZE);
         shardTempFile = new HashMap<>();
         nodePasswordCheck();
 
@@ -136,12 +139,12 @@ public class ClickhouseFileSinkWriter
                                         StandardOpenOption.CREATE_NEW);
                             } catch (IOException e) {
                                 throw new ClickhouseConnectorException(
-                                        CommonErrorCode.FILE_OPERATION_FAILED,
+                                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
                                         "can't create new file to save tmp data",
                                         e);
                             }
                         });
-        saveDataToFile(channel, element);
+        saveDataToFile(channel, element, shard);
     }
 
     private void nodePasswordCheck() {
@@ -184,7 +187,7 @@ public class ClickhouseFileSinkWriter
                         detachedFiles.put(shard, clickhouseLocalFiles);
                     } catch (Exception e) {
                         throw new ClickhouseConnectorException(
-                                CommonErrorCode.FLUSH_DATA_FAILED,
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                                 "Flush data into clickhouse file error",
                                 e);
                     } finally {
@@ -209,24 +212,47 @@ public class ClickhouseFileSinkWriter
         }
     }
 
-    private void saveDataToFile(FileChannel fileChannel, SeaTunnelRow row) throws IOException {
+    private void saveDataToFile(FileChannel fileChannel, SeaTunnelRow row, Shard shard)
+            throws IOException {
         String data =
                 this.readerOption.getFields().stream()
                                 .map(
-                                        field ->
-                                                row.getField(
-                                                                this.readerOption
-                                                                        .getSeaTunnelRowType()
-                                                                        .indexOf(field))
-                                                        .toString())
+                                        field -> {
+                                            Object fieldValueObj =
+                                                    row.getField(
+                                                            this.readerOption
+                                                                    .getSeaTunnelRowType()
+                                                                    .indexOf(field));
+                                            if (fieldValueObj == null) {
+                                                return "";
+                                            } else {
+                                                return fieldValueObj.toString();
+                                            }
+                                        })
                                 .collect(Collectors.joining(readerOption.getFileFieldsDelimiter()))
                         + "\n";
+
         MappedByteBuffer buffer =
-                fileChannel.map(
-                        FileChannel.MapMode.READ_WRITE,
-                        fileChannel.size(),
-                        data.getBytes(StandardCharsets.UTF_8).length);
-        buffer.put(data.getBytes(StandardCharsets.UTF_8));
+                bufferCache.computeIfAbsent(
+                        shard,
+                        k -> {
+                            try {
+                                return fileChannel.map(
+                                        FileChannel.MapMode.READ_WRITE, 0, bufferSize);
+                            } catch (IOException e) {
+                                throw new ClickhouseConnectorException(
+                                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
+                                        "data_local file write failed",
+                                        e);
+                            }
+                        });
+        byte[] byteData = data.getBytes(StandardCharsets.UTF_8);
+        if (buffer.position() + byteData.length > buffer.capacity()) {
+            buffer =
+                    fileChannel.map(FileChannel.MapMode.READ_WRITE, fileChannel.size(), bufferSize);
+            bufferCache.put(shard, buffer);
+        }
+        buffer.put(byteData);
     }
 
     private List<String> generateClickhouseLocalFiles(String clickhouseLocalFileTmpFile)
@@ -287,7 +313,7 @@ public class ClickhouseFileSinkWriter
                 writer.write(String.format(CK_LOCAL_CONFIG_TEMPLATE, clickhouseLocalFile));
             } catch (IOException e) {
                 throw new ClickhouseConnectorException(
-                        CommonErrorCode.FILE_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
                         "Error occurs when create ck local config");
             }
             command.add("--config-file");

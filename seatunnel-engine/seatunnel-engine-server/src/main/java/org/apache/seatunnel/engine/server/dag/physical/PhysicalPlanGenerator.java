@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -30,6 +29,7 @@ import org.apache.seatunnel.engine.core.dag.actions.ShuffleStrategy;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
@@ -67,7 +67,6 @@ import lombok.NonNull;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -224,6 +223,7 @@ public class PhysicalPlanGenerator {
         return edges.stream()
                 .filter(s -> s.getLeftVertex().getAction() instanceof SourceAction)
                 .map(s -> (SourceAction<?, ?, ?>) s.getLeftVertex().getAction())
+                .distinct()
                 .collect(Collectors.toList());
     }
 
@@ -285,6 +285,7 @@ public class PhysicalPlanGenerator {
                                         pipelineIndex,
                                         totalPipelineNum,
                                         sinkAction.getJarUrls(),
+                                        sinkAction.getConnectorJarIdentifiers(),
                                         jobImmutableInformation,
                                         initializationTimestamp,
                                         nodeEngine,
@@ -322,11 +323,6 @@ public class PhysicalPlanGenerator {
                                     SinkAction sinkAction = (SinkAction) sinkFlow.getAction();
                                     String sinkTableId =
                                             sinkAction.getConfig().getMultipleRowTableId();
-                                    MultipleRowType multipleRowType =
-                                            shuffleMultipleRowStrategy.getInputRowType();
-                                    int sinkTableIndex =
-                                            Arrays.asList(multipleRowType.getTableIds())
-                                                    .indexOf(sinkTableId);
 
                                     long taskIDPrefix = idGenerator.getNextId();
                                     long taskGroupIDPrefix = idGenerator.getNextId();
@@ -398,6 +394,7 @@ public class PhysicalPlanGenerator {
                                                     pipelineIndex,
                                                     totalPipelineNum,
                                                     seaTunnelTask.getJarsUrl(),
+                                                    seaTunnelTask.getConnectorPluginJars(),
                                                     jobImmutableInformation,
                                                     initializationTimestamp,
                                                     nodeEngine,
@@ -439,6 +436,7 @@ public class PhysicalPlanGenerator {
                                                     pipelineIndex,
                                                     totalPipelineNum,
                                                     seaTunnelTask.getJarsUrl(),
+                                                    seaTunnelTask.getConnectorPluginJars(),
                                                     jobImmutableInformation,
                                                     initializationTimestamp,
                                                     nodeEngine,
@@ -493,6 +491,7 @@ public class PhysicalPlanGenerator {
                                     pipelineIndex,
                                     totalPipelineNum,
                                     t.getJarsUrl(),
+                                    t.getConnectorPluginJars(),
                                     jobImmutableInformation,
                                     initializationTimestamp,
                                     nodeEngine,
@@ -551,7 +550,13 @@ public class PhysicalPlanGenerator {
                                                                                 .getJobId(),
                                                                         taskLocation,
                                                                         finalParallelismIndex,
-                                                                        f);
+                                                                        (PhysicalExecutionFlow<
+                                                                                        SourceAction,
+                                                                                        SourceConfig>)
+                                                                                f,
+                                                                        jobImmutableInformation
+                                                                                .getJobConfig()
+                                                                                .getEnvOptions());
                                                             } else {
                                                                 return new TransformSeaTunnelTask(
                                                                         jobImmutableInformation
@@ -566,6 +571,14 @@ public class PhysicalPlanGenerator {
                                 Set<URL> jars =
                                         taskList.stream()
                                                 .flatMap(task -> task.getJarsUrl().stream())
+                                                .collect(Collectors.toSet());
+
+                                Set<ConnectorJarIdentifier> jarIdentifiers =
+                                        taskList.stream()
+                                                .flatMap(
+                                                        task ->
+                                                                task.getConnectorPluginJars()
+                                                                        .stream())
                                                 .collect(Collectors.toSet());
 
                                 if (taskList.stream()
@@ -599,6 +612,7 @@ public class PhysicalPlanGenerator {
                                                     pipelineIndex,
                                                     totalPipelineNum,
                                                     jars,
+                                                    jarIdentifiers,
                                                     jobImmutableInformation,
                                                     initializationTimestamp,
                                                     nodeEngine,
@@ -621,6 +635,7 @@ public class PhysicalPlanGenerator {
                                                     pipelineIndex,
                                                     totalPipelineNum,
                                                     jars,
+                                                    jarIdentifiers,
                                                     jobImmutableInformation,
                                                     initializationTimestamp,
                                                     nodeEngine,
@@ -733,7 +748,6 @@ public class PhysicalPlanGenerator {
                         .contains(true);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private long mixIDPrefixAndIndex(long idPrefix, int index) {
         return idPrefix * 10000 + index;
     }

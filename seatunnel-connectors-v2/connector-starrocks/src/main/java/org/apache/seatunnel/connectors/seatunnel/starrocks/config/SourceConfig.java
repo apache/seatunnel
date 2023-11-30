@@ -46,7 +46,6 @@ public class SourceConfig extends CommonConfig {
         super(nodeUrls, username, password, database, table);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> MAX_RETRIES =
             Options.key("max_retries")
                     .intType()
@@ -62,28 +61,24 @@ public class SourceConfig extends CommonConfig {
     public static final Option<String> SCAN_FILTER =
             Options.key("scan_filter").stringType().defaultValue("").withDescription("SQL filter");
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> SCAN_CONNECT_TIMEOUT =
             Options.key("scan_connect_timeout_ms")
                     .intType()
                     .defaultValue(1000)
                     .withDescription("scan connect timeout");
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> SCAN_BATCH_ROWS =
             Options.key("scan_batch_rows")
                     .intType()
                     .defaultValue(1024)
                     .withDescription("scan batch rows");
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> SCAN_KEEP_ALIVE_MIN =
             Options.key("scan_keep_alive_min")
                     .intType()
                     .defaultValue(10)
                     .withDescription("Max keep alive time min");
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> SCAN_QUERY_TIMEOUT_SEC =
             Options.key("scan_query_timeout_sec")
                     .intType()

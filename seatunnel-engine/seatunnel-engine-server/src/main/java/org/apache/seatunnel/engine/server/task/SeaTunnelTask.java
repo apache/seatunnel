@@ -29,10 +29,13 @@ import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeAfterCheckpointOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeBeforeCheckpointOperation;
 import org.apache.seatunnel.engine.server.dag.physical.config.IntermediateQueueConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SinkConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
@@ -59,6 +62,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.internal.metrics.MetricDescriptor;
 import com.hazelcast.internal.metrics.MetricsCollectionContext;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -133,7 +137,6 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 .whenComplete((s, e) -> closeCalled = true);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     protected void stateProcess() throws Exception {
         switch (currState) {
             case INIT:
@@ -288,6 +291,11 @@ public abstract class SeaTunnelTask extends AbstractTask {
         return getFlowInfo((action, set) -> set.addAll(action.getJarUrls()));
     }
 
+    @Override
+    public Set<ConnectorJarIdentifier> getConnectorPluginJars() {
+        return getFlowInfo((action, set) -> set.addAll(action.getConnectorJarIdentifiers()));
+    }
+
     public Set<ActionStateKey> getActionStateKeys() {
         return getFlowInfo((action, set) -> set.add(ActionStateKey.of(action)));
     }
@@ -313,6 +321,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     @Override
     public void close() throws IOException {
+        super.close();
         allCycles
                 .parallelStream()
                 .forEach(
@@ -340,9 +349,28 @@ public abstract class SeaTunnelTask extends AbstractTask {
                                 new TaskAcknowledgeOperation(
                                         this.taskLocation,
                                         (CheckpointBarrier) barrier,
-                                        checkpointStates.get(barrier.getId())));
+                                        checkpointStates.remove(barrier.getId())))
+                        .join();
             }
         }
+    }
+
+    public InvocationFuture<Object> triggerSchemaChangeBeforeCheckpoint() {
+        log.info(
+                "trigger schema-change-before checkpoint. jobID[{}], taskLocation[{}]",
+                jobID,
+                taskLocation);
+        return this.getExecutionContext()
+                .sendToMaster(new TriggerSchemaChangeBeforeCheckpointOperation(taskLocation));
+    }
+
+    public InvocationFuture<Object> triggerSchemaChangeAfterCheckpoint() {
+        log.info(
+                "trigger schema-change-after checkpoint. jobID[{}], taskLocation[{}]",
+                jobID,
+                taskLocation);
+        return this.getExecutionContext()
+                .sendToMaster(new TriggerSchemaChangeAfterCheckpointOperation(taskLocation));
     }
 
     public void addState(Barrier barrier, ActionStateKey stateKey, List<byte[]> state) {
@@ -363,6 +391,12 @@ public abstract class SeaTunnelTask extends AbstractTask {
         tryClose(checkpointId);
     }
 
+    @Override
+    public void notifyCheckpointEnd(long checkpointId) throws Exception {
+        notifyAllAction(listener -> listener.notifyCheckpointEnd(checkpointId));
+        tryClose(checkpointId);
+    }
+
     public void notifyAllAction(ConsumerWithException<InternalCheckpointListener> consumer) {
         allCycles.stream()
                 .filter(cycle -> cycle instanceof InternalCheckpointListener)
@@ -373,6 +407,10 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         log.debug("restoreState for SeaTunnelTask[{}]", actionStateList);
+        if (null == actionStateList) {
+            log.debug("restoreState is null, do nothing!");
+            return;
+        }
         Map<ActionStateKey, List<ActionSubtaskState>> stateMap =
                 actionStateList.stream()
                         .collect(

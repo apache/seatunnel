@@ -29,6 +29,7 @@
     <modules>
         <module>seatunnel-hadoop3-3.1.4-uber</module>
         <module>seatunnel-jackson</module>
+        <module>seatunnel-guava</module>
     </modules>
 
     <build>

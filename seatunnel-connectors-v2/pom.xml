@@ -62,6 +62,7 @@
         <module>connector-s3-redshift</module>
         <module>connector-starrocks</module>
         <module>connector-google-sheets</module>
+        <module>connector-google-firestore</module>
         <module>connector-slack</module>
         <module>connector-rabbitmq</module>
         <module>connector-openmldb</module>
@@ -70,6 +71,9 @@
         <module>connector-tdengine</module>
         <module>connector-selectdb-cloud</module>
         <module>connector-hbase</module>
+        <module>connector-rocketmq</module>
+        <module>connector-amazonsqs</module>
+        <module>connector-paimon</module>
     </modules>
 
     <dependencyManagement>

@@ -16,6 +16,7 @@
 
 package org.apache.seatunnel.engine.common.utils;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
 import org.apache.seatunnel.common.utils.function.RunnableWithException;
 import org.apache.seatunnel.common.utils.function.SupplierWithException;
@@ -27,6 +28,8 @@ import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import com.hazelcast.client.impl.protocol.ClientExceptionFactory;
 import com.hazelcast.client.impl.protocol.ClientProtocolErrorCodes;
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
+import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.instance.impl.OutOfMemoryErrorDispatcher;
 import lombok.NonNull;
 
@@ -141,5 +144,12 @@ public final class ExceptionUtil {
         }
         // This method wouldn't be executed.
         throw new RuntimeException("Never throw here.");
+    }
+
+    public static boolean isOperationNeedRetryException(@NonNull Throwable e) {
+        Throwable exception = ExceptionUtils.getRootException(e);
+        return exception instanceof HazelcastInstanceNotActiveException
+                || exception instanceof InterruptedException
+                || exception instanceof OperationTimeoutException;
     }
 }

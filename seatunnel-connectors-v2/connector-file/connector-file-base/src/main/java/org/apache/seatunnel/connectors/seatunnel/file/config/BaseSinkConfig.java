@@ -220,4 +220,22 @@ public class BaseSinkConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Kerberos keytab file path");
+
+    public static final Option<Integer> MAX_ROWS_IN_MEMORY =
+            Options.key("max_rows_in_memory")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("Max rows in memory,only valid for excel files");
+
+    public static final Option<String> SHEET_NAME =
+            Options.key("sheet_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("To be written sheet name,only valid for excel files");
+
+    public static final Option<Boolean> ENABLE_HEADER_WRITE =
+            Options.key("enable_header_write")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("false:dont write header,true:write header");
 }

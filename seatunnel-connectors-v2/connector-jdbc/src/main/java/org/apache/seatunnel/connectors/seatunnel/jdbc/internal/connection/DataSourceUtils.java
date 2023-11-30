@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
@@ -59,7 +59,7 @@ public class DataSourceUtils implements Serializable {
         if (jdbcConnectionConfig.getPassword().isPresent()) {
             accessConfig.put("password", jdbcConnectionConfig.getPassword().get());
         }
-
+        accessConfig.putAll(jdbcConnectionConfig.getProperties());
         return accessConfig;
     }
 
@@ -88,12 +88,23 @@ public class DataSourceUtils implements Serializable {
             final Method[] methods, final String property) {
         String setterMethodName =
                 SETTER_PREFIX + CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, property);
-        return Arrays.stream(methods)
-                .filter(
-                        each ->
-                                each.getName().equals(setterMethodName)
-                                        && 1 == each.getParameterTypes().length)
-                .findFirst();
+        Optional<Method> methodOptional =
+                Arrays.stream(methods)
+                        .filter(
+                                each ->
+                                        each.getName().equals(setterMethodName)
+                                                && 1 == each.getParameterTypes().length)
+                        .findFirst();
+        if (!methodOptional.isPresent()) {
+            methodOptional =
+                    Arrays.stream(methods)
+                            .filter(
+                                    each ->
+                                            each.getName().equalsIgnoreCase(setterMethodName)
+                                                    && 1 == each.getParameterTypes().length)
+                            .findFirst();
+        }
+        return methodOptional;
     }
 
     private static Object loadDataSource(final String xaDataSourceClassName) {
@@ -106,7 +117,7 @@ public class DataSourceUtils implements Serializable {
                 xaDataSourceClass = Class.forName(xaDataSourceClassName);
             } catch (final ClassNotFoundException ex) {
                 throw new JdbcConnectorException(
-                        CommonErrorCode.CLASS_NOT_FOUND,
+                        CommonErrorCodeDeprecated.CLASS_NOT_FOUND,
                         "Failed to load [" + xaDataSourceClassName + "]",
                         ex);
             }
@@ -115,7 +126,7 @@ public class DataSourceUtils implements Serializable {
             return xaDataSourceClass.getDeclaredConstructor().newInstance();
         } catch (final ReflectiveOperationException ex) {
             throw new JdbcConnectorException(
-                    CommonErrorCode.REFLECT_CLASS_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.REFLECT_CLASS_OPERATION_FAILED,
                     "Failed to instance [" + xaDataSourceClassName + "]",
                     ex);
         }

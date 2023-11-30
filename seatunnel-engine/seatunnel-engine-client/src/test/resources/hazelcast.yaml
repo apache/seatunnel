@@ -35,3 +35,9 @@ hazelcast:
         class-name: org.apache.seatunnel.engine.server.persistence.FileMapStore
         properties:
           path: /tmp/file-store-map
+
+  properties:
+    hazelcast.invocation.max.retry.count: 20
+    hazelcast.tcp.join.port.try.count: 30
+    hazelcast.logging.type: log4j2
+    hazelcast.operation.generic.thread.count: 200

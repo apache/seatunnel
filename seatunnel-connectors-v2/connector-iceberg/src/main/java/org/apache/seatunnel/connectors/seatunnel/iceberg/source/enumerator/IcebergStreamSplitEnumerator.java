@@ -62,11 +62,13 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
 
     @Override
     public void handleSplitRequest(int subtaskId) {
-        synchronized (this) {
-            if (pendingSplits.isEmpty() || pendingSplits.get(subtaskId) == null) {
-                refreshPendingSplits();
+        if (isOpen()) {
+            synchronized (this) {
+                if (pendingSplits.isEmpty() || pendingSplits.get(subtaskId) == null) {
+                    refreshPendingSplits();
+                }
+                assignPendingSplits(Collections.singleton(subtaskId));
             }
-            assignPendingSplits(Collections.singleton(subtaskId));
         }
     }
 

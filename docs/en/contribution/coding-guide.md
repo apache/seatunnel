@@ -98,7 +98,7 @@ This guide documents an overview of the current Apache SeaTunnel modules and bes
 
 10. If you submit a pull request with a feature that requires updated documentation, always remember to update the documentation.
 
-12. Submit the pull request of connector type can write e2e test to ensure the robustness and robustness of the code, e2e test should include the full data type, and e2e test as little as possible to initialize the docker image, write the test cases of sink and source together to reduce the loss of resources, while using asynchronous features to ensure the stability of the test. A good example can be found at: [MongodbIT.java](https://github.com/apache/incubator-seatunnel/blob/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-mongodb-e2e/src/test/java/org/apache/seatunnel/e2e/connector/v2/mongodb/MongodbIT.java)
+12. Submit the pull request of connector type can write e2e test to ensure the robustness and robustness of the code, e2e test should include the full data type, and e2e test as little as possible to initialize the docker image, write the test cases of sink and source together to reduce the loss of resources, while using asynchronous features to ensure the stability of the test. A good example can be found at: [MongodbIT.java](https://github.com/apache/seatunnel/blob/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-mongodb-e2e/src/test/java/org/apache/seatunnel/e2e/connector/v2/mongodb/MongodbIT.java)
 
 12. The priority of property permission in the class is set to `private`, and mutability is set to `final`, which can be changed reasonably if special circumstances are encountered.
 

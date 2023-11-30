@@ -76,7 +76,6 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
         return SourceRecordUtils.splitKeyRangeContains(key, splitStart, splitEnd);
     }
 
-    @SuppressWarnings("checkstyle:MissingSwitchDefault")
     @Override
     public void rewriteOutputBuffer(
             Map<Struct, SourceRecord> outputBuffer, SourceRecord changeRecord) {
@@ -149,6 +148,11 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
 
     public SourceConfig getSourceConfig() {
         return sourceConfig;
+    }
+
+    @Override
+    public boolean isExactlyOnce() {
+        return sourceConfig.isExactlyOnce();
     }
 
     public JdbcDataSourceDialect getDataSourceDialect() {

@@ -22,7 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
@@ -38,7 +38,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-/** use in elasticsearch version >= 7.* */
+/** use in elasticsearch version >= 2.x and <= 8.x */
 public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
     private final SeaTunnelRowType seaTunnelRowType;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -74,7 +74,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
                 return serializeDelete(row);
             default:
                 throw new ElasticsearchConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         "Unsupported write row kind: " + row.getRowKind());
         }
     }
@@ -116,7 +116,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
             }
         } catch (JsonProcessingException e) {
             throw new ElasticsearchConnectorException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
                     "Object json deserialization exception.",
                     e);
         }
@@ -137,7 +137,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
                     .toString();
         } catch (JsonProcessingException e) {
             throw new ElasticsearchConnectorException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
                     "Object json deserialization exception.",
                     e);
         }

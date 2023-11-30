@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 @Data
+@AllArgsConstructor
 public class TaskGroupContext {
-    final TaskGroup taskGroup;
+    private TaskGroup taskGroup;
 
-    final ClassLoader classLoader;
+    private ClassLoader classLoader;
 }

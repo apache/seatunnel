@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.seatunnel.engine.common.Constant.IMAP_CHECKPOINT_ID;
+import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
 
 @DisabledOnOs(OS.WINDOWS)
 @Disabled
@@ -88,7 +89,8 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         null,
                         planMap,
                         new CheckpointConfig(),
-                        instance.getExecutorService("test"));
+                        instance.getExecutorService("test"),
+                        nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE));
         Assertions.assertTrue(checkpointManager.isCompletedPipeline(1));
         checkpointManager.listenPipeline(1, PipelineStatus.FINISHED);
         Assertions.assertNull(checkpointIdMap.get(1));

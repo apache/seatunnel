@@ -75,12 +75,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 Paths.get(SEATUNNEL_HOME, "config").toString());
 
         server.withCopyFileToContainer(
-                MountableFile.forHostPath(PROJECT_ROOT_PATH + "/config/jvm_options"),
-                Paths.get(SEATUNNEL_HOME, "config/jvm_options").toString());
-
-        server.withCopyFileToContainer(
-                MountableFile.forHostPath(PROJECT_ROOT_PATH + "/config/log4j2.properties"),
-                Paths.get(SEATUNNEL_HOME, "config/log4j2.properties").toString());
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
         server.start();
         // execute extra commands
         executeExtraCommands(server);
@@ -134,6 +132,16 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
+    protected String getSavePointCommand() {
+        return "-s";
+    }
+
+    @Override
+    protected String getRestoreCommand() {
+        return "-r";
+    }
+
+    @Override
     public void executeExtraCommands(ContainerExtendedFactory extendedFactory)
             throws IOException, InterruptedException {
         extendedFactory.extend(server);
@@ -144,5 +152,22 @@ public class SeaTunnelContainer extends AbstractTestContainer {
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         return executeJob(server, confFile, timeoutSeconds);
+    }
+
+    @Override
+    public Container.ExecResult savepointJob(String jobId)
+            throws IOException, InterruptedException {
+        return savepointJob(server, jobId);
+    }
+
+    @Override
+    public Container.ExecResult restoreJob(String confFile, String jobId)
+            throws IOException, InterruptedException {
+        return restoreJob(server, confFile, jobId);
+    }
+
+    @Override
+    public String getServerLogs() {
+        return server.getLogs();
     }
 }

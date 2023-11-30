@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
@@ -54,7 +55,7 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
 
     protected final SourceReader.Context context;
     protected transient Channel channel;
-    private final boolean usesCorrelationId = true;
+    private final boolean usesCorrelationId;
     protected transient boolean autoAck;
 
     protected transient Set<String> correlationIdsProcessedButNotAcknowledged;
@@ -80,6 +81,7 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
         this.config = config;
         this.rabbitMQClient = new RabbitmqClient(config);
         this.channel = rabbitMQClient.getChannel();
+        this.usesCorrelationId = config.isUsesCorrelationId();
     }
 
     @Override
@@ -113,6 +115,8 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
         if (deliveryOptional.isPresent()) {
             Delivery delivery = deliveryOptional.get();
             AMQP.BasicProperties properties = delivery.getProperties();
+            String correlationId =
+                    Objects.isNull(properties) ? null : properties.getCorrelationId();
             byte[] body = delivery.getBody();
             Envelope envelope = delivery.getEnvelope();
             synchronized (output.getCheckpointLock()) {
@@ -135,7 +139,7 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
     }
 
     @Override
-    public List snapshotState(long checkpointId) throws Exception {
+    public List<RabbitmqSplit> snapshotState(long checkpointId) throws Exception {
 
         List<RabbitmqSplit> pendingSplit =
                 Collections.singletonList(
@@ -159,6 +163,8 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
                 correlationIds.addAll(currentCheckPointCorrelationIds);
             }
         }
+        // clear for next snapshot
+        deliveryTagsProcessedForCurrentSnapshot.clear();
         return pendingSplit;
     }
 
@@ -184,7 +190,10 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
                     checkpointId);
             return;
         }
-        acknowledgeDeliveryTags(pendingDeliveryTags);
+
+        if (!autoAck) {
+            acknowledgeDeliveryTags(pendingDeliveryTags);
+        }
         correlationIdsProcessedButNotAcknowledged.removeAll(pendingCorrelationIds);
     }
 

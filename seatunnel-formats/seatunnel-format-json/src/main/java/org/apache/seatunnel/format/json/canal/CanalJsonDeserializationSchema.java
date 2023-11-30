@@ -28,7 +28,7 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
@@ -120,6 +120,10 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         }
         ObjectNode jsonNode = (ObjectNode) convertBytes(message);
         assert jsonNode != null;
+        deserialize(jsonNode, out);
+    }
+
+    public void deserialize(ObjectNode jsonNode, Collector<SeaTunnelRow> out) {
         if (database != null
                 && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
             return;
@@ -136,8 +140,8 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                 return;
             }
             throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
-                    format("Null data value \"%s\" Cannot send downstream", new String(message)));
+                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
+                    format("Null data value \"%s\" Cannot send downstream", jsonNode));
         }
         if (OP_INSERT.equals(type)) {
             for (int i = 0; i < dataNode.size(); i++) {
@@ -176,10 +180,10 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         } else {
             if (!ignoreParseErrors) {
                 throw new SeaTunnelJsonFormatException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         format(
                                 "Unknown \"type\" value \"%s\". The Canal JSON message is '%s'",
-                                type, new String(message)));
+                                type, jsonNode.asText()));
             }
         }
     }
@@ -192,7 +196,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                 return null;
             }
             throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", new String(message)),
                     t);
         }

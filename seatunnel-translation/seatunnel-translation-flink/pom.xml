@@ -29,6 +29,7 @@
     <modules>
         <module>seatunnel-translation-flink-13</module>
         <module>seatunnel-translation-flink-15</module>
+        <module>seatunnel-translation-flink-common</module>
     </modules>
 
     <dependencies>

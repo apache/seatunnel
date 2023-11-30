@@ -23,7 +23,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.util.Optional;
+import java.util.List;
 
 @Data
 @Builder(builderClassName = "Builder")
@@ -31,48 +31,51 @@ public class JdbcSourceConfig implements Serializable {
     private static final long serialVersionUID = 2L;
 
     private JdbcConnectionConfig jdbcConnectionConfig;
-    public String query;
-    private String partitionColumn;
-    private Long partitionUpperBound;
-    private Long partitionLowerBound;
+    private List<JdbcSourceTableConfig> tableConfigList;
+    private String whereConditionClause;
+    public String compatibleMode;
     private int fetchSize;
-    private Integer partitionNumber;
+
+    private boolean useDynamicSplitter;
+    private int splitSize;
+    private double splitEvenDistributionFactorUpperBound;
+    private double splitEvenDistributionFactorLowerBound;
+    private int splitSampleShardingThreshold;
+    private int splitInverseSamplingRate;
 
     public static JdbcSourceConfig of(ReadonlyConfig config) {
         JdbcSourceConfig.Builder builder = JdbcSourceConfig.builder();
         builder.jdbcConnectionConfig(JdbcConnectionConfig.of(config));
-        builder.query(config.get(JdbcOptions.QUERY));
+        builder.tableConfigList(JdbcSourceTableConfig.of(config));
         builder.fetchSize(config.get(JdbcOptions.FETCH_SIZE));
-        config.getOptional(JdbcOptions.PARTITION_COLUMN).ifPresent(builder::partitionColumn);
-        config.getOptional(JdbcOptions.PARTITION_UPPER_BOUND)
-                .ifPresent(builder::partitionUpperBound);
-        config.getOptional(JdbcOptions.PARTITION_LOWER_BOUND)
-                .ifPresent(builder::partitionLowerBound);
-        config.getOptional(JdbcOptions.PARTITION_NUM).ifPresent(builder::partitionNumber);
+        config.getOptional(JdbcOptions.COMPATIBLE_MODE).ifPresent(builder::compatibleMode);
+
+        boolean isOldVersion =
+                config.getOptional(JdbcOptions.QUERY).isPresent()
+                        && config.getOptional(JdbcOptions.PARTITION_COLUMN).isPresent()
+                        && config.getOptional(JdbcOptions.PARTITION_NUM).isPresent();
+        builder.useDynamicSplitter(isOldVersion ? false : true);
+
+        builder.splitSize(config.get(JdbcSourceOptions.SPLIT_SIZE));
+        builder.splitEvenDistributionFactorUpperBound(
+                config.get(JdbcSourceOptions.SPLIT_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND));
+        builder.splitEvenDistributionFactorLowerBound(
+                config.get(JdbcSourceOptions.SPLIT_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND));
+        builder.splitSampleShardingThreshold(
+                config.get(JdbcSourceOptions.SPLIT_SAMPLE_SHARDING_THRESHOLD));
+        builder.splitInverseSamplingRate(config.get(JdbcSourceOptions.SPLIT_INVERSE_SAMPLING_RATE));
+
+        config.getOptional(JdbcSourceOptions.WHERE_CONDITION)
+                .ifPresent(
+                        whereConditionClause -> {
+                            if (!whereConditionClause.toLowerCase().startsWith("where")) {
+                                throw new IllegalArgumentException(
+                                        "The where condition clause must start with 'where'. value: "
+                                                + whereConditionClause);
+                            }
+                            builder.whereConditionClause(whereConditionClause);
+                        });
+
         return builder.build();
-    }
-
-    public JdbcConnectionConfig getJdbcConnectionConfig() {
-        return jdbcConnectionConfig;
-    }
-
-    public Optional<String> getPartitionColumn() {
-        return Optional.ofNullable(partitionColumn);
-    }
-
-    public Optional<Long> getPartitionUpperBound() {
-        return Optional.ofNullable(partitionUpperBound);
-    }
-
-    public Optional<Long> getPartitionLowerBound() {
-        return Optional.ofNullable(partitionLowerBound);
-    }
-
-    public Optional<Integer> getPartitionNumber() {
-        return Optional.ofNullable(partitionNumber);
-    }
-
-    public int getFetchSize() {
-        return fetchSize;
     }
 }

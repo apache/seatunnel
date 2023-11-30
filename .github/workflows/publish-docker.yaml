@@ -31,7 +31,7 @@ env:
 
 jobs:
   build:
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'apache/seatunnel'
     runs-on: ubuntu-latest
     permissions:
       contents: read

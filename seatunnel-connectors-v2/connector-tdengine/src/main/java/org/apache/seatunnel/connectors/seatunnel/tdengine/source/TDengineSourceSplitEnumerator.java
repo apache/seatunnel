@@ -19,22 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.state.TDengineSourceState;
 
-import org.apache.commons.lang3.StringUtils;
-
-import com.google.common.collect.Sets;
-import lombok.SneakyThrows;
-
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -49,26 +36,25 @@ public class TDengineSourceSplitEnumerator
 
     private final SourceSplitEnumerator.Context<TDengineSourceSplit> context;
     private final TDengineSourceConfig config;
+    private final StableMetadata stableMetadata;
     private Set<TDengineSourceSplit> pendingSplit = new HashSet<>();
     private Set<TDengineSourceSplit> assignedSplit = new HashSet<>();
-    private Connection conn;
-    private SeaTunnelRowType seaTunnelRowType;
 
     public TDengineSourceSplitEnumerator(
-            SeaTunnelRowType seaTunnelRowType,
+            StableMetadata stableMetadata,
             TDengineSourceConfig config,
             SourceSplitEnumerator.Context<TDengineSourceSplit> context) {
-        this(seaTunnelRowType, config, null, context);
+        this(stableMetadata, config, null, context);
     }
 
     public TDengineSourceSplitEnumerator(
-            SeaTunnelRowType seaTunnelRowType,
+            StableMetadata stableMetadata,
             TDengineSourceConfig config,
             TDengineSourceState sourceState,
             SourceSplitEnumerator.Context<TDengineSourceSplit> context) {
         this.config = config;
         this.context = context;
-        this.seaTunnelRowType = seaTunnelRowType;
+        this.stableMetadata = stableMetadata;
         if (sourceState != null) {
             this.assignedSplit = sourceState.getAssignedSplit();
         }
@@ -78,56 +64,25 @@ public class TDengineSourceSplitEnumerator
         return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
     }
 
-    @SneakyThrows
     @Override
-    public void open() {
-        String jdbcUrl =
-                StringUtils.join(
-                        config.getUrl(),
-                        config.getDatabase(),
-                        "?user=",
-                        config.getUsername(),
-                        "&password=",
-                        config.getPassword());
-        conn = DriverManager.getConnection(jdbcUrl);
-    }
+    public void open() {}
 
     @Override
-    public void run() throws SQLException {
+    public void run() {
         pendingSplit = getAllSplits();
         assignSplit(context.registeredReaders());
     }
 
     /*
-     * 1. get timestampField
-     * 2. get all sub tables of configured super table
-     * 3. each split has one sub table
+     * each split has one sub table
      */
-    private Set<TDengineSourceSplit> getAllSplits() throws SQLException {
-        final String timestampFieldName;
-        try (Statement statement = conn.createStatement()) {
-            final ResultSet fieldNameResultSet =
-                    statement.executeQuery(
-                            "desc " + config.getDatabase() + "." + config.getStable());
-            fieldNameResultSet.next();
-            timestampFieldName = fieldNameResultSet.getString(1);
-        }
-
-        final Set<TDengineSourceSplit> splits = Sets.newHashSet();
-        try (Statement statement = conn.createStatement()) {
-            String metaSQL =
-                    "select table_name from information_schema.ins_tables where db_name = '"
-                            + config.getDatabase()
-                            + "' and stable_name='"
-                            + config.getStable()
-                            + "';";
-            ResultSet subTableNameResultSet = statement.executeQuery(metaSQL);
-            while (subTableNameResultSet.next()) {
-                final String subTableName = subTableNameResultSet.getString(1);
-                final TDengineSourceSplit splitBySubTable =
-                        createSplitBySubTable(subTableName, timestampFieldName);
-                splits.add(splitBySubTable);
-            }
+    private Set<TDengineSourceSplit> getAllSplits() {
+        final String timestampFieldName = stableMetadata.getTimestampFieldName();
+        final Set<TDengineSourceSplit> splits = new HashSet<>();
+        for (String subTableName : stableMetadata.getSubTableNames()) {
+            TDengineSourceSplit splitBySubTable =
+                    createSplitBySubTable(subTableName, timestampFieldName);
+            splits.add(splitBySubTable);
         }
         return splits;
     }
@@ -135,7 +90,7 @@ public class TDengineSourceSplitEnumerator
     private TDengineSourceSplit createSplitBySubTable(
             String subTableName, String timestampFieldName) {
         String selectFields =
-                Arrays.stream(seaTunnelRowType.getFieldNames())
+                Arrays.stream(stableMetadata.getRowType().getFieldNames())
                         .skip(1)
                         .collect(Collectors.joining(","));
         String subTableSQL =
@@ -152,7 +107,7 @@ public class TDengineSourceSplitEnumerator
             if (end != null) {
                 endCondition = timestampFieldName + " < '" + end + "'";
             }
-            String query = StringUtils.join(new String[] {startCondition, endCondition}, " and ");
+            String query = String.join(" and ", startCondition, endCondition);
             subTableSQL = subTableSQL + " where " + query;
         }
 
@@ -220,18 +175,7 @@ public class TDengineSourceSplitEnumerator
     }
 
     @Override
-    public void close() {
-        try {
-            if (!Objects.isNull(conn)) {
-                conn.close();
-            }
-        } catch (SQLException e) {
-            throw new TDengineConnectorException(
-                    CommonErrorCode.READER_OPERATION_FAILED,
-                    "TDengine split_enumerator connection close failed",
-                    e);
-        }
-    }
+    public void close() {}
 
     @Override
     public void handleSplitRequest(int subtaskId) {

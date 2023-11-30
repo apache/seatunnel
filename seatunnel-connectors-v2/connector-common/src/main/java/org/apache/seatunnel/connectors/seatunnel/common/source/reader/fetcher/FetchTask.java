@@ -68,9 +68,9 @@ class FetchTask<E, SplitT extends SourceSplit> implements SplitFetcherTask {
                             fetcherIndex);
                 }
             }
-        } catch (InterruptedException e) {
+        } catch (IOException | InterruptedException e) {
             // this should only happen on shutdown
-            throw new IOException("Source fetch execution was interrupted", e);
+            throw new IOException("Source fetch execution was fail", e);
         } finally {
             // clean up the potential wakeup effect.
             if (isWakeup()) {

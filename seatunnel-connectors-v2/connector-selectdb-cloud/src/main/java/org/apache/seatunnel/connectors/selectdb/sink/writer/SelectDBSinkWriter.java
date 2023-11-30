@@ -54,7 +54,8 @@ public class SelectDBSinkWriter
             SinkWriter.Context context,
             List<SelectDBSinkState> state,
             SeaTunnelRowType seaTunnelRowType,
-            Config pluginConfig) {
+            Config pluginConfig,
+            String jobId) {
         this.selectdbConfig = SelectDBConfig.loadConfig(pluginConfig);
         this.lastCheckpointId = state.size() != 0 ? state.get(0).getCheckpointId() : 0;
         log.info("restore checkpointId {}", lastCheckpointId);
@@ -62,7 +63,8 @@ public class SelectDBSinkWriter
         log.info("labelPrefix " + selectdbConfig.getLabelPrefix());
         this.selectdbSinkState =
                 new SelectDBSinkState(selectdbConfig.getLabelPrefix(), lastCheckpointId);
-        this.labelPrefix = selectdbConfig.getLabelPrefix() + "_" + context.getIndexOfSubtask();
+        this.labelPrefix =
+                selectdbConfig.getLabelPrefix() + "_" + jobId + "_" + context.getIndexOfSubtask();
         this.lineDelimiter =
                 selectdbConfig
                         .getStageLoadProps()

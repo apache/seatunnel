@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator.state;
 
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.IncrementalSourceEnumerator;
-import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceSplitReader;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
@@ -58,7 +58,7 @@ public class SnapshotPhaseState implements PendingSplitsState {
      * The offsets of completed (snapshot) splits that the {@link IncrementalSourceEnumerator} has
      * received from {@link IncrementalSourceSplitReader}s.
      */
-    private final Map<String, Offset> splitCompletedOffsets;
+    private final Map<String, SnapshotSplitWatermark> splitCompletedOffsets;
 
     /**
      * Whether the snapshot split assigner is completed, which indicates there is no more splits and
@@ -76,7 +76,7 @@ public class SnapshotPhaseState implements PendingSplitsState {
             List<TableId> alreadyProcessedTables,
             List<SnapshotSplit> remainingSplits,
             Map<String, SnapshotSplit> assignedSplits,
-            Map<String, Offset> splitCompletedOffsets,
+            Map<String, SnapshotSplitWatermark> splitCompletedOffsets,
             boolean isAssignerCompleted,
             List<TableId> remainingTables,
             boolean isTableIdCaseSensitive,

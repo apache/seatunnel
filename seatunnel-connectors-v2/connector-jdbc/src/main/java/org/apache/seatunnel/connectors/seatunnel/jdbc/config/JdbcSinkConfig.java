@@ -24,12 +24,13 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.util.List;
-import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.ENABLE_UPSERT;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.IS_PRIMARY_KEY_UPDATED;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.SUPPORT_UPSERT_BY_INSERT_ONLY;
 
 @Data
-@Builder(builderClassName = "Builder")
+@Builder
 public class JdbcSinkConfig implements Serializable {
     private static final long serialVersionUID = 2L;
 
@@ -39,23 +40,21 @@ public class JdbcSinkConfig implements Serializable {
     private String database;
     private String table;
     private List<String> primaryKeys;
-    private boolean supportUpsertByQueryPrimaryKeyExist;
+    private boolean enableUpsert;
+    @Builder.Default private boolean isPrimaryKeyUpdated = true;
+    private boolean supportUpsertByInsertOnly;
 
     public static JdbcSinkConfig of(ReadonlyConfig config) {
-        JdbcSinkConfig.Builder builder = JdbcSinkConfig.builder();
+        JdbcSinkConfigBuilder builder = JdbcSinkConfig.builder();
         builder.jdbcConnectionConfig(JdbcConnectionConfig.of(config));
         builder.isExactlyOnce(config.get(JdbcOptions.IS_EXACTLY_ONCE));
-        Optional<String> optionalTable = config.getOptional(JdbcOptions.TABLE);
-        Optional<String> optionalDatabase = config.getOptional(JdbcOptions.DATABASE);
-        if (optionalTable.isPresent() && optionalDatabase.isPresent()) {
-            builder.table(optionalTable.get());
-            builder.database(optionalDatabase.get());
-            config.getOptional(JdbcOptions.PRIMARY_KEYS).ifPresent(builder::primaryKeys);
-            builder.supportUpsertByQueryPrimaryKeyExist(
-                    config.get(SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST));
-        } else {
-            builder.simpleSql(config.get(JdbcOptions.QUERY));
-        }
+        config.getOptional(JdbcOptions.PRIMARY_KEYS).ifPresent(builder::primaryKeys);
+        config.getOptional(JdbcOptions.DATABASE).ifPresent(builder::database);
+        config.getOptional(JdbcOptions.TABLE).ifPresent(builder::table);
+        builder.enableUpsert(config.get(ENABLE_UPSERT));
+        builder.isPrimaryKeyUpdated(config.get(IS_PRIMARY_KEY_UPDATED));
+        builder.supportUpsertByInsertOnly(config.get(SUPPORT_UPSERT_BY_INSERT_ONLY));
+        builder.simpleSql(config.get(JdbcOptions.QUERY));
         return builder.build();
     }
 }

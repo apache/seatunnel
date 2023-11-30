@@ -35,7 +35,7 @@
     </properties>
 
     <dependencies>
-        <!--Resolve ConfigParser class conflict between Seatunnel and Flink.
+        <!--Resolve ConfigParser class conflict between SeaTunnel and Flink.
         Native debugging increases flink's default ConfigParser priority.-->
         <dependency>
             <groupId>com.typesafe</groupId>

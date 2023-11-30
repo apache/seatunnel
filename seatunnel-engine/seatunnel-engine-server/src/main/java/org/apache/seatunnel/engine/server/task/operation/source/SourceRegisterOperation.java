@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointErrorReportOperation;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
@@ -55,9 +56,32 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
         Address readerAddress = getCallerAddress();
         RetryUtils.retryWithException(
                 () -> {
+                    ClassLoader classLoader =
+                            server.getTaskExecutionService()
+                                    .getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
+                                    .getClassLoader();
+                    ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
                     SourceSplitEnumeratorTask<?> task =
                             server.getTaskExecutionService().getTask(enumeratorTaskID);
-                    task.receivedReader(readerTaskID, readerAddress);
+                    task.getExecutionContext()
+                            .getTaskExecutionService()
+                            .asyncExecuteFunction(
+                                    enumeratorTaskID.getTaskGroupLocation(),
+                                    () -> {
+                                        try {
+                                            Thread.currentThread()
+                                                    .setContextClassLoader(classLoader);
+                                            task.receivedReader(readerTaskID, readerAddress);
+                                        } catch (Exception e) {
+                                            task.getExecutionContext()
+                                                    .sendToMaster(
+                                                            new CheckpointErrorReportOperation(
+                                                                    enumeratorTaskID, e));
+                                        } finally {
+                                            Thread.currentThread()
+                                                    .setContextClassLoader(oldClassLoader);
+                                        }
+                                    });
                     return null;
                 },
                 new RetryUtils.RetryMaterial(

@@ -21,19 +21,21 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingExcep
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertToJsonString;
 import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertValue;
-import static org.apache.seatunnel.api.configuration.util.ConfigUtil.flatteningMap;
-import static org.apache.seatunnel.api.configuration.util.ConfigUtil.treeMap;
 
+@Slf4j
 public class ReadonlyConfig implements Serializable {
     private static final long serialVersionUID = 1L;
     private static final ObjectMapper JACKSON_MAPPER = new ObjectMapper();
@@ -46,7 +48,7 @@ public class ReadonlyConfig implements Serializable {
     }
 
     public static ReadonlyConfig fromMap(Map<String, Object> map) {
-        return new ReadonlyConfig(treeMap(map));
+        return new ReadonlyConfig(map);
     }
 
     public static ReadonlyConfig fromConfig(Config config) {
@@ -64,12 +66,21 @@ public class ReadonlyConfig implements Serializable {
         return getOptional(option).orElseGet(option::defaultValue);
     }
 
+    /**
+     * Transform to Config todo: This method should be removed after we remove Config
+     *
+     * @return Config
+     */
+    public Config toConfig() {
+        return ConfigFactory.parseMap(confData);
+    }
+
     public Map<String, String> toMap() {
         if (confData.isEmpty()) {
             return Collections.emptyMap();
         }
 
-        Map<String, String> result = new HashMap<>();
+        Map<String, String> result = new LinkedHashMap<>();
         toMap(result);
         return result;
     }
@@ -78,27 +89,25 @@ public class ReadonlyConfig implements Serializable {
         if (confData.isEmpty()) {
             return;
         }
-        Map<String, Object> flatteningMap = flatteningMap(confData);
-        for (Map.Entry<String, Object> entry : flatteningMap.entrySet()) {
+        for (Map.Entry<String, Object> entry : confData.entrySet()) {
             result.put(entry.getKey(), convertToJsonString(entry.getValue()));
         }
     }
 
-    @SuppressWarnings("unchecked")
     public <T> Optional<T> getOptional(Option<T> option) {
         if (option == null) {
             throw new NullPointerException("Option not be null.");
         }
-        String[] keys = option.key().split("\\.");
-        Map<String, Object> data = this.confData;
-        Object value = null;
-        for (int i = 0; i < keys.length; i++) {
-            value = data.get(keys[i]);
-            if (i < keys.length - 1) {
-                if (!(value instanceof Map)) {
-                    return Optional.empty();
-                } else {
-                    data = (Map<String, Object>) value;
+        Object value = getValue(option.key());
+        if (value == null) {
+            for (String fallbackKey : option.getFallbackKeys()) {
+                value = getValue(fallbackKey);
+                if (value != null) {
+                    log.warn(
+                            "Please use the new key '{}' instead of the deprecated key '{}'.",
+                            option.key(),
+                            fallbackKey);
+                    break;
                 }
             }
         }
@@ -106,6 +115,27 @@ public class ReadonlyConfig implements Serializable {
             return Optional.empty();
         }
         return Optional.of(convertValue(value, option));
+    }
+
+    private Object getValue(String key) {
+        if (this.confData.containsKey(key)) {
+            return this.confData.get(key);
+        } else {
+            String[] keys = key.split("\\.");
+            Map<String, Object> data = this.confData;
+            Object value = null;
+            for (int i = 0; i < keys.length; i++) {
+                value = data.get(keys[i]);
+                if (i < keys.length - 1) {
+                    if (!(value instanceof Map)) {
+                        return null;
+                    } else {
+                        data = (Map<String, Object>) value;
+                    }
+                }
+            }
+            return value;
+        }
     }
 
     @Override

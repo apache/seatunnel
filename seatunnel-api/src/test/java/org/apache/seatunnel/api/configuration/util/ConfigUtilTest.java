@@ -19,9 +19,9 @@ package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.net.URISyntaxException;
@@ -29,19 +29,21 @@ import java.nio.file.Paths;
 
 public class ConfigUtilTest {
 
-    @Test
-    public void convertToJsonString() throws URISyntaxException {
-        Config config =
+    private static Config config;
+
+    @BeforeAll
+    public static void init() throws URISyntaxException {
+        config =
                 ConfigFactory.parseFile(
-                                Paths.get(
-                                                ConfigUtilTest.class
-                                                        .getResource("/conf/option-test.conf")
-                                                        .toURI())
-                                        .toFile())
-                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                        .resolveWith(
-                                ConfigFactory.systemProperties(),
-                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+                        Paths.get(
+                                        ConfigUtilTest.class
+                                                .getResource("/conf/option-test.conf")
+                                                .toURI())
+                                .toFile());
+    }
+
+    @Test
+    public void convertToJsonString() {
         String configJson = ConfigUtil.convertToJsonString(config);
         Config parsedConfig = ConfigUtil.convertToConfig(configJson);
         Assertions.assertEquals(config.getConfig("env"), parsedConfig.getConfig("env"));

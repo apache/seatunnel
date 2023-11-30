@@ -25,6 +25,7 @@ Used to read data from Redis.
 | data_type           | string | yes                   | -             |
 | user                | string | no                    | -             |
 | auth                | string | no                    | -             |
+| db_num              | int    | no                    | 0             |
 | mode                | string | no                    | single        |
 | hash_key_parse_mode | string | no                    | all           |
 | nodes               | list   | yes when mode=cluster | -             |
@@ -151,6 +152,10 @@ redis authentication user, you need it when you connect to an encrypted cluster
 
 redis authentication password, you need it when you connect to an encrypted cluster
 
+### db_num [int]
+
+Redis database index ID. It is connected to db 0 by default
+
 ### mode [string]
 
 redis mode, `single` or `cluster`, default is `single`
@@ -159,7 +164,7 @@ redis mode, `single` or `cluster`, default is `single`
 
 redis nodes information, used in cluster mode, must like as the following format:
 
-[host1:port1, host2:port2]
+["host1:port1", "host2:port2"]
 
 ### format [string]
 
@@ -259,5 +264,5 @@ Redis {
 
 ### next version
 
-- [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/incubator-seatunnel/pull/3188)
+- [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/seatunnel/pull/3188)
 

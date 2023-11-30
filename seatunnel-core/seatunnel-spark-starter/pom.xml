@@ -33,6 +33,7 @@
     <modules>
         <module>seatunnel-spark-2-starter</module>
         <module>seatunnel-spark-3-starter</module>
+        <module>seatunnel-spark-starter-common</module>
     </modules>
 
     <properties>

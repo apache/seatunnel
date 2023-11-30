@@ -81,11 +81,11 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
         // physical column
         for (int i = 0; i < physicalConverters.length; i++) {
             String fieldName = fieldNames[i];
-            Object fieldValue = struct.get(fieldName);
             Field field = schema.field(fieldName);
             if (field == null) {
                 row.setField(i, null);
             } else {
+                Object fieldValue = struct.get(fieldName);
                 Schema fieldSchema = field.schema();
                 Object convertedField =
                         SeaTunnelRowDebeziumDeserializationConverters.convertField(
@@ -210,6 +210,8 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                     return dbzObj;
                 } else if (dbzObj instanceof BigDecimal) {
                     return ((BigDecimal) dbzObj).byteValue();
+                } else if (dbzObj instanceof Boolean) {
+                    return Boolean.TRUE.equals(dbzObj) ? Byte.valueOf("1") : Byte.valueOf("0");
                 } else {
                     return Byte.parseByte(dbzObj.toString());
                 }

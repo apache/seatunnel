@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
@@ -42,6 +43,7 @@ import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.internal.util.StringUtil;
+import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 
@@ -201,13 +203,13 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         } catch (JsonProcessingException | NullPointerException e) {
             return metricsMap;
         }
-        metricsMap.put("sourceReceivedCount", sourceReadCount);
-        metricsMap.put("sinkWriteCount", sinkWriteCount);
+        metricsMap.put(SOURCE_RECEIVED_COUNT, sourceReadCount);
+        metricsMap.put(SINK_WRITE_COUNT, sinkWriteCount);
 
         return metricsMap;
     }
 
-    private SeaTunnelServer getSeatunnelServer() {
+    private SeaTunnelServer getSeaTunnelServer() {
         Map<String, Object> extensionServices =
                 this.textCommandService.getNode().getNodeExtension().createExtensionServices();
         return (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
@@ -227,40 +229,47 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                         .getNodeEngine()
                                         .getSerializationService()
                                         .toObject(jobInfo.getJobImmutableInformation()));
+
+        ClassLoader classLoader =
+                new SeaTunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
         LogicalDag logicalDag =
-                this.textCommandService
-                        .getNode()
-                        .getNodeEngine()
-                        .getSerializationService()
-                        .toObject(jobImmutableInformation.getLogicalDag());
+                CustomClassLoadedObject.deserializeWithCustomClassLoader(
+                        this.textCommandService.getNode().getNodeEngine().getSerializationService(),
+                        classLoader,
+                        jobImmutableInformation.getLogicalDag());
 
         String jobMetrics =
-                getSeatunnelServer().getCoordinatorService().getJobMetrics(jobId).toJsonString();
-        JobStatus jobStatus = getSeatunnelServer().getCoordinatorService().getJobStatus(jobId);
+                getSeaTunnelServer().getCoordinatorService().getJobMetrics(jobId).toJsonString();
+        JobStatus jobStatus = getSeaTunnelServer().getCoordinatorService().getJobStatus(jobId);
 
         jobInfoJson
-                .add("jobId", jobId)
-                .add("jobName", logicalDag.getJobConfig().getName())
-                .add("jobStatus", jobStatus.toString())
-                .add("envOptions", JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
+                .add(RestConstant.JOB_ID, String.valueOf(jobId))
+                .add(RestConstant.JOB_NAME, logicalDag.getJobConfig().getName())
+                .add(RestConstant.JOB_STATUS, jobStatus.toString())
                 .add(
-                        "createTime",
+                        RestConstant.ENV_OPTIONS,
+                        JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
+                .add(
+                        RestConstant.CREATE_TIME,
                         new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
                                 .format(new Date(jobImmutableInformation.getCreateTime())))
-                .add("jobDag", logicalDag.getLogicalDagAsJson())
+                .add(RestConstant.JOB_DAG, logicalDag.getLogicalDagAsJson())
                 .add(
-                        "pluginJarsUrls",
+                        RestConstant.PLUGIN_JARS_URLS,
                         (JsonValue)
                                 jobImmutableInformation.getPluginJarsUrls().stream()
                                         .map(
                                                 url -> {
                                                     JsonObject jarUrl = new JsonObject();
-                                                    jarUrl.add("jarPath", url.toString());
+                                                    jarUrl.add(
+                                                            RestConstant.JAR_PATH, url.toString());
                                                     return jarUrl;
                                                 })
                                         .collect(JsonArray::new, JsonArray::add, JsonArray::add))
-                .add("isStartWithSavePoint", jobImmutableInformation.isStartWithSavePoint())
-                .add("metrics", JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
+                .add(
+                        RestConstant.IS_START_WITH_SAVE_POINT,
+                        jobImmutableInformation.isStartWithSavePoint())
+                .add(RestConstant.METRICS, JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
 
         return jobInfoJson;
     }

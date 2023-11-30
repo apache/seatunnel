@@ -23,10 +23,12 @@ import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobDetailStat
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobInfoCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetRunningJobMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSavePointJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSubmitJobCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelUploadConnectorJarCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobCompleteCodec;
 
 import com.hazelcast.client.impl.protocol.MessageTaskFactory;
@@ -92,5 +94,13 @@ public class SeaTunnelMessageTaskFactoryProvider implements MessageTaskFactoryPr
                 SeaTunnelGetClusterHealthMetricsCodec.REQUEST_MESSAGE_TYPE,
                 (clientMessage, connection) ->
                         new GetClusterHealthMetricsTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelGetRunningJobMetricsCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) ->
+                        new GetRunningJobMetricsTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelUploadConnectorJarCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) ->
+                        new UploadConnectorJarTask(clientMessage, node, connection));
     }
 }

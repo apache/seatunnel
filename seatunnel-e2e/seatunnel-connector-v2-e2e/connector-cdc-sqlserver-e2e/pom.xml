@@ -25,6 +25,18 @@
     <artifactId>connector-cdc-sqlserver-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : CDC SqlServer</name>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>connector-jdbc</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- SeaTunnel connectors -->
         <dependency>
@@ -58,6 +70,11 @@
             <artifactId>seatunnel-starter</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microsoft.sqlserver</groupId>
+            <artifactId>mssql-jdbc</artifactId>
         </dependency>
     </dependencies>
 </project>

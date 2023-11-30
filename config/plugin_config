@@ -24,6 +24,7 @@ connector-amazondynamodb
 connector-assert
 connector-cassandra
 connector-cdc-mysql
+connector-cdc-mongodb
 connector-cdc-sqlserver
 connector-clickhouse
 connector-datahub
@@ -35,10 +36,11 @@ connector-file-ftp
 connector-file-hadoop
 connector-file-local
 connector-file-oss
-connector-file-oss-jindo
+connector-file-jindo-oss
 connector-file-s3
 connector-file-sftp
 connector-google-sheets
+connector-google-firestore
 connector-hive
 connector-http-base
 connector-http-feishu
@@ -73,4 +75,5 @@ connector-starrocks
 connector-tablestore
 connector-selectdb-cloud
 connector-hbase
+connector-amazonsqs
 --end--

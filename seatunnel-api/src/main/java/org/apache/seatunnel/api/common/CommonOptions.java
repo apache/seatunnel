@@ -23,11 +23,6 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.util.List;
 
 public interface CommonOptions {
-    Option<String> FACTORY_ID =
-            Options.key("factory")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Identifier of the SPI factory class.");
 
     Option<String> PLUGIN_NAME =
             Options.key("plugin_name")

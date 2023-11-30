@@ -24,9 +24,11 @@ import org.apache.seatunnel.engine.server.operation.GetJobDetailStatusOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobInfoOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
+import org.apache.seatunnel.engine.server.operation.GetRunningJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.SavePointJobOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
+import org.apache.seatunnel.engine.server.operation.UploadConnectorJarOperation;
 import org.apache.seatunnel.engine.server.operation.WaitForJobCompleteOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
@@ -60,6 +62,10 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
 
     public static final int GET_CLUSTER_HEALTH_METRICS = 9;
 
+    public static final int GET_RUNNING_JOB_METRICS_OPERATOR = 10;
+
+    public static final int UPLOAD_CONNECTOR_JAR_OPERATION = 11;
+
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
                     SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY,
@@ -76,7 +82,6 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
     }
 
     private static class Factory implements DataSerializableFactory {
-        @SuppressWarnings("checkstyle:returncount")
         @Override
         public IdentifiedDataSerializable create(int typeId) {
             switch (typeId) {
@@ -100,6 +105,10 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
                     return new SavePointJobOperation();
                 case GET_CLUSTER_HEALTH_METRICS:
                     return new GetClusterHealthMetricsOperation();
+                case GET_RUNNING_JOB_METRICS_OPERATOR:
+                    return new GetRunningJobMetricsOperation();
+                case UPLOAD_CONNECTOR_JAR_OPERATION:
+                    return new UploadConnectorJarOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

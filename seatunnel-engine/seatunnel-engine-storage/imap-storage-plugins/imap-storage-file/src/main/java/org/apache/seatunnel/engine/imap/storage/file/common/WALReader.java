@@ -22,18 +22,17 @@ package org.apache.seatunnel.engine.imap.storage.file.common;
 
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
+import org.apache.seatunnel.engine.imap.storage.file.wal.DiscoveryWalFileFactory;
+import org.apache.seatunnel.engine.imap.storage.file.wal.reader.IFileReader;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.ClassUtils;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -41,28 +40,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.WAL_DATA_METADATA_LENGTH;
-
 public class WALReader {
-    private static final int DEFAULT_QUERY_LIST_SIZE = 1024;
-    private FileSystem fs;
     private final Serializer serializer;
+    private final IFileReader fileReader;
 
-    public WALReader(FileSystem fs, Serializer serializer) throws IOException {
+    public WALReader(FileSystem fs, FileConfiguration configuration, Serializer serializer)
+            throws IOException {
         this.serializer = serializer;
-        this.fs = fs;
+        this.fileReader = DiscoveryWalFileFactory.getReader(configuration.getName());
+        this.fileReader.initialize(fs, serializer);
     }
 
     private List<IMapFileData> readAllData(Path parentPath) throws IOException {
-        List<String> fileNames = getFileNames(parentPath);
-        if (CollectionUtils.isEmpty(fileNames)) {
-            return new ArrayList<>();
-        }
-        List<IMapFileData> result = new ArrayList<>(DEFAULT_QUERY_LIST_SIZE);
-        for (String fileName : fileNames) {
-            result.addAll(readData(new Path(parentPath, fileName)));
-        }
-        return result;
+        return this.fileReader.readAllData(parentPath);
     }
 
     public Set<Object> loadAllKeys(Path parentPath) throws IOException {
@@ -119,50 +109,6 @@ public class WALReader {
             result.put(key, value);
         }
         return result;
-    }
-
-    private List<IMapFileData> readData(Path path) throws IOException {
-        List<IMapFileData> result = new ArrayList<>(DEFAULT_QUERY_LIST_SIZE);
-        long length = fs.getFileStatus(path).getLen();
-        try (FSDataInputStream in = fs.open(path)) {
-            byte[] datas = new byte[(int) length];
-            in.readFully(datas);
-            int startIndex = 0;
-            while (startIndex + WAL_DATA_METADATA_LENGTH < datas.length) {
-
-                byte[] metadata = new byte[WAL_DATA_METADATA_LENGTH];
-                System.arraycopy(datas, startIndex, metadata, 0, WAL_DATA_METADATA_LENGTH);
-                int dataLength = WALDataUtils.byteArrayToInt(metadata);
-                startIndex += WAL_DATA_METADATA_LENGTH;
-                if (startIndex + dataLength > datas.length) {
-                    break;
-                }
-                byte[] data = new byte[dataLength];
-                System.arraycopy(datas, startIndex, data, 0, data.length);
-                IMapFileData fileData = serializer.deserialize(data, IMapFileData.class);
-                result.add(fileData);
-                startIndex += data.length;
-            }
-        }
-        return result;
-    }
-
-    private List<String> getFileNames(Path parentPath) {
-        try {
-
-            RemoteIterator<LocatedFileStatus> fileStatusRemoteIterator =
-                    fs.listFiles(parentPath, true);
-            List<String> fileNames = new ArrayList<>();
-            while (fileStatusRemoteIterator.hasNext()) {
-                LocatedFileStatus fileStatus = fileStatusRemoteIterator.next();
-                if (fileStatus.getPath().getName().endsWith("wal.txt")) {
-                    fileNames.add(fileStatus.getPath().toString());
-                }
-            }
-            return fileNames;
-        } catch (IOException e) {
-            throw new IMapStorageException(e, "get file names error,path is s%", parentPath);
-        }
     }
 
     private Object deserializeData(byte[] data, String className) {

@@ -21,6 +21,7 @@
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
@@ -59,7 +60,7 @@ public class WALReaderAndWriterTest {
 
     @Test
     public void testWriterAndReader() throws Exception {
-        WALWriter writer = new WALWriter(FS, PARENT_PATH, SERIALIZER);
+        WALWriter writer = new WALWriter(FS, FileConfiguration.HDFS, PARENT_PATH, SERIALIZER);
         IMapFileData data;
         boolean isDelete;
         for (int i = 0; i < 1024; i++) {
@@ -106,7 +107,7 @@ public class WALReaderAndWriterTest {
         writer.close();
         await().atMost(10, java.util.concurrent.TimeUnit.SECONDS).await();
 
-        WALReader reader = new WALReader(FS, new ProtoStuffSerializer());
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, new ProtoStuffSerializer());
         Map<Object, Object> result = reader.loadAllData(PARENT_PATH, new HashSet<>());
         Assertions.assertEquals("Kristen", result.get("key511"));
         Assertions.assertEquals(511, result.size());

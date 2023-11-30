@@ -17,16 +17,34 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class ConsoleSinkFactory implements TableSinkFactory {
+
+    public static final Option<Boolean> LOG_PRINT_DATA =
+            Options.key("log.print.data")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Flag to determine whether data should be printed in the logs.");
+
+    public static final Option<Integer> LOG_PRINT_DELAY =
+            Options.key("log.print.delay.ms")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "Delay in milliseconds between printing each data item to the logs.");
+
     @Override
     public String factoryIdentifier() {
         return "Console";
@@ -38,8 +56,11 @@ public class ConsoleSinkFactory implements TableSinkFactory {
     }
 
     @Override
-    public TableSink createSink(TableFactoryContext context) {
+    public TableSink createSink(TableSinkFactoryContext context) {
+        ReadonlyConfig options = context.getOptions();
         return () ->
-                new ConsoleSink(context.getCatalogTable().getTableSchema().toPhysicalRowDataType());
+                new ConsoleSink(
+                        context.getCatalogTable().getTableSchema().toPhysicalRowDataType(),
+                        options);
     }
 }

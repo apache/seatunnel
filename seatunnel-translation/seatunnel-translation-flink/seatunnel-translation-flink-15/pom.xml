@@ -23,9 +23,15 @@
     </parent>
 
     <artifactId>seatunnel-translation-flink-15</artifactId>
-    <name>SeaTunnel : Translation : Flink : 1.5</name>
+    <name>SeaTunnel : Translation : Flink : 1.15</name>
 
     <dependencies>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-translation-flink-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.flink</groupId>

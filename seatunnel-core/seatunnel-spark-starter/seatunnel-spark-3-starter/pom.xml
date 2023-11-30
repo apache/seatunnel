@@ -36,12 +36,6 @@
     <dependencies>
 
         <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-translation-spark-3.3</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-streaming_${scala.binary.version}</artifactId>
             <version>${spark.3.3.0.version}</version>
@@ -60,6 +54,18 @@
             <artifactId>spark-sql_${scala.binary.version}</artifactId>
             <version>${spark.3.3.0.version}</version>
             <scope>${spark.scope}</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-translation-spark-3.3</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-spark-starter-common</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
     </dependencies>

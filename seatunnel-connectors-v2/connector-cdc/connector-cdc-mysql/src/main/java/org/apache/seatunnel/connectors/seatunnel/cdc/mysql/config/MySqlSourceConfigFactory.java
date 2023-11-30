@@ -39,8 +39,8 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
      * required when 'scan.incremental.snapshot.enabled' enabled. Every ID must be unique across all
      * currently-running database processes in the MySQL cluster. This connector joins the MySQL
      * cluster as another server (with this unique ID) so it can read the binlog. By default, a
-     * random number is generated between 5400 and 6400, though we recommend setting an explicit
-     * value."
+     * random number is generated between 6500 and 2,148,492,146, though we recommend setting an
+     * explicit value."
      */
     public MySqlSourceConfigFactory serverId(String serverId) {
         this.serverIdRange = ServerIdRange.from(serverId);
@@ -89,7 +89,7 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
 
         if (serverIdRange != null) {
             props.setProperty("database.server.id.range", String.valueOf(serverIdRange));
-            int serverId = serverIdRange.getServerId(subtaskId);
+            long serverId = serverIdRange.getServerId(subtaskId);
             props.setProperty("database.server.id", String.valueOf(serverId));
         }
         if (databaseList != null) {
@@ -117,6 +117,8 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
                 splitSize,
                 distributionFactorUpper,
                 distributionFactorLower,
+                sampleShardingThreshold,
+                inverseSamplingRate,
                 props,
                 driverClassName,
                 hostname,
@@ -128,6 +130,7 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
                 serverTimeZone,
                 connectTimeoutMillis,
                 connectMaxRetries,
-                connectionPoolSize);
+                connectionPoolSize,
+                exactlyOnce);
     }
 }

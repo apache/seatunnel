@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.RetryUtils.RetryMaterial;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
@@ -65,8 +65,7 @@ public class ElasticsearchSinkWriter
             SeaTunnelRowType seaTunnelRowType,
             Config pluginConfig,
             int maxBatchSize,
-            int maxRetryCount,
-            List<ElasticsearchSinkState> elasticsearchStates) {
+            int maxRetryCount) {
         this.context = context;
         this.maxBatchSize = maxBatchSize;
 
@@ -124,7 +123,7 @@ public class ElasticsearchSinkWriter
             requestEsList.clear();
         } catch (Exception e) {
             throw new ElasticsearchConnectorException(
-                    CommonErrorCode.SQL_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
                     "ElasticSearch execute batch statement error",
                     e);
         }

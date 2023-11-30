@@ -24,6 +24,7 @@ Used to write data to Rabbitmq.
 | network_recovery_interval  | int     | no       | -             |
 | topology_recovery_enabled  | boolean | no       | -             |
 | automatic_recovery_enabled | boolean | no       | -             |
+| use_correlation_id         | boolean | no       | false         |
 | connection_timeout         | int     | no       | -             |
 | rabbitmq.config            | map     | no       | -             |
 | common-options             |         | no       | -             |
@@ -66,13 +67,17 @@ the schema fields of upstream data.
 
 how long will automatic recovery wait before attempting to reconnect, in ms
 
-### topology_recovery [string]
+### topology_recovery_enabled [boolean]
 
 if true, enables topology recovery
 
-### automatic_recovery [string]
+### automatic_recovery_enabled [boolean]
 
 if true, enables connection recovery
+
+### use_correlation_id [boolean]
+
+whether the messages received are supplied with a unique id to deduplicate messages (in case of failed acknowledgments).
 
 ### connection_timeout [int]
 
@@ -112,5 +117,5 @@ sink {
 ### next version
 
 - Add Rabbitmq Sink Connector
-- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
+- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/seatunnel/pull/3719)
 

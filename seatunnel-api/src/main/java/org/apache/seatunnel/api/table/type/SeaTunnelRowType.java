@@ -20,7 +20,7 @@ package org.apache.seatunnel.api.table.type;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 public class SeaTunnelRowType implements CompositeType<SeaTunnelRow> {
     private static final long serialVersionUID = 2L;
@@ -79,7 +79,7 @@ public class SeaTunnelRowType implements CompositeType<SeaTunnelRow> {
                 return i;
             }
         }
-        throw new IllegalArgumentException(String.format("can't find field %s", fieldName));
+        throw new IllegalArgumentException(String.format("can't find field [%s]", fieldName));
     }
 
     @Override

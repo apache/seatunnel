@@ -13,6 +13,10 @@ The most recommended way to use SeaTunnel Engine in the production environment i
 
 [Deploy a SeaTunnel Engine Local Mode reference](../start-v2/locally/deployment.md)
 
+## Change SeaTunnel Engine Config
+
+Update the auto-increment to true in the $SEATUNNEL_HOME/config/hazelcast.yaml
+
 ## Submit Job
 
 ```shell

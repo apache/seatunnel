@@ -18,11 +18,15 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
+import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.exception.JobException;
+import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
@@ -36,15 +40,21 @@ import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
+import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.cluster.Address;
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
@@ -52,8 +62,12 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.NonNull;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -63,6 +77,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMetricsMap;
 
 public class CoordinatorService {
     private final NodeEngineImpl nodeEngine;
@@ -125,10 +141,12 @@ public class CoordinatorService {
      */
     private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
 
+    private IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
+
     /** If this node is a master node */
     private volatile boolean isActive = false;
 
-    private final ExecutorService executorService;
+    private ExecutorService executorService;
 
     private final SeaTunnelServer seaTunnelServer;
 
@@ -136,7 +154,8 @@ public class CoordinatorService {
 
     private final EngineConfig engineConfig;
 
-    @SuppressWarnings("checkstyle:MagicNumber")
+    private ConnectorPackageService connectorPackageService;
+
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
             @NonNull SeaTunnelServer seaTunnelServer,
@@ -190,6 +209,7 @@ public class CoordinatorService {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
         ownedSlotProfilesIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        metricsImap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
 
         jobHistoryService =
                 new JobHistoryService(
@@ -202,7 +222,15 @@ public class CoordinatorService {
                                 .getMap(Constant.IMAP_FINISHED_JOB_METRICS),
                         nodeEngine
                                 .getHazelcastInstance()
-                                .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO));
+                                .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
+                        engineConfig.getHistoryJobExpireMinutes());
+
+        // If the user has configured the connector package service, create it  on the master node.
+        ConnectorJarStorageConfig connectorJarStorageConfig =
+                engineConfig.getConnectorJarStorageConfig();
+        if (connectorJarStorageConfig.getEnable()) {
+            connectorPackageService = new ConnectorPackageService(seaTunnelServer);
+        }
 
         List<CompletableFuture<Void>> collect =
                 runningJobInfoIMap.entrySet().stream()
@@ -255,89 +283,41 @@ public class CoordinatorService {
                         runningJobStateTimestampsIMap,
                         ownedSlotProfilesIMap,
                         runningJobInfoIMap,
-                        engineConfig);
+                        metricsImap,
+                        engineConfig,
+                        seaTunnelServer);
 
-        // If Job Status is CANCELLING , set needRestore to false
         try {
-            jobMaster.init(
-                    runningJobInfoIMap.get(jobId).getInitializationTimestamp(),
-                    true,
-                    !JobStatus.CANCELLING.equals(jobStatus));
+            jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), true);
         } catch (Exception e) {
             throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
         }
 
         String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
-        if (jobStatus.isEndState()) {
-            logger.info(
-                    String.format(
-                            "The restore %s is in an end state %s, store the job info to JobHistory and clear the job running time info",
-                            jobFullName, jobStatus));
-            jobMaster.cleanJob();
-            return;
-        }
-
-        if (jobStatus.ordinal() < JobStatus.RUNNING.ordinal()) {
-            logger.info(
-                    String.format(
-                            "The restore %s is state %s, cancel job and submit it again.",
-                            jobFullName, jobStatus));
-            jobMaster.cancelJob();
-            jobMaster.getJobMasterCompleteFuture().join();
-            submitJob(jobId, jobInfo.getJobImmutableInformation()).join();
-            return;
-        }
-
         runningJobMasterMap.put(jobId, jobMaster);
-        jobMaster.markRestore();
 
-        if (JobStatus.CANCELLING.equals(jobStatus)) {
-            logger.info(
-                    String.format(
-                            "The restore %s is in %s state, cancel the job",
-                            jobFullName, jobStatus));
-            CompletableFuture.runAsync(
-                    () -> {
-                        try {
-                            jobMaster.cancelJob();
-                            jobMaster.run();
-                        } finally {
-                            // voidCompletableFuture will be cancelled when zeta master node
-                            // shutdown to simulate master failure,
-                            // don't update runningJobMasterMap is this case.
-                            if (!jobMaster.getJobMasterCompleteFuture().isCancelled()) {
-                                runningJobMasterMap.remove(jobId);
-                            }
+        logger.info(
+                String.format(
+                        "The restore %s is in %s state, restore pipeline and take over this job running",
+                        jobFullName, jobStatus));
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        jobMaster
+                                .getPhysicalPlan()
+                                .getPipelineList()
+                                .forEach(SubPlan::restorePipelineState);
+                        jobMaster.run();
+                    } finally {
+                        // voidCompletableFuture will be cancelled when zeta master node
+                        // shutdown to simulate master failure,
+                        // don't update runningJobMasterMap is this case.
+                        if (!jobMaster.getJobMasterCompleteFuture().isCompletedExceptionally()) {
+                            runningJobMasterMap.remove(jobId);
                         }
-                    },
-                    executorService);
-            return;
-        }
-
-        if (JobStatus.RUNNING.equals(jobStatus)) {
-            logger.info(
-                    String.format(
-                            "The restore %s is in %s state, restore pipeline and take over this job running",
-                            jobFullName, jobStatus));
-            CompletableFuture.runAsync(
-                    () -> {
-                        try {
-                            jobMaster
-                                    .getPhysicalPlan()
-                                    .getPipelineList()
-                                    .forEach(SubPlan::restorePipelineState);
-                            jobMaster.run();
-                        } finally {
-                            // voidCompletableFuture will be cancelled when zeta master node
-                            // shutdown to simulate master failure,
-                            // don't update runningJobMasterMap is this case.
-                            if (!jobMaster.getJobMasterCompleteFuture().isCancelled()) {
-                                runningJobMasterMap.remove(jobId);
-                            }
-                        }
-                    },
-                    executorService);
-        }
+                    }
+                },
+                executorService);
     }
 
     private void checkNewActiveMaster() {
@@ -345,6 +325,13 @@ public class CoordinatorService {
             if (!isActive && this.seaTunnelServer.isMasterNode()) {
                 logger.info(
                         "This node become a new active master node, begin init coordinator service");
+                if (this.executorService.isShutdown()) {
+                    this.executorService =
+                            Executors.newCachedThreadPool(
+                                    new ThreadFactoryBuilder()
+                                            .setNameFormat("seatunnel-coordinator-service-%d")
+                                            .build());
+                }
                 initCoordinatorService();
                 isActive = true;
             } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
@@ -360,11 +347,11 @@ public class CoordinatorService {
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
-    private void clearCoordinatorService() {
+    public synchronized void clearCoordinatorService() {
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
         executorService.shutdownNow();
+        runningJobMasterMap.clear();
 
         try {
             executorService.awaitTermination(20, TimeUnit.SECONDS);
@@ -395,6 +382,18 @@ public class CoordinatorService {
     /** call by client to submit job */
     public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
         CompletableFuture<Void> jobSubmitFuture = new CompletableFuture<>();
+
+        // Check if the current jobID is already running. If so, complete the submission
+        // successfully.
+        // This avoids potential issues like redundant job restores or other anomalies.
+        if (getJobMaster(jobId) != null) {
+            logger.warning(
+                    String.format(
+                            "The job %s is currently running; no need to submit again.", jobId));
+            jobSubmitFuture.complete(null);
+            return new PassiveCompletableFuture<>(jobSubmitFuture);
+        }
+
         JobMaster jobMaster =
                 new JobMaster(
                         jobImmutableInformation,
@@ -406,7 +405,9 @@ public class CoordinatorService {
                         runningJobStateTimestampsIMap,
                         ownedSlotProfilesIMap,
                         runningJobInfoIMap,
-                        engineConfig);
+                        metricsImap,
+                        engineConfig,
+                        seaTunnelServer);
         executorService.submit(
                 () -> {
                     try {
@@ -415,9 +416,7 @@ public class CoordinatorService {
                                 new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
                         runningJobMasterMap.put(jobId, jobMaster);
                         jobMaster.init(
-                                runningJobInfoIMap.get(jobId).getInitializationTimestamp(),
-                                false,
-                                true);
+                                runningJobInfoIMap.get(jobId).getInitializationTimestamp(), false);
                         // We specify that when init is complete, the submitJob is complete
                         jobSubmitFuture.complete(null);
                     } catch (Throwable e) {
@@ -463,10 +462,24 @@ public class CoordinatorService {
     public PassiveCompletableFuture<JobResult> waitForJobComplete(long jobId) {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
-            JobStatus jobStatus = jobHistoryService.getJobDetailState(jobId).getJobStatus();
+            // Because operations on Imap cannot be performed within Operation.
+            CompletableFuture<JobHistoryService.JobState> jobStateFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                return jobHistoryService.getJobDetailState(jobId);
+                            },
+                            executorService);
+            JobHistoryService.JobState jobState = null;
+            try {
+                jobState = jobStateFuture.get();
+            } catch (Exception e) {
+                throw new SeaTunnelEngineException("get job state error", e);
+            }
+
             CompletableFuture<JobResult> future = new CompletableFuture<>();
-            // TODO support history service record job execute error
-            future.complete(new JobResult(jobStatus, null));
+            if (jobState == null) future.complete(new JobResult(JobStatus.UNKNOWABLE, null));
+            else
+                future.complete(new JobResult(jobState.getJobStatus(), jobState.getErrorMessage()));
             return new PassiveCompletableFuture<>(future);
         } else {
             return new PassiveCompletableFuture<>(runningJobMaster.getJobMasterCompleteFuture());
@@ -494,9 +507,13 @@ public class CoordinatorService {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
             JobHistoryService.JobState jobDetailState = jobHistoryService.getJobDetailState(jobId);
-            return null == jobDetailState ? null : jobDetailState.getJobStatus();
+            return null == jobDetailState ? JobStatus.UNKNOWABLE : jobDetailState.getJobStatus();
         }
-        return runningJobMaster.getJobStatus();
+        JobStatus jobStatus = runningJobMaster.getJobStatus();
+        if (jobStatus == null) {
+            return jobHistoryService.getFinishedJobStateImap().get(jobId).getJobStatus();
+        }
+        return jobStatus;
     }
 
     public JobMetrics getJobMetrics(long jobId) {
@@ -507,6 +524,63 @@ public class CoordinatorService {
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(runningJobMaster.getCurrJobMetrics());
         JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
         return jobMetricsImap != null ? jobMetricsImap.merge(jobMetrics) : jobMetrics;
+    }
+
+    public Map<Long, JobMetrics> getRunningJobMetrics() {
+        final Set<Long> runningJobIds = runningJobMasterMap.keySet();
+
+        Set<Address> addresses = new HashSet<>();
+        ownedSlotProfilesIMap.forEach(
+                (pipelineLocation, ownedSlotProfilesIMap) -> {
+                    if (runningJobIds.contains(pipelineLocation.getJobId())) {
+                        ownedSlotProfilesIMap
+                                .values()
+                                .forEach(
+                                        ownedSlotProfile -> {
+                                            addresses.add(ownedSlotProfile.getWorker());
+                                        });
+                    }
+                });
+
+        List<RawJobMetrics> metrics = new ArrayList<>();
+
+        addresses.forEach(
+                address -> {
+                    try {
+                        if (nodeEngine.getClusterService().getMember(address) != null) {
+                            RawJobMetrics rawJobMetrics =
+                                    (RawJobMetrics)
+                                            NodeEngineUtil.sendOperationToMemberNode(
+                                                            nodeEngine,
+                                                            new GetMetricsOperation(runningJobIds),
+                                                            address)
+                                                    .get();
+                            metrics.add(rawJobMetrics);
+                        }
+                    }
+                    // HazelcastInstanceNotActiveException. It means that the node is
+                    // offline, so waiting for the taskGroup to restore can be successful
+                    catch (HazelcastInstanceNotActiveException e) {
+                        logger.warning(
+                                String.format(
+                                        "get metrics with exception: %s.",
+                                        ExceptionUtils.getMessage(e)));
+                    } catch (Exception e) {
+                        throw new SeaTunnelException(e.getMessage());
+                    }
+                });
+
+        Map<Long, JobMetrics> longJobMetricsMap = toJobMetricsMap(metrics);
+
+        longJobMetricsMap.forEach(
+                (jobId, jobMetrics) -> {
+                    JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
+                    if (jobMetricsImap != null) {
+                        longJobMetricsMap.put(jobId, jobMetricsImap.merge(jobMetrics));
+                    }
+                });
+
+        return longJobMetricsMap;
     }
 
     public JobDAGInfo getJobInfo(long jobId) {
@@ -522,10 +596,15 @@ public class CoordinatorService {
      * TaskGroup's state.
      */
     public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
+        logger.info(
+                String.format(
+                        "Received task end from execution %s, state %s",
+                        taskExecutionState.getTaskGroupLocation(),
+                        taskExecutionState.getExecutionState()));
         TaskGroupLocation taskGroupLocation = taskExecutionState.getTaskGroupLocation();
         JobMaster runningJobMaster = runningJobMasterMap.get(taskGroupLocation.getJobId());
         if (runningJobMaster == null) {
-            throw new JobException(
+            throw new JobNotFoundException(
                     String.format("Job %s not running", taskGroupLocation.getJobId()));
         }
         runningJobMaster.updateTaskExecutionState(taskExecutionState);
@@ -572,7 +651,7 @@ public class CoordinatorService {
                                     || executionState.equals(ExecutionState.RUNNING)
                                     || executionState.equals(ExecutionState.CANCELING))) {
                         TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
-                        physicalVertex.updateTaskExecutionState(
+                        physicalVertex.updateStateByExecutionService(
                                 new TaskExecutionState(
                                         taskGroupLocation,
                                         ExecutionState.FAILED,
@@ -625,9 +704,6 @@ public class CoordinatorService {
         AtomicLong cancellingJobCount = new AtomicLong();
         AtomicLong canceledJobCount = new AtomicLong();
         AtomicLong finishedJobCount = new AtomicLong();
-        AtomicLong restartingJobCount = new AtomicLong();
-        AtomicLong suspendedJobCount = new AtomicLong();
-        AtomicLong reconcilingJobCount = new AtomicLong();
 
         if (runningJobInfoIMap != null) {
             runningJobInfoIMap
@@ -653,7 +729,7 @@ public class CoordinatorService {
                                         case FAILED:
                                             failedJobCount.addAndGet(1);
                                             break;
-                                        case CANCELLING:
+                                        case CANCELING:
                                             cancellingJobCount.addAndGet(1);
                                             break;
                                         case CANCELED:
@@ -661,15 +737,6 @@ public class CoordinatorService {
                                             break;
                                         case FINISHED:
                                             finishedJobCount.addAndGet(1);
-                                            break;
-                                        case RESTARTING:
-                                            restartingJobCount.addAndGet(1);
-                                            break;
-                                        case SUSPENDED:
-                                            suspendedJobCount.addAndGet(1);
-                                            break;
-                                        case RECONCILING:
-                                            reconcilingJobCount.addAndGet(1);
                                             break;
                                         default:
                                     }
@@ -695,12 +762,14 @@ public class CoordinatorService {
                         "canceledJobCount",
                         canceledJobCount,
                         "finishedJobCount",
-                        finishedJobCount,
-                        "restartingJobCount",
-                        restartingJobCount,
-                        "suspendedJobCount",
-                        suspendedJobCount,
-                        "reconcilingJobCount",
-                        reconcilingJobCount));
+                        finishedJobCount));
+    }
+
+    public ConnectorPackageService getConnectorPackageService() {
+        if (connectorPackageService == null) {
+            throw new SeaTunnelEngineException(
+                    "The user is not configured to enable connector package service, can not get connector package service service from master node.");
+        }
+        return connectorPackageService;
     }
 }

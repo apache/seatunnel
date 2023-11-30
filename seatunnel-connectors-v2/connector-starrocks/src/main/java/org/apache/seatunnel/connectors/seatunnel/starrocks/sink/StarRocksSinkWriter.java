@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StarRocksSinkManager;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
@@ -60,8 +60,10 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         try {
             record = serializer.serialize(element);
         } catch (Exception e) {
-            log.error("serialize failed. Row={}", element);
-            throw e;
+            throw new StarRocksConnectorException(
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                    "serialize failed. Row={" + element + "}",
+                    e);
         }
         manager.write(record);
     }
@@ -82,7 +84,8 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
             }
         } catch (IOException e) {
             log.error("Close starRocks manager failed.", e);
-            throw new StarRocksConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
+            throw new StarRocksConnectorException(
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);
         }
     }
 
@@ -98,7 +101,7 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
             return new StarRocksJsonSerializer(seaTunnelRowType, sinkConfig.isEnableUpsertDelete());
         }
         throw new StarRocksConnectorException(
-                CommonErrorCode.ILLEGAL_ARGUMENT,
+                CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                 "Failed to create row serializer, unsupported `format` from stream load properties.");
     }
 }

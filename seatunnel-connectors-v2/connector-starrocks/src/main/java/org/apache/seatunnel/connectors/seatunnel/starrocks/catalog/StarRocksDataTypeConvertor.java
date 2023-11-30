@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -25,8 +24,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
 
 import org.apache.commons.collections4.MapUtils;
 
@@ -49,7 +47,7 @@ public class StarRocksDataTypeConvertor implements DataTypeConvertor<MysqlType> 
     public static final Integer DEFAULT_SCALE = 0;
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
+    public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
         checkNotNull(connectorDataType, "connectorDataType can not be null");
         MysqlType mysqlType = MysqlType.getByName(connectorDataType);
         Map<String, Object> dataTypeProperties;
@@ -78,15 +76,14 @@ public class StarRocksDataTypeConvertor implements DataTypeConvertor<MysqlType> 
                 dataTypeProperties = Collections.emptyMap();
                 break;
         }
-        return toSeaTunnelType(mysqlType, dataTypeProperties);
+        return toSeaTunnelType(field, mysqlType, dataTypeProperties);
     }
 
     // todo: It's better to wrapper MysqlType to a pojo in ST, since MysqlType doesn't contains
     // properties.
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            MysqlType mysqlType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field, MysqlType mysqlType, Map<String, Object> dataTypeProperties) {
         checkNotNull(mysqlType, "mysqlType can not be null");
 
         switch (mysqlType) {
@@ -148,14 +145,16 @@ public class StarRocksDataTypeConvertor implements DataTypeConvertor<MysqlType> 
                 return new DecimalType(precision, scale);
                 // TODO: support 'SET' & 'YEAR' type
             default:
-                throw DataTypeConvertException.convertToSeaTunnelDataTypeException(mysqlType);
+                throw CommonError.convertToSeaTunnelTypeError(
+                        "StarRocks", mysqlType.toString(), field);
         }
     }
 
     @Override
     public MysqlType toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties) {
         SqlType sqlType = seaTunnelDataType.getSqlType();
         // todo: verify
         switch (sqlType) {
@@ -191,9 +190,8 @@ public class StarRocksDataTypeConvertor implements DataTypeConvertor<MysqlType> 
             case TIMESTAMP:
                 return MysqlType.TIMESTAMP;
             default:
-                throw new StarRocksConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        String.format("Doesn't support type '%s' yet", sqlType));
+                throw CommonError.convertToConnectorTypeError(
+                        "StarRocks", sqlType.toString(), field);
         }
     }
 

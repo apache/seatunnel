@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.AfterAll;
@@ -52,6 +54,10 @@ import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
 
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK},
+        disabledReason = "Spark engine will lose the row kind of record")
 @Slf4j
 public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResource {
     private static final String PG_IMAGE = "postgres:14-alpine";
@@ -120,6 +126,16 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
                 Stream.<List<Object>>of(Arrays.asList(1L, "A_1", 100), Arrays.asList(3L, "C", 100))
                         .collect(Collectors.toSet());
         Assertions.assertIterableEquals(expected, actual);
+        try (Connection connection =
+                DriverManager.getConnection(
+                        postgreSQLContainer.getJdbcUrl(),
+                        postgreSQLContainer.getUsername(),
+                        postgreSQLContainer.getPassword())) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("truncate table sink");
+                log.info("testSinkCDCChangelog truncate table sink");
+            }
+        }
     }
 
     private void initializeJdbcTable() {
