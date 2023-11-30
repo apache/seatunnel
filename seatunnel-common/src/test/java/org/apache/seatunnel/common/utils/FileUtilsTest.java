@@ -26,6 +26,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Paths;
 
 public class FileUtilsTest {
     @Test
@@ -77,5 +78,19 @@ public class FileUtilsTest {
                 bw.newLine();
             }
         }
+    }
+
+    @Test
+    public void createNewFile() throws IOException {
+        FileUtils.createNewFile("/tmp/test.txt");
+        Assertions.assertEquals("", FileUtils.readFileToStr(Paths.get("/tmp/test.txt")));
+
+        FileUtils.createNewFile("/tmp/newfolder/test.txt");
+        Assertions.assertEquals("", FileUtils.readFileToStr(Paths.get("/tmp/newfolder/test.txt")));
+
+        FileUtils.createNewFile("/tmp/newfolder/newfolder2/newfolde3/test.txt");
+        Assertions.assertEquals(
+                "",
+                FileUtils.readFileToStr(Paths.get("/tmp/newfolder/newfolder2/newfolde3/test.txt")));
     }
 }
