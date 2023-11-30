@@ -58,7 +58,7 @@ public class XuguTypeMapper implements JdbcDialectTypeMapper {
     private static final String XUGU_TIMESTAMP = "TIMESTAMP";
     private static final String XUGU_DATETIME = "DATETIME";
     private static final String XUGU_TIME_WITH_TIME_ZONE = "TIME WITH TIME ZONE";
-    private static final String XUGU_TIMESTAMP_WITH_TIME_ZONE = "TIMESTAMP WITH TIME ZONE";
+    private static final String XUGU_DATETIME_WITH_TIME_ZONE = "DATETIME WITH TIME ZONE";
 
     // ---------------------------binary---------------------------
     private static final String XUGU_BINARY = "BINARY";
@@ -126,9 +126,11 @@ public class XuguTypeMapper implements JdbcDialectTypeMapper {
 
             case XUGU_TIMESTAMP:
             case XUGU_DATETIME:
+            case XUGU_DATETIME_WITH_TIME_ZONE:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
 
             case XUGU_TIME:
+            case XUGU_TIME_WITH_TIME_ZONE:
                 return LocalTimeType.LOCAL_TIME_TYPE;
 
             case XUGU_DATE:
@@ -152,8 +154,6 @@ public class XuguTypeMapper implements JdbcDialectTypeMapper {
             case XUGU_INTERVAL_MINUTE:
             case XUGU_INTERVAL_MINUTE_TO_SECOND:
             case XUGU_INTERVAL_SECOND:
-            case XUGU_TIME_WITH_TIME_ZONE:
-            case XUGU_TIMESTAMP_WITH_TIME_ZONE:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
                 throw CommonError.convertToSeaTunnelTypeError(
