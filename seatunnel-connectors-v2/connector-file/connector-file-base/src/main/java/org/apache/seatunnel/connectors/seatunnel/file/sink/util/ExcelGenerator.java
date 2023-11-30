@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.util;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -187,7 +187,7 @@ public class ExcelGenerator {
                     break;
                 default:
                     throw new FileConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             String.format("[%s] type not support ", type.getSqlType()));
             }
         }
@@ -230,7 +230,7 @@ public class ExcelGenerator {
                 return String.join(fieldDelimiter, strings);
             default:
                 throw new FileConnectorException(
-                        CommonErrorCode.FILE_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
                         "SeaTunnel format text not supported for parsing this type");
         }
     }
@@ -251,7 +251,8 @@ public class ExcelGenerator {
             cell.setCellStyle(timeCellStyle);
         } else {
             throw new FileConnectorException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Time series type expected for field");
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                    "Time series type expected for field");
         }
     }
 

@@ -43,10 +43,10 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
 
     private static final long serialVersionUID = 1L;
 
-    private final JdbcConnectionConfig jdbcConfig;
+    protected final JdbcConnectionConfig jdbcConfig;
 
     private transient Driver loadedDriver;
-    private transient Connection connection;
+    protected transient Connection connection;
 
     public SimpleJdbcConnectionProvider(@NonNull JdbcConnectionConfig jdbcConfig) {
         this.jdbcConfig = jdbcConfig;
@@ -88,7 +88,7 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
         }
     }
 
-    private Driver getLoadedDriver() throws SQLException, ClassNotFoundException {
+    protected Driver getLoadedDriver() throws SQLException, ClassNotFoundException {
         if (loadedDriver == null) {
             loadedDriver = loadDriver(jdbcConfig.getDriverName());
         }
@@ -108,6 +108,7 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
         if (jdbcConfig.getPassword().isPresent()) {
             info.setProperty("password", jdbcConfig.getPassword().get());
         }
+        info.putAll(jdbcConfig.getProperties());
         connection = driver.connect(jdbcConfig.getUrl(), info);
         if (connection == null) {
             // Throw same exception as DriverManager.getConnection when no driver found to match
@@ -139,5 +140,13 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
     public Connection reestablishConnection() throws SQLException, ClassNotFoundException {
         closeConnection();
         return getOrEstablishConnection();
+    }
+
+    public JdbcConnectionConfig getJdbcConfig() {
+        return jdbcConfig;
+    }
+
+    public void setConnection(Connection connection) {
+        this.connection = connection;
     }
 }

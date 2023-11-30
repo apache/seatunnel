@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 
 import com.aliyun.odps.Odps;
@@ -82,7 +82,8 @@ public class MaxcomputeUtil {
                                 pluginConfig.getString(TABLE_NAME.key()));
             }
         } catch (Exception e) {
-            throw new MaxcomputeConnectorException(CommonErrorCode.READER_OPERATION_FAILED, e);
+            throw new MaxcomputeConnectorException(
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED, e);
         }
         return session;
     }
@@ -115,7 +116,8 @@ public class MaxcomputeUtil {
                 }
             }
         } catch (Exception e) {
-            throw new MaxcomputeConnectorException(CommonErrorCode.READER_OPERATION_FAILED, e);
+            throw new MaxcomputeConnectorException(
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED, e);
         }
     }
 }

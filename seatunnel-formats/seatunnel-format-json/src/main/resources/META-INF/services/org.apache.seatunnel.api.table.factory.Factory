@@ -18,3 +18,4 @@
 org.apache.seatunnel.format.json.JsonFormatFactory
 org.apache.seatunnel.format.json.canal.CanalJsonFormatFactory
 org.apache.seatunnel.format.json.debezium.DebeziumJsonFormatFactory
+org.apache.seatunnel.format.json.ogg.OggJsonFormatFactory

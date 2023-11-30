@@ -65,7 +65,7 @@ import static org.awaitility.Awaitility.await;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
+        type = {EngineType.SPARK},
         disabledReason = "Currently SPARK and FLINK do not support cdc")
 public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
 
@@ -81,8 +81,64 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
             "IF EXISTS(select 1 from sys.databases where name='#' AND is_cdc_enabled=1)\n"
                     + "EXEC sys.sp_cdc_disable_db";
 
-    private static final String SOURCE_SQL = "select * from column_type_test.dbo.full_types";
-    private static final String SINK_SQL = "select * from column_type_test.dbo.full_types_sink";
+    private static final String SOURCE_SQL =
+            "select\n"
+                    + "  id,\n"
+                    + "  val_char,\n"
+                    + "  val_varchar,\n"
+                    + "  val_text,\n"
+                    + "  val_nchar,\n"
+                    + "  val_nvarchar,\n"
+                    + "  val_ntext,\n"
+                    + "  val_decimal,\n"
+                    + "  val_numeric,\n"
+                    + "  val_float,\n"
+                    + "  val_real,\n"
+                    + "  val_smallmoney,\n"
+                    + "  val_money,\n"
+                    + "  val_bit,\n"
+                    + "  val_tinyint,\n"
+                    + "  val_smallint,\n"
+                    + "  val_int,\n"
+                    + "  val_bigint,\n"
+                    + "  val_date,\n"
+                    + "  val_time,\n"
+                    + "  val_datetime2,\n"
+                    + "  val_datetime,\n"
+                    + "  val_smalldatetime,\n"
+                    + "  val_xml,\n"
+                    + "  val_datetimeoffset,\n"
+                    + "  CONVERT(varchar(100), val_varbinary) as val_varbinary\n"
+                    + "from column_type_test.dbo.full_types";
+    private static final String SINK_SQL =
+            "select\n"
+                    + "  id,\n"
+                    + "  val_char,\n"
+                    + "  val_varchar,\n"
+                    + "  val_text,\n"
+                    + "  val_nchar,\n"
+                    + "  val_nvarchar,\n"
+                    + "  val_ntext,\n"
+                    + "  val_decimal,\n"
+                    + "  val_numeric,\n"
+                    + "  val_float,\n"
+                    + "  val_real,\n"
+                    + "  val_smallmoney,\n"
+                    + "  val_money,\n"
+                    + "  val_bit,\n"
+                    + "  val_tinyint,\n"
+                    + "  val_smallint,\n"
+                    + "  val_int,\n"
+                    + "  val_bigint,\n"
+                    + "  val_date,\n"
+                    + "  val_time,\n"
+                    + "  val_datetime2,\n"
+                    + "  val_datetime,\n"
+                    + "  val_smalldatetime,\n"
+                    + "  val_xml,\n"
+                    + "  val_datetimeoffset,\n"
+                    + "  CONVERT(varchar(100), val_varbinary) as val_varbinary\n"
+                    + "from column_type_test.dbo.full_types_sink";
 
     public static final MSSQLServerContainer MSSQL_SERVER_CONTAINER =
             new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2019-latest")
@@ -206,14 +262,14 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                         + "                               1.123, 2, 3.323, 4.323, 5.323, 6.323,\n"
                         + "                               1, 22, 333, 4444, 55555,\n"
                         + "                               '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',\n"
-                        + "                               '<a>b</a>');");
+                        + "                               '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)));");
         executeSql(
                 "INSERT INTO column_type_test.dbo.full_types VALUES (4,\n"
                         + "                               'cč4', 'vcč', 'tč', N'cč', N'vcč', N'tč',\n"
                         + "                               1.123, 2, 3.323, 4.323, 5.323, 6.323,\n"
                         + "                               1, 22, 333, 4444, 55555,\n"
                         + "                               '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',\n"
-                        + "                               '<a>b</a>');");
+                        + "                               '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)));");
 
         executeSql("DELETE FROM column_type_test.dbo.full_types where id = 2");
 

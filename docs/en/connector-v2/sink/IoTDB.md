@@ -50,10 +50,10 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 
 |            Name             |  Type   | Required |            Default             |                                                                            Description                                                                            |
 |-----------------------------|---------|----------|--------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| node_urls                   | Array   | Yes      | -                              | `IoTDB` cluster address, the format is `["host:port", ...]`                                                                                                       |
+| node_urls                   | String  | Yes      | -                              | `IoTDB` cluster address, the format is `"host1:port"` or `"host1:port,host2:port"`                                                                                |
 | username                    | String  | Yes      | -                              | `IoTDB` user username                                                                                                                                             |
 | password                    | String  | Yes      | -                              | `IoTDB` user password                                                                                                                                             |
-| key_device                  | String  | No       | -                              | Specify field name of the `IoTDB` deviceId in SeaTunnelRow                                                                                                        |
+| key_device                  | String  | Yes      | -                              | Specify field name of the `IoTDB` deviceId in SeaTunnelRow                                                                                                        |
 | key_timestamp               | String  | No       | processing time                | Specify field-name of the `IoTDB` timestamp in SeaTunnelRow. If not specified, use processing-time as timestamp                                                   |
 | key_measurement_fields      | Array   | No       | exclude `device` & `timestamp` | Specify field-name of the `IoTDB` measurement list in SeaTunnelRow. If not specified, include all fields but exclude `device` & `timestamp`                       |
 | storage_group               | Array   | No       | -                              | Specify device storage group(path prefix) <br/> example: deviceId = ${storage_group} + "." +  ${key_device}                                                       |
@@ -68,77 +68,123 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 | connection_timeout_in_ms    | Integer | No       | -                              | The maximum time (in ms) to wait when connecting to `IoTDB`                                                                                                       |
 | common-options              |         | no       | -                              | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                               |
 
-## Task Example
-
-### Case1
-
-Common options:
+## Examples
 
 ```hocon
-sink {
-  IoTDB {
-    node_urls = ["localhost:6667"]
-    username = "root"
-    password = "root"
-    batch_size = 1024
+env {
+  execution.parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 16
+    bigint.template = [1664035200001]
+    schema = {
+      fields {
+        device_name = "string"
+        temperature = "float"
+        moisture = "int"
+        event_ts = "bigint"
+        c_string = "string"
+        c_boolean = "boolean"
+        c_tinyint = "tinyint"
+        c_smallint = "smallint"
+        c_int = "int"
+        c_bigint = "bigint"
+        c_float = "float"
+        c_double = "double"
+      }
+    }
   }
 }
-```
 
-When you assign `key_device`  is `device_name`, for example:
+...
 
-```hocon
-sink {
-  IoTDB {
-    ...
-    key_device = "device_name"
-  }
-}
 ```
 
 Upstream SeaTunnelRow data format is the following:
 
-|       device_name        | field_1 | field_2 |
-|--------------------------|---------|---------|
-| root.test_group.device_a | 1001    | 1002    |
-| root.test_group.device_b | 2001    | 2002    |
-| root.test_group.device_c | 3001    | 3002    |
+|       device_name        | temperature | moisture |   event_ts    | c_string | c_boolean | c_tinyint | c_smallint | c_int |  c_bigint  | c_float | c_double |
+|--------------------------|-------------|----------|---------------|----------|-----------|-----------|------------|-------|------------|---------|----------|
+| root.test_group.device_a | 36.1        | 100      | 1664035200001 | abc1     | true      | 1         | 1          | 1     | 2147483648 | 1.0     | 1.0      |
+| root.test_group.device_b | 36.2        | 101      | 1664035200001 | abc2     | false     | 2         | 2          | 2     | 2147483649 | 2.0     | 2.0      |
+| root.test_group.device_c | 36.3        | 102      | 1664035200001 | abc3     | false     | 3         | 3          | 3     | 2147483649 | 3.0     | 3.0      |
+
+### Case1
+
+only fill required config.
+use current processing time as timestamp. and include all fields but exclude `device` & `timestamp` as measurement fields
+
+```hocon
+sink {
+  IoTDB {
+    node_urls = "localhost:6667"
+    username = "root"
+    password = "root"
+    key_device = "device_name" # specify the `deviceId` use device_name field
+  }
+}
+```
 
 Output to `IoTDB` data format is the following:
 
 ```shell
 IoTDB> SELECT * FROM root.test_group.* align by device;
-+------------------------+------------------------+-----------+----------+
-|                    Time|                  Device|   field_1|    field_2|
-+------------------------+------------------------+----------+-----------+
-|2022-09-26T17:50:01.201Z|root.test_group.device_a|      1001|       1002|
-|2022-09-26T17:50:01.202Z|root.test_group.device_b|      2001|       2002|
-|2022-09-26T17:50:01.203Z|root.test_group.device_c|      3001|       3002|
-+------------------------+------------------------+----------+-----------+
++------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
+|                    Time|                  Device|   temperature|   moisture|      event_ts| c_string| c_boolean| c_tinyint| c_smallint| c_int|   c_bigint| c_float| c_double|
++------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
+|2023-09-01T00:00:00.001Z|root.test_group.device_a|          36.1|        100| 1664035200001|     abc1|      true|         1|          1|     1| 2147483648|     1.0|      1.0| 
+|2023-09-01T00:00:00.001Z|root.test_group.device_b|          36.2|        101| 1664035200001|     abc2|     false|         2|          2|     2| 2147483649|     2.0|      2.0|
+|2023-09-01T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc2|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
++------------------------+------------------------+--------------+-----------+--------------+---------+---------+-----------+-----------+------+-----------+--------+---------+
 ```
 
 ### Case2
 
-When you assign `key_device`、`key_timestamp`、`key_measurement_fields`, for example:
+use source event's time
 
 ```hocon
 sink {
   IoTDB {
-    ...
-    key_device = "device_name"
-    key_timestamp = "ts"
-    key_measurement_fields = ["temperature", "moisture"]
+    node_urls = "localhost:6667"
+    username = "root"
+    password = "root"
+    key_device = "device_name" # specify the `deviceId` use device_name field
+    key_timestamp = "event_ts" # specify the `timestamp` use event_ts field
   }
 }
 ```
 
-Upstream SeaTunnelRow data format is the following:
+Output to `IoTDB` data format is the following:
 
-|      ts       |       device_name        | field_1 | field_2 | temperature | moisture |
-|---------------|--------------------------|---------|---------|-------------|----------|
-| 1664035200001 | root.test_group.device_a | 1001    | 1002    | 36.1        | 100      |
-| 1664035200001 | root.test_group.device_b | 2001    | 2002    | 36.2        | 101      |
-| 1664035200001 | root.test_group.device_c | 3001    | 3002    | 36.3        | 102      |
+```shell
+IoTDB> SELECT * FROM root.test_group.* align by device;
++------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
+|                    Time|                  Device|   temperature|   moisture|      event_ts| c_string| c_boolean| c_tinyint| c_smallint| c_int|   c_bigint| c_float| c_double|
++------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
+|2022-09-25T00:00:00.001Z|root.test_group.device_a|          36.1|        100| 1664035200001|     abc1|      true|         1|          1|     1| 2147483648|     1.0|      1.0| 
+|2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101| 1664035200001|     abc2|     false|         2|          2|     2| 2147483649|     2.0|      2.0|
+|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc2|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
++------------------------+------------------------+--------------+-----------+--------------+---------+---------+-----------+-----------+------+-----------+--------+---------+
+```
+
+### Case3
+
+use source event's time and limit measurement fields
+
+```hocon
+sink {
+  IoTDB {
+    node_urls = "localhost:6667"
+    username = "root"
+    password = "root"
+    key_device = "device_name"
+    key_timestamp = "event_ts"
+    key_measurement_fields = ["temperature", "moisture"]
+  }
+}
+```
 
 Output to `IoTDB` data format is the following:
 

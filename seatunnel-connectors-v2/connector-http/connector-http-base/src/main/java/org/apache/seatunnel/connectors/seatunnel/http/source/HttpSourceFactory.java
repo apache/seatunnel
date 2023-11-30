@@ -19,13 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.http.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 
 import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class HttpSourceFactory implements TableSourceFactory {
@@ -40,6 +44,14 @@ public class HttpSourceFactory implements TableSourceFactory {
         return getHttpBuilder().build();
     }
 
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new HttpSource(context.getOptions().toConfig());
+    }
+
     public OptionRule.Builder getHttpBuilder() {
         return OptionRule.builder()
                 .required(HttpConfig.URL)
@@ -47,11 +59,13 @@ public class HttpSourceFactory implements TableSourceFactory {
                 .optional(HttpConfig.HEADERS)
                 .optional(HttpConfig.PARAMS)
                 .optional(HttpConfig.FORMAT)
+                .optional(HttpConfig.BODY)
                 .optional(HttpConfig.JSON_FIELD)
                 .optional(HttpConfig.CONTENT_FIELD)
-                .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, HttpConfig.BODY)
                 .conditional(
-                        HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, CatalogTableUtil.SCHEMA)
+                        HttpConfig.FORMAT,
+                        HttpConfig.ResponseFormat.JSON,
+                        TableSchemaOptions.SCHEMA)
                 .optional(HttpConfig.POLL_INTERVAL_MILLS)
                 .optional(HttpConfig.RETRY)
                 .optional(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)

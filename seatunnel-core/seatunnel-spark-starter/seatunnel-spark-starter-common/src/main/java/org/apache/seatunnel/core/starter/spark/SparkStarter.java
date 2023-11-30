@@ -169,9 +169,9 @@ public class SparkStarter implements Starter {
                                 Map.Entry::getKey, e -> e.getValue().unwrapped().toString()));
     }
 
-    /** return connector's jars, which located in 'connectors/spark/*'. */
+    /** return connector's jars, which located in 'connectors/*'. */
     private List<Path> getConnectorJarDependencies() {
-        Path pluginRootDir = Common.connectorJarDir("seatunnel");
+        Path pluginRootDir = Common.connectorDir();
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
         }

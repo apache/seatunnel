@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -26,6 +32,7 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -97,7 +104,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  geometrycollection geometry(GEOMETRYCOLLECTION, 4326),\n"
                     + "  geog geography(POINT, 4326),\n"
                     + "  json_col json NOT NULL,\n"
-                    + "  jsonb_col jsonb NOT NULL\n"
+                    + "  jsonb_col jsonb NOT NULL,\n"
+                    + "  xml_col xml NOT NULL\n"
                     + ")";
     private static final String PG_SINK_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_sink_table (\n"
@@ -130,7 +138,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    geometrycollection varchar(2000) NULL,\n"
                     + "    geog varchar(2000) NULL,\n"
                     + "    json_col json NOT NULL \n,"
-                    + "    jsonb_col jsonb NOT NULL\n"
+                    + "    jsonb_col jsonb NOT NULL,\n"
+                    + "    xml_col xml NOT NULL\n"
                     + "  )";
     private static final String SOURCE_SQL =
             "select \n"
@@ -163,7 +172,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "geometrycollection,\n"
                     + "geog,\n"
                     + "json_col,\n"
-                    + "jsonb_col\n"
+                    + "jsonb_col,\n"
+                    + " cast(xml_col as varchar) \n"
                     + "from pg_e2e_source_table";
     private static final String SINK_SQL =
             "select\n"
@@ -196,7 +206,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  cast(geometrycollection as geometry) as geometrycollection,\n"
                     + "  cast(geog as geography) as geog,\n"
                     + "   json_col,\n"
-                    + "   jsonb_col\n"
+                    + "   jsonb_col,\n"
+                    + "  cast(xml_col as varchar) \n"
                     + "from\n"
                     + "  pg_e2e_sink_table";
 
@@ -252,6 +263,43 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @Test
+    public void testCatalog() {
+        String schema = "public";
+        String databaseName = POSTGRESQL_CONTAINER.getDatabaseName();
+        String tableName = "pg_e2e_sink_table";
+        String catalogDatabaseName = "pg_e2e_catalog_database";
+        String catalogTableName = "pg_e2e_catalog_table";
+
+        Catalog catalog =
+                new PostgresCatalog(
+                        DatabaseIdentifier.POSTGRESQL,
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
+                        schema);
+        catalog.open();
+
+        TablePath tablePath = new TablePath(databaseName, schema, tableName);
+        TablePath catalogTablePath = new TablePath(catalogDatabaseName, schema, catalogTableName);
+
+        Assertions.assertFalse(catalog.databaseExists(catalogTablePath.getDatabaseName()));
+        catalog.createDatabase(catalogTablePath, false);
+        Assertions.assertTrue(catalog.databaseExists(catalogTablePath.getDatabaseName()));
+
+        CatalogTable catalogTable = catalog.getTable(tablePath);
+        catalog.createTable(catalogTablePath, catalogTable, false);
+        Assertions.assertTrue(catalog.tableExists(catalogTablePath));
+
+        catalog.dropTable(catalogTablePath, false);
+        Assertions.assertFalse(catalog.tableExists(catalogTablePath));
+
+        catalog.dropDatabase(catalogTablePath, false);
+        Assertions.assertFalse(catalog.databaseExists(catalogTablePath.getDatabaseName()));
+
+        catalog.close();
+    }
+
     private void initializeJdbcTable() {
         try (Connection connection = getJdbcConnection()) {
             Statement statement = connection.createStatement();
@@ -289,7 +337,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    geometrycollection,\n"
                                 + "    geog,\n"
                                 + "    json_col,\n"
-                                + "    jsonb_col \n"
+                                + "    jsonb_col, \n"
+                                + "    xml_col \n"
                                 + "  )\n"
                                 + "VALUES\n"
                                 + "  (\n"
@@ -342,7 +391,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    ),\n"
                                 + "    ST_GeographyFromText('POINT(-122.3452 47.5925)'),\n"
                                 + "    '{\"key\":\"test\"}',\n"
-                                + "    '{\"key\":\"test\"}'\n"
+                                + "    '{\"key\":\"test\"}',\n"
+                                + "    '<XX:NewSize>test</XX:NewSize>'\n"
                                 + "  )");
             }
 

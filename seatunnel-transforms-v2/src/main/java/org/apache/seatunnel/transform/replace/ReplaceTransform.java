@@ -17,32 +17,23 @@
 
 package org.apache.seatunnel.transform.replace;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.common.SingleFieldOutputTransform;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import org.apache.commons.collections4.CollectionUtils;
 
-import com.google.auto.service.AutoService;
-import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-@AutoService(SeaTunnelTransform.class)
-@NoArgsConstructor
 public class ReplaceTransform extends SingleFieldOutputTransform {
-    private ReadonlyConfig config;
+    private final ReadonlyConfig config;
     private int inputFieldIndex;
 
     public ReplaceTransform(
@@ -59,34 +50,12 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
         return "Replace";
     }
 
-    @Override
-    protected void setConfig(Config pluginConfig) {
-        ConfigValidator.of(ReadonlyConfig.fromConfig(pluginConfig))
-                .validate(new ReplaceTransformFactory().optionRule());
-        this.config = ReadonlyConfig.fromConfig(pluginConfig);
-    }
-
-    @Override
-    protected void setInputRowType(SeaTunnelRowType rowType) {
-        initOutputFields(rowType, config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD));
-    }
-
     private void initOutputFields(SeaTunnelRowType inputRowType, String replaceField) {
-        inputFieldIndex = inputRowType.indexOf(replaceField);
-        if (inputFieldIndex == -1) {
-            throw new IllegalArgumentException(
-                    "Cannot find [" + replaceField + "] field in input row type");
+        try {
+            inputFieldIndex = inputRowType.indexOf(replaceField);
+        } catch (IllegalArgumentException e) {
+            throw TransformCommonError.cannotFindInputFieldError(getPluginName(), replaceField);
         }
-    }
-
-    @Override
-    protected String getOutputFieldName() {
-        return config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD);
-    }
-
-    @Override
-    protected SeaTunnelDataType getOutputFieldDataType() {
-        return BasicType.STRING_TYPE;
     }
 
     @Override
@@ -97,9 +66,8 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
         }
 
         boolean isRegex =
-                config.get(ReplaceTransformConfig.KEY_IS_REGEX) == null
-                        ? false
-                        : config.get(ReplaceTransformConfig.KEY_IS_REGEX);
+                config.get(ReplaceTransformConfig.KEY_IS_REGEX) != null
+                        && config.get(ReplaceTransformConfig.KEY_IS_REGEX);
         if (isRegex) {
             if (config.get(ReplaceTransformConfig.KEY_REPLACE_FIRST)) {
                 return inputFieldValue
@@ -135,10 +103,8 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
                                                                         .KEY_REPLACE_FIELD)))
                         .collect(Collectors.toList());
         if (CollectionUtils.isEmpty(collect)) {
-            throw new IllegalArgumentException(
-                    "Cannot find ["
-                            + config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD)
-                            + "] field in input catalog table");
+            throw TransformCommonError.cannotFindInputFieldError(
+                    getPluginName(), config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD));
         }
         return collect.get(0).copy();
     }

@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.sink.DataSaveMode;
-import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.StreamLoadFormat;
 
 import java.util.Arrays;
@@ -60,6 +60,7 @@ public interface StarRocksSinkOptions {
                     .stringType()
                     .defaultValue(
                             "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
+                                    + "${rowtype_primary_key},\n"
                                     + "${rowtype_fields}\n"
                                     + ") ENGINE=OLAP\n"
                                     + " PRIMARY KEY (${rowtype_primary_key})\n"
@@ -132,10 +133,15 @@ public interface StarRocksSinkOptions {
                     .withDescription("");
 
     SingleChoiceOption<DataSaveMode> SAVE_MODE =
-            Options.key(SupportDataSaveMode.SAVE_MODE_KEY)
-                    .singleChoice(
-                            DataSaveMode.class, Arrays.asList(DataSaveMode.KEEP_SCHEMA_AND_DATA))
-                    .defaultValue(DataSaveMode.KEEP_SCHEMA_AND_DATA)
+            Options.key(SupportSaveMode.DATA_SAVE_MODE_KEY)
+                    .singleChoice(DataSaveMode.class, Arrays.asList(DataSaveMode.APPEND_DATA))
+                    .defaultValue(DataSaveMode.APPEND_DATA)
                     .withDescription(
                             "Table structure and data processing methods that already exist on the target end");
+
+    Option<Integer> HTTP_SOCKET_TIMEOUT_MS =
+            Options.key("http_socket_timeout_ms")
+                    .intType()
+                    .defaultValue(3 * 60 * 1000)
+                    .withDescription("Set http socket timeout, default is 3 minutes.");
 }

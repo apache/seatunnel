@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.redshift.commit;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
@@ -111,7 +111,9 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
             RedshiftJdbcClient.getInstance(pluginConfig).close();
         } catch (SQLException e) {
             throw new S3RedshiftJdbcConnectorException(
-                    CommonErrorCode.SQL_OPERATION_FAILED, "close redshift jdbc client failed", e);
+                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                    "close redshift jdbc client failed",
+                    e);
         }
     }
 

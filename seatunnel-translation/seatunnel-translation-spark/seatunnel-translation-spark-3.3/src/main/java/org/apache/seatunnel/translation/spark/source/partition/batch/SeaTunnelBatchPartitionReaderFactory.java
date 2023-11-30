@@ -26,16 +26,22 @@ import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReader;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
 
+import java.util.Map;
+
 public class SeaTunnelBatchPartitionReaderFactory implements PartitionReaderFactory {
 
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
 
     private final int parallelism;
+    private final Map<String, String> envOptions;
 
     public SeaTunnelBatchPartitionReaderFactory(
-            SeaTunnelSource<SeaTunnelRow, ?, ?> source, int parallelism) {
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            int parallelism,
+            Map<String, String> envOptions) {
         this.source = source;
         this.parallelism = parallelism;
+        this.envOptions = envOptions;
     }
 
     @Override
@@ -44,9 +50,12 @@ public class SeaTunnelBatchPartitionReaderFactory implements PartitionReaderFact
         int partitionId = inputPartition.getPartitionId();
         ParallelBatchPartitionReader partitionReader;
         if (source instanceof SupportCoordinate) {
-            partitionReader = new CoordinatedBatchPartitionReader(source, parallelism, partitionId);
+            partitionReader =
+                    new CoordinatedBatchPartitionReader(
+                            source, parallelism, partitionId, envOptions);
         } else {
-            partitionReader = new ParallelBatchPartitionReader(source, parallelism, partitionId);
+            partitionReader =
+                    new ParallelBatchPartitionReader(source, parallelism, partitionId, envOptions);
         }
         return new SeaTunnelBatchPartitionReader(partitionReader);
     }

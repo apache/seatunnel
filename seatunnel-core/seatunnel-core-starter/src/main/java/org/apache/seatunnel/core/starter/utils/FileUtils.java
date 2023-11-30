@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 
@@ -65,7 +65,8 @@ public class FileUtils {
     public static void checkConfigExist(Path configFile) {
         if (!configFile.toFile().exists()) {
             String message = "Can't find config file: " + configFile;
-            throw new SeaTunnelRuntimeException(CommonErrorCode.FILE_OPERATION_FAILED, message);
+            throw new SeaTunnelRuntimeException(
+                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, message);
         }
     }
 

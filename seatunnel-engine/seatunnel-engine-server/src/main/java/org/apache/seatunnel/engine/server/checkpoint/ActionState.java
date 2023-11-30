@@ -17,10 +17,13 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import lombok.ToString;
+
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 
+@ToString
 public class ActionState implements Serializable {
 
     private static final long serialVersionUID = 1L;
