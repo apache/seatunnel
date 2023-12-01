@@ -76,21 +76,24 @@ public class FlinkExecution implements TaskExecution {
         } catch (MalformedURLException e) {
             throw new SeaTunnelException("load flink starter error.", e);
         }
-        registerPlugin(config.getConfig("env"));
+        Config envConfig = config.getConfig("env");
+        registerPlugin(envConfig);
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(RuntimeEnvironment.getJobMode(config));
 
         this.sourcePluginExecuteProcessor =
-                new SourceExecuteProcessor(jarPaths, config, jobContext);
+                new SourceExecuteProcessor(
+                        jarPaths, envConfig, config.getConfigList(Constants.SOURCE), jobContext);
         this.transformPluginExecuteProcessor =
                 new TransformExecuteProcessor(
                         jarPaths,
+                        envConfig,
                         TypesafeConfigUtils.getConfigList(
                                 config, Constants.TRANSFORM, Collections.emptyList()),
                         jobContext);
         this.sinkPluginExecuteProcessor =
                 new SinkExecuteProcessor(
-                        jarPaths, config.getConfigList(Constants.SINK), jobContext);
+                        jarPaths, envConfig, config.getConfigList(Constants.SINK), jobContext);
 
         this.flinkRuntimeEnvironment =
                 FlinkRuntimeEnvironment.getInstance(this.registerPlugin(config, jarPaths));
