@@ -67,7 +67,7 @@ public class HttpConfig {
     public static final Option<ResponseFormat> FORMAT =
             Options.key("format")
                     .enumType(ResponseFormat.class)
-                    .noDefaultValue()
+                    .defaultValue(ResponseFormat.TEXT)
                     .withDescription("Http response format");
     public static final Option<Integer> POLL_INTERVAL_MILLS =
             Options.key("poll_interval_millis")
@@ -113,7 +113,8 @@ public class HttpConfig {
                             "SeaTunnel enableMultiLines.This parameter can support http splitting response text by line.");
 
     public enum ResponseFormat {
-        JSON("json");
+        JSON("json"),
+        TEXT("text");
 
         private String format;
 
