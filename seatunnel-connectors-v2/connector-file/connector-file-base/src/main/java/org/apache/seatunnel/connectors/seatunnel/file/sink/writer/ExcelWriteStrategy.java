@@ -62,6 +62,7 @@ public class ExcelWriteStrategy extends AbstractWriteStrategy {
                     }
                     needMoveFiles.put(k, getTargetLocation(k));
                 });
+        beingWrittenWriter.clear();
     }
 
     private ExcelGenerator getOrCreateExcelGenerator(@NonNull String filePath) {
