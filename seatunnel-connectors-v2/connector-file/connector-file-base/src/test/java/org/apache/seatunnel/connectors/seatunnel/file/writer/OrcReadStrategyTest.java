@@ -29,6 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrat
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.File;
 import java.net.URL;
 import java.nio.file.Paths;
@@ -37,6 +39,7 @@ import java.util.List;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
+@Slf4j
 public class OrcReadStrategyTest {
 
     @Test
@@ -51,7 +54,7 @@ public class OrcReadStrategyTest {
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 orcReadStrategy.getSeaTunnelRowTypeInfo(localConf, orcFilePath);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
-        System.out.println(seaTunnelRowTypeInfo);
+        log.info(seaTunnelRowTypeInfo.toString());
         orcReadStrategy.read(orcFilePath, "", testCollector);
         for (SeaTunnelRow row : testCollector.getRows()) {
             Assertions.assertEquals(row.getField(0).getClass(), Boolean.class);
@@ -77,7 +80,7 @@ public class OrcReadStrategyTest {
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 orcReadStrategy.getSeaTunnelRowTypeInfo(localConf, orcFilePath);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
-        System.out.println(seaTunnelRowTypeInfo);
+        log.info(seaTunnelRowTypeInfo.toString());
         orcReadStrategy.read(orcFilePath, "", testCollector);
         for (SeaTunnelRow row : testCollector.getRows()) {
             Assertions.assertEquals(row.getField(0).getClass(), Byte.class);
@@ -95,7 +98,7 @@ public class OrcReadStrategyTest {
 
         @Override
         public void collect(SeaTunnelRow record) {
-            System.out.println(record);
+            log.info(record.toString());
             rows.add(record);
         }
 
