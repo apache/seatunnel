@@ -146,6 +146,7 @@
 - [Zeta] Improve Zeta operation max count and ignore NPE (#4787)
 - [Zeta] Remove serialize(deserialize) cost when use shuffle action (#4722)
 - [zeta] Checkpoint exception status messages exclude state data (#5547)
+- [Zeta] Remove assert key words (#5947)
 
 ## Feature
 

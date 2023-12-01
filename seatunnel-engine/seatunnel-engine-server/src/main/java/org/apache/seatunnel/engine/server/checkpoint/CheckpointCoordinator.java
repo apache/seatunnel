@@ -606,7 +606,13 @@ public class CheckpointCoordinator {
             long triggerTimestamp,
             CompletableFuture<Long> idFuture,
             CheckpointType checkpointType) {
-        assert Thread.holdsLock(lock);
+        if (!Thread.holdsLock(lock)) {
+            throw new RuntimeException(
+                    String.format(
+                            "Unsafe invoke, the current thread[%s] has not acquired the lock[%s].",
+                            Thread.currentThread().getName(), this.lock.toString()));
+        }
+
         latestTriggerTimestamp.set(triggerTimestamp);
         return idFuture.thenApplyAsync(
                         checkpointId ->
