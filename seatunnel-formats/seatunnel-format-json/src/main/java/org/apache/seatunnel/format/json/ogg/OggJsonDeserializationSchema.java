@@ -27,9 +27,9 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
-import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
 import java.util.regex.Pattern;
@@ -39,6 +39,8 @@ import static java.lang.String.format;
 public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
 
     private static final long serialVersionUID = 1L;
+
+    private static final String FORMAT = "Ogg";
 
     private static final String FIELD_TYPE = "op_type";
 
@@ -55,7 +57,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
     private static final String OP_DELETE = "D"; // DELETE
 
     private static final String REPLICA_IDENTITY_EXCEPTION =
-            "The \"before\" field of %s message is null, "
+            "The \"before\" field of %s operation message is null, "
                     + "if you are using Ogg Postgres Connector, "
                     + "please check the Postgres table has been set REPLICA IDENTITY to FULL level.";
 
@@ -101,9 +103,8 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        throw new SeaTunnelJsonFormatException(
-                CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                String.format("Failed to deserialize JSON '%s'.", new String(message)));
+        throw new UnsupportedOperationException(
+                "Please invoke DeserializationSchema#deserialize(byte[], Collector<SeaTunnelRow>) instead.");
     }
 
     @Override
@@ -111,91 +112,94 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
         return this.physicalRowType;
     }
 
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
-        if (message == null || message.length == 0) {
-            // skip tombstone messages
-            return;
+    private ObjectNode convertBytes(byte[] message) throws SeaTunnelRuntimeException {
+        try {
+            return (ObjectNode) jsonDeserializer.deserializeToJsonNode(message);
+        } catch (Throwable t) {
+            throw CommonError.jsonOperationError(FORMAT, new String(message), t);
         }
-        ObjectNode jsonNode = (ObjectNode) convertBytes(message);
-        assert jsonNode != null;
+    }
 
-        if (database != null
-                && !databasePattern
-                        .matcher(jsonNode.get(FIELD_DATABASE_TABLE).asText().split("\\.")[0])
-                        .matches()) {
-            return;
-        }
-        if (table != null
-                && !tablePattern
-                        .matcher(jsonNode.get(FIELD_DATABASE_TABLE).asText().split("\\.")[1])
-                        .matches()) {
-            return;
-        }
-        String op = jsonNode.get(FIELD_TYPE).asText().trim();
-        if (OP_INSERT.equals(op)) {
-            // Gets the data for the INSERT operation
-            JsonNode dataBefore = jsonNode.get(DATA_AFTER);
-            SeaTunnelRow row = convertJsonNode(dataBefore);
-            out.collect(row);
-        } else if (OP_UPDATE.equals(op)) {
-            JsonNode dataBefore = jsonNode.get(DATA_BEFORE);
-            // Modify Operation Data cannot be empty before modification
-            if (dataBefore == null || dataBefore.isNull()) {
-                throw new IllegalStateException(
-                        String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
+    public void deserialize(ObjectNode jsonNode, Collector<SeaTunnelRow> out) throws IOException {
+        try {
+            if (database != null
+                    && !databasePattern
+                            .matcher(jsonNode.get(FIELD_DATABASE_TABLE).asText().split("\\.")[0])
+                            .matches()) {
+                return;
             }
-            JsonNode dataAfter = jsonNode.get(DATA_AFTER);
-            // Gets the data for the UPDATE BEFORE operation
-            SeaTunnelRow before = convertJsonNode(dataBefore);
-            // Gets the data for the UPDATE AFTER operation
-            SeaTunnelRow after = convertJsonNode(dataAfter);
-            assert before != null;
-            before.setRowKind(RowKind.UPDATE_BEFORE);
-            out.collect(before);
-            assert after != null;
-            after.setRowKind(RowKind.UPDATE_AFTER);
-            out.collect(after);
+            if (table != null
+                    && !tablePattern
+                            .matcher(jsonNode.get(FIELD_DATABASE_TABLE).asText().split("\\.")[1])
+                            .matches()) {
+                return;
+            }
 
-        } else if (OP_DELETE.equals(op)) {
-            JsonNode dataBefore = jsonNode.get(DATA_BEFORE);
-            if (dataBefore == null || dataBefore.isNull()) {
-                throw new IllegalStateException(
-                        String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
+            String op = jsonNode.get(FIELD_TYPE).asText().trim();
+            if (OP_INSERT.equals(op)) {
+                // Gets the data for the INSERT operation
+                JsonNode dataAfter = jsonNode.get(DATA_AFTER);
+                SeaTunnelRow row = convertJsonNode(dataAfter);
+                out.collect(row);
+            } else if (OP_UPDATE.equals(op)) {
+                JsonNode dataBefore = jsonNode.get(DATA_BEFORE);
+                // Modify Operation Data cannot be empty before modification
+                if (dataBefore == null || dataBefore.isNull()) {
+                    throw new IllegalStateException(
+                            String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
+                }
+                JsonNode dataAfter = jsonNode.get(DATA_AFTER);
+                // Gets the data for the UPDATE BEFORE operation
+                SeaTunnelRow before = convertJsonNode(dataBefore);
+                // Gets the data for the UPDATE AFTER operation
+                SeaTunnelRow after = convertJsonNode(dataAfter);
+
+                before.setRowKind(RowKind.UPDATE_BEFORE);
+                out.collect(before);
+
+                after.setRowKind(RowKind.UPDATE_AFTER);
+                out.collect(after);
+            } else if (OP_DELETE.equals(op)) {
+                JsonNode dataBefore = jsonNode.get(DATA_BEFORE);
+                if (dataBefore == null || dataBefore.isNull()) {
+                    throw new IllegalStateException(
+                            String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
+                }
+                // Gets the data for the DELETE BEFORE operation
+                SeaTunnelRow before = convertJsonNode(dataBefore);
+                if (before == null) {
+                    throw new IllegalStateException(
+                            String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
+                }
+                before.setRowKind(RowKind.DELETE);
+                out.collect(before);
+            } else {
+                throw new IllegalStateException(format("Unknown operation type '%s'.", op));
             }
-            // Gets the data for the DELETE BEFORE operation
-            SeaTunnelRow before = convertJsonNode(dataBefore);
-            if (before == null) {
-                throw new SeaTunnelJsonFormatException(
-                        CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                        format(
-                                "The data %s the %s cannot be null \"%s\" ",
-                                "BEFORE", "DELETE", new String(message)));
-            }
-            before.setRowKind(RowKind.DELETE);
-            out.collect(before);
-        } else {
+        } catch (Throwable t) {
             if (!ignoreParseErrors) {
-                throw new SeaTunnelJsonFormatException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                        format(
-                                "Unknown \"type\" value \"%s\". The Canal JSON message is '%s'",
-                                op, new String(message)));
+                throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), t);
             }
         }
     }
 
-    private JsonNode convertBytes(byte[] message) {
-        try {
-            return jsonDeserializer.deserializeToJsonNode(message);
-        } catch (Exception t) {
-            if (ignoreParseErrors) {
-                return null;
-            }
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                    String.format("Failed to deserialize JSON '%s'.", new String(message)),
-                    t);
+    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
+        if (message == null || message.length == 0) {
+            // skip tombstone messages
+            return;
         }
+
+        ObjectNode jsonNode;
+        try {
+            jsonNode = convertBytes(message);
+        } catch (Throwable cause) {
+            if (!ignoreParseErrors) {
+                throw cause;
+            } else {
+                return;
+            }
+        }
+        deserialize(jsonNode, out);
     }
 
     private SeaTunnelRow convertJsonNode(JsonNode root) {

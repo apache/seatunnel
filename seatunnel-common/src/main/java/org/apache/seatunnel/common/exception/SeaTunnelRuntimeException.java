@@ -64,6 +64,15 @@ public class SeaTunnelRuntimeException extends RuntimeException {
         this.params = params;
     }
 
+    public SeaTunnelRuntimeException(
+            SeaTunnelErrorCode seaTunnelErrorCode, Map<String, String> params, Throwable cause) {
+        super(
+                ExceptionParamsUtil.getDescription(seaTunnelErrorCode.getErrorMessage(), params),
+                cause);
+        this.seaTunnelErrorCode = seaTunnelErrorCode;
+        this.params = params;
+    }
+
     public SeaTunnelErrorCode getSeaTunnelErrorCode() {
         return seaTunnelErrorCode;
     }
