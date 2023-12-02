@@ -143,15 +143,7 @@ public class RestApiIT {
                                 .getNodeExtension()
                                 .createExtensionServices()
                                 .get(Constant.SEATUNNEL_SERVICE_NAME);
-        Awaitility.await()
-                .atMost(2, TimeUnit.MINUTES)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        JobStatus.RUNNING,
-                                        seaTunnelServer
-                                                .getCoordinatorService()
-                                                .getJobStatus(Long.parseLong(jobId))));
+
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(
@@ -161,6 +153,19 @@ public class RestApiIT {
                                         seaTunnelServer
                                                 .getCoordinatorService()
                                                 .getJobStatus(Long.parseLong(jobId))));
+
+        given().get(
+                        HOST
+                                + hazelcastInstance
+                                        .getCluster()
+                                        .getLocalMember()
+                                        .getAddress()
+                                        .getPort()
+                                + RestConstant.FINISHED_JOBS_INFO)
+                .then()
+                .statusCode(200)
+                .body("[0].jobName", equalTo("test测试"))
+                .body("[0].jobStatus", equalTo("FINISHED"));
     }
 
     @Test

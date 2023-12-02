@@ -31,6 +31,8 @@ public class RestConstant {
 
     public static final String CREATE_TIME = "createTime";
 
+    public static final String FINISH_TIME = "finishTime";
+
     public static final String ENV_OPTIONS = "envOptions";
 
     public static final String JOB_DAG = "jobDag";
@@ -39,9 +41,13 @@ public class RestConstant {
 
     public static final String JAR_PATH = "jarPath";
 
+    public static final String ERROR_MSG = "errorMsg";
+
     public static final String METRICS = "metrics";
     public static final String RUNNING_JOBS_URL = "/hazelcast/rest/maps/running-jobs";
     public static final String RUNNING_JOB_URL = "/hazelcast/rest/maps/running-job";
+
+    public static final String FINISHED_JOBS_INFO = "/hazelcast/rest/maps/finished-jobs-info";
     public static final String SUBMIT_JOB_URL = "/hazelcast/rest/maps/submit-job";
     public static final String ENCRYPT_CONFIG = "/hazelcast/rest/maps/encrypt-config";
 
