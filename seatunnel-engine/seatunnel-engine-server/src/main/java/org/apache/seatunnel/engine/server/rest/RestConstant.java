@@ -48,5 +48,7 @@ public class RestConstant {
     public static final String SYSTEM_MONITORING_INFORMATION =
             "/hazelcast/rest/maps/system-monitoring-information";
 
+    public static final String HTTP_SUBMIT_JOB = "http://%s:%s";
+
     public static final String STOP_JOB_URL = "/hazelcast/rest/maps/stop-job";
 }

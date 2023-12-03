@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
@@ -42,6 +44,7 @@ import com.hazelcast.internal.serialization.Data;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
@@ -115,23 +118,25 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                                 ? Long.parseLong(requestParams.get(RestConstant.JOB_ID))
                                 : null);
         JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
-        CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
-        Data data =
-                textCommandService
-                        .getNode()
-                        .nodeEngine
-                        .getSerializationService()
-                        .toData(jobImmutableInformation);
-        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-                coordinatorService.submitJob(
-                        Long.parseLong(jobConfig.getJobContext().getJobId()), data);
-        voidPassiveCompletableFuture.join();
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+        AtomicReference<Long> jobId = new AtomicReference<>();
+        if (seaTunnelServer.isMasterNode()){
+            jobId.set(submitJob(jobImmutableInformation, jobConfig, restJobExecutionEnvironment));
+        }else {
+            Hazelcast.getAllHazelcastInstances().forEach(hazelcastInstance -> {
+                if (((SeaTunnelServer) ((HazelcastInstanceImpl)hazelcastInstance)
+                        .node.getNodeExtension().createExtensionServices().get(Constant.SEATUNNEL_SERVICE_NAME)).isMasterNode()){
 
-        Long jobId = restJobExecutionEnvironment.getJobId();
+                    jobId.set(submitJob(jobImmutableInformation, jobConfig, restJobExecutionEnvironment));
+
+                }
+            });
+        }
+
         this.prepareResponse(
                 httpPostCommand,
                 new JsonObject()
-                        .add(RestConstant.JOB_ID, jobId)
+                        .add(RestConstant.JOB_ID, jobId.get())
                         .add(RestConstant.JOB_NAME, requestParams.get(RestConstant.JOB_NAME)));
     }
 
@@ -186,5 +191,21 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
             throw new IllegalArgumentException("Invalid JSON format in request body.");
         }
         return requestBodyJsonNode;
+    }
+
+    private Long submitJob(JobImmutableInformation jobImmutableInformation, JobConfig jobConfig, RestJobExecutionEnvironment restJobExecutionEnvironment){
+        CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
+        Data data =
+                textCommandService
+                        .getNode()
+                        .nodeEngine
+                        .getSerializationService()
+                        .toData(jobImmutableInformation);
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
+                coordinatorService.submitJob(
+                        Long.parseLong(jobConfig.getJobContext().getJobId()), data);
+        voidPassiveCompletableFuture.join();
+
+        return restJobExecutionEnvironment.getJobId();
     }
 }
