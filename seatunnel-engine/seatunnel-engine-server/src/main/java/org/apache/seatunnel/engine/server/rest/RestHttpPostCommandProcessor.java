@@ -33,7 +33,7 @@ import org.apache.seatunnel.engine.server.log.Log4j2HttpPostCommandProcessor;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
 import com.hazelcast.core.Hazelcast;
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpPostCommand;
@@ -118,24 +118,34 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                                 ? Long.parseLong(requestParams.get(RestConstant.JOB_ID))
                                 : null);
         JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+        AtomicReference<SeaTunnelServer> seaTunnelServer =
+                new AtomicReference<>(getSeaTunnelServer());
         AtomicReference<Long> jobId = new AtomicReference<>();
-        if (seaTunnelServer.isMasterNode()) {
-            jobId.set(submitJob(jobImmutableInformation, jobConfig, restJobExecutionEnvironment));
+        if (seaTunnelServer.get().isMasterNode()) {
+            jobId.set(
+                    submitJob(
+                            seaTunnelServer.get(),
+                            jobImmutableInformation,
+                            jobConfig,
+                            restJobExecutionEnvironment));
         } else {
             Hazelcast.getAllHazelcastInstances()
                     .forEach(
                             hazelcastInstance -> {
-                                if (((SeaTunnelServer)
-                                                ((HazelcastInstanceImpl) hazelcastInstance)
+                                seaTunnelServer.set(
+                                        (SeaTunnelServer)
+                                                ((HazelcastInstanceProxy) hazelcastInstance)
+                                                        .getOriginal()
                                                         .node
                                                         .getNodeExtension()
                                                         .createExtensionServices()
-                                                        .get(Constant.SEATUNNEL_SERVICE_NAME))
-                                        .isMasterNode()) {
+                                                        .get(Constant.SEATUNNEL_SERVICE_NAME));
+
+                                if (seaTunnelServer.get().isMasterNode()) {
 
                                     jobId.set(
                                             submitJob(
+                                                    seaTunnelServer.get(),
                                                     jobImmutableInformation,
                                                     jobConfig,
                                                     restJobExecutionEnvironment));
@@ -204,10 +214,11 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
     }
 
     private Long submitJob(
+            SeaTunnelServer seaTunnelServer,
             JobImmutableInformation jobImmutableInformation,
             JobConfig jobConfig,
             RestJobExecutionEnvironment restJobExecutionEnvironment) {
-        CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
+        CoordinatorService coordinatorService = seaTunnelServer.getCoordinatorService();
         Data data =
                 textCommandService
                         .getNode()
