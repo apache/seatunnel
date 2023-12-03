@@ -32,11 +32,15 @@ import org.apache.kudu.client.CreateTableOptions;
 import org.apache.kudu.client.Insert;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduException;
+import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.KuduSession;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.OperationResponse;
 import org.apache.kudu.client.PartialRow;
+import org.apache.kudu.client.RowResult;
+import org.apache.kudu.client.RowResultIterator;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
@@ -62,9 +66,11 @@ import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.lang.String.format;
+import static org.awaitility.Awaitility.await;
 
 @Slf4j
 @DisabledOnContainer(
@@ -163,7 +169,7 @@ public class KuduWIthMultipleTableIT extends TestSuiteBase implements TestResour
         }
     }
 
-    private void initializeKuduTable() throws KuduException {
+    private void initializeKuduTable(String tableName) throws KuduException {
 
         List<ColumnSchema> columns = new ArrayList();
 
@@ -222,8 +228,7 @@ public class KuduWIthMultipleTableIT extends TestSuiteBase implements TestResour
 
         tableOptions.addHashPartitions(hashKeys, 2);
         tableOptions.setNumReplicas(1);
-        kuduClient.createTable("kudu_source_table_1", schema, tableOptions);
-        kuduClient.createTable("kudu_source_table_2", schema, tableOptions);
+        kuduClient.createTable(tableName, schema, tableOptions);
     }
 
     private void getKuduClient() {
@@ -238,8 +243,10 @@ public class KuduWIthMultipleTableIT extends TestSuiteBase implements TestResour
     }
 
     @TestTemplate
-    public void testKudu(TestContainer container) throws IOException, InterruptedException {
-        initializeKuduTable();
+    public void testKuduMultipleRead(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeKuduTable("kudu_source_table_1");
+        initializeKuduTable("kudu_source_table_2");
         batchInsertData("kudu_source_table_1");
         batchInsertData("kudu_source_table_2");
         Container.ExecResult execResult =
@@ -249,7 +256,62 @@ public class KuduWIthMultipleTableIT extends TestSuiteBase implements TestResour
         kuduClient.deleteTable("kudu_source_table_2");
     }
 
+    @TestTemplate
+    public void testKuduMultipleWrite(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeKuduTable("kudu_sink_1");
+        initializeKuduTable("kudu_sink_2");
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_kudu_with_multipletable.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () -> {
+                                            Assertions.assertIterableEquals(
+                                                    Stream.<List<Object>>of(
+                                                                    Arrays.asList(
+                                                                            "1",
+                                                                            "true",
+                                                                            "1",
+                                                                            "2",
+                                                                            "3",
+                                                                            "4",
+                                                                            "4.3",
+                                                                            "5.3",
+                                                                            "6.30000",
+                                                                            "NEW",
+                                                                            "2020-02-02 02:02:02.0"))
+                                                            .collect(Collectors.toList()),
+                                                    readData("kudu_sink_1"));
+                                        },
+                                        () -> {
+                                            Assertions.assertIterableEquals(
+                                                    Stream.<List<Object>>of(
+                                                                    Arrays.asList(
+                                                                            "1",
+                                                                            "true",
+                                                                            "1",
+                                                                            "2",
+                                                                            "3",
+                                                                            "4",
+                                                                            "4.3",
+                                                                            "5.3",
+                                                                            "6.30000",
+                                                                            "NEW",
+                                                                            "2020-02-02 02:02:02.0"))
+                                                            .collect(Collectors.toList()),
+                                                    readData("kudu_sink_2"));
+                                        }));
+
+        kuduClient.deleteTable("kudu_sink_1");
+        kuduClient.deleteTable("kudu_sink_2");
+    }
+
     @Override
+    @AfterAll
     public void tearDown() throws Exception {
         if (kuduClient != null) {
             kuduClient.close();
@@ -262,6 +324,24 @@ public class KuduWIthMultipleTableIT extends TestSuiteBase implements TestResour
         if (tServers != null) {
             tServers.close();
         }
+    }
+
+    public List<List<Object>> readData(String tableName) throws KuduException {
+        List<List<Object>> result = new ArrayList<>();
+        KuduTable kuduTable = kuduClient.openTable(tableName);
+        KuduScanner scanner = kuduClient.newScannerBuilder(kuduTable).build();
+        while (scanner.hasMoreRows()) {
+            RowResultIterator rowResults = scanner.nextRows();
+            List<Object> row = new ArrayList<>();
+            while (rowResults.hasNext()) {
+                RowResult rowResult = rowResults.next();
+                for (int i = 0; i < rowResult.getSchema().getColumns().size(); i++) {
+                    row.add(rowResult.getObject(i).toString());
+                }
+            }
+            result.add(row);
+        }
+        return result;
     }
 
     private static String getHostIPAddress() {
