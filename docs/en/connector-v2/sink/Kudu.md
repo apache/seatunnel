@@ -123,6 +123,79 @@ sink {
 }
 ```
 
+### Multiple Table
+
+```hocon
+env {
+  # You can set engine configuration here
+  execution.parallelism = 1
+  job.mode = "BATCH"
+  execution.checkpoint.interval = 5000
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+       {
+        schema = {
+          table = "kudu_sink_1"
+         fields {
+                id = int
+                val_bool = boolean
+                val_int8 = tinyint
+                val_int16 = smallint
+                val_int32 = int
+                val_int64 = bigint
+                val_float = float
+                val_double = double
+                val_decimal = "decimal(16, 1)"
+                val_string = string
+                val_unixtime_micros = timestamp
+      }
+        }
+            rows = [
+              {
+                kind = INSERT
+                fields = [1, true, 1, 2, 3, 4, 4.3,5.3,6.3, "NEW", "2020-02-02T02:02:02"]
+              }
+              ]
+       },
+       {
+       schema = {
+         table = "kudu_sink_2"
+              fields {
+                        id = int
+                        val_bool = boolean
+                        val_int8 = tinyint
+                        val_int16 = smallint
+                        val_int32 = int
+                        val_int64 = bigint
+                        val_float = float
+                        val_double = double
+                        val_decimal = "decimal(16, 1)"
+                        val_string = string
+                        val_unixtime_micros = timestamp
+              }
+       }
+           rows = [
+             {
+               kind = INSERT
+               fields = [1, true, 1, 2, 3, 4, 4.3,5.3,6.3, "NEW", "2020-02-02T02:02:02"]
+             }
+             ]
+      }
+    ]
+  }
+}
+
+
+sink {
+   kudu{
+    kudu_masters = "kudu-master-multiple:7051"
+ }
+}
+```
+
 ## Changelog
 
 ### 2.2.0-beta 2022-09-26
