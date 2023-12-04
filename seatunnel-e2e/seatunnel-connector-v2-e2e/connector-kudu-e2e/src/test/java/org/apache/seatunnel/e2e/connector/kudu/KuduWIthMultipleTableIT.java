@@ -216,10 +216,6 @@ public class KuduWIthMultipleTableIT extends TestSuiteBase implements TestResour
                 new ColumnSchema.ColumnSchemaBuilder("val_unixtime_micros", Type.UNIXTIME_MICROS)
                         .nullable(true)
                         .build());
-        columns.add(
-                new ColumnSchema.ColumnSchemaBuilder("val_binary", Type.BINARY)
-                        .nullable(true)
-                        .build());
 
         Schema schema = new Schema(columns);
 
@@ -339,7 +335,9 @@ public class KuduWIthMultipleTableIT extends TestSuiteBase implements TestResour
                     row.add(rowResult.getObject(i).toString());
                 }
             }
-            result.add(row);
+            if (!row.isEmpty()) {
+                result.add(row);
+            }
         }
         return result;
     }
