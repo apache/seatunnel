@@ -18,10 +18,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
@@ -54,16 +55,16 @@ public class JdbcInputFormat implements Serializable {
 
     private final JdbcDialect jdbcDialect;
     private final JdbcRowConverter jdbcRowConverter;
-    private final Map<TablePath, SeaTunnelRowType> tables;
+    private final Map<TablePath, CatalogTable> tables;
     private final ChunkSplitter chunkSplitter;
 
     private transient String splitTableId;
-    private transient SeaTunnelRowType splitRowType;
+    private transient TableSchema splitTableSchema;
     private transient PreparedStatement statement;
     private transient ResultSet resultSet;
     private volatile boolean hasNext;
 
-    public JdbcInputFormat(JdbcSourceConfig config, Map<TablePath, SeaTunnelRowType> tables) {
+    public JdbcInputFormat(JdbcSourceConfig config, Map<TablePath, CatalogTable> tables) {
         this.jdbcDialect =
                 JdbcDialectLoader.load(
                         config.getJdbcConnectionConfig().getUrl(), config.getCompatibleMode());
@@ -91,7 +92,7 @@ public class JdbcInputFormat implements Serializable {
      */
     public void open(JdbcSourceSplit inputSplit) throws IOException {
         try {
-            splitRowType = tables.get(inputSplit.getTablePath());
+            splitTableSchema = tables.get(inputSplit.getTablePath()).getTableSchema();
             splitTableId = inputSplit.getTablePath().toString();
 
             statement = chunkSplitter.generateSplitStatement(inputSplit);
@@ -142,7 +143,7 @@ public class JdbcInputFormat implements Serializable {
             if (!hasNext) {
                 return null;
             }
-            SeaTunnelRow seaTunnelRow = jdbcRowConverter.toInternal(resultSet, splitRowType);
+            SeaTunnelRow seaTunnelRow = jdbcRowConverter.toInternal(resultSet, splitTableSchema);
             seaTunnelRow.setTableId(splitTableId);
             seaTunnelRow.setRowKind(RowKind.INSERT);
 
