@@ -164,7 +164,6 @@ public class KuduWIthMultipleTableIT extends TestSuiteBase implements TestResour
             row.addObject("val_decimal", new BigDecimal("1.1212"));
             row.addObject("val_string", "test");
             row.addObject("val_unixtime_micros", new java.sql.Timestamp(1693477266998L));
-            row.addObject("val_binary", "NEW".getBytes());
             OperationResponse response = kuduSession.apply(insert);
         }
     }
