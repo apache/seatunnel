@@ -80,6 +80,7 @@ You can use the following placeholders
 - rowtype_fields: Used to get all the fields in the upstream schema, we will automatically map to the field
   description of StarRocks
 - rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
+- rowtype_unique_key: Used to get the unique key in the upstream schema (maybe a list)
 
 ## Data Type Mapping
 
