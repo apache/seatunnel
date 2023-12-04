@@ -45,7 +45,6 @@ import com.hazelcast.internal.serialization.Data;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
@@ -139,14 +138,17 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
-        AtomicReference<Long> jobId = new AtomicReference<>();
-
-        submitJob(seaTunnelServer, jobImmutableInformation, jobConfig, restJobExecutionEnvironment);
+        Long jobId =
+                submitJob(
+                        seaTunnelServer,
+                        jobImmutableInformation,
+                        jobConfig,
+                        restJobExecutionEnvironment);
 
         this.prepareResponse(
                 httpPostCommand,
                 new JsonObject()
-                        .add(RestConstant.JOB_ID, jobId.get())
+                        .add(RestConstant.JOB_ID, jobId)
                         .add(RestConstant.JOB_NAME, requestParams.get(RestConstant.JOB_NAME)));
     }
 
