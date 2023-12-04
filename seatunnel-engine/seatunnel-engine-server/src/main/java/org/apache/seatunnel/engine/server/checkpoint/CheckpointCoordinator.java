@@ -442,7 +442,7 @@ public class CheckpointCoordinator {
 
             if (pendingCounter.get() > 0) {
                 scheduleTriggerPendingCheckpoint(checkpointType, 500L);
-                LOG.info("skip trigger checkpoint because there is already a pending checkpoint.");
+                LOG.debug("skip trigger checkpoint because there is already a pending checkpoint.");
                 return;
             }
 
