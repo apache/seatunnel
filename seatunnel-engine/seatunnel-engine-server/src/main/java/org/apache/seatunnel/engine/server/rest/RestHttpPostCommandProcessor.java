@@ -49,8 +49,11 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOB_URL;
 
-public static class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostCommand> {
+public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostCommand> {
 
     private final Log4j2HttpPostCommandProcessor original;
 
