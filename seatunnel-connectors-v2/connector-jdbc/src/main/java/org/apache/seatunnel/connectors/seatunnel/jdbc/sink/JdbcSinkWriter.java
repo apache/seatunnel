@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
@@ -49,7 +49,7 @@ public class JdbcSinkWriter
     private JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat;
     private final SinkWriter.Context context;
     private final JdbcDialect dialect;
-    private final SeaTunnelRowType rowType;
+    private final TableSchema tableSchema;
     private JdbcConnectionProvider connectionProvider;
     private transient boolean isOpen;
     private final Integer primaryKeyIndex;
@@ -59,17 +59,18 @@ public class JdbcSinkWriter
             SinkWriter.Context context,
             JdbcDialect dialect,
             JdbcSinkConfig jdbcSinkConfig,
-            SeaTunnelRowType rowType,
+            TableSchema tableSchema,
             Integer primaryKeyIndex) {
         this.context = context;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.dialect = dialect;
-        this.rowType = rowType;
+        this.tableSchema = tableSchema;
         this.primaryKeyIndex = primaryKeyIndex;
         this.connectionProvider =
                 dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
         this.outputFormat =
-                new JdbcOutputFormatBuilder(dialect, connectionProvider, jdbcSinkConfig, rowType)
+                new JdbcOutputFormatBuilder(
+                                dialect, connectionProvider, jdbcSinkConfig, tableSchema)
                         .build();
     }
 
@@ -101,7 +102,8 @@ public class JdbcSinkWriter
                         jdbcSinkConfig.getJdbcConnectionConfig(),
                         queueIndex);
         this.outputFormat =
-                new JdbcOutputFormatBuilder(dialect, connectionProvider, jdbcSinkConfig, rowType)
+                new JdbcOutputFormatBuilder(
+                                dialect, connectionProvider, jdbcSinkConfig, tableSchema)
                         .build();
     }
 
