@@ -157,7 +157,18 @@ public class SqlServerDialect implements JdbcDialect {
     @Override
     public Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
             throws SQLException {
-        if (StringUtils.isBlank(table.getQuery())) {
+
+        // 1. If no query is configured, use TABLE STATUS.
+        // 2. If a query is configured but does not contain a WHERE clause and tablePath is
+        // configured, use TABLE STATUS.
+        // 3. If a query is configured with a WHERE clause, or a query statement is configured but
+        // tablePath is not, use COUNT(*).
+
+        boolean useTableStats =
+                StringUtils.isBlank(table.getQuery())
+                        || (!table.getQuery().toLowerCase().contains("where")
+                                && table.getTablePath() != null);
+        if (useTableStats) {
             TablePath tablePath = table.getTablePath();
             try (Statement stmt = connection.createStatement()) {
                 if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
