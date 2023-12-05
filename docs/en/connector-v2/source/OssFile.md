@@ -218,7 +218,6 @@ source {
 # Console printing of the read Oss data
 sink {
   Console {
-    parallelism = 1
   }
 }
 ```
@@ -251,7 +250,6 @@ source {
 # Console printing of the read Oss data
 sink {
   Console {
-    parallelism = 1
   }
 }
 ```
