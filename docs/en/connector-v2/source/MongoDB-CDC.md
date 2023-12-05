@@ -137,7 +137,7 @@ env {
   # You can set engine configuration here
   execution.parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {
@@ -175,7 +175,7 @@ env {
   # You can set engine configuration here
   execution.parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {
@@ -213,7 +213,7 @@ env {
   # You can set engine configuration here
   execution.parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {
@@ -253,7 +253,7 @@ env {
   # You can set engine configuration here
   execution.parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {

@@ -110,8 +110,8 @@ sink {
 env {
   # You can set engine configuration here
   execution.parallelism = 1
-  job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  job.mode = "BATCH"
+  checkpoint.interval = 5000
 }
 
 source {
