@@ -27,6 +27,9 @@ import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.types.Row;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -40,7 +43,11 @@ import java.util.stream.Collectors;
 public class FlinkSourceReader<SplitT extends SourceSplit>
         implements SourceReader<Row, SplitWrapper<SplitT>> {
 
+    private final Logger LOGGER = LoggerFactory.getLogger(FlinkSourceReader.class);
+
     private final org.apache.seatunnel.api.source.SourceReader<SeaTunnelRow, SplitT> sourceReader;
+
+    private final org.apache.seatunnel.api.source.SourceReader.Context context;
 
     private final FlinkRowCollector flinkRowCollector;
 
@@ -48,8 +55,10 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
 
     public FlinkSourceReader(
             org.apache.seatunnel.api.source.SourceReader<SeaTunnelRow, SplitT> sourceReader,
+            org.apache.seatunnel.api.source.SourceReader.Context context,
             SeaTunnelRowType seaTunnelRowType) {
         this.sourceReader = sourceReader;
+        this.context = context;
         this.flinkRowCollector = new FlinkRowCollector(seaTunnelRowType);
     }
 
@@ -64,7 +73,12 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
 
     @Override
     public InputStatus pollNext(ReaderOutput<Row> output) throws Exception {
-        sourceReader.pollNext(flinkRowCollector.withReaderOutput(output));
+        if (!((FlinkSourceReaderContext) context).isSendNoMoreElementEvent()) {
+            sourceReader.pollNext(flinkRowCollector.withReaderOutput(output));
+        } else {
+            // reduce CPU idle
+            Thread.sleep(1000L);
+        }
         return inputStatus;
     }
 

@@ -69,7 +69,8 @@ public class FlinkSource<SplitT extends SourceSplit, EnumStateT extends Serializ
                 new FlinkSourceReaderContext(readerContext, source);
         org.apache.seatunnel.api.source.SourceReader<SeaTunnelRow, SplitT> reader =
                 source.createReader(context);
-        return new FlinkSourceReader<>(reader, (SeaTunnelRowType) source.getProducedType());
+        return new FlinkSourceReader<>(
+                reader, context, (SeaTunnelRowType) source.getProducedType());
     }
 
     @Override

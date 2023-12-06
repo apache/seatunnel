@@ -112,7 +112,7 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
     public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {
         if (sourceEvent instanceof NoMoreElementEvent) {
             LOGGER.info(
-                    "Received NoMoreElementEvent from reader [{}], current registered readers [{}]",
+                    "Received NoMoreElementEvent from reader [{}], total registered readers [{}]",
                     subtaskId,
                     enumeratorContext.currentParallelism());
             enumeratorContext.sendEventToSourceReader(subtaskId, sourceEvent);

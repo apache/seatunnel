@@ -28,6 +28,8 @@ import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
  * The implementation of {@link org.apache.seatunnel.api.source.SourceReader.Context} for flink
  * engine.
@@ -35,6 +37,8 @@ import org.slf4j.LoggerFactory;
 public class FlinkSourceReaderContext implements SourceReader.Context {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkSourceReaderContext.class);
+
+    private final AtomicBoolean isSendNoMoreElementEvent = new AtomicBoolean(false);
 
     private final SourceReaderContext readerContext;
 
@@ -57,12 +61,14 @@ public class FlinkSourceReaderContext implements SourceReader.Context {
 
     @Override
     public void signalNoMoreElement() {
-        readerContext.sendSourceEventToCoordinator(
-                new NoMoreElementEvent(readerContext.getIndexOfSubtask()));
-        try {
-            Thread.sleep(2000L);
-        } catch (InterruptedException e) {
-            LOGGER.warn("Encountered unexpected interrupt exception");
+        // only send once
+        if (!isSendNoMoreElementEvent.get()) {
+            LOGGER.info(
+                    "Reader [{}] send no more element event to enumerator",
+                    readerContext.getIndexOfSubtask());
+            isSendNoMoreElementEvent.compareAndSet(false, true);
+            readerContext.sendSourceEventToCoordinator(
+                    new NoMoreElementEvent(readerContext.getIndexOfSubtask()));
         }
     }
 
@@ -79,5 +85,9 @@ public class FlinkSourceReaderContext implements SourceReader.Context {
     @Override
     public MetricsContext getMetricsContext() {
         return new AbstractMetricsContext() {};
+    }
+
+    public boolean isSendNoMoreElementEvent() {
+        return isSendNoMoreElementEvent.get();
     }
 }
