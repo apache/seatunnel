@@ -40,6 +40,9 @@ public class DateTimeUtils {
         FORMATTER_MAP.put(
                 Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT,
                 DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT.value));
+        FORMATTER_MAP.put(
+                Formatter.YYYY_MM_DD_HH_MM_SS_ISO8601,
+                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_ISO8601.value));
     }
 
     public static LocalDateTime parse(String dateTime, Formatter formatter) {
@@ -54,7 +57,8 @@ public class DateTimeUtils {
         YYYY_MM_DD_HH_MM_SS("yyyy-MM-dd HH:mm:ss"),
         YYYY_MM_DD_HH_MM_SS_SPOT("yyyy.MM.dd HH:mm:ss"),
         YYYY_MM_DD_HH_MM_SS_SLASH("yyyy/MM/dd HH:mm:ss"),
-        YYYY_MM_DD_HH_MM_SS_NO_SPLIT("yyyyMMddHHmmss");
+        YYYY_MM_DD_HH_MM_SS_NO_SPLIT("yyyyMMddHHmmss"),
+        YYYY_MM_DD_HH_MM_SS_ISO8601("yyyy-MM-dd'T'HH:mm:ss");
 
         private final String value;
 
