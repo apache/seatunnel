@@ -165,6 +165,10 @@ public class RestApiIT {
                 .then()
                 .statusCode(200)
                 .body("[0].jobName", equalTo("test测试"))
+                .body("[0].errorMsg", equalTo(null))
+                .body("[0].jobDag.jobId", equalTo(Long.parseLong(jobId)))
+                .body("[0].metrics.SourceReceivedCount", equalTo("100"))
+                .body("[0].metrics.SinkWriteCount", equalTo("100"))
                 .body("[0].jobStatus", equalTo("FINISHED"));
     }
 

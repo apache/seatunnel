@@ -33,7 +33,6 @@ import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
-import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -201,10 +200,19 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         .map(
                                 jobState -> {
                                     Long jobId = jobState.getJobId();
-                                    JobMetrics jobMetrics = finishedJobMetrics.get(jobId);
+                                    String jobMetrics =
+                                            getSeaTunnelServer()
+                                                    .getCoordinatorService()
+                                                    .getJobMetrics(jobId)
+                                                    .toJsonString();
                                     JobDAGInfo jobDAGInfo = finishedJobDAGInfo.get(jobId);
 
-                                    return convertToJson(jobState, jobMetrics, jobDAGInfo, jobId);
+                                    return convertToJson(
+                                            jobState,
+                                            jobMetrics,
+                                            Json.parse(JsonUtils.toJsonString(jobDAGInfo))
+                                                    .asObject(),
+                                            jobId);
                                 })
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add);
 
@@ -321,7 +329,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     }
 
     private JsonObject convertToJson(
-            JobState jobState, JobMetrics jobMetrics, JobDAGInfo jobDAGInfo, long jobId) {
+            JobState jobState, String jobMetrics, JsonObject jobDAGInfo, long jobId) {
         JsonObject jobInfoJson = new JsonObject();
         jobInfoJson
                 .add(RestConstant.JOB_ID, String.valueOf(jobId))
@@ -336,10 +344,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         RestConstant.FINISH_TIME,
                         new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
                                 .format(new Date(jobState.getFinishTime())))
-                .add(RestConstant.JOB_DAG, JsonUtils.toJsonString(jobDAGInfo))
-                .add(
-                        RestConstant.METRICS,
-                        Json.value(JobMetricsUtil.toJsonString(jobMetrics.getMetrics())));
+                .add(RestConstant.JOB_DAG, jobDAGInfo)
+                .add(RestConstant.METRICS, JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
 
         return jobInfoJson;
     }
