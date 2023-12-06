@@ -34,7 +34,7 @@
         <module>connector-cdc-mysql</module>
         <module>connector-cdc-sqlserver</module>
         <module>connector-cdc-mongodb</module>
-        <module>connector-cdc-postgres</module>
+        <module>connector-cdc-postgresql</module>
     </modules>
 
     <properties>
