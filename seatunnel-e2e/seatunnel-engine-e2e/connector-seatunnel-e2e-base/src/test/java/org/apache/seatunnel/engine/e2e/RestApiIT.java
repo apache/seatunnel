@@ -57,18 +57,18 @@ public class RestApiIT {
 
     private static ClientJobProxy clientJobProxy;
 
-    private static HazelcastInstanceImpl hazelcastInstance;
+    private static HazelcastInstanceImpl node1;
 
-    private static HazelcastInstanceImpl hazelcastInstance1;
+    private static HazelcastInstanceImpl node2;
 
     @BeforeEach
     void beforeClass() throws Exception {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
-        hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-        hazelcastInstance1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
         String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
@@ -92,7 +92,7 @@ public class RestApiIT {
 
     @Test
     public void testGetRunningJobById() {
-        Arrays.asList(hazelcastInstance1, hazelcastInstance)
+        Arrays.asList(node2, node1)
                 .forEach(
                         hazelcastInstance2 -> {
                             given().get(
@@ -114,7 +114,7 @@ public class RestApiIT {
 
     @Test
     public void testGetRunningJobs() {
-        Arrays.asList(hazelcastInstance1, hazelcastInstance)
+        Arrays.asList(node2, node1)
                 .forEach(
                         hazelcastInstance2 -> {
                             given().get(
@@ -134,7 +134,7 @@ public class RestApiIT {
 
     @Test
     public void testSystemMonitoringInformation() {
-        Arrays.asList(hazelcastInstance1, hazelcastInstance)
+        Arrays.asList(node2, node1)
                 .forEach(
                         hazelcastInstance2 -> {
                             given().get(
@@ -154,7 +154,7 @@ public class RestApiIT {
 
     @Test
     public void testSubmitJob() {
-        Arrays.asList(hazelcastInstance1, hazelcastInstance)
+        Arrays.asList(node2, node1)
                 .forEach(
                         hazelcastInstance2 -> {
                             Response response = submitJob(hazelcastInstance2, "BATCH");
@@ -196,7 +196,7 @@ public class RestApiIT {
     @Test
     public void testStopJob() {
 
-        Arrays.asList(hazelcastInstance1, hazelcastInstance)
+        Arrays.asList(node2, node1)
                 .forEach(
                         hazelcastInstance2 -> {
                             String jobId =
@@ -320,7 +320,7 @@ public class RestApiIT {
 
     @Test
     public void testStartWithSavePointWithoutJobId() {
-        Arrays.asList(hazelcastInstance1, hazelcastInstance)
+        Arrays.asList(node2, node1)
                 .forEach(
                         hazelcastInstance2 -> {
                             Response response = submitJob("BATCH", hazelcastInstance2, true);
@@ -335,7 +335,7 @@ public class RestApiIT {
 
     @Test
     public void testEncryptConfig() {
-        Arrays.asList(hazelcastInstance1, hazelcastInstance)
+        Arrays.asList(node2, node1)
                 .forEach(
                         hazelcastInstance2 -> {
                             String config =
@@ -395,11 +395,11 @@ public class RestApiIT {
 
     @AfterEach
     void afterClass() {
-        if (hazelcastInstance != null) {
-            hazelcastInstance.shutdown();
+        if (node1 != null) {
+            node1.shutdown();
         }
-        if (hazelcastInstance1 != null) {
-            hazelcastInstance1.shutdown();
+        if (node2 != null) {
+            node2.shutdown();
         }
     }
 
