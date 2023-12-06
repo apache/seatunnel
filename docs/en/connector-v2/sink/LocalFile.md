@@ -55,7 +55,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ### path [string]
 
-The target dir path is required.
+The target dir path is required, you can inject the upstream CatalogTable into the path by using: `${database_name}`, `${table_name}` and `${schema_name}`.
 
 ### custom_filename [boolean]
 
@@ -234,6 +234,18 @@ LocalFile {
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
   }
+
+```
+
+For extract source metadata from upstream, you can use `${database_name}`, `${table_name}` and `${schema_name}` in the path.
+
+```bash
+
+LocalFile {
+    path = "/tmp/hive/warehouse/${table_name}"
+    file_format_type = "parquet"
+    sink_columns = ["name","age"]
+}
 
 ```
 
