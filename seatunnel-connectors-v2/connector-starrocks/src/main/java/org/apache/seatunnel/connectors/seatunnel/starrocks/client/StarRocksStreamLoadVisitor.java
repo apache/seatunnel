@@ -42,7 +42,7 @@ public class StarRocksStreamLoadVisitor {
 
     private static final Logger LOG = LoggerFactory.getLogger(StarRocksStreamLoadVisitor.class);
 
-    private final HttpHelper httpHelper = new HttpHelper();
+    private final HttpHelper httpHelper;
     private static final int MAX_SLEEP_TIME = 5;
 
     private final SinkConfig sinkConfig;
@@ -61,6 +61,7 @@ public class StarRocksStreamLoadVisitor {
     public StarRocksStreamLoadVisitor(SinkConfig sinkConfig, List<String> fieldNames) {
         this.sinkConfig = sinkConfig;
         this.fieldNames = fieldNames;
+        this.httpHelper = new HttpHelper(sinkConfig);
     }
 
     public Boolean doStreamLoad(StarRocksFlushTuple flushData) throws IOException {

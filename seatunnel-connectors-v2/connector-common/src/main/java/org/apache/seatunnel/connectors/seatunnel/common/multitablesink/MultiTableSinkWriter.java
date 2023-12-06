@@ -55,11 +55,11 @@ public class MultiTableSinkWriter
     public MultiTableSinkWriter(
             Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters, int queueSize) {
         this.sinkWriters = sinkWriters;
+        AtomicInteger cnt = new AtomicInteger(0);
         executorService =
                 Executors.newFixedThreadPool(
                         queueSize,
                         runnable -> {
-                            AtomicInteger cnt = new AtomicInteger(0);
                             Thread thread = new Thread(runnable);
                             thread.setDaemon(true);
                             thread.setName(

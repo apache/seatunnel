@@ -64,7 +64,16 @@ public class LocalFileWithMultipleTableIT extends TestSuiteBase {
                         "/text/e2e.txt",
                         "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
                         container);
+
+                container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
             };
+
+    @TestTemplate
+    public void testFakeToLocalFileInMultipleTableMode_text(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(testContainer);
+        helper.execute("/text/fake_to_local_file_with_multiple_table.conf");
+    }
 
     @TestTemplate
     public void testLocalFileReadAndWriteInMultipleTableMode_excel(TestContainer container)

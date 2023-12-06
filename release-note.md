@@ -101,6 +101,10 @@
 - [Core] [Starter] Add check of sink and source config to avoid null pointer exception. (#4734)
 - [Core] [Flink] Remove useless stage type related codes. (#5650)
 
+### Formats
+
+- [Json] Remove assert key word. (#5919)
+
 ### Connector-V2
 
 - [Connector-V2] [CDC] Improve startup.mode/stop.mode options (#4360)
@@ -119,6 +123,7 @@
 - [Connector-v2] [Jdbc] Populate primary key when jdbc sink is created using CatalogTable (#4755)
 - [Connector-v2] [Neo4j] Supports neo4j sink batch write mode (#4835)
 - [Transform-V2] Optimize SQL Transform package and Fix Spark type conversion bug of transform (#4490)
+- [Connector-V2] [Common] Remove assert key word (#5915)
 
 ### CI
 
@@ -145,6 +150,7 @@
 - [Zeta] Improve Zeta operation max count and ignore NPE (#4787)
 - [Zeta] Remove serialize(deserialize) cost when use shuffle action (#4722)
 - [zeta] Checkpoint exception status messages exclude state data (#5547)
+- [Zeta] Remove assert key words (#5947)
 
 ## Feature
 

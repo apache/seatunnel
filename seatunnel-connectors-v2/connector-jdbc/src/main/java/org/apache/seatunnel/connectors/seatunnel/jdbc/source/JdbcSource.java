@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
@@ -80,15 +79,9 @@ public class JdbcSource
     @Override
     public SourceReader<SeaTunnelRow, JdbcSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        Map<TablePath, SeaTunnelRowType> tables = new HashMap<>();
+        Map<TablePath, CatalogTable> tables = new HashMap<>();
         for (TablePath tablePath : jdbcSourceTables.keySet()) {
-            SeaTunnelRowType rowType =
-                    jdbcSourceTables
-                            .get(tablePath)
-                            .getCatalogTable()
-                            .getTableSchema()
-                            .toPhysicalRowDataType();
-            tables.put(tablePath, rowType);
+            tables.put(tablePath, jdbcSourceTables.get(tablePath).getCatalogTable());
         }
         return new JdbcSourceReader(readerContext, jdbcSourceConfig, tables);
     }

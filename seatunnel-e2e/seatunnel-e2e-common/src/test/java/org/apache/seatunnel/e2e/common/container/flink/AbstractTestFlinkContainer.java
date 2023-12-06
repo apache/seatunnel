@@ -154,4 +154,9 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     public String getServerLogs() {
         return jobManager.getLogs();
     }
+
+    public String executeJobManagerInnerCommand(String command)
+            throws IOException, InterruptedException {
+        return jobManager.execInContainer("bash", "-c", command).getStdout();
+    }
 }
