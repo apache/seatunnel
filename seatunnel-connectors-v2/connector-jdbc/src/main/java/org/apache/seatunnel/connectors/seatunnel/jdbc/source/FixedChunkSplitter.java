@@ -33,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.Array;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -250,6 +251,8 @@ public class FixedChunkSplitter extends ChunkSplitter {
             return (BigDecimal) o;
         } else if (o instanceof Long) {
             return BigDecimal.valueOf((Long) o);
+        } else if (o instanceof BigInteger) {
+            return new BigDecimal((BigInteger) o);
         } else if (o instanceof Integer) {
             return BigDecimal.valueOf((Integer) o);
         } else if (o instanceof Double) {
