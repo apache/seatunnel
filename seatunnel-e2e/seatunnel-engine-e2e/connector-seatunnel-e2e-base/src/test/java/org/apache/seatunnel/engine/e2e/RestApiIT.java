@@ -203,7 +203,7 @@ public class RestApiIT {
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
-                                        JobStatus.FINISHED,
+                                        JobStatus.SAVEPOINT_DONE,
                                         seaTunnelServer
                                                 .getCoordinatorService()
                                                 .getJobStatus(Long.parseLong(jobId))));

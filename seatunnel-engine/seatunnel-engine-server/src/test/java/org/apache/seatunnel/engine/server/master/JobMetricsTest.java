@@ -124,7 +124,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
-                                        JobStatus.FINISHED,
+                                        JobStatus.SAVEPOINT_DONE,
                                         server.getCoordinatorService().getJobStatus(jobId3)));
 
         // restore job
