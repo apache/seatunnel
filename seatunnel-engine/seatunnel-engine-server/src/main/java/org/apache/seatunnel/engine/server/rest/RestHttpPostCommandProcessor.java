@@ -99,7 +99,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
         if (!seaTunnelServer.isMasterNode()) {
             for (HazelcastInstance hazelcastInstance : Hazelcast.getAllHazelcastInstances()) {
-                SeaTunnelServer seaTunnelServer1 =
+                seaTunnelServer =
                         (SeaTunnelServer)
                                 ((HazelcastInstanceProxy) hazelcastInstance)
                                         .getOriginal()
@@ -108,8 +108,8 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                                         .createExtensionServices()
                                         .get(Constant.SEATUNNEL_SERVICE_NAME);
 
-                if (seaTunnelServer1.isMasterNode()) {
-                    return seaTunnelServer1;
+                if (seaTunnelServer.isMasterNode()) {
+                    return seaTunnelServer;
                 }
             }
         }

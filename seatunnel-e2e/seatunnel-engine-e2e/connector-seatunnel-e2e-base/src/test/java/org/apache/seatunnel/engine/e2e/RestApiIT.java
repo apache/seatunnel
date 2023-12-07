@@ -94,11 +94,10 @@ public class RestApiIT {
     public void testGetRunningJobById() {
         Arrays.asList(node2, node1)
                 .forEach(
-                        hazelcastInstance2 -> {
+                        instance -> {
                             given().get(
                                             HOST
-                                                    + hazelcastInstance2
-                                                            .getCluster()
+                                                    + instance.getCluster()
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
@@ -116,11 +115,10 @@ public class RestApiIT {
     public void testGetRunningJobs() {
         Arrays.asList(node2, node1)
                 .forEach(
-                        hazelcastInstance2 -> {
+                        instance -> {
                             given().get(
                                             HOST
-                                                    + hazelcastInstance2
-                                                            .getCluster()
+                                                    + instance.getCluster()
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
@@ -136,11 +134,10 @@ public class RestApiIT {
     public void testSystemMonitoringInformation() {
         Arrays.asList(node2, node1)
                 .forEach(
-                        hazelcastInstance2 -> {
+                        instance -> {
                             given().get(
                                             HOST
-                                                    + hazelcastInstance2
-                                                            .getCluster()
+                                                    + instance.getCluster()
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
@@ -156,15 +153,15 @@ public class RestApiIT {
     public void testSubmitJob() {
         Arrays.asList(node2, node1)
                 .forEach(
-                        hazelcastInstance2 -> {
-                            Response response = submitJob(hazelcastInstance2, "BATCH");
+                        instance -> {
+                            Response response = submitJob(instance, "BATCH");
                             response.then().statusCode(200).body("jobName", equalTo("test测试"));
                             String jobId = response.getBody().jsonPath().getString("jobId");
                             SeaTunnelServer seaTunnelServer = null;
 
                             for (HazelcastInstance hazelcastInstance :
                                     Hazelcast.getAllHazelcastInstances()) {
-                                SeaTunnelServer seaTunnelServer1 =
+                                SeaTunnelServer server =
                                         (SeaTunnelServer)
                                                 ((HazelcastInstanceProxy) hazelcastInstance)
                                                         .getOriginal()
@@ -173,8 +170,8 @@ public class RestApiIT {
                                                         .createExtensionServices()
                                                         .get(Constant.SEATUNNEL_SERVICE_NAME);
 
-                                if (seaTunnelServer1.isMasterNode()) {
-                                    seaTunnelServer = seaTunnelServer1;
+                                if (server.isMasterNode()) {
+                                    seaTunnelServer = server;
                                 }
                             }
 
@@ -198,9 +195,9 @@ public class RestApiIT {
 
         Arrays.asList(node2, node1)
                 .forEach(
-                        hazelcastInstance2 -> {
+                        instance -> {
                             String jobId =
-                                    submitJob(hazelcastInstance2, "STREAMING")
+                                    submitJob(instance, "STREAMING")
                                             .getBody()
                                             .jsonPath()
                                             .getString("jobId");
@@ -208,7 +205,7 @@ public class RestApiIT {
 
                             for (HazelcastInstance hazelcastInstance :
                                     Hazelcast.getAllHazelcastInstances()) {
-                                SeaTunnelServer seaTunnelServer1 =
+                                SeaTunnelServer server =
                                         (SeaTunnelServer)
                                                 ((HazelcastInstanceProxy) hazelcastInstance)
                                                         .getOriginal()
@@ -217,8 +214,8 @@ public class RestApiIT {
                                                         .createExtensionServices()
                                                         .get(Constant.SEATUNNEL_SERVICE_NAME);
 
-                                if (seaTunnelServer1.isMasterNode()) {
-                                    seaTunnelServer = seaTunnelServer1;
+                                if (server.isMasterNode()) {
+                                    seaTunnelServer = server;
                                 }
                             }
 
@@ -245,8 +242,7 @@ public class RestApiIT {
                             given().body(parameters)
                                     .post(
                                             HOST
-                                                    + hazelcastInstance2
-                                                            .getCluster()
+                                                    + instance.getCluster()
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
@@ -268,7 +264,7 @@ public class RestApiIT {
                                                                                     jobId))));
 
                             String jobId2 =
-                                    submitJob(hazelcastInstance2, "STREAMING")
+                                    submitJob(instance, "STREAMING")
                                             .getBody()
                                             .jsonPath()
                                             .getString("jobId");
@@ -294,8 +290,7 @@ public class RestApiIT {
                             given().body(parameters)
                                     .post(
                                             HOST
-                                                    + hazelcastInstance2
-                                                            .getCluster()
+                                                    + instance.getCluster()
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
@@ -322,8 +317,8 @@ public class RestApiIT {
     public void testStartWithSavePointWithoutJobId() {
         Arrays.asList(node2, node1)
                 .forEach(
-                        hazelcastInstance2 -> {
-                            Response response = submitJob("BATCH", hazelcastInstance2, true);
+                        instance -> {
+                            Response response = submitJob("BATCH", instance, true);
                             response.then()
                                     .statusCode(400)
                                     .body(
@@ -337,7 +332,7 @@ public class RestApiIT {
     public void testEncryptConfig() {
         Arrays.asList(node2, node1)
                 .forEach(
-                        hazelcastInstance2 -> {
+                        instance -> {
                             String config =
                                     "{\n"
                                             + "    \"env\": {\n"
@@ -377,8 +372,7 @@ public class RestApiIT {
                             given().body(config)
                                     .post(
                                             HOST
-                                                    + hazelcastInstance2
-                                                            .getCluster()
+                                                    + instance.getCluster()
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
