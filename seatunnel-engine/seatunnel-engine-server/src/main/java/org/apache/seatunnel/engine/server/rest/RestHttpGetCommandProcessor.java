@@ -133,7 +133,6 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                     } catch (InterruptedException | ExecutionException e) {
                                         logger.severe("get system monitoring information fail", e);
                                     }
-                                    assert input != null;
                                     String[] parts = input.split(", ");
                                     JsonObject jobInfo = new JsonObject();
                                     Arrays.stream(parts)
