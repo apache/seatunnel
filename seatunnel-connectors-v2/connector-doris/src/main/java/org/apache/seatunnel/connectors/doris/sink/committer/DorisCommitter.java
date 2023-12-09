@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.doris.sink.committer;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
@@ -52,16 +50,12 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
     private final DorisConfig dorisConfig;
     int maxRetry;
 
-    public DorisCommitter(Config pluginConfig) {
-        this(
-                DorisConfig.loadConfig(pluginConfig),
-                DorisConfig.loadConfig(pluginConfig).getMaxRetries(),
-                new HttpUtil().getHttpClient());
+    public DorisCommitter(DorisConfig dorisConfig) {
+        this(dorisConfig, new HttpUtil().getHttpClient());
     }
 
-    public DorisCommitter(DorisConfig dorisConfig, int maxRetry, CloseableHttpClient client) {
+    public DorisCommitter(DorisConfig dorisConfig, CloseableHttpClient client) {
         this.dorisConfig = dorisConfig;
-        this.maxRetry = maxRetry;
         this.httpClient = client;
     }
 
@@ -87,7 +81,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
         int retry = 0;
         String hostPort = committable.getHostPort();
         CloseableHttpResponse response = null;
-        while (retry++ <= maxRetry) {
+        while (retry++ <= dorisConfig.getMaxRetries()) {
             HttpPutBuilder putBuilder = new HttpPutBuilder();
             putBuilder
                     .setUrl(String.format(COMMIT_PATTERN, hostPort, committable.getDb()))

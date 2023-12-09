@@ -15,34 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.config;
+package org.apache.seatunnel.connectors.doris.catalog;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
+import org.apache.seatunnel.connectors.doris.config.DorisConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 
-import com.google.auto.service.AutoService;
+public class DorisCatalogFactory implements CatalogFactory {
 
-@AutoService(Factory.class)
-public class DorisSinkFactory implements TableSinkFactory {
-
-    public static final String IDENTIFIER = "Doris";
+    @Override
+    public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
+        return new DorisCatalog(
+                catalogName,
+                options.get(DorisOptions.FENODES),
+                options.get(DorisOptions.QUERY_PORT),
+                options.get(DorisOptions.USERNAME),
+                options.get(DorisOptions.PASSWORD),
+                DorisConfig.of(options),
+                options.get(DorisOptions.DEFAULT_DATABASE));
+    }
 
     @Override
     public String factoryIdentifier() {
-        return IDENTIFIER;
+        return "Doris";
     }
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(
-                        DorisOptions.FENODES,
-                        DorisOptions.USERNAME,
-                        DorisOptions.PASSWORD,
-                        DorisOptions.SINK_LABEL_PREFIX,
-                        DorisOptions.DORIS_SINK_CONFIG_PREFIX)
-                .optional(DorisOptions.SINK_ENABLE_2PC, DorisOptions.SINK_ENABLE_DELETE)
-                .build();
+        return DorisOptions.CATALOG_RULE.build();
     }
 }
