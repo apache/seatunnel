@@ -1,6 +1,6 @@
-# Apache Pulsar
+# Pulsar
 
-> Apache Pulsar sink connector
+> Pulsar sink connector
 
 ## Support Those Engines
 
@@ -35,7 +35,7 @@ Sink connector for Apache Pulsar.
 | field_delimiter      | String | No       | ,                   | Customize the field delimiter for data format.                                                           |
 | semantics            | Enum   | No       | AT_LEAST_ONCE       | Consistency semantics for writing to pulsar.                                                             |
 | transaction_timeout  | Int    | No       | 600                 | The transaction timeout is specified as 10 minutes by default.                                           |
-| pulsar.              | String | No       | -                   | In addition to the above parameters that must be specified by the Pulsar producer client.                |
+| pulsar.config        | Map    | No       | -                   | In addition to the above parameters that must be specified by the Pulsar producer client.                |
 | message.routing.mode | Enum   | No       | RoundRobinPartition | Default routing mode for messages to partition.                                                          |
 | partition_key_fields | array  | No       | -                   | Configure which fields are used as the key of the pulsar message.                                        |
 | common-options       | config | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details. |
@@ -89,7 +89,7 @@ The transaction timeout is specified as 10 minutes by default.
 If the transaction does not commit within the specified timeout, the transaction will be automatically aborted.
 So you need to ensure that the timeout is greater than the checkpoint interval.
 
-### pulsar. [String]
+### pulsar.config [Map]
 
 In addition to the above parameters that must be specified by the Pulsar producer client,
 the user can also specify multiple non-mandatory parameters for the producer client,
@@ -162,6 +162,9 @@ sink {
     client.service-url = "localhost:pulsar://localhost:6650"
     admin.service-url = "http://my-broker.example.com:8080"
     result_table_name = "test"
+    pulsar.config = {
+        sendTimeoutMs = 30000
+    }
   }
 }
 ```

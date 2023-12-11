@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -29,7 +28,6 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSemantics;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarCommitInfo;
@@ -64,6 +62,7 @@ import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProper
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.PARTITION_KEY_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.SEMANTICS;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.TEXT_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.TOPIC;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.TRANSACTION_TIMEOUT;
 
 public class PulsarSinkWriter
@@ -77,36 +76,21 @@ public class PulsarSinkWriter
     private TransactionImpl transaction;
     private int transactionTimeout = TRANSACTION_TIMEOUT.defaultValue();
     private PulsarSemantics pulsarSemantics = SEMANTICS.defaultValue();
-    private MessageRoutingMode messageRoutingMode = MESSAGE_ROUTING_MODE.defaultValue();
     private final AtomicLong pendingMessages;
 
     public PulsarSinkWriter(
             Context context,
             PulsarClientConfig clientConfig,
             SeaTunnelRowType seaTunnelRowType,
-            Config pluginConfig,
+            ReadonlyConfig pluginConfig,
             List<PulsarSinkState> pulsarStates) {
         this.context = context;
-        String topic = pluginConfig.getString(SinkProperties.TOPIC.key());
-        String format = FORMAT.defaultValue();
-        if (pluginConfig.hasPath(FORMAT.key())) {
-            format = pluginConfig.getString(FORMAT.key());
-        }
-        String delimiter = FIELD_DELIMITER.defaultValue();
-        if (pluginConfig.hasPath(FIELD_DELIMITER.key())) {
-            delimiter = pluginConfig.getString(FIELD_DELIMITER.key());
-        }
-
-        if (pluginConfig.hasPath(TRANSACTION_TIMEOUT.key())) {
-            transactionTimeout = pluginConfig.getInt(TRANSACTION_TIMEOUT.key());
-        }
-        if (pluginConfig.hasPath(SEMANTICS.key())) {
-            pulsarSemantics = pluginConfig.getEnum(PulsarSemantics.class, SEMANTICS.key());
-        }
-        if (pluginConfig.hasPath(MESSAGE_ROUTING_MODE.key())) {
-            messageRoutingMode =
-                    pluginConfig.getEnum(MessageRoutingMode.class, MESSAGE_ROUTING_MODE.key());
-        }
+        String topic = pluginConfig.get(TOPIC);
+        String format = pluginConfig.get(FORMAT);
+        String delimiter = pluginConfig.get(FIELD_DELIMITER);
+        Integer transactionTimeout = pluginConfig.get(TRANSACTION_TIMEOUT);
+        PulsarSemantics pulsarSemantics = pluginConfig.get(SEMANTICS);
+        MessageRoutingMode messageRoutingMode = pluginConfig.get(MESSAGE_ROUTING_MODE);
         this.serializationSchema = createSerializationSchema(seaTunnelRowType, format, delimiter);
         List<String> partitionKeyList = getPartitionKeyFields(pluginConfig, seaTunnelRowType);
         this.keySerializationSchema =
@@ -281,12 +265,12 @@ public class PulsarSinkWriter
      * @return
      */
     private List<String> getPartitionKeyFields(
-            Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
-        if (pluginConfig.hasPath(PARTITION_KEY_FIELDS.key())) {
-            List<String> partitionKeyFields =
-                    pluginConfig.getStringList(PARTITION_KEY_FIELDS.key());
+            ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+        if (pluginConfig.getOptional(PARTITION_KEY_FIELDS) != null) {
+            Optional<List<String>> partitionKeyFields =
+                    pluginConfig.getOptional(PARTITION_KEY_FIELDS);
             List<String> rowTypeFieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
-            for (String partitionKeyField : partitionKeyFields) {
+            for (String partitionKeyField : partitionKeyFields.get()) {
                 if (!rowTypeFieldNames.contains(partitionKeyField)) {
                     throw new PulsarConnectorException(
                             CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
@@ -295,7 +279,7 @@ public class PulsarSinkWriter
                                     partitionKeyField, rowTypeFieldNames));
                 }
             }
-            return partitionKeyFields;
+            return partitionKeyFields.get();
         }
         return Collections.emptyList();
     }

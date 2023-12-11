@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.pulsar.client.api.MessageRoutingMode;
 
 import java.util.List;
+import java.util.Map;
 
 public class SinkProperties {
 
@@ -66,13 +67,14 @@ public class SinkProperties {
                     .defaultValue(600)
                     .withDescription(
                             "The transaction timeout is specified as 10 minutes by default. If the transaction does not commit within the specified timeout, the transaction will be automatically aborted. So you need to ensure that the timeout is greater than the checkpoint interval");
-    public static final Option<String> PULSAR_CONFIG_PREFIX =
-            Options.key("pulsar.")
-                    .stringType()
+
+    public static final Option<Map<String, String>> PULSAR_CONFIG =
+            Options.key("pulsar.config")
+                    .mapType()
                     .noDefaultValue()
                     .withDescription(
-                            "In addition to the above parameters that must be specified by the Pulsar producer client, "
-                                    + "the user can also specify multiple non-mandatory parameters for the producer client, "
+                            "In addition to the above parameters that must be specified by the Pulsar producer or consumer client, "
+                                    + "the user can also specify multiple non-mandatory parameters for the producer or consumer client, "
                                     + "covering all the producer parameters specified in the official Pulsar document.");
 
     public static final Option<MessageRoutingMode> MESSAGE_ROUTING_MODE =

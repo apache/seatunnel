@@ -18,8 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.pulsar.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 
 import com.google.auto.service.AutoService;
@@ -47,5 +49,13 @@ public class PulsarSinkFactory implements TableSinkFactory {
                 .optional(FORMAT, FIELD_DELIMITER, MESSAGE_ROUTING_MODE)
                 .bundled(AUTH_PLUGIN_CLASS, AUTH_PARAMS)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () ->
+                new PulsarSink(
+                        context.getOptions(),
+                        context.getCatalogTable().getTableSchema().toPhysicalRowDataType());
     }
 }

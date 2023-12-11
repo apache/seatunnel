@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 
@@ -50,7 +48,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.PULSAR_CONFIG_PREFIX;
+import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.PULSAR_CONFIG;
 
 public class PulsarConfigUtil {
 
@@ -166,24 +164,19 @@ public class PulsarConfigUtil {
             PulsarClient pulsarClient,
             String topic,
             PulsarSemantics pulsarSemantics,
-            Config pluginConfig,
+            ReadonlyConfig pluginConfig,
             MessageRoutingMode messageRoutingMode)
             throws PulsarClientException {
         ProducerBuilder<byte[]> producerBuilder = pulsarClient.newProducer(Schema.BYTES);
         producerBuilder.topic(topic);
         producerBuilder.messageRoutingMode(messageRoutingMode);
         producerBuilder.blockIfQueueFull(true);
-        if (pluginConfig.hasPath(PULSAR_CONFIG_PREFIX.key())) {
-            Config pulsarConfig =
-                    TypesafeConfigUtils.extractSubConfig(
-                            pluginConfig, PULSAR_CONFIG_PREFIX.key(), false);
+
+        if (pluginConfig.get(PULSAR_CONFIG) != null) {
             Map<String, String> pulsarProperties = new HashMap<>();
-            pulsarConfig
-                    .entrySet()
-                    .forEach(
-                            entry -> {
-                                pulsarProperties.put(entry.getKey(), entry.getValue().render());
-                            });
+            pluginConfig
+                    .get(PULSAR_CONFIG)
+                    .forEach((key, value) -> pulsarProperties.put(key, value));
             producerBuilder.properties(pulsarProperties);
         }
         if (PulsarSemantics.EXACTLY_ONCE == pulsarSemantics) {

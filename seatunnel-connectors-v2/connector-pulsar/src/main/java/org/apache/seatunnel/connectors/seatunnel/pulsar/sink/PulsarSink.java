@@ -17,116 +17,64 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarAdminConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarSinkState;
-
-import com.google.auto.service.AutoService;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static org.apache.seatunnel.common.PropertiesUtil.setOption;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.ADMIN_SERVICE_URL;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.AUTH_PARAMS;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.AUTH_PLUGIN_CLASS;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CLIENT_SERVICE_URL;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC;
 
 /**
  * Pulsar Sink implementation by using SeaTunnel sink API. This class contains the method to create
  * {@link PulsarSinkWriter} and {@link PulsarSinkCommitter}.
  */
-@AutoService(SeaTunnelSink.class)
 public class PulsarSink
         implements SeaTunnelSink<
                 SeaTunnelRow, PulsarSinkState, PulsarCommitInfo, PulsarAggregatedCommitInfo> {
 
-    private PulsarAdminConfig adminConfig;
-    private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
     private PulsarClientConfig clientConfig;
+    private ReadonlyConfig readonlyConfig;
 
-    @Override
-    public void prepare(Config config) throws PrepareFailException {
-        this.pluginConfig = config;
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        TOPIC.key(),
-                        CLIENT_SERVICE_URL.key(),
-                        ADMIN_SERVICE_URL.key());
-        if (!result.isSuccess()) {
-            throw new PulsarConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        // admin config
-        PulsarAdminConfig.Builder adminConfigBuilder =
-                PulsarAdminConfig.builder().adminUrl(config.getString(ADMIN_SERVICE_URL.key()));
-        setOption(
-                config,
-                AUTH_PLUGIN_CLASS.key(),
-                config::getString,
-                adminConfigBuilder::authPluginClassName);
-        setOption(config, AUTH_PARAMS.key(), config::getString, adminConfigBuilder::authParams);
-        this.adminConfig = adminConfigBuilder.build();
-
-        // client config
-        PulsarClientConfig.Builder clientConfigBuilder =
-                PulsarClientConfig.builder().serviceUrl(config.getString(CLIENT_SERVICE_URL.key()));
-        setOption(
-                config,
-                AUTH_PLUGIN_CLASS.key(),
-                config::getString,
-                clientConfigBuilder::authPluginClassName);
-        setOption(config, AUTH_PARAMS.key(), config::getString, clientConfigBuilder::authParams);
-        this.clientConfig = clientConfigBuilder.build();
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+    public PulsarSink(ReadonlyConfig readonlyConfig, SeaTunnelRowType seaTunnelRowType) {
+        this.readonlyConfig = readonlyConfig;
         this.seaTunnelRowType = seaTunnelRowType;
-    }
 
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return this.seaTunnelRowType;
+        /** client config */
+        PulsarClientConfig.Builder clientConfigBuilder =
+                PulsarClientConfig.builder().serviceUrl(readonlyConfig.get(CLIENT_SERVICE_URL));
+        clientConfigBuilder.authPluginClassName(readonlyConfig.get(AUTH_PLUGIN_CLASS));
+        clientConfigBuilder.authParams(readonlyConfig.get(AUTH_PARAMS));
+        this.clientConfig = clientConfigBuilder.build();
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, PulsarCommitInfo, PulsarSinkState> createWriter(
             SinkWriter.Context context) {
         return new PulsarSinkWriter(
-                context, clientConfig, seaTunnelRowType, pluginConfig, Collections.emptyList());
+                context, clientConfig, seaTunnelRowType, readonlyConfig, Collections.emptyList());
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, PulsarCommitInfo, PulsarSinkState> restoreWriter(
             SinkWriter.Context context, List<PulsarSinkState> states) {
-        return new PulsarSinkWriter(context, clientConfig, seaTunnelRowType, pluginConfig, states);
+        return new PulsarSinkWriter(
+                context, clientConfig, seaTunnelRowType, readonlyConfig, states);
     }
 
     @Override
