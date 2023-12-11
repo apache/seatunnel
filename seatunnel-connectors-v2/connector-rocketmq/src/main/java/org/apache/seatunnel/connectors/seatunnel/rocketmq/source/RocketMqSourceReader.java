@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorException;
@@ -158,7 +159,9 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
                                                             groupRecords.get(messageQueue);
                                                     for (MessageExt record : messages) {
                                                         deserializationSchema.deserialize(
-                                                                record.getBody(), output);
+                                                                record.getBody(),
+                                                                output,
+                                                                TablePath.of(""));
                                                         if (Boundedness.BOUNDED.equals(
                                                                         context.getBoundedness())
                                                                 && record.getQueueOffset()

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.serialization;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.io.IOException;
@@ -29,13 +30,15 @@ public interface DeserializationSchema<T> extends Serializable {
      * Deserializes the byte message.
      *
      * @param message The message, as a byte array.
+     * @param tablePath The Registry name.
      * @return The deserialized message as an SeaTunnel Row (null if the message cannot be
      *     deserialized).
      */
-    T deserialize(byte[] message) throws IOException;
+    T deserialize(byte[] message, TablePath tablePath) throws IOException;
 
-    default void deserialize(byte[] message, Collector<T> out) throws IOException {
-        T deserialize = deserialize(message);
+    default void deserialize(byte[] message, Collector<T> out, TablePath tablePath)
+            throws IOException {
+        T deserialize = deserialize(message, tablePath);
         if (deserialize != null) {
             out.collect(deserialize);
         }

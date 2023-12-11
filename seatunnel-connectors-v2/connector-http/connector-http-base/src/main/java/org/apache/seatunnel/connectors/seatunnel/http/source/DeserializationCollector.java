@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.http.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
@@ -35,7 +36,7 @@ public class DeserializationCollector {
         if (deserializationSchema instanceof JsonDeserializationSchema) {
             ((JsonDeserializationSchema) deserializationSchema).collect(message, out);
         } else {
-            SeaTunnelRow deserialize = deserializationSchema.deserialize(message);
+            SeaTunnelRow deserialize = deserializationSchema.deserialize(message, TablePath.of(""));
             out.collect(deserialize);
         }
     }

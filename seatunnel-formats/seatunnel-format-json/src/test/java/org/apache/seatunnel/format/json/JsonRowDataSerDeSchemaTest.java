@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -139,7 +140,8 @@ public class JsonRowDataSerDeSchemaTest {
         expected.setField(10, multiSet);
         expected.setField(11, nestedMap);
 
-        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(serializedJson);
+        SeaTunnelRow seaTunnelRow =
+                deserializationSchema.deserialize(serializedJson, TablePath.of(""));
         assertEquals(expected, seaTunnelRow);
 
         // test serialization
@@ -186,7 +188,8 @@ public class JsonRowDataSerDeSchemaTest {
             row.put("f1", "this is row1");
             row.put("f2", 12);
             byte[] serializedJson = objectMapper.writeValueAsBytes(root);
-            SeaTunnelRow rowData = deserializationSchema.deserialize(serializedJson);
+            SeaTunnelRow rowData =
+                    deserializationSchema.deserialize(serializedJson, TablePath.of(""));
             byte[] actual = serializationSchema.serialize(rowData);
             assertEquals(new String(serializedJson), new String(actual));
         }
@@ -206,7 +209,8 @@ public class JsonRowDataSerDeSchemaTest {
             row.put("f1", "this is row2");
             row.putNull("f2");
             byte[] serializedJson = objectMapper.writeValueAsBytes(root);
-            SeaTunnelRow rowData = deserializationSchema.deserialize(serializedJson);
+            SeaTunnelRow rowData =
+                    deserializationSchema.deserialize(serializedJson, TablePath.of(""));
             byte[] actual = serializationSchema.serialize(rowData);
             assertEquals(new String(serializedJson), new String(actual));
         }
@@ -247,7 +251,7 @@ public class JsonRowDataSerDeSchemaTest {
 
         for (int i = 0; i < jsons.length; i++) {
             String json = jsons[i];
-            SeaTunnelRow row = deserializationSchema.deserialize(json.getBytes());
+            SeaTunnelRow row = deserializationSchema.deserialize(json.getBytes(), TablePath.of(""));
             String result = new String(serializationSchema.serialize(row));
             assertEquals(expected[i], result);
         }
@@ -270,7 +274,7 @@ public class JsonRowDataSerDeSchemaTest {
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(true, false, schema);
-        SeaTunnelRow rowData = deserializationSchema.deserialize("".getBytes());
+        SeaTunnelRow rowData = deserializationSchema.deserialize("".getBytes(), TablePath.of(""));
         assertEquals(null, rowData);
     }
 
@@ -291,7 +295,7 @@ public class JsonRowDataSerDeSchemaTest {
                 new JsonDeserializationSchema(false, false, schema);
 
         SeaTunnelRow expected = new SeaTunnelRow(1);
-        SeaTunnelRow actual = deserializationSchema.deserialize(serializedJson);
+        SeaTunnelRow actual = deserializationSchema.deserialize(serializedJson, TablePath.of(""));
         assertEquals(expected, actual);
 
         // fail on missing field
@@ -300,7 +304,7 @@ public class JsonRowDataSerDeSchemaTest {
         String errorMessage =
                 "ErrorCode:[COMMON-02], ErrorDescription:[Json covert/parse operation failed] - Failed to deserialize JSON '{\"id\":123123123}'.";
         try {
-            deserializationSchema.deserialize(serializedJson);
+            deserializationSchema.deserialize(serializedJson, TablePath.of(""));
             fail("expecting exception message: " + errorMessage);
         } catch (Throwable t) {
             assertEquals(errorMessage, t.getMessage());
@@ -308,7 +312,7 @@ public class JsonRowDataSerDeSchemaTest {
 
         // ignore on parse error
         deserializationSchema = new JsonDeserializationSchema(false, true, schema);
-        assertEquals(expected, deserializationSchema.deserialize(serializedJson));
+        assertEquals(expected, deserializationSchema.deserialize(serializedJson, TablePath.of("")));
 
         errorMessage =
                 "ErrorCode:[COMMON-06], ErrorDescription:[Illegal argument] - JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.";

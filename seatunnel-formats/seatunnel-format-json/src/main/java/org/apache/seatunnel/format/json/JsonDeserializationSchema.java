@@ -27,11 +27,13 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.NullNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.CompositeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
@@ -95,11 +97,15 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message) throws IOException {
+    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
         if (message == null) {
             return null;
         }
-        return convertJsonNode(convertBytes(message));
+        SeaTunnelRow seaTunnelRow = convertJsonNode(convertBytes(message));
+        if (seaTunnelRow != null) {
+            seaTunnelRow.setTableId(tablePath.toString());
+        }
+        return seaTunnelRow;
     }
 
     public SeaTunnelRow deserialize(String message) throws IOException {
@@ -134,7 +140,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
                 return null;
             }
             throw new SeaTunnelJsonFormatException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
+                    CommonErrorCode.JSON_OPERATION_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", jsonNode),
                     t);
         }
@@ -156,7 +162,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
                 return NullNode.getInstance();
             }
             throw new SeaTunnelJsonFormatException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
+                    CommonErrorCode.JSON_OPERATION_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", new String(message)),
                     t);
         }
@@ -170,7 +176,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
                 return NullNode.getInstance();
             }
             throw new SeaTunnelJsonFormatException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
+                    CommonErrorCode.JSON_OPERATION_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", message),
                     t);
         }

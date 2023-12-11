@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -30,8 +31,10 @@ public class SimpleTextDeserializationSchema implements DeserializationSchema<Se
     private SeaTunnelRowType rowType;
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message) {
-        return new SeaTunnelRow(new Object[] {new String(message)});
+    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) {
+        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[] {new String(message)});
+        seaTunnelRow.setTableId(tablePath.toString());
+        return seaTunnelRow;
     }
 
     @Override

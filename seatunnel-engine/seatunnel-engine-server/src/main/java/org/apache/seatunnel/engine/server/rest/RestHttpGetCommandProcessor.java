@@ -35,6 +35,9 @@ import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Cluster;
 import com.hazelcast.cluster.Member;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpGetCommand;
@@ -211,7 +214,25 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     private SeaTunnelServer getSeaTunnelServer() {
         Map<String, Object> extensionServices =
                 this.textCommandService.getNode().getNodeExtension().createExtensionServices();
-        return (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
+        SeaTunnelServer seaTunnelServer =
+                (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
+        if (!seaTunnelServer.isMasterNode()) {
+            for (HazelcastInstance hazelcastInstance : Hazelcast.getAllHazelcastInstances()) {
+                SeaTunnelServer seaTunnelServer1 =
+                        (SeaTunnelServer)
+                                ((HazelcastInstanceProxy) hazelcastInstance)
+                                        .getOriginal()
+                                        .node
+                                        .getNodeExtension()
+                                        .createExtensionServices()
+                                        .get(Constant.SEATUNNEL_SERVICE_NAME);
+
+                if (seaTunnelServer1.isMasterNode()) {
+                    return seaTunnelServer1;
+                }
+            }
+        }
+        return seaTunnelServer;
     }
 
     private JsonObject convertToJson(JobInfo jobInfo, long jobId) {

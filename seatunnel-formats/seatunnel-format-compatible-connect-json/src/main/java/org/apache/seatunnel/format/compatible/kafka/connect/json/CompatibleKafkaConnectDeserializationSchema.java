@@ -21,11 +21,12 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.format.json.JsonToRowConverters;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
@@ -87,7 +88,7 @@ public class CompatibleKafkaConnectDeserializationSchema
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message) throws IOException {
+    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
         throw new UnsupportedEncodingException();
     }
 
@@ -98,7 +99,8 @@ public class CompatibleKafkaConnectDeserializationSchema
      * @param out
      * @throws Exception
      */
-    public void deserialize(ConsumerRecord<byte[], byte[]> msg, Collector<SeaTunnelRow> out)
+    public void deserialize(
+            ConsumerRecord<byte[], byte[]> msg, Collector<SeaTunnelRow> out, TablePath tablePath)
             throws InvocationTargetException, IllegalAccessException {
         tryInitConverter();
         SinkRecord record = convertToSinkRecord(msg);
@@ -113,11 +115,18 @@ public class CompatibleKafkaConnectDeserializationSchema
             for (int i = 0; i < arrayNode.size(); i++) {
                 SeaTunnelRow row = convertJsonNode(arrayNode.get(i));
                 row.setRowKind(rowKind);
+                if (row != null) {
+                    row.setTableId(tablePath.toString());
+                }
                 out.collect(row);
             }
         } else {
             SeaTunnelRow row = convertJsonNode(payload);
             row.setRowKind(rowKind);
+            if (row != null) {
+                row.setTableId(tablePath.toString());
+            }
+            row.setTableId(tablePath.toString());
             out.collect(row);
         }
     }
@@ -132,7 +141,7 @@ public class CompatibleKafkaConnectDeserializationSchema
             return (SeaTunnelRow) runtimeConverter.convert(jsonData);
         } catch (Throwable t) {
             throw new SeaTunnelJsonFormatException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
+                    CommonErrorCode.JSON_OPERATION_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", jsonNode),
                     t);
         }

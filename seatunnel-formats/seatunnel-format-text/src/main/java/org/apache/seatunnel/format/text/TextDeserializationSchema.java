@@ -18,13 +18,14 @@
 package org.apache.seatunnel.format.text;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
@@ -112,14 +113,16 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message) throws IOException {
+    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
         String content = new String(message);
         Map<Integer, String> splitsMap = splitLineBySeaTunnelRowType(content, seaTunnelRowType, 0);
         Object[] objects = new Object[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < objects.length; i++) {
             objects[i] = convert(splitsMap.get(i), seaTunnelRowType.getFieldType(i), 0);
         }
-        return new SeaTunnelRow(objects);
+        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(objects);
+        seaTunnelRow.setTableId(tablePath.toString());
+        return seaTunnelRow;
     }
 
     @Override
@@ -175,7 +178,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                         return objectArrayList.toArray(new Double[0]);
                     default:
                         throw new SeaTunnelTextFormatException(
-                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                                 String.format(
                                         "SeaTunnel array not support this data type [%s]",
                                         elementType.getSqlType()));
@@ -238,7 +241,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 return new SeaTunnelRow(objects);
             default:
                 throw new SeaTunnelTextFormatException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                         String.format(
                                 "SeaTunnel not support this data type [%s]",
                                 fieldType.getSqlType()));

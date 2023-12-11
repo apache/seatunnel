@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
@@ -127,7 +128,7 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
                     return;
                 }
                 deliveryTagsProcessedForCurrentSnapshot.add(envelope.getDeliveryTag());
-                deserializationSchema.deserialize(body, output);
+                deserializationSchema.deserialize(body, output, TablePath.of(""));
             }
 
             if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
