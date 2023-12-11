@@ -258,13 +258,13 @@ public class KafkaSourceSplitEnumerator
         }
         props.setProperty(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaSourceConfig.getBootstrap());
-        if (properties.get("client.id") == null) {
+        if (properties.get("client.id") != null) {
+            props.setProperty(
+                    ConsumerConfig.CLIENT_ID_CONFIG, properties.get("client.id").toString());
+        } else {
             props.setProperty(
                     ConsumerConfig.CLIENT_ID_CONFIG,
                     CLIENT_ID_PREFIX + "-enumerator-admin-client-" + this.hashCode());
-        } else {
-            props.setProperty(
-                    ConsumerConfig.CLIENT_ID_CONFIG, properties.get("client.id").toString());
         }
 
         return AdminClient.create(props);
