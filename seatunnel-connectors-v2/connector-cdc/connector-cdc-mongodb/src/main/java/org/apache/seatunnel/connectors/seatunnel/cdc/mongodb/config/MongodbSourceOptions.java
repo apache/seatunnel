@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
@@ -107,6 +108,8 @@ public class MongodbSourceOptions extends SourceOptions {
                     + "    { \"name\": \"source\","
                     + "      \"type\": [{\"name\": \"source\", \"type\": \"record\", \"fields\": ["
                     + "                {\"name\": \"ts_ms\", \"type\": \"long\"},"
+                    + "                {\"name\": \"table\", \"type\": [\"string\", \"null\"]},"
+                    + "                {\"name\": \"db\", \"type\": [\"string\", \"null\"]},"
                     + "                {\"name\": \"snapshot\", \"type\": [\"string\", \"null\"] } ]"
                     + "               }, \"null\" ] },"
                     + "    { \"name\": \"ts_ms\", \"type\": [\"long\", \"null\"]},"
@@ -234,7 +237,7 @@ public class MongodbSourceOptions extends SourceOptions {
                     .withDescription(
                             "Decides if the table options contains Debezium client properties that start with prefix 'debezium'.");
 
-    public static final Option<StartupMode> STARTUP_MODE =
+    public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
             Options.key(SourceOptions.STARTUP_MODE_KEY)
                     .singleChoice(
                             StartupMode.class,
@@ -245,7 +248,7 @@ public class MongodbSourceOptions extends SourceOptions {
                             "Optional startup mode for CDC source, valid enumerations are "
                                     + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
 
-    public static final Option<StopMode> STOP_MODE =
+    public static final SingleChoiceOption<StopMode> STOP_MODE =
             Options.key(SourceOptions.STOP_MODE_KEY)
                     .singleChoice(StopMode.class, Collections.singletonList(StopMode.NEVER))
                     .defaultValue(StopMode.NEVER)

@@ -34,7 +34,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -63,8 +65,8 @@ import static org.awaitility.Awaitility.await;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK do not support cdc")
+        type = {EngineType.SPARK},
+        disabledReason = "Currently SPARK do not support cdc")
 public class MongodbCDCIT extends TestSuiteBase implements TestResource {
 
     // ----------------------------------------------------------------------------
@@ -78,7 +80,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
 
     // ----------------------------------------------------------------------------
     // mysql
-    private static final String MYSQL_HOST = "mysql_cdc_e2e";
+    private static final String MYSQL_HOST = "mysql_e2e";
 
     private static final String MYSQL_USER_NAME = "st_user";
 
@@ -104,8 +106,10 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         mySqlContainer.withDatabaseName(MYSQL_DATABASE);
         mySqlContainer.withUsername(MYSQL_USER_NAME);
         mySqlContainer.withPassword(MYSQL_USER_PASSWORD);
+        mySqlContainer.withLogConsumer(
+                new Slf4jLogConsumer(DockerLoggerFactory.getLogger("Mysql-Docker-Image")));
         // For local test use
-        // mySqlContainer.setPortBindings(Collections.singletonList("3308:3306"));
+        mySqlContainer.setPortBindings(Collections.singletonList("3310:3306"));
         return mySqlContainer;
     }
 
@@ -134,6 +138,9 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         mongodbContainer = new MongoDBContainer(NETWORK);
         // For local test use
         mongodbContainer.setPortBindings(Collections.singletonList("27017:27017"));
+        mongodbContainer.withLogConsumer(
+                new Slf4jLogConsumer(DockerLoggerFactory.getLogger("Mongodb-Docker-Image")));
+
         Startables.deepStart(Stream.of(mongodbContainer)).join();
         mongodbContainer.executeCommandFileInSeparateDatabase(MONGODB_DATABASE);
         initConnection();
@@ -194,6 +201,28 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                                             .collect(Collectors.toList()),
                                     querySql());
                         });
+
+        cleanSourceTable();
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    readMongodbData().stream()
+                                            .peek(e -> e.remove("_id"))
+                                            .map(Document::entrySet)
+                                            .map(Set::stream)
+                                            .map(
+                                                    entryStream ->
+                                                            entryStream
+                                                                    .map(Map.Entry::getValue)
+                                                                    .collect(
+                                                                            Collectors.toCollection(
+                                                                                    ArrayList
+                                                                                            ::new)))
+                                            .collect(Collectors.toList()),
+                                    querySql());
+                        });
     }
 
     private Connection getJdbcConnection() throws SQLException {
@@ -213,6 +242,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                 for (int i = 1; i <= columnCount; i++) {
                     objects.add(resultSet.getObject(i));
                 }
+                log.info("Print mysql sink data:" + objects);
                 result.add(objects);
             }
             return result;
@@ -223,6 +253,10 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
 
     private void upsertDeleteSourceTable() {
         mongodbContainer.executeCommandFileInDatabase("inventoryDDL", MONGODB_DATABASE);
+    }
+
+    private void cleanSourceTable() {
+        mongodbContainer.executeCommandFileInDatabase("inventoryClean", MONGODB_DATABASE);
     }
 
     public void initConnection() {

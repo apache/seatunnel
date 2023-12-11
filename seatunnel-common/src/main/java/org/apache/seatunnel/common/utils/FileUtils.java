@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.common.utils;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import lombok.NonNull;
@@ -51,7 +51,9 @@ public class FileUtils {
                                     return path.toUri().toURL();
                                 } catch (MalformedURLException e) {
                                     throw new SeaTunnelRuntimeException(
-                                            CommonErrorCode.REFLECT_CLASS_OPERATION_FAILED, e);
+                                            CommonErrorCodeDeprecated
+                                                    .REFLECT_CLASS_OPERATION_FAILED,
+                                            e);
                                 }
                             })
                     .collect(Collectors.toList());
@@ -64,7 +66,7 @@ public class FileUtils {
             return new String(bytes);
         } catch (IOException e) {
             throw new SeaTunnelRuntimeException(
-                    CommonErrorCode.FILE_OPERATION_FAILED, ExceptionUtils.getMessage(e));
+                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, ExceptionUtils.getMessage(e));
         }
     }
 
@@ -76,7 +78,9 @@ public class FileUtils {
             ps.println(str);
         } catch (FileNotFoundException e) {
             throw new SeaTunnelRuntimeException(
-                    CommonErrorCode.FILE_OPERATION_FAILED, ExceptionUtils.getMessage(e), e);
+                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
+                    ExceptionUtils.getMessage(e),
+                    e);
         } finally {
             if (ps != null) {
                 ps.close();
@@ -119,7 +123,7 @@ public class FileUtils {
             return lines.count();
         } catch (IOException e) {
             throw new SeaTunnelRuntimeException(
-                    CommonErrorCode.FILE_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
                     String.format("get file[%s] line error", filePath),
                     e);
         }
@@ -193,7 +197,8 @@ public class FileUtils {
 
         } catch (Exception e) {
             String errorMsg = String.format("Delete file [%s] failed", file.getPath());
-            throw new SeaTunnelRuntimeException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+            throw new SeaTunnelRuntimeException(
+                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, errorMsg, e);
         }
     }
 }

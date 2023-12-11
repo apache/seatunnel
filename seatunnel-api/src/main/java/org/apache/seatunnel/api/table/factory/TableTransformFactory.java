@@ -32,7 +32,7 @@ public interface TableTransformFactory extends Factory {
      * @param context TableFactoryContext
      * @return
      */
-    default <T> TableTransform<T> createTransform(TableFactoryContext context) {
+    default <T> TableTransform<T> createTransform(TableTransformFactoryContext context) {
         throw new UnsupportedOperationException(
                 "The Factory has not been implemented and the deprecated Plugin will be used.");
     }

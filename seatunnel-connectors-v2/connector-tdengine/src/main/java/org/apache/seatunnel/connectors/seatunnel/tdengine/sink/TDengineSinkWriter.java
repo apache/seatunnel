@@ -21,7 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
@@ -81,7 +81,6 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @SneakyThrows
     @Override
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     public void write(SeaTunnelRow element) {
         final ArrayList<Object> tags = Lists.newArrayList();
         for (int i = element.getArity() - tagsNum; i < element.getArity(); i++) {
@@ -105,7 +104,8 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             if (rowCount == 0) {
                 Throwables.propagateIfPossible(
                         new TDengineConnectorException(
-                                CommonErrorCode.SQL_OPERATION_FAILED, "insert error:" + element));
+                                CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                                "insert error:" + element));
             }
         }
     }
@@ -117,7 +117,7 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 conn.close();
             } catch (SQLException e) {
                 throw new TDengineConnectorException(
-                        CommonErrorCode.WRITER_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                         "TDengine writer connection close failed",
                         e);
             }

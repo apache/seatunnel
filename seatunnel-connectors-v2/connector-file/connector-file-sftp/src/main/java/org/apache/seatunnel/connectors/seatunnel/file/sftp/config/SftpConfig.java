@@ -27,7 +27,7 @@ public class SftpConfig extends BaseSourceConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("SFTP server password");
-    public static final Option<String> SFTP_USERNAME =
+    public static final Option<String> SFTP_USER =
             Options.key("user")
                     .stringType()
                     .noDefaultValue()

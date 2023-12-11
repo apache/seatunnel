@@ -48,7 +48,6 @@ public class ThreadSafeQPSMeter implements Meter, Serializable {
         VOLATILE_VALUE_UPDATER.addAndGet(this, n);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public double getRate() {
         long cost = System.currentTimeMillis() - timestamp;

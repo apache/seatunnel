@@ -17,17 +17,32 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.local.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkReplaceNameConstant;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class LocalFileSinkFactory implements TableSinkFactory {
+public class LocalFileSinkFactory
+        implements TableSinkFactory<
+                SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
     @Override
     public String factoryIdentifier() {
         return FileSystemType.LOCAL.getFileSystemPluginName();
@@ -43,11 +58,13 @@ public class LocalFileSinkFactory implements TableSinkFactory {
                         FileFormat.TEXT,
                         BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.FIELD_DELIMITER,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.TXT_COMPRESS,
+                        BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.TXT_COMPRESS,
+                        BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.JSON,
@@ -79,5 +96,71 @@ public class LocalFileSinkFactory implements TableSinkFactory {
                 .optional(BaseSinkConfig.DATETIME_FORMAT)
                 .optional(BaseSinkConfig.TIME_FORMAT)
                 .build();
+    }
+
+    @Override
+    public TableSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo>
+            createSink(TableSinkFactoryContext context) {
+        ReadonlyConfig readonlyConfig = context.getOptions();
+        CatalogTable catalogTable = context.getCatalogTable();
+
+        ReadonlyConfig finalReadonlyConfig =
+                generateCurrentReadonlyConfig(readonlyConfig, catalogTable);
+        return () -> new LocalFileSink(finalReadonlyConfig, catalogTable);
+    }
+
+    // replace the table name in sink config's path
+    private ReadonlyConfig generateCurrentReadonlyConfig(
+            ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
+        // Copy the config to avoid modifying the original config
+        Config config = readonlyConfig.toConfig();
+
+        if (config.hasPath(BaseSinkConfig.FILE_PATH.key())) {
+            String replacedPath =
+                    replaceCatalogTableInPath(
+                            config.getString(BaseSinkConfig.FILE_PATH.key()), catalogTable);
+            config =
+                    config.withValue(
+                            BaseSinkConfig.FILE_PATH.key(),
+                            ConfigValueFactory.fromAnyRef(replacedPath));
+        }
+
+        if (config.hasPath(BaseSinkConfig.TMP_PATH.key())) {
+            String replacedPath =
+                    replaceCatalogTableInPath(
+                            config.getString(BaseSinkConfig.TMP_PATH.key()), catalogTable);
+            config =
+                    config.withValue(
+                            BaseSinkConfig.TMP_PATH.key(),
+                            ConfigValueFactory.fromAnyRef(replacedPath));
+        }
+
+        return ReadonlyConfig.fromConfig(config);
+    }
+
+    private String replaceCatalogTableInPath(String originString, CatalogTable catalogTable) {
+        String path = originString;
+        TableIdentifier tableIdentifier = catalogTable.getTableId();
+        if (tableIdentifier != null) {
+            if (tableIdentifier.getDatabaseName() != null) {
+                path =
+                        path.replace(
+                                SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY,
+                                tableIdentifier.getDatabaseName());
+            }
+            if (tableIdentifier.getSchemaName() != null) {
+                path =
+                        path.replace(
+                                SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY,
+                                tableIdentifier.getSchemaName());
+            }
+            if (tableIdentifier.getTableName() != null) {
+                path =
+                        path.replace(
+                                SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY,
+                                tableIdentifier.getTableName());
+            }
+        }
+        return path;
     }
 }

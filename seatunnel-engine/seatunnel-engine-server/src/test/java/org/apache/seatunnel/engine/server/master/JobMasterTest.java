@@ -118,6 +118,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                         "Test",
                         nodeEngine.getSerializationService().toData(testLogicalDag),
                         testLogicalDag.getJobConfig(),
+                        Collections.emptyList(),
                         Collections.emptyList());
 
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
@@ -139,7 +140,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
         jobMaster.neverNeedRestore();
         // call checkpoint timeout
-        jobMaster.handleCheckpointError(1);
+        jobMaster.handleCheckpointError(1, false);
 
         PassiveCompletableFuture<JobResult> jobMasterCompleteFuture =
                 jobMaster.getJobMasterCompleteFuture();

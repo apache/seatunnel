@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCod
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSavePointJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSubmitJobCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelUploadConnectorJarCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobCompleteCodec;
 
 import com.hazelcast.client.impl.protocol.MessageTaskFactory;
@@ -97,5 +98,9 @@ public class SeaTunnelMessageTaskFactoryProvider implements MessageTaskFactoryPr
                 SeaTunnelGetRunningJobMetricsCodec.REQUEST_MESSAGE_TYPE,
                 (clientMessage, connection) ->
                         new GetRunningJobMetricsTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelUploadConnectorJarCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) ->
+                        new UploadConnectorJarTask(clientMessage, node, connection));
     }
 }

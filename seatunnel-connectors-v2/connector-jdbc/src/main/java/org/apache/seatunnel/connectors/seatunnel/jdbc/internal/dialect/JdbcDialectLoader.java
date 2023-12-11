@@ -36,6 +36,10 @@ public final class JdbcDialectLoader {
 
     private JdbcDialectLoader() {}
 
+    public static JdbcDialect load(String url, String compatibleMode) {
+        return load(url, compatibleMode, "");
+    }
+
     /**
      * Loads the unique JDBC Dialect that can handle the given database url.
      *
@@ -45,7 +49,7 @@ public final class JdbcDialectLoader {
      *     unambiguously process the given database URL.
      * @return The loaded dialect.
      */
-    public static JdbcDialect load(String url, String compatibleMode) {
+    public static JdbcDialect load(String url, String compatibleMode, String fieldIde) {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         List<JdbcDialectFactory> foundFactories = discoverFactories(cl);
 
@@ -90,7 +94,7 @@ public final class JdbcDialectLoader {
                                     .collect(Collectors.joining("\n"))));
         }
 
-        return matchingFactories.get(0).create(compatibleMode);
+        return matchingFactories.get(0).create(compatibleMode, fieldIde);
     }
 
     private static List<JdbcDialectFactory> discoverFactories(ClassLoader classLoader) {

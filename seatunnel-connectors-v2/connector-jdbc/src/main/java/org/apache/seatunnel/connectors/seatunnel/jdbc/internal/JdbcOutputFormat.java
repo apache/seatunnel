@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
@@ -28,17 +28,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatc
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import java.io.IOException;
 import java.io.Serializable;
-import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -58,9 +50,6 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private transient E jdbcStatementExecutor;
     private transient int batchCount = 0;
     private transient volatile boolean closed = false;
-
-    private transient ScheduledExecutorService scheduler;
-    private transient ScheduledFuture<?> scheduledFuture;
     private transient volatile Exception flushException;
 
     public JdbcOutputFormat(
@@ -83,37 +72,6 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     e);
         }
         jdbcStatementExecutor = createAndOpenStatementExecutor(statementExecutorFactory);
-
-        if (jdbcConnectionConfig.getBatchIntervalMs() != 0
-                && jdbcConnectionConfig.getBatchSize() != 1) {
-            this.scheduler =
-                    Executors.newScheduledThreadPool(
-                            1,
-                            runnable -> {
-                                AtomicInteger cnt = new AtomicInteger(0);
-                                Thread thread = new Thread(runnable);
-                                thread.setDaemon(true);
-                                thread.setName(
-                                        "jdbc-upsert-output-format" + "-" + cnt.incrementAndGet());
-                                return thread;
-                            });
-            this.scheduledFuture =
-                    this.scheduler.scheduleWithFixedDelay(
-                            () -> {
-                                synchronized (JdbcOutputFormat.this) {
-                                    if (!closed) {
-                                        try {
-                                            flush();
-                                        } catch (Exception e) {
-                                            flushException = e;
-                                        }
-                                    }
-                                }
-                            },
-                            jdbcConnectionConfig.getBatchIntervalMs(),
-                            jdbcConnectionConfig.getBatchIntervalMs(),
-                            TimeUnit.MILLISECONDS);
-        }
     }
 
     private E createAndOpenStatementExecutor(StatementExecutorFactory<E> statementExecutorFactory) {
@@ -122,7 +80,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             exec.prepareStatements(connectionProvider.getConnection());
         } catch (SQLException e) {
             throw new JdbcConnectorException(
-                    CommonErrorCode.SQL_OPERATION_FAILED, "unable to open JDBC writer", e);
+                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                    "unable to open JDBC writer",
+                    e);
         }
         return exec;
     }
@@ -130,7 +90,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     public void checkFlushException() {
         if (flushException != null) {
             throw new JdbcConnectorException(
-                    CommonErrorCode.FLUSH_DATA_FAILED,
+                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                     "Writing records to JDBC failed.",
                     flushException);
         }
@@ -147,7 +107,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             }
         } catch (Exception e) {
             throw new JdbcConnectorException(
-                    CommonErrorCode.SQL_OPERATION_FAILED, "Writing records to JDBC failed.", e);
+                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                    "Writing records to JDBC failed.",
+                    e);
         }
     }
 
@@ -172,7 +134,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             } catch (SQLException e) {
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
                 if (i >= jdbcConnectionConfig.getMaxRetries()) {
-                    throw new JdbcConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, e);
+                    throw new JdbcConnectorException(
+                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
                 }
                 try {
                     if (!connectionProvider.isConnectionValid()) {
@@ -192,7 +155,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     throw new JdbcConnectorException(
-                            CommonErrorCode.FLUSH_DATA_FAILED,
+                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                             "unable to flush; interrupted while doing another attempt",
                             e);
                 }
@@ -209,20 +172,16 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         if (!closed) {
             closed = true;
 
-            if (this.scheduledFuture != null) {
-                scheduledFuture.cancel(false);
-                this.scheduler.shutdown();
-            }
-
             if (batchCount > 0) {
                 try {
                     flush();
                 } catch (Exception e) {
                     LOG.warn("Writing records to JDBC failed.", e);
-                    throw new JdbcConnectorException(
-                            CommonErrorCode.FLUSH_DATA_FAILED,
-                            "Writing records to JDBC failed.",
-                            e);
+                    flushException =
+                            new JdbcConnectorException(
+                                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                    "Writing records to JDBC failed.",
+                                    e);
                 }
             }
 
@@ -251,11 +210,6 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 reconnect
                         ? connectionProvider.reestablishConnection()
                         : connectionProvider.getConnection());
-    }
-
-    @VisibleForTesting
-    public Connection getConnection() {
-        return connectionProvider.getConnection();
     }
 
     /**

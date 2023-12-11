@@ -26,9 +26,11 @@ import lombok.Getter;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -72,6 +74,10 @@ public final class JobMetrics implements Serializable {
         }
         Map<String, List<Measurement>> metricsMap = new HashMap<>();
         metrics.forEach((key, value) -> metricsMap.put(key, new ArrayList<>(value)));
+        //// Because if a job is restarted, the running node might change, so we need to remove the
+        // node information.
+        Set<String> keysToExclude =
+                new HashSet<>(Arrays.asList(MetricTags.MEMBER, MetricTags.ADDRESS));
         jobMetrics.metrics.forEach(
                 (key, value) ->
                         metricsMap.merge(
@@ -82,13 +88,51 @@ public final class JobMetrics implements Serializable {
                                     for (Measurement m1 : v1) {
                                         if (v2.stream()
                                                 .noneMatch(
-                                                        m2 -> m2.getTags().equals(m1.getTags()))) {
+                                                        m2 ->
+                                                                areMapsEqualExcludingKeys(
+                                                                        m2.getTags(),
+                                                                        m1.getTags(),
+                                                                        keysToExclude))) {
                                             ms.add(m1);
                                         }
                                     }
                                     return ms;
                                 }));
         return new JobMetrics(metricsMap);
+    }
+
+    /**
+     * Compares two Map objects excluding certain keys.
+     *
+     * @param map1 the first map
+     * @param map2 the second map
+     * @param keysToExclude the keys to be excluded during comparison
+     * @return true if the maps are equal excluding the specific keys, false otherwise
+     */
+    public static boolean areMapsEqualExcludingKeys(
+            Map<String, String> map1, Map<String, String> map2, Set<String> keysToExclude) {
+        // Return false if either of the maps is null
+        if (map1 == null || map2 == null) {
+            return false;
+        }
+
+        // Return false if the sizes of the maps are different
+        if (map1.size() != map2.size()) {
+            return false;
+        }
+
+        // Create copies of the maps to avoid modifying the original maps
+        Map<String, String> map1Copy = new HashMap<>(map1);
+        Map<String, String> map2Copy = new HashMap<>(map2);
+
+        // Remove specific keys from the copies
+        for (String key : keysToExclude) {
+            map1Copy.remove(key);
+            map2Copy.remove(key);
+        }
+
+        // Return whether the copies are equal
+        return map1Copy.equals(map2Copy);
     }
 
     /** Returns all metrics present. */

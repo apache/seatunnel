@@ -283,6 +283,10 @@ By utilizing `flat.sync-string`, only one field attribute value can be set, and 
 This operation will perform a string mapping on a single MongoDB data entry.
 
 ```bash
+env {
+  execution.parallelism = 10
+  job.mode = "BATCH"
+}
 source {
   MongoDB {
     uri = "mongodb://user:password@127.0.0.1:27017"
@@ -295,6 +299,9 @@ source {
       }
     }
   }
+}
+sink {
+  Console {}
 }
 ```
 

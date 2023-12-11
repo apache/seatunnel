@@ -312,7 +312,6 @@ public class KafkaSourceSplitEnumerator
         pendingSplit.clear();
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private static int getSplitOwner(TopicPartition tp, int numReaders) {
         int startIndex = ((tp.topic().hashCode() * 31) & 0x7FFFFFFF) % numReaders;
         return (startIndex + tp.partition()) % numReaders;

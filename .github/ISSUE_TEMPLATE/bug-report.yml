@@ -90,10 +90,10 @@ body:
 
   - type: textarea
     attributes:
-      label: Flink or Spark Version
-      description: Provide Flink or Spark Version.
+      label: Zeta or Flink or Spark Version
+      description: Provide Zeta or Flink or Spark Version.
       placeholder: >
-        Please provide the version of Flink or Spark.
+        Please provide the version of Zeta or Flink or Spark.
     validations:
       required: false
 

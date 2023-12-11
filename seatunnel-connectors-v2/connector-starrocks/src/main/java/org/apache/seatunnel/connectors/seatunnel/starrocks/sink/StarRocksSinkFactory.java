@@ -21,8 +21,8 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksOptions;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
@@ -49,19 +49,19 @@ public class StarRocksSinkFactory implements TableSinkFactory {
                         StarRocksSinkOptions.LABEL_PREFIX,
                         StarRocksSinkOptions.BATCH_MAX_SIZE,
                         StarRocksSinkOptions.BATCH_MAX_BYTES,
-                        StarRocksSinkOptions.BATCH_INTERVAL_MS,
                         StarRocksSinkOptions.MAX_RETRIES,
                         StarRocksSinkOptions.MAX_RETRY_BACKOFF_MS,
                         StarRocksSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS,
                         StarRocksSinkOptions.STARROCKS_CONFIG,
                         StarRocksSinkOptions.ENABLE_UPSERT_DELETE,
                         StarRocksSinkOptions.SAVE_MODE,
-                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
+                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE,
+                        StarRocksSinkOptions.HTTP_SOCKET_TIMEOUT_MS)
                 .build();
     }
 
     @Override
-    public TableSink createSink(TableFactoryContext context) {
+    public TableSink createSink(TableSinkFactoryContext context) {
         SinkConfig sinkConfig = SinkConfig.of(context.getOptions());
         CatalogTable catalogTable = context.getCatalogTable();
         if (StringUtils.isBlank(sinkConfig.getTable())) {

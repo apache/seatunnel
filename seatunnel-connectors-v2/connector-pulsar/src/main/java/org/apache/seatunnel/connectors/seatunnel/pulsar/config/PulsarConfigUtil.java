@@ -34,7 +34,7 @@ import org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils;
 
 public class PulsarConfigUtil {
 
-    public static final String IDENTIFIER = "pulsar";
+    public static final String IDENTIFIER = "Pulsar";
 
     private PulsarConfigUtil() {}
 

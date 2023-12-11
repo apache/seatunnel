@@ -25,6 +25,10 @@
     <artifactId>connector-doris-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Doris</name>
 
+    <properties>
+        <mysql.version>8.0.31</mysql.version>
+    </properties>
+
     <dependencies>
         <!-- SeaTunnel connectors -->
         <dependency>
@@ -42,7 +46,8 @@
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
-            <version>5.1.26</version>
+            <version>${mysql.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

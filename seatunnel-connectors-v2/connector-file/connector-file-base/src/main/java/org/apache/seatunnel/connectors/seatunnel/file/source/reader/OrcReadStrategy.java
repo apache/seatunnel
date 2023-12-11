@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -74,7 +74,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
     private static final long MIN_SIZE = 16 * 1024;
 
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output)
+    public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         if (Boolean.FALSE.equals(checkFileType(path))) {
             String errorMsg =
@@ -120,6 +120,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                         }
                     }
                     SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                    seaTunnelRow.setTableId(tableId);
                     output.collect(seaTunnelRow);
                     num++;
                 }
@@ -146,7 +147,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 int index = fieldNames.indexOf(readColumns.get(i));
                 if (index == -1) {
                     throw new FileConnectorException(
-                            CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                            CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
                             String.format(
                                     "Column [%s] does not exists in table schema [%s]",
                                     readColumns.get(i), String.join(",", fieldNames)));
@@ -158,11 +159,11 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             return getActualSeaTunnelRowTypeInfo();
         } catch (IOException e) {
             String errorMsg = String.format("Create orc reader for this file [%s] failed", path);
-            throw new FileConnectorException(CommonErrorCode.READER_OPERATION_FAILED, errorMsg);
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED, errorMsg);
         }
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     boolean checkFileType(String path) {
         try {
@@ -261,7 +262,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                                         "SeaTunnel array type not supported this genericType [%s] yet",
                                         seaTunnelDataType);
                         throw new FileConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
                 }
             case MAP:
                 TypeDescription keyType = typeDescription.getChildren().get(0);
@@ -284,7 +285,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                         String.format(
                                 "SeaTunnel file connector not supported this orc type [%s] yet",
                                 typeDescription.getCategory());
-                throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
 
@@ -324,7 +326,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                     break;
                 default:
                     throw new FileConnectorException(
-                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                             "ReadColumn: unsupported ORC file column type: " + colVec.type.name());
             }
         }
@@ -423,7 +425,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             }
         } else {
             throw new FileConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT, "readMapVal: unsupported key or value types");
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    "readMapVal: unsupported key or value types");
         }
         return objMap;
     }
@@ -469,7 +472,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 break;
             default:
                 throw new FileConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         mapVector.type.name() + " is not supported for MapColumnVectors");
         }
         return mapList;
@@ -488,12 +491,12 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 columnValuePair = Pair.of(fieldType, unionValue);
             } else {
                 throw new FileConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         "readUnionVal: union tag value out of range for union column vectors");
             }
         } else {
             throw new FileConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "readUnionVal: union tag value out of range for union types");
         }
         return columnValuePair;
@@ -523,7 +526,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                     break;
                 default:
                     throw new FileConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             listVector.type.name() + " is not supported for ListColumnVectors");
             }
         }

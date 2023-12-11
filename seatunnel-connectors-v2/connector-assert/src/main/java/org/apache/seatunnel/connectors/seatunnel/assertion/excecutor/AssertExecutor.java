@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.assertion.excecutor;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.assertion.exception.AssertConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.assertion.exception.AssertConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 
 import org.apache.commons.lang3.StringUtils;
@@ -27,6 +29,7 @@ import org.apache.commons.lang3.StringUtils;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -108,33 +111,8 @@ public class AssertExecutor {
             return ((Number) value).doubleValue() >= valueRule.getRuleValue();
         }
         if (valueRule.getEqualTo() != null) {
-            if (value instanceof String) {
-                return value.equals(valueRule.getEqualTo());
-            }
-            if (value instanceof Number) {
-                return ((Number) value).doubleValue() == Double.parseDouble(valueRule.getEqualTo());
-            }
-            if (value instanceof Boolean) {
-                return value.equals(Boolean.parseBoolean(valueRule.getEqualTo()));
-            }
-            if (value instanceof LocalDateTime) {
-                TemporalAccessor parsedTimestamp =
-                        DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(valueRule.getEqualTo());
-                LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
-                LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
-                return ((LocalDateTime) value).isEqual(LocalDateTime.of(localDate, localTime));
-            }
-            if (value instanceof LocalDate) {
-                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-                return ((LocalDate) value).isEqual(LocalDate.parse(valueRule.getEqualTo(), fmt));
-            }
-            if (value instanceof LocalTime) {
-                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm:ss");
-                return value.equals(LocalTime.parse(valueRule.getEqualTo(), fmt));
-            }
-            return false;
+            return compareValue(value, valueRule);
         }
-
         String valueStr = Objects.isNull(value) ? StringUtils.EMPTY : String.valueOf(value);
         if (AssertFieldRule.AssertRuleType.MAX_LENGTH.equals(valueRule.getRuleType())) {
             return valueStr.length() <= valueRule.getRuleValue();
@@ -144,6 +122,44 @@ public class AssertExecutor {
             return valueStr.length() >= valueRule.getRuleValue();
         }
         return Boolean.TRUE;
+    }
+
+    private boolean compareValue(Object value, AssertFieldRule.AssertRule valueRule) {
+        if (value instanceof String) {
+            return value.equals(valueRule.getEqualTo());
+        } else if (value instanceof Integer) {
+            return value.equals(Integer.parseInt(valueRule.getEqualTo()));
+        } else if (value instanceof Long) {
+            return value.equals(Long.parseLong(valueRule.getEqualTo()));
+        } else if (value instanceof Short) {
+            return value.equals(Short.parseShort(valueRule.getEqualTo()));
+        } else if (value instanceof Float) {
+            return value.equals((Float.parseFloat(valueRule.getEqualTo())));
+        } else if (value instanceof Byte) {
+            return value.equals((Byte.parseByte(valueRule.getEqualTo())));
+        } else if (value instanceof Double) {
+            return value.equals(Double.parseDouble(valueRule.getEqualTo()));
+        } else if (value instanceof BigDecimal) {
+            return value.equals(new BigDecimal(valueRule.getEqualTo()));
+        } else if (value instanceof Boolean) {
+            return value.equals(Boolean.parseBoolean(valueRule.getEqualTo()));
+        } else if (value instanceof LocalDateTime) {
+            TemporalAccessor parsedTimestamp =
+                    DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(valueRule.getEqualTo());
+            LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
+            LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
+            return ((LocalDateTime) value).isEqual(LocalDateTime.of(localDate, localTime));
+        } else if (value instanceof LocalDate) {
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            return ((LocalDate) value).isEqual(LocalDate.parse(valueRule.getEqualTo(), fmt));
+        } else if (value instanceof LocalTime) {
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm:ss");
+            return value.equals(LocalTime.parse(valueRule.getEqualTo(), fmt));
+        } else {
+            throw new AssertConnectorException(
+                    AssertConnectorErrorCode.TYPES_NOT_SUPPORTED_FAILED,
+                    String.format(" %s types not supported yet", value.getClass().getSimpleName()));
+        }
     }
 
     private Boolean checkType(Object value, SeaTunnelDataType<?> fieldType) {

@@ -40,10 +40,11 @@ public class BaseSourceConfig {
                     .noDefaultValue()
                     .withDescription("The file path of source files");
 
-    public static final Option<String> DELIMITER =
-            Options.key("delimiter")
+    public static final Option<String> FIELD_DELIMITER =
+            Options.key("field_delimiter")
                     .stringType()
                     .defaultValue(TextFormatConstant.SEPARATOR[0])
+                    .withFallbackKeys("delimiter")
                     .withDescription(
                             "The separator between columns in a row of data. Only needed by `text` file format");
 
@@ -112,4 +113,17 @@ public class BaseSourceConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("To be read sheet name,only valid for excel files");
+
+    public static final Option<String> FILE_FILTER_PATTERN =
+            Options.key("file_filter_pattern")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "File pattern. The connector will filter some files base on the pattern.");
+
+    public static final Option<CompressFormat> COMPRESS_CODEC =
+            Options.key("compress_codec")
+                    .enumType(CompressFormat.class)
+                    .defaultValue(CompressFormat.NONE)
+                    .withDescription("Compression codec");
 }

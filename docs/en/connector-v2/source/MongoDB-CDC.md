@@ -5,6 +5,7 @@
 ## Support Those Engines
 
 > SeaTunnel Zeta<br/>
+> Flink<br/>
 
 ## Key Features
 
@@ -84,8 +85,8 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 | Int64             | BIGINT              |
 | Double            | DOUBLE              |
 | Decimal128        | DECIMAL             |
-| Date              | Date                |
-| Timestamp         | Timestamp           |
+| Date              | DATE                |
+| Timestamp         | TIMESTAMP           |
 | Object            | ROW                 |
 | Array             | ARRAY               |
 
@@ -274,9 +275,38 @@ sink {
 }
 ```
 
-## Changelog
+## Format of real-time streaming data
 
-- [Feature]Add MongoDB CDC Source Connector([4923](https://github.com/apache/seatunnel/pull/4923))
-
-### next version
+```shell
+{
+   _id : { <BSON Object> },        // Identifier of the open change stream, can be assigned to the 'resumeAfter' parameter for subsequent resumption of this change stream
+   "operationType" : "<operation>",        // The type of change operation that occurred, such as: insert, delete, update, etc.
+   "fullDocument" : { <document> },      // The full document data involved in the change operation. This field does not exist in delete operations
+   "ns" : {   
+      "db" : "<database>",         // The database where the change operation occurred
+      "coll" : "<collection>"     // The collection where the change operation occurred
+   },
+   "to" : {   // These fields are displayed only when the operation type is 'rename'
+      "db" : "<database>",         // The new database name after the change
+      "coll" : "<collection>"     // The new collection name after the change
+   },
+   "source":{
+        "ts_ms":"<timestamp>",     // The timestamp when the change operation occurred
+        "table":"<collection>"     // The collection where the change operation occurred
+        "db":"<database>",         // The database where the change operation occurred
+        "snapshot":"false"         // Identify the current stage of data synchronization
+    },
+   "documentKey" : { "_id" : <value> },  // The _id field value of the document involved in the change operation
+   "updateDescription" : {    // Description of the update operation
+      "updatedFields" : { <document> },  // The fields and values that the update operation modified
+      "removedFields" : [ "<field>", ... ]     // The fields and values that the update operation removed
+   }
+   "clusterTime" : <Timestamp>,     // The timestamp of the Oplog log entry corresponding to the change operation
+   "txnNumber" : <NumberLong>,    // If the change operation is executed in a multi-document transaction, this field and value are displayed, representing the transaction number
+   "lsid" : {          // Represents information related to the Session in which the transaction is located
+      "id" : <UUID>,  
+      "uid" : <BinData> 
+   }
+}
+```
 

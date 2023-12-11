@@ -96,6 +96,8 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
             for (int recordIndex = 0; recordIndex < shuffleBatch.size(); recordIndex++) {
                 Record<?> record = shuffleBatch.get(recordIndex);
                 if (record.getData() instanceof Barrier) {
+                    long startTime = System.currentTimeMillis();
+
                     Barrier barrier = (Barrier) record.getData();
 
                     // mark queue barrier
@@ -117,6 +119,11 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
                         runningTask.ack(barrier);
 
                         collector.collect(record);
+                        log.debug(
+                                "trigger barrier [{}] finished, cost: {}ms. taskLocation: [{}]",
+                                barrier.getId(),
+                                System.currentTimeMillis() - startTime,
+                                runningTask.getTaskLocation());
 
                         alignedBarriersCounter = 0;
                         alignedBarriers.clear();

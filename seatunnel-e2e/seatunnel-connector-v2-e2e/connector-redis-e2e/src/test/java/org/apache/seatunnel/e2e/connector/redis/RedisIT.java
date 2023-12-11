@@ -98,6 +98,13 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         for (int i = 0; i < rows.size(); i++) {
             jedis.set("key_test" + i, new String(jsonSerializationSchema.serialize(rows.get(i))));
         }
+        // db_1 init data
+        jedis.select(1);
+        for (int i = 0; i < rows.size(); i++) {
+            jedis.set("key_test" + i, new String(jsonSerializationSchema.serialize(rows.get(i))));
+        }
+        // db_num backup
+        jedis.select(0);
     }
 
     private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
@@ -191,5 +198,26 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         // Clear data to prevent data duplication in the next TestContainer
         jedis.del("key_list");
         Assertions.assertEquals(0, jedis.llen("key_list"));
+    }
+
+    @TestTemplate
+    public void testRedisWithExpire(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/redis-to-redis-expire.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, jedis.llen("key_list"));
+        // Clear data to prevent data duplication in the next TestContainer
+        Thread.sleep(60 * 1000);
+        Assertions.assertEquals(0, jedis.llen("key_list"));
+    }
+
+    @TestTemplate
+    public void restRedisDbNum(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/redis-to-redis-by-db-num.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        jedis.select(2);
+        Assertions.assertEquals(100, jedis.llen("db_test"));
+        jedis.del("db_test");
+        jedis.select(0);
     }
 }

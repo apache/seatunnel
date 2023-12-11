@@ -31,11 +31,10 @@ public interface ConfigAdapter {
     String[] extensionIdentifiers();
 
     /**
-     * Converter config file to path_key-value Map (FlattenedMap) in HOCON
+     * Converter config file to path_key-value Map in HOCON
      *
-     * @see org.apache.seatunnel.api.configuration.util.ConfigUtil#flatteningMap(Map)
      * @param configFilePath config file path.
-     * @return FlattenedMap
+     * @return Map
      */
     Map<String, Object> loadConfig(Path configFilePath);
 }

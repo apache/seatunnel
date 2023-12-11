@@ -45,7 +45,6 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
     public static long JOB_ID = 823342L;
 
     @Test
-    @Disabled()
     public void testSavePoint() throws InterruptedException {
         savePointAndRestore(false);
     }
@@ -76,6 +75,12 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
 
         // 3 start savePoint
         server.getCoordinatorService().savePoint(JOB_ID);
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            JobStatus status = server.getCoordinatorService().getJobStatus(JOB_ID);
+                            Assertions.assertEquals(JobStatus.DOING_SAVEPOINT, status);
+                        });
 
         // 4 Wait for savePoint to complete
         await().atMost(120000, TimeUnit.MILLISECONDS)
@@ -83,7 +88,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
                         () -> {
                             Assertions.assertEquals(
                                     server.getCoordinatorService().getJobStatus(JOB_ID),
-                                    JobStatus.FINISHED);
+                                    JobStatus.SAVEPOINT_DONE);
                         });
 
         Thread.sleep(1000);
@@ -135,6 +140,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
                         isStartWithSavePoint,
                         nodeEngine.getSerializationService().toData(testLogicalDag),
                         testLogicalDag.getJobConfig(),
+                        Collections.emptyList(),
                         Collections.emptyList());
 
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);

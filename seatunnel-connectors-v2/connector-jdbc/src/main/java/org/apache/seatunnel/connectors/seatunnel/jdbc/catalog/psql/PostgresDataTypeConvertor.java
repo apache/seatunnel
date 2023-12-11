@@ -18,7 +18,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql;
 
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -27,6 +26,8 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import org.apache.commons.collections4.MapUtils;
@@ -65,51 +66,58 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
     // float <=> float8
     // boolean <=> bool
     // decimal <=> numeric
-    private static final String PG_SMALLSERIAL = "smallserial";
-    private static final String PG_SERIAL = "serial";
-    private static final String PG_BIGSERIAL = "bigserial";
-    private static final String PG_BYTEA = "bytea";
-    private static final String PG_BYTEA_ARRAY = "_bytea";
-    private static final String PG_SMALLINT = "int2";
-    private static final String PG_SMALLINT_ARRAY = "_int2";
-    private static final String PG_INTEGER = "int4";
-    private static final String PG_INTEGER_ARRAY = "_int4";
-    private static final String PG_BIGINT = "int8";
-    private static final String PG_BIGINT_ARRAY = "_int8";
-    private static final String PG_REAL = "float4";
-    private static final String PG_REAL_ARRAY = "_float4";
-    private static final String PG_DOUBLE_PRECISION = "float8";
-    private static final String PG_DOUBLE_PRECISION_ARRAY = "_float8";
-    private static final String PG_NUMERIC = "numeric";
-    private static final String PG_NUMERIC_ARRAY = "_numeric";
-    private static final String PG_BOOLEAN = "bool";
-    private static final String PG_BOOLEAN_ARRAY = "_bool";
-    private static final String PG_TIMESTAMP = "timestamp";
-    private static final String PG_TIMESTAMP_ARRAY = "_timestamp";
-    private static final String PG_TIMESTAMPTZ = "timestamptz";
-    private static final String PG_TIMESTAMPTZ_ARRAY = "_timestamptz";
-    private static final String PG_DATE = "date";
-    private static final String PG_DATE_ARRAY = "_date";
-    private static final String PG_TIME = "time";
-    private static final String PG_TIME_ARRAY = "_time";
-    private static final String PG_TEXT = "text";
-    private static final String PG_TEXT_ARRAY = "_text";
-    private static final String PG_CHAR = "bpchar";
-    private static final String PG_CHAR_ARRAY = "_bpchar";
-    private static final String PG_CHARACTER = "character";
-    private static final String PG_CHARACTER_ARRAY = "_character";
-    private static final String PG_CHARACTER_VARYING = "varchar";
-    private static final String PG_CHARACTER_VARYING_ARRAY = "_varchar";
+    public static final String PG_SMALLSERIAL = "smallserial";
+    public static final String PG_SERIAL = "serial";
+    public static final String PG_BIGSERIAL = "bigserial";
+    public static final String PG_BYTEA = "bytea";
+
+    public static final String PG_BIT = "bit";
+    public static final String PG_BYTEA_ARRAY = "_bytea";
+    public static final String PG_SMALLINT = "int2";
+    public static final String PG_SMALLINT_ARRAY = "_int2";
+    public static final String PG_INTEGER = "int4";
+    public static final String PG_INTEGER_ARRAY = "_int4";
+    public static final String PG_BIGINT = "int8";
+    public static final String PG_BIGINT_ARRAY = "_int8";
+    public static final String PG_REAL = "float4";
+    public static final String PG_REAL_ARRAY = "_float4";
+    public static final String PG_DOUBLE_PRECISION = "float8";
+    public static final String PG_DOUBLE_PRECISION_ARRAY = "_float8";
+    public static final String PG_NUMERIC = "numeric";
+    public static final String PG_NUMERIC_ARRAY = "_numeric";
+    public static final String PG_BOOLEAN = "bool";
+    public static final String PG_BOOLEAN_ARRAY = "_bool";
+    public static final String PG_TIMESTAMP = "timestamp";
+    public static final String PG_TIMESTAMP_ARRAY = "_timestamp";
+    public static final String PG_TIMESTAMPTZ = "timestamptz";
+    public static final String PG_TIMESTAMPTZ_ARRAY = "_timestamptz";
+    public static final String PG_DATE = "date";
+    public static final String PG_DATE_ARRAY = "_date";
+    public static final String PG_TIME = "time";
+    public static final String PG_TIME_ARRAY = "_time";
+    public static final String PG_TEXT = "text";
+    public static final String PG_TEXT_ARRAY = "_text";
+    public static final String PG_CHAR = "bpchar";
+    public static final String PG_CHAR_ARRAY = "_bpchar";
+    public static final String PG_CHARACTER = "character";
+    public static final String PG_CHARACTER_ARRAY = "_character";
+    public static final String PG_CHARACTER_VARYING = "varchar";
+    public static final String PG_CHARACTER_VARYING_ARRAY = "_varchar";
+    public static final String PG_INTERVAL = "interval";
+    public static final String PG_GEOMETRY = "geometry";
+    public static final String PG_GEOGRAPHY = "geography";
+    public static final String PG_JSON = "json";
+    public static final String PG_JSONB = "jsonb";
+    public static final String PG_XML = "xml";
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
-        return toSeaTunnelType(connectorDataType, new HashMap<>(0));
+    public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
+        return toSeaTunnelType(field, connectorDataType, new HashMap<>(0));
     }
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            String connectorDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field, String connectorDataType, Map<String, Object> dataTypeProperties) {
         checkNotNull(connectorDataType, "Postgres Type cannot be null");
         switch (connectorDataType) {
             case PG_BOOLEAN:
@@ -117,6 +125,7 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
             case PG_BOOLEAN_ARRAY:
                 return ArrayType.BOOLEAN_ARRAY_TYPE;
             case PG_BYTEA:
+            case PG_BIT:
                 return PrimitiveByteArrayType.INSTANCE;
             case PG_BYTEA_ARRAY:
                 return ArrayType.BYTE_ARRAY_TYPE;
@@ -151,6 +160,12 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
             case PG_CHARACTER:
             case PG_CHARACTER_VARYING:
             case PG_TEXT:
+            case PG_INTERVAL:
+            case PG_GEOMETRY:
+            case PG_GEOGRAPHY:
+            case PG_JSON:
+            case PG_JSONB:
+            case PG_XML:
                 return BasicType.STRING_TYPE;
             case PG_CHAR_ARRAY:
             case PG_CHARACTER_ARRAY:
@@ -158,6 +173,7 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
             case PG_TEXT_ARRAY:
                 return ArrayType.STRING_ARRAY_TYPE;
             case PG_TIMESTAMP:
+            case PG_TIMESTAMPTZ:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case PG_TIME:
                 return LocalTimeType.LOCAL_TIME_TYPE;
@@ -166,21 +182,20 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
 
             case PG_TIMESTAMP_ARRAY:
             case PG_NUMERIC_ARRAY:
-            case PG_TIMESTAMPTZ:
             case PG_TIMESTAMPTZ_ARRAY:
             case PG_TIME_ARRAY:
             case PG_DATE_ARRAY:
             default:
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Doesn't support POSTGRES type '%s''  yet.", connectorDataType));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.POSTGRESQL, connectorDataType, field);
         }
     }
 
     @Override
     public String toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties) {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType cannot be null");
         SqlType sqlType = seaTunnelDataType.getSqlType();
         switch (sqlType) {
@@ -210,14 +225,15 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
             case TIMESTAMP:
                 return PG_TIMESTAMP;
             default:
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Doesn't support SeaTunnel type '%s''  yet.", seaTunnelDataType));
+                throw CommonError.convertToConnectorTypeError(
+                        DatabaseIdentifier.POSTGRESQL,
+                        seaTunnelDataType.getSqlType().toString(),
+                        field);
         }
     }
 
     @Override
     public String getIdentity() {
-        return "POSTGRES";
+        return DatabaseIdentifier.POSTGRESQL;
     }
 }

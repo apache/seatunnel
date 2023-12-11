@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.ExcelGenerator;
@@ -28,15 +28,14 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import lombok.NonNull;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.LinkedHashMap;
 
 public class ExcelWriteStrategy extends AbstractWriteStrategy {
-    private final Map<String, ExcelGenerator> beingWrittenWriter;
+    private final LinkedHashMap<String, ExcelGenerator> beingWrittenWriter;
 
     public ExcelWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
-        this.beingWrittenWriter = new HashMap<>();
+        this.beingWrittenWriter = new LinkedHashMap<>();
     }
 
     @Override
@@ -58,11 +57,12 @@ public class ExcelWriteStrategy extends AbstractWriteStrategy {
                         fileOutputStream.close();
                     } catch (IOException e) {
                         throw new FileConnectorException(
-                                CommonErrorCode.FILE_OPERATION_FAILED,
+                                CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
                                 "can not get output file stream");
                     }
                     needMoveFiles.put(k, getTargetLocation(k));
                 });
+        beingWrittenWriter.clear();
     }
 
     private ExcelGenerator getOrCreateExcelGenerator(@NonNull String filePath) {

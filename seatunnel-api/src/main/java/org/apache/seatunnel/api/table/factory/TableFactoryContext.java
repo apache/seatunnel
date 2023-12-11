@@ -18,42 +18,17 @@
 package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
 import lombok.Getter;
 
-import java.util.List;
+@Getter
+public abstract class TableFactoryContext {
 
-public class TableFactoryContext {
-
-    private final List<CatalogTable> catalogTables;
-    @Getter private final ReadonlyConfig options;
+    private final ReadonlyConfig options;
     private final ClassLoader classLoader;
 
-    public TableFactoryContext(
-            List<CatalogTable> catalogTables, ReadonlyConfig options, ClassLoader classLoader) {
-        this.catalogTables = catalogTables;
+    public TableFactoryContext(ReadonlyConfig options, ClassLoader classLoader) {
         this.options = options;
         this.classLoader = classLoader;
-    }
-
-    public ClassLoader getClassLoader() {
-        return this.classLoader;
-    }
-
-    /**
-     * Returns a list of tables that need to be processed.
-     *
-     * <p>By default, return only single table.
-     *
-     * <p>If you need multiple tables, implement {@link SupportMultipleTable}.
-     */
-    public List<CatalogTable> getCatalogTables() {
-        return catalogTables;
-    }
-
-    /** @return single table. */
-    public CatalogTable getCatalogTable() {
-        return catalogTables.get(0);
     }
 }

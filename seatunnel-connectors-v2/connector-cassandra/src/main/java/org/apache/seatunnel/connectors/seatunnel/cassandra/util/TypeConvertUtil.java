@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorException;
 
@@ -100,7 +100,7 @@ public class TypeConvertUtil {
                 return convertToArrayType(convert(((DefaultSetType) type).getElementType()));
             default:
                 throw new CassandraConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "Unsupported this data type: " + type);
         }
     }
@@ -124,7 +124,7 @@ public class TypeConvertUtil {
             return ArrayType.BOOLEAN_ARRAY_TYPE;
         } else {
             throw new CassandraConnectorException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                     "Unsupported this data type: " + dataType);
         }
     }
@@ -237,7 +237,7 @@ public class TypeConvertUtil {
                                         .toArray(new Boolean[0]);
                     } else {
                         throw new CassandraConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                                 "List unsupported this data type: " + typeClass.toString());
                     }
                     break;
@@ -279,7 +279,7 @@ public class TypeConvertUtil {
                                         .toArray(new Boolean[0]);
                     } else {
                         throw new CassandraConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                                 "List unsupported this data type: " + typeClass.toString());
                     }
                     break;
