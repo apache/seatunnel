@@ -15,40 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.serialization;
+package org.apache.seatunnel.translation.flink.source;
 
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.types.Row;
+import org.apache.flink.api.connector.source.SourceEvent;
 
 /**
- * Wrapped {@link Row}.
- *
- * <p>Keep the original table name for the Dispatcher to distribute to the corresponding data stream
+ * The {@link org.apache.seatunnel.api.source.SourceEvent} wrapper, used for proxy all seatunnel
+ * user-defined source event in flink source.
  */
-public class WrappedRow extends Tuple2<Row, String> {
-    private static final long serialVersionUID = -8325988931728734377L;
+public final class SourceEventWrapper implements SourceEvent {
 
-    public WrappedRow() {
-        super();
+    private final org.apache.seatunnel.api.source.SourceEvent sourceEvent;
+
+    public SourceEventWrapper(org.apache.seatunnel.api.source.SourceEvent sourceEvent) {
+        this.sourceEvent = sourceEvent;
     }
 
-    public WrappedRow(Row row, String table) {
-        super(row, table);
-    }
-
-    public Row getRow() {
-        return this.f0;
-    }
-
-    public String getTable() {
-        return this.f1;
-    }
-
-    public void setRow(Row row) {
-        this.f0 = row;
-    }
-
-    public void setTable(String table) {
-        this.f1 = table;
+    public org.apache.seatunnel.api.source.SourceEvent getSourceEvent() {
+        return sourceEvent;
     }
 }

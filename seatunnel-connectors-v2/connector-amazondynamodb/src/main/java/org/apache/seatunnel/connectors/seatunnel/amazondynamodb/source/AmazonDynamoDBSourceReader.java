@@ -36,6 +36,7 @@ import software.amazon.awssdk.services.dynamodb.paginators.ScanIterable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
@@ -83,15 +84,23 @@ public class AmazonDynamoDBSourceReader
 
     @Override
     @SuppressWarnings("magicnumber")
-    public void pollNext(Collector<SeaTunnelRow> output) {
-        while (!pendingSplits.isEmpty()) {
-            synchronized (output.getCheckpointLock()) {
-                AmazonDynamoDBSourceSplit split = pendingSplits.poll();
+    public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
+        synchronized (output.getCheckpointLock()) {
+            AmazonDynamoDBSourceSplit split = pendingSplits.poll();
+            if (split == null) {
+                log.info(
+                        "AmazonDynamoDB Source Reader [{}] waiting for splits",
+                        context.getIndexOfSubtask());
+                if (noMoreSplit) {
+                    // signal to the source that we have reached the end of the data.
+                    log.info("Closed the bounded amazonDynamodb source");
+                    context.signalNoMoreElement();
+                    Thread.sleep(2000L);
+                }
+            }
+            if (Objects.nonNull(split)) {
                 read(split, output);
             }
-        }
-        if (noMoreSplit && pendingSplits.isEmpty()) {
-            context.signalNoMoreElement();
         }
     }
 
@@ -107,7 +116,7 @@ public class AmazonDynamoDBSourceReader
 
     @Override
     public void handleNoMoreSplits() {
-        log.info("Reader received noMoreSplit event.");
+        log.info("Reader [{}] received noMoreSplit event.", context.getIndexOfSubtask());
         noMoreSplit = true;
     }
 
@@ -130,12 +139,6 @@ public class AmazonDynamoDBSourceReader
                             });
 
         } while (scan.iterator().hasNext() && !noMoreSplit);
-
-        if (noMoreSplit && pendingSplits.isEmpty()) {
-            // signal to the source that we have reached the end of the data.
-            log.info("Closed the bounded amazonDynamodb source");
-            context.signalNoMoreElement();
-        }
     }
 
     @Override

@@ -67,6 +67,11 @@ public class MaxComputeCatalog implements Catalog {
     public void close() throws CatalogException {}
 
     @Override
+    public String name() {
+        return catalogName;
+    }
+
+    @Override
     public String getDefaultDatabase() throws CatalogException {
         return readonlyConfig.get(PROJECT);
     }

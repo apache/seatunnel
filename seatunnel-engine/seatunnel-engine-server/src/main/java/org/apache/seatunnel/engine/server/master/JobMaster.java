@@ -229,7 +229,7 @@ public class JobMaster {
         this.checkpointPlanMap = planTuple.f1();
         Exception initException = null;
         try {
-            this.initCheckPointManager();
+            this.initCheckPointManager(restart);
         } catch (Exception e) {
             initException = e;
         }
@@ -242,11 +242,11 @@ public class JobMaster {
         }
     }
 
-    public void initCheckPointManager() throws CheckpointStorageException {
+    public void initCheckPointManager(boolean restart) throws CheckpointStorageException {
         this.checkpointManager =
                 new CheckpointManager(
                         jobImmutableInformation.getJobId(),
-                        jobImmutableInformation.isStartWithSavePoint(),
+                        jobImmutableInformation.isStartWithSavePoint() || restart,
                         nodeEngine,
                         this,
                         checkpointPlanMap,
@@ -672,6 +672,7 @@ public class JobMaster {
                         "Begin do save point for Job %s (%s) ",
                         jobImmutableInformation.getJobConfig().getName(),
                         jobImmutableInformation.getJobId()));
+        physicalPlan.savepointJob();
         PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
                 checkpointManager.triggerSavePoints();
         return CompletableFuture.allOf(passiveCompletableFutures);

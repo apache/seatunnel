@@ -15,10 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.factory;
+package org.apache.seatunnel.translation.flink.source;
 
-import org.apache.seatunnel.api.table.connector.DeserializationFormat;
+import org.apache.flink.api.connector.source.SourceSplit;
 
-public interface DeserializationFormatFactory extends Factory {
-    DeserializationFormat createDeserializationFormat(TableFactoryContext context);
+/**
+ * The {@link org.apache.seatunnel.api.source.SourceSplit} wrapper, used for proxy all seatunnel
+ * user-defined source split in flink engine.
+ *
+ * @param <T> The generic type of source split
+ */
+public class SplitWrapper<T extends org.apache.seatunnel.api.source.SourceSplit>
+        implements SourceSplit {
+
+    private final T sourceSplit;
+
+    public SplitWrapper(T sourceSplit) {
+        this.sourceSplit = sourceSplit;
+    }
+
+    public T getSourceSplit() {
+        return sourceSplit;
+    }
+
+    @Override
+    public String splitId() {
+        return sourceSplit.splitId();
+    }
 }

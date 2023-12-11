@@ -442,7 +442,7 @@ public class CheckpointCoordinator {
 
             if (pendingCounter.get() > 0) {
                 scheduleTriggerPendingCheckpoint(checkpointType, 500L);
-                LOG.info("skip trigger checkpoint because there is already a pending checkpoint.");
+                LOG.debug("skip trigger checkpoint because there is already a pending checkpoint.");
                 return;
             }
 
@@ -606,7 +606,13 @@ public class CheckpointCoordinator {
             long triggerTimestamp,
             CompletableFuture<Long> idFuture,
             CheckpointType checkpointType) {
-        assert Thread.holdsLock(lock);
+        if (!Thread.holdsLock(lock)) {
+            throw new RuntimeException(
+                    String.format(
+                            "Unsafe invoke, the current thread[%s] has not acquired the lock[%s].",
+                            Thread.currentThread().getName(), this.lock.toString()));
+        }
+
         latestTriggerTimestamp.set(triggerTimestamp);
         return idFuture.thenApplyAsync(
                         checkpointId ->
