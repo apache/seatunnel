@@ -101,9 +101,7 @@ public class KafkaSourceConfig implements Serializable {
 
     private Properties createKafkaProperties(ReadonlyConfig readonlyConfig) {
         Properties resultProperties = new Properties();
-        readonlyConfig
-                .getOptional(KAFKA_CONFIG)
-                .ifPresent(kafkaConfig -> resultProperties.putAll(kafkaConfig));
+        readonlyConfig.getOptional(KAFKA_CONFIG).ifPresent(resultProperties::putAll);
         return resultProperties;
     }
 
