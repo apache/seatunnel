@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfi
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 
 import lombok.Data;
@@ -52,6 +53,8 @@ public class EngineConfig {
 
     private ConnectorJarStorageConfig connectorJarStorageConfig =
             ServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG.defaultValue();
+
+    private TelemetryConfig telemetryConfig = ServerConfigOptions.TELEMETRY.defaultValue();
 
     private QueueType queueType = ServerConfigOptions.QUEUE_TYPE.defaultValue();
     private int historyJobExpireMinutes =

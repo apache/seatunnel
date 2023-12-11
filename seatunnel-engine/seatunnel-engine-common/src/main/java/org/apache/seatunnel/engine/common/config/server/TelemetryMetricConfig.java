@@ -15,17 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.engine;
+package org.apache.seatunnel.engine.common.config.server;
 
-import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
+import lombok.Data;
 
-import java.io.IOException;
+import java.io.Serializable;
 
-public class SeaTunnelEngineServerExample {
-    public static void main(String[] args) throws CommandException, IOException {
-        ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
-        SeaTunnel.run(serverCommandArgs.buildCommand());
-    }
+@Data
+public class TelemetryMetricConfig implements Serializable {
+
+    private boolean enabled = ServerConfigOptions.TELEMETRY_METRIC_ENABLED.defaultValue();
 }

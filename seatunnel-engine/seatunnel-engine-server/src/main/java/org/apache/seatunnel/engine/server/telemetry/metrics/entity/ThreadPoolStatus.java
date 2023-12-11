@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.engine;
+package org.apache.seatunnel.engine.server.telemetry.metrics.entity;
 
-import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-import java.io.IOException;
-
-public class SeaTunnelEngineServerExample {
-    public static void main(String[] args) throws CommandException, IOException {
-        ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
-        SeaTunnel.run(serverCommandArgs.buildCommand());
-    }
+@Data
+@AllArgsConstructor
+public class ThreadPoolStatus {
+    private int activeCount;
+    private int corePoolSize;
+    private int maximumPoolSize;
+    private int poolSize;
+    private long completedTaskCount;
+    private long taskCount;
 }

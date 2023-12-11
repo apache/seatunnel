@@ -19,10 +19,12 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceInitializer;
 
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
+import com.hazelcast.instance.impl.Node;
 import lombok.NonNull;
 
 public class SeaTunnelServerStarter {
@@ -34,11 +36,14 @@ public class SeaTunnelServerStarter {
     public static HazelcastInstanceImpl createHazelcastInstance(String clusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
-        return createHazelcastInstance(seaTunnelConfig);
+        HazelcastInstanceImpl hazelcastInstance = createHazelcastInstance(seaTunnelConfig);
+        initTelemetryInstance(hazelcastInstance.node);
+        return hazelcastInstance;
     }
 
     public static HazelcastInstanceImpl createHazelcastInstance(
             @NonNull SeaTunnelConfig seaTunnelConfig) {
+        checkTelemetryConfig(seaTunnelConfig);
         return ((HazelcastInstanceProxy)
                         HazelcastInstanceFactory.newHazelcastInstance(
                                 seaTunnelConfig.getHazelcastConfig(),
@@ -50,6 +55,22 @@ public class SeaTunnelServerStarter {
 
     public static HazelcastInstanceImpl createHazelcastInstance() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        return createHazelcastInstance(seaTunnelConfig);
+        HazelcastInstanceImpl hazelcastInstance = createHazelcastInstance(seaTunnelConfig);
+        initTelemetryInstance(hazelcastInstance.node);
+        return hazelcastInstance;
+    }
+
+    public static void initTelemetryInstance(@NonNull Node node) {
+        ExportsInstanceInitializer.init(node);
+    }
+
+    private static void checkTelemetryConfig(SeaTunnelConfig seaTunnelConfig) {
+        // "hazelcast.jmx" need to set "true", for hazelcast metrics
+        if (seaTunnelConfig.getEngineConfig().getTelemetryConfig().getMetric().isEnabled()) {
+            seaTunnelConfig
+                    .getHazelcastConfig()
+                    .getProperties()
+                    .setProperty("hazelcast.jmx", "true");
+        }
     }
 }

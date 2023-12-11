@@ -196,4 +196,22 @@ public class ServerConfigOptions {
                     .type(new TypeReference<ConnectorJarStorageConfig>() {})
                     .defaultValue(new ConnectorJarStorageConfig())
                     .withDescription("The connector jar storage configuration.");
+
+    public static final Option<Boolean> TELEMETRY_METRIC_ENABLED =
+            Options.key("enabled")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("Whether open metrics export.");
+
+    public static final Option<TelemetryMetricConfig> TELEMETRY_METRIC =
+            Options.key("metric")
+                    .type(new TypeReference<TelemetryMetricConfig>() {})
+                    .defaultValue(new TelemetryMetricConfig())
+                    .withDescription("The telemetry metric configuration.");
+
+    public static final Option<TelemetryConfig> TELEMETRY =
+            Options.key("telemetry")
+                    .type(new TypeReference<TelemetryConfig>() {})
+                    .defaultValue(new TelemetryConfig())
+                    .withDescription("The telemetry configuration.");
 }

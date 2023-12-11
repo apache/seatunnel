@@ -194,6 +194,7 @@
 - [Zeta] Reduce the frequency of fetching data from imap (#4851)
 - [Zeta] Add OSS support for Imap storage to cluster-mode type (#4683)
 - [Zeta] Improve local mode startup request ports (#4660)
+- [Zeta] Support exposing monitoring metrics by prometheus exporter protocol (#5070)
 
 ## Docs 
 

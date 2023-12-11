@@ -23,6 +23,7 @@ import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
@@ -30,7 +31,7 @@ import java.nio.file.Paths;
 public class ExampleUtils {
 
     public static void builder(String configurePath)
-            throws FileNotFoundException, URISyntaxException, CommandException {
+            throws IOException, URISyntaxException, CommandException {
         String configFile = getTestConfigFile(configurePath);
         SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
         sparkCommandArgs.setConfigFile(configFile);
