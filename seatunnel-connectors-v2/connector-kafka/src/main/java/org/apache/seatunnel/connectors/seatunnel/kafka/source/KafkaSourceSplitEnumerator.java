@@ -286,10 +286,9 @@ public class KafkaSourceSplitEnumerator
         return partitions.stream()
                 .map(
                         partition -> {
-                            KafkaSourceSplit split =
-                                    new KafkaSourceSplit(
-                                            topicMappingTablePathMap.get(partition.topic()),
-                                            partition);
+                            // Obtain the corresponding topic TablePath from kafka topic
+                            TablePath tablePath = topicMappingTablePathMap.get(partition.topic());
+                            KafkaSourceSplit split = new KafkaSourceSplit(tablePath, partition);
                             split.setEndOffset(latestOffsets.get(split.getTopicPartition()));
                             return split;
                         })
