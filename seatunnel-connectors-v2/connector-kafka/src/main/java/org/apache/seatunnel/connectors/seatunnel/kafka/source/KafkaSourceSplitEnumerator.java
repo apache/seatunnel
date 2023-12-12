@@ -59,7 +59,7 @@ public class KafkaSourceSplitEnumerator
 
     private final Map<TablePath, ConsumerMetadata> tablePathMetadataMap;
     private final Context<KafkaSourceSplit> context;
-    private long discoveryIntervalMillis;
+    private final long discoveryIntervalMillis;
     private final AdminClient adminClient;
     private final KafkaSourceConfig kafkaSourceConfig;
     private final Map<TopicPartition, KafkaSourceSplit> pendingSplit;
@@ -117,10 +117,10 @@ public class KafkaSourceSplitEnumerator
     }
 
     private void setPartitionStartOffset() throws ExecutionException, InterruptedException {
-        Collection<TopicPartition> pendingSplitopicPartitions = pendingSplit.keySet();
+        Set<TopicPartition> pendingTopicPartitions = pendingSplit.keySet();
         Map<TopicPartition, Long> topicPartitionOffsets = null;
         Map<TablePath, Set<TopicPartition>> tablePathPartitionMap =
-                pendingSplitopicPartitions.stream()
+                pendingTopicPartitions.stream()
                         .collect(
                                 Collectors.groupingBy(
                                         tp -> topicMappingTablePathMap.get(tp.topic()),
