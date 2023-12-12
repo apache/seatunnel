@@ -37,31 +37,7 @@ Please download and put oracle driver in `${SEATUNNEL_HOME}/lib/` dir. For examp
 
 #### Enabling Logminer without CDB (Container Database) mode.
 
-1. Logging in as the system administrator:
-
-```sql
-sqlplus /nolog
-connect sys as sysdba; # Password: oracle
-```
-
-2. Creating the "test" user account and granting necessary privileges:
-
-```sql
-CREATE USER test IDENTIFIED BY oracle;
-grant create session to test;
-GRANT CONNECT, RESOURCE, DBA TO test;
-exit;
-```
-
-3. Switching to the "test" user account for table creation:
-
-```sql
-sqlplus /nolog
-connect test; # Password: oracle
-exit;
-```
-
-4. Creating directories for log storage and granting access to the Oracle database startup account:
+1. The operating system creates an empty file directory to store Oracle archived logs and user tablespaces.
 
 ```shell
 mkdir -p /opt/oracle/oradata/recovery_area
@@ -69,62 +45,55 @@ mkdir -p /opt/oracle/oradata/ORCLCDB
 chown -R oracle /opt/oracle/***
 ```
 
-5. Enabling log mining and configuring the log file destination:
+2. Login as admin and enable Oracle archived logs.
 
 ```sql
-sqlplus /nolog
-connect sys as sysdba; # Password: oracle
+sqlplus /nolog;
+connect sys as sysdba;
 alter system set db_recovery_file_dest_size = 10G;
 alter system set db_recovery_file_dest = '/opt/oracle/oradata/recovery_area' scope=spfile;
-shutdown immediate
-startup mount
+shutdown immediate;
+startup mount;
 alter database archivelog;
 alter database open;
+ALTER DATABASE ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
 archive log list;
 ```
 
-6. Enabling supplemental logging for the specified table:
-
-```sql
-ALTER TABLE TEST.ORACLE_ALLTYPES_SOURCE_CDC1 ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-ALTER DATABASE ADD SUPPLEMENTAL LOG DATA;
-```
-
-7. Creating a user account named "debeziume" for data source purposes and granting necessary privileges:
+3. Login as admin and create an account called logminer_user with the password "oracle", and grant it privileges to read tables and logs.
 
 ```sql
 CREATE TABLESPACE logminer_tbs DATAFILE '/opt/oracle/oradata/ORCLCDB/logminer_tbs.dbf' SIZE 25M REUSE AUTOEXTEND ON MAXSIZE UNLIMITED;
-CREATE USER debeziume IDENTIFIED BY oracle DEFAULT TABLESPACE logminer_tbs QUOTA UNLIMITED ON logminer_tbs;
-GRANT CREATE SESSION TO debeziume;
-GRANT SET CONTAINER TO debeziume;
-GRANT SELECT ON V_$DATABASE to debeziume;
-GRANT FLASHBACK ANY TABLE TO debeziume;
-GRANT SELECT ANY TABLE TO debeziume;
-GRANT SELECT_CATALOG_ROLE TO debeziume;
-GRANT EXECUTE_CATALOG_ROLE TO debeziume;
-GRANT SELECT ANY TRANSACTION TO debeziume;
-GRANT LOGMINING TO debeziume;
-GRANT CREATE TABLE TO debeziume;
-GRANT LOCK ANY TABLE TO debeziume;
-GRANT CREATE SEQUENCE TO debeziume;
-GRANT EXECUTE ON DBMS_LOGMNR TO debeziume;
-GRANT EXECUTE ON DBMS_LOGMNR_D TO debeziume;
-GRANT SELECT ON V_$LOG TO debeziume;
-GRANT SELECT ON V_$LOG_HISTORY TO debeziume;
-GRANT SELECT ON V_$LOGMNR_LOGS TO debeziume;
-GRANT SELECT ON V_$LOGMNR_CONTENTS TO debeziume;
-GRANT SELECT ON V_$LOGMNR_PARAMETERS TO debeziume;
-GRANT SELECT ON V_$LOGFILE TO debeziume;
-GRANT SELECT ON V_$ARCHIVED_LOG TO debeziume;
-GRANT SELECT ON V_$ARCHIVE_DEST_STATUS TO debeziume;
-grant analyze any to debeziume;
-commit;
-exit;
+CREATE USER logminer_user IDENTIFIED BY oracle DEFAULT TABLESPACE logminer_tbs QUOTA UNLIMITED ON logminer_tbs;
+
+GRANT CREATE SESSION TO logminer_user;
+GRANT SELECT ON V_$DATABASE to logminer_user;
+GRANT SELECT ON V_$LOG TO logminer_user;
+GRANT SELECT ON V_$LOGFILE TO logminer_user;
+GRANT SELECT ON V_$LOGMNR_LOGS TO logminer_user;
+GRANT SELECT ON V_$LOGMNR_CONTENTS TO logminer_user;
+GRANT SELECT ON V_$ARCHIVED_LOG TO logminer_user;
+GRANT SELECT ON V_$ARCHIVE_DEST_STATUS TO logminer_user;
+GRANT EXECUTE ON DBMS_LOGMNR TO logminer_user;
+GRANT EXECUTE ON DBMS_LOGMNR_D TO logminer_user;
+```
+
+##### Oracle 11g is not supported
+
+```sql
+GRANT LOGMINING TO logminer_user;
+```
+
+##### Grant privileges only to the tables that need to be collected
+
+```sql
+GRANT SELECT ANY TABLE TO logminer_user;
+GRANT ANALYZE ANY TO logminer_user;
 ```
 
 #### To enable Logminer in Oracle with CDB (Container Database) + PDB (Pluggable Database) mode, follow the steps below:
 
-1. Granting directory permissions
+1. The operating system creates an empty file directory to store Oracle archived logs and user tablespaces.
 
 ```shell
 mkdir -p /opt/oracle/oradata/recovery_area
@@ -133,7 +102,7 @@ mkdir -p /opt/oracle/oradata/ORCLCDB/ORCLPDB1
 chown -R oracle /opt/oracle/***
 ```
 
-2. Enabling Logminer
+2. Login as admin and enable logging
 
 ```sql
 sqlplus /nolog
@@ -157,22 +126,22 @@ ALTER TABLE TEST.T2 ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
 4. Creating debeziume account
 
 > Operating in CDB
->
-> ```sql
-> sqlplus sys/top_secret@//localhost:1521/ORCLCDB as sysdba
-> CREATE TABLESPACE logminer_tbs DATAFILE '/opt/oracle/oradata/ORCLCDB/logminer_tbs.dbf'
-> SIZE 25M REUSE AUTOEXTEND ON MAXSIZE UNLIMITED;
-> exit;
-> ```
->
+
+```sql
+sqlplus sys/top_secret@//localhost:1521/ORCLCDB as sysdba
+CREATE TABLESPACE logminer_tbs DATAFILE '/opt/oracle/oradata/ORCLCDB/logminer_tbs.dbf'
+ SIZE 25M REUSE AUTOEXTEND ON MAXSIZE UNLIMITED;
+exit;
+```
+
 > Operating in PDB
->
-> ```sql
-> sqlplus sys/top_secret@//localhost:1521/ORCLPDB1 as sysdba
-> CREATE TABLESPACE logminer_tbs DATAFILE '/opt/oracle/oradata/ORCLCDB/ORCLPDB1/logminer_tbs.dbf'
-> SIZE 25M REUSE AUTOEXTEND ON MAXSIZE UNLIMITED;
-> exit;
-> ```
+
+```sql
+sqlplus sys/top_secret@//localhost:1521/ORCLPDB1 as sysdba
+ CREATE TABLESPACE logminer_tbs DATAFILE '/opt/oracle/oradata/ORCLCDB/ORCLPDB1/logminer_tbs.dbf'
+   SIZE 25M REUSE AUTOEXTEND ON MAXSIZE UNLIMITED;
+ exit;
+```
 
 5. Operating in CDB
 
