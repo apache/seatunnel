@@ -119,6 +119,7 @@ public class KafkaSourceSplitEnumerator
     private void setPartitionStartOffset() throws ExecutionException, InterruptedException {
         Set<TopicPartition> pendingTopicPartitions = pendingSplit.keySet();
         Map<TopicPartition, Long> topicPartitionOffsets = null;
+        // Set kafka TopicPartition based on the topicPath granularity
         Map<TablePath, Set<TopicPartition>> tablePathPartitionMap =
                 pendingTopicPartitions.stream()
                         .collect(
