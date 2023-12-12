@@ -266,11 +266,10 @@ public class PulsarSinkWriter
      */
     private List<String> getPartitionKeyFields(
             ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
-        if (pluginConfig.getOptional(PARTITION_KEY_FIELDS) != null) {
-            Optional<List<String>> partitionKeyFields =
-                    pluginConfig.getOptional(PARTITION_KEY_FIELDS);
+        if (pluginConfig.get(PARTITION_KEY_FIELDS) != null) {
+            List<String> partitionKeyFields = pluginConfig.get(PARTITION_KEY_FIELDS);
             List<String> rowTypeFieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
-            for (String partitionKeyField : partitionKeyFields.get()) {
+            for (String partitionKeyField : partitionKeyFields) {
                 if (!rowTypeFieldNames.contains(partitionKeyField)) {
                     throw new PulsarConnectorException(
                             CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
@@ -279,7 +278,7 @@ public class PulsarSinkWriter
                                     partitionKeyField, rowTypeFieldNames));
                 }
             }
-            return partitionKeyFields.get();
+            return partitionKeyFields;
         }
         return Collections.emptyList();
     }

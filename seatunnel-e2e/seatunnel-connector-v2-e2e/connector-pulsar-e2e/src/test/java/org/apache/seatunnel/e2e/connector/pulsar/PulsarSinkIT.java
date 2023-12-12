@@ -120,7 +120,7 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testSinkKafka(TestContainer container) throws IOException, InterruptedException {
+    public void testSinkPulsar(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/fake_to_pulsar.conf");
         Assertions.assertEquals(execResult.getExitCode(), 0);
 
