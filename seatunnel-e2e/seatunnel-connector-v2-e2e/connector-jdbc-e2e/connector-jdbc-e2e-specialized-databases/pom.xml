@@ -22,8 +22,8 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>connector-jdbc-e2e-part-7</artifactId>
-    <name>SeaTunnel : E2E : Connector V2 : Jdbc : Part 7</name>
+    <artifactId>connector-jdbc-e2e-specialized-databases</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Jdbc : Specialized Databases</name>
 
     <dependencies>
         <dependency>
@@ -34,63 +34,36 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- jdbc containers -->
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>${testcontainer.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.snowflake</groupId>
-            <artifactId>snowflake-jdbc</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>mssqlserver</artifactId>
-            <version>${testcontainer.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>oracle-xe</artifactId>
-            <version>${testcontainer.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>mysql</artifactId>
-            <version>${testcontainer.version}</version>
-            <scope>test</scope>
-        </dependency>
-
         <!-- drivers -->
+        <dependency>
+            <groupId>com.aliyun.phoenix</groupId>
+            <artifactId>ali-phoenix-shaded-thin-client</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.oracle.database.jdbc</groupId>
-            <artifactId>ojdbc8</artifactId>
+            <groupId>com.dameng</groupId>
+            <artifactId>DmJdbcDriver18</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
+            <groupId>com.teradata.jdbc</groupId>
+            <artifactId>terajdbc4</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.microsoft.sqlserver</groupId>
-            <artifactId>mssql-jdbc</artifactId>
+            <groupId>com.sap.cloud.db.jdbc</groupId>
+            <artifactId>ngdbc</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.vertica.jdbc</groupId>
-            <artifactId>vertica-jdbc</artifactId>
+            <groupId>com.oceanbase</groupId>
+            <artifactId>oceanbase-client</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
-
 </project>

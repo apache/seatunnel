@@ -22,9 +22,9 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>seatunnel-transforms-v2-e2e-part-2</artifactId>
+    <artifactId>seatunnel-transforms-v2-e2e-multidimensional-data-type</artifactId>
 
-    <name>SeaTunnel : E2E : Transforms V2 : Part 2</name>
+    <name>SeaTunnel : E2E : Transforms V2 : Multidimensional Data Type</name>
 
     <dependencies>
 

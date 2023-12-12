@@ -28,13 +28,13 @@
 
     <modules>
         <module>connector-jdbc-e2e-common</module>
-        <module>connector-jdbc-e2e-part-1</module>
-        <module>connector-jdbc-e2e-part-2</module>
-        <module>connector-jdbc-e2e-part-3</module>
-        <module>connector-jdbc-e2e-part-4</module>
-        <module>connector-jdbc-e2e-part-5</module>
-        <module>connector-jdbc-e2e-part-6</module>
-        <module>connector-jdbc-e2e-part-7</module>
+        <module>connector-jdbc-e2e-general-databases</module>
+        <module>connector-jdbc-e2e-specialized-databases</module>
+        <module>connector-jdbc-e2e-distributed-databases </module>
+        <module>connector-jdbc-e2e-create</module>
+        <module>connector-jdbc-e2e-mpp-databases</module>
+        <module>connector-jdbc-e2e-case-sensitivity</module>
+        <module>connector-jdbc-e2e-catalog</module>
     </modules>
 
     <dependencyManagement>

@@ -159,9 +159,9 @@ def get_sub_it_modules(modules, total_num, current_num):
 
 def get_sub_update_it_modules(modules, total_num, current_num):
     final_modules = list()
-    # :connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1
+    # :connector-jdbc-e2e-common,:connector-jdbc-e2e-general-databases --> connector-jdbc-e2e-common,:connector-jdbc-e2e-general-databases
     modules = modules[1:]
-    # connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> [connector-jdbc-e2e-common, connector-jdbc-e2e-part-1]
+    # connector-jdbc-e2e-common,:connector-jdbc-e2e-general-databases --> [connector-jdbc-e2e-common, connector-jdbc-e2e-general-databases]
     module_list = modules.split(",:")
     if "connector-kudu-e2e" in module_list:
         module_list.remove("connector-kudu-e2e")

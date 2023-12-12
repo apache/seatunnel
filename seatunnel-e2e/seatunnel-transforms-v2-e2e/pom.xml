@@ -27,8 +27,8 @@
     <name>SeaTunnel : E2E : Transforms V2</name>
     <modules>
         <module>seatunnel-transforms-v2-e2e-common</module>
-        <module>seatunnel-transforms-v2-e2e-part-1</module>
-        <module>seatunnel-transforms-v2-e2e-part-2</module>
+        <module>seatunnel-transforms-v2-e2e-elementary-data-type</module>
+        <module>seatunnel-transforms-v2-e2e-multidimensional-data-type</module>
     </modules>
 
     <dependencies>
