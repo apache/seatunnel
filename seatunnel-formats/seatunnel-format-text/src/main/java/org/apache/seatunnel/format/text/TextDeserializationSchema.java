@@ -114,6 +114,9 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
 
     @Override
     public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
+        if (message == null || message.length == 0) {
+            return null;
+        }
         String content = new String(message);
         Map<Integer, String> splitsMap = splitLineBySeaTunnelRowType(content, seaTunnelRowType, 0);
         Object[] objects = new Object[seaTunnelRowType.getTotalFields()];

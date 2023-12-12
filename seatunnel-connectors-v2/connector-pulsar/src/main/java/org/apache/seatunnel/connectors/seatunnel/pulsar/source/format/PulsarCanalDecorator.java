@@ -60,6 +60,9 @@ public class PulsarCanalDecorator implements DeserializationSchema<SeaTunnelRow>
     @Override
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath)
             throws IOException {
+        if (message == null || message.length == 0) {
+            return;
+        }
         JsonNode pulsarCanal = JsonUtils.parseObject(message);
         ArrayNode canalList = JsonUtils.parseArray(pulsarCanal.get(MESSAGE).asText());
         Iterator<JsonNode> canalIterator = canalList.elements();

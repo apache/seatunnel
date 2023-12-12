@@ -103,6 +103,9 @@ public class CompatibleKafkaConnectDeserializationSchema
             ConsumerRecord<byte[], byte[]> msg, Collector<SeaTunnelRow> out, TablePath tablePath)
             throws InvocationTargetException, IllegalAccessException {
         tryInitConverter();
+        if (msg == null) {
+            return;
+        }
         SinkRecord record = convertToSinkRecord(msg);
         RowKind rowKind = RowKind.INSERT;
         JsonNode jsonNode =
@@ -115,17 +118,12 @@ public class CompatibleKafkaConnectDeserializationSchema
             for (int i = 0; i < arrayNode.size(); i++) {
                 SeaTunnelRow row = convertJsonNode(arrayNode.get(i));
                 row.setRowKind(rowKind);
-                if (row != null) {
-                    row.setTableId(tablePath.toString());
-                }
+                row.setTableId(tablePath.toString());
                 out.collect(row);
             }
         } else {
             SeaTunnelRow row = convertJsonNode(payload);
             row.setRowKind(rowKind);
-            if (row != null) {
-                row.setTableId(tablePath.toString());
-            }
             row.setTableId(tablePath.toString());
             out.collect(row);
         }

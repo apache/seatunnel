@@ -97,10 +97,11 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
 
     @Override
     public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
-        if (message == null) {
+        if (message == null || message.length == 0) {
             return null;
         }
         SeaTunnelRow seaTunnelRow = convertJsonNode(convertBytes(message));
+        assert seaTunnelRow != null;
         seaTunnelRow.setTableId(tablePath.toString());
         return seaTunnelRow;
     }
