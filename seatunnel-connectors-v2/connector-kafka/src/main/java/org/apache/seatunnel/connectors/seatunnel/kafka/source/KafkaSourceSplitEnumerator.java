@@ -127,6 +127,7 @@ public class KafkaSourceSplitEnumerator
                                         tp -> topicMappingTablePathMap.get(tp.topic()),
                                         Collectors.toSet()));
         for (TablePath tablePath : tablePathPartitionMap.keySet()) {
+            // Supports topic list fine-grained Settings for kafka consumer configurations
             ConsumerMetadata metadata = tablePathMetadataMap.get(tablePath);
             Set<TopicPartition> topicPartitions = tablePathPartitionMap.get(tablePath);
             switch (metadata.getStartMode()) {
