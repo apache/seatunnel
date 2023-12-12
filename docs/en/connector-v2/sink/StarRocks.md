@@ -116,7 +116,6 @@ The supported formats include CSV and JSON
 env {
   parallelism = 1
   job.mode = "BATCH"
-  checkpoint.interval = 10000
 }
 
 source {

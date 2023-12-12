@@ -70,7 +70,7 @@ sink {
 
 {
   "env": {
-    "job.mode": "batch"
+    "job.mode": "BATCH"
   },
   "source": [
     {
