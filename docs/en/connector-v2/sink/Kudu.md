@@ -130,7 +130,6 @@ env {
   # You can set engine configuration here
   execution.parallelism = 1
   job.mode = "BATCH"
-  execution.checkpoint.interval = 5000
 }
 
 source {
