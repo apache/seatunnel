@@ -267,8 +267,7 @@ public class KafkaSourceSplitEnumerator
             } else {
                 currentPathTopics.addAll(Arrays.asList(metadata.getTopic().split(",")));
             }
-            currentPathTopics.stream()
-                    .forEach(topic -> topicMappingTablePathMap.put(topic, tablePath));
+            currentPathTopics.forEach(topic -> topicMappingTablePathMap.put(topic, tablePath));
             topics.addAll(currentPathTopics);
         }
 
