@@ -70,37 +70,16 @@ public class KafkaSourceSplitEnumerator
     private Map<String, TablePath> topicMappingTablePathMap = new HashMap<>();
 
     KafkaSourceSplitEnumerator(
-            KafkaSourceConfig kafkaSourceConfig, Context<KafkaSourceSplit> context) {
+            KafkaSourceConfig kafkaSourceConfig,
+            Context<KafkaSourceSplit> context,
+            KafkaSourceState sourceState) {
         this.kafkaSourceConfig = kafkaSourceConfig;
         this.tablePathMetadataMap = kafkaSourceConfig.getMapMetadata();
         this.context = context;
         this.assignedSplit = new HashMap<>();
         this.pendingSplit = new HashMap<>();
         this.adminClient = initAdminClient(this.kafkaSourceConfig.getProperties());
-    }
-
-    KafkaSourceSplitEnumerator(
-            KafkaSourceConfig kafkaSourceConfig,
-            Context<KafkaSourceSplit> context,
-            KafkaSourceState sourceState) {
-        this(kafkaSourceConfig, context);
-    }
-
-    KafkaSourceSplitEnumerator(
-            KafkaSourceConfig kafkaSourceConfig,
-            Context<KafkaSourceSplit> context,
-            long discoveryIntervalMillis) {
-        this(kafkaSourceConfig, context);
-        this.discoveryIntervalMillis = discoveryIntervalMillis;
-    }
-
-    KafkaSourceSplitEnumerator(
-            KafkaSourceConfig kafkaSourceConfig,
-            Context<KafkaSourceSplit> context,
-            KafkaSourceState sourceState,
-            long discoveryIntervalMillis) {
-        this(kafkaSourceConfig, context, sourceState);
-        this.discoveryIntervalMillis = discoveryIntervalMillis;
+        this.discoveryIntervalMillis = kafkaSourceConfig.getDiscoveryIntervalMillis();
     }
 
     @Override

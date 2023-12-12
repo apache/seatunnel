@@ -75,10 +75,7 @@ public class KafkaSource
     @Override
     public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> createEnumerator(
             SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext) {
-        return new KafkaSourceSplitEnumerator(
-                kafkaSourceConfig,
-                enumeratorContext,
-                kafkaSourceConfig.getDiscoveryIntervalMillis());
+        return new KafkaSourceSplitEnumerator(kafkaSourceConfig, enumeratorContext, null);
     }
 
     @Override
@@ -86,10 +83,7 @@ public class KafkaSource
             SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext,
             KafkaSourceState checkpointState) {
         return new KafkaSourceSplitEnumerator(
-                kafkaSourceConfig,
-                enumeratorContext,
-                checkpointState,
-                kafkaSourceConfig.getDiscoveryIntervalMillis());
+                kafkaSourceConfig, enumeratorContext, checkpointState);
     }
 
     @Override
