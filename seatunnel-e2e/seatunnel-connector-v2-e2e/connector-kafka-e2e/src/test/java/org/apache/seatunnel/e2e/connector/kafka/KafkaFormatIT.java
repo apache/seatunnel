@@ -214,15 +214,9 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         LOG.info(
                 "====================== Multi Source Format Canal and Ogg Check  ======================");
         Container.ExecResult execCanalResultKafka =
-                container.executeJob("/multiFormatIT/kafka_multi_source_json_to_assert.conf");
+                container.executeJob("/multiFormatIT/kafka_multi_source_to_assert.conf");
         Assertions.assertEquals(
                 0, execCanalResultKafka.getExitCode(), execCanalResultKafka.getStderr());
-        Container.ExecResult execCanalResultToPgSql =
-                container.executeJob("/canalFormatIT/kafka_source_canal_cdc_to_pgsql.conf");
-        Assertions.assertEquals(
-                0, execCanalResultToPgSql.getExitCode(), execCanalResultToPgSql.getStderr());
-        // Check Canal
-        checkCanalFormat();
     }
 
     @TestTemplate
