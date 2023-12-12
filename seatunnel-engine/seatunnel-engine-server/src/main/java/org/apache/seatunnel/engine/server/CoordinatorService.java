@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
+import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
@@ -448,10 +449,11 @@ public class CoordinatorService {
     public PassiveCompletableFuture<Void> savePoint(long jobId) {
         CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
         if (!runningJobMasterMap.containsKey(jobId)) {
-            Throwable throwable =
-                    new Throwable("The jobId: " + jobId + "of savePoint does not exist");
-            logger.warning(throwable);
-            voidCompletableFuture.completeExceptionally(throwable);
+            SavePointFailedException exception =
+                    new SavePointFailedException(
+                            jobId, "The jobId: " + jobId + "of savePoint does not exist");
+            logger.warning(exception);
+            voidCompletableFuture.completeExceptionally(exception);
         } else {
             voidCompletableFuture =
                     new PassiveCompletableFuture<>(

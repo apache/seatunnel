@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.condition.OS;
 import com.hazelcast.internal.serialization.Data;
 
 import java.util.Collections;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -47,6 +49,15 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
     @Test
     public void testSavePoint() throws InterruptedException {
         savePointAndRestore(false);
+    }
+
+    @Test
+    public void testSavePointWithNotExistedJob() {
+        CompletionException exception =
+                Assertions.assertThrows(
+                        CompletionException.class,
+                        () -> server.getCoordinatorService().savePoint(1L).join());
+        Assertions.assertEquals(1L, ((SavePointFailedException) exception.getCause()).getJobId());
     }
 
     @Test
