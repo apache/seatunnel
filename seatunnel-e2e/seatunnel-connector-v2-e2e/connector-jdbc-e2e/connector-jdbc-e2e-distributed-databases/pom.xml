@@ -22,8 +22,8 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>connector-jdbc-e2e-distributed-databases </artifactId>
-    <name>SeaTunnel : E2E : Connector V2 : Jdbc : Part 3</name>
+    <artifactId>connector-jdbc-e2e-distributed-databases</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Jdbc : Distributed Databases</name>
 
     <dependencies>
         <dependency>

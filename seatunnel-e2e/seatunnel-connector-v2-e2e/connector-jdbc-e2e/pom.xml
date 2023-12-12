@@ -30,7 +30,7 @@
         <module>connector-jdbc-e2e-common</module>
         <module>connector-jdbc-e2e-general-databases</module>
         <module>connector-jdbc-e2e-specialized-databases</module>
-        <module>connector-jdbc-e2e-distributed-databases </module>
+        <module>connector-jdbc-e2e-distributed-databases</module>
         <module>connector-jdbc-e2e-create</module>
         <module>connector-jdbc-e2e-mpp-databases</module>
         <module>connector-jdbc-e2e-case-sensitivity</module>
