@@ -48,7 +48,6 @@ import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.kafka.common.TopicPartition;
 
-import lombok.Data;
 import lombok.Getter;
 
 import java.io.Serializable;
@@ -75,29 +74,25 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.STAR
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_TIMESTAMP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 
-@Data
 public class KafkaSourceConfig implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @Getter private final Map<TablePath, ConsumerMetadata> mapMetadata;
-
-    @Getter private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
-
-    @Getter private final long discoveryIntervalMillis;
-
     @Getter private final String bootstrap;
-    @Getter private Properties properties;
+    @Getter private final Map<TablePath, ConsumerMetadata> mapMetadata;
     @Getter private final boolean commitOnCheckpoint;
+    @Getter private final Properties properties;
+    @Getter private final long discoveryIntervalMillis;
+    @Getter private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
 
     public KafkaSourceConfig(ReadonlyConfig readonlyConfig) {
         this.bootstrap = readonlyConfig.get(BOOTSTRAP_SERVERS);
         this.mapMetadata = createMapConsumerMetadata(readonlyConfig);
+        this.commitOnCheckpoint = readonlyConfig.get(COMMIT_ON_CHECKPOINT);
+        this.properties = createKafkaProperties(readonlyConfig);
         this.discoveryIntervalMillis = readonlyConfig.get(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS);
         this.messageFormatErrorHandleWay =
                 readonlyConfig.get(MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION);
-        this.commitOnCheckpoint = readonlyConfig.get(COMMIT_ON_CHECKPOINT);
-        this.properties = createKafkaProperties(readonlyConfig);
     }
 
     private Properties createKafkaProperties(ReadonlyConfig readonlyConfig) {
@@ -119,11 +114,12 @@ public class KafkaSourceConfig implements Serializable {
             consumerMetadataList =
                     Collections.singletonList(createConsumerMetadata(readonlyConfig));
         }
-        Map<TablePath, ConsumerMetadata> tablePathConsumer = new HashMap<>();
-        for (ConsumerMetadata consumerMetadata : consumerMetadataList) {
-            tablePathConsumer.put(TablePath.of(consumerMetadata.getTopic()), consumerMetadata);
-        }
-        return tablePathConsumer;
+
+        return consumerMetadataList.stream()
+                .collect(
+                        Collectors.toMap(
+                                consumerMetadata -> TablePath.of(consumerMetadata.getTopic()),
+                                consumerMetadata -> consumerMetadata));
     }
 
     private ConsumerMetadata createConsumerMetadata(ReadonlyConfig readonlyConfig) {
@@ -132,6 +128,12 @@ public class KafkaSourceConfig implements Serializable {
         consumerMetadata.setPattern(readonlyConfig.get(PATTERN));
         consumerMetadata.setConsumerGroup(readonlyConfig.get(CONSUMER_GROUP));
         consumerMetadata.setProperties(new Properties());
+        // Create a catalog
+        CatalogTable catalogTable = createCatalogTable(readonlyConfig);
+        consumerMetadata.setCatalogTable(catalogTable);
+        consumerMetadata.setDeserializationSchema(
+                createDeserializationSchema(catalogTable, readonlyConfig));
+
         // parse start mode
         readonlyConfig
                 .getOptional(START_MODE)
@@ -182,10 +184,6 @@ public class KafkaSourceConfig implements Serializable {
                             }
                         });
 
-        CatalogTable catalogTable = createCatalogTable(readonlyConfig);
-        consumerMetadata.setCatalogTable(catalogTable);
-        consumerMetadata.setDeserializationSchema(
-                createDeserializationSchema(catalogTable, readonlyConfig));
         return consumerMetadata;
     }
 
