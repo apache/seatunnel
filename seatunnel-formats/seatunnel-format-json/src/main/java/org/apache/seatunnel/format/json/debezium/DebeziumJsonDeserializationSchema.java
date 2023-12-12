@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
@@ -97,7 +97,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 SeaTunnelRow before = convertJsonNode(payload.get("before"));
                 if (before == null) {
                     throw new SeaTunnelJsonFormatException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
                 }
                 before.setRowKind(RowKind.UPDATE_BEFORE);
@@ -112,7 +112,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 SeaTunnelRow delete = convertJsonNode(payload.get("before"));
                 if (delete == null) {
                     throw new SeaTunnelJsonFormatException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
                 }
                 delete.setRowKind(RowKind.DELETE);
@@ -121,7 +121,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
             } else {
                 if (!ignoreParseErrors) {
                     throw new SeaTunnelJsonFormatException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             String.format(
                                     "Unknown \"op\" value \"%s\". The Debezium JSON message is '%s'",
                                     op, new String(message)));
@@ -131,7 +131,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
             // a big try catch to protect the processing.
             if (!ignoreParseErrors) {
                 throw new SeaTunnelJsonFormatException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         String.format("Corrupt Debezium JSON message '%s'.", new String(message)),
                         t);
             }
@@ -153,7 +153,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 return null;
             }
             throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", new String(message)),
                     t);
         }

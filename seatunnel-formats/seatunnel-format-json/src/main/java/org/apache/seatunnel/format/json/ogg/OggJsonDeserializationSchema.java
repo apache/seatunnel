@@ -62,9 +62,9 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                     + "if you are using Ogg Postgres Connector, "
                     + "please check the Postgres table has been set REPLICA IDENTITY to FULL level.";
 
-    private String database;
+    private final String database;
 
-    private String table;
+    private final String table;
 
     /** Names of fields. */
     private final String[] fieldNames;
@@ -72,7 +72,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
     /** Field number. */
     private final int fieldCount;
 
-    private boolean ignoreParseErrors;
+    private final boolean ignoreParseErrors;
 
     /** Pattern of the specific database. */
     private final Pattern databasePattern;
@@ -121,7 +121,8 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
         }
     }
 
-    public void deserialize(ObjectNode jsonNode, Collector<SeaTunnelRow> out) throws IOException {
+    public void deserialize(ObjectNode jsonNode, Collector<SeaTunnelRow> out, TablePath tablePath)
+            throws IOException {
         try {
             if (database != null
                     && !databasePattern
@@ -141,6 +142,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                 // Gets the data for the INSERT operation
                 JsonNode dataAfter = jsonNode.get(DATA_AFTER);
                 SeaTunnelRow row = convertJsonNode(dataAfter);
+                row.setTableId(tablePath.toString());
                 out.collect(row);
             } else if (OP_UPDATE.equals(op)) {
                 JsonNode dataBefore = jsonNode.get(DATA_BEFORE);
@@ -154,11 +156,12 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                 SeaTunnelRow before = convertJsonNode(dataBefore);
                 // Gets the data for the UPDATE AFTER operation
                 SeaTunnelRow after = convertJsonNode(dataAfter);
-
                 before.setRowKind(RowKind.UPDATE_BEFORE);
+                before.setTableId(tablePath.toString());
                 out.collect(before);
 
                 after.setRowKind(RowKind.UPDATE_AFTER);
+                after.setTableId(tablePath.toString());
                 out.collect(after);
             } else if (OP_DELETE.equals(op)) {
                 JsonNode dataBefore = jsonNode.get(DATA_BEFORE);
@@ -173,6 +176,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                             String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
                 }
                 before.setRowKind(RowKind.DELETE);
+                before.setTableId(tablePath.toString());
                 out.collect(before);
             } else {
                 throw new IllegalStateException(format("Unknown operation type '%s'.", op));
@@ -184,7 +188,9 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
         }
     }
 
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
+    @Override
+    public void deserialize(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath)
+            throws IOException {
         if (message == null || message.length == 0) {
             // skip tombstone messages
             return;
@@ -200,7 +206,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                 return;
             }
         }
-        deserialize(jsonNode, out);
+        deserialize(jsonNode, out, tablePath);
     }
 
     private SeaTunnelRow convertJsonNode(JsonNode root) {
