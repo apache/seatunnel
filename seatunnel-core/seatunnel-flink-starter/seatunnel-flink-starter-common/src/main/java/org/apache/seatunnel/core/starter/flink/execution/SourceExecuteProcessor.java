@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.core.starter.execution.SourceTableInfo;
@@ -54,8 +53,12 @@ import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
 public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SourceTableInfo> {
     private static final String PLUGIN_TYPE = PluginType.SOURCE.getType();
 
-    public SourceExecuteProcessor(List<URL> jarPaths, Config ConfigsInfo, JobContext jobContext) {
-        super(jarPaths, ConfigsInfo.getConfigList(Constants.SOURCE), jobContext);
+    public SourceExecuteProcessor(
+            List<URL> jarPaths,
+            Config envConfig,
+            List<? extends Config> pluginConfigs,
+            JobContext jobContext) {
+        super(jarPaths, envConfig, pluginConfigs, jobContext);
     }
 
     @Override
@@ -70,7 +73,7 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
             if (internalSource instanceof SupportCoordinate) {
                 registerAppendStream(pluginConfig);
             }
-            FlinkSource flinkSource = new FlinkSource<>(internalSource);
+            FlinkSource flinkSource = new FlinkSource<>(internalSource, envConfig);
 
             DataStreamSource sourceStream =
                     executionEnvironment.fromSource(
