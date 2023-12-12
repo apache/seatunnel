@@ -109,7 +109,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                             "max_replication_slots=20");
 
     private String driverUrl() {
-        return "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
+        return "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.5.1/postgresql-42.5.1.jar";
     }
 
     @TestContainerExtension
