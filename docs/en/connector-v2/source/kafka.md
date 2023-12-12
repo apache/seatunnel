@@ -55,7 +55,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ### Simple
 
-> Currently, multiple kafka source reads are supported using the Zeta engine, but note that you can only configure one instance of `bootstrap.servers`, and only one in the `topic_list` and `topic` ``parameters
+> This example reads the data of kafka's topic_1, topic_2, topic_3 and prints it to the client.And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in Install SeaTunnel to install and deploy SeaTunnel. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
 
 ```hocon
 # Defining the runtime environment
@@ -163,9 +163,10 @@ source {
 
 ### Multiple Kafka Source
 
-> This example reads the data of kafka's topic_1, topic_2, topic_3 and prints it to the client.And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in Install SeaTunnel to install and deploy SeaTunnel. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
+> Currently, multiple kafka source reads are supported using the Zeta engine, but note that you can only configure one instance of `bootstrap.servers`, and only one in the `topic_list` and `topic` ``parameters
 
 ```hocon
+
 env {
   execution.parallelism = 1
   job.mode = "BATCH"
@@ -176,7 +177,8 @@ source {
     bootstrap.servers = "kafka_e2e:9092"
     topic_list = [
       {
-        topic = "test-ogg-source"
+        topic = "^test-ogg-sou.*"
+        pattern = "true"
         consumer.group = "ogg_multi_group"
         start_mode = earliest
         schema = {
@@ -201,11 +203,6 @@ source {
           }
         },
         format = canal_json
-      }, {
-        topic = ".*debezium*."
-        pattern = "true"
-        consumer.group = "debezium_multi_group"
-        start_mode = earliest
       }
     ]
   }
@@ -215,7 +212,7 @@ sink {
   Assert {
     rules {
       // The current table name is the same as the topic name in order to maintain fewer configuration parameters
-      table-names = ["test-cdc_mds", "test-ogg-source",".*debezium*."]
+      table-names = ["^test-ogg-sou.*","test-cdc_mds"]
     }
   }
 }
