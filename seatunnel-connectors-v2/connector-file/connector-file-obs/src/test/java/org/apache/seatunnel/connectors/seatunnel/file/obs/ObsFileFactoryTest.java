@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.obs.exception;
+package org.apache.seatunnel.connectors.seatunnel.file.obs;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.file.obs.sink.ObsFileSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.obs.source.ObsFileSourceFactory;
 
-public class ObsConnectorException extends SeaTunnelRuntimeException {
-    public ObsConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
-        super(seaTunnelErrorCode, errorMessage);
-    }
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-    public ObsConnectorException(
-            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
-        super(seaTunnelErrorCode, errorMessage, cause);
-    }
+public class ObsFileFactoryTest {
 
-    public ObsConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
-        super(seaTunnelErrorCode, cause);
+    @Test
+    void optionRule(){
+        Assertions.assertNotNull((new ObsFileSourceFactory()).optionRule());
+        Assertions.assertNotNull((new ObsFileSinkFactory()).optionRule());
     }
 }
