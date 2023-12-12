@@ -81,9 +81,9 @@ network:
 
 #### Parameters
 
-> | name  |   type   | data type | description |
-> |-------|----------|-----------|-------------|
-> | jobId | required | long      | job id      |
+| name  |   type   | data type | description |
+|-------|----------|-----------|-------------|
+| jobId | required | long      | job id      |
 
 #### Responses
 
@@ -187,11 +187,11 @@ network:
 
 #### Parameters
 
-> |         name         |   type   | data type |            description            |
-> |----------------------|----------|-----------|-----------------------------------|
-> | jobId                | optional | string    | job id                            |
-> | jobName              | optional | string    | job name                          |
-> | isStartWithSavePoint | optional | string    | if job is started with save point |
+|         name         |   type   | data type |            description            |
+|----------------------|----------|-----------|-----------------------------------|
+| jobId                | optional | string    | job id                            |
+| jobName              | optional | string    | job name                          |
+| isStartWithSavePoint | optional | string    | if job is started with save point |
 
 #### Body
 
