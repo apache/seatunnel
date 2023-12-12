@@ -451,7 +451,7 @@ public class CoordinatorService {
         if (!runningJobMasterMap.containsKey(jobId)) {
             SavePointFailedException exception =
                     new SavePointFailedException(
-                            jobId, "The jobId: " + jobId + "of savePoint does not exist");
+                            "The job with id '" + jobId + "' not running, save point failed");
             logger.warning(exception);
             voidCompletableFuture.completeExceptionally(exception);
         } else {

@@ -57,7 +57,10 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
                 Assertions.assertThrows(
                         CompletionException.class,
                         () -> server.getCoordinatorService().savePoint(1L).join());
-        Assertions.assertEquals(1L, ((SavePointFailedException) exception.getCause()).getJobId());
+        Assertions.assertTrue(exception.getCause() instanceof SavePointFailedException);
+        Assertions.assertEquals(
+                "The job with id '1' not running, save point failed",
+                exception.getCause().getMessage());
     }
 
     @Test

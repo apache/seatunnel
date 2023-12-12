@@ -19,14 +19,16 @@ package org.apache.seatunnel.engine.common.exception;
 
 public class SavePointFailedException extends SeaTunnelEngineException {
 
-    private final long jobId;
-
-    public SavePointFailedException(long jobId, String message) {
+    public SavePointFailedException(String message) {
         super(message);
-        this.jobId = jobId;
     }
 
-    public long getJobId() {
-        return jobId;
+    public SavePointFailedException(String message, Throwable throwable) {
+        super(message, throwable);
+    }
+
+    @Override
+    public Throwable createException(String s, Throwable throwable) {
+        return new SavePointFailedException(s, throwable);
     }
 }
