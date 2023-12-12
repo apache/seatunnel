@@ -101,9 +101,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             return null;
         }
         SeaTunnelRow seaTunnelRow = convertJsonNode(convertBytes(message));
-        if (seaTunnelRow != null) {
-            seaTunnelRow.setTableId(tablePath.toString());
-        }
+        seaTunnelRow.setTableId(tablePath.toString());
         return seaTunnelRow;
     }
 
