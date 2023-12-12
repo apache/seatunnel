@@ -67,7 +67,7 @@ public class KafkaSourceSplitEnumerator
     private ScheduledExecutorService executor;
     private ScheduledFuture<?> scheduledFuture;
 
-    private Map<String, TablePath> topicMappingTablePathMap = new HashMap<>();
+    private final Map<String, TablePath> topicMappingTablePathMap = new HashMap<>();
 
     KafkaSourceSplitEnumerator(
             KafkaSourceConfig kafkaSourceConfig,
@@ -118,7 +118,7 @@ public class KafkaSourceSplitEnumerator
 
     private void setPartitionStartOffset() throws ExecutionException, InterruptedException {
         Set<TopicPartition> pendingTopicPartitions = pendingSplit.keySet();
-        Map<TopicPartition, Long> topicPartitionOffsets = null;
+        Map<TopicPartition, Long> topicPartitionOffsets = new HashMap<>();
         // Set kafka TopicPartition based on the topicPath granularity
         Map<TablePath, Set<TopicPartition>> tablePathPartitionMap =
                 pendingTopicPartitions.stream()
@@ -132,22 +132,24 @@ public class KafkaSourceSplitEnumerator
             Set<TopicPartition> topicPartitions = tablePathPartitionMap.get(tablePath);
             switch (metadata.getStartMode()) {
                 case EARLIEST:
-                    topicPartitionOffsets = listOffsets(topicPartitions, OffsetSpec.earliest());
+                    topicPartitionOffsets.putAll(
+                            listOffsets(topicPartitions, OffsetSpec.earliest()));
                     break;
                 case GROUP_OFFSETS:
-                    topicPartitionOffsets = listConsumerGroupOffsets(topicPartitions, metadata);
+                    topicPartitionOffsets.putAll(
+                            listConsumerGroupOffsets(topicPartitions, metadata));
                     break;
                 case LATEST:
-                    topicPartitionOffsets = listOffsets(topicPartitions, OffsetSpec.latest());
+                    topicPartitionOffsets.putAll(listOffsets(topicPartitions, OffsetSpec.latest()));
                     break;
                 case TIMESTAMP:
-                    topicPartitionOffsets =
+                    topicPartitionOffsets.putAll(
                             listOffsets(
                                     topicPartitions,
-                                    OffsetSpec.forTimestamp(metadata.getStartOffsetsTimestamp()));
+                                    OffsetSpec.forTimestamp(metadata.getStartOffsetsTimestamp())));
                     break;
                 case SPECIFIC_OFFSETS:
-                    topicPartitionOffsets = metadata.getSpecificStartOffsets();
+                    topicPartitionOffsets.putAll(metadata.getSpecificStartOffsets());
                     break;
                 default:
                     break;

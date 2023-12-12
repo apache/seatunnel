@@ -181,5 +181,6 @@ public class Config {
             Options.key("topic_list")
                     .type(new TypeReference<List<Map<String, Object>>>() {})
                     .noDefaultValue()
-                    .withDescription("topic list config");
+                    .withDescription(
+                            "Topic list config You can configure only one `topic_list` and one `topic` at the same time");
 }

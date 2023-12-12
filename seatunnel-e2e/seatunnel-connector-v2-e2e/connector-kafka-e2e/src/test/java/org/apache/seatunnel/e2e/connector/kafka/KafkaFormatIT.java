@@ -204,12 +204,17 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         Thread.sleep(20 * 1000);
     }
 
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "The multi-catalog does not currently support the Spark Flink engine")
     @TestTemplate
-    public void testFormatCanalCheck(TestContainer container)
+    public void testMultiFormatCheck(TestContainer container)
             throws IOException, InterruptedException {
-        LOG.info("====================== Check Canal======================");
+        LOG.info(
+                "====================== Multi Source Format Canal and Ogg Check  ======================");
         Container.ExecResult execCanalResultKafka =
-                container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
+                container.executeJob("/multiFormatIT/kafka_multi_source_json_to_assert.conf");
         Assertions.assertEquals(
                 0, execCanalResultKafka.getExitCode(), execCanalResultKafka.getStderr());
         Container.ExecResult execCanalResultToPgSql =
