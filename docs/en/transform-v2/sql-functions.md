@@ -848,6 +848,30 @@ Example:
 
 YEAR(CREATED)
 
+### FROM_UNIXTIME
+
+```FROM_UNIXTIME (unixtime, formatString,timeZone)```
+
+Convert the number of seconds from the UNIX epoch (1970-01-01 00:00:00 UTC) to a string representing the timestamp of that moment.
+
+The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see `java.time.format.DateTimeFormatter`.
+
+`timeZone` is optional, default value is system's time zone.  `timezone` value can be a `UTC+ timezone offset`, for example, `UTC+8` represents the Asia/Shanghai time zone, see `java.time.ZoneId`
+
+This method returns a string.
+
+Example:
+
+// use default zone
+
+CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss')
+
+or
+
+// use given zone
+
+CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
+
 ## System Functions
 
 ### CAST

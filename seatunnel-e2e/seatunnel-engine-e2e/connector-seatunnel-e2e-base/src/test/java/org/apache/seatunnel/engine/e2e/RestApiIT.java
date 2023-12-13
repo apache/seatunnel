@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -63,7 +61,6 @@ public class RestApiIT {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
         hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-        Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
@@ -137,7 +134,7 @@ public class RestApiIT {
     @Test
     public void testSubmitJob() {
         Response response = submitJob("BATCH");
-        response.then().statusCode(200).body("jobName", equalTo("test"));
+        response.then().statusCode(200).body("jobName", equalTo("test测试"));
         String jobId = response.getBody().jsonPath().getString("jobId");
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer)
@@ -206,7 +203,7 @@ public class RestApiIT {
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
-                                        JobStatus.FINISHED,
+                                        JobStatus.SAVEPOINT_DONE,
                                         seaTunnelServer
                                                 .getCoordinatorService()
                                                 .getJobStatus(Long.parseLong(jobId))));
@@ -256,6 +253,60 @@ public class RestApiIT {
                 .body("message", equalTo("Please provide jobId when start with save point."));
     }
 
+    @Test
+    public void testEncryptConfig() {
+        String config =
+                "{\n"
+                        + "    \"env\": {\n"
+                        + "        \"execution.parallelism\": 1,\n"
+                        + "        \"shade.identifier\":\"base64\"\n"
+                        + "    },\n"
+                        + "    \"source\": [\n"
+                        + "        {\n"
+                        + "            \"plugin_name\": \"MySQL-CDC\",\n"
+                        + "            \"schema\" : {\n"
+                        + "                \"fields\": {\n"
+                        + "                    \"name\": \"string\",\n"
+                        + "                    \"age\": \"int\"\n"
+                        + "                }\n"
+                        + "            },\n"
+                        + "            \"result_table_name\": \"fake\",\n"
+                        + "            \"parallelism\": 1,\n"
+                        + "            \"hostname\": \"127.0.0.1\",\n"
+                        + "            \"username\": \"seatunnel\",\n"
+                        + "            \"password\": \"seatunnel_password\",\n"
+                        + "            \"table-name\": \"inventory_vwyw0n\"\n"
+                        + "        }\n"
+                        + "    ],\n"
+                        + "    \"transform\": [\n"
+                        + "    ],\n"
+                        + "    \"sink\": [\n"
+                        + "        {\n"
+                        + "            \"plugin_name\": \"Clickhouse\",\n"
+                        + "            \"host\": \"localhost:8123\",\n"
+                        + "            \"database\": \"default\",\n"
+                        + "            \"table\": \"fake_all\",\n"
+                        + "            \"username\": \"seatunnel\",\n"
+                        + "            \"password\": \"seatunnel_password\"\n"
+                        + "        }\n"
+                        + "    ]\n"
+                        + "}";
+        given().body(config)
+                .post(
+                        HOST
+                                + hazelcastInstance
+                                        .getCluster()
+                                        .getLocalMember()
+                                        .getAddress()
+                                        .getPort()
+                                + RestConstant.ENCRYPT_CONFIG)
+                .then()
+                .statusCode(200)
+                .body("source[0].result_table_name", equalTo("fake"))
+                .body("source[0].username", equalTo("c2VhdHVubmVs"))
+                .body("source[0].password", equalTo("c2VhdHVubmVsX3Bhc3N3b3Jk"));
+    }
+
     @AfterEach
     void afterClass() {
         if (hazelcastInstance != null) {
@@ -298,7 +349,7 @@ public class RestApiIT {
                         + "        }\n"
                         + "    ]\n"
                         + "}";
-        String parameters = "jobName=test";
+        String parameters = "jobName=test测试";
         if (isStartWithSavePoint) {
             parameters = parameters + "&isStartWithSavePoint=true";
         }

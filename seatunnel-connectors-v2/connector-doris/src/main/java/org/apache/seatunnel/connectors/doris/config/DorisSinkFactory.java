@@ -37,12 +37,12 @@ public class DorisSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        DorisConfig.FENODES,
-                        DorisConfig.USERNAME,
-                        DorisConfig.PASSWORD,
-                        DorisConfig.SINK_LABEL_PREFIX,
-                        DorisConfig.DORIS_SINK_CONFIG_PREFIX)
-                .optional(DorisConfig.SINK_ENABLE_2PC, DorisConfig.SINK_ENABLE_DELETE)
+                        DorisOptions.FENODES,
+                        DorisOptions.USERNAME,
+                        DorisOptions.PASSWORD,
+                        DorisOptions.SINK_LABEL_PREFIX,
+                        DorisOptions.DORIS_SINK_CONFIG_PREFIX)
+                .optional(DorisOptions.SINK_ENABLE_2PC, DorisOptions.SINK_ENABLE_DELETE)
                 .build();
     }
 }

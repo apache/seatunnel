@@ -114,7 +114,7 @@ public class AssertCatalogTableRuleParser {
                                     return PhysicalColumn.of(
                                             name,
                                             SeaTunnelDataTypeConvertorUtil
-                                                    .deserializeSeaTunnelDataType(type),
+                                                    .deserializeSeaTunnelDataType(name, type),
                                             columnLength,
                                             nullable,
                                             object,
