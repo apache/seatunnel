@@ -205,6 +205,11 @@ source {
         format = canal_json
       }
     ]
+ # Each topic in the `topic_list` shares the config
+    kafka.config = {
+      client.id = client_1
+      max.poll.records = 50000
+    }
   }
 }
 
