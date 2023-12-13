@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.flink.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -56,10 +58,11 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     public FlinkSourceReader(
             org.apache.seatunnel.api.source.SourceReader<SeaTunnelRow, SplitT> sourceReader,
             org.apache.seatunnel.api.source.SourceReader.Context context,
+            Config envConfig,
             SeaTunnelRowType seaTunnelRowType) {
         this.sourceReader = sourceReader;
         this.context = context;
-        this.flinkRowCollector = new FlinkRowCollector(seaTunnelRowType);
+        this.flinkRowCollector = new FlinkRowCollector(seaTunnelRowType, envConfig);
     }
 
     @Override

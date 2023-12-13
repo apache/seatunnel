@@ -101,7 +101,7 @@ public class FileUtils {
      *
      * @param filePath filePath
      */
-    public static void createNewFile(String filePath) {
+    public static void createNewFile(String filePath) throws IOException {
         File file = new File(filePath);
         if (file.exists()) {
             file.delete();
@@ -110,6 +110,7 @@ public class FileUtils {
         if (!file.getParentFile().exists()) {
             createParentFile(file);
         }
+        file.createNewFile();
     }
 
     /**
