@@ -100,6 +100,11 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     @Override
+    public String name() {
+        return catalogName;
+    }
+
+    @Override
     public String getDefaultDatabase() {
         return defaultDatabase;
     }
@@ -174,24 +179,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                     ResultSet resultSet = ps.executeQuery()) {
 
                 TableSchema.Builder builder = TableSchema.builder();
-                Map<String, String> unsupported = new LinkedHashMap<>();
-                while (resultSet.next()) {
-                    try {
-                        builder.column(buildColumn(resultSet));
-                    } catch (SeaTunnelRuntimeException e) {
-                        if (e.getSeaTunnelErrorCode()
-                                .equals(CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE)) {
-                            unsupported.put(
-                                    e.getParams().get("field"), e.getParams().get("dataType"));
-                        } else {
-                            throw e;
-                        }
-                    }
-                }
-                if (!unsupported.isEmpty()) {
-                    throw CommonError.getCatalogTableWithUnsupportedType(
-                            catalogName, tablePath.getFullName(), unsupported);
-                }
+                buildColumnsWithErrorCheck(tablePath, resultSet, builder);
                 // add primary key
                 primaryKey.ifPresent(builder::primaryKey);
                 // add constraint key
@@ -210,6 +198,28 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed getting table %s", tablePath.getFullName()), e);
+        }
+    }
+
+    protected void buildColumnsWithErrorCheck(
+            TablePath tablePath, ResultSet resultSet, TableSchema.Builder builder)
+            throws SQLException {
+        Map<String, String> unsupported = new LinkedHashMap<>();
+        while (resultSet.next()) {
+            try {
+                builder.column(buildColumn(resultSet));
+            } catch (SeaTunnelRuntimeException e) {
+                if (e.getSeaTunnelErrorCode()
+                        .equals(CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE)) {
+                    unsupported.put(e.getParams().get("field"), e.getParams().get("dataType"));
+                } else {
+                    throw e;
+                }
+            }
+        }
+        if (!unsupported.isEmpty()) {
+            throw CommonError.getCatalogTableWithUnsupportedType(
+                    catalogName, tablePath.getFullName(), unsupported);
         }
     }
 
