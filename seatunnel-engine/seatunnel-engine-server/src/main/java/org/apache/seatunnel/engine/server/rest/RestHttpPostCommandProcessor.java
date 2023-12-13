@@ -223,57 +223,5 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         voidPassiveCompletableFuture.join();
 
         return restJobExecutionEnvironment.getJobId();
-        SeaTunnelServer seaTunnelServer =
-                (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
-        if (!seaTunnelServer.isMasterNode()) {
-            for (HazelcastInstance hazelcastInstance : Hazelcast.getAllHazelcastInstances()) {
-                seaTunnelServer =
-                        (SeaTunnelServer)
-                                ((HazelcastInstanceProxy) hazelcastInstance)
-                                        .getOriginal()
-                                        .node
-                                        .getNodeExtension()
-                                        .createExtensionServices()
-                                        .get(Constant.SEATUNNEL_SERVICE_NAME);
-
-                if (seaTunnelServer.isMasterNode()) {
-                    return seaTunnelServer;
-                }
-            }
-        }
-        return seaTunnelServer;
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
-        Long jobId =
-                submitJob(
-                        seaTunnelServer,
-                        jobImmutableInformation,
-                        jobConfig,
-                        restJobExecutionEnvironment);
-
-        this.prepareResponse(
-                httpPostCommand,
-                new JsonObject()
-                        .add(RestConstant.JOB_ID, jobId)
-                        .add(RestConstant.JOB_NAME, requestParams.get(RestConstant.JOB_NAME)));
-    }
-
-    private Long submitJob(
-            SeaTunnelServer seaTunnelServer,
-            JobImmutableInformation jobImmutableInformation,
-            JobConfig jobConfig,
-            RestJobExecutionEnvironment restJobExecutionEnvironment) {
-        CoordinatorService coordinatorService = seaTunnelServer.getCoordinatorService();
-        Data data =
-                textCommandService
-                        .getNode()
-                        .nodeEngine
-                        .getSerializationService()
-                        .toData(jobImmutableInformation);
-        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-                coordinatorService.submitJob(
-                        Long.parseLong(jobConfig.getJobContext().getJobId()), data);
-        voidPassiveCompletableFuture.join();
-
-        return restJobExecutionEnvironment.getJobId();
     }
 }
