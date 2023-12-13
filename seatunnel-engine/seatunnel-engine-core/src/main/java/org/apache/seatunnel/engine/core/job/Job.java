@@ -29,5 +29,9 @@ public interface Job {
 
     JobStatus getJobStatus();
 
-    JobStatus waitForJobComplete();
+    default JobStatus waitForJobComplete() {
+        return waitForJobCompleteV2().getStatus();
+    }
+
+    JobResult waitForJobCompleteV2();
 }

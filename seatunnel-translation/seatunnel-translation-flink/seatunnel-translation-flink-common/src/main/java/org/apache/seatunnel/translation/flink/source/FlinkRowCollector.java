@@ -17,9 +17,13 @@
 
 package org.apache.seatunnel.translation.flink.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
+import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 
 import org.apache.flink.api.connector.source.ReaderOutput;
@@ -35,12 +39,16 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
 
     private final FlinkRowConverter rowSerialization;
 
-    public FlinkRowCollector(SeaTunnelRowType seaTunnelRowType) {
+    private final FlowControlGate flowControlGate;
+
+    public FlinkRowCollector(SeaTunnelRowType seaTunnelRowType, Config envConfig) {
         this.rowSerialization = new FlinkRowConverter(seaTunnelRowType);
+        this.flowControlGate = FlowControlGate.create(FlowControlStrategy.fromConfig(envConfig));
     }
 
     @Override
     public void collect(SeaTunnelRow record) {
+        flowControlGate.audit(record);
         try {
             readerOutput.collect(rowSerialization.convert(record));
         } catch (Exception e) {
