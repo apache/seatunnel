@@ -90,7 +90,7 @@ semantics (using XA transaction guarantee).
 ```
 env {
   # You can set engine configuration here
-  execution.parallelism = 10
+  parallelism = 10
 }
 
 source {

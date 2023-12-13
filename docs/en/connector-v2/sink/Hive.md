@@ -135,7 +135,6 @@ The job config file can like this:
 
 ```
 env {
-  # You can set flink configuration here
   parallelism = 3
   job.name="test_hive_source_to_hive"
 }

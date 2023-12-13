@@ -61,7 +61,7 @@
 ```hocon
 
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
     source {

@@ -59,8 +59,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 ```hocon
 # Defining the runtime environment
 env {
-  # You can set flink configuration here
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 source {

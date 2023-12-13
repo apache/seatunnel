@@ -275,7 +275,7 @@ For more information about customize encryption, please refer to the documentati
 ```json
 {
     "env": {
-        "execution.parallelism": 1,
+        "parallelism": 1,
         "shade.identifier":"base64"
     },
     "source": [
@@ -315,7 +315,7 @@ For more information about customize encryption, please refer to the documentati
 ```json
 {
     "env": {
-        "execution.parallelism": 1,
+        "parallelism": 1,
         "shade.identifier": "base64"
     },
     "source": [

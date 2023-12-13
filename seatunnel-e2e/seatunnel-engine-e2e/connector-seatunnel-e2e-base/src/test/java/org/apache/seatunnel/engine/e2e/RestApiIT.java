@@ -336,7 +336,7 @@ public class RestApiIT {
                             String config =
                                     "{\n"
                                             + "    \"env\": {\n"
-                                            + "        \"execution.parallelism\": 1,\n"
+                                            + "        \"parallelism\": 1,\n"
                                             + "        \"shade.identifier\":\"base64\"\n"
                                             + "    },\n"
                                             + "    \"source\": [\n"
