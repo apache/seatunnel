@@ -96,7 +96,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             if (uri.startsWith(RUNNING_JOBS_URL)) {
                 handleRunningJobsInfo(httpGetCommand);
             } else if (uri.startsWith(FINISHED_JOBS_INFO)) {
-                handleFinishedJobsInfo(httpGetCommand);
+                handleFinishedJobsInfo(httpGetCommand, uri);
             } else if (uri.startsWith(RUNNING_JOB_URL)) {
                 handleJobInfoById(httpGetCommand, uri);
             } else if (uri.startsWith(SYSTEM_MONITORING_INFORMATION)) {
@@ -172,7 +172,11 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.prepareResponse(command, jobs);
     }
 
-    private void handleFinishedJobsInfo(HttpGetCommand command) {
+    private void handleFinishedJobsInfo(HttpGetCommand command, String uri) {
+
+        uri = StringUtil.stripTrailingSlash(uri);
+        int indexEnd = uri.indexOf('/', URI_MAPS.length());
+        String state = uri.substring(indexEnd + 1);
 
         IMap<Long, JobState> finishedJob =
                 this.textCommandService
@@ -197,6 +201,15 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
         JsonArray jobs =
                 finishedJob.values().stream()
+                        .filter(
+                                jobState -> {
+                                    if (state.isEmpty()) {
+                                        return true;
+                                    }
+                                    return jobState.getJobStatus()
+                                            .name()
+                                            .equals(state.toUpperCase());
+                                })
                         .map(
                                 jobState -> {
                                     Long jobId = jobState.getJobId();

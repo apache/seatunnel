@@ -161,7 +161,8 @@ public class RestApiIT {
                                         .getLocalMember()
                                         .getAddress()
                                         .getPort()
-                                + RestConstant.FINISHED_JOBS_INFO)
+                                + RestConstant.FINISHED_JOBS_INFO
+                                + "/FINISHED")
                 .then()
                 .statusCode(200)
                 .body("[0].jobName", equalTo("test测试"))
