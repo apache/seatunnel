@@ -76,7 +76,7 @@ public class JdbcConnectionConfig implements Serializable {
             builder.useKerberos(config.get(JdbcOptions.USE_KERBEROS));
             builder.kerberosPrincipal(config.get(JdbcOptions.KERBEROS_PRINCIPAL));
             builder.kerberosKeytabPath(config.get(JdbcOptions.KERBEROS_KEYTAB_PATH));
-            builder.kerberosKeytabPath(config.get(JdbcOptions.KRB5_PATH));
+            builder.krb5Path(config.get(JdbcOptions.KRB5_PATH));
         }
         config.getOptional(JdbcOptions.USER).ifPresent(builder::username);
         config.getOptional(JdbcOptions.PASSWORD).ifPresent(builder::password);

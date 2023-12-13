@@ -31,6 +31,7 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_S
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_TABLES_WITH_UNSUPPORTED_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.JSON_OPERATION_FAILED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE;
 
 /**
@@ -117,5 +118,23 @@ public class CommonError {
         }
         return new SeaTunnelRuntimeException(
                 GET_CATALOG_TABLES_WITH_UNSUPPORTED_TYPE_ERROR, params);
+    }
+
+    public static SeaTunnelRuntimeException jsonOperationError(String format, String payload) {
+        return jsonOperationError(format, payload, null);
+    }
+
+    public static SeaTunnelRuntimeException jsonOperationError(
+            String format, String payload, Throwable cause) {
+        Map<String, String> params = new HashMap<>();
+        params.put("format", format);
+        params.put("payload", payload);
+        SeaTunnelErrorCode code = JSON_OPERATION_FAILED;
+
+        if (cause != null) {
+            return new SeaTunnelRuntimeException(code, params, cause);
+        } else {
+            return new SeaTunnelRuntimeException(code, params);
+        }
     }
 }

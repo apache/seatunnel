@@ -45,6 +45,7 @@ import org.junit.jupiter.api.condition.OS;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -57,6 +58,7 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVE
 import static org.awaitility.Awaitility.await;
 
 @DisabledOnOs(OS.WINDOWS)
+@Slf4j
 public class SeaTunnelClientTest {
 
     private static SeaTunnelConfig SEATUNNEL_CONFIG = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -201,7 +203,7 @@ public class SeaTunnelClientTest {
 
             String jobMetrics = jobClient.getJobMetrics(jobId);
 
-            System.out.println(jobMetrics);
+            log.info(jobMetrics);
 
             Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_COUNT));
             Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_QPS));
@@ -258,7 +260,7 @@ public class SeaTunnelClientTest {
                                                         .getJobStatus(jobId3)
                                                         .equals("RUNNING")));
 
-        System.out.println(jobClient.getRunningJobMetrics());
+        log.info(jobClient.getRunningJobMetrics());
 
         await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -334,10 +336,10 @@ public class SeaTunnelClientTest {
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(1000);
-                                System.out.println(
+                                log.info(
                                         "======================job status:"
                                                 + jobClient.getJobDetailStatus(jobId));
-                                System.out.println(
+                                log.info(
                                         "======================list job status:"
                                                 + jobClient.listJobStatus(true));
                                 Assertions.assertTrue(
@@ -404,7 +406,7 @@ public class SeaTunnelClientTest {
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
-                                            "FINISHED", jobClient.getJobStatus(jobId)));
+                                            "SAVEPOINT_DONE", jobClient.getJobStatus(jobId)));
 
             Thread.sleep(1000);
             seaTunnelClient
