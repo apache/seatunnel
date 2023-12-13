@@ -45,6 +45,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
@@ -151,6 +152,7 @@ public class RestApiIT {
 
     @Test
     public void testSubmitJob() {
+        AtomicInteger i = new AtomicInteger();
         Arrays.asList(node2, node1)
                 .forEach(
                         instance -> {
@@ -187,6 +189,25 @@ public class RestApiIT {
                                                                     .getJobStatus(
                                                                             Long.parseLong(
                                                                                     jobId))));
+
+                            given().get(
+                                            HOST
+                                                    + instance
+                                                    .getCluster()
+                                                    .getLocalMember()
+                                                    .getAddress()
+                                                    .getPort()
+                                                    + RestConstant.FINISHED_JOBS_INFO
+                                                    + "/FINISHED")
+                                    .then()
+                                    .statusCode(200)
+                                    .body("["+i.get()+"].jobName", equalTo("test测试"))
+                                    .body("["+i.get()+"].errorMsg", equalTo(null))
+                                    .body("["+i.get()+"].jobDag.jobId", equalTo(Long.parseLong(jobId)))
+                                    .body("["+i.get()+"].metrics.SourceReceivedCount", equalTo("100"))
+                                    .body("["+i.get()+"].metrics.SinkWriteCount", equalTo("100"))
+                                    .body("["+i.get()+"].jobStatus", equalTo("FINISHED"));
+                            i.getAndIncrement();
                         });
     }
 
