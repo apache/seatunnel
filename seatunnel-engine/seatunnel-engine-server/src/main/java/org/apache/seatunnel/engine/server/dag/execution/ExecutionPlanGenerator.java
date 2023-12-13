@@ -459,7 +459,8 @@ public class ExecutionPlanGenerator {
                 actionCount++;
             }
         }
-        checkArgument(actionNames.size() == actionCount, "Action name is duplicated");
+        checkArgument(
+                actionNames.size() == actionCount, "Action name is duplicated: " + actionNames);
 
         return pipelines;
     }

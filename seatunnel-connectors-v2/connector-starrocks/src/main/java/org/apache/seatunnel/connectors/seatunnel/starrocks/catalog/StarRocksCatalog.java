@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
@@ -167,18 +168,25 @@ public class StarRocksCatalog implements Catalog {
             ResultSetMetaData tableMetaData = ps.getMetaData();
 
             TableSchema.Builder builder = TableSchema.builder();
-            for (int i = 1; i <= tableMetaData.getColumnCount(); i++) {
-                SeaTunnelDataType<?> type = fromJdbcType(tableMetaData, i);
-                // TODO add default value and test it
-                builder.column(
-                        PhysicalColumn.of(
-                                tableMetaData.getColumnName(i),
-                                type,
-                                tableMetaData.getColumnDisplaySize(i),
-                                tableMetaData.isNullable(i) == ResultSetMetaData.columnNullable,
-                                null,
-                                tableMetaData.getColumnLabel(i)));
-            }
+            buildColumnsWithErrorCheck(
+                    tablePath,
+                    builder,
+                    IntStream.range(1, tableMetaData.getColumnCount() + 1).iterator(),
+                    i -> {
+                        try {
+                            SeaTunnelDataType<?> type = fromJdbcType(tableMetaData, i);
+                            // TODO add default value and test it
+                            return PhysicalColumn.of(
+                                    tableMetaData.getColumnName(i),
+                                    type,
+                                    tableMetaData.getColumnDisplaySize(i),
+                                    tableMetaData.isNullable(i) == ResultSetMetaData.columnNullable,
+                                    null,
+                                    tableMetaData.getColumnLabel(i));
+                        } catch (SQLException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
 
             primaryKey.ifPresent(builder::primaryKey);
 
@@ -390,6 +398,11 @@ public class StarRocksCatalog implements Catalog {
     @Override
     public void close() throws CatalogException {
         LOG.info("Catalog {} closing", catalogName);
+    }
+
+    @Override
+    public String name() {
+        return catalogName;
     }
 
     protected Optional<PrimaryKey> getPrimaryKey(String schema, String table) throws SQLException {

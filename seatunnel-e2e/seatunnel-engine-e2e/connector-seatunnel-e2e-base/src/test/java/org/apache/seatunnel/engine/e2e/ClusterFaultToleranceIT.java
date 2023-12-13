@@ -44,10 +44,10 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
@@ -69,7 +69,7 @@ public class ClusterFaultToleranceIT {
     public static final String DYNAMIC_TEST_PARALLELISM = "dynamic_test_parallelism";
 
     @Test
-    public void testBatchJobRunOkIn2Node() throws ExecutionException, InterruptedException {
+    public void testBatchJobRunOkIn2Node() throws Exception {
         String testCaseName = "testBatchJobRunOkIn2Node";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRunOkIn2Node";
         long testRowNumber = 1000;
@@ -161,10 +161,8 @@ public class ClusterFaultToleranceIT {
      * @param parallelism FakeSource parallelism
      */
     private ImmutablePair<String, String> createTestResources(
-            @NonNull String testCaseName,
-            @NonNull JobMode jobMode,
-            long rowNumber,
-            int parallelism) {
+            @NonNull String testCaseName, @NonNull JobMode jobMode, long rowNumber, int parallelism)
+            throws IOException {
         checkArgument(rowNumber > 0, "rowNumber must greater than 0");
         checkArgument(parallelism > 0, "parallelism must greater than 0");
         Map<String, String> valueMap = new HashMap<>();
@@ -194,7 +192,7 @@ public class ClusterFaultToleranceIT {
     }
 
     @Test
-    public void testStreamJobRunOkIn2Node() throws ExecutionException, InterruptedException {
+    public void testStreamJobRunOkIn2Node() throws Exception {
         String testCaseName = "testStreamJobRunOkIn2Node";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRunOkIn2Node";
         long testRowNumber = 1000;
@@ -287,8 +285,7 @@ public class ClusterFaultToleranceIT {
     }
 
     @Test
-    public void testBatchJobRestoreIn2NodeWorkerDown()
-            throws ExecutionException, InterruptedException {
+    public void testBatchJobRestoreIn2NodeWorkerDown() throws Exception {
         String testCaseName = "testBatchJobRestoreIn2NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn2NodeWorkerDown";
         long testRowNumber = 1000;
@@ -387,8 +384,7 @@ public class ClusterFaultToleranceIT {
     }
 
     @Test
-    public void testStreamJobRestoreIn2NodeWorkerDown()
-            throws ExecutionException, InterruptedException {
+    public void testStreamJobRestoreIn2NodeWorkerDown() throws Exception {
         String testCaseName = "testStreamJobRestoreIn2NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn2NodeWorkerDown";
         long testRowNumber = 1000;
@@ -506,8 +502,7 @@ public class ClusterFaultToleranceIT {
     }
 
     @Test
-    public void testBatchJobRestoreIn2NodeMasterDown()
-            throws ExecutionException, InterruptedException {
+    public void testBatchJobRestoreIn2NodeMasterDown() throws Exception {
         String testCaseName = "testBatchJobRestoreIn2NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn2NodeMasterDown";
         long testRowNumber = 1000;
@@ -609,8 +604,7 @@ public class ClusterFaultToleranceIT {
     }
 
     @Test
-    public void testStreamJobRestoreIn2NodeMasterDown()
-            throws ExecutionException, InterruptedException {
+    public void testStreamJobRestoreIn2NodeMasterDown() throws Exception {
         String testCaseName = "testStreamJobRestoreIn2NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn2NodeMasterDown";
         long testRowNumber = 1000;
@@ -730,15 +724,14 @@ public class ClusterFaultToleranceIT {
 
     @Test
     @Disabled
-    public void testFor() throws ExecutionException, InterruptedException {
+    public void testFor() throws Exception {
         for (int i = 0; i < 200; i++) {
             testStreamJobRestoreInAllNodeDown();
         }
     }
 
     @Test
-    public void testStreamJobRestoreInAllNodeDown()
-            throws ExecutionException, InterruptedException {
+    public void testStreamJobRestoreInAllNodeDown() throws Exception {
         String testCaseName = "testStreamJobRestoreInAllNodeDown";
         String testClusterName =
                 "ClusterFaultToleranceIT_testStreamJobRestoreInAllNodeDown_"
@@ -938,8 +931,7 @@ public class ClusterFaultToleranceIT {
 
     @Test
     @Disabled
-    public void testStreamJobRestoreFromOssInAllNodeDown()
-            throws ExecutionException, InterruptedException {
+    public void testStreamJobRestoreFromOssInAllNodeDown() throws Exception {
         String OSS_BUCKET_NAME = "oss://your bucket name/";
         String OSS_ENDPOINT = "your oss endpoint";
         String OSS_ACCESS_KEY_ID = "oss accessKey id";

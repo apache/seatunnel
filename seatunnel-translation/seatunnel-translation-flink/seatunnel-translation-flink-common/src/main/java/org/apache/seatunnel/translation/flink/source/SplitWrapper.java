@@ -15,40 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.serialization;
+package org.apache.seatunnel.translation.flink.source;
 
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.types.Row;
+import org.apache.flink.api.connector.source.SourceSplit;
 
 /**
- * Wrapped {@link Row}.
+ * The {@link org.apache.seatunnel.api.source.SourceSplit} wrapper, used for proxy all seatunnel
+ * user-defined source split in flink engine.
  *
- * <p>Keep the original table name for the Dispatcher to distribute to the corresponding data stream
+ * @param <T> The generic type of source split
  */
-public class WrappedRow extends Tuple2<Row, String> {
-    private static final long serialVersionUID = -8325988931728734377L;
+public class SplitWrapper<T extends org.apache.seatunnel.api.source.SourceSplit>
+        implements SourceSplit {
 
-    public WrappedRow() {
-        super();
+    private final T sourceSplit;
+
+    public SplitWrapper(T sourceSplit) {
+        this.sourceSplit = sourceSplit;
     }
 
-    public WrappedRow(Row row, String table) {
-        super(row, table);
+    public T getSourceSplit() {
+        return sourceSplit;
     }
 
-    public Row getRow() {
-        return this.f0;
-    }
-
-    public String getTable() {
-        return this.f1;
-    }
-
-    public void setRow(Row row) {
-        this.f0 = row;
-    }
-
-    public void setTable(String table) {
-        this.f1 = table;
+    @Override
+    public String splitId() {
+        return sourceSplit.splitId();
     }
 }

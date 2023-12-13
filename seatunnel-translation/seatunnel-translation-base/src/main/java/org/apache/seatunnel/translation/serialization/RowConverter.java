@@ -65,7 +65,7 @@ public abstract class RowConverter<T> implements Serializable {
                                 fieldType.getTypeClass()));
             }
         }
-        if (errors.size() > 0) {
+        if (!errors.isEmpty()) {
             throw new UnsupportedOperationException(String.join(",", errors));
         }
     }
@@ -107,7 +107,7 @@ public abstract class RowConverter<T> implements Serializable {
                 }
                 MapType<?, ?> mapType = (MapType<?, ?>) dataType;
                 Map<?, ?> mapField = (Map<?, ?>) field;
-                if (mapField.size() == 0) {
+                if (mapField.isEmpty()) {
                     return true;
                 } else {
                     Map.Entry<?, ?> entry = mapField.entrySet().stream().findFirst().get();

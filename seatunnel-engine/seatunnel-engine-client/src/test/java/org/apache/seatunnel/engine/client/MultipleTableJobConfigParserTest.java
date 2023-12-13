@@ -54,7 +54,7 @@ public class MultipleTableJobConfigParserTest {
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
-        Assertions.assertEquals("Sink[0]-LocalFile", actions.get(0).getName());
+        Assertions.assertEquals("Sink[0]-LocalFile-MultiTableSink", actions.get(0).getName());
         Assertions.assertEquals(1, actions.get(0).getUpstream().size());
         Assertions.assertEquals(
                 "Source[0]-FakeSource", actions.get(0).getUpstream().get(0).getName());
@@ -75,7 +75,7 @@ public class MultipleTableJobConfigParserTest {
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
 
-        Assertions.assertEquals("Sink[0]-LocalFile", actions.get(0).getName());
+        Assertions.assertEquals("Sink[0]-LocalFile-fake", actions.get(0).getName());
         Assertions.assertEquals(2, actions.get(0).getUpstream().size());
 
         String[] expected = {"Source[0]-FakeSource", "Source[1]-FakeSource"};
@@ -106,8 +106,11 @@ public class MultipleTableJobConfigParserTest {
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(2, actions.size());
 
-        Assertions.assertEquals("Sink[0]-LocalFile", actions.get(0).getName());
-        Assertions.assertEquals("Sink[1]-LocalFile", actions.get(1).getName());
+        // This is union sink
+        Assertions.assertEquals("Sink[0]-LocalFile-fake", actions.get(0).getName());
+
+        // This is multiple table sink
+        Assertions.assertEquals("Sink[1]-LocalFile-MultiTableSink", actions.get(1).getName());
     }
 
     @Test
