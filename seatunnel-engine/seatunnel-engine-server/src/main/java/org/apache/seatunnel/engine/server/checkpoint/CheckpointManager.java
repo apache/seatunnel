@@ -112,16 +112,16 @@ public class CheckpointManager {
                                                     jobId, plan.getPipelineId(), nodeEngine);
                                     try {
                                         idCounter.start();
-                                        PipelineState pipelineState =
-                                                checkpointStorage
-                                                        .getLatestCheckpointByJobIdAndPipelineId(
-                                                                String.valueOf(jobId),
-                                                                String.valueOf(
-                                                                        plan.getPipelineId()));
-                                        if (pipelineState != null) {
+                                        PipelineState pipelineState = null;
+                                        if (isStartWithSavePoint) {
+                                            pipelineState =
+                                                    checkpointStorage
+                                                            .getLatestCheckpointByJobIdAndPipelineId(
+                                                                    String.valueOf(jobId),
+                                                                    String.valueOf(
+                                                                            plan.getPipelineId()));
                                             long checkpointId = pipelineState.getCheckpointId();
                                             idCounter.setCount(checkpointId + 1);
-
                                             log.info(
                                                     "pipeline({}) start with savePoint on checkPointId({})",
                                                     plan.getPipelineId(),
