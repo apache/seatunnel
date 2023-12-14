@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
@@ -41,6 +42,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class JsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
     private static final long serialVersionUID = 1L;
+
+    private static final String FORMAT = "Common";
 
     /** Flag indicating whether to fail if a field is missing. */
     private final boolean failOnMissingField;
@@ -133,10 +136,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             if (ignoreParseErrors) {
                 return null;
             }
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                    String.format("Failed to deserialize JSON '%s'.", jsonNode),
-                    t);
+            throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), t);
         }
     }
 
@@ -155,10 +155,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             if (ignoreParseErrors) {
                 return NullNode.getInstance();
             }
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                    String.format("Failed to deserialize JSON '%s'.", new String(message)),
-                    t);
+            throw CommonError.jsonOperationError(FORMAT, new String(message), t);
         }
     }
 
@@ -169,10 +166,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             if (ignoreParseErrors) {
                 return NullNode.getInstance();
             }
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                    String.format("Failed to deserialize JSON '%s'.", message),
-                    t);
+            throw CommonError.jsonOperationError(FORMAT, new String(message), t);
         }
     }
 

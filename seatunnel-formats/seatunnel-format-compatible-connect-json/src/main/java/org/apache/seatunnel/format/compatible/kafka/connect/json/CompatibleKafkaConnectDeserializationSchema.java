@@ -25,10 +25,9 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.format.json.JsonToRowConverters;
-import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.connect.data.Schema;
@@ -58,6 +57,7 @@ public class CompatibleKafkaConnectDeserializationSchema
     private static final String INCLUDE_SCHEMA_METHOD = "convertToJsonWithEnvelope";
     private static final String EXCLUDE_SCHEMA_METHOD = "convertToJsonWithoutEnvelope";
     private static final String KAFKA_CONNECT_SINK_RECORD_PAYLOAD = "payload";
+    public static final String FORMAT = "Kafka.Connect";
     private transient JsonConverter keyConverter;
     private transient JsonConverter valueConverter;
     private transient Method keyConverterMethod;
@@ -126,15 +126,13 @@ public class CompatibleKafkaConnectDeserializationSchema
         if (jsonNode.isNull()) {
             return null;
         }
+
         try {
             org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode jsonData =
                     objectMapper.readTree(jsonNode.toString());
             return (SeaTunnelRow) runtimeConverter.convert(jsonData);
         } catch (Throwable t) {
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                    String.format("Failed to deserialize JSON '%s'.", jsonNode),
-                    t);
+            throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), t);
         }
     }
 
