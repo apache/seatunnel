@@ -233,7 +233,7 @@ public class DorisCatalogUtil {
         }
     }
 
-    private static String fromSeaTunnelType(SeaTunnelDataType<?> dataType, Integer columnLength) {
+    private static String fromSeaTunnelType(SeaTunnelDataType<?> dataType, Long columnLength) {
 
         switch (dataType.getSqlType()) {
             case STRING:
