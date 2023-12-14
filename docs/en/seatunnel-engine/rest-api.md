@@ -115,6 +115,38 @@ network:
 
 ------------------------------------------------------------------------------------------
 
+### Return all finished Jobs Info.
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/finished-jobs-info/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
+
+#### Parameters
+
+> | name  |   type   | data type |                           description                            |
+> |-------|----------|-----------|------------------------------------------------------------------|
+> | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
+
+#### Responses
+
+```json
+[
+  {
+    "jobId": "",
+    "jobName": "",
+    "jobStatus": "",
+    "errorMsg": null,
+    "createTime": "",
+    "finishTime": "",
+    "jobDag": "",
+    "metrics": ""
+  }
+]
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Returns system monitoring information.
 
 <details>
