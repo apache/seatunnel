@@ -51,6 +51,8 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
 
     private final JsonDeserializationSchema jsonDeserializer;
 
+    private final DebeziumRowConverter debeziumRowConverter;
+
     private final boolean ignoreParseErrors;
 
     private final boolean debeziumEnabledSchema;
@@ -60,6 +62,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         this.ignoreParseErrors = ignoreParseErrors;
         this.jsonDeserializer =
                 new JsonDeserializationSchema(false, ignoreParseErrors, createJsonRowType(rowType));
+        this.debeziumRowConverter = new DebeziumRowConverter(rowType);
         this.debeziumEnabledSchema = false;
     }
 
@@ -69,6 +72,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         this.ignoreParseErrors = ignoreParseErrors;
         this.jsonDeserializer =
                 new JsonDeserializationSchema(false, ignoreParseErrors, createJsonRowType(rowType));
+        this.debeziumRowConverter = new DebeziumRowConverter(rowType);
         this.debeziumEnabledSchema = debeziumEnabledSchema;
     }
 
@@ -140,7 +144,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
     }
 
     private SeaTunnelRow convertJsonNode(JsonNode root) {
-        return jsonDeserializer.convertToRowData(root);
+        return debeziumRowConverter.serializeValue(root);
     }
 
     @Override
