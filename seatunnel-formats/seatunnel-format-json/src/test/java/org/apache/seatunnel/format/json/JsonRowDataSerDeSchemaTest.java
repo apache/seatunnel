@@ -28,8 +28,10 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Timestamp;
@@ -48,7 +50,7 @@ import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class JsonRowDataSerDeSchemaTest {
 
@@ -279,7 +281,7 @@ public class JsonRowDataSerDeSchemaTest {
     }
 
     @Test
-    public void testDeserializationMissingField() throws Exception {
+    public void testDeserializationPassMissingField() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
 
         // Root
@@ -291,16 +293,67 @@ public class JsonRowDataSerDeSchemaTest {
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
         // pass on missing field
-        JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(false, false, schema);
+        final JsonDeserializationSchema deser = new JsonDeserializationSchema(false, false, schema);
 
         SeaTunnelRow expected = new SeaTunnelRow(1);
         SeaTunnelRow actual = deserializationSchema.deserialize(serializedJson, TablePath.of(""));
+        SeaTunnelRow actual = deser.deserialize(serializedJson);
         assertEquals(expected, actual);
+    }
+
+    @Test
+    public void testDeserializationMissingField() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        // Root
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("id", 123123123);
+        byte[] serializedJson = objectMapper.writeValueAsBytes(root);
+
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
         // fail on missing field
-        deserializationSchema = new JsonDeserializationSchema(true, false, schema);
+        final JsonDeserializationSchema deser = new JsonDeserializationSchema(true, false, schema);
 
+        SeaTunnelRuntimeException expected =
+                CommonError.jsonOperationError("Common", root.toString());
+        SeaTunnelRuntimeException actual =
+                assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> {
+                            deser.deserialize(serializedJson);
+                        },
+                        "expecting exception message: " + expected.getMessage());
+        assertEquals(actual.getMessage(), expected.getMessage());
+
+        SeaTunnelRuntimeException expectedCause =
+                CommonError.jsonOperationError("Common", "Field $.name in " + root.toString());
+        Throwable cause = actual.getCause();
+        assertEquals(cause.getClass(), expectedCause.getClass());
+        assertEquals(cause.getMessage(), expectedCause.getMessage());
+    }
+
+    @Test
+    public void testDeserializationIgnoreParseError() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        // Root
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("id", 123123123);
+        byte[] serializedJson = objectMapper.writeValueAsBytes(root);
+
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
+        SeaTunnelRow expected = new SeaTunnelRow(1);
+
+        // ignore on parse error
+        final JsonDeserializationSchema deser = new JsonDeserializationSchema(false, true, schema);
+        assertEquals(expected, deser.deserialize(serializedJson));
+    }
+
+    @Test
+    public void testDeserializationFailOnMissingFieldIgnoreParseError() throws Exception {
         String errorMessage =
                 "ErrorCode:[COMMON-02], ErrorDescription:[Json covert/parse operation failed] - Failed to deserialize JSON '{\"id\":123123123}'.";
         try {
@@ -316,12 +369,44 @@ public class JsonRowDataSerDeSchemaTest {
 
         errorMessage =
                 "ErrorCode:[COMMON-06], ErrorDescription:[Illegal argument] - JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.";
-        try {
-            // failOnMissingField and ignoreParseErrors both enabled
-            new JsonDeserializationSchema(true, true, schema);
-            Assertions.fail("expecting exception message: " + errorMessage);
-        } catch (Throwable t) {
-            assertEquals(errorMessage, t.getMessage());
-        }
+
+        SeaTunnelJsonFormatException actual =
+                assertThrows(
+                        SeaTunnelJsonFormatException.class,
+                        () -> {
+                            new JsonDeserializationSchema(true, true, null);
+                        },
+                        "expecting exception message: " + errorMessage);
+        assertEquals(actual.getMessage(), errorMessage);
+    }
+
+    @Test
+    public void testDeserializationNoJson() throws Exception {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
+
+        String noJson = "{]";
+        final JsonDeserializationSchema deser = new JsonDeserializationSchema(false, false, schema);
+        SeaTunnelRuntimeException expected = CommonError.jsonOperationError("Common", noJson);
+
+        SeaTunnelRuntimeException actual =
+                assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> {
+                            deser.deserialize(noJson);
+                        },
+                        "expecting exception message: " + expected.getMessage());
+
+        assertEquals(actual.getMessage(), expected.getMessage());
+
+        actual =
+                assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> {
+                            deser.deserialize(noJson.getBytes());
+                        },
+                        "expecting exception message: " + expected.getMessage());
+
+        assertEquals(actual.getMessage(), expected.getMessage());
     }
 }

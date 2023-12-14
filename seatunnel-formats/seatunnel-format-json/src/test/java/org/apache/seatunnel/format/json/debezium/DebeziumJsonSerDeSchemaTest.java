@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -42,8 +44,10 @@ import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class DebeziumJsonSerDeSchemaTest {
+    private static final String FORMAT = "Debezium";
 
     private static final SeaTunnelRowType PHYSICAL_DATA_TYPE =
             new SeaTunnelRowType(
@@ -64,6 +68,94 @@ public class DebeziumJsonSerDeSchemaTest {
     @Test
     public void testSerializationAndSchemaExcludeDeserialization() throws Exception {
         testSerializationDeserialization("debezium-data.txt", false);
+    }
+
+    @Test
+    public void testDeserializeNoJson() throws Exception {
+        final DebeziumJsonDeserializationSchema deserializationSchema =
+                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
+        final SimpleCollector collector = new SimpleCollector();
+
+        String noJsonMsg = "{]";
+
+        SeaTunnelRuntimeException expected = CommonError.jsonOperationError(FORMAT, noJsonMsg);
+        SeaTunnelRuntimeException cause =
+                assertThrows(
+                        expected.getClass(),
+                        () -> {
+                            deserializationSchema.deserialize(noJsonMsg.getBytes(), collector);
+                        });
+        assertEquals(cause.getMessage(), expected.getMessage());
+    }
+
+    @Test
+    public void testDeserializeEmptyJson() throws Exception {
+        final DebeziumJsonDeserializationSchema deserializationSchema =
+                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
+        final SimpleCollector collector = new SimpleCollector();
+        String emptyMsg = "{}";
+        SeaTunnelRuntimeException expected = CommonError.jsonOperationError(FORMAT, emptyMsg);
+        SeaTunnelRuntimeException cause =
+                assertThrows(
+                        expected.getClass(),
+                        () -> {
+                            deserializationSchema.deserialize(emptyMsg.getBytes(), collector);
+                        });
+        assertEquals(cause.getMessage(), expected.getMessage());
+    }
+
+    @Test
+    public void testDeserializeNoDataJson() throws Exception {
+        final DebeziumJsonDeserializationSchema deserializationSchema =
+                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
+        final SimpleCollector collector = new SimpleCollector();
+        String noDataMsg = "{\"op\":\"u\"}";
+        SeaTunnelRuntimeException expected = CommonError.jsonOperationError(FORMAT, noDataMsg);
+        SeaTunnelRuntimeException cause =
+                assertThrows(
+                        expected.getClass(),
+                        () -> {
+                            deserializationSchema.deserialize(noDataMsg.getBytes(), collector);
+                        });
+        assertEquals(cause.getMessage(), expected.getMessage());
+
+        Throwable noDataCause = cause.getCause();
+        assertEquals(noDataCause.getClass(), IllegalStateException.class);
+        assertEquals(
+                noDataCause.getMessage(),
+                String.format(
+                        "The \"before\" field of %s operation is null, "
+                                + "if you are using Debezium Postgres Connector, "
+                                + "please check the Postgres table has been set REPLICA IDENTITY to FULL level.",
+                        "UPDATE"));
+    }
+
+    @Test
+    public void testDeserializeUnknownOperationTypeJson() throws Exception {
+        final DebeziumJsonDeserializationSchema deserializationSchema =
+                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
+        final SimpleCollector collector = new SimpleCollector();
+        String unknownType = "XX";
+        String unknownOperationMsg =
+                "{\"before\":null,\"after\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":3.14},\"op\":\""
+                        + unknownType
+                        + "\"}";
+        SeaTunnelRuntimeException expected =
+                CommonError.jsonOperationError(FORMAT, unknownOperationMsg);
+        SeaTunnelRuntimeException cause =
+                assertThrows(
+                        expected.getClass(),
+                        () -> {
+                            deserializationSchema.deserialize(
+                                    unknownOperationMsg.getBytes(), collector);
+                        });
+        assertEquals(cause.getMessage(), expected.getMessage());
+
+        Throwable unknownTypeCause = cause.getCause();
+        assertEquals(unknownTypeCause.getClass(), IllegalStateException.class);
+        assertEquals(
+                unknownTypeCause.getMessage(),
+                String.format("Unknown operation type '%s'.", unknownType));
     }
 
     private void testSerializationDeserialization(String resourceFile, boolean schemaInclude)
