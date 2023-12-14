@@ -25,7 +25,10 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -63,10 +66,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -76,7 +82,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -101,7 +109,6 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     // ---------------------------Canal Format Parameter---------------------------------------
 
     private static final String CANAL_KAFKA_SINK_TOPIC = "test-canal-sink";
-    private static final String CANAL_MYSQL_DATABASE = "canal";
     private static final String CANAL_DATA_PATH = "/canal/canal_data.txt";
     private static final String CANAL_KAFKA_SOURCE_TOPIC = "test-cdc_mds";
 
@@ -339,6 +346,22 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/multiFormatIT/kafka_multi_source_to_assert.conf");
         Assertions.assertEquals(
                 0, execCanalResultKafka.getExitCode(), execCanalResultKafka.getStderr());
+    }
+
+    @TestTemplate
+    public void testFormatCanalCheck(TestContainer container)
+            throws IOException, InterruptedException {
+        LOG.info("====================== Check Canal======================");
+        Container.ExecResult execCanalResultKafka =
+                container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
+        Assertions.assertEquals(
+                0, execCanalResultKafka.getExitCode(), execCanalResultKafka.getStderr());
+        Container.ExecResult execCanalResultToPgSql =
+                container.executeJob("/canalFormatIT/kafka_source_canal_cdc_to_pgsql.conf");
+        Assertions.assertEquals(
+                0, execCanalResultToPgSql.getExitCode(), execCanalResultToPgSql.getStderr());
+        // Check Canal
+        checkCanalFormat();
     }
 
     @TestTemplate
@@ -837,8 +860,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
                 while (resultSet.next()) {
                     SeaTunnelRow row =
-                            postgresJdbcRowConverter.toInternal(
-                                    resultSet, sinkTableRowTypes.get(tableName));
+                            testPgToInternal(resultSet, sinkTableRowTypes.get(tableName));
                     actual.add(Arrays.asList(row.getFields()));
                 }
             }
@@ -851,6 +873,88 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
             e.printStackTrace();
         }
         return actual;
+    }
+
+    public SeaTunnelRow testPgToInternal(ResultSet rs, SeaTunnelRowType typeInfo)
+            throws SQLException {
+        String PG_GEOMETRY = "GEOMETRY";
+        String PG_GEOGRAPHY = "GEOGRAPHY";
+
+        Object[] fields = new Object[typeInfo.getTotalFields()];
+        for (int fieldIndex = 0; fieldIndex < typeInfo.getTotalFields(); fieldIndex++) {
+            SeaTunnelDataType<?> seaTunnelDataType = typeInfo.getFieldType(fieldIndex);
+            int resultSetIndex = fieldIndex + 1;
+            String metaDataColumnType =
+                    rs.getMetaData().getColumnTypeName(resultSetIndex).toUpperCase(Locale.ROOT);
+            switch (seaTunnelDataType.getSqlType()) {
+                case STRING:
+                    if (metaDataColumnType.equals(PG_GEOMETRY)
+                            || metaDataColumnType.equals(PG_GEOGRAPHY)) {
+                        fields[fieldIndex] =
+                                rs.getObject(resultSetIndex) == null
+                                        ? null
+                                        : rs.getObject(resultSetIndex).toString();
+                    } else {
+                        fields[fieldIndex] = JdbcUtils.getString(rs, resultSetIndex);
+                    }
+                    break;
+                case BOOLEAN:
+                    fields[fieldIndex] = JdbcUtils.getBoolean(rs, resultSetIndex);
+                    break;
+                case TINYINT:
+                    fields[fieldIndex] = JdbcUtils.getByte(rs, resultSetIndex);
+                    break;
+                case SMALLINT:
+                    fields[fieldIndex] = JdbcUtils.getShort(rs, resultSetIndex);
+                    break;
+                case INT:
+                    fields[fieldIndex] = JdbcUtils.getInt(rs, resultSetIndex);
+                    break;
+                case BIGINT:
+                    fields[fieldIndex] = JdbcUtils.getLong(rs, resultSetIndex);
+                    break;
+                case FLOAT:
+                    fields[fieldIndex] = JdbcUtils.getFloat(rs, resultSetIndex);
+                    break;
+                case DOUBLE:
+                    fields[fieldIndex] = JdbcUtils.getDouble(rs, resultSetIndex);
+                    break;
+                case DECIMAL:
+                    fields[fieldIndex] = JdbcUtils.getBigDecimal(rs, resultSetIndex);
+                    break;
+                case DATE:
+                    Date sqlDate = JdbcUtils.getDate(rs, resultSetIndex);
+                    fields[fieldIndex] =
+                            Optional.ofNullable(sqlDate).map(e -> e.toLocalDate()).orElse(null);
+                    break;
+                case TIME:
+                    Time sqlTime = JdbcUtils.getTime(rs, resultSetIndex);
+                    fields[fieldIndex] =
+                            Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
+                    break;
+                case TIMESTAMP:
+                    Timestamp sqlTimestamp = JdbcUtils.getTimestamp(rs, resultSetIndex);
+                    fields[fieldIndex] =
+                            Optional.ofNullable(sqlTimestamp)
+                                    .map(e -> e.toLocalDateTime())
+                                    .orElse(null);
+                    break;
+                case BYTES:
+                    fields[fieldIndex] = JdbcUtils.getBytes(rs, resultSetIndex);
+                    break;
+                case NULL:
+                    fields[fieldIndex] = null;
+                    break;
+                case MAP:
+                case ARRAY:
+                case ROW:
+                default:
+                    throw new JdbcConnectorException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                            "Unexpected value: " + seaTunnelDataType);
+            }
+        }
+        return new SeaTunnelRow(fields);
     }
 
     @Override

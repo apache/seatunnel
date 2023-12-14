@@ -48,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class DebeziumJsonSerDeSchemaTest {
     private static final String FORMAT = "Debezium";
+    private static final String FILE_DATA_NAME = "debezium-data.txt";
 
     private static final SeaTunnelRowType PHYSICAL_DATA_TYPE =
             new SeaTunnelRowType(
@@ -67,11 +68,11 @@ public class DebeziumJsonSerDeSchemaTest {
 
     @Test
     public void testSerializationAndSchemaExcludeDeserialization() throws Exception {
-        testSerializationDeserialization("debezium-data.txt", false);
+        testSerializationDeserialization(false);
     }
 
     @Test
-    public void testDeserializeNoJson() throws Exception {
+    public void testDeserializeNoJson() {
         final DebeziumJsonDeserializationSchema deserializationSchema =
                 new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
         final SimpleCollector collector = new SimpleCollector();
@@ -83,13 +84,14 @@ public class DebeziumJsonSerDeSchemaTest {
                 assertThrows(
                         expected.getClass(),
                         () -> {
-                            deserializationSchema.deserialize(noJsonMsg.getBytes(), collector);
+                            deserializationSchema.deserialize(
+                                    noJsonMsg.getBytes(), collector, TablePath.of(""));
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
     }
 
     @Test
-    public void testDeserializeEmptyJson() throws Exception {
+    public void testDeserializeEmptyJson() {
         final DebeziumJsonDeserializationSchema deserializationSchema =
                 new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
         final SimpleCollector collector = new SimpleCollector();
@@ -99,13 +101,14 @@ public class DebeziumJsonSerDeSchemaTest {
                 assertThrows(
                         expected.getClass(),
                         () -> {
-                            deserializationSchema.deserialize(emptyMsg.getBytes(), collector);
+                            deserializationSchema.deserialize(
+                                    emptyMsg.getBytes(), collector, TablePath.of(""));
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
     }
 
     @Test
-    public void testDeserializeNoDataJson() throws Exception {
+    public void testDeserializeNoDataJson() {
         final DebeziumJsonDeserializationSchema deserializationSchema =
                 new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
         final SimpleCollector collector = new SimpleCollector();
@@ -115,7 +118,8 @@ public class DebeziumJsonSerDeSchemaTest {
                 assertThrows(
                         expected.getClass(),
                         () -> {
-                            deserializationSchema.deserialize(noDataMsg.getBytes(), collector);
+                            deserializationSchema.deserialize(
+                                    noDataMsg.getBytes(), collector, TablePath.of(""));
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
 
@@ -131,7 +135,7 @@ public class DebeziumJsonSerDeSchemaTest {
     }
 
     @Test
-    public void testDeserializeUnknownOperationTypeJson() throws Exception {
+    public void testDeserializeUnknownOperationTypeJson() {
         final DebeziumJsonDeserializationSchema deserializationSchema =
                 new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
         final SimpleCollector collector = new SimpleCollector();
@@ -147,7 +151,7 @@ public class DebeziumJsonSerDeSchemaTest {
                         expected.getClass(),
                         () -> {
                             deserializationSchema.deserialize(
-                                    unknownOperationMsg.getBytes(), collector);
+                                    unknownOperationMsg.getBytes(), collector, TablePath.of(""));
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
 
@@ -158,9 +162,8 @@ public class DebeziumJsonSerDeSchemaTest {
                 String.format("Unknown operation type '%s'.", unknownType));
     }
 
-    private void testSerializationDeserialization(String resourceFile, boolean schemaInclude)
-            throws Exception {
-        List<String> lines = readLines(resourceFile);
+    private void testSerializationDeserialization(boolean schemaInclude) throws Exception {
+        List<String> lines = readLines(FILE_DATA_NAME);
         DebeziumJsonDeserializationSchema deserializationSchema =
                 new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, true, schemaInclude);
 
@@ -242,7 +245,7 @@ public class DebeziumJsonSerDeSchemaTest {
 
     private static class SimpleCollector implements Collector<SeaTunnelRow> {
 
-        private List<SeaTunnelRow> list = new ArrayList<>();
+        private final List<SeaTunnelRow> list = new ArrayList<>();
 
         @Override
         public void collect(SeaTunnelRow record) {

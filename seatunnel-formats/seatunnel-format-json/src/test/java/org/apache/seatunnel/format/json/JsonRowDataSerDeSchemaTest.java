@@ -277,7 +277,7 @@ public class JsonRowDataSerDeSchemaTest {
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(true, false, schema);
         SeaTunnelRow rowData = deserializationSchema.deserialize("".getBytes(), TablePath.of(""));
-        assertEquals(null, rowData);
+        assertNull(rowData);
     }
 
     @Test
@@ -296,8 +296,7 @@ public class JsonRowDataSerDeSchemaTest {
         final JsonDeserializationSchema deser = new JsonDeserializationSchema(false, false, schema);
 
         SeaTunnelRow expected = new SeaTunnelRow(1);
-        SeaTunnelRow actual = deserializationSchema.deserialize(serializedJson, TablePath.of(""));
-        SeaTunnelRow actual = deser.deserialize(serializedJson);
+        SeaTunnelRow actual = deser.deserialize(serializedJson, TablePath.of(""));
         assertEquals(expected, actual);
     }
 
@@ -322,13 +321,13 @@ public class JsonRowDataSerDeSchemaTest {
                 assertThrows(
                         SeaTunnelRuntimeException.class,
                         () -> {
-                            deser.deserialize(serializedJson);
+                            deser.deserialize(serializedJson, TablePath.of(""));
                         },
                         "expecting exception message: " + expected.getMessage());
         assertEquals(actual.getMessage(), expected.getMessage());
 
         SeaTunnelRuntimeException expectedCause =
-                CommonError.jsonOperationError("Common", "Field $.name in " + root.toString());
+                CommonError.jsonOperationError("Common", "Field $.name in " + root);
         Throwable cause = actual.getCause();
         assertEquals(cause.getClass(), expectedCause.getClass());
         assertEquals(cause.getMessage(), expectedCause.getMessage());
@@ -349,25 +348,12 @@ public class JsonRowDataSerDeSchemaTest {
 
         // ignore on parse error
         final JsonDeserializationSchema deser = new JsonDeserializationSchema(false, true, schema);
-        assertEquals(expected, deser.deserialize(serializedJson));
+        assertEquals(expected, deser.deserialize(serializedJson, TablePath.of("")));
     }
 
     @Test
     public void testDeserializationFailOnMissingFieldIgnoreParseError() throws Exception {
         String errorMessage =
-                "ErrorCode:[COMMON-02], ErrorDescription:[Json covert/parse operation failed] - Failed to deserialize JSON '{\"id\":123123123}'.";
-        try {
-            deserializationSchema.deserialize(serializedJson, TablePath.of(""));
-            fail("expecting exception message: " + errorMessage);
-        } catch (Throwable t) {
-            assertEquals(errorMessage, t.getMessage());
-        }
-
-        // ignore on parse error
-        deserializationSchema = new JsonDeserializationSchema(false, true, schema);
-        assertEquals(expected, deserializationSchema.deserialize(serializedJson, TablePath.of("")));
-
-        errorMessage =
                 "ErrorCode:[COMMON-06], ErrorDescription:[Illegal argument] - JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.";
 
         SeaTunnelJsonFormatException actual =
@@ -403,7 +389,7 @@ public class JsonRowDataSerDeSchemaTest {
                 assertThrows(
                         SeaTunnelRuntimeException.class,
                         () -> {
-                            deser.deserialize(noJson.getBytes());
+                            deser.deserialize(noJson.getBytes(), TablePath.of(""));
                         },
                         "expecting exception message: " + expected.getMessage());
 
