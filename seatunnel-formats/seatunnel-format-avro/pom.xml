@@ -18,20 +18,29 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel</artifactId>
+        <artifactId>seatunnel-formats</artifactId>
         <version>${revision}</version>
     </parent>
 
-    <artifactId>seatunnel-formats</artifactId>
-    <packaging>pom</packaging>
-    <name>SeaTunnel : Formats :</name>
+    <artifactId>seatunnel-format-avro</artifactId>
+    <name>SeaTunnel : Formats : Avro</name>
 
-    <modules>
-        <module>seatunnel-format-json</module>
-        <module>seatunnel-format-text</module>
-        <module>seatunnel-format-compatible-debezium-json</module>
-        <module>seatunnel-format-compatible-connect-json</module>
-        <module>seatunnel-format-avro</module>
-    </modules>
+    <properties>
+        <avro.version>1.11.1</avro.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-api</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+            <version>${avro.version}</version>
+        </dependency>
+    </dependencies>
 
 </project>

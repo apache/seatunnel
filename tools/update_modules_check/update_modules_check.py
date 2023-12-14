@@ -148,6 +148,7 @@ def get_sub_it_modules(modules, total_num, current_num):
     modules_arr.remove("connector-rocketmq-e2e")
     modules_arr.remove("connector-kudu-e2e")
     modules_arr.remove("connector-amazonsqs-e2e")
+    modules_arr.remove("connector-doris-e2e")
     output = ""
     for i, module in enumerate(modules_arr):
         if len(module) > 0 and i % int(total_num) == int(current_num):
@@ -169,6 +170,8 @@ def get_sub_update_it_modules(modules, total_num, current_num):
         module_list.remove("connector-amazonsqs-e2e")
     if "seatunnel-engine-k8s-e2e" in module_list:
         module_list.remove("seatunnel-engine-k8s-e2e")
+    if "connector-doris-e2e" in module_list:
+        module_list.remove("connector-doris-e2e")
     for i, module in enumerate(module_list):
         if len(module) > 0 and i % int(total_num) == int(current_num):
             final_modules.append(":" + module)
