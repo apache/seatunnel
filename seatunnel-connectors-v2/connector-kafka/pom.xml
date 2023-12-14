@@ -72,7 +72,11 @@
             <artifactId>connect-json</artifactId>
             <version>${kafka.client.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-format-avro</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
 </project>
