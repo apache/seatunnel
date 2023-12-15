@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.state;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.kudu.source.KuduSourceSplit;
 
 import lombok.AllArgsConstructor;
@@ -29,6 +30,6 @@ import java.util.Map;
 @AllArgsConstructor
 @Getter
 public class KuduSourceState implements Serializable {
-    private boolean shouldEnumerate;
+    private List<TablePath> pendingTables;
     private Map<Integer, List<KuduSourceSplit>> pendingSplits;
 }

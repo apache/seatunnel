@@ -30,15 +30,13 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.paginators.ScanIterable;
 
-import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
@@ -64,7 +62,7 @@ public class AmazonDynamoDBSourceReader
     }
 
     @Override
-    public void open() throws Exception {
+    public void open() {
         dynamoDbClient =
                 DynamoDbClient.builder()
                         .endpointOverride(URI.create(amazondynamodbSourceOptions.getUrl()))
@@ -80,27 +78,34 @@ public class AmazonDynamoDBSourceReader
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         dynamoDbClient.close();
     }
 
     @Override
     @SuppressWarnings("magicnumber")
-    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        while (!pendingSplits.isEmpty()) {
-            synchronized (output.getCheckpointLock()) {
-                AmazonDynamoDBSourceSplit split = pendingSplits.poll();
-
+    public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
+        synchronized (output.getCheckpointLock()) {
+            AmazonDynamoDBSourceSplit split = pendingSplits.poll();
+            if (split == null) {
+                log.info(
+                        "AmazonDynamoDB Source Reader [{}] waiting for splits",
+                        context.getIndexOfSubtask());
+                if (noMoreSplit) {
+                    // signal to the source that we have reached the end of the data.
+                    log.info("Closed the bounded amazonDynamodb source");
+                    context.signalNoMoreElement();
+                    Thread.sleep(2000L);
+                }
+            }
+            if (Objects.nonNull(split)) {
                 read(split, output);
             }
-        }
-        if (pendingSplits.isEmpty() && noMoreSplit) {
-            context.signalNoMoreElement();
         }
     }
 
     @Override
-    public List<AmazonDynamoDBSourceSplit> snapshotState(long checkpointId) throws Exception {
+    public List<AmazonDynamoDBSourceSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(pendingSplits);
     }
 
@@ -111,13 +116,11 @@ public class AmazonDynamoDBSourceReader
 
     @Override
     public void handleNoMoreSplits() {
-        log.info("Reader received noMoreSplit event.");
+        log.info("Reader [{}] received noMoreSplit event.", context.getIndexOfSubtask());
         noMoreSplit = true;
     }
 
-    private void read(AmazonDynamoDBSourceSplit split, Collector<SeaTunnelRow> output)
-            throws Exception {
-        Map<String, AttributeValue> lastKeyEvaluated = null;
+    private void read(AmazonDynamoDBSourceSplit split, Collector<SeaTunnelRow> output) {
         ScanIterable scan;
         ScanRequest scanRequest =
                 ScanRequest.builder()
@@ -136,14 +139,8 @@ public class AmazonDynamoDBSourceReader
                             });
 
         } while (scan.iterator().hasNext() && !noMoreSplit);
-
-        if (noMoreSplit && pendingSplits.isEmpty()) {
-            // signal to the source that we have reached the end of the data.
-            log.info("Closed the bounded amazonDynamodb source");
-            context.signalNoMoreElement();
-        }
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) {}
 }

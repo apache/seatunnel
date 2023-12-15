@@ -20,9 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -30,7 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionPoolProviderProxy;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
@@ -50,7 +49,7 @@ public class JdbcSinkWriter
     private JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat;
     private final SinkWriter.Context context;
     private final JdbcDialect dialect;
-    private final SeaTunnelRowType rowType;
+    private final TableSchema tableSchema;
     private JdbcConnectionProvider connectionProvider;
     private transient boolean isOpen;
     private final Integer primaryKeyIndex;
@@ -60,17 +59,18 @@ public class JdbcSinkWriter
             SinkWriter.Context context,
             JdbcDialect dialect,
             JdbcSinkConfig jdbcSinkConfig,
-            SeaTunnelRowType rowType,
+            TableSchema tableSchema,
             Integer primaryKeyIndex) {
         this.context = context;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.dialect = dialect;
-        this.rowType = rowType;
+        this.tableSchema = tableSchema;
         this.primaryKeyIndex = primaryKeyIndex;
         this.connectionProvider =
-                new SimpleJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
+                dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
         this.outputFormat =
-                new JdbcOutputFormatBuilder(dialect, connectionProvider, jdbcSinkConfig, rowType)
+                new JdbcOutputFormatBuilder(
+                                dialect, connectionProvider, jdbcSinkConfig, tableSchema)
                         .build();
     }
 
@@ -102,7 +102,8 @@ public class JdbcSinkWriter
                         jdbcSinkConfig.getJdbcConnectionConfig(),
                         queueIndex);
         this.outputFormat =
-                new JdbcOutputFormatBuilder(dialect, connectionProvider, jdbcSinkConfig, rowType)
+                new JdbcOutputFormatBuilder(
+                                dialect, connectionProvider, jdbcSinkConfig, tableSchema)
                         .build();
     }
 
@@ -160,7 +161,9 @@ public class JdbcSinkWriter
             }
         } catch (SQLException e) {
             throw new JdbcConnectorException(
-                    CommonErrorCode.WRITER_OPERATION_FAILED, "unable to close JDBC sink write", e);
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                    "unable to close JDBC sink write",
+                    e);
         }
         outputFormat.close();
     }

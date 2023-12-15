@@ -4670,5 +4670,55 @@
         "hasNext": false
       }
     }
+  },
+  {
+    "httpRequest": {
+      "path": "/example/feishu/108bb8f208d9b2378c8c7aedad715c19",
+      "method": "POST"
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl",
+          "age": 18
+        },
+        {
+          "name": "pizz",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "path": "/example/httpContentSink",
+      "method": "POST",
+      "headers": {
+        "token": ["9e32e859ef044462a257e1fc76730066"]
+      },
+      "body": {
+        "type": "JSON",
+        "json": {"content" : "[ {\n  \"name\" : \"lzl\",\n  \"age\" : 18\n}, {\n  \"name\" : \"pizz\",\n  \"age\" : 19\n} ]"},
+        "matchType": "STRICT"
+      }
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl2",
+          "age": 18
+        },
+        {
+          "name": "pizz2",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
   }
 ]

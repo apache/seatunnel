@@ -19,7 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig;
 
 import org.junit.jupiter.api.Assertions;
@@ -30,6 +33,10 @@ import com.aliyun.odps.type.MapTypeInfo;
 import com.aliyun.odps.type.TypeInfoFactory;
 import com.aliyun.odps.type.VarcharTypeInfo;
 
+import java.util.HashMap;
+
+import static com.aliyun.odps.type.TypeInfoFactory.INTERVAL_DAY_TIME;
+
 public class MaxComputeDataTypeConvertorTest {
 
     private final MaxComputeDataTypeConvertor maxComputeDataTypeConvertor =
@@ -39,7 +46,7 @@ public class MaxComputeDataTypeConvertorTest {
     public void testTypeInfoStrToSeaTunnelType() {
         String typeInfoStr = "MAP<STRING,STRING>";
         SeaTunnelDataType<?> seaTunnelType =
-                maxComputeDataTypeConvertor.toSeaTunnelType(typeInfoStr);
+                maxComputeDataTypeConvertor.toSeaTunnelType("", typeInfoStr);
         Assertions.assertEquals(BasicType.STRING_TYPE, ((MapType) seaTunnelType).getKeyType());
         Assertions.assertEquals(BasicType.STRING_TYPE, ((MapType) seaTunnelType).getKeyType());
     }
@@ -49,7 +56,7 @@ public class MaxComputeDataTypeConvertorTest {
         MapTypeInfo simpleMapTypeInfo =
                 TypeInfoFactory.getMapTypeInfo(new VarcharTypeInfo(10), new VarcharTypeInfo(10));
         MapType seaTunnelMapType =
-                (MapType) maxComputeDataTypeConvertor.toSeaTunnelType(simpleMapTypeInfo, null);
+                (MapType) maxComputeDataTypeConvertor.toSeaTunnelType("", simpleMapTypeInfo, null);
         Assertions.assertEquals(BasicType.STRING_TYPE, seaTunnelMapType.getKeyType());
         Assertions.assertEquals(BasicType.STRING_TYPE, seaTunnelMapType.getValueType());
     }
@@ -58,7 +65,7 @@ public class MaxComputeDataTypeConvertorTest {
     public void testSeaTunnelTypeToTypeInfo() {
         MapType mapType = new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE);
         MapTypeInfo mapTypeInfo =
-                (MapTypeInfo) maxComputeDataTypeConvertor.toConnectorType(mapType, null);
+                (MapTypeInfo) maxComputeDataTypeConvertor.toConnectorType("", mapType, null);
         Assertions.assertEquals(OdpsType.STRING, mapTypeInfo.getKeyTypeInfo().getOdpsType());
         Assertions.assertEquals(OdpsType.STRING, mapTypeInfo.getValueTypeInfo().getOdpsType());
     }
@@ -67,5 +74,36 @@ public class MaxComputeDataTypeConvertorTest {
     public void getIdentity() {
         Assertions.assertEquals(
                 MaxcomputeConfig.PLUGIN_NAME, maxComputeDataTypeConvertor.getIdentity());
+    }
+
+    @Test
+    public void testConvertorErrorMsgWithUnsupportedType() {
+        SeaTunnelRowType rowType = new SeaTunnelRowType(new String[0], new SeaTunnelDataType[0]);
+        MultipleRowType multipleRowType =
+                new MultipleRowType(new String[] {"table"}, new SeaTunnelRowType[] {rowType});
+        MaxComputeDataTypeConvertor maxCompute = new MaxComputeDataTypeConvertor();
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> maxCompute.toSeaTunnelType("test", "UNSUPPORTED_TYPE"));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-17], ErrorDescription:['Maxcompute' unsupported convert type 'UNSUPPORTED_TYPE' of 'test' to SeaTunnel data type.]",
+                exception.getMessage());
+        SeaTunnelRuntimeException exception2 =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                maxCompute.toSeaTunnelType(
+                                        "test", INTERVAL_DAY_TIME, new HashMap<>()));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-17], ErrorDescription:['Maxcompute' unsupported convert type 'INTERVAL_DAY_TIME' of 'test' to SeaTunnel data type.]",
+                exception2.getMessage());
+        SeaTunnelRuntimeException exception3 =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> maxCompute.toConnectorType("test", multipleRowType, new HashMap<>()));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-19], ErrorDescription:['Maxcompute' unsupported convert SeaTunnel data type 'MULTIPLE_ROW' of 'test' to connector data type.]",
+                exception3.getMessage());
     }
 }

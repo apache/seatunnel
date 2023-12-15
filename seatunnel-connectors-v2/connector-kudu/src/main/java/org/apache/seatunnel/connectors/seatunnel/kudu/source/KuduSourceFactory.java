@@ -17,17 +17,24 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
 
 import com.google.auto.service.AutoService;
 
+import java.io.Serializable;
+
 import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.MASTER;
+import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.TABLE_LIST;
 import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.TABLE_NAME;
 
 @AutoService(Factory.class)
@@ -41,7 +48,7 @@ public class KuduSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(MASTER, TABLE_NAME)
+                .required(MASTER)
                 .optional(TableSchemaOptions.SCHEMA)
                 .optional(KuduSourceConfig.WORKER_COUNT)
                 .optional(KuduSourceConfig.OPERATION_TIMEOUT)
@@ -51,6 +58,7 @@ public class KuduSourceFactory implements TableSourceFactory {
                 .optional(KuduSourceConfig.FILTER)
                 .optional(KuduSinkConfig.ENABLE_KERBEROS)
                 .optional(KuduSinkConfig.KERBEROS_KRB5_CONF)
+                .exclusive(TABLE_NAME, TABLE_LIST)
                 .conditional(
                         KuduSinkConfig.ENABLE_KERBEROS,
                         true,
@@ -62,5 +70,13 @@ public class KuduSourceFactory implements TableSourceFactory {
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return KuduSource.class;
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        ReadonlyConfig config = context.getOptions();
+        KuduSourceConfig kuduSourceConfig = new KuduSourceConfig(config);
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new KuduSource(kuduSourceConfig);
     }
 }

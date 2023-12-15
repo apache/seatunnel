@@ -20,9 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
@@ -36,14 +34,11 @@ import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 
 @Slf4j
 public class MySqlCatalog extends AbstractJdbcCatalog {
@@ -98,26 +93,6 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected Optional<PrimaryKey> getPrimaryKey(DatabaseMetaData metaData, TablePath tablePath)
-            throws SQLException {
-        return getPrimaryKey(
-                metaData,
-                tablePath.getDatabaseName(),
-                tablePath.getTableName(),
-                tablePath.getTableName());
-    }
-
-    @Override
-    protected List<ConstraintKey> getConstraintKeys(DatabaseMetaData metaData, TablePath tablePath)
-            throws SQLException {
-        return getConstraintKeys(
-                metaData,
-                tablePath.getDatabaseName(),
-                tablePath.getTableName(),
-                tablePath.getTableName());
-    }
-
-    @Override
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
         String columnName = resultSet.getString("COLUMN_NAME");
         String sourceType = resultSet.getString("COLUMN_TYPE");
@@ -129,7 +104,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         if (sourceType.toLowerCase(Locale.ROOT).contains("unsigned")) {
             typeName += "_UNSIGNED";
         }
-        SeaTunnelDataType<?> type = fromJdbcType(typeName, precision, scale);
+        SeaTunnelDataType<?> type = fromJdbcType(columnName, typeName, precision, scale);
         String comment = resultSet.getString("COLUMN_COMMENT");
         Object defaultValue = resultSet.getObject("COLUMN_DEFAULT");
         String isNullableStr = resultSet.getString("IS_NULLABLE");
@@ -198,12 +173,13 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         return String.format("DROP DATABASE `%s`;", databaseName);
     }
 
-    private SeaTunnelDataType<?> fromJdbcType(String typeName, int precision, int scale) {
+    private SeaTunnelDataType<?> fromJdbcType(
+            String columnName, String typeName, int precision, int scale) {
         MysqlType mysqlType = MysqlType.getByName(typeName);
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(MysqlDataTypeConvertor.PRECISION, precision);
         dataTypeProperties.put(MysqlDataTypeConvertor.SCALE, scale);
-        return DATA_TYPE_CONVERTOR.toSeaTunnelType(mysqlType, dataTypeProperties);
+        return DATA_TYPE_CONVERTOR.toSeaTunnelType(columnName, mysqlType, dataTypeProperties);
     }
 
     @Override
@@ -218,9 +194,9 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                 "TRUNCATE TABLE `%s`.`%s`;", tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
-    public String getCountSql(TablePath tablePath) {
+    public String getExistDataSql(TablePath tablePath) {
         return String.format(
-                "select * from `%s`.`%s` limit 1;",
+                "SELECT * FROM `%s`.`%s` LIMIT 1;",
                 tablePath.getDatabaseName(), tablePath.getTableName());
     }
 }

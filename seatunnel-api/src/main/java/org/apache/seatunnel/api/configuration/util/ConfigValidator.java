@@ -45,14 +45,18 @@ public class ConfigValidator {
         List<RequiredOption> requiredOptions = rule.getRequiredOptions();
         for (RequiredOption requiredOption : requiredOptions) {
             validate(requiredOption);
-            requiredOption
-                    .getOptions()
-                    .forEach(
-                            option -> {
-                                if (SingleChoiceOption.class.isAssignableFrom(option.getClass())) {
-                                    validateSingleChoice(option);
-                                }
-                            });
+
+            for (Option<?> option : requiredOption.getOptions()) {
+                if (SingleChoiceOption.class.isAssignableFrom(option.getClass())) {
+                    // is required option and not match condition, skip validate
+                    if (isConditionOption(requiredOption)
+                            && !matchCondition(
+                                    (RequiredOption.ConditionalRequiredOptions) requiredOption)) {
+                        continue;
+                    }
+                    validateSingleChoice(option);
+                }
+            }
         }
 
         for (Option option : rule.getOptionalOptions()) {
@@ -74,15 +78,15 @@ public class ConfigValidator {
         Object o = singleChoiceOption.defaultValue();
         if (o != null && !optionValues.contains(o)) {
             throw new OptionValidationException(
-                    "These options(%s) are SingleChoiceOption, the defaultValue(%s) must be one of the optionValues.",
-                    getOptionKeys(Arrays.asList(singleChoiceOption)), o);
+                    "These options(%s) are SingleChoiceOption, the defaultValue(%s) must be one of the optionValues(%s).",
+                    getOptionKeys(Arrays.asList(singleChoiceOption)), o, optionValues);
         }
 
         Object value = config.get(option);
         if (value != null && !optionValues.contains(value)) {
             throw new OptionValidationException(
-                    "These options(%s) are SingleChoiceOption, the value(%s) must be one of the optionValues.",
-                    getOptionKeys(Arrays.asList(singleChoiceOption)), value);
+                    "These options(%s) are SingleChoiceOption, the value(%s) must be one of the optionValues(%s).",
+                    getOptionKeys(Arrays.asList(singleChoiceOption)), value, optionValues);
         }
     }
 
@@ -99,7 +103,7 @@ public class ConfigValidator {
             validate((RequiredOption.ExclusiveRequiredOptions) requiredOption);
             return;
         }
-        if (requiredOption instanceof RequiredOption.ConditionalRequiredOptions) {
+        if (isConditionOption(requiredOption)) {
             validate((RequiredOption.ConditionalRequiredOptions) requiredOption);
             return;
         }
@@ -181,8 +185,7 @@ public class ConfigValidator {
     }
 
     void validate(RequiredOption.ConditionalRequiredOptions conditionalRequiredOptions) {
-        Expression expression = conditionalRequiredOptions.getExpression();
-        boolean match = validate(expression);
+        boolean match = matchCondition(conditionalRequiredOptions);
         if (!match) {
             return;
         }
@@ -193,7 +196,8 @@ public class ConfigValidator {
         }
         throw new OptionValidationException(
                 "There are unconfigured options, the options(%s) are required because [%s] is true.",
-                getOptionKeys(absentOptions), expression.toString());
+                getOptionKeys(absentOptions),
+                conditionalRequiredOptions.getExpression().toString());
     }
 
     private boolean validate(Expression expression) {
@@ -221,5 +225,15 @@ public class ConfigValidator {
         } else {
             return match || validate(condition.getNext());
         }
+    }
+
+    private boolean isConditionOption(RequiredOption requiredOption) {
+        return requiredOption instanceof RequiredOption.ConditionalRequiredOptions;
+    }
+
+    private boolean matchCondition(
+            RequiredOption.ConditionalRequiredOptions conditionalRequiredOptions) {
+        Expression expression = conditionalRequiredOptions.getExpression();
+        return validate(expression);
     }
 }

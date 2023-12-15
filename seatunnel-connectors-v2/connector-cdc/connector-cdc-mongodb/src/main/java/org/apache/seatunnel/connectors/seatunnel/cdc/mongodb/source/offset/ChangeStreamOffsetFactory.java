@@ -23,7 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbCo
 
 import java.util.Map;
 
-import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_OPERATION;
+import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.bsonTimestampFromEpochMillis;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.currentBsonTimestamp;
 

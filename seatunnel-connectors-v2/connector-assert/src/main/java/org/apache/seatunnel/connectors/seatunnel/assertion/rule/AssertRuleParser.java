@@ -91,6 +91,12 @@ public class AssertRuleParser {
     }
 
     private SeaTunnelDataType<?> getFieldType(String fieldTypeStr) {
+        if (fieldTypeStr.toLowerCase().startsWith("decimal(")) {
+            String lengthAndScale =
+                    fieldTypeStr.toLowerCase().replace("decimal(", "").replace(")", "");
+            String[] split = lengthAndScale.split(",");
+            return new DecimalType(Integer.valueOf(split[0]), Integer.valueOf(split[1]));
+        }
         return TYPES.get(fieldTypeStr.toLowerCase());
     }
 
@@ -110,6 +116,5 @@ public class AssertRuleParser {
         TYPES.put("datetime", LocalTimeType.LOCAL_DATE_TIME_TYPE);
         TYPES.put("date", LocalTimeType.LOCAL_DATE_TYPE);
         TYPES.put("time", LocalTimeType.LOCAL_TIME_TYPE);
-        TYPES.put("decimal", new DecimalType(38, 18));
     }
 }

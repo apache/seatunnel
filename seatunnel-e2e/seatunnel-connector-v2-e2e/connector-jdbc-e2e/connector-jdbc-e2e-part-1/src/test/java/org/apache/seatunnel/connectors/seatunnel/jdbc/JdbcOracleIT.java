@@ -78,6 +78,23 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    XML_TYPE_COL                  \"SYS\".\"XMLTYPE\"\n"
                     + ")";
 
+    private static final String[] fieldNames =
+            new String[] {
+                "VARCHAR_10_COL",
+                "CHAR_10_COL",
+                "CLOB_COL",
+                "NUMBER_3_SF_2_DP",
+                "INTEGER_COL",
+                "FLOAT_COL",
+                "REAL_COL",
+                "BINARY_FLOAT_COL",
+                "BINARY_DOUBLE_COL",
+                "DATE_COL",
+                "TIMESTAMP_WITH_3_FRAC_SEC_COL",
+                "TIMESTAMP_WITH_LOCAL_TZ",
+                "XML_TYPE_COL"
+            };
+
     @Override
     JdbcCase getJdbcCase() {
         Map<String, String> containerEnv = new HashMap<>();
@@ -117,7 +134,9 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String executeKey) {}
+    void compareResult(String executeKey) {
+        defaultCompare(executeKey, fieldNames, "INTEGER_COL");
+    }
 
     @Override
     String driverUrl() {
@@ -126,23 +145,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
 
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
-        String[] fieldNames =
-                new String[] {
-                    "VARCHAR_10_COL",
-                    "CHAR_10_COL",
-                    "CLOB_COL",
-                    "NUMBER_3_SF_2_DP",
-                    "INTEGER_COL",
-                    "FLOAT_COL",
-                    "REAL_COL",
-                    "BINARY_FLOAT_COL",
-                    "BINARY_DOUBLE_COL",
-                    "DATE_COL",
-                    "TIMESTAMP_WITH_3_FRAC_SEC_COL",
-                    "TIMESTAMP_WITH_LOCAL_TZ",
-                    "XML_TYPE_COL"
-                };
-
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row =

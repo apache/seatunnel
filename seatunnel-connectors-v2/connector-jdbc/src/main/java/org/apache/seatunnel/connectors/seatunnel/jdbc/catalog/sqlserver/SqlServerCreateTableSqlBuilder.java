@@ -218,7 +218,8 @@ public class SqlServerCreateTableSqlBuilder {
             } else {
                 // Add column type
                 SqlServerType sqlServerType =
-                        sqlServerDataTypeConvertor.toConnectorType(column.getDataType(), null);
+                        sqlServerDataTypeConvertor.toConnectorType(
+                                column.getName(), column.getDataType(), null);
                 String typeName = sqlServerType.getName();
                 String fieldSuffixSql = null;
                 tyNameDef = typeName;

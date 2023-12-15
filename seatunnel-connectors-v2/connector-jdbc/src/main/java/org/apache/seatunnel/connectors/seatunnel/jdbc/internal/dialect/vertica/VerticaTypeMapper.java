@@ -22,8 +22,8 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
@@ -167,11 +167,8 @@ public class VerticaTypeMapper implements JdbcDialectTypeMapper {
             case VERTICA_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format(
-                                "Doesn't support Vertica type '%s' on column '%s'  yet.",
-                                type, jdbcColumnName));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.VERTICA, type, jdbcColumnName);
         }
     }
 }

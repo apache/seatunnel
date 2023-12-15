@@ -51,6 +51,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SQL;
@@ -128,7 +130,16 @@ public class InfluxDBSource
 
     private List<Integer> initColumnsIndex(InfluxDB influxdb) {
         // query one row to get column info
-        String query = sourceConfig.getSql() + QUERY_LIMIT;
+        String sql = sourceConfig.getSql();
+        String query = sql + QUERY_LIMIT;
+        // if sql contains tz(), can't be append QUERY_LIMIT at last . see bug #4231
+        int start = containTzFunction(sql.toLowerCase());
+        if (start > 0) {
+            StringBuilder tmpSql = new StringBuilder(sql);
+            tmpSql.insert(start - 1, QUERY_LIMIT).append(" ");
+            query = tmpSql.toString();
+        }
+
         try {
             QueryResult queryResult = influxdb.query(new Query(query, sourceConfig.getDatabase()));
 
@@ -144,5 +155,15 @@ public class InfluxDBSource
                     "Get column index of query result exception",
                     e);
         }
+    }
+
+    private static int containTzFunction(String sql) {
+        Pattern pattern = Pattern.compile("tz\\(.*\\)");
+        Matcher matcher = pattern.matcher(sql);
+        if (matcher.find()) {
+            int start = matcher.start();
+            return start;
+        }
+        return -1;
     }
 }

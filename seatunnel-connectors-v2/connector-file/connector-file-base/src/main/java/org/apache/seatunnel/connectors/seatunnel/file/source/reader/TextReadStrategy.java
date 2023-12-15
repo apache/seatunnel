@@ -64,7 +64,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
     private int[] indexes;
 
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output)
+    public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         Configuration conf = getConfiguration();
         FileSystem fs = FileSystem.get(conf);
@@ -118,6 +118,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
                                             seaTunnelRow.setField(index++, value);
                                         }
                                     }
+                                    seaTunnelRow.setTableId(tableId);
                                     output.collect(seaTunnelRow);
                                 } catch (IOException e) {
                                     String errorMsg =
