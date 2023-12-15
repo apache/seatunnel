@@ -157,6 +157,12 @@ public class AvroToRowConverter implements Serializable {
                     integers[i] = (Integer) val.get(i);
                 }
                 return integers;
+            case TINYINT:
+                Byte[] tinyintBytes = new Byte[length];
+                for (int i = 0; i < tinyintBytes.length; i++) {
+                    tinyintBytes[i] = (Byte) val.get(i);
+                }
+                return tinyintBytes;
             case BIGINT:
                 Long[] longs = new Long[length];
                 for (int i = 0; i < longs.length; i++) {
