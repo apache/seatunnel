@@ -28,14 +28,12 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSourceState;
 
-import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
-@AutoService(SeaTunnelSource.class)
 public class KuduSource
         implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit, KuduSourceState>,
                 SupportParallelism {
