@@ -75,6 +75,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected List<String> readColumns = new ArrayList<>();
     protected boolean isMergePartition = true;
     protected long skipHeaderNumber = BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.defaultValue();
+    protected boolean ignoreCorruptFiles = BaseSourceConfig.IGNORE_CORRUPT_FILES.defaultValue();
     protected transient boolean isKerberosAuthorization = false;
 
     protected Pattern pattern;
@@ -176,6 +177,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             String filterPattern =
                     pluginConfig.getString(BaseSourceConfig.FILE_FILTER_PATTERN.key());
             this.pattern = Pattern.compile(Matcher.quoteReplacement(filterPattern));
+        }
+        if (pluginConfig.hasPath(BaseSourceConfig.IGNORE_CORRUPT_FILES.key())) {
+            this.ignoreCorruptFiles =
+                    pluginConfig.getBoolean(BaseSourceConfig.IGNORE_CORRUPT_FILES.key());
         }
     }
 

@@ -85,6 +85,10 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         if (Boolean.FALSE.equals(checkFileType(path))) {
+            if (ignoreCorruptFiles) {
+                log.warn("This file [{}] is corrupted, it will be ignored", path);
+                return;
+            }
             String errorMsg =
                     String.format(
                             "This file [%s] is not a parquet file, please check the format of this file",

@@ -126,4 +126,11 @@ public class BaseSourceConfig {
                     .enumType(CompressFormat.class)
                     .defaultValue(CompressFormat.NONE)
                     .withDescription("Compression codec");
+
+    public static final Option<Boolean> IGNORE_CORRUPT_FILES =
+            Options.key("ignore_corrupt_files")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether corrupted [orc/parquet] files are ignored during synchronization");
 }
