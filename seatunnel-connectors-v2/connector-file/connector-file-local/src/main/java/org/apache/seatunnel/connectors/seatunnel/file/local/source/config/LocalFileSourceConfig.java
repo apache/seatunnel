@@ -21,12 +21,7 @@ import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -41,11 +36,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import lombok.Getter;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Getter
 public class LocalFileSourceConfig implements Serializable {
@@ -118,10 +109,11 @@ public class LocalFileSourceConfig implements Serializable {
             case JSON:
             case EXCEL:
                 readStrategy.setSeaTunnelRowTypeInfo(catalogTable.getSeaTunnelRowType());
-                return newCatalogTable(catalogTable, readStrategy.getActualSeaTunnelRowTypeInfo());
+                return CatalogTableUtil.newCatalogTable(
+                        catalogTable, readStrategy.getActualSeaTunnelRowTypeInfo());
             case ORC:
             case PARQUET:
-                return newCatalogTable(
+                return CatalogTableUtil.newCatalogTable(
                         catalogTable,
                         readStrategy.getSeaTunnelRowTypeInfo(
                                 localFileHadoopConf, filePaths.get(0)));
@@ -130,42 +122,5 @@ public class LocalFileSourceConfig implements Serializable {
                         FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
                         "SeaTunnel does not supported this file format: [" + fileFormat + "]");
         }
-    }
-
-    private CatalogTable newCatalogTable(
-            CatalogTable catalogTable, SeaTunnelRowType seaTunnelRowType) {
-        TableSchema tableSchema = catalogTable.getTableSchema();
-
-        Map<String, Column> columnMap =
-                tableSchema.getColumns().stream()
-                        .collect(Collectors.toMap(Column::getName, Function.identity()));
-        String[] fieldNames = seaTunnelRowType.getFieldNames();
-        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
-
-        List<Column> finalColumns = new ArrayList<>();
-        for (int i = 0; i < fieldNames.length; i++) {
-            Column column = columnMap.get(fieldNames[i]);
-            if (column != null) {
-                finalColumns.add(column);
-            } else {
-                finalColumns.add(
-                        PhysicalColumn.of(fieldNames[i], fieldTypes[i], 0, false, null, null));
-            }
-        }
-
-        TableSchema finalSchema =
-                TableSchema.builder()
-                        .columns(finalColumns)
-                        .primaryKey(tableSchema.getPrimaryKey())
-                        .constraintKey(tableSchema.getConstraintKeys())
-                        .build();
-
-        return CatalogTable.of(
-                catalogTable.getTableId(),
-                finalSchema,
-                catalogTable.getOptions(),
-                catalogTable.getPartitionKeys(),
-                catalogTable.getComment(),
-                catalogTable.getCatalogName());
     }
 }

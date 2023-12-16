@@ -20,31 +20,37 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.BaseHdfsFileSink;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.commit.HiveSinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveHadoopConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.hive.sink.writter.HiveSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.hive.source.config.HiveSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableUtils;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Table;
 
-import com.google.auto.service.AutoService;
-
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -52,78 +58,45 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_FORMAT_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_NAME_EXPRESSION;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.HAVE_PARTITION;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.PARTITION_BY;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.PARTITION_DIR_EXPRESSION;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.ROW_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.SINK_COLUMNS;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.METASTORE_URI;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_OUTPUT_FORMAT_CLASSNAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_OUTPUT_FORMAT_CLASSNAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TABLE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_OUTPUT_FORMAT_CLASSNAME;
 
-@AutoService(SeaTunnelSink.class)
-public class HiveSink extends BaseHdfsFileSink {
-    private String dbName;
-    private String tableName;
-    private Table tableInformation;
+public class HiveSink
+        implements SeaTunnelSink<
+                        SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo>,
+                SupportMultiTableSink {
+    private final Table tableInformation;
+    private final CatalogTable catalogTable;
+    private final ReadonlyConfig readonlyConfig;
+    private final HiveHadoopConfig hiveHadoopConfig;
+    private final FileSystemUtils fileSystemUtils;
+    private final FileSinkConfig fileSinkConfig;
+    private final WriteStrategy writeStrategy;
+    private String jobId;
 
-    @Override
-    public String getPluginName() {
-        return "Hive";
+    public HiveSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
+        this.readonlyConfig = readonlyConfig;
+        this.catalogTable = catalogTable;
+        this.tableInformation = HiveTableUtils.getTableInfo(readonlyConfig);
+        this.hiveHadoopConfig = parseHiveHadoopConfig(readonlyConfig, tableInformation);
+        this.fileSinkConfig =
+                generateFileSinkConfig(readonlyConfig, tableInformation, catalogTable);
+        this.writeStrategy =
+                WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
+        this.fileSystemUtils = new FileSystemUtils(hiveHadoopConfig);
+        this.writeStrategy.setSeaTunnelRowTypeInfo(catalogTable.getSeaTunnelRowType());
+        this.writeStrategy.setFileSystemUtils(fileSystemUtils);
     }
 
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(pluginConfig, METASTORE_URI.key(), TABLE_NAME.key());
-        if (!result.isSuccess()) {
-            throw new HiveConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        result =
-                CheckConfigUtil.checkAtLeastOneExists(
-                        pluginConfig,
-                        FILE_FORMAT_TYPE.key(),
-                        FILE_PATH.key(),
-                        FIELD_DELIMITER.key(),
-                        ROW_DELIMITER.key(),
-                        IS_PARTITION_FIELD_WRITE_IN_FILE.key(),
-                        PARTITION_DIR_EXPRESSION.key(),
-                        HAVE_PARTITION.key(),
-                        SINK_COLUMNS.key(),
-                        PARTITION_BY.key());
-        if (result.isSuccess()) {
-            throw new HiveConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "Hive sink connector does not support these setting [%s]",
-                            String.join(
-                                    ",",
-                                    FILE_FORMAT_TYPE.key(),
-                                    FILE_PATH.key(),
-                                    FIELD_DELIMITER.key(),
-                                    ROW_DELIMITER.key(),
-                                    IS_PARTITION_FIELD_WRITE_IN_FILE.key(),
-                                    PARTITION_DIR_EXPRESSION.key(),
-                                    HAVE_PARTITION.key(),
-                                    SINK_COLUMNS.key(),
-                                    PARTITION_BY.key())));
-        }
-        Pair<String[], Table> tableInfo = HiveConfig.getTableInfo(pluginConfig);
-        dbName = tableInfo.getLeft()[0];
-        tableName = tableInfo.getLeft()[1];
-        tableInformation = tableInfo.getRight();
+    private FileSinkConfig generateFileSinkConfig(
+            ReadonlyConfig readonlyConfig, Table tableInformation, CatalogTable catalogTable) {
+        Config pluginConfig = readonlyConfig.toConfig();
         List<String> sinkFields =
                 tableInformation.getSd().getCols().stream()
                         .map(FieldSchema::getName)
@@ -133,35 +106,42 @@ public class HiveSink extends BaseHdfsFileSink {
                         .map(FieldSchema::getName)
                         .collect(Collectors.toList());
         sinkFields.addAll(partitionKeys);
-        String outputFormat = tableInformation.getSd().getOutputFormat();
-        if (TEXT_OUTPUT_FORMAT_CLASSNAME.equals(outputFormat)) {
-            Map<String, String> parameters =
-                    tableInformation.getSd().getSerdeInfo().getParameters();
-            pluginConfig =
-                    pluginConfig
-                            .withValue(
-                                    FILE_FORMAT_TYPE.key(),
-                                    ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()))
-                            .withValue(
-                                    FIELD_DELIMITER.key(),
-                                    ConfigValueFactory.fromAnyRef(parameters.get("field.delim")))
-                            .withValue(
-                                    ROW_DELIMITER.key(),
-                                    ConfigValueFactory.fromAnyRef(parameters.get("line.delim")));
-        } else if (PARQUET_OUTPUT_FORMAT_CLASSNAME.equals(outputFormat)) {
-            pluginConfig =
-                    pluginConfig.withValue(
-                            FILE_FORMAT_TYPE.key(),
-                            ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
-        } else if (ORC_OUTPUT_FORMAT_CLASSNAME.equals(outputFormat)) {
-            pluginConfig =
-                    pluginConfig.withValue(
-                            FILE_FORMAT_TYPE.key(),
-                            ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
-        } else {
-            throw new HiveConnectorException(
-                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                    "Hive connector only support [text parquet orc] table now");
+
+        FileFormat fileFormat = HiveTableUtils.parseFileFormat(tableInformation);
+        switch (fileFormat) {
+            case TEXT:
+                Map<String, String> parameters =
+                        tableInformation.getSd().getSerdeInfo().getParameters();
+                pluginConfig =
+                        pluginConfig
+                                .withValue(
+                                        FILE_FORMAT_TYPE.key(),
+                                        ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()))
+                                .withValue(
+                                        FIELD_DELIMITER.key(),
+                                        ConfigValueFactory.fromAnyRef(
+                                                parameters.get("field.delim")))
+                                .withValue(
+                                        ROW_DELIMITER.key(),
+                                        ConfigValueFactory.fromAnyRef(
+                                                parameters.get("line.delim")));
+                break;
+            case PARQUET:
+                pluginConfig =
+                        pluginConfig.withValue(
+                                FILE_FORMAT_TYPE.key(),
+                                ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
+                break;
+            case ORC:
+                pluginConfig =
+                        pluginConfig.withValue(
+                                FILE_FORMAT_TYPE.key(),
+                                ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
+                break;
+            default:
+                throw new HiveConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "Hive connector only support [text parquet orc] table now");
         }
         pluginConfig =
                 pluginConfig
@@ -178,17 +158,65 @@ public class HiveSink extends BaseHdfsFileSink {
                         .withValue(SINK_COLUMNS.key(), ConfigValueFactory.fromAnyRef(sinkFields))
                         .withValue(
                                 PARTITION_BY.key(), ConfigValueFactory.fromAnyRef(partitionKeys));
+
+        return new FileSinkConfig(pluginConfig, catalogTable.getSeaTunnelRowType());
+    }
+
+    @Override
+    public String getPluginName() {
+        return HiveConstants.CONNECTOR_NAME;
+    }
+
+    @Override
+    public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
+            createAggregatedCommitter() {
+        return Optional.of(
+                new HiveSinkAggregatedCommitter(readonlyConfig, tableInformation, fileSystemUtils));
+    }
+
+    @Override
+    public void setJobContext(JobContext jobContext) {
+        this.jobId = jobContext.getJobId();
+    }
+
+    @Override
+    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(
+            SinkWriter.Context context, List<FileSinkState> states) {
+        return new HiveSinkWriter(writeStrategy, hiveHadoopConfig, context, jobId, states);
+    }
+
+    @Override
+    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(
+            SinkWriter.Context context) {
+        return new HiveSinkWriter(writeStrategy, hiveHadoopConfig, context, jobId);
+    }
+
+    @Override
+    public Optional<Serializer<FileCommitInfo>> getCommitInfoSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
+    public Optional<Serializer<FileAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
+    public Optional<Serializer<FileSinkState>> getWriterStateSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    private HiveHadoopConfig parseHiveHadoopConfig(ReadonlyConfig readonlyConfig, Table table) {
         String hdfsLocation = tableInformation.getSd().getLocation();
+        HiveHadoopConfig hiveHadoopConfig;
         try {
             URI uri = new URI(hdfsLocation);
             String path = uri.getPath();
-            hadoopConf = new HadoopConf(hdfsLocation.replace(path, ""));
-            pluginConfig =
-                    pluginConfig
-                            .withValue(FILE_PATH.key(), ConfigValueFactory.fromAnyRef(path))
-                            .withValue(
-                                    FS_DEFAULT_NAME_KEY,
-                                    ConfigValueFactory.fromAnyRef(hadoopConf.getHdfsNameKey()));
+            hiveHadoopConfig =
+                    new HiveHadoopConfig(
+                            hdfsLocation.replace(path, ""),
+                            readonlyConfig.get(HiveSourceOptions.METASTORE_URI),
+                            readonlyConfig.get(HiveSourceOptions.HIVE_SITE_PATH));
         } catch (URISyntaxException e) {
             String errorMsg =
                     String.format(
@@ -198,14 +226,15 @@ public class HiveSink extends BaseHdfsFileSink {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.GET_HDFS_NAMENODE_HOST_FAILED, errorMsg, e);
         }
-        this.pluginConfig = pluginConfig;
-        super.prepare(pluginConfig);
-    }
-
-    @Override
-    public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
-            createAggregatedCommitter() throws IOException {
-        return Optional.of(
-                new HiveSinkAggregatedCommitter(pluginConfig, dbName, tableName, fileSystemUtils));
+        readonlyConfig
+                .getOptional(HiveSourceOptions.HDFS_SITE_PATH)
+                .ifPresent(hiveHadoopConfig::setHdfsSitePath);
+        readonlyConfig
+                .getOptional(HiveSourceOptions.KERBEROS_PRINCIPAL)
+                .ifPresent(hiveHadoopConfig::setKerberosPrincipal);
+        readonlyConfig
+                .getOptional(HiveSourceOptions.KERBEROS_KEYTAB_PATH)
+                .ifPresent(hiveHadoopConfig::setKerberosKeytabPath);
+        return hiveHadoopConfig;
     }
 }
