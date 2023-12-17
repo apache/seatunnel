@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
@@ -37,22 +36,17 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 @Slf4j
 public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSourceSplit> {
     private final ReadStrategy readStrategy;
-    private final HadoopConf hadoopConf;
     private final SourceReader.Context context;
     private final Deque<FileSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
     private volatile boolean noMoreSplit;
 
-    public BaseFileSourceReader(
-            ReadStrategy readStrategy, HadoopConf hadoopConf, SourceReader.Context context) {
+    public BaseFileSourceReader(ReadStrategy readStrategy, SourceReader.Context context) {
         this.readStrategy = readStrategy;
-        this.hadoopConf = hadoopConf;
         this.context = context;
     }
 
     @Override
-    public void open() throws Exception {
-        readStrategy.init(hadoopConf);
-    }
+    public void open() throws Exception {}
 
     @Override
     public void close() throws IOException {}

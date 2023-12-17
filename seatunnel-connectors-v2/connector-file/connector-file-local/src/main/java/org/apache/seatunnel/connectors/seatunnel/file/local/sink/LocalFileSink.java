@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileHadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.local.sink.writter.LocalFileSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
@@ -36,7 +37,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyFactory;
 
@@ -49,7 +49,7 @@ public class LocalFileSink
                 SupportMultiTableSink {
 
     private final HadoopConf hadoopConf;
-    private final FileSystemUtils fileSystemUtils;
+    private final HadoopFileSystemProxy hadoopFileSystemProxy;
     private final FileSinkConfig fileSinkConfig;
     private final WriteStrategy writeStrategy;
     private String jobId;
@@ -60,9 +60,8 @@ public class LocalFileSink
                 new FileSinkConfig(readonlyConfig.toConfig(), catalogTable.getSeaTunnelRowType());
         this.writeStrategy =
                 WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
-        this.fileSystemUtils = new FileSystemUtils(hadoopConf);
+        this.hadoopFileSystemProxy = new HadoopFileSystemProxy(hadoopConf);
         this.writeStrategy.setSeaTunnelRowTypeInfo(catalogTable.getSeaTunnelRowType());
-        this.writeStrategy.setFileSystemUtils(fileSystemUtils);
     }
 
     @Override
@@ -79,7 +78,7 @@ public class LocalFileSink
     @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
             createAggregatedCommitter() {
-        return Optional.of(new FileSinkAggregatedCommitter(fileSystemUtils));
+        return Optional.of(new FileSinkAggregatedCommitter(hadoopConf));
     }
 
     @Override
