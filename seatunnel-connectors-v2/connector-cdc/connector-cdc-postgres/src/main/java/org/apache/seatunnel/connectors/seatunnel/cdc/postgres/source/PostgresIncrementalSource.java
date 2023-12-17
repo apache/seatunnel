@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -63,7 +64,8 @@ import java.util.stream.Collectors;
 
 @NoArgsConstructor
 @AutoService(SeaTunnelSource.class)
-public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> {
+public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
+        implements SupportParallelism {
 
     static final String IDENTIFIER = "Postgres-CDC";
 

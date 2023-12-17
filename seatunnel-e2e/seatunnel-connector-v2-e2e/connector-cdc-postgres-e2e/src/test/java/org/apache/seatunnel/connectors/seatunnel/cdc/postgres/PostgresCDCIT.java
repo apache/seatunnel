@@ -65,7 +65,7 @@ import static org.junit.Assert.assertNotNull;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK},
+        type = {EngineType.SPARK, EngineType.FLINK},
         disabledReason = "Currently SPARK do not support cdc")
 public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
@@ -81,8 +81,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     private static final String POSTGRESQL_DATABASE = "postgres_cdc";
     private static final String POSTGRESQL_SCHEMA = "inventory";
 
-    private static final String SOURCE_TABLE = "postgres_cdc_e2e_source_table";
-    private static final String SINK_TABLE = "postgres_cdc_e2e_sink_table";
+    private static final String SOURCE_TABLE_1 = "postgres_cdc_table_1";
+    private static final String SOURCE_TABLE_2 = "postgres_cdc_table_2";
+    private static final String SINK_TABLE_1 = "sink_postgres_cdc_table_1";
+    private static final String SINK_TABLE_2 = "sink_postgres_cdc_table_2";
 
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s";
 
@@ -136,45 +138,47 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                 PostgreSQLContainer.POSTGRESQL_PORT)));
         Startables.deepStart(Stream.of(POSTGRES_CONTAINER)).join();
         log.info("Postgres Containers are started");
-        initializePostgresTable(POSTGRES_CONTAINER, "column_type_test");
+        initializePostgresTable(POSTGRES_CONTAINER, "inventory");
     }
 
     @TestTemplate
     public void testMPostgresCdcCheckDataE2e(TestContainer container) {
-        // Clear related content to ensure that multiple operations are not affected
-        clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE);
-        clearTable(POSTGRESQL_SCHEMA, SINK_TABLE);
 
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        container.executeJob("/postgrescdc_to_postgres.conf");
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                    return null;
-                });
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            log.info(query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE)).toString());
-                            Assertions.assertIterableEquals(
-                                    query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE)),
-                                    query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE)));
-                        });
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob("/postgrescdc_to_postgres.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_1)),
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1)));
+                            });
 
-        // insert update delete
-        upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE);
+            // insert update delete
+            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
 
-        // stream stage
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertIterableEquals(
-                                    query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE)),
-                                    query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE)));
-                        });
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_1)),
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1)));
+                            });
+        } finally {
+            // Clear related content to ensure that multiple operations are not affected
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+        }
     }
 
     @TestTemplate
@@ -182,7 +186,58 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support multi table")
-    public void testPostgresCdcMultiTableE2e(TestContainer container) {}
+    public void testPostgresCdcMultiTableE2e(TestContainer container) {
+
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob(
+                                    "/pgcdc_to_pg_with_multi_table_mode_two_table.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+
+            // insert update delete
+            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_2);
+
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertAll(
+                                            () ->
+                                                    Assertions.assertIterableEquals(
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SOURCE_TABLE_1)),
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SINK_TABLE_1))),
+                                            () ->
+                                                    Assertions.assertIterableEquals(
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SOURCE_TABLE_2)),
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SINK_TABLE_2)))));
+        } finally {
+            // Clear related content to ensure that multiple operations are not affected
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_2);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_2);
+        }
+    }
 
     @TestTemplate
     @DisabledOnContainer(
@@ -190,7 +245,97 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support multi table")
     public void testMultiTableWithRestore(TestContainer container)
-            throws IOException, InterruptedException {}
+            throws IOException, InterruptedException {
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/mysqlcdc_to_mysql_with_multi_table_mode_one_table.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // insert update delete
+        upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getQuerySQL(
+                                                                        POSTGRESQL_SCHEMA,
+                                                                        SOURCE_TABLE_1)),
+                                                        query(
+                                                                getQuerySQL(
+                                                                        POSTGRESQL_SCHEMA,
+                                                                        SINK_TABLE_1)))));
+
+        Pattern jobIdPattern =
+                Pattern.compile(
+                        ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*", Pattern.DOTALL);
+        Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
+        String jobId;
+        if (matcher.matches()) {
+            jobId = matcher.group(1);
+        } else {
+            throw new RuntimeException("Can not find jobId");
+        }
+
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+
+        // Restore job with add a new table
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/mysqlcdc_to_mysql_with_multi_table_mode_two_table.conf", jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_2);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getQuerySQL(
+                                                                        POSTGRESQL_SCHEMA,
+                                                                        SOURCE_TABLE_1)),
+                                                        query(
+                                                                getQuerySQL(
+                                                                        POSTGRESQL_SCHEMA,
+                                                                        SINK_TABLE_1))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getQuerySQL(
+                                                                        POSTGRESQL_SCHEMA,
+                                                                        SOURCE_TABLE_2)),
+                                                        query(
+                                                                getQuerySQL(
+                                                                        POSTGRESQL_SCHEMA,
+                                                                        SINK_TABLE_2)))));
+
+        log.info("****************** container logs start ******************");
+        String containerLogs = container.getServerLogs();
+        log.info(containerLogs);
+        Assertions.assertFalse(containerLogs.contains("ERROR"));
+        log.info("****************** container logs end ******************");
+    }
 
     private Connection getJdbcConnection() throws SQLException {
         return DriverManager.getConnection(
@@ -249,14 +394,43 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     // Execute SQL
     private void executeSql(String sql) {
-        try (Connection connection = getJdbcConnection()) {
-            connection.createStatement().execute(sql);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("SET search_path TO inventory;");
+            statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void upsertDeleteSourceTable(String database, String tableName) {}
+    private void upsertDeleteSourceTable(String database, String tableName) {
+
+        executeSql("SET search_path TO inventory;");
+
+        executeSql(
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " VALUES (2, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
+                        + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
+                        + "        '2020-07-17', '18:00:22', 500, 'SRID=3187;POINT(174.9479 -36.7208)'::geometry,\n"
+                        + "        'MULTILINESTRING((169.1321 -44.7032, 167.8974 -44.6414))'::geography);");
+
+        executeSql(
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " VALUES (3, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
+                        + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
+                        + "        '2020-07-17', '18:00:22', 500, 'SRID=3187;POINT(174.9479 -36.7208)'::geometry,\n"
+                        + "        'MULTILINESTRING((169.1321 -44.7032, 167.8974 -44.6414))'::geography);");
+
+        executeSql("DELETE FROM " + database + "." + tableName + " where id = 2;");
+
+        executeSql("UPDATE " + database + "." + tableName + " SET f_big = 10000 where id = 3;");
+    }
 
     private String getQuerySQL(String database, String tableName) {
         return String.format(SOURCE_SQL_TEMPLATE, database, tableName);
