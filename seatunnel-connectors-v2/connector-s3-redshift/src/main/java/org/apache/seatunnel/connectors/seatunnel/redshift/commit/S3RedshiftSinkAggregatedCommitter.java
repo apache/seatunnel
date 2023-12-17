@@ -20,9 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.redshift.commit;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.redshift.RedshiftJdbcClient;
 import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
 import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftConnectorErrorCode;
@@ -46,8 +46,8 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
 
     private Config pluginConfig;
 
-    public S3RedshiftSinkAggregatedCommitter(FileSystemUtils fileSystemUtils, Config pluginConfig) {
-        super(fileSystemUtils);
+    public S3RedshiftSinkAggregatedCommitter(HadoopConf hadoopConf, Config pluginConfig) {
+        super(hadoopConf);
         this.pluginConfig = pluginConfig;
         this.executeSql = pluginConfig.getString(S3RedshiftConfig.EXECUTE_SQL.key());
     }
@@ -64,15 +64,15 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
                             for (Map.Entry<String, String> mvFileEntry :
                                     entry.getValue().entrySet()) {
                                 // first rename temp file
-                                fileSystemUtils.renameFile(
+                                hadoopFileSystemProxy.renameFile(
                                         mvFileEntry.getKey(), mvFileEntry.getValue(), true);
                                 String sql = convertSql(mvFileEntry.getValue());
                                 log.debug("execute redshift sql is:" + sql);
                                 RedshiftJdbcClient.getInstance(pluginConfig).execute(sql);
-                                fileSystemUtils.deleteFile(mvFileEntry.getValue());
+                                hadoopFileSystemProxy.deleteFile(mvFileEntry.getValue());
                             }
                             // second delete transaction directory
-                            fileSystemUtils.deleteFile(entry.getKey());
+                            hadoopFileSystemProxy.deleteFile(entry.getKey());
                         }
                     } catch (Exception e) {
                         log.error("commit aggregatedCommitInfo error ", e);
@@ -96,7 +96,7 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
                         for (Map.Entry<String, LinkedHashMap<String, String>> entry :
                                 aggregatedCommitInfo.getTransactionMap().entrySet()) {
                             // delete the transaction dir
-                            fileSystemUtils.deleteFile(entry.getKey());
+                            hadoopFileSystemProxy.deleteFile(entry.getKey());
                         }
                     } catch (Exception e) {
                         log.error("abort aggregatedCommitInfo error ", e);

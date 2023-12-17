@@ -29,8 +29,6 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy.getFlowControlStrategy;
-
 public class InternalRowCollector implements Collector<SeaTunnelRow> {
     private final Handover<InternalRow> handover;
     private final Object checkpointLock;
@@ -50,19 +48,14 @@ public class InternalRowCollector implements Collector<SeaTunnelRow> {
         this.rowSerialization = new InternalRowConverter(dataType);
         this.collectTotalCount = new AtomicLong(0);
         this.envOptions = (Map) envOptionsInfo;
-        FlowControlStrategy flowControlStrategy = getFlowControlStrategy(envOptions);
-        if (flowControlStrategy != null) {
-            this.flowControlGate = FlowControlGate.create(flowControlStrategy);
-        }
+        this.flowControlGate = FlowControlGate.create(FlowControlStrategy.fromMap(envOptions));
     }
 
     @Override
     public void collect(SeaTunnelRow record) {
         try {
             synchronized (checkpointLock) {
-                if (flowControlGate != null) {
-                    flowControlGate.audit(record);
-                }
+                flowControlGate.audit(record);
                 handover.produce(rowSerialization.convert(record));
             }
             collectTotalCount.incrementAndGet();

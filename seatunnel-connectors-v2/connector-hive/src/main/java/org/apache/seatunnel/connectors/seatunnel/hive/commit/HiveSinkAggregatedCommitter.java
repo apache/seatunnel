@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.hive.commit;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
@@ -44,8 +44,8 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     private final boolean abortDropPartitionMetadata;
 
     public HiveSinkAggregatedCommitter(
-            Config pluginConfig, String dbName, String tableName, FileSystemUtils fileSystemUtils) {
-        super(fileSystemUtils);
+            Config pluginConfig, String dbName, String tableName, HadoopConf hadoopConf) {
+        super(hadoopConf);
         this.pluginConfig = pluginConfig;
         this.dbName = dbName;
         this.tableName = tableName;

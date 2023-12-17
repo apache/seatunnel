@@ -91,7 +91,7 @@ public class ClientJobProxy implements Job {
      * @return The job final status
      */
     @Override
-    public JobStatus waitForJobComplete() {
+    public JobResult waitForJobCompleteV2() {
         try {
             jobResult =
                     RetryUtils.retryWithException(
@@ -121,7 +121,7 @@ public class ClientJobProxy implements Job {
                 || jobResult.getStatus().equals(JobStatus.FAILED)) {
             throw new SeaTunnelEngineException(jobResult.getError());
         }
-        return jobResult.getStatus();
+        return jobResult;
     }
 
     public JobResult getJobResultCache() {
