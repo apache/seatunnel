@@ -111,7 +111,7 @@ public class OracleChunkSplitter extends AbstractJdbcSourceChunkSplitter {
             throws SQLException {
         try {
             return super.getSplitColumn(jdbc, dialect, tableId);
-        } catch (SQLException e) {
+        } catch (SQLException | UnsupportedOperationException e) {
             log.info(
                     "Failed to obtain the split key policy, the split key is changed to the default one");
             return Column.editor()
