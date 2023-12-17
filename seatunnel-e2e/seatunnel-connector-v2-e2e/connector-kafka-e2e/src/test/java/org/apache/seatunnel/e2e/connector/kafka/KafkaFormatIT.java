@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -124,111 +126,115 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     private static final String PG_SINK_TABLE1 = "sink";
     private static final String PG_SINK_TABLE2 = "sink2";
 
-    private static final Map<String, SeaTunnelRowType> sinkTableRowTypes = new HashMap<>();
+    private static final Map<String, CatalogTable> sinkTables = new HashMap<>();
 
     static {
-        sinkTableRowTypes.put(
+        sinkTables.put(
                 PG_SINK_TABLE1,
-                new SeaTunnelRowType(
-                        new String[] {"id", "name", "description", "weight"},
-                        new SeaTunnelDataType[] {
-                            BasicType.INT_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE
-                        }));
+                CatalogTableUtil.getCatalogTable(
+                        PG_SINK_TABLE1,
+                        new SeaTunnelRowType(
+                                new String[] {"id", "name", "description", "weight"},
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE
+                                })));
 
-        sinkTableRowTypes.put(
+        sinkTables.put(
                 PG_SINK_TABLE2,
-                new SeaTunnelRowType(
-                        new String[] {
-                            "id",
-                            "f_binary",
-                            "f_blob",
-                            "f_long_varbinary",
-                            "f_longblob",
-                            "f_tinyblob",
-                            "f_varbinary",
-                            "f_smallint",
-                            "f_smallint_unsigned",
-                            "f_mediumint",
-                            "f_mediumint_unsigned",
-                            "f_int",
-                            "f_int_unsigned",
-                            "f_integer",
-                            "f_integer_unsigned",
-                            "f_bigint",
-                            "f_bigint_unsigned",
-                            "f_numeric",
-                            "f_decimal",
-                            "f_float",
-                            "f_double",
-                            "f_double_precision",
-                            "f_longtext",
-                            "f_mediumtext",
-                            "f_text",
-                            "f_tinytext",
-                            "f_varchar",
-                            "f_date",
-                            "f_datetime",
-                            "f_timestamp",
-                            "f_bit1",
-                            "f_bit64",
-                            "f_char",
-                            "f_enum",
-                            "f_mediumblob",
-                            "f_long_varchar",
-                            "f_real",
-                            "f_time",
-                            "f_tinyint",
-                            "f_tinyint_unsigned",
-                            "f_json",
-                            "f_year"
-                        },
-                        new SeaTunnelDataType[] {
-                            BasicType.INT_TYPE,
-                            PrimitiveByteArrayType.INSTANCE,
-                            PrimitiveByteArrayType.INSTANCE,
-                            PrimitiveByteArrayType.INSTANCE,
-                            PrimitiveByteArrayType.INSTANCE,
-                            PrimitiveByteArrayType.INSTANCE,
-                            PrimitiveByteArrayType.INSTANCE,
-                            BasicType.SHORT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.LONG_TYPE,
-                            BasicType.LONG_TYPE,
-                            new DecimalType(10, 0),
-                            new DecimalType(10, 0),
-                            new DecimalType(10, 0),
-                            BasicType.FLOAT_TYPE,
-                            BasicType.DOUBLE_TYPE,
-                            BasicType.DOUBLE_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            LocalTimeType.LOCAL_DATE_TYPE,
-                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                            BasicType.BOOLEAN_TYPE,
-                            BasicType.BYTE_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            PrimitiveByteArrayType.INSTANCE,
-                            BasicType.STRING_TYPE,
-                            BasicType.DOUBLE_TYPE,
-                            LocalTimeType.LOCAL_TIME_TYPE,
-                            BasicType.BYTE_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.INT_TYPE
-                        }));
+                CatalogTableUtil.getCatalogTable(
+                        PG_SINK_TABLE2,
+                        new SeaTunnelRowType(
+                                new String[] {
+                                    "id",
+                                    "f_binary",
+                                    "f_blob",
+                                    "f_long_varbinary",
+                                    "f_longblob",
+                                    "f_tinyblob",
+                                    "f_varbinary",
+                                    "f_smallint",
+                                    "f_smallint_unsigned",
+                                    "f_mediumint",
+                                    "f_mediumint_unsigned",
+                                    "f_int",
+                                    "f_int_unsigned",
+                                    "f_integer",
+                                    "f_integer_unsigned",
+                                    "f_bigint",
+                                    "f_bigint_unsigned",
+                                    "f_numeric",
+                                    "f_decimal",
+                                    "f_float",
+                                    "f_double",
+                                    "f_double_precision",
+                                    "f_longtext",
+                                    "f_mediumtext",
+                                    "f_text",
+                                    "f_tinytext",
+                                    "f_varchar",
+                                    "f_date",
+                                    "f_datetime",
+                                    "f_timestamp",
+                                    "f_bit1",
+                                    "f_bit64",
+                                    "f_char",
+                                    "f_enum",
+                                    "f_mediumblob",
+                                    "f_long_varchar",
+                                    "f_real",
+                                    "f_time",
+                                    "f_tinyint",
+                                    "f_tinyint_unsigned",
+                                    "f_json",
+                                    "f_year"
+                                },
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    BasicType.SHORT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.LONG_TYPE,
+                                    BasicType.LONG_TYPE,
+                                    new DecimalType(10, 0),
+                                    new DecimalType(10, 0),
+                                    new DecimalType(10, 0),
+                                    BasicType.FLOAT_TYPE,
+                                    BasicType.DOUBLE_TYPE,
+                                    BasicType.DOUBLE_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                    BasicType.BOOLEAN_TYPE,
+                                    BasicType.BYTE_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.DOUBLE_TYPE,
+                                    LocalTimeType.LOCAL_TIME_TYPE,
+                                    BasicType.BYTE_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.INT_TYPE
+                                })));
     }
 
     // Used to map local data paths to kafa topics that need to be written to kafka
@@ -860,7 +866,8 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
                 while (resultSet.next()) {
                     SeaTunnelRow row =
-                            testPgToInternal(resultSet, sinkTableRowTypes.get(tableName));
+                            postgresJdbcRowConverter.toInternal(
+                                    resultSet, sinkTables.get(tableName).getTableSchema());
                     actual.add(Arrays.asList(row.getFields()));
                 }
             }
@@ -873,88 +880,6 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
             e.printStackTrace();
         }
         return actual;
-    }
-
-    public SeaTunnelRow testPgToInternal(ResultSet rs, SeaTunnelRowType typeInfo)
-            throws SQLException {
-        String PG_GEOMETRY = "GEOMETRY";
-        String PG_GEOGRAPHY = "GEOGRAPHY";
-
-        Object[] fields = new Object[typeInfo.getTotalFields()];
-        for (int fieldIndex = 0; fieldIndex < typeInfo.getTotalFields(); fieldIndex++) {
-            SeaTunnelDataType<?> seaTunnelDataType = typeInfo.getFieldType(fieldIndex);
-            int resultSetIndex = fieldIndex + 1;
-            String metaDataColumnType =
-                    rs.getMetaData().getColumnTypeName(resultSetIndex).toUpperCase(Locale.ROOT);
-            switch (seaTunnelDataType.getSqlType()) {
-                case STRING:
-                    if (metaDataColumnType.equals(PG_GEOMETRY)
-                            || metaDataColumnType.equals(PG_GEOGRAPHY)) {
-                        fields[fieldIndex] =
-                                rs.getObject(resultSetIndex) == null
-                                        ? null
-                                        : rs.getObject(resultSetIndex).toString();
-                    } else {
-                        fields[fieldIndex] = JdbcUtils.getString(rs, resultSetIndex);
-                    }
-                    break;
-                case BOOLEAN:
-                    fields[fieldIndex] = JdbcUtils.getBoolean(rs, resultSetIndex);
-                    break;
-                case TINYINT:
-                    fields[fieldIndex] = JdbcUtils.getByte(rs, resultSetIndex);
-                    break;
-                case SMALLINT:
-                    fields[fieldIndex] = JdbcUtils.getShort(rs, resultSetIndex);
-                    break;
-                case INT:
-                    fields[fieldIndex] = JdbcUtils.getInt(rs, resultSetIndex);
-                    break;
-                case BIGINT:
-                    fields[fieldIndex] = JdbcUtils.getLong(rs, resultSetIndex);
-                    break;
-                case FLOAT:
-                    fields[fieldIndex] = JdbcUtils.getFloat(rs, resultSetIndex);
-                    break;
-                case DOUBLE:
-                    fields[fieldIndex] = JdbcUtils.getDouble(rs, resultSetIndex);
-                    break;
-                case DECIMAL:
-                    fields[fieldIndex] = JdbcUtils.getBigDecimal(rs, resultSetIndex);
-                    break;
-                case DATE:
-                    Date sqlDate = JdbcUtils.getDate(rs, resultSetIndex);
-                    fields[fieldIndex] =
-                            Optional.ofNullable(sqlDate).map(e -> e.toLocalDate()).orElse(null);
-                    break;
-                case TIME:
-                    Time sqlTime = JdbcUtils.getTime(rs, resultSetIndex);
-                    fields[fieldIndex] =
-                            Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
-                    break;
-                case TIMESTAMP:
-                    Timestamp sqlTimestamp = JdbcUtils.getTimestamp(rs, resultSetIndex);
-                    fields[fieldIndex] =
-                            Optional.ofNullable(sqlTimestamp)
-                                    .map(e -> e.toLocalDateTime())
-                                    .orElse(null);
-                    break;
-                case BYTES:
-                    fields[fieldIndex] = JdbcUtils.getBytes(rs, resultSetIndex);
-                    break;
-                case NULL:
-                    fields[fieldIndex] = null;
-                    break;
-                case MAP:
-                case ARRAY:
-                case ROW:
-                default:
-                    throw new JdbcConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                            "Unexpected value: " + seaTunnelDataType);
-            }
-        }
-        return new SeaTunnelRow(fields);
     }
 
     @Override
