@@ -1,0 +1,71 @@
+{
+  "id" : 0,
+  "fields" : [ {
+    "id" : 0,
+    "name" : "c_map",
+    "type" : {
+      "type" : "MAP",
+      "key" : "STRING",
+      "value" : "STRING"
+    }
+  }, {
+    "id" : 1,
+    "name" : "c_array",
+    "type" : {
+      "type" : "ARRAY",
+      "element" : "INT"
+    }
+  }, {
+    "id" : 2,
+    "name" : "c_string",
+    "type" : "STRING"
+  }, {
+    "id" : 3,
+    "name" : "c_boolean",
+    "type" : "BOOLEAN"
+  }, {
+    "id" : 4,
+    "name" : "c_tinyint",
+    "type" : "TINYINT"
+  }, {
+    "id" : 5,
+    "name" : "c_smallint",
+    "type" : "SMALLINT"
+  }, {
+    "id" : 6,
+    "name" : "c_int",
+    "type" : "INT"
+  }, {
+    "id" : 7,
+    "name" : "c_bigint",
+    "type" : "BIGINT"
+  }, {
+    "id" : 8,
+    "name" : "c_float",
+    "type" : "FLOAT"
+  }, {
+    "id" : 9,
+    "name" : "c_double",
+    "type" : "DOUBLE"
+  }, {
+    "id" : 10,
+    "name" : "c_decimal",
+    "type" : "DECIMAL(30, 8)"
+  }, {
+    "id" : 11,
+    "name" : "c_bytes",
+    "type" : "BYTES"
+  }, {
+    "id" : 12,
+    "name" : "c_date",
+    "type" : "TIMESTAMP(3)"
+  }, {
+    "id" : 13,
+    "name" : "c_timestamp",
+    "type" : "TIMESTAMP(6)"
+  } ],
+  "highestFieldId" : 13,
+  "partitionKeys" : [ ],
+  "primaryKeys" : [ ],
+  "options" : { }
+}

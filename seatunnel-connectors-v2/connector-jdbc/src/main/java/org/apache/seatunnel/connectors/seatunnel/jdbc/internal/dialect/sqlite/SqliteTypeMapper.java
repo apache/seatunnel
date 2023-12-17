@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlite;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -164,10 +166,8 @@ public class SqliteTypeMapper implements JdbcDialectTypeMapper {
             case SQLITE_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Doesn't support SQLite type '%s' on column '%s'  yet.",
-                                columnTypeName, jdbcColumnName));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.SQLITE, columnTypeName, jdbcColumnName);
         }
     }
 }

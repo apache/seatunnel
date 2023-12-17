@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunne
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
@@ -137,7 +138,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testSinkKafka(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/kafkasink_fake_to_kafka.conf");
+        Container.ExecResult execResult = container.executeJob("/kafka_sink_fake_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         String topicName = "test_topic";
@@ -153,7 +154,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testTextFormatSinkKafka(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/kafkaTextsink_fake_to_kafka.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/textFormatIT/fake_source_to_text_sink_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         String topicName = "test_text_topic";
@@ -201,7 +203,25 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 row -> new ProducerRecord<>("test_topic_text", null, serializer.serialize(row)),
                 0,
                 100);
-        Container.ExecResult execResult = container.executeJob("/kafkasource_text_to_console.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/textFormatIT/kafka_source_text_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaTextToConsoleAssertCatalogTable(TestContainer container)
+            throws IOException, InterruptedException {
+        TextSerializationSchema serializer =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(SEATUNNEL_ROW_TYPE)
+                        .delimiter(",")
+                        .build();
+        generateTestData(
+                row -> new ProducerRecord<>("test_topic_text", null, serializer.serialize(row)),
+                0,
+                100);
+        Container.ExecResult execResult =
+                container.executeJob("/textFormatIT/kafka_source_text_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -215,7 +235,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), 0, 100);
-        Container.ExecResult execResult = container.executeJob("/kafkasource_json_to_console.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/jsonFormatIT/kafka_source_json_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -270,6 +291,30 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), 100, 150);
         testKafkaGroupOffsetsToConsole(container);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(TestContainerId.SPARK_2_4)
+    public void testFakeSourceToKafkaAvroFormat(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/avro/fake_source_to_kafka_avro_format.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(TestContainerId.SPARK_2_4)
+    public void testKafkaAvroToConsole(TestContainer container)
+            throws IOException, InterruptedException {
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_avro_topic",
+                        SEATUNNEL_ROW_TYPE,
+                        MessageFormat.AVRO,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(row -> serializer.serializeRow(row), 0, 100);
+        Container.ExecResult execResult = container.executeJob("/avro/kafka_avro_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     public void testKafkaLatestToConsole(TestContainer container)
@@ -328,7 +373,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         return props;
     }
 
-    @SuppressWarnings("checkstyle:Indentation")
     private void generateTestData(ProducerRecordConverter converter, int start, int end) {
         for (int i = start; i < end; i++) {
             SeaTunnelRow row =

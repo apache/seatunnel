@@ -35,7 +35,6 @@ problems encountered by users.
 | COMMON-13 | Http operation failed, such as (open, close, response) etc...          | When users encounter this error code, it maybe some http requests failed, please check your network environment                                                                                    |
 | COMMON-14 | Kerberos authorized failed                                             | When users encounter this error code, it maybe some The Kerberos authorized is misconfigured                                                                                                       |
 | COMMON-15 | Class load operation failed                                            | When users encounter this error code, it maybe some The corresponding jar does not exist, or the type is not supported                                                                             |
-| COMMON-16 | Encountered improperly formatted JVM option                            | When users encounter this error code, it maybe some The JVM option formatted improperly                                                                                                            |
 
 ## Assert Connector Error Codes
 
@@ -195,6 +194,8 @@ problems encountered by users.
 | JDBC-04 | Connector database failed                                      | When users encounter this error code, it means that database connection failure, check whether the url is correct or whether the corresponding service is normal                                            |
 | JDBC-05 | transaction operation failed, such as (commit, rollback) etc.. | When users encounter this error code, it means that if a sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure             |
 | JDBC-06 | No suitable dialect factory found                              | When users encounter this error code, it means that may be an unsupported dialect type                                                                                                                      |
+| JDBC-07 | The jdbc type don't support sink                               | When users encounter this error code, it means that jdbc type don't support sink                                                                                                                            |
+| JDBC-08 | Kerberos authentication failed                                 | When users encounter this error code, it means that database connection Kerberos authentication failed                                                                                                      |
 
 ## Pulsar Connector Error Codes
 

@@ -34,18 +34,22 @@ public class MySqlSourceOptions {
                                     Arrays.asList(
                                             StartupMode.INITIAL,
                                             StartupMode.EARLIEST,
-                                            StartupMode.LATEST))
+                                            StartupMode.LATEST,
+                                            StartupMode.SPECIFIC))
                             .defaultValue(StartupMode.INITIAL)
                             .withDescription(
                                     "Optional startup mode for CDC source, valid enumerations are "
-                                            + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
+                                            + "\"initial\", \"earliest\", \"latest\" or \"specific\"");
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
             (SingleChoiceOption)
                     Options.key(SourceOptions.STOP_MODE_KEY)
-                            .singleChoice(StopMode.class, Arrays.asList(StopMode.NEVER))
+                            .singleChoice(
+                                    StopMode.class,
+                                    Arrays.asList(
+                                            StopMode.LATEST, StopMode.SPECIFIC, StopMode.NEVER))
                             .defaultValue(StopMode.NEVER)
                             .withDescription(
                                     "Optional stop mode for CDC source, valid enumerations are "
-                                            + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
+                                            + "\"never\", \"latest\" or \"specific\"");
 }

@@ -25,13 +25,11 @@
     <artifactId>connector-cdc-mysql-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : CDC MySql</name>
 
-    <properties />
-
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
-                <artifactId>connector-cdc-mysql</artifactId>
+                <artifactId>connector-jdbc</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
@@ -47,6 +45,7 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-mysql</artifactId>
@@ -54,9 +53,17 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>mysql</artifactId>
+            <version>${testcontainer.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

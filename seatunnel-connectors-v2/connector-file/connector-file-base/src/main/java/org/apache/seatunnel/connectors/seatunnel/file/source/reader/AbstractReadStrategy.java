@@ -43,6 +43,9 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.apache.parquet.avro.AvroReadSupport.READ_INT96_AS_FIXED;
 import static org.apache.parquet.avro.AvroSchemaConverter.ADD_LIST_ELEMENT_RECORDS;
@@ -72,7 +75,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected List<String> readColumns = new ArrayList<>();
     protected boolean isMergePartition = true;
     protected long skipHeaderNumber = BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.defaultValue();
-    protected boolean isKerberosAuthorization = false;
+    protected transient boolean isKerberosAuthorization = false;
+
+    protected Pattern pattern;
 
     @Override
     public void init(HadoopConf conf) {
@@ -126,9 +131,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 fileNames.addAll(getFileNamesByPath(hadoopConf, fileStatus.getPath().toString()));
                 continue;
             }
-            if (fileStatus.isFile()) {
+            if (fileStatus.isFile() && filterFileByPattern(fileStatus)) {
                 // filter '_SUCCESS' file
-                if (!fileStatus.getPath().getName().equals("_SUCCESS")) {
+                if (!fileStatus.getPath().getName().equals("_SUCCESS")
+                        && !fileStatus.getPath().getName().startsWith(".")) {
                     String filePath = fileStatus.getPath().toString();
                     if (!readPartitions.isEmpty()) {
                         for (String readPartition : readPartitions) {
@@ -145,6 +151,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 }
             }
         }
+
         return fileNames;
     }
 
@@ -164,6 +171,11 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         }
         if (pluginConfig.hasPath(BaseSourceConfig.READ_COLUMNS.key())) {
             readColumns.addAll(pluginConfig.getStringList(BaseSourceConfig.READ_COLUMNS.key()));
+        }
+        if (pluginConfig.hasPath(BaseSourceConfig.FILE_FILTER_PATTERN.key())) {
+            String filterPattern =
+                    pluginConfig.getString(BaseSourceConfig.FILE_FILTER_PATTERN.key());
+            this.pattern = Pattern.compile(Matcher.quoteReplacement(filterPattern));
         }
     }
 
@@ -212,5 +224,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 partitionTypes, 0, newFieldTypes, fieldTypes.length, partitionTypes.length);
         // return merge row type
         return new SeaTunnelRowType(newFieldNames, newFieldTypes);
+    }
+
+    protected boolean filterFileByPattern(FileStatus fileStatus) {
+        if (Objects.nonNull(pattern)) {
+            return pattern.matcher(fileStatus.getPath().getName()).matches();
+        }
+        return true;
     }
 }

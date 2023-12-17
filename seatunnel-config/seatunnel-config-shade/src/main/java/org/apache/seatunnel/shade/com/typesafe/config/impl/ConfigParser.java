@@ -128,7 +128,7 @@ final class ConfigParser {
                         && ("source".equals(path.first())
                                 || "transform".equals(path.first())
                                 || "sink".equals(path.first()))) {
-                    v = parseObjectForSeatunnel((ConfigNodeObject) n);
+                    v = parseObjectForSeaTunnel((ConfigNodeObject) n);
                 } else {
                     v = parseObject((ConfigNodeObject) n);
                 }
@@ -250,7 +250,7 @@ final class ConfigParser {
             }
         }
 
-        private SimpleConfigList parseObjectForSeatunnel(ConfigNodeObject n) {
+        private SimpleConfigList parseObjectForSeaTunnel(ConfigNodeObject n) {
 
             Map<String, AbstractConfigValue> values = new LinkedHashMap<>();
             List<AbstractConfigValue> valuesList = new ArrayList<>();

@@ -21,7 +21,6 @@ Write data to `Tablestore`
 | table             | string | yes      | -             |
 | primary_keys      | array  | yes      | -             |
 | batch_size        | string | no       | 25            |
-| batch_interval_ms | string | no       | 1000          |
 | common-options    | config | no       | -             |
 
 ### end_point [string]

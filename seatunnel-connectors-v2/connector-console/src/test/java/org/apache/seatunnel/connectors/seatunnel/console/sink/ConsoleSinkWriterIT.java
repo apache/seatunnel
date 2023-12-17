@@ -48,7 +48,7 @@ public class ConsoleSinkWriterIT {
         String[] fieldNames = {};
         SeaTunnelDataType<?>[] fieldTypes = {};
         SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
-        consoleSinkWriter = new ConsoleSinkWriter(seaTunnelRowType, null);
+        consoleSinkWriter = new ConsoleSinkWriter(seaTunnelRowType, null, true, 0);
     }
 
     private Object fieldToStringTest(SeaTunnelDataType<?> dataType, Object value) {

@@ -17,23 +17,24 @@ Used to read data from Jira.
 
 ## Options
 
-|            name             |  type  | required | default value |
-|-----------------------------|--------|----------|---------------|
-| url                         | String | Yes      | -             |
-| email                       | String | Yes      | -             |
-| api_token                   | String | Yes      | -             |
-| method                      | String | No       | get           |
-| schema.fields               | Config | No       | -             |
-| format                      | String | No       | json          |
-| params                      | Map    | No       | -             |
-| body                        | String | No       | -             |
-| json_field                  | Config | No       | -             |
-| content_json                | String | No       | -             |
-| poll_interval_ms            | int    | No       | -             |
-| retry                       | int    | No       | -             |
-| retry_backoff_multiplier_ms | int    | No       | 100           |
-| retry_backoff_max_ms        | int    | No       | 10000         |
-| common-options              | config | No       | -             |
+|            name             |  type   | required | default value |
+|-----------------------------|---------|----------|---------------|
+| url                         | String  | Yes      | -             |
+| email                       | String  | Yes      | -             |
+| api_token                   | String  | Yes      | -             |
+| method                      | String  | No       | get           |
+| schema.fields               | Config  | No       | -             |
+| format                      | String  | No       | json          |
+| params                      | Map     | No       | -             |
+| body                        | String  | No       | -             |
+| json_field                  | Config  | No       | -             |
+| content_json                | String  | No       | -             |
+| poll_interval_millis        | int     | No       | -             |
+| retry                       | int     | No       | -             |
+| retry_backoff_multiplier_ms | int     | No       | 100           |
+| retry_backoff_max_ms        | int     | No       | 10000         |
+| enable_multi_lines          | boolean | No       | false         |
+| common-options              | config  | No       | -             |
 
 ### url [String]
 
@@ -61,7 +62,7 @@ http params
 
 http body
 
-### poll_interval_ms [int]
+### poll_interval_millis [int]
 
 request http api interval(millis) in stream mode
 
@@ -300,5 +301,5 @@ Jira {
 ### next version
 
 - Add Jira Source Connector
-- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/incubator-seatunnel/pull/3510))
+- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/seatunnel/pull/3510))
 

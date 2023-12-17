@@ -22,6 +22,7 @@
         <version>${revision}</version>
     </parent>
     <artifactId>connector-rocketmq-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Rocketmq</name>
 
     <dependencies>
         <!-- SeaTunnel connectors -->

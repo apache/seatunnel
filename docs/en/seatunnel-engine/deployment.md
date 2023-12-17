@@ -75,14 +75,6 @@ The interval between two checkpoints, unit is milliseconds. If the `checkpoint.i
 
 The timeout of a checkpoint. If a checkpoint cannot be completed within the timeout period, a checkpoint failure will be triggered. Therefore, Job will be restored.
 
-**max-concurrent**
-
-How many checkpoints can be performed simultaneously at most.
-
-**tolerable-failure**
-
-Maximum number of retries after checkpoint failure.
-
 Example
 
 ```
@@ -95,13 +87,23 @@ seatunnel:
         checkpoint:
             interval: 300000
             timeout: 10000
-            max-concurrent: 1
-            tolerable-failure: 2
 ```
 
 **checkpoint storage**
 
 About the checkpoint storage, you can see [checkpoint storage](checkpoint-storage.md)
+
+### 4.4 Historical Job expiration Config
+
+The information about each completed Job, such as status, counters, and error logs, is stored in the IMap object. As the number of running jobs increases, the memory increases and eventually the memory will overflow. Therefore, you can adjust the history-job-expire-minutes parameter to solve this problem. The time unit of this parameter is minute. The default value is 1440 minutes, that is, one day.
+
+Example
+
+```
+seatunnel:
+  engine:
+    history-job-expire-minutes: 1440
+```
 
 ## 5. Config SeaTunnel Engine Server
 
@@ -179,6 +181,7 @@ map:
            type: hdfs
            namespace: /tmp/seatunnel/imap
            clusterName: seatunnel-cluster
+           storage.type: hdfs
            fs.defaultFS: hdfs://localhost:9000
 ```
 
@@ -195,7 +198,30 @@ map:
            type: hdfs
            namespace: /tmp/seatunnel/imap
            clusterName: seatunnel-cluster
+           storage.type: hdfs
            fs.defaultFS: file:///
+```
+
+if you used OSS, you can config like this:
+
+```yaml
+map:
+    engine*:
+       map-store:
+         enabled: true
+         initial-mode: EAGER
+         factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+         properties:
+           type: hdfs
+           namespace: /tmp/seatunnel/imap
+           clusterName: seatunnel-cluster
+           storage.type: oss
+           block.size: block size(bytes)
+           oss.bucket: oss://bucket name/
+           fs.oss.accessKeyId: OSS access key id
+           fs.oss.accessKeySecret: OSS access key secret
+           fs.oss.endpoint: OSS endpoint
+           fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
 ```
 
 ## 6. Config SeaTunnel Engine Client

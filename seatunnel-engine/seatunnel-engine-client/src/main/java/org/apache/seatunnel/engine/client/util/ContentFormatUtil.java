@@ -36,9 +36,12 @@ public class ContentFormatUtil {
         for (JobStatusData jobStatusData : jobStatusDataList) {
             maxJobIdLength =
                     Math.max(maxJobIdLength, String.valueOf(jobStatusData.getJobId()).length());
-            maxJobNameLength = Math.max(maxJobNameLength, jobStatusData.getJobName().length());
+            maxJobNameLength =
+                    Math.max(maxJobNameLength, String.valueOf(jobStatusData.getJobName()).length());
             maxJobStatusLength =
-                    Math.max(maxJobStatusLength, jobStatusData.getJobStatus().toString().length());
+                    Math.max(
+                            maxJobStatusLength,
+                            String.valueOf(jobStatusData.getJobStatus()).length());
         }
 
         String formatStr =
@@ -76,9 +79,7 @@ public class ContentFormatUtil {
             String jobName =
                     String.format("%-" + maxJobNameLength + "s", jobStatusData.getJobName());
             String jobStatus =
-                    String.format(
-                            "%-" + maxJobStatusLength + "s",
-                            jobStatusData.getJobStatus().toString());
+                    String.format("%-" + maxJobStatusLength + "s", jobStatusData.getJobStatus());
             String submitTime =
                     String.format(
                             "%-" + maxSubmitTimeLength + "s",

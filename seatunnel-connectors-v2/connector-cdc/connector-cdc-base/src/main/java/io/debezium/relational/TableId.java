@@ -20,6 +20,7 @@ package io.debezium.relational;
 import io.debezium.annotation.Immutable;
 import io.debezium.relational.Selectors.TableIdToStringMapper;
 import io.debezium.schema.DataCollectionId;
+import lombok.NonNull;
 
 import java.io.Serializable;
 
@@ -97,12 +98,11 @@ public final class TableId implements DataCollectionId, Comparable<TableId>, Ser
     public TableId(
             String catalogName,
             String schemaName,
-            String tableName,
+            @NonNull String tableName,
             TableIdToStringMapper tableIdMapper) {
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = tableName;
-        assert this.tableName != null;
         this.id =
                 tableIdMapper == null
                         ? tableId(this.catalogName, this.schemaName, this.tableName)

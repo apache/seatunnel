@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
@@ -38,7 +38,7 @@ public class WriteStrategyFactory {
                     String.format(
                             "File sink connector not support this file type [%s], please check your config",
                             fileType);
-            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
+            throw new FileConnectorException(CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 

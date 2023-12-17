@@ -30,30 +30,31 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|               name               |  type   | required |               default value                |                          remarks                          |
-|----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
-| host                             | string  | yes      | -                                          |                                                           |
-| port                             | int     | yes      | -                                          |                                                           |
-| username                         | string  | yes      | -                                          |                                                           |
-| password                         | string  | yes      | -                                          |                                                           |
-| path                             | string  | yes      | -                                          |                                                           |
-| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                      |
-| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                    |
-| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                    |
-| file_format_type                 | string  | no       | "csv"                                      |                                                           |
-| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format is text                        |
-| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format is text                        |
-| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                   |
-| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                     |
-| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                     |
-| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                     |
-| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns |
-| is_enable_transaction            | boolean | no       | true                                       |                                                           |
-| batch_size                       | int     | no       | 1000000                                    |                                                           |
-| compress_codec                   | string  | no       | none                                       |                                                           |
-| common-options                   | object  | no       | -                                          |                                                           |
-| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format is excel.                      |
-| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format is excel.                      |
+|               name               |  type   | required |               default value                |                                                      remarks                                                      |
+|----------------------------------|---------|----------|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
+| host                             | string  | yes      | -                                          |                                                                                                                   |
+| port                             | int     | yes      | -                                          |                                                                                                                   |
+| username                         | string  | yes      | -                                          |                                                                                                                   |
+| password                         | string  | yes      | -                                          |                                                                                                                   |
+| path                             | string  | yes      | -                                          |                                                                                                                   |
+| tmp_path                         | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir. |
+| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                                                                              |
+| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                            |
+| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                            |
+| file_format_type                 | string  | no       | "csv"                                      |                                                                                                                   |
+| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format_type is text                                                                           |
+| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format_type is text                                                                           |
+| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                                                                           |
+| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                                                                             |
+| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                             |
+| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                                                                             |
+| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                                         |
+| is_enable_transaction            | boolean | no       | true                                       |                                                                                                                   |
+| batch_size                       | int     | no       | 1000000                                    |                                                                                                                   |
+| compress_codec                   | string  | no       | none                                       |                                                                                                                   |
+| common-options                   | object  | no       | -                                          |                                                                                                                   |
+| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                                                                         |
+| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                         |
 
 ### host [string]
 
@@ -109,7 +110,7 @@ We supported as the following file types:
 
 `text` `json` `csv` `orc` `parquet` `excel`
 
-Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
+Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
 ### field_delimiter [string]
 
@@ -197,7 +198,8 @@ SftpFile {
     port = 22
     username = "username"
     password = "password"
-    path = "/data/sftp"
+    path = "/data/sftp/seatunnel/job1"
+    tmp_path = "/data/sftp/seatunnel/tmp"
     file_format_type = "text"
     field_delimiter = "\t"
     row_delimiter = "\n"
@@ -219,13 +221,13 @@ SftpFile {
 ### 2.3.0 2022-12-30
 
 - Add SftpFile Sink Connector
-- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
+- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/seatunnel/pull/3258))
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
-- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
+- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
 
 ### Next version
 
-- [Improve] Support file compress ([3899](https://github.com/apache/incubator-seatunnel/pull/3899))
+- [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
 

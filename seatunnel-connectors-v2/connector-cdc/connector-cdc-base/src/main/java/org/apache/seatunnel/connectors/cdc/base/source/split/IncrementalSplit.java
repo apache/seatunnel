@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.split;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 
 import io.debezium.relational.TableId;
@@ -43,16 +44,39 @@ public class IncrementalSplit extends SourceSplitBase {
      */
     private final List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos;
 
+    private final SeaTunnelDataType checkpointDataType;
+
     public IncrementalSplit(
             String splitId,
             List<TableId> capturedTables,
             Offset startupOffset,
             Offset stopOffset,
             List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos) {
+        this(splitId, capturedTables, startupOffset, stopOffset, completedSnapshotSplitInfos, null);
+    }
+
+    public IncrementalSplit(IncrementalSplit split, SeaTunnelDataType checkpointDataType) {
+        this(
+                split.splitId(),
+                split.getTableIds(),
+                split.getStartupOffset(),
+                split.getStopOffset(),
+                split.getCompletedSnapshotSplitInfos(),
+                checkpointDataType);
+    }
+
+    public IncrementalSplit(
+            String splitId,
+            List<TableId> capturedTables,
+            Offset startupOffset,
+            Offset stopOffset,
+            List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos,
+            SeaTunnelDataType checkpointDataType) {
         super(splitId);
         this.tableIds = capturedTables;
         this.startupOffset = startupOffset;
         this.stopOffset = stopOffset;
         this.completedSnapshotSplitInfos = completedSnapshotSplitInfos;
+        this.checkpointDataType = checkpointDataType;
     }
 }

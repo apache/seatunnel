@@ -37,9 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConn
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.engine.common.Constant;
 
 import org.apache.rocketmq.client.consumer.DefaultLitePullConsumer;
@@ -79,10 +77,6 @@ import java.util.UUID;
 import static org.apache.seatunnel.e2e.connector.rocketmq.RocketMqContainer.NAMESRV_PORT;
 
 @Slf4j
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SEATUNNEL},
-        disabledReason = "There is some problem on Zeta Engine for RocketMQ e2e")
 public class RocketMqIT extends TestSuiteBase implements TestResource {
 
     private static final String IMAGE = "apache/rocketmq:4.9.4";
@@ -288,7 +282,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     }
 
     @SneakyThrows
-    @SuppressWarnings("checkstyle:Indentation")
     private void generateTestData(
             ProducerRecordConverter converter, String topic, int start, int end) {
         for (int i = start; i < end; i++) {

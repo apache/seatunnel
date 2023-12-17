@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.selectdb.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -26,7 +27,6 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -59,6 +59,7 @@ public class SelectDBSink
                 SeaTunnelRow, SelectDBSinkState, SelectDBCommitInfo, SelectDBCommitInfo> {
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
+    private String jobId;
 
     @Override
     public String getPluginName() {
@@ -86,32 +87,32 @@ public class SelectDBSink
     }
 
     @Override
+    public void setJobContext(JobContext jobContext) {
+        this.jobId = jobContext.getJobId();
+    }
+
+    @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return this.seaTunnelRowType;
-    }
-
-    @Override
     public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
-        SelectDBSinkWriter dorisWriter =
+        SelectDBSinkWriter selectDBSinkWriter =
                 new SelectDBSinkWriter(
-                        context, Collections.emptyList(), seaTunnelRowType, pluginConfig);
-        dorisWriter.initializeLoad(Collections.emptyList());
-        return dorisWriter;
+                        context, Collections.emptyList(), seaTunnelRowType, pluginConfig, jobId);
+        selectDBSinkWriter.initializeLoad(Collections.emptyList());
+        return selectDBSinkWriter;
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> restoreWriter(
             SinkWriter.Context context, List<SelectDBSinkState> states) throws IOException {
-        SelectDBSinkWriter dorisWriter =
-                new SelectDBSinkWriter(context, states, seaTunnelRowType, pluginConfig);
-        dorisWriter.initializeLoad(states);
-        return dorisWriter;
+        SelectDBSinkWriter selectDBSinkWriter =
+                new SelectDBSinkWriter(context, states, seaTunnelRowType, pluginConfig, jobId);
+        selectDBSinkWriter.initializeLoad(states);
+        return selectDBSinkWriter;
     }
 
     @Override

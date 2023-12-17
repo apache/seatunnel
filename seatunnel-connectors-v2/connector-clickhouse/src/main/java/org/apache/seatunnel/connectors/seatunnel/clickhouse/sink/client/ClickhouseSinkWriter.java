@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
@@ -90,6 +90,14 @@ public class ClickhouseSinkWriter
 
     @Override
     public Optional<CKCommitInfo> prepareCommit() throws IOException {
+        for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
+            JdbcBatchStatementExecutor statement = batchStatement.getJdbcBatchStatementExecutor();
+            IntHolder intHolder = batchStatement.getIntHolder();
+            if (intHolder.getValue() > 0) {
+                flush(statement);
+                intHolder.setValue(0);
+            }
+        }
         return Optional.empty();
     }
 
@@ -99,6 +107,32 @@ public class ClickhouseSinkWriter
     @Override
     public void close() throws IOException {
         this.proxy.close();
+        flush();
+    }
+
+    private void addIntoBatch(SeaTunnelRow row, JdbcBatchStatementExecutor clickHouseStatement) {
+        try {
+            clickHouseStatement.addToBatch(row);
+        } catch (SQLException e) {
+            throw new ClickhouseConnectorException(
+                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                    "Add row data into batch error",
+                    e);
+        }
+    }
+
+    private void flush(JdbcBatchStatementExecutor clickHouseStatement) {
+        try {
+            clickHouseStatement.executeBatch();
+        } catch (Exception e) {
+            throw new ClickhouseConnectorException(
+                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                    "Clickhouse execute batch statement error",
+                    e);
+        }
+    }
+
+    private void flush() {
         for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
             try (ClickHouseConnectionImpl needClosedConnection =
                             batchStatement.getClickHouseConnection();
@@ -111,30 +145,10 @@ public class ClickhouseSinkWriter
                 }
             } catch (SQLException e) {
                 throw new ClickhouseConnectorException(
-                        CommonErrorCode.SQL_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
                         "Failed to close prepared statement.",
                         e);
             }
-        }
-    }
-
-    private void addIntoBatch(SeaTunnelRow row, JdbcBatchStatementExecutor clickHouseStatement) {
-        try {
-            clickHouseStatement.addToBatch(row);
-        } catch (SQLException e) {
-            throw new ClickhouseConnectorException(
-                    CommonErrorCode.SQL_OPERATION_FAILED, "Add row data into batch error", e);
-        }
-    }
-
-    private void flush(JdbcBatchStatementExecutor clickHouseStatement) {
-        try {
-            clickHouseStatement.executeBatch();
-        } catch (Exception e) {
-            throw new ClickhouseConnectorException(
-                    CommonErrorCode.FLUSH_DATA_FAILED,
-                    "Clickhouse execute batch statement error",
-                    e);
         }
     }
 
@@ -182,7 +196,7 @@ public class ClickhouseSinkWriter
                                 result.put(s, batchStatement);
                             } catch (SQLException e) {
                                 throw new ClickhouseConnectorException(
-                                        CommonErrorCode.SQL_OPERATION_FAILED,
+                                        CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
                                         "Clickhouse prepare statement error: " + e.getMessage(),
                                         e);
                             }
@@ -203,7 +217,8 @@ public class ClickhouseSinkWriter
             }
             return false;
         } catch (SQLException e) {
-            throw new ClickhouseConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, e);
+            log.warn("Failed to get clickhouse server config: {}", configKey, e);
+            return false;
         }
     }
 }

@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSemantics;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
@@ -140,7 +140,9 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             kafkaProducerSender.close();
         } catch (Exception e) {
             throw new KafkaConnectorException(
-                    CommonErrorCode.WRITER_OPERATION_FAILED, "Close kafka sink writer error", e);
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                    "Close kafka sink writer error",
+                    e);
         }
     }
 
@@ -224,7 +226,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             for (String partitionKeyField : partitionKeyFields) {
                 if (!rowTypeFieldNames.contains(partitionKeyField)) {
                     throw new KafkaConnectorException(
-                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                             String.format(
                                     "Partition key field not found: %s, rowType: %s",
                                     partitionKeyField, rowTypeFieldNames));

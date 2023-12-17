@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.serialization;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -64,7 +65,7 @@ public abstract class RowConverter<T> implements Serializable {
                                 fieldType.getTypeClass()));
             }
         }
-        if (errors.size() > 0) {
+        if (!errors.isEmpty()) {
             throw new UnsupportedOperationException(String.join(",", errors));
         }
     }
@@ -88,20 +89,38 @@ public abstract class RowConverter<T> implements Serializable {
             case STRING:
             case DECIMAL:
             case BYTES:
-            case ARRAY:
                 return dataType.getTypeClass() == field.getClass();
+            case ARRAY:
+                if (!(field instanceof Object[])) {
+                    return false;
+                }
+                ArrayType<?, ?> arrayType = (ArrayType<?, ?>) dataType;
+                Object[] arrayField = (Object[]) field;
+                if (arrayField.length == 0) {
+                    return true;
+                } else {
+                    return validate(arrayField[0], arrayType.getElementType());
+                }
             case MAP:
                 if (!(field instanceof Map)) {
                     return false;
                 }
                 MapType<?, ?> mapType = (MapType<?, ?>) dataType;
                 Map<?, ?> mapField = (Map<?, ?>) field;
-                if (mapField.size() == 0) {
+                if (mapField.isEmpty()) {
                     return true;
                 } else {
                     Map.Entry<?, ?> entry = mapField.entrySet().stream().findFirst().get();
-                    return validate(entry.getKey(), mapType.getKeyType())
-                            && validate(entry.getValue(), mapType.getValueType());
+                    Object key = entry.getKey();
+                    if (key instanceof scala.Some) {
+                        key = ((scala.Some<?>) key).get();
+                    }
+                    Object value = entry.getValue();
+                    if (value instanceof scala.Some) {
+                        value = ((scala.Some<?>) value).get();
+                    }
+                    return validate(key, mapType.getKeyType())
+                            && validate(value, mapType.getValueType());
                 }
             case ROW:
                 if (!(field instanceof SeaTunnelRow)) {

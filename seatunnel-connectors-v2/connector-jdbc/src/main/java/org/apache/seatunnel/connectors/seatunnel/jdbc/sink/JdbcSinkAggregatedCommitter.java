@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.GroupXaOperationResult;
@@ -28,11 +28,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOpsImpl
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class JdbcSinkAggregatedCommitter
         implements SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo> {
 
@@ -53,7 +56,7 @@ public class JdbcSinkAggregatedCommitter
                 xaFacade.open();
             } catch (Exception e) {
                 throw new JdbcConnectorException(
-                        CommonErrorCode.WRITER_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                         "unable to open JDBC sink aggregated committer",
                         e);
             }
@@ -67,6 +70,7 @@ public class JdbcSinkAggregatedCommitter
         return aggregatedCommitInfos.stream()
                 .map(
                         aggregatedCommitInfo -> {
+                            log.info("commit xid: " + aggregatedCommitInfo.getXidInfoList());
                             GroupXaOperationResult<XidInfo> result =
                                     xaGroupOps.commit(
                                             new ArrayList<>(aggregatedCommitInfo.getXidInfoList()),
@@ -101,7 +105,7 @@ public class JdbcSinkAggregatedCommitter
             }
         } catch (Exception e) {
             throw new JdbcConnectorException(
-                    CommonErrorCode.WRITER_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                     "unable to close JDBC sink aggregated committer",
                     e);
         }

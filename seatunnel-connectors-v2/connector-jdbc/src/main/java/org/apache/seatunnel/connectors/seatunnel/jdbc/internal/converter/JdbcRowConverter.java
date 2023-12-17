@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import java.io.Serializable;
 import java.sql.PreparedStatement;
@@ -26,7 +26,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
- * Converter that is responsible to convert between JDBC object and Seatunnel data structure {@link
+ * Converter that is responsible to convert between JDBC object and SeaTunnel data structure {@link
  * SeaTunnelRow}.
  */
 public interface JdbcRowConverter extends Serializable {
@@ -36,9 +36,9 @@ public interface JdbcRowConverter extends Serializable {
      *
      * @param rs ResultSet from JDBC
      */
-    SeaTunnelRow toInternal(ResultSet rs, SeaTunnelRowType typeInfo) throws SQLException;
+    SeaTunnelRow toInternal(ResultSet rs, TableSchema tableSchema) throws SQLException;
 
     PreparedStatement toExternal(
-            SeaTunnelRowType rowType, SeaTunnelRow row, PreparedStatement statement)
+            TableSchema tableSchema, SeaTunnelRow row, PreparedStatement statement)
             throws SQLException;
 }

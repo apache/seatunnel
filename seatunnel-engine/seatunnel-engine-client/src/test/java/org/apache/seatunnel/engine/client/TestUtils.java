@@ -23,9 +23,12 @@ import org.apache.seatunnel.engine.core.job.JobStatusData;
 
 import org.junit.jupiter.api.Test;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 public class TestUtils {
     public static String getResource(String confFile) {
         return System.getProperty("user.dir") + "/src/test/resources/" + confFile;
@@ -43,7 +46,7 @@ public class TestUtils {
                     new JobStatusData(
                             4352352414135L + i,
                             "Testfdsafew" + i,
-                            JobStatus.CANCELLING,
+                            JobStatus.CANCELING,
                             System.currentTimeMillis(),
                             System.currentTimeMillis()));
             Thread.sleep(2L);
@@ -53,7 +56,7 @@ public class TestUtils {
                     new JobStatusData(
                             4352352414135L + i,
                             "fdsafsddfasfsdafasdf" + i,
-                            JobStatus.RECONCILING,
+                            JobStatus.UNKNOWABLE,
                             System.currentTimeMillis(),
                             null));
             Thread.sleep(2L);
@@ -67,6 +70,6 @@ public class TestUtils {
                     return s1.getSubmitTime() > s2.getSubmitTime() ? -1 : 1;
                 });
         String r = ContentFormatUtil.format(statusDataList);
-        System.out.println(r);
+        log.info(r);
     }
 }

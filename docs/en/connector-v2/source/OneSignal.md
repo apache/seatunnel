@@ -17,23 +17,24 @@ Used to read data from OneSignal.
 
 ## Options
 
-|            name             |  type  | required | default value |
-|-----------------------------|--------|----------|---------------|
-| url                         | String | Yes      | -             |
-| password                    | String | Yes      | -             |
-| method                      | String | No       | get           |
-| schema                      | Config | No       | -             |
-| schema.fields               | Config | No       | -             |
-| format                      | String | No       | json          |
-| params                      | Map    | No       | -             |
-| body                        | String | No       | -             |
-| json_field                  | Config | No       | -             |
-| content_json                | String | No       | -             |
-| poll_interval_ms            | int    | No       | -             |
-| retry                       | int    | No       | -             |
-| retry_backoff_multiplier_ms | int    | No       | 100           |
-| retry_backoff_max_ms        | int    | No       | 10000         |
-| common-options              | config | No       | -             |
+|            name             |  type   | required | default value |
+|-----------------------------|---------|----------|---------------|
+| url                         | String  | Yes      | -             |
+| password                    | String  | Yes      | -             |
+| method                      | String  | No       | get           |
+| schema                      | Config  | No       | -             |
+| schema.fields               | Config  | No       | -             |
+| format                      | String  | No       | json          |
+| params                      | Map     | No       | -             |
+| body                        | String  | No       | -             |
+| json_field                  | Config  | No       | -             |
+| content_json                | String  | No       | -             |
+| poll_interval_millis        | int     | No       | -             |
+| retry                       | int     | No       | -             |
+| retry_backoff_multiplier_ms | int     | No       | 100           |
+| retry_backoff_max_ms        | int     | No       | 10000         |
+| enable_multi_lines          | boolean | No       | false         |
+| common-options              | config  | No       | -             |
 
 ### url [String]
 
@@ -57,7 +58,7 @@ http params
 
 http body
 
-### poll_interval_ms [int]
+### poll_interval_millis [int]
 
 request http api interval(millis) in stream mode
 
@@ -279,7 +280,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 OneSignal {
     url = "https://onesignal.com/api/v1/apps"
-    password = "Seatunnel-test"
+    password = "SeaTunnel-test"
     schema = {
        fields {
          id = string
@@ -322,5 +323,5 @@ OneSignal {
 ### next version
 
 - Add OneSignal Source Connector
-- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/incubator-seatunnel/pull/3510))
+- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/seatunnel/pull/3510))
 

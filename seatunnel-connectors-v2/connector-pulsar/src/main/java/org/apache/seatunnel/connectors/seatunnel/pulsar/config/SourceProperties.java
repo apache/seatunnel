@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
@@ -167,6 +169,27 @@ public class SourceProperties {
                     .longType()
                     .noDefaultValue()
                     .withDescription("Stop from the specified epoch timestamp (in milliseconds)");
+
+    public static final Option<Config> SCHEMA =
+            Options.key("schema")
+                    .objectType(Config.class)
+                    .noDefaultValue()
+                    .withDescription(
+                            "The structure of the data, including field names and field types.");
+
+    public static final Option<String> FORMAT =
+            Options.key("format")
+                    .stringType()
+                    .defaultValue("JSON")
+                    .withDescription(
+                            "Data format. The default format is json. Optional text format. The default field separator is \", \". "
+                                    + "If you customize the delimiter, add the \"field_delimiter\" option.");
+
+    public static final Option<String> FIELD_DELIMITER =
+            Options.key("field_delimiter")
+                    .stringType()
+                    .defaultValue(",")
+                    .withDescription("Customize the field delimiter for data format.");
 
     /** Startup mode for the pulsar consumer, see {@link #CURSOR_STARTUP_MODE}. */
     public enum StartMode {

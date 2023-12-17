@@ -1,7 +1,7 @@
 ## 目的
 
 SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过这篇文章来介绍新的接口以及新的代码结构，方便开发者快速上手使用新版API开发连接器并理解新版API运行原理.
-详细设计请查看该[提议](https://github.com/apache/incubator-seatunnel/issues/1608) 。
+详细设计请查看该[提议](https://github.com/apache/seatunnel/issues/1608) 。
 
 ## 代码结构
 

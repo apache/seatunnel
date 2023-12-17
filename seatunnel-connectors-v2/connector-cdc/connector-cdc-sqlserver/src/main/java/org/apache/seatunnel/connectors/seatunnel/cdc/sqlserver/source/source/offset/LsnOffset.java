@@ -61,8 +61,8 @@ public class LsnOffset extends Offset {
         return Lsn.valueOf(offset.get(SourceInfo.COMMIT_LSN_KEY));
     }
 
-    public Long getEventSerialNo() {
-        return Long.valueOf(offset.get(SourceInfo.EVENT_SERIAL_NO_KEY));
+    public Object getEventSerialNo() {
+        return offset.get(SourceInfo.EVENT_SERIAL_NO_KEY);
     }
 
     public int compareTo(Offset o) {

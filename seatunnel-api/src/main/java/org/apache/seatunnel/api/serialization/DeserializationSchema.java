@@ -35,13 +35,9 @@ public interface DeserializationSchema<T> extends Serializable {
     T deserialize(byte[] message) throws IOException;
 
     default void deserialize(byte[] message, Collector<T> out) throws IOException {
-        try {
-            T deserialize = deserialize(message);
-            if (deserialize != null) {
-                out.collect(deserialize);
-            }
-        } catch (IOException e) {
-            throw new IOException(e);
+        T deserialize = deserialize(message);
+        if (deserialize != null) {
+            out.collect(deserialize);
         }
     }
 

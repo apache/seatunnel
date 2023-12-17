@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.engine.server.metrics;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.SerializationFeature;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.Measurement;
 import org.apache.seatunnel.api.common.metrics.MetricTags;
@@ -35,9 +40,12 @@ import java.util.Map;
 import java.util.function.UnaryOperator;
 
 import static org.apache.seatunnel.api.common.metrics.MetricTags.ADDRESS;
+import static org.apache.seatunnel.api.common.metrics.MetricTags.JOB_ID;
 import static org.apache.seatunnel.api.common.metrics.MetricTags.MEMBER;
 
 public final class JobMetricsUtil {
+
+    private static ObjectMapper OBJECTMAPPER = new ObjectMapper();
 
     private JobMetricsUtil() {}
 
@@ -66,6 +74,78 @@ public final class JobMetricsUtil {
             MetricsCompressor.extractMetrics(metrics.getBlob(), consumer);
         }
         return JobMetrics.of(consumer.metrics);
+    }
+
+    public static String toJsonString(Object o) {
+        OBJECTMAPPER.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        try {
+            return OBJECTMAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(o);
+        } catch (JsonProcessingException e) {
+            ObjectNode objectNode = OBJECTMAPPER.createObjectNode();
+            objectNode.put("err", "serialize JobMetrics err");
+            return objectNode.toString();
+        }
+    }
+
+    public static Map<Long, JobMetrics> toJobMetricsMap(List<RawJobMetrics> rawJobMetrics) {
+        metricsConsumer consumer = new metricsConsumer();
+        for (RawJobMetrics metrics : rawJobMetrics) {
+            if (metrics.getBlob() == null) {
+                continue;
+            }
+            consumer.timestamp = metrics.getTimestamp();
+            MetricsCompressor.extractMetrics(metrics.getBlob(), consumer);
+        }
+
+        Map<Long, JobMetrics> jobMetricsMap = MapUtil.createHashMap(consumer.metrics.size());
+        consumer.metrics.forEach(
+                (jobId, metrics) -> {
+                    jobMetricsMap.put(jobId, JobMetrics.of(metrics));
+                });
+
+        return jobMetricsMap;
+    }
+
+    private static class metricsConsumer implements MetricConsumer {
+
+        final Map<Long, Map<String, List<Measurement>>> metrics = new HashMap<>();
+        long timestamp;
+
+        @Override
+        public void consumeLong(MetricDescriptor descriptor, long value) {
+
+            String jobId = descriptor.tagValue(JOB_ID);
+            if (jobId == null) {
+                return;
+            }
+            long jobIdLong = Long.parseLong(jobId);
+            metrics.computeIfAbsent(jobIdLong, k -> new HashMap<>())
+                    .computeIfAbsent(descriptor.metric(), k -> new ArrayList<>())
+                    .add(measurement(descriptor, value));
+        }
+
+        @Override
+        public void consumeDouble(MetricDescriptor descriptor, double value) {
+            String jobId = descriptor.tagValue(JOB_ID);
+            if (jobId == null) {
+                return;
+            }
+            long jobIdLong = Long.parseLong(jobId);
+            metrics.computeIfAbsent(jobIdLong, k -> new HashMap<>())
+                    .computeIfAbsent(descriptor.metric(), k -> new ArrayList<>())
+                    .add(measurement(descriptor, value));
+        }
+
+        private Measurement measurement(MetricDescriptor descriptor, Object value) {
+            Map<String, String> tags = MapUtil.createHashMap(descriptor.tagCount());
+            for (int i = 0; i < descriptor.tagCount(); i++) {
+                tags.put(descriptor.tag(i), descriptor.tagValue(i));
+            }
+            if (descriptor.discriminator() != null || descriptor.discriminatorValue() != null) {
+                tags.put(descriptor.discriminator(), descriptor.discriminatorValue());
+            }
+            return Measurement.of(descriptor.metric(), value, timestamp, tags);
+        }
     }
 
     private static class JobMetricsConsumer implements MetricConsumer {

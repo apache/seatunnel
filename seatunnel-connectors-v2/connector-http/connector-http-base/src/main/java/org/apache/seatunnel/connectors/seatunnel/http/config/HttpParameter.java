@@ -37,6 +37,7 @@ public class HttpParameter implements Serializable {
     protected int retry;
     protected int retryBackoffMultiplierMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS;
     protected int retryBackoffMaxMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MAX_MS;
+    protected boolean enableMultilines;
 
     public void buildWithConfig(Config pluginConfig) {
         // set url
@@ -78,6 +79,12 @@ public class HttpParameter implements Serializable {
             this.setPollIntervalMillis(pluginConfig.getInt(HttpConfig.POLL_INTERVAL_MILLS.key()));
         }
         this.setRetryParameters(pluginConfig);
+        // set enableMultilines
+        if (pluginConfig.hasPath(HttpConfig.ENABLE_MULTI_LINES.key())) {
+            this.setEnableMultilines(pluginConfig.getBoolean(HttpConfig.ENABLE_MULTI_LINES.key()));
+        } else {
+            this.setEnableMultilines(HttpConfig.ENABLE_MULTI_LINES.defaultValue());
+        }
     }
 
     public void setRetryParameters(Config pluginConfig) {

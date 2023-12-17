@@ -28,7 +28,6 @@ import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDB
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.URL;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig.BATCH_INTERVAL_MS;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig.BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig.KEY_MEASUREMENT;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig.KEY_TAGS;
@@ -54,7 +53,6 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
                         KEY_TAGS,
                         KEY_TIME,
                         BATCH_SIZE,
-                        BATCH_INTERVAL_MS,
                         MAX_RETRIES,
                         RETRY_BACKOFF_MULTIPLIER_MS)
                 .build();

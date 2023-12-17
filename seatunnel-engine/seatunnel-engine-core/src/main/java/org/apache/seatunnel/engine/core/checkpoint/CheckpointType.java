@@ -22,6 +22,12 @@ public enum CheckpointType {
     /** Automatically triggered by the CheckpointCoordinator. */
     CHECKPOINT_TYPE(true, "checkpoint"),
 
+    /** Automatically triggered by the schema change. */
+    SCHEMA_CHANGE_BEFORE_POINT_TYPE(true, "schema-change-before-point"),
+
+    /** Automatically triggered by the schema change. */
+    SCHEMA_CHANGE_AFTER_POINT_TYPE(true, "schema-change-after-point"),
+
     /** Triggered by the user. */
     SAVEPOINT_TYPE(false, "savepoint"),
 
@@ -30,6 +36,15 @@ public enum CheckpointType {
 
     private final boolean auto;
     private final String name;
+
+    public static CheckpointType fromName(String name) {
+        for (CheckpointType type : CheckpointType.values()) {
+            if (type.name.equals(name)) {
+                return type;
+            }
+        }
+        throw new IllegalArgumentException("Unknown checkpoint type: " + name);
+    }
 
     CheckpointType(boolean auto, String name) {
         this.auto = auto;
@@ -42,5 +57,41 @@ public enum CheckpointType {
 
     public String getName() {
         return name;
+    }
+
+    public boolean isFinalCheckpoint() {
+        return this == COMPLETED_POINT_TYPE || this == SAVEPOINT_TYPE;
+    }
+
+    public boolean isSchemaChangeCheckpoint() {
+        return isSchemaChangeBeforeCheckpoint() || isSchemaChangeAfterCheckpoint();
+    }
+
+    public boolean isSchemaChangeBeforeCheckpoint() {
+        return this == SCHEMA_CHANGE_BEFORE_POINT_TYPE;
+    }
+
+    public boolean isSchemaChangeAfterCheckpoint() {
+        return this == SCHEMA_CHANGE_AFTER_POINT_TYPE;
+    }
+
+    public boolean isSavepoint() {
+        return this == SAVEPOINT_TYPE;
+    }
+
+    public boolean isGeneralCheckpoint() {
+        return this == CHECKPOINT_TYPE;
+    }
+
+    public boolean notFinalCheckpoint() {
+        return isGeneralCheckpoint() || isSchemaChangeCheckpoint();
+    }
+
+    public boolean notSchemaChangeCheckpoint() {
+        return !isSchemaChangeCheckpoint();
+    }
+
+    public boolean notCompletedCheckpoint() {
+        return this != COMPLETED_POINT_TYPE;
     }
 }

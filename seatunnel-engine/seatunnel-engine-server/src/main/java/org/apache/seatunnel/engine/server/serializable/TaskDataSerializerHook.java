@@ -24,10 +24,13 @@ import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecutingOperation;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
+import org.apache.seatunnel.engine.server.task.operation.DeleteConnectorJarInExecutionNode;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
+import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
+import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMemberNodeOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.CloseRequestOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
@@ -88,6 +91,12 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int SOURCE_READER_EVENT_OPERATOR = 20;
 
     public static final int CHECK_TASKGROUP_IS_EXECUTING = 21;
+
+    public static final int GET_METRICS_OPERATION = 22;
+
+    public static final int SEND_CONNECTOR_JAR_TO_MEMBER_NODE_OPERATION = 23;
+
+    public static final int DELETE_CONNECTOR_JAR_IN_EXECUTION_NODE = 24;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -151,6 +160,12 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new SourceReaderEventOperation();
                 case CHECK_TASKGROUP_IS_EXECUTING:
                     return new CheckTaskGroupIsExecutingOperation();
+                case GET_METRICS_OPERATION:
+                    return new GetMetricsOperation();
+                case SEND_CONNECTOR_JAR_TO_MEMBER_NODE_OPERATION:
+                    return new SendConnectorJarToMemberNodeOperation();
+                case DELETE_CONNECTOR_JAR_IN_EXECUTION_NODE:
+                    return new DeleteConnectorJarInExecutionNode();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

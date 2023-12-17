@@ -86,7 +86,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class CassandraIT extends TestSuiteBase implements TestResource {
-    private static final String CASSANDRA_DOCKER_IMAGE = "cassandra";
+    private static final String CASSANDRA_DOCKER_IMAGE = "cassandra:4.1.1";
     private static final String HOST = "cassandra";
     private static final Integer PORT = 9042;
     private static final String INIT_CASSANDRA_PATH = "/init/cassandra_init.conf";

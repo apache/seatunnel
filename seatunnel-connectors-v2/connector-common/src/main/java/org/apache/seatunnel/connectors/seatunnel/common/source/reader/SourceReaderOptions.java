@@ -31,7 +31,7 @@ public class SourceReaderOptions {
     public static final Option<Long> SOURCE_READER_CLOSE_TIMEOUT =
             Options.key("source.reader.close.timeout")
                     .longType()
-                    .defaultValue(30000L)
+                    .defaultValue(60000L)
                     .withDescription("The timeout when closing the source reader");
 
     public static final Option<Integer> ELEMENT_QUEUE_CAPACITY =

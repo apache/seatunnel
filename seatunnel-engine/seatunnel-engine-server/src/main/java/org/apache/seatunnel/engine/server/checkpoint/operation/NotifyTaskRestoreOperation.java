@@ -91,11 +91,33 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
                     Task task = groupContext.getTaskGroup().getTask(taskLocation.getTaskID());
                     try {
                         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-                        Thread.currentThread().setContextClassLoader(groupContext.getClassLoader());
-                        log.debug("NotifyTaskRestoreOperation.restoreState " + restoredState);
-                        task.restoreState(restoredState);
-                        log.debug("NotifyTaskRestoreOperation.finished " + restoredState);
-                        Thread.currentThread().setContextClassLoader(classLoader);
+                        task.getExecutionContext()
+                                .getTaskExecutionService()
+                                .asyncExecuteFunction(
+                                        taskLocation.getTaskGroupLocation(),
+                                        () -> {
+                                            Thread.currentThread()
+                                                    .setContextClassLoader(
+                                                            groupContext.getClassLoader());
+                                            try {
+                                                log.debug(
+                                                        "NotifyTaskRestoreOperation.restoreState "
+                                                                + restoredState);
+                                                task.restoreState(restoredState);
+                                                log.debug(
+                                                        "NotifyTaskRestoreOperation.finished "
+                                                                + restoredState);
+                                            } catch (Throwable e) {
+                                                task.getExecutionContext()
+                                                        .sendToMaster(
+                                                                new CheckpointErrorReportOperation(
+                                                                        taskLocation, e));
+                                            } finally {
+                                                Thread.currentThread()
+                                                        .setContextClassLoader(classLoader);
+                                            }
+                                        });
+
                     } catch (Exception e) {
                         throw new SeaTunnelException(e);
                     }

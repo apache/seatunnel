@@ -53,7 +53,11 @@ public class Constant {
 
     public static final String IMAP_OWNED_SLOT_PROFILES = "engine_ownedSlotProfilesIMap";
 
-    public static final String IMAP_CHECKPOINT_ID = "engine_checkpoint-id-%d";
+    public static final String IMAP_CHECKPOINT_ID = "engine_checkpoint-id-map";
 
     public static final String IMAP_RUNNING_JOB_METRICS = "engine_runningJobMetrics";
+
+    public static final Long IMAP_RUNNING_JOB_METRICS_KEY = 1L;
+
+    public static final String IMAP_CONNECTOR_JAR_REF_COUNTERS = "engine_connectorJarRefCounters";
 }

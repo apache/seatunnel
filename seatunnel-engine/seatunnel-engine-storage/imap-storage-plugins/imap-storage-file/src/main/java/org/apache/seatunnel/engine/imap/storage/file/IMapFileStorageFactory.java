@@ -24,13 +24,9 @@ import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 
-import org.apache.hadoop.conf.Configuration;
-
 import com.google.auto.service.AutoService;
 
 import java.util.Map;
-
-import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.HDFS_CONFIG_KEY;
 
 @AutoService(IMapStorageFactory.class)
 public class IMapFileStorageFactory implements IMapStorageFactory {
@@ -42,9 +38,6 @@ public class IMapFileStorageFactory implements IMapStorageFactory {
     @Override
     public IMapStorage create(Map<String, Object> initMap) throws IMapStorageException {
         IMapFileStorage iMapFileStorage = new IMapFileStorage();
-        Configuration configuration = new Configuration();
-        configuration.set("fs.defaultFS", (String) initMap.get("fs.defaultFS"));
-        initMap.put(HDFS_CONFIG_KEY, configuration);
         iMapFileStorage.initialize(initMap);
         return iMapFileStorage;
     }

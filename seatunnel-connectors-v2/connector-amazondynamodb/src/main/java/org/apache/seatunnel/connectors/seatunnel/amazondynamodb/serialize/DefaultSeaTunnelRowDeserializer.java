@@ -22,8 +22,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.exception.AmazonDynamoDBConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
 
 import lombok.AllArgsConstructor;
 import software.amazon.awssdk.core.SdkBytes;
@@ -58,12 +57,13 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         for (int i = 0; i < seaTunnelDataTypes.length; i++) {
             SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[i];
             AttributeValue attributeValue = item.get(fieldNames[i]);
-            fields.add(convert(seaTunnelDataType, attributeValue));
+            fields.add(convert(fieldNames[i], seaTunnelDataType, attributeValue));
         }
         return fields;
     }
 
-    private Object convert(SeaTunnelDataType<?> seaTunnelDataType, AttributeValue attributeValue) {
+    private Object convert(
+            String field, SeaTunnelDataType<?> seaTunnelDataType, AttributeValue attributeValue) {
         if (attributeValue.type().equals(AttributeValue.Type.NUL)) {
             return null;
         }
@@ -106,6 +106,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                                     seatunnelMap.put(
                                             s,
                                             convert(
+                                                    field,
                                                     ((MapType) seaTunnelDataType).getValueType(),
                                                     attributeValueInfo));
                                 });
@@ -125,6 +126,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                                 array,
                                 index,
                                 convert(
+                                        field,
                                         ((ArrayType<?, ?>) seaTunnelDataType).getElementType(),
                                         datas.get(index)));
                     }
@@ -146,9 +148,8 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 }
                 return array;
             default:
-                throw new AmazonDynamoDBConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported data type: " + seaTunnelDataType);
+                throw CommonError.convertToSeaTunnelTypeError(
+                        "AmazonDynamodb", seaTunnelDataType.getSqlType().toString(), field);
         }
     }
 }

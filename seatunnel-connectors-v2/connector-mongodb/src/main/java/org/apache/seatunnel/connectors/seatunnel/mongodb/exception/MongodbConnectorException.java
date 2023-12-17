@@ -30,8 +30,4 @@ public class MongodbConnectorException extends SeaTunnelRuntimeException {
             SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
-
-    public MongodbConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
-        super(seaTunnelErrorCode, cause);
-    }
 }

@@ -165,7 +165,20 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                                         while (flag.get()) {
                                             try {
                                                 reader.pollNext(collector);
-                                                Thread.sleep(SLEEP_TIME_INTERVAL);
+                                                if (collector.isEmptyThisPollNext()) {
+                                                    Thread.sleep(100);
+                                                } else {
+                                                    collector.resetEmptyThisPollNext();
+                                                    /**
+                                                     * sleep(0) is used to prevent the current
+                                                     * thread from occupying CPU resources for a
+                                                     * long time, thus blocking the checkpoint
+                                                     * thread for a long time. It is mentioned in
+                                                     * this
+                                                     * https://github.com/apache/seatunnel/issues/5694
+                                                     */
+                                                    Thread.sleep(0L);
+                                                }
                                             } catch (Exception e) {
                                                 running = false;
                                                 flag.set(false);

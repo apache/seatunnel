@@ -63,6 +63,22 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
             throws SQLException;
 
     /**
+     * Performs a sampling operation on the specified column of a table in a JDBC-connected
+     * database.
+     *
+     * @param jdbc The JDBC connection object used to connect to the database.
+     * @param tableId The ID of the table in which the column resides.
+     * @param columnName The name of the column to be sampled.
+     * @param samplingRate samplingRate The inverse of the fraction of the data to be sampled from
+     *     the column. For example, a value of 1000 would mean 1/1000 of the data will be sampled.
+     * @return Returns a List of sampled data from the specified column.
+     * @throws SQLException If an SQL error occurs during the sampling operation.
+     */
+    Object[] sampleDataFromColumn(
+            JdbcConnection jdbc, TableId tableId, String columnName, int samplingRate)
+            throws SQLException;
+
+    /**
      * Query the maximum value of the next chunk, and the next chunk must be greater than or equal
      * to <code>includedLowerBound</code> value [min_1, max_1), [min_2, max_2),... [min_n, null).
      * Each time this method is called it will return max1, max2...
@@ -120,6 +136,7 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
             case INT:
             case BIGINT:
             case DECIMAL:
+            case STRING:
                 return true;
             default:
                 return false;

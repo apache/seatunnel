@@ -67,7 +67,7 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [OssFile](connector-v2/source/OssFile.md)                   | Source | Beta   | 2.2.0-beta      |
 | [Phoenix](connector-v2/sink/Phoenix.md)                     | Sink   | Beta   | 2.2.0-beta      |
 | [Phoenix](connector-v2/source/Phoenix.md)                   | Source | Beta   | 2.2.0-beta      |
-| [Pulsar](connector-v2/source/pulsar.md)                     | Source | Beta   | 2.2.0-beta      |
+| [Pulsar](connector-v2/source/Pulsar.md)                     | Source | Beta   | 2.2.0-beta      |
 | [RabbitMQ](connector-v2/sink/Rabbitmq.md)                   | Sink   | Beta   | 2.3.0           |
 | [RabbitMQ](connector-v2/source/Rabbitmq.md)                 | Source | Beta   | 2.3.0           |
 | [Redis](connector-v2/sink/Redis.md)                         | Sink   | Beta   | 2.2.0-beta      |

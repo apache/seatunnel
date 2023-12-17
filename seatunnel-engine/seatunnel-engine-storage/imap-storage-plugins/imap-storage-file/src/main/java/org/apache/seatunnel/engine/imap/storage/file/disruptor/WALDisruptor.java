@@ -22,6 +22,7 @@ package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
 import org.apache.hadoop.fs.FileSystem;
@@ -58,7 +59,11 @@ public class WALDisruptor implements Closeable {
                         event.setRequestId(requestId);
                     };
 
-    public WALDisruptor(FileSystem fs, String parentPath, Serializer serializer) {
+    public WALDisruptor(
+            FileSystem fs,
+            FileConfiguration fileConfiguration,
+            String parentPath,
+            Serializer serializer) {
         // todo should support multi thread producer
         ThreadFactory threadFactory = DaemonThreadFactory.INSTANCE;
         this.disruptor =
@@ -69,7 +74,8 @@ public class WALDisruptor implements Closeable {
                         ProducerType.SINGLE,
                         new BlockingWaitStrategy());
 
-        disruptor.handleEventsWithWorkerPool(new WALWorkHandler(fs, parentPath, serializer));
+        disruptor.handleEventsWithWorkerPool(
+                new WALWorkHandler(fs, fileConfiguration, parentPath, serializer));
 
         disruptor.start();
     }

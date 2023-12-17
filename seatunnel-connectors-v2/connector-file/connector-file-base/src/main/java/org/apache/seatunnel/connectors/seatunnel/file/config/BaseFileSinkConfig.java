@@ -46,6 +46,7 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
     protected DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
     protected DateTimeUtils.Formatter datetimeFormat = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
     protected TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
+    protected Boolean enableHeaderWriter = false;
 
     public BaseFileSinkConfig(@NonNull Config config) {
         if (config.hasPath(BaseSinkConfig.COMPRESS_CODEC.key())) {
@@ -98,6 +99,10 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
         if (config.hasPath(BaseSinkConfig.TIME_FORMAT.key())) {
             timeFormat =
                     TimeUtils.Formatter.parse(config.getString(BaseSinkConfig.TIME_FORMAT.key()));
+        }
+
+        if (config.hasPath(BaseSinkConfig.ENABLE_HEADER_WRITE.key())) {
+            enableHeaderWriter = config.getBoolean(BaseSinkConfig.ENABLE_HEADER_WRITE.key());
         }
     }
 

@@ -109,7 +109,9 @@ public class IncrementalSourceEnumerator
                     (CompletedSnapshotSplitsReportEvent) sourceEvent;
             List<SnapshotSplitWatermark> completedSplitWatermarks =
                     reportEvent.getCompletedSnapshotSplitWatermarks();
-            splitAssigner.onCompletedSplits(completedSplitWatermarks);
+            synchronized (context) {
+                splitAssigner.onCompletedSplits(completedSplitWatermarks);
+            }
 
             // send acknowledge event
             CompletedSnapshotSplitsAckEvent ackEvent =
@@ -153,7 +155,10 @@ public class IncrementalSourceEnumerator
                 continue;
             }
 
-            Optional<SourceSplitBase> split = splitAssigner.getNext();
+            Optional<SourceSplitBase> split;
+            synchronized (context) {
+                split = splitAssigner.getNext();
+            }
             if (split.isPresent()) {
                 final SourceSplitBase sourceSplit = split.get();
                 context.assignSplit(nextAwaiting, sourceSplit);

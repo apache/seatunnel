@@ -45,5 +45,11 @@ public class OptionTest {
         Assertions.assertEquals(
                 TEST_MODE,
                 Options.key("option.mode").enumType(TestMode.class).defaultValue(TestMode.LATEST));
+        Assertions.assertEquals(
+                TEST_NUM.withFallbackKeys("option.numeric"),
+                Options.key("option.num")
+                        .intType()
+                        .defaultValue(100)
+                        .withFallbackKeys("option.numeric"));
     }
 }

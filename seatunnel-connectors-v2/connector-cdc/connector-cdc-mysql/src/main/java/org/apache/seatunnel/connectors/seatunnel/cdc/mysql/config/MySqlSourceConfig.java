@@ -43,6 +43,8 @@ public class MySqlSourceConfig extends JdbcSourceConfig {
             int splitSize,
             double distributionFactorUpper,
             double distributionFactorLower,
+            int sampleShardingThreshold,
+            int inverseSamplingRate,
             Properties dbzProperties,
             String driverClassName,
             String hostname,
@@ -54,7 +56,8 @@ public class MySqlSourceConfig extends JdbcSourceConfig {
             String serverTimeZone,
             long connectTimeoutMillis,
             int connectMaxRetries,
-            int connectionPoolSize) {
+            int connectionPoolSize,
+            boolean exactlyOnce) {
         super(
                 startupConfig,
                 stopConfig,
@@ -63,6 +66,8 @@ public class MySqlSourceConfig extends JdbcSourceConfig {
                 splitSize,
                 distributionFactorUpper,
                 distributionFactorLower,
+                sampleShardingThreshold,
+                inverseSamplingRate,
                 dbzProperties,
                 driverClassName,
                 hostname,
@@ -74,7 +79,8 @@ public class MySqlSourceConfig extends JdbcSourceConfig {
                 serverTimeZone,
                 connectTimeoutMillis,
                 connectMaxRetries,
-                connectionPoolSize);
+                connectionPoolSize,
+                exactlyOnce);
     }
 
     @Override

@@ -25,11 +25,12 @@ import lombok.NonNull;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 public class Options {
 
@@ -73,6 +74,10 @@ public class Options {
         /** Defines that the value of the option should be of {@link Long} type. */
         public TypedOptionBuilder<Long> longType() {
             return new TypedOptionBuilder<>(key, new TypeReference<Long>() {});
+        }
+        /** Defines that the value of the option should be of {@link BigDecimal} type. */
+        public TypedOptionBuilder<BigDecimal> bigDecimalType() {
+            return new TypedOptionBuilder<>(key, new TypeReference<BigDecimal>() {});
         }
 
         /** Defines that the value of the option should be of {@link Float} type. */
@@ -244,7 +249,7 @@ public class Options {
          * @param value The default value for the config option
          * @return The config option with the default value.
          */
-        public Option<T> defaultValue(T value) {
+        public SingleChoiceOption<T> defaultValue(T value) {
             return new SingleChoiceOption<T>(key, typeReference, optionValues, value);
         }
 
@@ -253,7 +258,7 @@ public class Options {
          *
          * @return The config option without a default value.
          */
-        public Option<T> noDefaultValue() {
+        public SingleChoiceOption<T> noDefaultValue() {
             return new SingleChoiceOption<T>(key, typeReference, optionValues, null);
         }
     }

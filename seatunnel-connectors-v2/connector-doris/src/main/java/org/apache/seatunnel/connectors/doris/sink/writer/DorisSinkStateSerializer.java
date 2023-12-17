@@ -32,6 +32,7 @@ public class DorisSinkStateSerializer implements Serializer<DorisSinkState> {
         try (final ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 final DataOutputStream out = new DataOutputStream(baos)) {
             out.writeUTF(dorisSinkState.getLabelPrefix());
+            out.writeLong(dorisSinkState.getCheckpointId());
             out.flush();
             return baos.toByteArray();
         }

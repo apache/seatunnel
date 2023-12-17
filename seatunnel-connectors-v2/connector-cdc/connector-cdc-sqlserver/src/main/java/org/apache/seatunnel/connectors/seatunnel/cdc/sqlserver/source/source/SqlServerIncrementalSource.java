@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
@@ -36,22 +37,16 @@ import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchem
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config.SqlServerSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config.SqlServerSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.offset.LsnOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 
 import com.google.auto.service.AutoService;
-import io.debezium.connector.sqlserver.SqlServerConnection;
-import io.debezium.relational.Table;
-import io.debezium.relational.TableId;
 import lombok.NoArgsConstructor;
 
 import java.time.ZoneId;
-
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerTypeUtils.convertFromTable;
+import java.util.List;
 
 @NoArgsConstructor
 @AutoService(SeaTunnelSource.class)
@@ -61,8 +56,10 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
     static final String IDENTIFIER = "SqlServer-CDC";
 
     public SqlServerIncrementalSource(
-            ReadonlyConfig options, SeaTunnelDataType<SeaTunnelRow> dataType) {
-        super(options, dataType);
+            ReadonlyConfig options,
+            SeaTunnelDataType<SeaTunnelRow> dataType,
+            List<CatalogTable> catalogTables) {
+        super(options, dataType, catalogTables);
     }
 
     @Override
@@ -105,22 +102,7 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
                             config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES));
         }
 
-        SeaTunnelDataType<SeaTunnelRow> physicalRowType;
-        if (dataType == null) {
-            SqlServerSourceConfig sqlServerSourceConfig =
-                    (SqlServerSourceConfig) this.configFactory.create(0);
-            TableId tableId =
-                    this.dataSourceDialect.discoverDataCollections(sqlServerSourceConfig).get(0);
-            SqlServerConnection sqlServerConnection =
-                    createSqlServerConnection(sqlServerSourceConfig.getDbzConfiguration());
-            Table table =
-                    ((SqlServerDialect) dataSourceDialect)
-                            .queryTableSchema(sqlServerConnection, tableId)
-                            .getTable();
-            physicalRowType = convertFromTable(table);
-        } else {
-            physicalRowType = dataType;
-        }
+        SeaTunnelDataType<SeaTunnelRow> physicalRowType = dataType;
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>)
                 SeaTunnelRowDebeziumDeserializeSchema.builder()

@@ -3,7 +3,7 @@
 This article introduces the new interface and the new code structure on account of the newly designed API for Connectors
 in Apache SeaTunnel. This helps developers quickly understand API and transformation layer improvements. On the other
 hand, it can guide contributors how to use the new API to develop new connectors.See
-this [issue](https://github.com/apache/incubator-seatunnel/issues/1608) for details.
+this [issue](https://github.com/apache/seatunnel/issues/1608) for details.
 
 ## **Code Structure**
 

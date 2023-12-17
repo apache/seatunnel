@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 public abstract class AbstractSingleSplitSource<T>
         implements SeaTunnelSource<T, SingleSplit, SingleSplitEnumeratorState> {

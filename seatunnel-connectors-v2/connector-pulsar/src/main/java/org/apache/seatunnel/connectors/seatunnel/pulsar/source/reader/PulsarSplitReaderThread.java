@@ -100,6 +100,7 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
                 Thread.sleep(pollInterval);
             }
         } catch (Throwable t) {
+            LOG.error("Pulsar Consumer receive data error", t);
             handover.reportError(t);
         } finally {
             // make sure the PulsarConsumer is closed
@@ -107,6 +108,8 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
                 consumer.close();
             } catch (Throwable t) {
                 LOG.warn("Error while closing pulsar consumer", t);
+            } finally {
+                running = false;
             }
         }
     }

@@ -21,6 +21,7 @@ public class SaveModeConstants {
 
     public static final String ROWTYPE_PRIMARY_KEY = "rowtype_primary_key";
     public static final String ROWTYPE_FIELDS = "rowtype_fields";
+    public static final String ROWTYPE_UNIQUE_KEY = "rowtype_unique_key";
 
     public static final String TABLE_NAME = "table_name";
 
