@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.doris.sink.writer;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -78,9 +76,9 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
             SinkWriter.Context context,
             List<DorisSinkState> state,
             SeaTunnelRowType seaTunnelRowType,
-            Config pluginConfig,
+            DorisConfig dorisConfig,
             String jobId) {
-        this.dorisConfig = DorisConfig.loadConfig(pluginConfig);
+        this.dorisConfig = dorisConfig;
         this.lastCheckpointId = state.size() != 0 ? state.get(0).getCheckpointId() : 0;
         log.info("restore checkpointId {}", lastCheckpointId);
         log.info("labelPrefix " + dorisConfig.getLabelPrefix());

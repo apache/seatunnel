@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
 import lombok.NonNull;
@@ -31,7 +31,7 @@ import java.sql.SQLException;
 @RequiredArgsConstructor
 public class SimpleBatchStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
     @NonNull private final StatementFactory statementFactory;
-    @NonNull private final SeaTunnelRowType rowType;
+    @NonNull private final TableSchema tableSchema;
     @NonNull private final JdbcRowConverter converter;
     private transient PreparedStatement statement;
 
@@ -42,7 +42,7 @@ public class SimpleBatchStatementExecutor implements JdbcBatchStatementExecutor<
 
     @Override
     public void addToBatch(SeaTunnelRow record) throws SQLException {
-        converter.toExternal(rowType, record, statement);
+        converter.toExternal(tableSchema, record, statement);
         statement.addBatch();
     }
 

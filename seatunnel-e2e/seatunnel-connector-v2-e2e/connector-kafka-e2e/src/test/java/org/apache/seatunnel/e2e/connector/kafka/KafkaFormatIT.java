@@ -18,6 +18,16 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -53,19 +63,23 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -101,6 +115,120 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     private static final String DEBEZIUM_KAFKA_SINK_TOPIC = "test-debezium-sink";
     private static final String DEBEZIUM_DATA_PATH = "/debezium/debezium_data.txt";
     private static final String DEBEZIUM_KAFKA_SOURCE_TOPIC = "dbserver1.debezium.products";
+
+    private static final String PG_SINK_TABLE1 = "sink";
+    private static final String PG_SINK_TABLE2 = "sink2";
+
+    private static final Map<String, CatalogTable> sinkTables = new HashMap<>();
+
+    static {
+        sinkTables.put(
+                PG_SINK_TABLE1,
+                CatalogTableUtil.getCatalogTable(
+                        PG_SINK_TABLE1,
+                        new SeaTunnelRowType(
+                                new String[] {"id", "name", "description", "weight"},
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE
+                                })));
+
+        sinkTables.put(
+                PG_SINK_TABLE2,
+                CatalogTableUtil.getCatalogTable(
+                        PG_SINK_TABLE2,
+                        new SeaTunnelRowType(
+                                new String[] {
+                                    "id",
+                                    "f_binary",
+                                    "f_blob",
+                                    "f_long_varbinary",
+                                    "f_longblob",
+                                    "f_tinyblob",
+                                    "f_varbinary",
+                                    "f_smallint",
+                                    "f_smallint_unsigned",
+                                    "f_mediumint",
+                                    "f_mediumint_unsigned",
+                                    "f_int",
+                                    "f_int_unsigned",
+                                    "f_integer",
+                                    "f_integer_unsigned",
+                                    "f_bigint",
+                                    "f_bigint_unsigned",
+                                    "f_numeric",
+                                    "f_decimal",
+                                    "f_float",
+                                    "f_double",
+                                    "f_double_precision",
+                                    "f_longtext",
+                                    "f_mediumtext",
+                                    "f_text",
+                                    "f_tinytext",
+                                    "f_varchar",
+                                    "f_date",
+                                    "f_datetime",
+                                    "f_timestamp",
+                                    "f_bit1",
+                                    "f_bit64",
+                                    "f_char",
+                                    "f_enum",
+                                    "f_mediumblob",
+                                    "f_long_varchar",
+                                    "f_real",
+                                    "f_time",
+                                    "f_tinyint",
+                                    "f_tinyint_unsigned",
+                                    "f_json",
+                                    "f_year"
+                                },
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    BasicType.SHORT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.LONG_TYPE,
+                                    BasicType.LONG_TYPE,
+                                    new DecimalType(10, 0),
+                                    new DecimalType(10, 0),
+                                    new DecimalType(10, 0),
+                                    BasicType.FLOAT_TYPE,
+                                    BasicType.DOUBLE_TYPE,
+                                    BasicType.DOUBLE_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                    BasicType.BOOLEAN_TYPE,
+                                    BasicType.BYTE_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.DOUBLE_TYPE,
+                                    LocalTimeType.LOCAL_TIME_TYPE,
+                                    BasicType.BYTE_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.INT_TYPE
+                                })));
+    }
 
     // Used to map local data paths to kafa topics that need to be written to kafka
     private static LinkedHashMap<String, String> LOCAL_DATA_TO_KAFKA_MAPPING;
@@ -308,9 +436,9 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
         LOG.info("==================== start kafka canal format to pg check ====================");
 
-        Set<List<Object>> postgreSinkTableList = getPostgreSinkTableList();
+        List<List<Object>> postgreSinkTableList = getPostgreSinkTableList(PG_SINK_TABLE1);
 
-        Set<List<Object>> expected =
+        List<List<Object>> expected =
                 Stream.<List<Object>>of(
                                 Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
                                 Arrays.asList(102, "car battery", "12V car battery", "8.1"),
@@ -325,7 +453,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                                 Arrays.asList(107, "rocks", "box of assorted rocks", "7.88"),
                                 Arrays.asList(
                                         108, "jacket", "water resistent black wind breaker", "0.1"))
-                        .collect(Collectors.toSet());
+                        .collect(Collectors.toList());
         Assertions.assertIterableEquals(expected, postgreSinkTableList);
     }
 
@@ -371,8 +499,8 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
         LOG.info("==================== start kafka ogg format to pg check ====================");
 
-        Set<List<Object>> postgresqlEexpectedResult = getPostgreSinkTableList();
-        Set<List<Object>> checkArraysResult =
+        List<List<Object>> postgresqlEexpectedResult = getPostgreSinkTableList(PG_SINK_TABLE1);
+        List<List<Object>> checkArraysResult =
                 Stream.<List<Object>>of(
                                 Arrays.asList(
                                         101,
@@ -406,7 +534,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                                         "jacket",
                                         "new water resistent white wind breaker",
                                         "0.5"))
-                        .collect(Collectors.toSet());
+                        .collect(Collectors.toList());
         Assertions.assertIterableEquals(postgresqlEexpectedResult, checkArraysResult);
     }
 
@@ -422,40 +550,164 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                             for (ConsumerRecord<String, String> record : consumerRecords) {
                                 result.add(record.value());
                             }
-                            Assertions.assertEquals(12, result.size());
+                            Assertions.assertEquals(3, result.size());
                         });
         LOG.info(
                 "==================== start kafka debezium format to pg check ====================");
-        Set<List<Object>> actual = getPostgreSinkTableList();
-        Set<List<Object>> expected =
+        List<List<Object>> actual = getPostgreSinkTableList(PG_SINK_TABLE2);
+        List<List<Object>> expected =
                 Stream.<List<Object>>of(
-                                Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
-                                Arrays.asList(102, "car battery", "12V car battery", "8.1"),
                                 Arrays.asList(
-                                        103,
-                                        "12-pack drill bits",
-                                        "12-pack of drill bits with sizes ranging from #40 to #3",
-                                        "0.8"),
-                                Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
-                                Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
-                                Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1"),
-                                Arrays.asList(107, "rocks", "box of assorted rocks", "5.3"),
+                                        1,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        (short) 12345,
+                                        54321,
+                                        123456,
+                                        654321,
+                                        1234567,
+                                        7654321,
+                                        1234567,
+                                        7654321L,
+                                        123456789L,
+                                        new BigDecimal(987654321),
+                                        new BigDecimal(123),
+                                        new BigDecimal(789),
+                                        12.34f,
+                                        56.78,
+                                        90.12,
+                                        "This is a long text field",
+                                        "This is a medium text field",
+                                        "This is a text field",
+                                        "This is a tiny text field",
+                                        "This is a varchar field",
+                                        LocalDate.parse("2022-04-27"),
+                                        LocalDateTime.parse("2022-04-27T14:30"),
+                                        LocalDateTime.parse("2023-04-27T03:08:40"),
+                                        true,
+                                        (byte) 0,
+                                        "C",
+                                        "enum2",
+                                        null,
+                                        "This is a long varchar field",
+                                        12.345,
+                                        LocalTime.parse("14:30"),
+                                        (byte) -128,
+                                        255,
+                                        "{\"key\": \"value\"}",
+                                        2022),
                                 Arrays.asList(
-                                        108, "jacket", "water resistent black wind breaker", "0.1"))
-                        .collect(Collectors.toSet());
+                                        2,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        (short) 12345,
+                                        54321,
+                                        123456,
+                                        654321,
+                                        1234567,
+                                        7654321,
+                                        1234567,
+                                        7654321L,
+                                        123456789L,
+                                        new BigDecimal(987654321),
+                                        new BigDecimal(123),
+                                        new BigDecimal(789),
+                                        12.34f,
+                                        56.78,
+                                        90.12,
+                                        "This is a long text field",
+                                        "This is a medium text field",
+                                        "This is a text field",
+                                        "This is a tiny text field",
+                                        "This is a varchar field",
+                                        LocalDate.parse("2022-04-27"),
+                                        LocalDateTime.parse("2022-04-27T14:30"),
+                                        LocalDateTime.parse("2023-04-27T03:08:40"),
+                                        true,
+                                        (byte) 0,
+                                        "C",
+                                        "enum2",
+                                        null,
+                                        "This is a long varchar field",
+                                        112.345,
+                                        LocalTime.parse("14:30"),
+                                        (byte) -128,
+                                        22,
+                                        "{\"key\": \"value\"}",
+                                        2013),
+                                Arrays.asList(
+                                        3,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        (short) 12345,
+                                        54321,
+                                        123456,
+                                        654321,
+                                        1234567,
+                                        7654321,
+                                        1234567,
+                                        7654321L,
+                                        123456789L,
+                                        new BigDecimal(987654321),
+                                        new BigDecimal(123),
+                                        new BigDecimal(789),
+                                        12.34f,
+                                        56.78,
+                                        90.12,
+                                        "This is a long text field",
+                                        "This is a medium text field",
+                                        "This is a text field",
+                                        "This is a tiny text field",
+                                        "This is a varchar field",
+                                        LocalDate.parse("2022-04-27"),
+                                        LocalDateTime.parse("2022-04-27T14:30"),
+                                        LocalDateTime.parse("2023-04-27T03:08:40"),
+                                        true,
+                                        (byte) 0,
+                                        "C",
+                                        "enum2",
+                                        null,
+                                        "This is a long varchar field",
+                                        112.345,
+                                        LocalTime.parse("14:30"),
+                                        (byte) -128,
+                                        22,
+                                        "{\"key\": \"value\"}",
+                                        2021))
+                        .collect(Collectors.toList());
+
+        // not compare bytes for now
+        for (Integer i : Arrays.asList(1, 2, 3, 5, 6, 34)) {
+            for (int j = 0; j < 3; j++) {
+                actual.get(j).set(i, null);
+                expected.get(j).set(i, null);
+            }
+        }
         Assertions.assertIterableEquals(expected, actual);
     }
 
     private void checkCompatibleFormat() {
         LOG.info(
                 "==================== start kafka Compatible format to pg check ====================");
-        Set<List<Object>> actual = getPostgreSinkTableList();
-        Set<List<Object>> expected =
+        List<List<Object>> actual = getPostgreSinkTableList(PG_SINK_TABLE1);
+        List<List<Object>> expected =
                 Stream.<List<Object>>of(
                                 Arrays.asList(15, "test", "test", "20"),
                                 Arrays.asList(16, "test-001", "test", "30"),
                                 Arrays.asList(18, "sdc", "sdc", "sdc"))
-                        .collect(Collectors.toSet());
+                        .collect(Collectors.toList());
         Assertions.assertIterableEquals(expected, actual);
     }
 
@@ -485,13 +737,60 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                         POSTGRESQL_CONTAINER.getPassword())) {
             Statement statement = connection.createStatement();
             String sink =
-                    "create table sink(\n"
+                    "create table if not exists sink(\n"
                             + "id INT NOT NULL PRIMARY KEY,\n"
                             + "name varchar(255),\n"
                             + "description varchar(255),\n"
                             + "weight varchar(255)"
                             + ")";
+            String sink2 =
+                    "CREATE TABLE if not exists sink2\n"
+                            + "(\n"
+                            + "    id                   SERIAL PRIMARY KEY,\n"
+                            + "    f_binary             BYTEA,\n"
+                            + "    f_blob               BYTEA,\n"
+                            + "    f_long_varbinary     BYTEA,\n"
+                            + "    f_longblob           BYTEA,\n"
+                            + "    f_tinyblob           BYTEA,\n"
+                            + "    f_varbinary          VARCHAR(100),\n"
+                            + "    f_smallint           SMALLINT,\n"
+                            + "    f_smallint_unsigned  INTEGER,\n"
+                            + "    f_mediumint          INTEGER,\n"
+                            + "    f_mediumint_unsigned INTEGER,\n"
+                            + "    f_int                INTEGER,\n"
+                            + "    f_int_unsigned       INTEGER,\n"
+                            + "    f_integer            INTEGER,\n"
+                            + "    f_integer_unsigned   INTEGER,\n"
+                            + "    f_bigint             BIGINT,\n"
+                            + "    f_bigint_unsigned    BIGINT,\n"
+                            + "    f_numeric            DECIMAL,\n"
+                            + "    f_decimal            DECIMAL,\n"
+                            + "    f_float              REAL,\n"
+                            + "    f_double             DOUBLE PRECISION,\n"
+                            + "    f_double_precision   DOUBLE PRECISION,\n"
+                            + "    f_longtext           TEXT,\n"
+                            + "    f_mediumtext         TEXT,\n"
+                            + "    f_text               TEXT,\n"
+                            + "    f_tinytext           TEXT,\n"
+                            + "    f_varchar            VARCHAR(100),\n"
+                            + "    f_date               DATE,\n"
+                            + "    f_datetime           TIMESTAMP,\n"
+                            + "    f_timestamp          TIMESTAMP,\n"
+                            + "    f_bit1               boolean,\n"
+                            + "    f_bit64              SMALLINT,\n"
+                            + "    f_char               CHAR,\n"
+                            + "    f_enum               VARCHAR(10),\n"
+                            + "    f_mediumblob         BYTEA,\n"
+                            + "    f_long_varchar       TEXT,\n"
+                            + "    f_real               REAL,\n"
+                            + "    f_time               TIME,\n"
+                            + "    f_tinyint            SMALLINT,\n"
+                            + "    f_tinyint_unsigned   SMALLINT,\n"
+                            + "    f_json               VARCHAR(100),\n"
+                            + "    f_year               INTEGER\n"
+                            + ");\n";
             statement.execute(sink);
+            statement.execute(sink2);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing PostgreSql table failed!", e);
         }
@@ -531,35 +830,29 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     }
 
     // Get result data
-    private Set<List<Object>> getPostgreSinkTableList() {
-        Set<List<Object>> actual = new HashSet<>();
+    private List<List<Object>> getPostgreSinkTableList(String tableName) {
+        List<List<Object>> actual = new ArrayList<>();
         try (Connection connection =
                 DriverManager.getConnection(
                         POSTGRESQL_CONTAINER.getJdbcUrl(),
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword())) {
             try (Statement statement = connection.createStatement()) {
-                ResultSet resultSet = statement.executeQuery("select * from sink order by id");
+                PostgresJdbcRowConverter postgresJdbcRowConverter = new PostgresJdbcRowConverter();
+                ResultSet resultSet =
+                        statement.executeQuery("select * from " + tableName + " order by id");
+
                 while (resultSet.next()) {
-                    List<Object> row =
-                            Arrays.asList(
-                                    resultSet.getInt("id"),
-                                    resultSet.getString("name"),
-                                    resultSet.getString("description"),
-                                    resultSet.getString("weight"));
-                    actual.add(row);
+                    SeaTunnelRow row =
+                            postgresJdbcRowConverter.toInternal(
+                                    resultSet, sinkTables.get(tableName).getTableSchema());
+                    actual.add(Arrays.asList(row.getFields()));
                 }
             }
             // truncate e2e sink table
             try (Statement statement = connection.createStatement()) {
-                statement.execute("truncate table sink");
+                statement.execute("truncate table " + tableName);
                 LOG.info("truncate table sink");
-                if (statement != null) {
-                    statement.close();
-                }
-            }
-            if (connection != null) {
-                connection.close();
             }
         } catch (SQLException e) {
             e.printStackTrace();

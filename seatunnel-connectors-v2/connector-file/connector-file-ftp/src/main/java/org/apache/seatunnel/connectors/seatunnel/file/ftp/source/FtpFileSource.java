@@ -75,13 +75,14 @@ public class FtpFileSource extends BaseFileSource {
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "Ftp file source connector only support read [text, csv, json] files");
         }
+        String path = pluginConfig.getString(FtpConfig.FILE_PATH.key());
+        hadoopConf = FtpConf.buildWithConfig(pluginConfig);
         readStrategy =
                 ReadStrategyFactory.of(pluginConfig.getString(FtpConfig.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
-        String path = pluginConfig.getString(FtpConfig.FILE_PATH.key());
-        hadoopConf = FtpConf.buildWithConfig(pluginConfig);
+        readStrategy.init(hadoopConf);
         try {
-            filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
+            filePaths = readStrategy.getFileNamesByPath(path);
         } catch (IOException e) {
             String errorMsg = String.format("Get file list from this path [%s] failed", path);
             throw new FileConnectorException(
@@ -118,7 +119,7 @@ public class FtpFileSource extends BaseFileSource {
                 return;
             }
             try {
-                rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
+                rowType = readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0));
             } catch (FileConnectorException e) {
                 String errorMsg =
                         String.format("Get table schema from file [%s] failed", filePaths.get(0));

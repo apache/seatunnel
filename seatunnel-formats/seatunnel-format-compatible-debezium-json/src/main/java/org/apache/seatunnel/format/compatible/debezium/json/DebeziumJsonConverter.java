@@ -41,8 +41,8 @@ public class DebeziumJsonConverter implements Serializable {
 
     private final boolean keySchemaEnable;
     private final boolean valueSchemaEnable;
-    private transient JsonConverter keyConverter;
-    private transient JsonConverter valueConverter;
+    private transient volatile JsonConverter keyConverter;
+    private transient volatile JsonConverter valueConverter;
     private transient Method keyConverterMethod;
     private transient Method valueConverterMethod;
 

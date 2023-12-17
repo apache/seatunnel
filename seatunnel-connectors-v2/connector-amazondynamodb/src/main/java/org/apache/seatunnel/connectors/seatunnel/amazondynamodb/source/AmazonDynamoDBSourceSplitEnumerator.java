@@ -82,9 +82,6 @@ public class AmazonDynamoDBSourceSplitEnumerator
 
             assignSplit(readers);
         }
-        log.debug(
-                "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
-        readers.forEach(enumeratorContext::signalNoMoreSplits);
     }
 
     private void assignSplit(Set<Integer> readers) {
@@ -103,6 +100,7 @@ public class AmazonDynamoDBSourceSplitEnumerator
                     pendingSplits.put(reader, assignmentForReader);
                 }
             }
+            enumeratorContext.signalNoMoreSplits(reader);
         }
     }
 
@@ -141,6 +139,7 @@ public class AmazonDynamoDBSourceSplitEnumerator
         if (!splits.isEmpty()) {
             addPendingSplit(splits);
             assignSplit(Collections.singleton(subtaskId));
+            enumeratorContext.signalNoMoreSplits(subtaskId);
         }
     }
 

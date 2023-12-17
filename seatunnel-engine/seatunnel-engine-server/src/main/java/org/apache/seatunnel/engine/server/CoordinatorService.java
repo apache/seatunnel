@@ -453,8 +453,15 @@ public class CoordinatorService {
             logger.warning(throwable);
             voidCompletableFuture.completeExceptionally(throwable);
         } else {
-            JobMaster jobMaster = runningJobMasterMap.get(jobId);
-            voidCompletableFuture = jobMaster.savePoint();
+            voidCompletableFuture =
+                    new PassiveCompletableFuture<>(
+                            CompletableFuture.supplyAsync(
+                                    () -> {
+                                        JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
+                                        runningJobMaster.savePoint().join();
+                                        return null;
+                                    },
+                                    executorService));
         }
         return new PassiveCompletableFuture<>(voidCompletableFuture);
     }

@@ -15,40 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.serialization;
+package org.apache.seatunnel.format.avro.exception;
 
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.types.Row;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-/**
- * Wrapped {@link Row}.
- *
- * <p>Keep the original table name for the Dispatcher to distribute to the corresponding data stream
- */
-public class WrappedRow extends Tuple2<Row, String> {
-    private static final long serialVersionUID = -8325988931728734377L;
+public enum AvroFormatErrorCode implements SeaTunnelErrorCode {
+    UNSUPPORTED_DATA_TYPE("AVRO-01", "Unsupported data type."),
+    SERIALIZATION_ERROR("AVRO-02", "serialize error."),
+    FILED_NOT_EXIST("AVRO-03", "Field not exist.");
 
-    public WrappedRow() {
-        super();
+    private final String code;
+    private final String description;
+
+    AvroFormatErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
     }
 
-    public WrappedRow(Row row, String table) {
-        super(row, table);
+    @Override
+    public String getCode() {
+        return code;
     }
 
-    public Row getRow() {
-        return this.f0;
-    }
-
-    public String getTable() {
-        return this.f1;
-    }
-
-    public void setRow(Row row) {
-        this.f0 = row;
-    }
-
-    public void setTable(String table) {
-        this.f1 = table;
+    @Override
+    public String getDescription() {
+        return description;
     }
 }

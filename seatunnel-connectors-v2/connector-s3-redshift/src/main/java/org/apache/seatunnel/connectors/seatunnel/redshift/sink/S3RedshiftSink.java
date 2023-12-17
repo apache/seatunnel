@@ -72,6 +72,6 @@ public class S3RedshiftSink extends BaseHdfsFileSink {
     @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
             createAggregatedCommitter() {
-        return Optional.of(new S3RedshiftSinkAggregatedCommitter(fileSystemUtils, pluginConfig));
+        return Optional.of(new S3RedshiftSinkAggregatedCommitter(hadoopConf, pluginConfig));
     }
 }

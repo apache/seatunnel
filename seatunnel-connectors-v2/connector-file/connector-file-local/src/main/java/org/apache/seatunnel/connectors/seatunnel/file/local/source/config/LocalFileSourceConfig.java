@@ -92,7 +92,7 @@ public class LocalFileSourceConfig implements Serializable {
         String rootPath = null;
         try {
             rootPath = readonlyConfig.get(LocalFileSourceOptions.FILE_PATH);
-            return readStrategy.getFileNamesByPath(localFileHadoopConf, rootPath);
+            return readStrategy.getFileNamesByPath(rootPath);
         } catch (Exception ex) {
             String errorMsg = String.format("Get file list from this path [%s] failed", rootPath);
             throw new FileConnectorException(
@@ -122,9 +122,7 @@ public class LocalFileSourceConfig implements Serializable {
             case ORC:
             case PARQUET:
                 return newCatalogTable(
-                        catalogTable,
-                        readStrategy.getSeaTunnelRowTypeInfo(
-                                localFileHadoopConf, filePaths.get(0)));
+                        catalogTable, readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0)));
             default:
                 throw new FileConnectorException(
                         FileConnectorErrorCode.FORMAT_NOT_SUPPORT,

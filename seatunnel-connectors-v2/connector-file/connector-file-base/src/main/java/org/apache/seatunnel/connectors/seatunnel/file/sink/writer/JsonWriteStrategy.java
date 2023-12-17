@@ -115,17 +115,18 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
                     case LZO:
                         LzopCodec lzo = new LzopCodec();
                         OutputStream out =
-                                lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
+                                lzo.createOutputStream(
+                                        hadoopFileSystemProxy.getOutputStream(filePath));
                         fsDataOutputStream = new FSDataOutputStream(out, null);
                         break;
                     case NONE:
-                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        fsDataOutputStream = hadoopFileSystemProxy.getOutputStream(filePath);
                         break;
                     default:
                         log.warn(
                                 "Json file does not support this compress type: {}",
                                 compressFormat.getCompressCodec());
-                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        fsDataOutputStream = hadoopFileSystemProxy.getOutputStream(filePath);
                         break;
                 }
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
