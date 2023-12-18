@@ -55,16 +55,17 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        readStrategy =
-                ReadStrategyFactory.of(
-                        pluginConfig.getString(HdfsSourceConfig.FILE_FORMAT_TYPE.key()));
-        readStrategy.setPluginConfig(pluginConfig);
         String path = pluginConfig.getString(HdfsSourceConfig.FILE_PATH.key());
         hadoopConf = new HadoopConf(pluginConfig.getString(HdfsSourceConfig.DEFAULT_FS.key()));
         if (pluginConfig.hasPath(HdfsSourceConfig.HDFS_SITE_PATH.key())) {
             hadoopConf.setHdfsSitePath(
                     pluginConfig.getString(HdfsSourceConfig.HDFS_SITE_PATH.key()));
         }
+
+        if (pluginConfig.hasPath(HdfsSourceConfig.REMOTE_USER.key())) {
+            hadoopConf.setRemoteUser(pluginConfig.getString(HdfsSourceConfig.REMOTE_USER.key()));
+        }
+
         if (pluginConfig.hasPath(HdfsSourceConfig.KERBEROS_PRINCIPAL.key())) {
             hadoopConf.setKerberosPrincipal(
                     pluginConfig.getString(HdfsSourceConfig.KERBEROS_PRINCIPAL.key()));
@@ -73,8 +74,13 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
             hadoopConf.setKerberosKeytabPath(
                     pluginConfig.getString(HdfsSourceConfig.KERBEROS_KEYTAB_PATH.key()));
         }
+        readStrategy =
+                ReadStrategyFactory.of(
+                        pluginConfig.getString(HdfsSourceConfig.FILE_FORMAT_TYPE.key()));
+        readStrategy.setPluginConfig(pluginConfig);
+        readStrategy.init(hadoopConf);
         try {
-            filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
+            filePaths = readStrategy.getFileNamesByPath(path);
         } catch (IOException e) {
             String errorMsg = String.format("Get file list from this path [%s] failed", path);
             throw new FileConnectorException(
@@ -117,7 +123,7 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                 return;
             }
             try {
-                rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
+                rowType = readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0));
             } catch (FileConnectorException e) {
                 String errorMsg =
                         String.format("Get table schema from file [%s] failed", filePaths.get(0));

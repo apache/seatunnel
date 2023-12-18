@@ -28,10 +28,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
 
@@ -71,24 +67,21 @@ public class JsonReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
-        Configuration conf = getConfiguration();
-        FileSystem fs = FileSystem.get(conf);
-        Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
         InputStream inputStream;
         switch (compressFormat) {
             case LZO:
                 LzopCodec lzo = new LzopCodec();
-                inputStream = lzo.createInputStream(fs.open(filePath));
+                inputStream = lzo.createInputStream(hadoopFileSystemProxy.getInputStream(path));
                 break;
             case NONE:
-                inputStream = fs.open(filePath);
+                inputStream = hadoopFileSystemProxy.getInputStream(path);
                 break;
             default:
                 log.warn(
                         "Text file does not support this compress type: {}",
                         compressFormat.getCompressCodec());
-                inputStream = fs.open(filePath);
+                inputStream = hadoopFileSystemProxy.getInputStream(path);
                 break;
         }
         try (BufferedReader reader =
@@ -110,8 +103,7 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                                 } catch (IOException e) {
                                     String errorMsg =
                                             String.format(
-                                                    "Read data from this file [%s] failed",
-                                                    filePath);
+                                                    "Read data from this file [%s] failed", path);
                                     throw new FileConnectorException(
                                             CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
                                             errorMsg);
@@ -121,8 +113,7 @@ public class JsonReadStrategy extends AbstractReadStrategy {
     }
 
     @Override
-    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path)
-            throws FileConnectorException {
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
         throw new FileConnectorException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 "User must defined schema for json file type");
