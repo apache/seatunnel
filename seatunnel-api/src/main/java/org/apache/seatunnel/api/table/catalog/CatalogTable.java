@@ -114,6 +114,10 @@ public final class CatalogTable implements Serializable {
         return tableId;
     }
 
+    public TablePath getTablePath() {
+        return tableId.toTablePath();
+    }
+
     public TableSchema getTableSchema() {
         return tableSchema;
     }
