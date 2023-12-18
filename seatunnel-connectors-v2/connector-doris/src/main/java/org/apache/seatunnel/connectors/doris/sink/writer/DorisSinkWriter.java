@@ -64,7 +64,6 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
     private final String labelPrefix;
     private final LabelGenerator labelGenerator;
     private final int intervalTime;
-    private final DorisSinkState dorisSinkState;
     private final DorisSerializer serializer;
     private final transient ScheduledExecutorService scheduledExecutorService;
     private transient Thread executorThread;
@@ -77,12 +76,12 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
             List<DorisSinkState> state,
             SeaTunnelRowType seaTunnelRowType,
             DorisConfig dorisConfig,
-            String jobId) {
+            String jobId)
+            throws IOException {
         this.dorisConfig = dorisConfig;
-        this.lastCheckpointId = state.size() != 0 ? state.get(0).getCheckpointId() : 0;
+        this.lastCheckpointId = !state.isEmpty() ? state.get(0).getCheckpointId() : 0;
         log.info("restore checkpointId {}", lastCheckpointId);
         log.info("labelPrefix " + dorisConfig.getLabelPrefix());
-        this.dorisSinkState = new DorisSinkState(dorisConfig.getLabelPrefix(), lastCheckpointId);
         this.labelPrefix =
                 dorisConfig.getLabelPrefix() + "_" + jobId + "_" + context.getIndexOfSubtask();
         this.labelGenerator = new LabelGenerator(labelPrefix, dorisConfig.getEnable2PC());
@@ -92,9 +91,10 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         this.serializer = createSerializer(dorisConfig, seaTunnelRowType);
         this.intervalTime = dorisConfig.getCheckInterval();
         this.loading = false;
+        this.initializeLoad();
     }
 
-    public void initializeLoad(List<DorisSinkState> state) throws IOException {
+    private void initializeLoad() throws IOException {
         this.backends = RestService.getBackendsV2(dorisConfig, log);
         String backend = getAvailableBackend();
         try {
@@ -202,21 +202,6 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         if (loadException != null) {
             throw new RuntimeException("error while loading data.", loadException);
         }
-    }
-
-    @VisibleForTesting
-    public boolean isLoading() {
-        return this.loading;
-    }
-
-    @VisibleForTesting
-    public void setDorisStreamLoad(DorisStreamLoad streamLoad) {
-        this.dorisStreamLoad = streamLoad;
-    }
-
-    @VisibleForTesting
-    public void setBackends(List<BackendV2.BackendRowV2> backends) {
-        this.backends = backends;
     }
 
     @Override

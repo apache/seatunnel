@@ -32,7 +32,6 @@ import org.apache.http.util.EntityUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
 
@@ -194,11 +193,6 @@ public class DorisStreamLoad implements Serializable {
             recordStream.write(lineDelimiter);
         }
         recordStream.write(record);
-    }
-
-    @VisibleForTesting
-    public RecordStream getRecordStream() {
-        return recordStream;
     }
 
     public RespContent handlePreCommitResponse(CloseableHttpResponse response) throws Exception {
