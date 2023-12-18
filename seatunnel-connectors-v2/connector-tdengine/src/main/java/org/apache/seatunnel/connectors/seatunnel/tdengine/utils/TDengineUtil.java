@@ -29,7 +29,7 @@ import java.sql.SQLException;
 @Slf4j
 public class TDengineUtil {
 
-    public synchronized static void checkDriverExist(String jdbcUrl) {
+    public static synchronized void checkDriverExist(String jdbcUrl) {
         try {
             DriverManager.getDriver(jdbcUrl);
         } catch (SQLException e) {
