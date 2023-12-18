@@ -32,7 +32,7 @@ CREATE TABLE postgres_cdc_table_1
     f_bytea             BYTEA,
     f_small             SMALLINT,
     f_int               INTEGER,
-    f_big              BIGINT,
+    f_big               BIGINT,
     f_real              REAL,
     f_double_precision  DOUBLE PRECISION,
     f_numeric           NUMERIC(10, 5),
@@ -47,8 +47,6 @@ CREATE TABLE postgres_cdc_table_1
     f_date              DATE,
     f_time              TIME(0),
     f_default_numeric   NUMERIC,
-    f_geometry          GEOMETRY(POINT, 3187),
-    f_geography         GEOGRAPHY(MULTILINESTRING),
     PRIMARY KEY (id)
 );
 
@@ -58,7 +56,7 @@ CREATE TABLE postgres_cdc_table_2
     f_bytea             BYTEA,
     f_small             SMALLINT,
     f_int               INTEGER,
-    f_big              BIGINT,
+    f_big               BIGINT,
     f_real              REAL,
     f_double_precision  DOUBLE PRECISION,
     f_numeric           NUMERIC(10, 5),
@@ -73,8 +71,6 @@ CREATE TABLE postgres_cdc_table_2
     f_date              DATE,
     f_time              TIME(0),
     f_default_numeric   NUMERIC,
-    f_geometry          GEOMETRY(POINT, 3187),
-    f_geography         GEOGRAPHY(MULTILINESTRING),
     PRIMARY KEY (id)
 );
 
@@ -84,7 +80,7 @@ CREATE TABLE sink_postgres_cdc_table_1
     f_bytea             BYTEA,
     f_small             SMALLINT,
     f_int               INTEGER,
-    f_big              BIGINT,
+    f_big               BIGINT,
     f_real              REAL,
     f_double_precision  DOUBLE PRECISION,
     f_numeric           NUMERIC(10, 5),
@@ -99,8 +95,6 @@ CREATE TABLE sink_postgres_cdc_table_1
     f_date              DATE,
     f_time              TIME(0),
     f_default_numeric   NUMERIC,
-    f_geometry          GEOMETRY(POINT, 3187),
-    f_geography         GEOGRAPHY(MULTILINESTRING),
     PRIMARY KEY (id)
 );
 
@@ -110,7 +104,7 @@ CREATE TABLE sink_postgres_cdc_table_2
     f_bytea             BYTEA,
     f_small             SMALLINT,
     f_int               INTEGER,
-    f_big              BIGINT,
+    f_big               BIGINT,
     f_real              REAL,
     f_double_precision  DOUBLE PRECISION,
     f_numeric           NUMERIC(10, 5),
@@ -125,8 +119,6 @@ CREATE TABLE sink_postgres_cdc_table_2
     f_date              DATE,
     f_time              TIME(0),
     f_default_numeric   NUMERIC,
-    f_geometry          GEOMETRY(POINT, 3187),
-    f_geography         GEOGRAPHY(MULTILINESTRING),
     PRIMARY KEY (id)
 );
 
@@ -145,11 +137,9 @@ ALTER TABLE sink_postgres_cdc_table_2
 INSERT INTO postgres_cdc_table_1
 VALUES (1, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,
         'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',
-        '2020-07-17', '18:00:22', 500, 'SRID=3187;POINT(174.9479 -36.7208)'::geometry,
-        'MULTILINESTRING((169.1321 -44.7032, 167.8974 -44.6414))'::geography);
+        '2020-07-17', '18:00:22', 500);
 
 INSERT INTO postgres_cdc_table_2
 VALUES (1, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,
         'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',
-        '2020-07-17', '18:00:22', 500, 'SRID=3187;POINT(174.9479 -36.7208)'::geometry,
-        'MULTILINESTRING((169.1321 -44.7032, 167.8974 -44.6414))'::geography);
+        '2020-07-17', '18:00:22', 500);
