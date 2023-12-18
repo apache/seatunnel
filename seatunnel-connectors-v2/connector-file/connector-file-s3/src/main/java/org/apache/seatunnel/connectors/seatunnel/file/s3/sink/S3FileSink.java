@@ -28,7 +28,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Conf;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Config;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
 import com.google.auto.service.AutoService;
@@ -45,7 +45,7 @@ public class S3FileSink extends BaseFileSink {
         super.prepare(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
-                        pluginConfig, S3Config.FILE_PATH.key(), S3Config.S3_BUCKET.key());
+                        pluginConfig, S3ConfigOptions.FILE_PATH.key(), S3ConfigOptions.S3_BUCKET.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

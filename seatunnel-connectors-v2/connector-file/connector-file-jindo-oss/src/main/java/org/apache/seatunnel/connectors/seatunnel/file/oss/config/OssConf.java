@@ -42,13 +42,13 @@ public class OssConf extends HadoopConf {
     }
 
     public static HadoopConf buildWithConfig(Config config) {
-        HadoopConf hadoopConf = new OssConf(config.getString(OssConfig.BUCKET.key()));
+        HadoopConf hadoopConf = new OssConf(config.getString(OssConfigOptions.BUCKET.key()));
         HashMap<String, String> ossOptions = new HashMap<>();
         ossOptions.put("fs.AbstractFileSystem.oss.impl", "com.aliyun.emr.fs.oss.OSS");
         ossOptions.put("fs.oss.impl", "com.aliyun.emr.fs.oss.JindoOssFileSystem");
-        ossOptions.put("fs.oss.accessKeyId", config.getString(OssConfig.ACCESS_KEY.key()));
-        ossOptions.put("fs.oss.accessKeySecret", config.getString(OssConfig.ACCESS_SECRET.key()));
-        ossOptions.put("fs.oss.endpoint", config.getString(OssConfig.ENDPOINT.key()));
+        ossOptions.put("fs.oss.accessKeyId", config.getString(OssConfigOptions.ACCESS_KEY.key()));
+        ossOptions.put("fs.oss.accessKeySecret", config.getString(OssConfigOptions.ACCESS_SECRET.key()));
+        ossOptions.put("fs.oss.endpoint", config.getString(OssConfigOptions.ENDPOINT.key()));
         ossOptions.put("fs.oss.upload.thread.concurrency", "20");
         ossOptions.put("fs.oss.upload.queue.size", "100");
         hadoopConf.setExtraOptions(ossOptions);

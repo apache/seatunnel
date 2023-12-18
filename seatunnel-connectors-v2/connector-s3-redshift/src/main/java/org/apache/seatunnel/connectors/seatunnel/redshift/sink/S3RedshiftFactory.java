@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Config;
 import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
@@ -45,7 +45,7 @@ public class S3RedshiftFactory implements TableSinkFactory {
                         S3RedshiftConfig.JDBC_USER,
                         S3RedshiftConfig.JDBC_PASSWORD,
                         S3RedshiftConfig.EXECUTE_SQL,
-                        BaseSourceConfig.FILE_PATH,
+                        BaseSourceConfigOptions.FILE_PATH,
                         S3Config.S3A_AWS_CREDENTIALS_PROVIDER)
                 .conditional(
                         S3Config.S3A_AWS_CREDENTIALS_PROVIDER,

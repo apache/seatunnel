@@ -34,7 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConf;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.exception.OssJindoConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
@@ -55,12 +55,12 @@ public class OssFileSource extends BaseFileSource {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        OssConfig.FILE_PATH.key(),
-                        OssConfig.FILE_FORMAT_TYPE.key(),
-                        OssConfig.ENDPOINT.key(),
-                        OssConfig.ACCESS_KEY.key(),
-                        OssConfig.ACCESS_SECRET.key(),
-                        OssConfig.BUCKET.key());
+                        OssConfigOptions.FILE_PATH.key(),
+                        OssConfigOptions.FILE_FORMAT_TYPE.key(),
+                        OssConfigOptions.ENDPOINT.key(),
+                        OssConfigOptions.ACCESS_KEY.key(),
+                        OssConfigOptions.ACCESS_SECRET.key(),
+                        OssConfigOptions.BUCKET.key());
         if (!result.isSuccess()) {
             throw new OssJindoConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -68,10 +68,10 @@ public class OssFileSource extends BaseFileSource {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        String path = pluginConfig.getString(OssConfig.FILE_PATH.key());
+        String path = pluginConfig.getString(OssConfigOptions.FILE_PATH.key());
         hadoopConf = OssConf.buildWithConfig(pluginConfig);
         readStrategy =
-                ReadStrategyFactory.of(pluginConfig.getString(OssConfig.FILE_FORMAT_TYPE.key()));
+                ReadStrategyFactory.of(pluginConfig.getString(OssConfigOptions.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         readStrategy.init(hadoopConf);
         try {
@@ -84,7 +84,7 @@ public class OssFileSource extends BaseFileSource {
         // support user-defined schema
         FileFormat fileFormat =
                 FileFormat.valueOf(
-                        pluginConfig.getString(OssConfig.FILE_FORMAT_TYPE.key()).toUpperCase());
+                        pluginConfig.getString(OssConfigOptions.FILE_FORMAT_TYPE.key()).toUpperCase());
         // only json text csv type support user-defined schema now
         if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             switch (fileFormat) {

@@ -18,41 +18,23 @@
 package org.apache.seatunnel.connectors.seatunnel.file.local.source.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 
 import com.google.common.collect.Lists;
 import lombok.Getter;
 
-import java.io.Serializable;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class MultipleTableLocalFileSourceConfig implements Serializable {
-
-    private static final long serialVersionUID = 1L;
-
-    @Getter private List<LocalFileSourceConfig> localFileSourceConfigs;
+public class MultipleTableLocalFileSourceConfig extends BaseMultipleTableFileSourceConfig {
 
     public MultipleTableLocalFileSourceConfig(ReadonlyConfig localFileSourceRootConfig) {
-        if (localFileSourceRootConfig
-                .getOptional(LocalFileSourceOptions.tables_configs)
-                .isPresent()) {
-            parseFromLocalFileSourceConfigs(localFileSourceRootConfig);
-        } else {
-            parseFromLocalFileSourceConfig(localFileSourceRootConfig);
-        }
+        super(localFileSourceRootConfig);
     }
 
-    private void parseFromLocalFileSourceConfigs(ReadonlyConfig localFileSourceRootConfig) {
-        this.localFileSourceConfigs =
-                localFileSourceRootConfig.get(LocalFileSourceOptions.tables_configs).stream()
-                        .map(ReadonlyConfig::fromMap)
-                        .map(LocalFileSourceConfig::new)
-                        .collect(Collectors.toList());
-    }
-
-    private void parseFromLocalFileSourceConfig(ReadonlyConfig localFileSourceRootConfig) {
-        LocalFileSourceConfig localFileSourceConfig =
-                new LocalFileSourceConfig(localFileSourceRootConfig);
-        this.localFileSourceConfigs = Lists.newArrayList(localFileSourceConfig);
+    @Override
+    public BaseFileSourceConfig getBaseSourceConfig(ReadonlyConfig readonlyConfig) {
+        return new LocalFileSourceConfig(readonlyConfig);
     }
 }

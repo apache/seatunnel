@@ -15,18 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config;
+package org.apache.seatunnel.connectors.seatunnel.file.sftp.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
-
-public class HdfsSourceConfig extends BaseSourceConfig {
-    public static final Option<String> DEFAULT_FS =
-            Options.key(FS_DEFAULT_NAME_KEY)
+public class SftpConfigOptions extends BaseSourceConfigOptions {
+    public static final Option<String> SFTP_PASSWORD =
+            Options.key("password")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("HDFS namenode host");
+                    .withDescription("SFTP server password");
+    public static final Option<String> SFTP_USER =
+            Options.key("user")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("SFTP server username");
+    public static final Option<String> SFTP_HOST =
+            Options.key("host").stringType().noDefaultValue().withDescription("SFTP server host");
+    public static final Option<Integer> SFTP_PORT =
+            Options.key("port").intType().noDefaultValue().withDescription("SFTP server port");
 }
