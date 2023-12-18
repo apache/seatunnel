@@ -52,7 +52,7 @@ public class OrcReadStrategyTest {
         orcReadStrategy.init(localConf);
         TestCollector testCollector = new TestCollector();
         SeaTunnelRowType seaTunnelRowTypeInfo =
-                orcReadStrategy.getSeaTunnelRowTypeInfo(localConf, orcFilePath);
+                orcReadStrategy.getSeaTunnelRowTypeInfo(orcFilePath);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         log.info(seaTunnelRowTypeInfo.toString());
         orcReadStrategy.read(orcFilePath, "", testCollector);
@@ -78,7 +78,7 @@ public class OrcReadStrategyTest {
         orcReadStrategy.setPluginConfig(pluginConfig);
         TestCollector testCollector = new TestCollector();
         SeaTunnelRowType seaTunnelRowTypeInfo =
-                orcReadStrategy.getSeaTunnelRowTypeInfo(localConf, orcFilePath);
+                orcReadStrategy.getSeaTunnelRowTypeInfo(orcFilePath);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         log.info(seaTunnelRowTypeInfo.toString());
         orcReadStrategy.read(orcFilePath, "", testCollector);

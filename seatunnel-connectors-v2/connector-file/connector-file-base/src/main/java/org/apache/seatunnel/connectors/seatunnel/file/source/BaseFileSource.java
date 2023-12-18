@@ -55,8 +55,8 @@ public abstract class BaseFileSource
 
     @Override
     public SourceReader<SeaTunnelRow, FileSourceSplit> createReader(
-            SourceReader.Context readerContext) throws Exception {
-        return new BaseFileSourceReader(readStrategy, hadoopConf, readerContext);
+            SourceReader.Context readerContext) {
+        return new BaseFileSourceReader(readStrategy, readerContext);
     }
 
     @Override
