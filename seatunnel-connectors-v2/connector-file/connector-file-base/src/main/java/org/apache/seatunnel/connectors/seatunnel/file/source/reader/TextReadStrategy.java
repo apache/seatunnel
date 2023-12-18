@@ -32,15 +32,10 @@ import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
-
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
@@ -67,24 +62,21 @@ public class TextReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
-        Configuration conf = getConfiguration();
-        FileSystem fs = FileSystem.get(conf);
-        Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
         InputStream inputStream;
         switch (compressFormat) {
             case LZO:
                 LzopCodec lzo = new LzopCodec();
-                inputStream = lzo.createInputStream(fs.open(filePath));
+                inputStream = lzo.createInputStream(hadoopFileSystemProxy.getInputStream(path));
                 break;
             case NONE:
-                inputStream = fs.open(filePath);
+                inputStream = hadoopFileSystemProxy.getInputStream(path);
                 break;
             default:
                 log.warn(
                         "Text file does not support this compress type: {}",
                         compressFormat.getCompressCodec());
-                inputStream = fs.open(filePath);
+                inputStream = hadoopFileSystemProxy.getInputStream(path);
                 break;
         }
 
@@ -137,7 +129,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
     }
 
     @Override
-    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) {
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) {
         this.seaTunnelRowType = CatalogTableUtil.buildSimpleTextSchema();
         this.seaTunnelRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);

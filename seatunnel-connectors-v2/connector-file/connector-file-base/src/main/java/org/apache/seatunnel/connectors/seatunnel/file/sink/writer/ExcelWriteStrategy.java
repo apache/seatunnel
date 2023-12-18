@@ -51,8 +51,9 @@ public class ExcelWriteStrategy extends AbstractWriteStrategy {
         this.beingWrittenWriter.forEach(
                 (k, v) -> {
                     try {
-                        fileSystemUtils.createFile(k);
-                        FSDataOutputStream fileOutputStream = fileSystemUtils.getOutputStream(k);
+                        hadoopFileSystemProxy.createFile(k);
+                        FSDataOutputStream fileOutputStream =
+                                hadoopFileSystemProxy.getOutputStream(k);
                         v.flushAndCloseExcel(fileOutputStream);
                         fileOutputStream.close();
                     } catch (IOException e) {
