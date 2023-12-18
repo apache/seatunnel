@@ -314,10 +314,8 @@ public interface JdbcDialect extends Serializable {
                             quoteIdentifier(columnName), tableIdentifier(table.getTablePath()));
         }
 
-        try (Statement stmt =
-                connection.createStatement(
-                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
-            stmt.setFetchSize(Integer.MIN_VALUE);
+        try (Statement stmt = connection.createStatement()) {
+            stmt.setFetchSize(1024);
             try (ResultSet rs = stmt.executeQuery(sampleQuery)) {
                 int count = 0;
                 List<Object> results = new ArrayList<>();
