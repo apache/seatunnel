@@ -247,7 +247,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         return splits;
     }
 
-    private List<ChunkRange> efficientShardingThroughSampling(
+    public static List<ChunkRange> efficientShardingThroughSampling(
             TablePath tablePath, Object[] sampleData, long approximateRowCnt, int shardCount) {
         log.info(
                 "Use efficient sharding through sampling optimization for table {}, the approximate row count is {}, the shardCount is {}",
@@ -264,22 +264,32 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
         double approxSamplePerShard = (double) sampleData.length / shardCount;
 
+        Object lastEnd = null;
         if (approxSamplePerShard <= 1) {
-
             splits.add(ChunkRange.of(null, sampleData[0]));
-            for (int i = 0; i < sampleData.length - 1; i++) {
-                splits.add(ChunkRange.of(sampleData[i], sampleData[i + 1]));
+            lastEnd = sampleData[0];
+            for (int i = 1; i < sampleData.length; i++) {
+                // avoid split duplicate data
+                if (!sampleData[i].equals(lastEnd)) {
+                    splits.add(ChunkRange.of(lastEnd, sampleData[i]));
+                    lastEnd = sampleData[i];
+                }
             }
-            splits.add(ChunkRange.of(sampleData[sampleData.length - 1], null));
+
+            splits.add(ChunkRange.of(lastEnd, null));
+
         } else {
-            // Calculate the shard boundaries
             for (int i = 0; i < shardCount; i++) {
-                Object chunkStart = i == 0 ? null : sampleData[(int) (i * approxSamplePerShard)];
+                Object chunkStart = lastEnd;
                 Object chunkEnd =
-                        i < shardCount - 1
+                        (i < shardCount - 1)
                                 ? sampleData[(int) ((i + 1) * approxSamplePerShard)]
                                 : null;
-                splits.add(ChunkRange.of(chunkStart, chunkEnd));
+                // avoid split duplicate data
+                if (i == 0 || i == shardCount - 1 || !Objects.equals(chunkEnd, chunkStart)) {
+                    splits.add(ChunkRange.of(chunkStart, chunkEnd));
+                    lastEnd = chunkEnd;
+                }
             }
         }
         return splits;
@@ -444,7 +454,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
     @Data
     @EqualsAndHashCode
-    private static class ChunkRange implements Serializable {
+    public static class ChunkRange implements Serializable {
         private final Object chunkStart;
         private final Object chunkEnd;
 
