@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
 import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.Path;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -90,10 +91,23 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     @Override
     public List<String> getFileNamesByPath(String path) throws IOException {
         ArrayList<String> fileNames = new ArrayList<>();
+        Path basePath = new Path(path);
+        if (readPartitions.isEmpty()) {
+            fileNames.addAll(getFileNamesByPath(basePath));
+        } else {
+            for (String readPartition : readPartitions) {
+                fileNames.addAll(getFileNamesByPath(new Path(basePath, readPartition)));
+            }
+        }
+        return fileNames;
+    }
+
+    private List<String> getFileNamesByPath(Path path) throws IOException {
+        ArrayList<String> fileNames = new ArrayList<>();
         FileStatus[] stats = hadoopFileSystemProxy.listStatus(path);
         for (FileStatus fileStatus : stats) {
             if (fileStatus.isDirectory()) {
-                fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toString()));
+                fileNames.addAll(getFileNamesByPath(fileStatus.getPath()));
                 continue;
             }
             if (fileStatus.isFile() && filterFileByPattern(fileStatus)) {
@@ -101,22 +115,11 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 if (!fileStatus.getPath().getName().equals("_SUCCESS")
                         && !fileStatus.getPath().getName().startsWith(".")) {
                     String filePath = fileStatus.getPath().toString();
-                    if (!readPartitions.isEmpty()) {
-                        for (String readPartition : readPartitions) {
-                            if (filePath.contains(readPartition)) {
-                                fileNames.add(filePath);
-                                this.fileNames.add(filePath);
-                                break;
-                            }
-                        }
-                    } else {
-                        fileNames.add(filePath);
-                        this.fileNames.add(filePath);
-                    }
+                    fileNames.add(filePath);
+                    this.fileNames.add(filePath);
                 }
             }
         }
-
         return fileNames;
     }
 

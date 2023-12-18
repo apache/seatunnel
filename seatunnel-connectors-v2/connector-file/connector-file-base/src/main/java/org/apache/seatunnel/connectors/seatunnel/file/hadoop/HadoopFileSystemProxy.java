@@ -175,6 +175,13 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         return fileSystem.listStatus(new Path(filePath));
     }
 
+    public FileStatus[] listStatus(Path filePath) throws IOException {
+        if (fileSystem == null) {
+            initialize();
+        }
+        return fileSystem.listStatus(filePath);
+    }
+
     public FileStatus getFileStatus(String filePath) throws IOException {
         if (fileSystem == null) {
             initialize();
