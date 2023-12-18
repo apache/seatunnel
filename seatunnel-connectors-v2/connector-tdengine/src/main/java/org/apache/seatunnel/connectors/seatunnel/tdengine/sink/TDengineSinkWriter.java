@@ -46,6 +46,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
 
+import static org.apache.seatunnel.connectors.seatunnel.tdengine.utils.TDengineUtil.checkDriverExist;
+
 @Slf4j
 public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
@@ -66,6 +68,8 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         config.getUsername(),
                         "&password=",
                         config.getPassword());
+        // check td driver whether exist and if not, try to register
+        checkDriverExist(jdbcUrl);
         conn = DriverManager.getConnection(jdbcUrl);
         try (Statement statement = conn.createStatement()) {
             final ResultSet metaResultSet =
