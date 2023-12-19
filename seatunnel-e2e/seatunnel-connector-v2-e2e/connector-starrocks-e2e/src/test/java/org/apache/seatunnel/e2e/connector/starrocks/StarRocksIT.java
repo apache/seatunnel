@@ -75,7 +75,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
 
     private static final String URL = "jdbc:mysql://%s:" + SR_PORT;
     private static final String USERNAME = "root";
-    private static final String PASSWORD = "";
+    private static final String PASSWORD = "12345";
     private static final String DATABASE = "test";
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
@@ -362,7 +362,11 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         TablePath tablePathStarRocks_Sink = TablePath.of("test", "e2e_table_sink_2");
         StarRocksCatalog starRocksCatalog =
                 new StarRocksCatalog(
-                        "StarRocks", "root", "", String.format(URL, starRocksServer.getHost()), "");
+                        "StarRocks",
+                        "root",
+                        PASSWORD,
+                        String.format(URL, starRocksServer.getHost()),
+                        "");
         starRocksCatalog.open();
         CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocks_source);
         // sink tableExists ?
