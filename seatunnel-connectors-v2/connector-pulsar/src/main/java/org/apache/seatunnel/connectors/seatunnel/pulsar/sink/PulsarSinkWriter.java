@@ -199,14 +199,6 @@ public class PulsarSinkWriter
         pulsarClient.close();
     }
 
-    /**
-     * get message SerializationSchema
-     *
-     * @param rowType
-     * @param format
-     * @param delimiter
-     * @return
-     */
     private SerializationSchema createSerializationSchema(
             SeaTunnelRowType rowType, String format, String delimiter) {
         if (DEFAULT_FORMAT.equals(format)) {
@@ -222,13 +214,6 @@ public class PulsarSinkWriter
         }
     }
 
-    /**
-     * get key SerializationSchema
-     *
-     * @param keyFieldNames
-     * @param seaTunnelRowType
-     * @return
-     */
     public static SerializationSchema createKeySerializationSchema(
             List<String> keyFieldNames, SeaTunnelRowType seaTunnelRowType) {
         if (keyFieldNames == null || keyFieldNames.isEmpty()) {
@@ -257,13 +242,6 @@ public class PulsarSinkWriter
         return row -> keySerializationSchema.serialize(keyDataExtractor.apply(row));
     }
 
-    /**
-     * get partition key field list
-     *
-     * @param pluginConfig
-     * @param seaTunnelRowType
-     * @return
-     */
     private List<String> getPartitionKeyFields(
             ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         if (pluginConfig.get(PARTITION_KEY_FIELDS) != null) {
