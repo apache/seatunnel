@@ -24,13 +24,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,11 +42,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.apache.parquet.avro.AvroReadSupport.READ_INT96_AS_FIXED;
-import static org.apache.parquet.avro.AvroSchemaConverter.ADD_LIST_ELEMENT_RECORDS;
-import static org.apache.parquet.avro.AvroWriteSupport.WRITE_FIXED_AS_INT96;
-import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 
 @Slf4j
 public abstract class AbstractReadStrategy implements ReadStrategy {
@@ -75,13 +66,14 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected List<String> readColumns = new ArrayList<>();
     protected boolean isMergePartition = true;
     protected long skipHeaderNumber = BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.defaultValue();
-    protected transient boolean isKerberosAuthorization = false;
+    protected HadoopFileSystemProxy hadoopFileSystemProxy;
 
     protected Pattern pattern;
 
     @Override
     public void init(HadoopConf conf) {
         this.hadoopConf = conf;
+        this.hadoopFileSystemProxy = new HadoopFileSystemProxy(hadoopConf);
     }
 
     @Override
@@ -91,44 +83,17 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
     }
 
-    @Override
-    public Configuration getConfiguration(HadoopConf hadoopConf) {
-        Configuration configuration = new Configuration();
-        configuration.setBoolean(READ_INT96_AS_FIXED, true);
-        configuration.setBoolean(WRITE_FIXED_AS_INT96, true);
-        configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
-        configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, true);
-        configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
-        configuration.set(
-                String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
-        hadoopConf.setExtraOptionsForConfiguration(configuration);
-        String principal = hadoopConf.getKerberosPrincipal();
-        String keytabPath = hadoopConf.getKerberosKeytabPath();
-        if (!isKerberosAuthorization) {
-            FileSystemUtils.doKerberosAuthentication(configuration, principal, keytabPath);
-            isKerberosAuthorization = true;
-        }
-        return configuration;
-    }
-
-    Configuration getConfiguration() {
-        return getConfiguration(hadoopConf);
-    }
-
     boolean checkFileType(String path) {
         return true;
     }
 
     @Override
-    public List<String> getFileNamesByPath(HadoopConf hadoopConf, String path) throws IOException {
-        Configuration configuration = getConfiguration(hadoopConf);
-        FileSystem hdfs = FileSystem.get(configuration);
+    public List<String> getFileNamesByPath(String path) throws IOException {
         ArrayList<String> fileNames = new ArrayList<>();
-        Path listFiles = new Path(path);
-        FileStatus[] stats = hdfs.listStatus(listFiles);
+        FileStatus[] stats = hadoopFileSystemProxy.listStatus(path);
         for (FileStatus fileStatus : stats) {
             if (fileStatus.isDirectory()) {
-                fileNames.addAll(getFileNamesByPath(hadoopConf, fileStatus.getPath().toString()));
+                fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toString()));
                 continue;
             }
             if (fileStatus.isFile() && filterFileByPattern(fileStatus)) {

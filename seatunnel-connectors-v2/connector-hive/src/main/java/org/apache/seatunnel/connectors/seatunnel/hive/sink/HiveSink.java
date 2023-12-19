@@ -44,7 +44,6 @@ import org.apache.hadoop.hive.metastore.api.Table;
 
 import com.google.auto.service.AutoService;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -204,8 +203,8 @@ public class HiveSink extends BaseHdfsFileSink {
 
     @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
-            createAggregatedCommitter() throws IOException {
+            createAggregatedCommitter() {
         return Optional.of(
-                new HiveSinkAggregatedCommitter(pluginConfig, dbName, tableName, fileSystemUtils));
+                new HiveSinkAggregatedCommitter(pluginConfig, dbName, tableName, hadoopConf));
     }
 }
