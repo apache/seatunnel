@@ -37,6 +37,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.StarRocksSaveModeUtil;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -72,6 +73,7 @@ public class StarRocksCatalog implements Catalog {
     protected final String baseUrl;
     protected String defaultUrl;
     private final JdbcUrlUtil.UrlInfo urlInfo;
+    private final String template;
 
     private static final Set<String> SYS_DATABASES = new HashSet<>();
     private static final Logger LOG = LoggerFactory.getLogger(StarRocksCatalog.class);
@@ -81,7 +83,8 @@ public class StarRocksCatalog implements Catalog {
         SYS_DATABASES.add("_statistics_");
     }
 
-    public StarRocksCatalog(String catalogName, String username, String pwd, String defaultUrl) {
+    public StarRocksCatalog(
+            String catalogName, String username, String pwd, String defaultUrl, String template) {
 
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(pwd));
@@ -95,6 +98,7 @@ public class StarRocksCatalog implements Catalog {
         this.catalogName = catalogName;
         this.username = username;
         this.pwd = pwd;
+        this.template = template;
     }
 
     @Override
@@ -208,13 +212,60 @@ public class StarRocksCatalog implements Catalog {
     @Override
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
-        throw new UnsupportedOperationException();
+        this.createTable(
+                StarRocksSaveModeUtil.fillingCreateSql(
+                        template,
+                        table.getTableId().getDatabaseName(),
+                        table.getTableId().getTableName(),
+                        table.getTableSchema()));
     }
 
     @Override
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
         throw new UnsupportedOperationException();
+    }
+
+    public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {
+        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
+            if (ignoreIfNotExists) {
+                conn.createStatement()
+                        .execute(String.format("TRUNCATE TABLE  %s", tablePath.getFullName()));
+            }
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format("Failed TRUNCATE TABLE in catalog %s", tablePath.getFullName()),
+                    e);
+        }
+    }
+
+    public void executeSql(TablePath tablePath, String sql) {
+        try (Connection connection = DriverManager.getConnection(defaultUrl, username, pwd)) {
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                // Will there exist concurrent drop for one table?
+                ps.execute();
+            } catch (SQLException e) {
+                throw new CatalogException(String.format("Failed executeSql error %s", sql), e);
+            }
+        } catch (Exception e) {
+            throw new CatalogException(String.format("Failed EXECUTE SQL in catalog %s", sql), e);
+        }
+    }
+
+    public boolean isExistsData(TablePath tablePath) {
+        try (Connection connection = DriverManager.getConnection(defaultUrl, username, pwd)) {
+            String sql = String.format("select * from %s limit 1", tablePath.getTableName());
+            PreparedStatement ps = connection.prepareStatement(sql);
+            ResultSet resultSet = ps.executeQuery();
+            if (resultSet == null) {
+                return false;
+            }
+            return resultSet.next();
+        } catch (SQLException e) {
+            throw new CatalogException(
+                    String.format("Failed Connection JDBC error %s", tablePath.getTableName()), e);
+        }
     }
 
     @Override
