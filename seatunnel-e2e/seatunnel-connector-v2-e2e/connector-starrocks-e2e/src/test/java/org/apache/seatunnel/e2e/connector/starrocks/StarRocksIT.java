@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.e2e.connector.starrocks;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -351,5 +354,60 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         } catch (SQLException e) {
             throw new RuntimeException("test starrocks server image error", e);
         }
+    }
+
+    @TestTemplate
+    public void testCatalog(TestContainer container) throws IOException, InterruptedException {
+        TablePath tablePathStarRocks_source = TablePath.of("test", "e2e_table_source");
+        TablePath tablePathStarRocks_Sink = TablePath.of("test", "e2e_table_sink_2");
+        StarRocksCatalog starRocksCatalog =
+                new StarRocksCatalog(
+                        "StarRocks", "root", "", String.format(URL, starRocksServer.getHost()), "");
+        starRocksCatalog.open();
+        CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocks_source);
+        // sink tableExists ?
+        boolean tableExistsBefore = starRocksCatalog.tableExists(tablePathStarRocks_Sink);
+        Assertions.assertFalse(tableExistsBefore);
+        // create table
+        starRocksCatalog.createTable(tablePathStarRocks_Sink, catalogTable, true);
+        boolean tableExistsAfter = starRocksCatalog.tableExists(tablePathStarRocks_Sink);
+        Assertions.assertTrue(tableExistsAfter);
+        // isExistsData ?
+        boolean existsDataBefore = starRocksCatalog.isExistsData(tablePathStarRocks_Sink);
+        Assertions.assertFalse(existsDataBefore);
+        // insert one data
+        String customSql =
+                "insert into "
+                        + DATABASE
+                        + "."
+                        + "e2e_table_sink_2"
+                        + " (\n"
+                        + "  BIGINT_COL,\n"
+                        + "  LARGEINT_COL,\n"
+                        + "  SMALLINT_COL,\n"
+                        + "  TINYINT_COL,\n"
+                        + "  BOOLEAN_COL,\n"
+                        + "  DECIMAL_COL,\n"
+                        + "  DOUBLE_COL,\n"
+                        + "  FLOAT_COL,\n"
+                        + "  INT_COL,\n"
+                        + "  CHAR_COL,\n"
+                        + "  VARCHAR_11_COL,\n"
+                        + "  STRING_COL,\n"
+                        + "  DATETIME_COL,\n"
+                        + "  DATE_COL\n"
+                        + ")values(\n"
+                        + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
+                        + ")";
+        starRocksCatalog.executeSql(tablePathStarRocks_Sink, customSql);
+        boolean existsDataAfter = starRocksCatalog.isExistsData(tablePathStarRocks_Sink);
+        Assertions.assertTrue(existsDataAfter);
+        // truncateTable
+        starRocksCatalog.truncateTable(tablePathStarRocks_Sink, true);
+        Assertions.assertFalse(starRocksCatalog.isExistsData(tablePathStarRocks_Sink));
+        // drop table
+        starRocksCatalog.dropTable(tablePathStarRocks_Sink, true);
+        Assertions.assertFalse(starRocksCatalog.tableExists(tablePathStarRocks_Sink));
+        starRocksCatalog.close();
     }
 }
