@@ -87,7 +87,6 @@ public class StarRocksCatalog implements Catalog {
             String catalogName, String username, String pwd, String defaultUrl, String template) {
 
         checkArgument(StringUtils.isNotBlank(username));
-        checkArgument(StringUtils.isNotBlank(pwd));
         checkArgument(StringUtils.isNotBlank(defaultUrl));
         urlInfo = JdbcUrlUtil.getUrlInfo(defaultUrl);
         this.baseUrl = urlInfo.getUrlWithoutDatabase();
