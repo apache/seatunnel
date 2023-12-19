@@ -222,7 +222,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
                             pluginConfig.getString(BaseSourceConfigOptions.TIME_FORMAT.key()));
         }
         if (pluginConfig.hasPath(BaseSourceConfigOptions.COMPRESS_CODEC.key())) {
-            String compressCodec = pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
+            String compressCodec =
+                    pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
     }

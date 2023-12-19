@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
-import static org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode.FILE_READ_FAILED;
-import static org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode.FILE_READ_STRATEGY_NOT_SUPPORT;
-
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -38,9 +35,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode.FILE_READ_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode.FILE_READ_STRATEGY_NOT_SUPPORT;
+
 @Slf4j
-public class MultipleTableFileSourceReader
-    implements SourceReader<SeaTunnelRow, FileSourceSplit> {
+public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow, FileSourceSplit> {
 
     private final Context context;
     private volatile boolean noMoreSplit;
@@ -50,20 +49,19 @@ public class MultipleTableFileSourceReader
     private final Map<String, ReadStrategy> readStrategyMap;
 
     public MultipleTableFileSourceReader(
-        Context context,
-        BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig) {
+            Context context, BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig) {
         this.context = context;
         this.readStrategyMap =
-            multipleTableFileSourceConfig.getFileSourceConfigs().stream()
-                .collect(
-                    Collectors.toMap(
-                        fileSourceConfig ->
-                            fileSourceConfig
-                                .getCatalogTable()
-                                .getTableId()
-                                .toTablePath()
-                                .toString(),
-                        BaseFileSourceConfig::getReadStrategy));
+                multipleTableFileSourceConfig.getFileSourceConfigs().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        fileSourceConfig ->
+                                                fileSourceConfig
+                                                        .getCatalogTable()
+                                                        .getTableId()
+                                                        .toTablePath()
+                                                        .toString(),
+                                        BaseFileSourceConfig::getReadStrategy));
     }
 
     @Override
@@ -74,22 +72,22 @@ public class MultipleTableFileSourceReader
                 ReadStrategy readStrategy = readStrategyMap.get(split.getTableId());
                 if (readStrategy == null) {
                     throw new FileConnectorException(
-                        FILE_READ_STRATEGY_NOT_SUPPORT,
-                        "Cannot found the read strategy for this table: ["
-                            + split.getTableId()
-                            + "]");
+                            FILE_READ_STRATEGY_NOT_SUPPORT,
+                            "Cannot found the read strategy for this table: ["
+                                    + split.getTableId()
+                                    + "]");
                 }
                 try {
                     readStrategy.read(split.getFilePath(), split.getTableId(), output);
                 } catch (Exception e) {
                     String errorMsg =
-                        String.format("Read data from this file [%s] failed", split.splitId());
+                            String.format("Read data from this file [%s] failed", split.splitId());
                     throw new FileConnectorException(FILE_READ_FAILED, errorMsg, e);
                 }
             } else if (noMoreSplit && sourceSplits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
                 log.info(
-                    "There is no more element for the bounded MultipleTableLocalFileSourceReader");
+                        "There is no more element for the bounded MultipleTableLocalFileSourceReader");
                 context.signalNoMoreElement();
             }
         }

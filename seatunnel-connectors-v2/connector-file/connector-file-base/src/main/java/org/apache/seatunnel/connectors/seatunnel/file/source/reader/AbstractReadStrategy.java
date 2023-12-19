@@ -126,17 +126,20 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         this.pluginConfig = pluginConfig;
         if (pluginConfig.hasPath(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH.key())) {
             isMergePartition =
-                    pluginConfig.getBoolean(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH.key());
+                    pluginConfig.getBoolean(
+                            BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH.key());
         }
         if (pluginConfig.hasPath(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key())) {
-            skipHeaderNumber = pluginConfig.getLong(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key());
+            skipHeaderNumber =
+                    pluginConfig.getLong(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key());
         }
         if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_PARTITIONS.key())) {
             readPartitions.addAll(
                     pluginConfig.getStringList(BaseSourceConfigOptions.READ_PARTITIONS.key()));
         }
         if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
-            readColumns.addAll(pluginConfig.getStringList(BaseSourceConfigOptions.READ_COLUMNS.key()));
+            readColumns.addAll(
+                    pluginConfig.getStringList(BaseSourceConfigOptions.READ_COLUMNS.key()));
         }
         if (pluginConfig.hasPath(BaseSourceConfigOptions.FILE_FILTER_PATTERN.key())) {
             String filterPattern =

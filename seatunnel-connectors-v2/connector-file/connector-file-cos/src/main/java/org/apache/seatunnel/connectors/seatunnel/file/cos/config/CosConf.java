@@ -52,7 +52,8 @@ public class CosConf extends HadoopConf {
         cosOptions.put(
                 CosNConfigKeys.COSN_USERINFO_SECRET_KEY_KEY,
                 config.getString(CosConfigOptions.SECRET_KEY.key()));
-        cosOptions.put(CosNConfigKeys.COSN_REGION_KEY, config.getString(CosConfigOptions.REGION.key()));
+        cosOptions.put(
+                CosNConfigKeys.COSN_REGION_KEY, config.getString(CosConfigOptions.REGION.key()));
         hadoopConf.setExtraOptions(cosOptions);
         return hadoopConf;
     }

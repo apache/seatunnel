@@ -46,9 +46,11 @@ public class OssConf extends HadoopConf {
     public static HadoopConf buildWithConfig(Config config) {
         HadoopConf hadoopConf = new OssConf(config.getString(OssConfigOptions.BUCKET.key()));
         HashMap<String, String> ossOptions = new HashMap<>();
-        ossOptions.put(Constants.ACCESS_KEY_ID, config.getString(OssConfigOptions.ACCESS_KEY.key()));
         ossOptions.put(
-                Constants.ACCESS_KEY_SECRET, config.getString(OssConfigOptions.ACCESS_SECRET.key()));
+                Constants.ACCESS_KEY_ID, config.getString(OssConfigOptions.ACCESS_KEY.key()));
+        ossOptions.put(
+                Constants.ACCESS_KEY_SECRET,
+                config.getString(OssConfigOptions.ACCESS_SECRET.key()));
         ossOptions.put(Constants.ENDPOINT_KEY, config.getString(OssConfigOptions.ENDPOINT.key()));
         hadoopConf.setExtraOptions(ossOptions);
         return hadoopConf;

@@ -31,8 +31,9 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 
-import lombok.Getter;
 import org.apache.commons.collections4.CollectionUtils;
+
+import lombok.Getter;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -66,20 +67,18 @@ public abstract class BaseFileSourceConfig implements Serializable {
         String rootPath = null;
         try {
             rootPath = readonlyConfig.get(BaseSourceConfigOptions.FILE_PATH);
-            return readStrategy.getFileNamesByPath(getHadoopConfig(), rootPath);
+            return readStrategy.getFileNamesByPath(rootPath);
         } catch (Exception ex) {
             String errorMsg = String.format("Get file list from this path [%s] failed", rootPath);
             throw new FileConnectorException(
-                FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, ex);
+                    FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, ex);
         }
     }
 
     private CatalogTable parseCatalogTable(ReadonlyConfig readonlyConfig) {
         final CatalogTable catalogTable;
         if (readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
-            catalogTable =
-                CatalogTableUtil.buildWithConfig(
-                    getPluginName(), readonlyConfig);
+            catalogTable = CatalogTableUtil.buildWithConfig(getPluginName(), readonlyConfig);
         } else {
             catalogTable = CatalogTableUtil.buildSimpleTextTable();
         }
@@ -96,23 +95,21 @@ public abstract class BaseFileSourceConfig implements Serializable {
             case ORC:
             case PARQUET:
                 return newCatalogTable(
-                    catalogTable,
-                    readStrategy.getSeaTunnelRowTypeInfo(
-                        getHadoopConfig(), filePaths.get(0)));
+                        catalogTable, readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0)));
             default:
                 throw new FileConnectorException(
-                    FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
-                    "SeaTunnel does not supported this file format: [" + fileFormat + "]");
+                        FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
+                        "SeaTunnel does not supported this file format: [" + fileFormat + "]");
         }
     }
 
     private CatalogTable newCatalogTable(
-        CatalogTable catalogTable, SeaTunnelRowType seaTunnelRowType) {
+            CatalogTable catalogTable, SeaTunnelRowType seaTunnelRowType) {
         TableSchema tableSchema = catalogTable.getTableSchema();
 
         Map<String, Column> columnMap =
-            tableSchema.getColumns().stream()
-                .collect(Collectors.toMap(Column::getName, Function.identity()));
+                tableSchema.getColumns().stream()
+                        .collect(Collectors.toMap(Column::getName, Function.identity()));
         String[] fieldNames = seaTunnelRowType.getFieldNames();
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
 
@@ -123,23 +120,23 @@ public abstract class BaseFileSourceConfig implements Serializable {
                 finalColumns.add(column);
             } else {
                 finalColumns.add(
-                    PhysicalColumn.of(fieldNames[i], fieldTypes[i], 0, false, null, null));
+                        PhysicalColumn.of(fieldNames[i], fieldTypes[i], 0, false, null, null));
             }
         }
 
         TableSchema finalSchema =
-            TableSchema.builder()
-                .columns(finalColumns)
-                .primaryKey(tableSchema.getPrimaryKey())
-                .constraintKey(tableSchema.getConstraintKeys())
-                .build();
+                TableSchema.builder()
+                        .columns(finalColumns)
+                        .primaryKey(tableSchema.getPrimaryKey())
+                        .constraintKey(tableSchema.getConstraintKeys())
+                        .build();
 
         return CatalogTable.of(
-            catalogTable.getTableId(),
-            finalSchema,
-            catalogTable.getOptions(),
-            catalogTable.getPartitionKeys(),
-            catalogTable.getComment(),
-            catalogTable.getCatalogName());
+                catalogTable.getTableId(),
+                finalSchema,
+                catalogTable.getOptions(),
+                catalogTable.getPartitionKeys(),
+                catalogTable.getComment(),
+                catalogTable.getCatalogName());
     }
 }

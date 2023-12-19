@@ -69,7 +69,9 @@ public class FtpFileSource extends BaseFileSource {
         }
         FileFormat fileFormat =
                 FileFormat.valueOf(
-                        pluginConfig.getString(FtpConfigOptions.FILE_FORMAT_TYPE.key()).toUpperCase());
+                        pluginConfig
+                                .getString(FtpConfigOptions.FILE_FORMAT_TYPE.key())
+                                .toUpperCase());
         if (fileFormat == FileFormat.ORC || fileFormat == FileFormat.PARQUET) {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
@@ -78,7 +80,8 @@ public class FtpFileSource extends BaseFileSource {
         String path = pluginConfig.getString(FtpConfigOptions.FILE_PATH.key());
         hadoopConf = FtpConf.buildWithConfig(pluginConfig);
         readStrategy =
-                ReadStrategyFactory.of(pluginConfig.getString(FtpConfigOptions.FILE_FORMAT_TYPE.key()));
+                ReadStrategyFactory.of(
+                        pluginConfig.getString(FtpConfigOptions.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         readStrategy.init(hadoopConf);
         try {

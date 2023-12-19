@@ -33,9 +33,7 @@ public abstract class BaseMultipleTableFileSourceConfig implements Serializable 
     @Getter private List<BaseFileSourceConfig> fileSourceConfigs;
 
     public BaseMultipleTableFileSourceConfig(ReadonlyConfig fileSourceRootConfig) {
-        if (fileSourceRootConfig
-                .getOptional(BaseSourceConfigOptions.TABLE_CONFIGS)
-                .isPresent()) {
+        if (fileSourceRootConfig.getOptional(BaseSourceConfigOptions.TABLE_CONFIGS).isPresent()) {
             parseFromFileSourceConfigs(fileSourceRootConfig);
         } else {
             parseFromFileSourceConfig(fileSourceRootConfig);

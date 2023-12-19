@@ -47,7 +47,8 @@ public class OssConf extends HadoopConf {
         ossOptions.put("fs.AbstractFileSystem.oss.impl", "com.aliyun.emr.fs.oss.OSS");
         ossOptions.put("fs.oss.impl", "com.aliyun.emr.fs.oss.JindoOssFileSystem");
         ossOptions.put("fs.oss.accessKeyId", config.getString(OssConfigOptions.ACCESS_KEY.key()));
-        ossOptions.put("fs.oss.accessKeySecret", config.getString(OssConfigOptions.ACCESS_SECRET.key()));
+        ossOptions.put(
+                "fs.oss.accessKeySecret", config.getString(OssConfigOptions.ACCESS_SECRET.key()));
         ossOptions.put("fs.oss.endpoint", config.getString(OssConfigOptions.ENDPOINT.key()));
         ossOptions.put("fs.oss.upload.thread.concurrency", "20");
         ossOptions.put("fs.oss.upload.queue.size", "100");

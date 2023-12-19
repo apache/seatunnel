@@ -70,7 +70,8 @@ public class OssFileSource extends BaseFileSource {
         String path = pluginConfig.getString(OssConfigOptions.FILE_PATH.key());
         hadoopConf = OssConf.buildWithConfig(pluginConfig);
         readStrategy =
-                ReadStrategyFactory.of(pluginConfig.getString(OssConfigOptions.FILE_FORMAT_TYPE.key()));
+                ReadStrategyFactory.of(
+                        pluginConfig.getString(OssConfigOptions.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         readStrategy.init(hadoopConf);
         try {
@@ -83,7 +84,9 @@ public class OssFileSource extends BaseFileSource {
         // support user-defined schema
         FileFormat fileFormat =
                 FileFormat.valueOf(
-                        pluginConfig.getString(OssConfigOptions.FILE_FORMAT_TYPE.key()).toUpperCase());
+                        pluginConfig
+                                .getString(OssConfigOptions.FILE_FORMAT_TYPE.key())
+                                .toUpperCase());
         // only json text csv type support user-defined schema now
         if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             switch (fileFormat) {

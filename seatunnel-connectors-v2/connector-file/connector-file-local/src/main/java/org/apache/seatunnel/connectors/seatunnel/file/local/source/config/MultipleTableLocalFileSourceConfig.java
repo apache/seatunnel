@@ -21,12 +21,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 
-import com.google.common.collect.Lists;
-import lombok.Getter;
-
-import java.util.List;
-import java.util.stream.Collectors;
-
 public class MultipleTableLocalFileSourceConfig extends BaseMultipleTableFileSourceConfig {
 
     public MultipleTableLocalFileSourceConfig(ReadonlyConfig localFileSourceRootConfig) {

@@ -70,7 +70,8 @@ public class CosFileSource extends BaseFileSource {
         String path = pluginConfig.getString(CosConfigOptions.FILE_PATH.key());
         hadoopConf = CosConf.buildWithConfig(pluginConfig);
         readStrategy =
-                ReadStrategyFactory.of(pluginConfig.getString(CosConfigOptions.FILE_FORMAT_TYPE.key()));
+                ReadStrategyFactory.of(
+                        pluginConfig.getString(CosConfigOptions.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         readStrategy.init(hadoopConf);
         try {
@@ -83,7 +84,9 @@ public class CosFileSource extends BaseFileSource {
         // support user-defined schema
         FileFormat fileFormat =
                 FileFormat.valueOf(
-                        pluginConfig.getString(CosConfigOptions.FILE_FORMAT_TYPE.key()).toUpperCase());
+                        pluginConfig
+                                .getString(CosConfigOptions.FILE_FORMAT_TYPE.key())
+                                .toUpperCase());
         // only json text csv type support user-defined schema now
         if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             switch (fileFormat) {

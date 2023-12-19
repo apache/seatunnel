@@ -56,14 +56,16 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         String path = pluginConfig.getString(HdfsSourceConfigOptions.FILE_PATH.key());
-        hadoopConf = new HadoopConf(pluginConfig.getString(HdfsSourceConfigOptions.DEFAULT_FS.key()));
+        hadoopConf =
+                new HadoopConf(pluginConfig.getString(HdfsSourceConfigOptions.DEFAULT_FS.key()));
         if (pluginConfig.hasPath(HdfsSourceConfigOptions.HDFS_SITE_PATH.key())) {
             hadoopConf.setHdfsSitePath(
                     pluginConfig.getString(HdfsSourceConfigOptions.HDFS_SITE_PATH.key()));
         }
 
         if (pluginConfig.hasPath(HdfsSourceConfigOptions.REMOTE_USER.key())) {
-            hadoopConf.setRemoteUser(pluginConfig.getString(HdfsSourceConfigOptions.REMOTE_USER.key()));
+            hadoopConf.setRemoteUser(
+                    pluginConfig.getString(HdfsSourceConfigOptions.REMOTE_USER.key()));
         }
 
         if (pluginConfig.hasPath(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL.key())) {

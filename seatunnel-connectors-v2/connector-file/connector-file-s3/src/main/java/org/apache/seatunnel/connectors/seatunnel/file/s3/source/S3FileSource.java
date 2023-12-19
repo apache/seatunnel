@@ -67,7 +67,8 @@ public class S3FileSource extends BaseFileSource {
         String path = pluginConfig.getString(S3ConfigOptions.FILE_PATH.key());
         hadoopConf = S3Conf.buildWithConfig(pluginConfig);
         readStrategy =
-                ReadStrategyFactory.of(pluginConfig.getString(S3ConfigOptions.FILE_FORMAT_TYPE.key()));
+                ReadStrategyFactory.of(
+                        pluginConfig.getString(S3ConfigOptions.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         readStrategy.init(hadoopConf);
         try {
@@ -80,7 +81,9 @@ public class S3FileSource extends BaseFileSource {
         // support user-defined schema
         FileFormat fileFormat =
                 FileFormat.valueOf(
-                        pluginConfig.getString(S3ConfigOptions.FILE_FORMAT_TYPE.key()).toUpperCase());
+                        pluginConfig
+                                .getString(S3ConfigOptions.FILE_FORMAT_TYPE.key())
+                                .toUpperCase());
         // only json text csv type support user-defined schema now
         if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             switch (fileFormat) {

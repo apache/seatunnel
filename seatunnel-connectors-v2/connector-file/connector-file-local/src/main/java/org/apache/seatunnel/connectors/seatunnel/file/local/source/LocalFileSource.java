@@ -38,15 +38,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class LocalFileSource
-    implements SeaTunnelSource<SeaTunnelRow, FileSourceSplit, FileSourceState>,
-    SupportParallelism,
-    SupportColumnProjection {
+        implements SeaTunnelSource<SeaTunnelRow, FileSourceSplit, FileSourceState>,
+                SupportParallelism,
+                SupportColumnProjection {
 
     private final MultipleTableLocalFileSourceConfig multipleTableFileSourceConfig;
 
     public LocalFileSource(ReadonlyConfig readonlyConfig) {
-        this.multipleTableFileSourceConfig =
-            new MultipleTableLocalFileSourceConfig(readonlyConfig);
+        this.multipleTableFileSourceConfig = new MultipleTableLocalFileSourceConfig(readonlyConfig);
     }
 
     @Override
@@ -62,29 +61,28 @@ public class LocalFileSource
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
         return multipleTableFileSourceConfig.getFileSourceConfigs().stream()
-            .map(BaseFileSourceConfig::getCatalogTable)
-            .collect(Collectors.toList());
+                .map(BaseFileSourceConfig::getCatalogTable)
+                .collect(Collectors.toList());
     }
 
     @Override
     public SourceReader<SeaTunnelRow, FileSourceSplit> createReader(
-        SourceReader.Context readerContext) {
-        return new MultipleTableFileSourceReader(
-            readerContext, multipleTableFileSourceConfig);
+            SourceReader.Context readerContext) {
+        return new MultipleTableFileSourceReader(readerContext, multipleTableFileSourceConfig);
     }
 
     @Override
     public SourceSplitEnumerator<FileSourceSplit, FileSourceState> createEnumerator(
-        SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext) {
+            SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext) {
         return new MultipleTableFileSourceSplitEnumerator(
-            enumeratorContext, multipleTableFileSourceConfig);
+                enumeratorContext, multipleTableFileSourceConfig);
     }
 
     @Override
     public SourceSplitEnumerator<FileSourceSplit, FileSourceState> restoreEnumerator(
-        SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext,
-        FileSourceState checkpointState) {
+            SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext,
+            FileSourceState checkpointState) {
         return new MultipleTableFileSourceSplitEnumerator(
-            enumeratorContext, multipleTableFileSourceConfig, checkpointState);
+                enumeratorContext, multipleTableFileSourceConfig, checkpointState);
     }
 }

@@ -48,9 +48,13 @@ public class SftpConf extends HadoopConf {
         String defaultFS = String.format("sftp://%s:%s", host, port);
         HadoopConf hadoopConf = new SftpConf(defaultFS);
         HashMap<String, String> sftpOptions = new HashMap<>();
-        sftpOptions.put("fs.sftp.user." + host, config.getString(SftpConfigOptions.SFTP_USER.key()));
         sftpOptions.put(
-                "fs.sftp.password." + host + "." + config.getString(SftpConfigOptions.SFTP_USER.key()),
+                "fs.sftp.user." + host, config.getString(SftpConfigOptions.SFTP_USER.key()));
+        sftpOptions.put(
+                "fs.sftp.password."
+                        + host
+                        + "."
+                        + config.getString(SftpConfigOptions.SFTP_USER.key()),
                 config.getString(SftpConfigOptions.SFTP_PASSWORD.key()));
         hadoopConf.setExtraOptions(sftpOptions);
         return hadoopConf;

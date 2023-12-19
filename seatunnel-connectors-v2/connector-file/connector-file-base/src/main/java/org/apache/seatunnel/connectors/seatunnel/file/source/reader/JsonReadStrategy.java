@@ -47,7 +47,8 @@ public class JsonReadStrategy extends AbstractReadStrategy {
     public void init(HadoopConf conf) {
         super.init(conf);
         if (pluginConfig.hasPath(BaseSourceConfigOptions.COMPRESS_CODEC.key())) {
-            String compressCodec = pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
+            String compressCodec =
+                    pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
     }

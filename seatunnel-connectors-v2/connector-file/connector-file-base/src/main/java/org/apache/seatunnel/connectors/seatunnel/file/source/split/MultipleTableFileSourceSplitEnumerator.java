@@ -22,8 +22,9 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfi
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -35,7 +36,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class MultipleTableFileSourceSplitEnumerator
-    implements SourceSplitEnumerator<FileSourceSplit, FileSourceState> {
+        implements SourceSplitEnumerator<FileSourceSplit, FileSourceState> {
 
     private final Context<FileSourceSplit> context;
     private final Set<FileSourceSplit> pendingSplit;
@@ -43,28 +44,28 @@ public class MultipleTableFileSourceSplitEnumerator
     private final Map<String, List<String>> filePathMap;
 
     public MultipleTableFileSourceSplitEnumerator(
-        Context<FileSourceSplit> context,
-        BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig) {
+            Context<FileSourceSplit> context,
+            BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig) {
         this.context = context;
         this.filePathMap =
-            multipleTableFileSourceConfig.getFileSourceConfigs().stream()
-                .collect(
-                    Collectors.toMap(
-                        localFileSourceConfig ->
-                            localFileSourceConfig
-                                .getCatalogTable()
-                                .getTableId()
-                                .toTablePath()
-                                .toString(),
-                        BaseFileSourceConfig::getFilePaths));
+                multipleTableFileSourceConfig.getFileSourceConfigs().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        localFileSourceConfig ->
+                                                localFileSourceConfig
+                                                        .getCatalogTable()
+                                                        .getTableId()
+                                                        .toTablePath()
+                                                        .toString(),
+                                        BaseFileSourceConfig::getFilePaths));
         this.assignedSplit = new HashSet<>();
         this.pendingSplit = new HashSet<>();
     }
 
     public MultipleTableFileSourceSplitEnumerator(
-        Context<FileSourceSplit> context,
-        BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig,
-        FileSourceState fileSourceState) {
+            Context<FileSourceSplit> context,
+            BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig,
+            FileSourceState fileSourceState) {
         this(context, multipleTableFileSourceConfig);
         this.assignedSplit.addAll(fileSourceState.getAssignedSplit());
     }
@@ -84,8 +85,7 @@ public class MultipleTableFileSourceSplitEnumerator
     }
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
-    }
+    public void handleSplitRequest(int subtaskId) {}
 
     @Override
     public void registerReader(int subtaskId) {
@@ -119,7 +119,7 @@ public class MultipleTableFileSourceSplitEnumerator
             // allocate the current task
             for (FileSourceSplit fileSourceSplit : pendingSplit) {
                 int splitOwner =
-                    getSplitOwner(fileSourceSplit.splitId(), context.currentParallelism());
+                        getSplitOwner(fileSourceSplit.splitId(), context.currentParallelism());
                 if (splitOwner == taskId) {
                     currentTaskSplits.add(fileSourceSplit);
                 }
@@ -132,11 +132,11 @@ public class MultipleTableFileSourceSplitEnumerator
         // remove the assigned splits from pending splits
         currentTaskSplits.forEach(pendingSplit::remove);
         log.info(
-            "SubTask {} is assigned to [{}]",
-            taskId,
-            currentTaskSplits.stream()
-                .map(FileSourceSplit::splitId)
-                .collect(Collectors.joining(",")));
+                "SubTask {} is assigned to [{}]",
+                taskId,
+                currentTaskSplits.stream()
+                        .map(FileSourceSplit::splitId)
+                        .collect(Collectors.joining(",")));
         context.signalNoMoreSplits(taskId);
     }
 

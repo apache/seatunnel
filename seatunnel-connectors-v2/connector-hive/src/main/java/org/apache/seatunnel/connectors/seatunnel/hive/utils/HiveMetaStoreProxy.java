@@ -20,9 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopLoginFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopLoginFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
@@ -63,10 +62,11 @@ public class HiveMetaStoreProxy {
                                 new Configuration(),
                                 TypesafeConfigUtils.getConfig(
                                         config,
-                                    BaseSourceConfigOptions.KRB5_PATH.key(),
-                                    BaseSourceConfigOptions.KRB5_PATH.defaultValue()),
+                                        BaseSourceConfigOptions.KRB5_PATH.key(),
+                                        BaseSourceConfigOptions.KRB5_PATH.defaultValue()),
                                 config.getString(BaseSourceConfigOptions.KERBEROS_PRINCIPAL.key()),
-                                config.getString(BaseSourceConfigOptions.KERBEROS_KEYTAB_PATH.key()),
+                                config.getString(
+                                        BaseSourceConfigOptions.KERBEROS_KEYTAB_PATH.key()),
                                 (configuration, userGroupInformation) ->
                                         new HiveMetaStoreClient(hiveConf));
                 return;
@@ -151,7 +151,8 @@ public class HiveMetaStoreProxy {
     }
 
     private boolean enableKerberos(Config config) {
-        boolean kerberosPrincipalEmpty = config.hasPath(BaseSourceConfigOptions.KERBEROS_PRINCIPAL.key());
+        boolean kerberosPrincipalEmpty =
+                config.hasPath(BaseSourceConfigOptions.KERBEROS_PRINCIPAL.key());
         boolean kerberosKeytabPathEmpty =
                 config.hasPath(BaseSourceConfigOptions.KERBEROS_KEYTAB_PATH.key());
         if (kerberosKeytabPathEmpty && kerberosPrincipalEmpty) {

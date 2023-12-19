@@ -45,7 +45,9 @@ public class S3FileSink extends BaseFileSink {
         super.prepare(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
-                        pluginConfig, S3ConfigOptions.FILE_PATH.key(), S3ConfigOptions.S3_BUCKET.key());
+                        pluginConfig,
+                        S3ConfigOptions.FILE_PATH.key(),
+                        S3ConfigOptions.S3_BUCKET.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

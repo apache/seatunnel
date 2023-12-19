@@ -64,7 +64,8 @@ public class S3Conf extends HadoopConf {
                 S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
                 config.getString(S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
         s3Options.put(
-                S3ConfigOptions.FS_S3A_ENDPOINT.key(), config.getString(S3ConfigOptions.FS_S3A_ENDPOINT.key()));
+                S3ConfigOptions.FS_S3A_ENDPOINT.key(),
+                config.getString(S3ConfigOptions.FS_S3A_ENDPOINT.key()));
         hadoopConf.setExtraOptions(s3Options);
         return hadoopConf;
     }
