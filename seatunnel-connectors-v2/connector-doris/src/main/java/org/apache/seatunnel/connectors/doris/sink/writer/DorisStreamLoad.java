@@ -78,6 +78,7 @@ public class DorisStreamLoad implements Serializable {
     private final CloseableHttpClient httpClient;
     private final ExecutorService executorService;
     private boolean loadBatchFirstRecord;
+    private long recordCount = 0;
 
     public DorisStreamLoad(
             String hostPort,
@@ -193,6 +194,11 @@ public class DorisStreamLoad implements Serializable {
             recordStream.write(lineDelimiter);
         }
         recordStream.write(record);
+        recordCount++;
+    }
+
+    public long getRecordCount() {
+        return recordCount;
     }
 
     public RespContent handlePreCommitResponse(CloseableHttpResponse response) throws Exception {
@@ -219,6 +225,7 @@ public class DorisStreamLoad implements Serializable {
 
     public void startLoad(String label) throws IOException {
         loadBatchFirstRecord = true;
+        recordCount = 0;
         HttpPutBuilder putBuilder = new HttpPutBuilder();
         recordStream.startInput();
         log.info("stream load started for {}", label);

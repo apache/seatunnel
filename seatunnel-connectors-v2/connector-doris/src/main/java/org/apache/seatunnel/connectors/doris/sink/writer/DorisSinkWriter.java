@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.doris.util.HttpUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -124,10 +125,26 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
             return;
         }
         dorisStreamLoad.writeRecord(serialize);
+        if (!dorisConfig.getEnable2PC()
+                && dorisStreamLoad.getRecordCount() >= dorisConfig.getBatchSize()) {
+            flush();
+            startLoad(labelGenerator.generateLabel(lastCheckpointId));
+        }
     }
 
     @Override
     public Optional<DorisCommitInfo> prepareCommit() throws IOException {
+        RespContent respContent = flush();
+        if (!dorisConfig.getEnable2PC()) {
+            return Optional.empty();
+        }
+        long txnId = respContent.getTxnId();
+
+        return Optional.of(
+                new DorisCommitInfo(dorisStreamLoad.getHostPort(), dorisStreamLoad.getDb(), txnId));
+    }
+
+    @NonNull private RespContent flush() throws IOException {
         // disable exception checker before stop load.
         loading = false;
         checkState(dorisStreamLoad != null);
@@ -139,23 +156,21 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
                             respContent.getMessage(), respContent.getErrorURL());
             throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, errMsg);
         }
-        if (!dorisConfig.getEnable2PC()) {
-            return Optional.empty();
-        }
-        long txnId = respContent.getTxnId();
-
-        return Optional.of(
-                new DorisCommitInfo(dorisStreamLoad.getHostPort(), dorisStreamLoad.getDb(), txnId));
+        return respContent;
     }
 
     @Override
     public List<DorisSinkState> snapshotState(long checkpointId) throws IOException {
         checkState(dorisStreamLoad != null);
-        this.dorisStreamLoad.setHostPort(getAvailableBackend());
-        this.dorisStreamLoad.startLoad(labelGenerator.generateLabel(checkpointId + 1));
-        this.loading = true;
+        startLoad(labelGenerator.generateLabel(checkpointId + 1));
         this.lastCheckpointId = checkpointId;
         return Collections.singletonList(new DorisSinkState(labelPrefix, lastCheckpointId));
+    }
+
+    private void startLoad(String label) throws IOException {
+        this.dorisStreamLoad.setHostPort(getAvailableBackend());
+        this.dorisStreamLoad.startLoad(label);
+        this.loading = true;
     }
 
     @Override
@@ -206,6 +221,9 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
 
     @Override
     public void close() throws IOException {
+        if (!dorisConfig.getEnable2PC()) {
+            flush();
+        }
         if (scheduledExecutorService != null) {
             scheduledExecutorService.shutdownNow();
         }
