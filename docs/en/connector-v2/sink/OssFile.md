@@ -85,7 +85,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 |               name               |  type   | required |               default value                |                                                      remarks                                                      |
 |----------------------------------|---------|----------|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
-| path                             | string  | yes      | -                                          |                                                                                                                   |
+| path                             | string  | yes      | The oss path to write file in.             |                                                                                                                   |
 | tmp_path                         | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a OSS dir. |
 | bucket                           | string  | yes      | -                                          |                                                                                                                   |
 | access_key                       | string  | yes      | -                                          |                                                                                                                   |
