@@ -136,19 +136,20 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                     case LZO:
                         LzopCodec lzo = new LzopCodec();
                         OutputStream out =
-                                lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
+                                lzo.createOutputStream(
+                                        hadoopFileSystemProxy.getOutputStream(filePath));
                         fsDataOutputStream = new FSDataOutputStream(out, null);
                         enableWriteHeader(fsDataOutputStream);
                         break;
                     case NONE:
-                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        fsDataOutputStream = hadoopFileSystemProxy.getOutputStream(filePath);
                         enableWriteHeader(fsDataOutputStream);
                         break;
                     default:
                         log.warn(
                                 "Text file does not support this compress type: {}",
                                 compressFormat.getCompressCodec());
-                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        fsDataOutputStream = hadoopFileSystemProxy.getOutputStream(filePath);
                         enableWriteHeader(fsDataOutputStream);
                         break;
                 }
