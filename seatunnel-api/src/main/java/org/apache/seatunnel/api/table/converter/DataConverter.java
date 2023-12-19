@@ -24,10 +24,22 @@ import java.io.Serializable;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+/**
+ * Data converter to transfer to/from external system data type.
+ *
+ * @param <T>
+ */
 public interface DataConverter<T> extends Serializable {
 
     String identifier();
 
+    /**
+     * Convert an external system's data type to {@link SeaTunnelDataType#getTypeClass()}.
+     *
+     * @param typeDefine
+     * @param value
+     * @return
+     */
     Object convert(SeaTunnelDataType typeDefine, Object value);
 
     default Object convert(Column columnDefine, Object value) {
@@ -80,6 +92,13 @@ public interface DataConverter<T> extends Serializable {
         return reconvert(typeDefine, value);
     }
 
+    /**
+     * Convert object to an external system's data type.
+     *
+     * @param typeDefine
+     * @param value
+     * @return
+     */
     default Object reconvert(T typeDefine, Object value) {
         throw new UnsupportedOperationException("reconvert not support");
     }
@@ -88,6 +107,13 @@ public interface DataConverter<T> extends Serializable {
         return reconvert(columnDefine.getDataType(), value);
     }
 
+    /**
+     * Convert {@link SeaTunnelDataType#getTypeClass()} to an external system's data type.
+     *
+     * @param typeDefine
+     * @param value
+     * @return
+     */
     default Object reconvert(SeaTunnelDataType typeDefine, Object value) {
         throw new UnsupportedOperationException("reconvert not support");
     }

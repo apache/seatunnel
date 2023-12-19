@@ -26,6 +26,13 @@ import java.util.List;
 
 public interface BasicTypeConverter<T extends BasicTypeDefine> extends TypeConverter<T> {
 
+    /**
+     * Convert {@link CatalogTable} columns definition to external system's type definition.
+     *
+     * @param table
+     * @param identifiers
+     * @return
+     */
     default List<T> reconvert(CatalogTable table, String... identifiers) {
         List<T> typeDefines = new ArrayList<>();
         for (Column column : table.getTableSchema().getColumns()) {
