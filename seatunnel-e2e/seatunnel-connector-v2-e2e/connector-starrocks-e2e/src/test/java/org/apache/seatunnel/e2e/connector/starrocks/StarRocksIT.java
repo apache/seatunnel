@@ -369,7 +369,6 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
                                 + "${rowtype_fields}\n"
                                 + ") ENGINE=OLAP\n"
-                                + " PRIMARY KEY (BIGINT_COL)\n"
                                 + "DISTRIBUTED BY HASH (BIGINT_COL)"
                                 + "PROPERTIES (\n"
                                 + "    \"replication_num\" = \"1\" \n"
