@@ -34,6 +34,23 @@ describes how to set up the Postgre CDC connector to run SQL queries against Pos
 
 Please download and put Postgre driver in `${SEATUNNEL_HOME}/lib/` dir. For example: cp postgresql-xxx.jar `$SEATNUNNEL_HOME/lib/`
 
+> Here are the steps to enable CDC (Change Data Capture) in PostgreSQL:
+
+1. Ensure the wal_level is set to logical: Modify the postgresql.conf configuration file by adding "wal_level = logical",
+   restart the PostgreSQL server for the changes to take effect.
+   Alternatively, you can use SQL commands to modify the configuration directly:
+
+```sql
+ALTER SYSTEM SET wal_level TO 'logical';
+SELECT pg_reload_conf();
+```
+
+2. Change the REPLICA policy of the specified table to FULL
+
+```sql
+ALTER TABLE your_table_name REPLICA IDENTITY FULL;
+```
+
 ## Data Type Mapping
 
 |                                  PostgreSQL Data type                                   |                                                              SeaTunnel Data type                                                               |
