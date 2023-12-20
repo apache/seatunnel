@@ -402,7 +402,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         + "  DATETIME_COL,\n"
                         + "  DATE_COL\n"
                         + ")values(\n"
-                        + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
+                        + "\t 999,12345,1,1,false,1.1,9.9,2,'A','ADC','ASED','ASEDF','2022-08-13 17:35:59','2022-08-13'\n"
                         + ")";
         starRocksCatalog.executeSql(tablePathStarRocks_Sink, customSql);
         boolean existsDataAfter = starRocksCatalog.isExistsData(tablePathStarRocks_Sink);
