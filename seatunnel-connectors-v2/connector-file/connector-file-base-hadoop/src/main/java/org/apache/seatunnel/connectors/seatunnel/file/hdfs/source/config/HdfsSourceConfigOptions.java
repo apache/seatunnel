@@ -15,24 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.local.source.state;
+package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config;
 
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileSourceSplit;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 
-import java.io.Serializable;
-import java.util.Set;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 
-public class LocalFileSourceState implements Serializable {
-
-    private static final long serialVersionUID = 1L;
-
-    private final Set<LocalFileSourceSplit> assignedSplit;
-
-    public LocalFileSourceState(Set<LocalFileSourceSplit> assignedSplit) {
-        this.assignedSplit = assignedSplit;
-    }
-
-    public Set<LocalFileSourceSplit> getAssignedSplit() {
-        return assignedSplit;
-    }
+public class HdfsSourceConfigOptions extends BaseSourceConfigOptions {
+    public static final Option<String> DEFAULT_FS =
+            Options.key(FS_DEFAULT_NAME_KEY)
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("HDFS namenode host");
 }

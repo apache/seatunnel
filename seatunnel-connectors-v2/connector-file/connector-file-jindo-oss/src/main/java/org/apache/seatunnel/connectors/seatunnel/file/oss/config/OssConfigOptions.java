@@ -15,23 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.local.source.config;
-
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+package org.apache.seatunnel.connectors.seatunnel.file.oss.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 
-import java.util.List;
-import java.util.Map;
-
-public final class LocalFileSourceOptions extends BaseSourceConfig {
-
-    public static final Option<List<Map<String, Object>>> tables_configs =
-            Options.key("tables_configs")
-                    .type(new TypeReference<List<Map<String, Object>>>() {})
+public class OssConfigOptions extends BaseSourceConfigOptions {
+    public static final Option<String> ACCESS_KEY =
+            Options.key("access_key")
+                    .stringType()
                     .noDefaultValue()
-                    .withDescription(
-                            "Local file source configs, used to create multiple local file source.");
+                    .withDescription("OSS bucket access key");
+    public static final Option<String> ACCESS_SECRET =
+            Options.key("access_secret")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("OSS bucket access secret");
+    public static final Option<String> ENDPOINT =
+            Options.key("endpoint").stringType().noDefaultValue().withDescription("OSS endpoint");
+    public static final Option<String> BUCKET =
+            Options.key("bucket").stringType().noDefaultValue().withDescription("OSS bucket");
 }

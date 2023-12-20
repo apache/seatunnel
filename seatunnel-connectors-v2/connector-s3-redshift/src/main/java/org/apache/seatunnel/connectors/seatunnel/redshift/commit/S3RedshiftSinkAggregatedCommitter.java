@@ -24,7 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.redshift.RedshiftJdbcClient;
-import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
+import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcConnectorException;
 
@@ -49,7 +49,7 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
     public S3RedshiftSinkAggregatedCommitter(HadoopConf hadoopConf, Config pluginConfig) {
         super(hadoopConf);
         this.pluginConfig = pluginConfig;
-        this.executeSql = pluginConfig.getString(S3RedshiftConfig.EXECUTE_SQL.key());
+        this.executeSql = pluginConfig.getString(S3RedshiftConfigOptions.EXECUTE_SQL.key());
     }
 
     @Override
