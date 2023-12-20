@@ -50,11 +50,9 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
 
     // use image adamlee489/doris:1.2.7.1_arm when running this test on mac
     private static final String DOCKER_IMAGE = "adamlee489/doris:1.2.7.1_x86";
-    protected static final String HOST = "doris_catalog_e2e";
-    protected static final int DOCKER_QUERY_PORT = 9030;
-    protected static final int DOCKER_HTTP_PORT = 8030;
-    protected static final int QUERY_PORT = 19030;
-    protected static final int HTTP_PORT = 18030;
+    protected static final String HOST = "doris_e2e";
+    protected static final int QUERY_PORT = 9030;
+    protected static final int HTTP_PORT = 8030;
     protected static final String URL = "jdbc:mysql://%s:" + QUERY_PORT;
     protected static final String USERNAME = "root";
     protected static final String PASSWORD = "";
@@ -82,8 +80,8 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
         container.setPortBindings(
                 Lists.newArrayList(
-                        String.format("%s:%s", QUERY_PORT, DOCKER_QUERY_PORT),
-                        String.format("%s:%s", HTTP_PORT, DOCKER_HTTP_PORT)));
+                        String.format("%s:%s", QUERY_PORT, QUERY_PORT),
+                        String.format("%s:%s", HTTP_PORT, HTTP_PORT)));
 
         Startables.deepStart(Stream.of(container)).join();
         log.info("doris container started");
