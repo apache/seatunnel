@@ -19,7 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
@@ -93,7 +95,7 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
                 String errorMsg =
                         String.format("Try to process these fileStates %s failed", fileSinkStates);
                 throw new FileConnectorException(
-                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, errorMsg, e);
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
             }
             writeStrategy.beginTransaction(fileSinkStates.get(0).getCheckpointId() + 1);
         } else {
@@ -126,10 +128,8 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
     public void write(SeaTunnelRow element) throws IOException {
         try {
             writeStrategy.write(element);
-        } catch (FileConnectorException e) {
-            String errorMsg = String.format("Write this data [%s] to file failed", element);
-            throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, errorMsg, e);
+        } catch (SeaTunnelRuntimeException e) {
+            throw CommonError.writeSeaTunnelRowFailed("FileConnector", element.toString(), e);
         }
     }
 

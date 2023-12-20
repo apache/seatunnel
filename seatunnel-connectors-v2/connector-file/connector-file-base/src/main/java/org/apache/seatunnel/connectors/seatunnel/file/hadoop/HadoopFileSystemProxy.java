@@ -17,9 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.hadoop;
 
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -76,9 +75,7 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         }
         Path path = new Path(filePath);
         if (!fileSystem.createNewFile(path)) {
-            throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                    "create file " + filePath + " error");
+            throw CommonError.fileOperationFailed("SeaTunnel", "create", filePath);
         }
     }
 
@@ -89,9 +86,7 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         Path path = new Path(filePath);
         if (fileSystem.exists(path)) {
             if (!fileSystem.delete(path, true)) {
-                throw new FileConnectorException(
-                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                        "delete file " + filePath + " error");
+                throw CommonError.fileOperationFailed("SeaTunnel", "delete", filePath);
             }
         }
     }
@@ -130,9 +125,8 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         if (fileSystem.rename(oldPath, newPath)) {
             log.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
         } else {
-            throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                    "rename file :[" + oldPath + "] to [" + newPath + "] error");
+            throw CommonError.fileOperationFailed(
+                    "SeaTunnel", "rename", oldFilePath + " -> " + newFilePath);
         }
     }
 
@@ -142,9 +136,7 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         }
         Path dfs = new Path(filePath);
         if (!fileSystem.mkdirs(dfs)) {
-            throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                    "create dir " + filePath + " error");
+            throw CommonError.fileOperationFailed("SeaTunnel", "create", filePath);
         }
     }
 

@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
@@ -101,12 +102,8 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                                     seaTunnelRow.setTableId(tableId);
                                     output.collect(seaTunnelRow);
                                 } catch (IOException e) {
-                                    String errorMsg =
-                                            String.format(
-                                                    "Read data from this file [%s] failed", path);
-                                    throw new FileConnectorException(
-                                            CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                                            errorMsg);
+                                    throw CommonError.fileOperationFailed(
+                                            "JsonFile", "read", path, e);
                                 }
                             });
         }

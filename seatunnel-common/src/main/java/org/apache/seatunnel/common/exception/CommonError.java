@@ -29,10 +29,13 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_C
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_CONNECTOR_TYPE_ERROR_SIMPLE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.FILE_NOT_EXISTED;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.FILE_OPERATION_FAILED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_TABLES_WITH_UNSUPPORTED_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.JSON_OPERATION_FAILED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR;
 
 /**
  * The common error of SeaTunnel. This is an alternative to {@link CommonErrorCodeDeprecated} and is
@@ -44,6 +47,41 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_
 public class CommonError {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    public static SeaTunnelRuntimeException fileOperationFailed(
+            String identifier, String operation, String fileName, Throwable cause) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        params.put("operation", operation);
+        params.put("fileName", fileName);
+        return new SeaTunnelRuntimeException(FILE_OPERATION_FAILED, params, cause);
+    }
+
+    public static SeaTunnelRuntimeException fileOperationFailed(
+            String identifier, String operation, String fileName) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        params.put("operation", operation);
+        params.put("fileName", fileName);
+        return new SeaTunnelRuntimeException(FILE_OPERATION_FAILED, params);
+    }
+
+    public static SeaTunnelRuntimeException fileNotExistFailed(
+            String identifier, String operation, String fileName) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        params.put("operation", operation);
+        params.put("fileName", fileName);
+        return new SeaTunnelRuntimeException(FILE_NOT_EXISTED, params);
+    }
+
+    public static SeaTunnelRuntimeException writeSeaTunnelRowFailed(
+            String connector, String row, Throwable cause) {
+        Map<String, String> params = new HashMap<>();
+        params.put("connector", connector);
+        params.put("seaTunnelRow", row);
+        return new SeaTunnelRuntimeException(WRITE_SEATUNNEL_ROW_ERROR, params, cause);
+    }
 
     public static SeaTunnelRuntimeException unsupportedDataType(
             String identifier, String dataType, String field) {

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.common.utils;
 
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -26,6 +28,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -68,6 +71,37 @@ public class FileUtilsTest {
 
         Long lines = FileUtils.getFileLineNumberFromDir(rootPath);
         Assertions.assertEquals(100 * 4, lines);
+    }
+
+    @Test
+    void throwExpectedException() {
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> FileUtils.writeStringToFile("/not/existed/path", ""));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-22], ErrorDescription:[SeaTunnel write file '/not/existed/path' failed, because it not existed.]",
+                exception.getMessage());
+
+        SeaTunnelRuntimeException exception2 =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> FileUtils.readFileToStr(Paths.get("/not/existed/path")));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-01], ErrorDescription:[SeaTunnel read file '/not/existed/path' failed.]",
+                exception2.getMessage());
+        Assertions.assertTrue(exception2.getCause() instanceof NoSuchFileException);
+        Assertions.assertEquals("/not/existed/path", exception2.getCause().getMessage());
+
+        SeaTunnelRuntimeException exception3 =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> FileUtils.getFileLineNumber("/not/existed/path2"));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-01], ErrorDescription:[SeaTunnel read file '/not/existed/path2' failed.]",
+                exception3.getMessage());
+        Assertions.assertTrue(exception3.getCause() instanceof NoSuchFileException);
+        Assertions.assertEquals("/not/existed/path2", exception3.getCause().getMessage());
     }
 
     public void writeTestDataToFile(@NonNull String filePath) throws IOException {

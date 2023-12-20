@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.command.Command;
 
@@ -48,6 +49,17 @@ public class FileUtilsTest {
         sparkCommandArgs.setDeployMode(DeployMode.CLUSTER);
         Assertions.assertEquals(
                 "flink.batch.conf", FileUtils.getConfigPath(sparkCommandArgs).toString());
+    }
+
+    @Test
+    void testExpectedError() {
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> FileUtils.checkConfigExist(Paths.get("/tmp/not/existed")));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-22], ErrorDescription:[SeaTunnel read file '/tmp/not/existed' failed, because it not existed.]",
+                exception.getMessage());
     }
 
     @EqualsAndHashCode(callSuper = true)
