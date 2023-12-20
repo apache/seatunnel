@@ -366,7 +366,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         "root",
                         PASSWORD,
                         String.format(URL, starRocksServer.getHost()),
-                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`e2e_table_sink_2` (\n"
                                 + "${rowtype_fields}\n"
                                 + ") ENGINE=OLAP\n"
                                 + "DISTRIBUTED BY HASH (BIGINT_COL)"
