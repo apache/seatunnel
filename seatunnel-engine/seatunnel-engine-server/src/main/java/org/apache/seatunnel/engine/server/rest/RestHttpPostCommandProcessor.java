@@ -130,10 +130,9 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
 
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(
-                requestParams.get(
-                        StringUtils.isEmpty(jobName)
-                                ? requestParams.get(RestConstant.JOB_NAME)
-                                : jobName));
+                StringUtils.isEmpty(requestParams.get(RestConstant.JOB_NAME))
+                        ? jobName
+                        : requestParams.get(RestConstant.JOB_NAME));
 
         boolean startWithSavePoint =
                 Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT));
