@@ -53,6 +53,7 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
     protected static final String HOST = "doris_e2e";
     protected static final int QUERY_PORT = 9030;
     protected static final int HTTP_PORT = 8030;
+    protected static final int BE_HTTP_PORT = 8040;
     protected static final String URL = "jdbc:mysql://%s:" + QUERY_PORT;
     protected static final String USERNAME = "root";
     protected static final String PASSWORD = "";
@@ -81,7 +82,8 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
         container.setPortBindings(
                 Lists.newArrayList(
                         String.format("%s:%s", QUERY_PORT, QUERY_PORT),
-                        String.format("%s:%s", HTTP_PORT, HTTP_PORT)));
+                        String.format("%s:%s", HTTP_PORT, HTTP_PORT),
+                        String.format("%s:%s", BE_HTTP_PORT, BE_HTTP_PORT)));
 
         Startables.deepStart(Stream.of(container)).join();
         log.info("doris container started");
