@@ -253,6 +253,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         if (Objects.nonNull(esRestClient)) {
             esRestClient.close();
         }
+
         container.close();
     }
 }
