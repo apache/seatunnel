@@ -359,14 +359,14 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testCatalog(TestContainer container) throws IOException, InterruptedException {
         TablePath tablePathStarRocks_source = TablePath.of("test", "e2e_table_source");
-        TablePath tablePathStarRocks_Sink = TablePath.of("test", "e2e_table_sink_2");
+        TablePath tablePathStarRocks_Sink = TablePath.of("test", "e2e_table_source_2");
         StarRocksCatalog starRocksCatalog =
                 new StarRocksCatalog(
                         "StarRocks",
                         "root",
                         PASSWORD,
                         String.format(URL, starRocksServer.getHost()),
-                        "CREATE TABLE IF NOT EXISTS `${database}`.`e2e_table_sink_2` (\n"
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}_2` (\n"
                                 + "${rowtype_fields}\n"
                                 + ") ENGINE=OLAP\n"
                                 + "DISTRIBUTED BY HASH (BIGINT_COL)"
@@ -390,7 +390,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                 "insert into "
                         + DATABASE
                         + "."
-                        + "e2e_table_sink_2"
+                        + "e2e_table_source_2"
                         + " (\n"
                         + "  BIGINT_COL,\n"
                         + "  LARGEINT_COL,\n"
