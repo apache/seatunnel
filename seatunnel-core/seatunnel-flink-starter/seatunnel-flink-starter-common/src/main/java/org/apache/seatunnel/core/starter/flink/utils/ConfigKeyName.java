@@ -25,7 +25,7 @@ public class ConfigKeyName {
 
     public static final String TIME_CHARACTERISTIC = "execution.time-characteristic";
     public static final String BUFFER_TIMEOUT_MILLIS = "execution.buffer.timeout";
-    public static final String PARALLELISM = "execution.parallelism";
+    @Deprecated public static final String PARALLELISM = "execution.parallelism";
     public static final String MAX_PARALLELISM = "execution.max-parallelism";
 
     @Deprecated public static final String CHECKPOINT_INTERVAL = "execution.checkpoint.interval";

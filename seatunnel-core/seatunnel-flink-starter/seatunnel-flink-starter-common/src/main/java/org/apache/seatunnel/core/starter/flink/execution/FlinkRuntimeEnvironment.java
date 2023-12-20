@@ -198,9 +198,13 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
             environment.setBufferTimeout(timeout);
         }
 
-        if (config.hasPath(ConfigKeyName.PARALLELISM)) {
-            int parallelism = config.getInt(ConfigKeyName.PARALLELISM);
-            environment.setParallelism(parallelism);
+        if (config.hasPath(EnvCommonOptions.PARALLELISM.key())) {
+            environment.setParallelism(config.getInt(EnvCommonOptions.PARALLELISM.key()));
+        } else {
+            if (config.hasPath(ConfigKeyName.PARALLELISM)) {
+                int parallelism = config.getInt(ConfigKeyName.PARALLELISM);
+                environment.setParallelism(parallelism);
+            }
         }
 
         if (config.hasPath(ConfigKeyName.MAX_PARALLELISM)) {
