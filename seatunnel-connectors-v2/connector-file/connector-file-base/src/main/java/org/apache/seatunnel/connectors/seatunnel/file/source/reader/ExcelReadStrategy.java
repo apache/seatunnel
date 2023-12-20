@@ -30,13 +30,9 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -75,11 +71,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
     @SneakyThrows
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output) {
-        Configuration conf = getConfiguration();
-        FileSystem fs = FileSystem.get(conf);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        Path filePath = new Path(path);
-        FSDataInputStream file = fs.open(filePath);
+        FSDataInputStream file = hadoopFileSystemProxy.getInputStream(path);
         Workbook workbook = new XSSFWorkbook(file);
         Sheet sheet =
                 pluginConfig.hasPath(BaseSourceConfig.SHEET_NAME.key())
@@ -159,13 +152,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         }
     }
 
-    Configuration getConfiguration() {
-        return getConfiguration(hadoopConf);
-    }
-
     @Override
-    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path)
-            throws FileConnectorException {
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
         throw new FileConnectorException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 "User must defined schema for json file type");

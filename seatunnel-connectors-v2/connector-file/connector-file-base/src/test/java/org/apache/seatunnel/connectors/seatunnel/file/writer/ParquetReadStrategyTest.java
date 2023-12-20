@@ -66,8 +66,7 @@ public class ParquetReadStrategyTest {
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
-        SeaTunnelRowType seaTunnelRowTypeInfo =
-                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
@@ -82,8 +81,7 @@ public class ParquetReadStrategyTest {
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
-        SeaTunnelRowType seaTunnelRowTypeInfo =
-                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
@@ -98,8 +96,7 @@ public class ParquetReadStrategyTest {
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
-        SeaTunnelRowType seaTunnelRowTypeInfo =
-                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         log.info(seaTunnelRowTypeInfo.toString());
         int index = seaTunnelRowTypeInfo.indexOf("c_timestamp");
@@ -134,8 +131,7 @@ public class ParquetReadStrategyTest {
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         parquetReadStrategy.setPluginConfig(pluginConfig);
-        SeaTunnelRowType seaTunnelRowTypeInfo =
-                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
@@ -164,8 +160,7 @@ public class ParquetReadStrategyTest {
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         parquetReadStrategy.setPluginConfig(pluginConfig);
-        SeaTunnelRowType seaTunnelRowTypeInfo =
-                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
@@ -180,8 +175,7 @@ public class ParquetReadStrategyTest {
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo =
-                parquetReadStrategy.getSeaTunnelRowTypeInfo(
-                        localConf, AutoGenerateParquetData.DATA_FILE_PATH);
+                parquetReadStrategy.getSeaTunnelRowTypeInfo(AutoGenerateParquetData.DATA_FILE_PATH);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         Assertions.assertEquals(seaTunnelRowTypeInfo.getFieldType(3).getClass(), ArrayType.class);
         TestCollector testCollector = new TestCollector();

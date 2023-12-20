@@ -30,16 +30,17 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|         name         |  type  | required | default value |
-|----------------------|--------|----------|---------------|
-| table_name           | string | yes      | -             |
-| metastore_uri        | string | yes      | -             |
-| compress_codec       | string | no       | none          |
-| hdfs_site_path       | string | no       | -             |
-| hive_site_path       | string | no       | -             |
-| kerberos_principal   | string | no       | -             |
-| kerberos_keytab_path | string | no       | -             |
-| common-options       |        | no       | -             |
+|         name         |  type  | required | default value  |
+|----------------------|--------|----------|----------------|
+| table_name           | string | yes      | -              |
+| metastore_uri        | string | yes      | -              |
+| compress_codec       | string | no       | none           |
+| hdfs_site_path       | string | no       | -              |
+| hive_site_path       | string | no       | -              |
+| krb5_path            | string | no       | /etc/krb5.conf |
+| kerberos_principal   | string | no       | -              |
+| kerberos_keytab_path | string | no       | -              |
+| common-options       |        | no       | -              |
 
 ### table_name [string]
 
@@ -54,6 +55,10 @@ Hive metastore uri
 The path of `hdfs-site.xml`, used to load ha configuration of namenodes
 
 ### hive_site_path [string]
+
+### krb5_path [string]
+
+The path of `krb5.conf`, used to authentication kerberos
 
 The path of `hive-site.xml`, used to authentication hive metastore
 

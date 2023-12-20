@@ -64,13 +64,14 @@ public class S3FileSource extends BaseFileSource {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
+        String path = pluginConfig.getString(S3Config.FILE_PATH.key());
+        hadoopConf = S3Conf.buildWithConfig(pluginConfig);
         readStrategy =
                 ReadStrategyFactory.of(pluginConfig.getString(S3Config.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
-        String path = pluginConfig.getString(S3Config.FILE_PATH.key());
-        hadoopConf = S3Conf.buildWithConfig(pluginConfig);
+        readStrategy.init(hadoopConf);
         try {
-            filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
+            filePaths = readStrategy.getFileNamesByPath(path);
         } catch (IOException e) {
             String errorMsg = String.format("Get file list from this path [%s] failed", path);
             throw new FileConnectorException(
@@ -110,7 +111,7 @@ public class S3FileSource extends BaseFileSource {
                 return;
             }
             try {
-                rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
+                rowType = readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0));
             } catch (FileConnectorException e) {
                 String errorMsg =
                         String.format("Get table schema from file [%s] failed", filePaths.get(0));
