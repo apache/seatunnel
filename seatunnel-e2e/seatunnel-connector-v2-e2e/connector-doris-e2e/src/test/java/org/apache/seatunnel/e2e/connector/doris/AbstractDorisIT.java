@@ -49,7 +49,7 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
     protected GenericContainer<?> container;
 
     // use image adamlee489/doris:1.2.7.1_arm when running this test on mac
-    private static final String DOCKER_IMAGE = "adamlee489/doris:1.2.7.1_x86";
+    private static final String DOCKER_IMAGE = "adamlee489/doris:1.2.7.1_arm";
     protected static final String HOST = "doris_e2e";
     protected static final int QUERY_PORT = 9030;
     protected static final int HTTP_PORT = 8030;
@@ -71,7 +71,7 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                         .withNetworkAliases(HOST)
                         .withEnv("FE_SERVERS", "fe1:127.0.0.1:9010")
                         .withEnv("FE_ID", "1")
-                        .withEnv("CURRENT_BE_IP", "localhost")
+                        .withEnv("CURRENT_BE_IP", "127.0.0.1")
                         .withEnv("CURRENT_BE_PORT", "9050")
                         .withCommand("ulimit -n 65536")
                         .withCreateContainerCmdModifier(
