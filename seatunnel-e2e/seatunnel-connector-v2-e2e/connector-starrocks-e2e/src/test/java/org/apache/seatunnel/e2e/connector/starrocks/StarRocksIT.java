@@ -63,6 +63,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
@@ -366,7 +367,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         "root",
                         PASSWORD,
                         String.format(URL, starRocksServer.getHost()),
-                        "");
+                        SAVE_MODE_CREATE_TEMPLATE.defaultValue());
         starRocksCatalog.open();
         CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocks_source);
         // sink tableExists ?
