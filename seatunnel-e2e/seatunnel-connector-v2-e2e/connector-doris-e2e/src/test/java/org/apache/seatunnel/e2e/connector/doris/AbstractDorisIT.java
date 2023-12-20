@@ -71,7 +71,7 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                         .withNetworkAliases(HOST)
                         .withEnv("FE_SERVERS", "fe1:127.0.0.1:9010")
                         .withEnv("FE_ID", "1")
-                        .withEnv("CURRENT_BE_IP", HOST)
+                        .withEnv("CURRENT_BE_IP", "localhost")
                         .withEnv("CURRENT_BE_PORT", "9050")
                         .withCommand("ulimit -n 65536")
                         .withCreateContainerCmdModifier(
