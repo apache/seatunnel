@@ -147,7 +147,10 @@ public class JobExecutionIT {
 
         JobResult result = clientJobProxy.getJobResultCache();
         Assertions.assertEquals(result.getStatus(), JobStatus.FAILED);
-        Assertions.assertTrue(result.getError().startsWith("java.lang.NumberFormatException"));
+        // exception changed
+        Assertions.assertTrue(
+                result.getError()
+                        .startsWith("org.apache.seatunnel.transform.exception.TransformException"));
     }
 
     @Test

@@ -32,8 +32,8 @@ public class ZetaSQLEngineTest {
     @Test
     public void testCatalogNameAndSourceTableNameBothSupport() {
 
+        // Verification transferred to visitor, Change this code with the same purpose
         SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
-
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"id", "name", "age"},
@@ -41,14 +41,23 @@ public class ZetaSQLEngineTest {
                             BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
                         });
         sqlEngine.init("test", null, rowType, "select * from test");
+        sqlEngine.typeMapping(null);
         sqlEngine.init("test", "nameFromCatalog", rowType, "select * from test");
+        sqlEngine.typeMapping(null);
         sqlEngine.init("test", "nameFromCatalog", rowType, "select * from nameFromCatalog");
+        sqlEngine.typeMapping(null);
 
         Assertions.assertThrows(
                 TransformException.class,
-                () -> sqlEngine.init("test", "nameFromCatalog", rowType, "select * from unknown"));
+                () -> {
+                    sqlEngine.init("test", "nameFromCatalog", rowType, "select * from unknown");
+                    sqlEngine.typeMapping(null);
+                });
         Assertions.assertThrows(
                 TransformException.class,
-                () -> sqlEngine.init("test", null, rowType, "select * from unknown"));
+                () -> {
+                    sqlEngine.init("test", null, rowType, "select * from unknown");
+                    sqlEngine.typeMapping(null);
+                });
     }
 }
