@@ -212,6 +212,29 @@ public class RestApiIT {
                                             "[" + i.get() + "].metrics.SinkWriteCount",
                                             equalTo("100"))
                                     .body("[" + i.get() + "].jobStatus", equalTo("FINISHED"));
+
+                            // test for without status parameter.
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.FINISHED_JOBS_INFO)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("[" + i.get() + "].jobName", equalTo("test测试"))
+                                    .body("[" + i.get() + "].errorMsg", equalTo(null))
+                                    .body(
+                                            "[" + i.get() + "].jobDag.jobId",
+                                            equalTo(Long.parseLong(jobId)))
+                                    .body(
+                                            "[" + i.get() + "].metrics.SourceReceivedCount",
+                                            equalTo("100"))
+                                    .body(
+                                            "[" + i.get() + "].metrics.SinkWriteCount",
+                                            equalTo("100"))
+                                    .body("[" + i.get() + "].jobStatus", equalTo("FINISHED"));
                             i.getAndIncrement();
                         });
     }
