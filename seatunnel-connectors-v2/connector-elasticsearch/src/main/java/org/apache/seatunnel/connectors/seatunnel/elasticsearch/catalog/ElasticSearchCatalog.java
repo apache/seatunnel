@@ -39,6 +39,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -52,6 +53,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *
  * <p>In ElasticSearch, we use the index as the database and table.
  */
+@Slf4j
 public class ElasticSearchCatalog implements Catalog {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticSearchCatalog.class);
@@ -108,11 +110,12 @@ public class ElasticSearchCatalog implements Catalog {
             List<IndexDocsCount> indexDocsCount = esRestClient.getIndexDocsCount(databaseName);
             return true;
         } catch (Exception e) {
-            throw new CatalogException(
+            log.error(
                     String.format(
                             "Failed to check if catalog %s database %s exists",
                             catalogName, databaseName),
                     e);
+            return false;
         }
     }
 
