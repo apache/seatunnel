@@ -29,6 +29,7 @@ import com.beust.jcommander.Parameter;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.io.File;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -58,7 +59,13 @@ public class FileUtilsTest {
                         SeaTunnelRuntimeException.class,
                         () -> FileUtils.checkConfigExist(Paths.get("/tmp/not/existed")));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-22], ErrorDescription:[SeaTunnel read file '/tmp/not/existed' failed, because it not existed.]",
+                "ErrorCode:[COMMON-22], ErrorDescription:[SeaTunnel read file '"
+                        + File.separator
+                        + "tmp"
+                        + File.separator
+                        + "not"
+                        + File.separator
+                        + "existed' failed, because it not existed.]",
                 exception.getMessage());
     }
 
