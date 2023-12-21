@@ -15,25 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.ftp.config;
+package org.apache.seatunnel.connectors.seatunnel.file.cos.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 
-public class FtpConfig extends BaseSourceConfig {
-    public static final Option<String> FTP_PASSWORD =
-            Options.key("password")
+public class CosConfigOptions extends BaseSourceConfigOptions {
+    public static final Option<String> SECRET_ID =
+            Options.key("secret_id")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("FTP server password");
-    public static final Option<String> FTP_USERNAME =
-            Options.key("user")
+                    .withDescription("COS bucket secret id");
+    public static final Option<String> SECRET_KEY =
+            Options.key("secret_key")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("FTP server username");
-    public static final Option<String> FTP_HOST =
-            Options.key("host").stringType().noDefaultValue().withDescription("FTP server host");
-    public static final Option<Integer> FTP_PORT =
-            Options.key("port").intType().noDefaultValue().withDescription("FTP server port");
+                    .withDescription("COS bucket secret key");
+    public static final Option<String> REGION =
+            Options.key("region").stringType().noDefaultValue().withDescription("COS region");
+    public static final Option<String> BUCKET =
+            Options.key("bucket").stringType().noDefaultValue().withDescription("COS bucket");
 }

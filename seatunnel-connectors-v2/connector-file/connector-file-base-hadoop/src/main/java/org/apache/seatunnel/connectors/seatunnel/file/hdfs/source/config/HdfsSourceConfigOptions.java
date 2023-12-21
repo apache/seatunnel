@@ -15,26 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.local.source.split;
+package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 
-import lombok.Getter;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 
-public class LocalFileSourceSplit implements SourceSplit {
-
-    private static final long serialVersionUID = 1L;
-
-    @Getter private final String tableId;
-    @Getter private final String filePath;
-
-    public LocalFileSourceSplit(String tableId, String filePath) {
-        this.tableId = tableId;
-        this.filePath = filePath;
-    }
-
-    @Override
-    public String splitId() {
-        return tableId + "_" + filePath;
-    }
+public class HdfsSourceConfigOptions extends BaseSourceConfigOptions {
+    public static final Option<String> DEFAULT_FS =
+            Options.key(FS_DEFAULT_NAME_KEY)
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("HDFS namenode host");
 }

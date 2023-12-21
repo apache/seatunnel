@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfigOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -37,11 +37,11 @@ public class OssFileSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(OssConfig.FILE_PATH)
-                .required(OssConfig.BUCKET)
-                .required(OssConfig.ACCESS_KEY)
-                .required(OssConfig.ACCESS_SECRET)
-                .required(OssConfig.ENDPOINT)
+                .required(OssConfigOptions.FILE_PATH)
+                .required(OssConfigOptions.BUCKET)
+                .required(OssConfigOptions.ACCESS_KEY)
+                .required(OssConfigOptions.ACCESS_SECRET)
+                .required(OssConfigOptions.ENDPOINT)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
