@@ -15,24 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.local.source.state;
+package org.apache.seatunnel.engine.common.exception;
 
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileSourceSplit;
+public class SavePointFailedException extends SeaTunnelEngineException {
 
-import java.io.Serializable;
-import java.util.Set;
-
-public class LocalFileSourceState implements Serializable {
-
-    private static final long serialVersionUID = 1L;
-
-    private final Set<LocalFileSourceSplit> assignedSplit;
-
-    public LocalFileSourceState(Set<LocalFileSourceSplit> assignedSplit) {
-        this.assignedSplit = assignedSplit;
+    public SavePointFailedException(String message) {
+        super(message);
     }
 
-    public Set<LocalFileSourceSplit> getAssignedSplit() {
-        return assignedSplit;
+    public SavePointFailedException(String message, Throwable throwable) {
+        super(message, throwable);
+    }
+
+    @Override
+    public Throwable createException(String s, Throwable throwable) {
+        return new SavePointFailedException(s, throwable);
     }
 }

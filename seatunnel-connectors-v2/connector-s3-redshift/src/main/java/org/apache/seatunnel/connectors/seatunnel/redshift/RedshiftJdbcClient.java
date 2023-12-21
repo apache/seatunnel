@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.redshift;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
+import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcConnectorException;
 
 import java.sql.Connection;
@@ -45,9 +45,10 @@ public class RedshiftJdbcClient {
                     try {
                         INSTANCE =
                                 new RedshiftJdbcClient(
-                                        config.getString(S3RedshiftConfig.JDBC_URL.key()),
-                                        config.getString(S3RedshiftConfig.JDBC_USER.key()),
-                                        config.getString(S3RedshiftConfig.JDBC_PASSWORD.key()));
+                                        config.getString(S3RedshiftConfigOptions.JDBC_URL.key()),
+                                        config.getString(S3RedshiftConfigOptions.JDBC_USER.key()),
+                                        config.getString(
+                                                S3RedshiftConfigOptions.JDBC_PASSWORD.key()));
                     } catch (SQLException | ClassNotFoundException e) {
                         throw new S3RedshiftJdbcConnectorException(
                                 CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
