@@ -180,13 +180,6 @@ public class ElasticSearchCatalog implements Catalog {
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         // Create the index
         checkNotNull(tablePath, "tablePath cannot be null");
-        if (tableExists(tablePath)) {
-            if (ignoreIfExists) {
-                return;
-            } else {
-                throw new TableAlreadyExistException(catalogName, tablePath, null);
-            }
-        }
         esRestClient.createIndex(tablePath.getTableName());
     }
 
@@ -218,6 +211,19 @@ public class ElasticSearchCatalog implements Catalog {
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
         dropTable(tablePath, ignoreIfNotExists);
+    }
+
+    @Override
+    public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists) {
+        dropTable(tablePath, ignoreIfNotExists);
+        createTable(tablePath, null, ignoreIfNotExists);
+    }
+
+    @Override
+    public boolean isExistsData(TablePath tablePath) {
+        final List<IndexDocsCount> indexDocsCount =
+                esRestClient.getIndexDocsCount(tablePath.getTableName());
+        return indexDocsCount.get(0).getDocsCount() > 0;
     }
 
     private Map<String, String> buildTableOptions(TablePath tablePath) {
