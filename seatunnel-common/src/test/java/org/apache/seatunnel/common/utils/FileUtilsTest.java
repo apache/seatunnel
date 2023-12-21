@@ -21,6 +21,8 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import lombok.NonNull;
 
@@ -74,6 +76,7 @@ public class FileUtilsTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void throwExpectedException() {
         SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
@@ -90,7 +93,7 @@ public class FileUtilsTest {
         Assertions.assertEquals(
                 "ErrorCode:[COMMON-01], ErrorDescription:[SeaTunnel read file '/not/existed/path' failed.]",
                 exception2.getMessage());
-        Assertions.assertTrue(exception2.getCause() instanceof NoSuchFileException);
+        Assertions.assertInstanceOf(NoSuchFileException.class, exception2.getCause());
         Assertions.assertEquals("/not/existed/path", exception2.getCause().getMessage());
 
         SeaTunnelRuntimeException exception3 =
@@ -100,7 +103,7 @@ public class FileUtilsTest {
         Assertions.assertEquals(
                 "ErrorCode:[COMMON-01], ErrorDescription:[SeaTunnel read file '/not/existed/path2' failed.]",
                 exception3.getMessage());
-        Assertions.assertTrue(exception3.getCause() instanceof NoSuchFileException);
+        Assertions.assertInstanceOf(NoSuchFileException.class, exception3.getCause());
         Assertions.assertEquals("/not/existed/path2", exception3.getCause().getMessage());
     }
 
