@@ -312,6 +312,10 @@ public class SubPlan {
                 return;
             }
 
+            if (PipelineStatus.FAILING.equals(current) && targetState.isEndState()) {
+                targetState = PipelineStatus.FAILED;
+            }
+
             // consistency check
             if (current.isEndState()) {
                 String message = "Pipeline is trying to leave terminal state " + current;
@@ -322,10 +326,11 @@ public class SubPlan {
             // now do the actual state transition
             // we must update runningJobStateTimestampsIMap first and then can update
             // runningJobStateIMap
+            PipelineStatus finalTargetState = targetState;
             RetryUtils.retryWithException(
                     () -> {
-                        updateStateTimestamps(targetState);
-                        runningJobStateIMap.set(pipelineLocation, targetState);
+                        updateStateTimestamps(finalTargetState);
+                        runningJobStateIMap.set(pipelineLocation, finalTargetState);
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -614,11 +619,13 @@ public class SubPlan {
             case CANCELING:
                 coordinatorVertexList.forEach(
                         task -> {
+                            task.startPhysicalVertex();
                             task.cancel();
                         });
 
                 physicalVertexList.forEach(
                         task -> {
+                            task.startPhysicalVertex();
                             task.cancel();
                         });
                 break;
