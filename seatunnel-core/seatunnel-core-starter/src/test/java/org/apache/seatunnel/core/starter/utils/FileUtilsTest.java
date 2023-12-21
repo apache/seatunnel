@@ -24,13 +24,12 @@ import org.apache.seatunnel.core.starter.command.Command;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
 
 import com.beust.jcommander.Parameter;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.io.File;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -54,14 +53,18 @@ public class FileUtilsTest {
     }
 
     @Test
-    @DisabledOnOs(OS.WINDOWS)
     void testExpectedError() {
+        String root = File.listRoots()[0].getPath();
+        // Unix Path: /tmp/not/existed
+        // Windows Path: C:\tmp\not\existed
+        Path path = Paths.get(root, "tmp", "not", "existed");
         SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
-                        SeaTunnelRuntimeException.class,
-                        () -> FileUtils.checkConfigExist(Paths.get("/tmp/not/existed")));
+                        SeaTunnelRuntimeException.class, () -> FileUtils.checkConfigExist(path));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-22], ErrorDescription:[SeaTunnel read file '/tmp/not/existed' failed, because it not existed.]",
+                "ErrorCode:[COMMON-22], ErrorDescription:[SeaTunnel read file '"
+                        + path
+                        + "' failed, because it not existed.]",
                 exception.getMessage());
     }
 
