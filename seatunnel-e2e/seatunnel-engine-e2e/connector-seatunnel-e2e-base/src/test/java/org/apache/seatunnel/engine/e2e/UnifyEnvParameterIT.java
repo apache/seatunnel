@@ -76,6 +76,74 @@ public class UnifyEnvParameterIT extends TestSuiteBase {
                 container);
     }
 
+    @TestTemplate
+    public void testUnifiedFlinkTableEnvParam(AbstractTestFlinkContainer container) {
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/unify-env-param-test-resource/unify_flink_table_env_param_fakesource_to_console.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+        // wait obtain job id
+        AtomicReference<String> jobId = new AtomicReference<>();
+        await().atMost(300000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Map<String, Object> jobInfo =
+                                    JsonUtils.toMap(
+                                            container.executeJobManagerInnerCommand(
+                                                    "curl http://localhost:8081/jobs/overview"),
+                                            String.class,
+                                            Object.class);
+                            List<Map<String, Object>> jobs =
+                                    (List<Map<String, Object>>) jobInfo.get("jobs");
+                            if (!CollectionUtils.isEmpty(jobs)) {
+                                jobId.set(jobs.get(0).get("jid").toString());
+                            }
+                            Assertions.assertNotNull(jobId.get());
+                        });
+
+        // obtain job info
+        AtomicReference<Map<String, Object>> jobInfoReference = new AtomicReference<>();
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Map<String, Object> jobInfo =
+                                    JsonUtils.toMap(
+                                            container.executeJobManagerInnerCommand(
+                                                    String.format(
+                                                            "curl http://localhost:8081/jobs/%s",
+                                                            jobId.get())),
+                                            String.class,
+                                            Object.class);
+                            // wait the job initialization is complete and enters the Running state
+                            if (null != jobInfo && "RUNNING".equals(jobInfo.get("state"))) {
+                                jobInfoReference.set(jobInfo);
+                            }
+                            Assertions.assertNotNull(jobInfoReference.get());
+                        });
+        Map<String, Object> jobInfo = jobInfoReference.get();
+
+        /**
+         * 'table.exec.resource.default-parallelism' has a higher priority than 'parallelism', so
+         * one of these nodes must have a parallelism of 2.
+         */
+        Map<String, Object> plan = (Map<String, Object>) jobInfo.get("plan");
+        List<Map<String, Object>> nodes = (List<Map<String, Object>>) plan.get("nodes");
+        boolean tableExecParallelism = false;
+        for (Map<String, Object> node : nodes) {
+            int parallelism = (int) node.get("parallelism");
+            if (!tableExecParallelism && parallelism == 2) {
+                tableExecParallelism = true;
+            }
+        }
+        Assertions.assertTrue(tableExecParallelism);
+    }
+
     public void genericTest(String configPath, AbstractTestFlinkContainer container)
             throws IOException, InterruptedException {
         CompletableFuture.supplyAsync(
