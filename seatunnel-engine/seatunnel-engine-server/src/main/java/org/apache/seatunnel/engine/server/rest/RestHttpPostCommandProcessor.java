@@ -159,7 +159,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 httpPostCommand,
                 new JsonObject()
                         .add(RestConstant.JOB_ID, jobId)
-                        .add(RestConstant.JOB_NAME, requestParams.get(RestConstant.JOB_NAME)));
+                        .add(RestConstant.JOB_NAME, jobConfig.getName()));
     }
 
     private void handleStopJob(HttpPostCommand httpPostCommand, String uri) {
