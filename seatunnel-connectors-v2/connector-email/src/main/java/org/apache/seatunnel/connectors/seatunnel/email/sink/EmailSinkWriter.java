@@ -143,10 +143,10 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     public void createFile() {
-        String fielName = "emailsink.csv";
+        String fileName = "emailsink.csv";
         try {
             String data = stringBuffer.toString();
-            File file = new File(fielName);
+            File file = new File(fileName);
             // if file doesn't exist, then create it
             if (!file.exists()) {
                 file.createNewFile();
@@ -156,7 +156,7 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             fileWriter.close();
             log.info("Create File successfully....");
         } catch (IOException e) {
-            throw CommonError.fileOperationFailed("Email", "create", fielName, e);
+            throw CommonError.fileOperationFailed("Email", "create", fileName, e);
         }
     }
 }
