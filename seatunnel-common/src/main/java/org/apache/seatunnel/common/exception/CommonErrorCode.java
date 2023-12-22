@@ -19,7 +19,8 @@ package org.apache.seatunnel.common.exception;
 
 /** SeaTunnel connector error code interface */
 public enum CommonErrorCode implements SeaTunnelErrorCode {
-    JSON_OPERATION_FAILED("COMMON-02", "<format> JSON convert/parse '<payload>' operation failed."),
+    JSON_OPERATION_FAILED(
+            "COMMON-02", "<identifier> JSON convert/parse '<payload>' operation failed."),
 
     UNSUPPORTED_DATA_TYPE(
             "COMMON-07", "'<identifier>' unsupported data type '<dataType>' of '<field>'"),
