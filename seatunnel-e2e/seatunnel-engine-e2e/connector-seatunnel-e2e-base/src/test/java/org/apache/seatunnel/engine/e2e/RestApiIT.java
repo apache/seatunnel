@@ -238,7 +238,9 @@ public class RestApiIT {
                                                     + RestConstant.FINISHED_JOBS_INFO)
                                     .then()
                                     .statusCode(200)
-                                    .body("[" + i.get() + "].jobName", equalTo("test测试"))
+                                    .body(
+                                            "[" + i.get() + "].jobName",
+                                            equalTo(i.get() == 0 ? paramJobName : jobName))
                                     .body("[" + i.get() + "].errorMsg", equalTo(null))
                                     .body(
                                             "[" + i.get() + "].jobDag.jobId",
