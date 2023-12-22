@@ -75,7 +75,7 @@ public class FileUtilsTest {
 
     @Test
     void throwExpectedException() {
-        String root = File.listRoots()[0].getPath();
+        String root = System.getProperty("java.io.tmpdir");
         Path path = Paths.get(root, "not", "existed", "path");
         SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(

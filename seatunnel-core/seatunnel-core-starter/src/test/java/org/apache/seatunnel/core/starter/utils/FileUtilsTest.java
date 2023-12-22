@@ -29,7 +29,6 @@ import com.beust.jcommander.Parameter;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import java.io.File;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -54,10 +53,10 @@ public class FileUtilsTest {
 
     @Test
     void testExpectedError() {
-        String root = File.listRoots()[0].getPath();
+        String root = System.getProperty("java.io.tmpdir");
         // Unix Path: /tmp/not/existed
-        // Windows Path: C:\tmp\not\existed
-        Path path = Paths.get(root, "tmp", "not", "existed");
+        // Windows Path: %SystemDrive%\Users\<username>\AppData\Local\Temp\not\existed
+        Path path = Paths.get(root, "not", "existed");
         SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
                         SeaTunnelRuntimeException.class, () -> FileUtils.checkConfigExist(path));
