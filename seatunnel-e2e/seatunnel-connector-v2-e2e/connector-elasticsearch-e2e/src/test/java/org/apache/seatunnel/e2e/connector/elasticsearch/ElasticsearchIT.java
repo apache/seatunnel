@@ -33,7 +33,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -72,7 +72,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private EsRestClient esRestClient;
 
-    @BeforeEach
+    @BeforeAll
     @Override
     public void startUp() throws Exception {
         container =
