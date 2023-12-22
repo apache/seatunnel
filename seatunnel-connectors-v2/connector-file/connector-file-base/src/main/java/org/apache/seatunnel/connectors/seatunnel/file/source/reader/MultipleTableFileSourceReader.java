@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.local.source.reader;
+package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.LocalFileSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.MultipleTableLocalFileSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileSourceSplit;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,37 +39,35 @@ import static org.apache.seatunnel.connectors.seatunnel.file.exception.FileConne
 import static org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode.FILE_READ_STRATEGY_NOT_SUPPORT;
 
 @Slf4j
-public class MultipleTableLocalFileSourceReader
-        implements SourceReader<SeaTunnelRow, LocalFileSourceSplit> {
+public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow, FileSourceSplit> {
 
-    private final SourceReader.Context context;
+    private final Context context;
     private volatile boolean noMoreSplit;
 
-    private final Deque<LocalFileSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
+    private final Deque<FileSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
 
     private final Map<String, ReadStrategy> readStrategyMap;
 
-    public MultipleTableLocalFileSourceReader(
-            SourceReader.Context context,
-            MultipleTableLocalFileSourceConfig multipleTableLocalFileSourceConfig) {
+    public MultipleTableFileSourceReader(
+            Context context, BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig) {
         this.context = context;
         this.readStrategyMap =
-                multipleTableLocalFileSourceConfig.getLocalFileSourceConfigs().stream()
+                multipleTableFileSourceConfig.getFileSourceConfigs().stream()
                         .collect(
                                 Collectors.toMap(
-                                        localFileSourceConfig ->
-                                                localFileSourceConfig
+                                        fileSourceConfig ->
+                                                fileSourceConfig
                                                         .getCatalogTable()
                                                         .getTableId()
                                                         .toTablePath()
                                                         .toString(),
-                                        LocalFileSourceConfig::getReadStrategy));
+                                        BaseFileSourceConfig::getReadStrategy));
     }
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) {
         synchronized (output.getCheckpointLock()) {
-            LocalFileSourceSplit split = sourceSplits.poll();
+            FileSourceSplit split = sourceSplits.poll();
             if (null != split) {
                 ReadStrategy readStrategy = readStrategyMap.get(split.getTableId());
                 if (readStrategy == null) {
@@ -97,12 +94,12 @@ public class MultipleTableLocalFileSourceReader
     }
 
     @Override
-    public List<LocalFileSourceSplit> snapshotState(long checkpointId) {
+    public List<FileSourceSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(sourceSplits);
     }
 
     @Override
-    public void addSplits(List<LocalFileSourceSplit> splits) {
+    public void addSplits(List<FileSourceSplit> splits) {
         sourceSplits.addAll(splits);
     }
 

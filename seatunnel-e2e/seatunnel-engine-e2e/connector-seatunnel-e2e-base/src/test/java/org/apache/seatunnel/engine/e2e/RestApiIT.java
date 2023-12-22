@@ -62,6 +62,9 @@ public class RestApiIT {
 
     private static HazelcastInstanceImpl node2;
 
+    private static final String jobName = "test测试";
+    private static final String paramJobName = "param_test测试";
+
     @BeforeEach
     void beforeClass() throws Exception {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
@@ -153,11 +156,21 @@ public class RestApiIT {
     @Test
     public void testSubmitJob() {
         AtomicInteger i = new AtomicInteger();
+
         Arrays.asList(node2, node1)
                 .forEach(
                         instance -> {
-                            Response response = submitJob(instance, "BATCH");
-                            response.then().statusCode(200).body("jobName", equalTo("test测试"));
+                            Response response =
+                                    i.get() == 0
+                                            ? submitJob(instance, "BATCH", jobName, paramJobName)
+                                            : submitJob(instance, "BATCH", jobName, null);
+                            if (i.get() == 0) {
+                                response.then()
+                                        .statusCode(200)
+                                        .body("jobName", equalTo(paramJobName));
+                            } else {
+                                response.then().statusCode(200).body("jobName", equalTo(jobName));
+                            }
                             String jobId = response.getBody().jsonPath().getString("jobId");
                             SeaTunnelServer seaTunnelServer = null;
 
@@ -200,6 +213,31 @@ public class RestApiIT {
                                                     + "/FINISHED")
                                     .then()
                                     .statusCode(200)
+                                    .body(
+                                            "[" + i.get() + "].jobName",
+                                            equalTo(i.get() == 0 ? paramJobName : jobName))
+                                    .body("[" + i.get() + "].errorMsg", equalTo(null))
+                                    .body(
+                                            "[" + i.get() + "].jobDag.jobId",
+                                            equalTo(Long.parseLong(jobId)))
+                                    .body(
+                                            "[" + i.get() + "].metrics.SourceReceivedCount",
+                                            equalTo("100"))
+                                    .body(
+                                            "[" + i.get() + "].metrics.SinkWriteCount",
+                                            equalTo("100"))
+                                    .body("[" + i.get() + "].jobStatus", equalTo("FINISHED"));
+
+                            // test for without status parameter.
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.FINISHED_JOBS_INFO)
+                                    .then()
+                                    .statusCode(200)
                                     .body("[" + i.get() + "].jobName", equalTo("test测试"))
                                     .body("[" + i.get() + "].errorMsg", equalTo(null))
                                     .body(
@@ -223,7 +261,7 @@ public class RestApiIT {
                 .forEach(
                         instance -> {
                             String jobId =
-                                    submitJob(instance, "STREAMING")
+                                    submitJob(instance, "STREAMING", jobName, paramJobName)
                                             .getBody()
                                             .jsonPath()
                                             .getString("jobId");
@@ -290,7 +328,7 @@ public class RestApiIT {
                                                                                     jobId))));
 
                             String jobId2 =
-                                    submitJob(instance, "STREAMING")
+                                    submitJob(instance, "STREAMING", jobName, paramJobName)
                                             .getBody()
                                             .jsonPath()
                                             .getString("jobId");
@@ -344,7 +382,8 @@ public class RestApiIT {
         Arrays.asList(node2, node1)
                 .forEach(
                         instance -> {
-                            Response response = submitJob("BATCH", instance, true);
+                            Response response =
+                                    submitJob("BATCH", instance, true, jobName, paramJobName);
                             response.then()
                                     .statusCode(400)
                                     .body(
@@ -423,15 +462,26 @@ public class RestApiIT {
         }
     }
 
-    private Response submitJob(HazelcastInstanceImpl hazelcastInstance, String jobMode) {
-        return submitJob(jobMode, hazelcastInstance, false);
+    private Response submitJob(
+            HazelcastInstanceImpl hazelcastInstance,
+            String jobMode,
+            String jobName,
+            String paramJobName) {
+        return submitJob(jobMode, hazelcastInstance, false, jobName, paramJobName);
     }
 
     private Response submitJob(
-            String jobMode, HazelcastInstanceImpl hazelcastInstance, boolean isStartWithSavePoint) {
+            String jobMode,
+            HazelcastInstanceImpl hazelcastInstance,
+            boolean isStartWithSavePoint,
+            String jobName,
+            String paramJobName) {
         String requestBody =
                 "{\n"
                         + "    \"env\": {\n"
+                        + "        \"job.name\": \""
+                        + jobName
+                        + "\",\n"
                         + "        \"job.mode\": \""
                         + jobMode
                         + "\"\n"
@@ -459,22 +509,34 @@ public class RestApiIT {
                         + "        }\n"
                         + "    ]\n"
                         + "}";
-        String parameters = "jobName=test测试";
+        String parameters = null;
+        if (paramJobName != null) {
+            parameters = "jobName=" + paramJobName;
+        }
         if (isStartWithSavePoint) {
             parameters = parameters + "&isStartWithSavePoint=true";
         }
         Response response =
                 given().body(requestBody)
+                        .header("Content-Type", "application/json; charset=utf-8")
                         .post(
-                                HOST
-                                        + hazelcastInstance
-                                                .getCluster()
-                                                .getLocalMember()
-                                                .getAddress()
-                                                .getPort()
-                                        + RestConstant.SUBMIT_JOB_URL
-                                        + "?"
-                                        + parameters);
+                                parameters == null
+                                        ? HOST
+                                                + hazelcastInstance
+                                                        .getCluster()
+                                                        .getLocalMember()
+                                                        .getAddress()
+                                                        .getPort()
+                                                + RestConstant.SUBMIT_JOB_URL
+                                        : HOST
+                                                + hazelcastInstance
+                                                        .getCluster()
+                                                        .getLocalMember()
+                                                        .getAddress()
+                                                        .getPort()
+                                                + RestConstant.SUBMIT_JOB_URL
+                                                + "?"
+                                                + parameters);
         return response;
     }
 }
