@@ -120,6 +120,7 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                                 AMAZONDYNAMODB_CONTAINER_PORT, AMAZONDYNAMODB_CONTAINER_PORT)));
         Startables.deepStart(Stream.of(dynamoDB)).join();
         log.info("dynamodb container started");
+        log.info("dynamodb container started");
         given().ignoreExceptions()
                 .await()
                 .atLeast(100, TimeUnit.MILLISECONDS)
