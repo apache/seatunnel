@@ -31,9 +31,9 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -72,7 +72,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private EsRestClient esRestClient;
 
-    @BeforeAll
+    @BeforeEach
     @Override
     public void startUp() throws Exception {
         container =
@@ -251,23 +251,22 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 .collect(Collectors.toList());
     }
 
-    @AfterAll
+    @AfterEach
     @Override
     public void tearDown() {
         if (Objects.nonNull(esRestClient)) {
             esRestClient.close();
         }
-
         container.close();
     }
 
     @TestTemplate
-    public void testCatalog(TestContainer container) throws IOException, InterruptedException {
+    public void testCatalog(TestContainer container2) throws IOException, InterruptedException {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("username", "elastic");
         configMap.put("password", "elasticsearch");
-        configMap.put("hosts", Arrays.asList("127.0.0.1:9200"));
-        configMap.put("index", "st_index2");
+        configMap.put("hosts", Arrays.asList("https://" + container.getHttpHostAddress()));
+        configMap.put("index", "st_index3");
         configMap.put("tls_verify_certificate", false);
         configMap.put("tls_verify_hostname", false);
         configMap.put("index_type", "st");
