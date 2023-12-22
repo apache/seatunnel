@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
@@ -39,10 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.FLINK, EngineType.SPARK},
-        disabledReason = "The apache-compress version is not compatible with apache-poi")
+@Disabled("Disabled because it needs user's personal oss account to run this test")
 public class OssFileIT extends TestSuiteBase {
 
     public static final String OSS_SDK_DOWNLOAD =
