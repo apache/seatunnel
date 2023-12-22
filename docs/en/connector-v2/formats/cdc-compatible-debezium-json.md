@@ -10,7 +10,7 @@ This is useful in many cases to leverage this feature, such as compatible with t
 
 ```bash
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 15000
 }

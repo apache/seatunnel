@@ -69,8 +69,7 @@ The tested kudu version is 1.11.1.
 ```hocon
 # Defining the runtime environment
 env {
-  # You can set flink configuration here
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 
@@ -109,9 +108,9 @@ sink {
 ```hocon
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {
