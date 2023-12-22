@@ -31,6 +31,7 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
@@ -250,6 +251,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 .collect(Collectors.toList());
     }
 
+    @AfterAll
     @Override
     public void tearDown() {
         if (Objects.nonNull(esRestClient)) {
