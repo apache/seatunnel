@@ -72,7 +72,7 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 
 ```hocon
 env {
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 
