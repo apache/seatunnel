@@ -83,7 +83,4 @@ public class SinkConfig {
                             Arrays.asList(DROP_DATA, APPEND_DATA, ERROR_WHEN_DATA_EXISTS))
                     .defaultValue(APPEND_DATA)
                     .withDescription("data_save_mode");
-
-    public static final Option<String> CUSTOM_SQL =
-            Options.key("custom_sql").stringType().noDefaultValue().withDescription("custom_sql");
 }
