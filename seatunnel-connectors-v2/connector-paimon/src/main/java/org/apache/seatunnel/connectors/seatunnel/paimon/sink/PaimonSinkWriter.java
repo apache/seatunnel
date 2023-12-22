@@ -33,7 +33,6 @@ import org.apache.paimon.table.sink.BatchTableCommit;
 import org.apache.paimon.table.sink.BatchTableWrite;
 import org.apache.paimon.table.sink.CommitMessage;
 import org.apache.paimon.table.sink.InnerTableCommit;
-import org.apache.paimon.table.sink.TableWrite;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -52,7 +51,7 @@ public class PaimonSinkWriter
 
     private String commitUser = UUID.randomUUID().toString();
 
-    private TableWrite tableWrite = null;
+    private final BatchTableWrite tableWrite;
 
     private long checkpointId = 0;
 
@@ -66,6 +65,7 @@ public class PaimonSinkWriter
 
     public PaimonSinkWriter(Context context, Table table, SeaTunnelRowType seaTunnelRowType) {
         this.table = table;
+        this.tableWrite = this.table.newBatchWriteBuilder().newWrite();
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
     }
@@ -76,6 +76,7 @@ public class PaimonSinkWriter
             SeaTunnelRowType seaTunnelRowType,
             List<PaimonSinkState> states) {
         this.table = table;
+        this.tableWrite = this.table.newBatchWriteBuilder().newWrite();
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
         if (Objects.isNull(states) || states.isEmpty()) {
@@ -101,9 +102,6 @@ public class PaimonSinkWriter
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        if (Objects.isNull(tableWrite)) {
-            tableWrite = table.newBatchWriteBuilder().newWrite();
-        }
         InternalRow rowData = RowConverter.convert(element, seaTunnelRowType);
         try {
             tableWrite.write(rowData);
@@ -118,7 +116,7 @@ public class PaimonSinkWriter
     @Override
     public Optional<PaimonCommitInfo> prepareCommit() throws IOException {
         try {
-            List<CommitMessage> fileCommittables = ((BatchTableWrite) tableWrite).prepareCommit();
+            List<CommitMessage> fileCommittables = tableWrite.prepareCommit();
             committables.addAll(fileCommittables);
             return Optional.of(new PaimonCommitInfo(fileCommittables));
         } catch (Exception e) {
