@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.local.source.split;
+package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.LocalFileSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.MultipleTableLocalFileSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.state.LocalFileSourceState;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -35,20 +35,20 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class MultipleTableLocalFileSourceSplitEnumerator
-        implements SourceSplitEnumerator<LocalFileSourceSplit, LocalFileSourceState> {
+public class MultipleTableFileSourceSplitEnumerator
+        implements SourceSplitEnumerator<FileSourceSplit, FileSourceState> {
 
-    private final SourceSplitEnumerator.Context<LocalFileSourceSplit> context;
-    private final Set<LocalFileSourceSplit> pendingSplit;
-    private final Set<LocalFileSourceSplit> assignedSplit;
+    private final Context<FileSourceSplit> context;
+    private final Set<FileSourceSplit> pendingSplit;
+    private final Set<FileSourceSplit> assignedSplit;
     private final Map<String, List<String>> filePathMap;
 
-    public MultipleTableLocalFileSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<LocalFileSourceSplit> context,
-            MultipleTableLocalFileSourceConfig multipleTableLocalFileSourceConfig) {
+    public MultipleTableFileSourceSplitEnumerator(
+            Context<FileSourceSplit> context,
+            BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig) {
         this.context = context;
         this.filePathMap =
-                multipleTableLocalFileSourceConfig.getLocalFileSourceConfigs().stream()
+                multipleTableFileSourceConfig.getFileSourceConfigs().stream()
                         .collect(
                                 Collectors.toMap(
                                         localFileSourceConfig ->
@@ -57,21 +57,21 @@ public class MultipleTableLocalFileSourceSplitEnumerator
                                                         .getTableId()
                                                         .toTablePath()
                                                         .toString(),
-                                        LocalFileSourceConfig::getFilePaths));
+                                        BaseFileSourceConfig::getFilePaths));
         this.assignedSplit = new HashSet<>();
         this.pendingSplit = new HashSet<>();
     }
 
-    public MultipleTableLocalFileSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<LocalFileSourceSplit> context,
-            MultipleTableLocalFileSourceConfig multipleTableLocalFileSourceConfig,
-            LocalFileSourceState localFileSourceState) {
-        this(context, multipleTableLocalFileSourceConfig);
-        this.assignedSplit.addAll(localFileSourceState.getAssignedSplit());
+    public MultipleTableFileSourceSplitEnumerator(
+            Context<FileSourceSplit> context,
+            BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig,
+            FileSourceState fileSourceState) {
+        this(context, multipleTableFileSourceConfig);
+        this.assignedSplit.addAll(fileSourceState.getAssignedSplit());
     }
 
     @Override
-    public void addSplitsBack(List<LocalFileSourceSplit> splits, int subtaskId) {
+    public void addSplitsBack(List<FileSourceSplit> splits, int subtaskId) {
         if (CollectionUtils.isEmpty(splits)) {
             return;
         }
@@ -93,15 +93,15 @@ public class MultipleTableLocalFileSourceSplitEnumerator
             String tableId = filePathEntry.getKey();
             List<String> filePaths = filePathEntry.getValue();
             for (String filePath : filePaths) {
-                pendingSplit.add(new LocalFileSourceSplit(tableId, filePath));
+                pendingSplit.add(new FileSourceSplit(tableId, filePath));
             }
         }
         assignSplit(subtaskId);
     }
 
     @Override
-    public LocalFileSourceState snapshotState(long checkpointId) {
-        return new LocalFileSourceState(assignedSplit);
+    public FileSourceState snapshotState(long checkpointId) {
+        return new FileSourceState(assignedSplit);
     }
 
     @Override
@@ -110,14 +110,14 @@ public class MultipleTableLocalFileSourceSplitEnumerator
     }
 
     private void assignSplit(int taskId) {
-        List<LocalFileSourceSplit> currentTaskSplits = new ArrayList<>();
+        List<FileSourceSplit> currentTaskSplits = new ArrayList<>();
         if (context.currentParallelism() == 1) {
             // if parallelism == 1, we should assign all the splits to reader
             currentTaskSplits.addAll(pendingSplit);
         } else {
             // if parallelism > 1, according to hashCode of split's id to determine whether to
             // allocate the current task
-            for (LocalFileSourceSplit fileSourceSplit : pendingSplit) {
+            for (FileSourceSplit fileSourceSplit : pendingSplit) {
                 int splitOwner =
                         getSplitOwner(fileSourceSplit.splitId(), context.currentParallelism());
                 if (splitOwner == taskId) {
@@ -135,7 +135,7 @@ public class MultipleTableLocalFileSourceSplitEnumerator
                 "SubTask {} is assigned to [{}]",
                 taskId,
                 currentTaskSplits.stream()
-                        .map(LocalFileSourceSplit::splitId)
+                        .map(FileSourceSplit::splitId)
                         .collect(Collectors.joining(",")));
         context.signalNoMoreSplits(taskId);
     }

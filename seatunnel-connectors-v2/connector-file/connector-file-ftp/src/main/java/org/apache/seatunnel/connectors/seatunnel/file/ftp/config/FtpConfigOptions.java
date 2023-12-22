@@ -15,25 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sftp.config;
+package org.apache.seatunnel.connectors.seatunnel.file.ftp.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 
-public class SftpConfig extends BaseSourceConfig {
-    public static final Option<String> SFTP_PASSWORD =
+public class FtpConfigOptions extends BaseSourceConfigOptions {
+    public static final Option<String> FTP_PASSWORD =
             Options.key("password")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("SFTP server password");
-    public static final Option<String> SFTP_USER =
+                    .withDescription("FTP server password");
+    public static final Option<String> FTP_USERNAME =
             Options.key("user")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("SFTP server username");
-    public static final Option<String> SFTP_HOST =
-            Options.key("host").stringType().noDefaultValue().withDescription("SFTP server host");
-    public static final Option<Integer> SFTP_PORT =
-            Options.key("port").intType().noDefaultValue().withDescription("SFTP server port");
+                    .withDescription("FTP server username");
+    public static final Option<String> FTP_HOST =
+            Options.key("host").stringType().noDefaultValue().withDescription("FTP server host");
+    public static final Option<Integer> FTP_PORT =
+            Options.key("port").intType().noDefaultValue().withDescription("FTP server port");
 }

@@ -58,6 +58,8 @@ public class ClientCommandArgsTest {
             "username=" + username,
             "-i",
             "list=" + list,
+            "-i",
+            "sql=" + "\"select a , b from fake_source_table\""
         };
         ClientCommandArgs clientCommandArgs =
                 CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-zeta", true);
@@ -94,6 +96,8 @@ public class ClientCommandArgsTest {
             List<String> list1 = sinkConfig.getStringList("list");
             Assertions.assertEquals(list1.get(0), "par1=20230829");
             Assertions.assertEquals(list1.get(1), "par2=20230829");
+            String sql = sinkConfig.getString("sql");
+            Assertions.assertEquals(sql, "\"select a , b from fake_source_table\"");
         }
     }
 }

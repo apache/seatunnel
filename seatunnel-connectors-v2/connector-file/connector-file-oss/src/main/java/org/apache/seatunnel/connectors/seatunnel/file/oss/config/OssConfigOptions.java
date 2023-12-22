@@ -15,25 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.cos.config;
+package org.apache.seatunnel.connectors.seatunnel.file.oss.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 
-public class CosConfig extends BaseSourceConfig {
-    public static final Option<String> SECRET_ID =
-            Options.key("secret_id")
+public class OssConfigOptions extends BaseSourceConfigOptions {
+    public static final Option<String> ACCESS_KEY =
+            Options.key("access_key")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("COS bucket secret id");
-    public static final Option<String> SECRET_KEY =
-            Options.key("secret_key")
+                    .withDescription("OSS bucket access key");
+    public static final Option<String> ACCESS_SECRET =
+            Options.key("access_secret")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("COS bucket secret key");
-    public static final Option<String> REGION =
-            Options.key("region").stringType().noDefaultValue().withDescription("COS region");
+                    .withDescription("OSS bucket access secret");
+    public static final Option<String> ENDPOINT =
+            Options.key("endpoint").stringType().noDefaultValue().withDescription("OSS endpoint");
     public static final Option<String> BUCKET =
-            Options.key("bucket").stringType().noDefaultValue().withDescription("COS bucket");
+            Options.key("bucket").stringType().noDefaultValue().withDescription("OSS bucket");
 }

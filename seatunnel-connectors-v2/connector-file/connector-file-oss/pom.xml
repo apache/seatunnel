@@ -30,7 +30,9 @@
     <name>SeaTunnel : Connectors V2 : File : Oss</name>
 
     <properties>
-        <hadoop-aliyun.version>2.9.2</hadoop-aliyun.version>
+        <aliyun.sdk.oss.version>3.4.1</aliyun.sdk.oss.version>
+        <hadoop-aliyun.version>3.1.4</hadoop-aliyun.version>
+        <jdom.version>1.1</jdom.version>
     </properties>
 
     <dependencies>
@@ -41,8 +43,10 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-shaded-hadoop-2</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -52,9 +56,22 @@
             </exclusions>
         </dependency>
         <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>${aliyun.sdk.oss.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jdom</groupId>
+            <artifactId>jdom</artifactId>
+            <version>${jdom.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-aliyun</artifactId>
             <version>${hadoop-aliyun.version}</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 
