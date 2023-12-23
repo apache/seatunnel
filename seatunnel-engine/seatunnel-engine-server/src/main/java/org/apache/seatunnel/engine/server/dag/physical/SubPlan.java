@@ -231,6 +231,9 @@ public class SubPlan {
                 errorByPhysicalVertex.compareAndSet(
                         null, checkpointCoordinatorState.getThrowableMsg());
             }
+            if (getPipelineState().equals(PipelineStatus.FAILING)) {
+                pipelineStatus = PipelineStatus.FAILED;
+            }
         } else {
             pipelineStatus = PipelineStatus.FINISHED;
             CheckpointCoordinatorState checkpointCoordinatorState =
@@ -310,10 +313,6 @@ public class SubPlan {
                         pipelineFullName,
                         targetState);
                 return;
-            }
-
-            if (PipelineStatus.FAILING.equals(current) && targetState.isEndState()) {
-                targetState = PipelineStatus.FAILED;
             }
 
             // consistency check
