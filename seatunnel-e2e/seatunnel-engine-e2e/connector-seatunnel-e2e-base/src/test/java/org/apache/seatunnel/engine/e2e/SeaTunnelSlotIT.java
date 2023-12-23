@@ -100,7 +100,7 @@ public class SeaTunnelSlotIT {
             String testClusterName = "testSlotEnough";
             SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
             seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
-            // slot num is 3
+            // slot num is 10
             seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
             seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setSlotNum(10);
 
