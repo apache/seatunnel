@@ -372,8 +372,7 @@ public class RestService implements Serializable {
                 HttpGet httpGet = new HttpGet(beUrl);
                 String response = send(dorisConfig, httpGet, logger);
                 logger.info("Backend Info:{}", response);
-                List<BackendV2.BackendRowV2> backends = parseBackendV2(response, logger);
-                return backends;
+                return parseBackendV2(response, logger);
             } catch (DorisConnectorException e) {
                 logger.info(
                         "Doris FE node {} is unavailable: {}, Request the next Doris FE node",
