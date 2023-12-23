@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.file.local;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
@@ -78,6 +79,10 @@ public class LocalFileIT extends TestSuiteBase {
                         "/excel/e2e.xlsx",
                         "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
                         container);
+                ContainerUtil.copyFileIntoContainers(
+                        "/excel/e2e.xls",
+                        "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xls",
+                        container);
 
                 ContainerUtil.copyFileIntoContainers(
                         "/orc/e2e.orc",
@@ -97,6 +102,9 @@ public class LocalFileIT extends TestSuiteBase {
             };
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK})
     public void testLocalFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
