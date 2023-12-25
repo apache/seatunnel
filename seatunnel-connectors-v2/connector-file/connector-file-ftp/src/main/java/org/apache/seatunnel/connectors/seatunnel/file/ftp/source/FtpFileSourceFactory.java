@@ -22,10 +22,10 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfigOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -41,27 +41,27 @@ public class FtpFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(FtpConfig.FILE_PATH)
-                .required(FtpConfig.FTP_HOST)
-                .required(FtpConfig.FTP_PORT)
-                .required(FtpConfig.FTP_USERNAME)
-                .required(FtpConfig.FTP_PASSWORD)
-                .required(FtpConfig.FILE_FORMAT_TYPE)
+                .required(FtpConfigOptions.FILE_PATH)
+                .required(FtpConfigOptions.FTP_HOST)
+                .required(FtpConfigOptions.FTP_PORT)
+                .required(FtpConfigOptions.FTP_USERNAME)
+                .required(FtpConfigOptions.FTP_PASSWORD)
+                .required(FtpConfigOptions.FILE_FORMAT_TYPE)
                 .conditional(
-                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
-                        BaseSourceConfig.FIELD_DELIMITER)
+                        BaseSourceConfigOptions.FIELD_DELIMITER)
                 .conditional(
-                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
                         TableSchemaOptions.SCHEMA)
-                .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
-                .optional(BaseSourceConfig.DATE_FORMAT)
-                .optional(BaseSourceConfig.DATETIME_FORMAT)
-                .optional(BaseSourceConfig.TIME_FORMAT)
-                .optional(BaseSourceConfig.FILE_FILTER_PATTERN)
-                .optional(BaseSourceConfig.COMPRESS_CODEC)
+                .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(BaseSourceConfigOptions.DATE_FORMAT)
+                .optional(BaseSourceConfigOptions.DATETIME_FORMAT)
+                .optional(BaseSourceConfigOptions.TIME_FORMAT)
+                .optional(BaseSourceConfigOptions.FILE_FILTER_PATTERN)
+                .optional(BaseSourceConfigOptions.COMPRESS_CODEC)
                 .build();
     }
 

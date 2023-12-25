@@ -97,7 +97,7 @@ libfb303-xxx.jar
 
 ```hocon
 env {
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 

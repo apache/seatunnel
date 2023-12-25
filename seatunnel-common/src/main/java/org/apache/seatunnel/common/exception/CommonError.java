@@ -120,14 +120,14 @@ public class CommonError {
                 GET_CATALOG_TABLES_WITH_UNSUPPORTED_TYPE_ERROR, params);
     }
 
-    public static SeaTunnelRuntimeException jsonOperationError(String format, String payload) {
-        return jsonOperationError(format, payload, null);
+    public static SeaTunnelRuntimeException jsonOperationError(String identifier, String payload) {
+        return jsonOperationError(identifier, payload, null);
     }
 
     public static SeaTunnelRuntimeException jsonOperationError(
-            String format, String payload, Throwable cause) {
+            String identifier, String payload, Throwable cause) {
         Map<String, String> params = new HashMap<>();
-        params.put("format", format);
+        params.put("identifier", identifier);
         params.put("payload", payload);
         SeaTunnelErrorCode code = JSON_OPERATION_FAILED;
 

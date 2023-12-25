@@ -34,7 +34,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.BaseHdfsFileSource;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
@@ -54,8 +54,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig.FILE_FORMAT_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig.FILE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions.FILE_FORMAT_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions.FILE_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_INPUT_FORMAT_CLASSNAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_INPUT_FORMAT_CLASSNAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_INPUT_FORMAT_CLASSNAME;
@@ -100,10 +100,10 @@ public class HiveSource extends BaseHdfsFileSource {
                                     FILE_PATH.key(),
                                     FS_DEFAULT_NAME_KEY)));
         }
-        if (pluginConfig.hasPath(BaseSourceConfig.READ_PARTITIONS.key())) {
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_PARTITIONS.key())) {
             // verify partition list
             List<String> partitionsList =
-                    pluginConfig.getStringList(BaseSourceConfig.READ_PARTITIONS.key());
+                    pluginConfig.getStringList(BaseSourceConfigOptions.READ_PARTITIONS.key());
             if (partitionsList.isEmpty()) {
                 throw new HiveConnectorException(
                         SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -161,7 +161,7 @@ public class HiveSource extends BaseHdfsFileSource {
             pluginConfig =
                     pluginConfig
                             .withValue(
-                                    BaseSourceConfig.FILE_PATH.key(),
+                                    BaseSourceConfigOptions.FILE_PATH.key(),
                                     ConfigValueFactory.fromAnyRef(path))
                             .withValue(
                                     FS_DEFAULT_NAME_KEY, ConfigValueFactory.fromAnyRef(defaultFs));

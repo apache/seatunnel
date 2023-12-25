@@ -169,9 +169,9 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
             } else {
                 throw new IllegalStateException(format("Unknown operation type '%s'.", type));
             }
-        } catch (Throwable t) {
+        } catch (RuntimeException e) {
             if (!ignoreParseErrors) {
-                throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), t);
+                throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), e);
             }
         }
     }

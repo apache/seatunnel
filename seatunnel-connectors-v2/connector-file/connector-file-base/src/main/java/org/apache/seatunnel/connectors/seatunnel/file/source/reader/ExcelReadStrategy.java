@@ -29,7 +29,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -75,9 +75,9 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         FSDataInputStream file = hadoopFileSystemProxy.getInputStream(path);
         Workbook workbook = new XSSFWorkbook(file);
         Sheet sheet =
-                pluginConfig.hasPath(BaseSourceConfig.SHEET_NAME.key())
+                pluginConfig.hasPath(BaseSourceConfigOptions.SHEET_NAME.key())
                         ? workbook.getSheet(
-                                pluginConfig.getString(BaseSourceConfig.SHEET_NAME.key()))
+                                pluginConfig.getString(BaseSourceConfigOptions.SHEET_NAME.key()))
                         : workbook.getSheetAt(0);
         cellCount = seaTunnelRowType.getTotalFields();
         cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
@@ -133,7 +133,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         SeaTunnelRowType userDefinedRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
         // column projection
-        if (pluginConfig.hasPath(BaseSourceConfig.READ_COLUMNS.key())) {
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
             // get the read column index from user-defined row type
             indexes = new int[readColumns.size()];
             String[] fields = new String[readColumns.size()];
@@ -225,7 +225,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case ROW:
                 String delimiter =
                         ReadonlyConfig.fromConfig(pluginConfig)
-                                .get(BaseSourceConfig.FIELD_DELIMITER);
+                                .get(BaseSourceConfigOptions.FIELD_DELIMITER);
                 String[] context = field.toString().split(delimiter);
                 SeaTunnelRowType ft = (SeaTunnelRowType) fieldType;
                 int length = context.length;

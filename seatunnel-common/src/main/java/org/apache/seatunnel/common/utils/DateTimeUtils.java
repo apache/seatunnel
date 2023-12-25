@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.common.utils;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
@@ -49,8 +51,22 @@ public class DateTimeUtils {
         return LocalDateTime.parse(dateTime, FORMATTER_MAP.get(formatter));
     }
 
+    public static LocalDateTime parse(long timestamp) {
+        return parse(timestamp, ZoneId.systemDefault());
+    }
+
+    public static LocalDateTime parse(long timestamp, ZoneId zoneId) {
+        Instant instant = Instant.ofEpochMilli(timestamp);
+        return LocalDateTime.ofInstant(instant, zoneId);
+    }
+
     public static String toString(LocalDateTime dateTime, Formatter formatter) {
         return dateTime.format(FORMATTER_MAP.get(formatter));
+    }
+
+    public static String toString(long timestamp, Formatter formatter) {
+        Instant instant = Instant.ofEpochMilli(timestamp);
+        return toString(LocalDateTime.ofInstant(instant, ZoneId.systemDefault()), formatter);
     }
 
     public enum Formatter {
