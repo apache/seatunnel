@@ -233,8 +233,7 @@ public class SubPlan {
             }
 
             // Because the pipeline state must update by tasks, If the pipeline can not get enough
-            // slot,
-            // the pipeline state will turn to Failing and then cancel all tasks in this pipeline.
+            // slot, the pipeline state will turn to Failing and then cancel all tasks in this pipeline.
             // Because the tasks never run, so the tasks will complete with CANCELED. But the actual
             // status of the pipeline should be FAILED
             if (getPipelineState().equals(PipelineStatus.FAILING)) {
