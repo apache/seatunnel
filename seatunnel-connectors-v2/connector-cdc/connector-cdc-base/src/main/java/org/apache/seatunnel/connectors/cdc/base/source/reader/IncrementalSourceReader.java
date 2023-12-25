@@ -130,7 +130,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         for (SourceSplitStateBase splitState : finishedSplitIds.values()) {
             SourceSplitBase sourceSplit = splitState.toSourceSplit();
             checkState(
-                    sourceSplit.isSnapshotSplit(),
+                    sourceSplit.isSnapshotSplit()
+                            && sourceSplit.asSnapshotSplit().isSnapshotReadFinished(),
                     String.format(
                             "Only snapshot split could finish, but the actual split is incremental split %s",
                             sourceSplit));

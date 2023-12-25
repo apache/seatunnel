@@ -29,14 +29,10 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -75,16 +71,13 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
     @SneakyThrows
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output) {
-        Configuration conf = getConfiguration();
-        FileSystem fs = FileSystem.get(conf);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        Path filePath = new Path(path);
-        FSDataInputStream file = fs.open(filePath);
+        FSDataInputStream file = hadoopFileSystemProxy.getInputStream(path);
         Workbook workbook = new XSSFWorkbook(file);
         Sheet sheet =
-                pluginConfig.hasPath(BaseSourceConfig.SHEET_NAME.key())
+                pluginConfig.hasPath(BaseSourceConfigOptions.SHEET_NAME.key())
                         ? workbook.getSheet(
-                                pluginConfig.getString(BaseSourceConfig.SHEET_NAME.key()))
+                                pluginConfig.getString(BaseSourceConfigOptions.SHEET_NAME.key()))
                         : workbook.getSheetAt(0);
         cellCount = seaTunnelRowType.getTotalFields();
         cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
@@ -140,7 +133,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         SeaTunnelRowType userDefinedRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
         // column projection
-        if (pluginConfig.hasPath(BaseSourceConfig.READ_COLUMNS.key())) {
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
             // get the read column index from user-defined row type
             indexes = new int[readColumns.size()];
             String[] fields = new String[readColumns.size()];
@@ -159,13 +152,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         }
     }
 
-    Configuration getConfiguration() {
-        return getConfiguration(hadoopConf);
-    }
-
     @Override
-    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path)
-            throws FileConnectorException {
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
         throw new FileConnectorException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 "User must defined schema for json file type");
@@ -237,7 +225,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case ROW:
                 String delimiter =
                         ReadonlyConfig.fromConfig(pluginConfig)
-                                .get(BaseSourceConfig.FIELD_DELIMITER);
+                                .get(BaseSourceConfigOptions.FIELD_DELIMITER);
                 String[] context = field.toString().split(delimiter);
                 SeaTunnelRowType ft = (SeaTunnelRowType) fieldType;
                 int length = context.length;

@@ -17,9 +17,17 @@
 
 package org.apache.seatunnel.translation.flink.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.common.metrics.Meter;
+import org.apache.seatunnel.api.common.metrics.MetricNames;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
+import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 
 import org.apache.flink.api.connector.source.ReaderOutput;
@@ -35,14 +43,31 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
 
     private final FlinkRowConverter rowSerialization;
 
-    public FlinkRowCollector(SeaTunnelRowType seaTunnelRowType) {
+    private final FlowControlGate flowControlGate;
+
+    private final Counter sourceReadCount;
+
+    private final Counter sourceReadBytes;
+
+    private final Meter sourceReadQPS;
+
+    public FlinkRowCollector(
+            SeaTunnelRowType seaTunnelRowType, Config envConfig, MetricsContext metricsContext) {
         this.rowSerialization = new FlinkRowConverter(seaTunnelRowType);
+        this.flowControlGate = FlowControlGate.create(FlowControlStrategy.fromConfig(envConfig));
+        this.sourceReadCount = metricsContext.counter(MetricNames.SOURCE_RECEIVED_COUNT);
+        this.sourceReadBytes = metricsContext.counter(MetricNames.SOURCE_RECEIVED_BYTES);
+        this.sourceReadQPS = metricsContext.meter(MetricNames.SOURCE_RECEIVED_QPS);
     }
 
     @Override
     public void collect(SeaTunnelRow record) {
+        flowControlGate.audit(record);
         try {
             readerOutput.collect(rowSerialization.convert(record));
+            sourceReadCount.inc();
+            sourceReadBytes.inc(record.getBytesSize());
+            sourceReadQPS.markEvent();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

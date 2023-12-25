@@ -56,7 +56,7 @@ public class RecordBuffer {
                 "start buffer data, read queue size {}, write queue size {}",
                 readQueue.size(),
                 writeQueue.size());
-        checkState(readQueue.size() == 0);
+        checkState(readQueue.isEmpty());
         checkState(writeQueue.size() == queueSize);
         for (ByteBuffer byteBuffer : writeQueue) {
             checkState(byteBuffer.position() == 0);

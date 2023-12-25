@@ -131,4 +131,20 @@ public class MultipleTableJobConfigParserTest {
         Assertions.assertFalse(
                 ((SinkAction) actions.get(0)).getSink().createAggregatedCommitter().isPresent());
     }
+
+    @Test
+    public void testDuplicatedTransformInOnePipeline() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                TestUtils.getResource("/batch_fake_to_console_with_duplicated_transform.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        Config config = ConfigBuilder.of(Paths.get(filePath));
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig);
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
+        List<Action> actions = parse.getLeft();
+        Assertions.assertEquals("Transform[0]-sql", actions.get(0).getUpstream().get(0).getName());
+        Assertions.assertEquals("Transform[1]-sql", actions.get(1).getUpstream().get(0).getName());
+    }
 }

@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
@@ -64,6 +65,8 @@ public class JsonToRowConverters implements Serializable {
                     .appendPattern("HH:mm:ss")
                     .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
                     .toFormatter();
+
+    public static final String FORMAT = "Common";
 
     /** Flag indicating whether to fail if a field is missing. */
     private final boolean failOnMissingField;
@@ -270,10 +273,7 @@ public class JsonToRowConverters implements Serializable {
         try {
             return jsonNode.binaryValue();
         } catch (IOException e) {
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                    "Unable to deserialize byte array.",
-                    e);
+            throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), e);
         }
     }
 
@@ -324,9 +324,9 @@ public class JsonToRowConverters implements Serializable {
                         Object convertedField = convertField(fieldConverters[i], fieldName, field);
                         row.setField(i, convertedField);
                     } catch (Throwable t) {
-                        throw new SeaTunnelJsonFormatException(
-                                CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                                String.format("Fail to deserialize at field: %s.", fieldName),
+                        throw CommonError.jsonOperationError(
+                                FORMAT,
+                                String.format("Field $.%s in %s", fieldName, jsonNode.toString()),
                                 t);
                     }
                 }
@@ -375,8 +375,7 @@ public class JsonToRowConverters implements Serializable {
             JsonToRowConverter fieldConverter, String fieldName, JsonNode field) {
         if (field == null) {
             if (failOnMissingField) {
-                throw new SeaTunnelJsonFormatException(
-                        CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
+                throw new IllegalArgumentException(
                         String.format("Could not find field with name %s .", fieldName));
             } else {
                 return null;
@@ -395,9 +394,9 @@ public class JsonToRowConverters implements Serializable {
                 }
                 try {
                     return converter.convert(jsonNode);
-                } catch (Throwable t) {
+                } catch (RuntimeException e) {
                     if (!ignoreParseErrors) {
-                        throw t;
+                        throw e;
                     }
                     return null;
                 }

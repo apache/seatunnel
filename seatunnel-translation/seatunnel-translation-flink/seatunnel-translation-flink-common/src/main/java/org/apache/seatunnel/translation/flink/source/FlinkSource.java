@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.flink.source;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -50,8 +52,11 @@ public class FlinkSource<SplitT extends SourceSplit, EnumStateT extends Serializ
 
     private final SeaTunnelSource<SeaTunnelRow, SplitT, EnumStateT> source;
 
-    public FlinkSource(SeaTunnelSource<SeaTunnelRow, SplitT, EnumStateT> source) {
+    private final Config envConfig;
+
+    public FlinkSource(SeaTunnelSource<SeaTunnelRow, SplitT, EnumStateT> source, Config envConfig) {
         this.source = source;
+        this.envConfig = envConfig;
     }
 
     @Override
@@ -70,7 +75,7 @@ public class FlinkSource<SplitT extends SourceSplit, EnumStateT extends Serializ
         org.apache.seatunnel.api.source.SourceReader<SeaTunnelRow, SplitT> reader =
                 source.createReader(context);
         return new FlinkSourceReader<>(
-                reader, context, (SeaTunnelRowType) source.getProducedType());
+                reader, context, envConfig, (SeaTunnelRowType) source.getProducedType());
     }
 
     @Override
