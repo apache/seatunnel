@@ -446,6 +446,7 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
             return new FileStatus(
                     length, isDir, blockReplication, blockSize, modTime, root.makeQualified(this));
         }
+        client.enterLocalPassiveMode();
         String pathName = parentPath.toUri().getPath();
         FTPFile[] ftpFiles = client.listFiles(pathName);
         if (ftpFiles != null) {
