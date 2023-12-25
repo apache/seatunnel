@@ -170,8 +170,4 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     public String getServerLogs() {
         return server.getLogs();
     }
-
-    public GenericContainer getServer() {
-        return this.server;
-    }
 }
