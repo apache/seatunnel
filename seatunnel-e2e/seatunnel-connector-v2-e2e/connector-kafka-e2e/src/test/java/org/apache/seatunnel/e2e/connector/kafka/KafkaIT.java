@@ -36,6 +36,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -47,6 +48,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
@@ -304,7 +306,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     @DisabledOnContainer(TestContainerId.SPARK_2_4)
-    public void testKafkaAvroToConsole(TestContainer container)
+    public void testKafkaAvroToAssert(TestContainer container)
             throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
                 DefaultSeaTunnelRowSerializer.create(
@@ -313,8 +315,25 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         MessageFormat.AVRO,
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), 0, 100);
-        Container.ExecResult execResult = container.executeJob("/avro/kafka_avro_to_console.conf");
+        Container.ExecResult execResult = container.executeJob("/avro/kafka_avro_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        AvroDeserializationSchema avroDeserializationSchema =
+                new AvroDeserializationSchema(SEATUNNEL_ROW_TYPE);
+        List<SeaTunnelRow> kafkaSTRow =
+                getKafkaSTRow(
+                        "test_avro_topic",
+                        value -> {
+                            try {
+                                return avroDeserializationSchema.deserialize(value);
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        Assertions.assertEquals(100, kafkaSTRow.size());
+        kafkaSTRow.forEach(row -> Assertions.assertEquals("string", row.getField(3).toString()));
+        kafkaSTRow.forEach(row -> Assertions.assertEquals(false, row.getField(4)));
+        kafkaSTRow.forEach(row -> Assertions.assertEquals(Byte.parseByte("1"), row.getField(5)));
     }
 
     public void testKafkaLatestToConsole(TestContainer container)
@@ -370,6 +389,22 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 OffsetResetStrategy.EARLIEST.toString().toLowerCase());
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        return props;
+    }
+
+    private Properties kafkaByteConsumerConfig() {
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.getBootstrapServers());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "seatunnel-kafka-sink-group");
+        props.put(
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                OffsetResetStrategy.EARLIEST.toString().toLowerCase());
+        props.setProperty(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                ByteArrayDeserializer.class.getName());
+        props.setProperty(
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                ByteArrayDeserializer.class.getName());
         return props;
     }
 
@@ -480,7 +515,34 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         return data;
     }
 
+    private List<SeaTunnelRow> getKafkaSTRow(String topicName, ConsumerRecordConverter converter) {
+        List<SeaTunnelRow> data = new ArrayList<>();
+        try (KafkaConsumer<byte[], byte[]> consumer =
+                new KafkaConsumer<>(kafkaByteConsumerConfig())) {
+            consumer.subscribe(Arrays.asList(topicName));
+            Map<TopicPartition, Long> offsets =
+                    consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
+            Long endOffset = offsets.entrySet().iterator().next().getValue();
+            Long lastProcessedOffset = -1L;
+
+            do {
+                ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofMillis(100));
+                for (ConsumerRecord<byte[], byte[]> record : records) {
+                    if (lastProcessedOffset < record.offset()) {
+                        data.add(converter.convert(record.value()));
+                    }
+                    lastProcessedOffset = record.offset();
+                }
+            } while (lastProcessedOffset < endOffset - 1);
+        }
+        return data;
+    }
+
     interface ProducerRecordConverter {
         ProducerRecord<byte[], byte[]> convert(SeaTunnelRow row);
+    }
+
+    interface ConsumerRecordConverter {
+        SeaTunnelRow convert(byte[] value);
     }
 }
