@@ -365,13 +365,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         "root",
                         PASSWORD,
                         String.format(URL, starRocksServer.getHost()),
-                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}_2` (\n"
-                                + "${rowtype_fields}\n"
-                                + ") ENGINE=OLAP\n"
-                                + "DISTRIBUTED BY HASH (BIGINT_COL)"
-                                + "PROPERTIES (\n"
-                                + "    \"replication_num\" = \"1\" \n"
-                                + ")");
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}_2` (\n ${rowtype_fields}\n ) ENGINE=OLAP\n DISTRIBUTED BY HASH (BIGINT_COL) PROPERTIES (\n   \"replication_num\" = \"1\" \n )");
         starRocksCatalog.open();
         CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocks_source);
         // sink tableExists ?
