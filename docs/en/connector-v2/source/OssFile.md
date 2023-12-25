@@ -299,7 +299,7 @@ No need to config schema file type, eg: `orc`.
 
 ```
 env {
-  execution.parallelism = 1
+  parallelism = 1
   spark.app.name = "SeaTunnel"
   spark.executor.instances = 2
   spark.executor.cores = 1
