@@ -67,7 +67,6 @@ public class DorisConfig implements Serializable {
     private String password;
     private Integer queryPort;
     private String tableIdentifier;
-    private int batchSize;
 
     // source option
     private String readField;
