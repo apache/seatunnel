@@ -123,9 +123,9 @@ Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For ex
 ```
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {
@@ -157,9 +157,9 @@ sink {
 ```
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {

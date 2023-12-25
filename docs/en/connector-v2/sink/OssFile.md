@@ -249,7 +249,7 @@ For text file format with `have_partition` and `custom_filename` and `sink_colum
 ```bash
 # Set the basic configuration of the task to be performed
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 
@@ -294,7 +294,7 @@ For parquet file format with `have_partition` and `sink_columns`
 ```bash
 # Set the basic configuration of the task to be performed
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 
@@ -333,7 +333,7 @@ For orc file format simple config
 ```bash
 # Set the basic configuration of the task to be performed
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 

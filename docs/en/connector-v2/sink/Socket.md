@@ -33,7 +33,7 @@ Used to send data to Socket Server. Both support streaming and batch mode.
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
 }
 

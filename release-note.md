@@ -125,6 +125,7 @@
 - [Connector-v2] [Neo4j] Supports neo4j sink batch write mode (#4835)
 - [Transform-V2] Optimize SQL Transform package and Fix Spark type conversion bug of transform (#4490)
 - [Connector-V2] [Common] Remove assert key word (#5915)
+- [Connector-V2] Replace CommonErrorCodeDeprecated.JSON_OPERATION_FAILED. (#5978)
 
 ### CI
 
