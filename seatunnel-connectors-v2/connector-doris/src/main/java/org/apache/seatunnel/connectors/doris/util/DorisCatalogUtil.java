@@ -23,9 +23,11 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import org.apache.commons.lang3.StringUtils;
@@ -37,6 +39,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class DorisCatalogUtil {
@@ -184,53 +188,59 @@ public class DorisCatalogUtil {
     public static SeaTunnelDataType<?> fromDorisType(ResultSet rs) throws SQLException {
 
         String type = rs.getString(5).toUpperCase();
-        int idx = type.indexOf("(");
-        if (idx != -1) {
-            type = type.substring(0, idx);
-        }
-
-        switch (type) {
-            case "NULL_TYPE":
-                return BasicType.VOID_TYPE;
-            case "BOOLEAN":
-                return BasicType.BOOLEAN_TYPE;
-            case "TINYINT":
-            case "SMALLINT":
-                return BasicType.SHORT_TYPE;
-            case "INT":
-                return BasicType.INT_TYPE;
-            case "BIGINT":
-                return BasicType.LONG_TYPE;
-            case "FLOAT":
-                return BasicType.FLOAT_TYPE;
-            case "DOUBLE":
-                return BasicType.DOUBLE_TYPE;
-            case "DATE":
-            case "DATEV2":
-                return LocalTimeType.LOCAL_DATE_TYPE;
-            case "DATETIME":
-            case "DATETIMEV2":
-            case "DATETIMEV3":
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case "DECIMAL":
-            case "DECIMALV2":
-                int precision = rs.getInt(8);
-                int scale = rs.getInt(9);
-                return new DecimalType(precision, scale);
-            case "TIME":
-                return LocalTimeType.LOCAL_TIME_TYPE;
-            case "CHAR":
-            case "LARGEINT":
-            case "VARCHAR":
-            case "JSONB":
-            case "STRING":
-            case "ARRAY":
-            case "MAP":
-            case "STRUCT":
-                return BasicType.STRING_TYPE;
-            default:
-                throw new CatalogException(String.format("Unsupported doris type: %s", type));
-        }
+        //        int idx = type.indexOf("(");
+        //        int idx2 = type.indexOf("<");
+        //        if (idx != -1) {
+        //            type = type.substring(0, idx);
+        //        }
+        //        if (idx2 != -1) {
+        //            type = type.substring(0, idx2);
+        //        }
+        //
+        //        switch (type) {
+        //            case "NULL_TYPE":
+        //                return BasicType.VOID_TYPE;
+        //            case "BOOLEAN":
+        //                return BasicType.BOOLEAN_TYPE;
+        //            case "TINYINT":
+        //            case "SMALLINT":
+        //                return BasicType.SHORT_TYPE;
+        //            case "INT":
+        //                return BasicType.INT_TYPE;
+        //            case "BIGINT":
+        //                return BasicType.LONG_TYPE;
+        //            case "FLOAT":
+        //                return BasicType.FLOAT_TYPE;
+        //            case "DOUBLE":
+        //                return BasicType.DOUBLE_TYPE;
+        //            case "DATE":
+        //            case "DATEV2":
+        //                return LocalTimeType.LOCAL_DATE_TYPE;
+        //            case "DATETIME":
+        //            case "DATETIMEV2":
+        //            case "DATETIMEV3":
+        //                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+        //            case "DECIMAL":
+        //            case "DECIMALV2":
+        //            case "DECIMALV3":
+        //                int precision = rs.getInt(8);
+        //                int scale = rs.getInt(9);
+        //                return new DecimalType(precision, scale);
+        //            case "TIME":
+        //                return LocalTimeType.LOCAL_TIME_TYPE;
+        //            case "CHAR":
+        //            case "LARGEINT":
+        //            case "VARCHAR":
+        //            case "JSONB":
+        //            case "STRING":
+        //            case "ARRAY":
+        //            case "STRUCT":
+        //                return BasicType.STRING_TYPE;
+        //            default:
+        //                throw new CatalogException(String.format("Unsupported doris type: %s",
+        // type));
+        //        }
+        return mapping(type);
     }
 
     private static String fromSeaTunnelType(SeaTunnelDataType<?> dataType, Integer columnLength) {
@@ -269,6 +279,120 @@ public class DorisCatalogUtil {
                 return "JSONB";
             default:
                 throw new CatalogException(String.format("Unsupported doris type: %s", dataType));
+        }
+    }
+
+    public static SeaTunnelDataType<?> mapping(String dorisType) {
+        int idx = dorisType.indexOf("(");
+        int idx2 = dorisType.indexOf("<");
+        String matchCaseType = dorisType;
+        if (idx != -1) {
+            matchCaseType = dorisType.substring(0, idx);
+        }
+        if (idx2 != -1) {
+            matchCaseType = dorisType.substring(0, idx2);
+        }
+
+        switch (matchCaseType) {
+            case "BOOLEAN":
+                return BasicType.BOOLEAN_TYPE;
+            case "TINYINT":
+            case "SMALLINT":
+                return BasicType.SHORT_TYPE;
+            case "INT":
+                return BasicType.INT_TYPE;
+            case "BIGINT":
+                return BasicType.LONG_TYPE;
+            case "FLOAT":
+                return BasicType.FLOAT_TYPE;
+            case "DOUBLE":
+                return BasicType.DOUBLE_TYPE;
+            case "DATE":
+            case "DATEV2":
+                return LocalTimeType.LOCAL_DATE_TYPE;
+            case "DATETIME":
+            case "DATETIMEV2":
+            case "DATETIMEV3":
+                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case "DECIMAL":
+            case "DECIMALV2":
+            case "DECIMALV3":
+                int start = dorisType.indexOf("(");
+                int end = dorisType.indexOf(")");
+                String percScale = dorisType.substring(start + 1, end);
+                String precision = percScale.split(",")[0].trim();
+                String scale = percScale.split(",")[1].trim();
+                return new DecimalType(Integer.parseInt(precision), Integer.parseInt(scale));
+            case "TIME":
+                return LocalTimeType.LOCAL_TIME_TYPE;
+            case "CHAR":
+            case "LARGEINT":
+            case "TEXT":
+            case "VARCHAR":
+            case "JSONB":
+            case "STRING":
+            case "STRUCT":
+                return BasicType.STRING_TYPE;
+            case "ARRAY":
+                return getArrayType(dorisType);
+            case "MAP":
+                //                String[] types = extractTypes(dorisType);
+                //                String keyType = types[0];
+                //                String valueType = types[1];
+                //                return new MapType<>(mapping(keyType),mapping(valueType));
+                return new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE);
+            default:
+                throw new CatalogException(
+                        String.format("Unsupported doris type: %s", matchCaseType));
+        }
+    }
+
+    public static String[] extractTypes(String columnType) {
+        String[] types = new String[2];
+
+        Pattern pattern = Pattern.compile("MAP<([^,]+),(.+?)>");
+        Matcher matcher = pattern.matcher(columnType);
+
+        if (matcher.matches()) {
+            types[0] = matcher.group(1).trim();
+            types[1] = matcher.group(2).trim();
+        }
+
+        return types;
+    }
+
+    private static ArrayType getArrayType(String columType) {
+        Pattern pattern = Pattern.compile("ARRAY<([^<>]+)>");
+        Matcher matcher = pattern.matcher(columType);
+        String type = null;
+        if (matcher.find()) {
+            String typeWithArray = matcher.group(1).trim();
+            Pattern elementTypePattern = Pattern.compile("\\b([^()]+)\\b");
+            Matcher elementTypeMatcher = elementTypePattern.matcher(typeWithArray);
+
+            if (elementTypeMatcher.find()) {
+                type = elementTypeMatcher.group(1).trim();
+            }
+        }
+        switch (type) {
+            case "STRING":
+            case "DECIMAL":
+            case "LARGEINT":
+                return ArrayType.STRING_ARRAY_TYPE;
+            case "BIGINT":
+                return ArrayType.LONG_ARRAY_TYPE;
+            case "INT":
+                return ArrayType.INT_ARRAY_TYPE;
+            case "TINYINT":
+            case "SMALLINT":
+            case "BOOLEAN":
+                return ArrayType.SHORT_ARRAY_TYPE;
+            case "DOUBLE":
+                return ArrayType.DOUBLE_ARRAY_TYPE;
+            case "FLOAT":
+                return ArrayType.FLOAT_ARRAY_TYPE;
+            default:
+                return ArrayType.STRING_ARRAY_TYPE;
         }
     }
 }

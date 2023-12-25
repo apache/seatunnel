@@ -17,23 +17,15 @@
 
 package org.apache.seatunnel.connectors.doris.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
-import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.source.reader.DorisSourceReader;
 import org.apache.seatunnel.connectors.doris.source.split.DorisSourceSplit;
 import org.apache.seatunnel.connectors.doris.source.split.DorisSourceSplitEnumerator;
@@ -41,47 +33,29 @@ import org.apache.seatunnel.connectors.doris.source.split.DorisSourceSplitEnumer
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Collections;
+import java.util.List;
+
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class DorisSource
         implements SeaTunnelSource<SeaTunnelRow, DorisSourceSplit, DorisSourceState> {
 
-    private DorisConfig config;
+    private static final long serialVersionUID = 6139826339248788618L;
+    private final DorisConfig config;
+    private final SeaTunnelRowType seaTunnelRowType;
+    private final CatalogTable catalogTable;
 
-    private SeaTunnelRowType seaTunnelRowType;
+    public DorisSource(
+            ReadonlyConfig config, CatalogTable catalogTable, SeaTunnelRowType seaTunnelRowType) {
+        this.config = DorisConfig.of(config);
+        this.catalogTable = catalogTable;
+        this.seaTunnelRowType = seaTunnelRowType;
+    }
 
     @Override
     public String getPluginName() {
         return "Doris";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        DorisConfig.FENODES.key(),
-                        DorisConfig.USERNAME.key(),
-                        DorisConfig.PASSWORD.key(),
-                        DorisConfig.TABLE_IDENTIFIER.key());
-
-        CheckResult checkResult =
-                CheckConfigUtil.mergeCheckResults(
-                        result,
-                        CheckConfigUtil.checkAllExists(
-                                pluginConfig, CatalogTableUtil.SCHEMA.key()));
-
-        if (!checkResult.isSuccess()) {
-            throw new DorisConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, checkResult.getMsg()));
-        }
-
-        this.seaTunnelRowType =
-                CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-        this.config = DorisConfig.loadConfig(pluginConfig);
     }
 
     @Override
@@ -90,8 +64,8 @@ public class DorisSource
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return seaTunnelRowType;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override

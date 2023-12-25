@@ -31,8 +31,13 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.TinyIntVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.VarCharVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.ListVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.MapVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.StructVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.types.Types;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.util.Text;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -47,12 +52,16 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.IntFunction;
 
@@ -182,18 +191,35 @@ public class RowBatch {
                                         : tinyIntVector.get(rowIndex));
                 break;
             case "SMALLINT":
-                SmallIntVector smallIntVector = (SmallIntVector) fieldVector;
-                Preconditions.checkArgument(
-                        minorType.equals(Types.MinorType.SMALLINT),
-                        typeMismatchMessage(currentType, minorType));
-                addValueToRowForAllRows(
-                        col,
-                        rowIndex ->
-                                smallIntVector.isNull(rowIndex)
-                                        ? null
-                                        : smallIntVector.get(rowIndex));
-                break;
+                if (fieldVector instanceof BitVector) {
+                    BitVector bv = (BitVector) fieldVector;
+                    Preconditions.checkArgument(
+                            minorType.equals(Types.MinorType.BIT),
+                            typeMismatchMessage(currentType, minorType));
+                    addValueToRowForAllRows(
+                            col, rowIndex -> bv.isNull(rowIndex) ? null : (short) bv.get(rowIndex));
 
+                } else if (fieldVector instanceof TinyIntVector) {
+                    TinyIntVector tv = (TinyIntVector) fieldVector;
+                    Preconditions.checkArgument(
+                            minorType.equals(MinorType.TINYINT),
+                            typeMismatchMessage(currentType, minorType));
+                    addValueToRowForAllRows(
+                            col, rowIndex -> tv.isNull(rowIndex) ? null : (short) tv.get(rowIndex));
+
+                } else {
+                    SmallIntVector smallIntVector = (SmallIntVector) fieldVector;
+                    Preconditions.checkArgument(
+                            minorType.equals(Types.MinorType.SMALLINT),
+                            typeMismatchMessage(currentType, minorType));
+                    addValueToRowForAllRows(
+                            col,
+                            rowIndex ->
+                                    smallIntVector.isNull(rowIndex)
+                                            ? null
+                                            : smallIntVector.get(rowIndex));
+                }
+                break;
             case "INT":
                 IntVector intVector = (IntVector) fieldVector;
                 Preconditions.checkArgument(
@@ -246,6 +272,7 @@ public class RowBatch {
                                         : decimalVector.getObject(rowIndex).stripTrailingZeros());
                 break;
             case "DATE":
+            case "DATEV2":
                 VarCharVector dateVector = (VarCharVector) fieldVector;
                 Preconditions.checkArgument(
                         minorType.equals(Types.MinorType.VARCHAR),
@@ -301,17 +328,67 @@ public class RowBatch {
                                 return new BigInteger(bytes).toString();
                             });
                     break;
+                } else if (fieldVector instanceof MapVector) {
+                    MapVector mapVector = (MapVector) fieldVector;
+                    UnionMapReader reader = mapVector.getReader();
+                    Preconditions.checkArgument(
+                            minorType.equals(MinorType.MAP),
+                            typeMismatchMessage(currentType, minorType));
+                    addValueToRowForAllRows(
+                            col,
+                            rowIndex -> {
+                                if (mapVector.isNull(rowIndex)) {
+                                    return null;
+                                }
+                                reader.setPosition(rowIndex);
+                                Map<String, Object> mapValue = new HashMap<>();
+                                while (reader.next()) {
+                                    mapValue.put(
+                                            reader.key().readObject().toString(),
+                                            reader.value().readObject());
+                                }
+                                return mapValue.toString();
+                            });
+                } else if (fieldVector instanceof StructVector) {
+                    StructVector structVector = (StructVector) fieldVector;
+                    Preconditions.checkArgument(
+                            minorType.equals(MinorType.STRUCT),
+                            typeMismatchMessage(currentType, minorType));
+                    addValueToRowForAllRows(
+                            col,
+                            rowIndex -> {
+                                if (structVector.isNull(rowIndex)) {
+                                    return null;
+                                }
+                                Map<String, ?> structValue = structVector.getObject(rowIndex);
+                                return structValue.toString();
+                            });
+                } else if (fieldVector instanceof ListVector) {
+                    ListVector listVector = (ListVector) fieldVector;
+                    Preconditions.checkArgument(
+                            minorType.equals(Types.MinorType.LIST),
+                            typeMismatchMessage(currentType, minorType));
+                    addValueToRowForAllRows(
+                            col,
+                            rowIndex -> {
+                                if (listVector.isNull(rowIndex)) {
+                                    return null;
+                                }
+                                List<?> listVectorObject = listVector.getObject(rowIndex);
+                                return Arrays.toString(listVectorObject.toArray());
+                            });
+                } else {
+                    VarCharVector varCharVector = (VarCharVector) fieldVector;
+                    Preconditions.checkArgument(
+                            minorType.equals(Types.MinorType.VARCHAR),
+                            typeMismatchMessage(currentType, minorType));
+                    addValueToRowForAllRows(
+                            col,
+                            rowIndex ->
+                                    varCharVector.isNull(rowIndex)
+                                            ? null
+                                            : new String(varCharVector.get(rowIndex)));
                 }
-                VarCharVector varCharVector = (VarCharVector) fieldVector;
-                Preconditions.checkArgument(
-                        minorType.equals(Types.MinorType.VARCHAR),
-                        typeMismatchMessage(currentType, minorType));
-                addValueToRowForAllRows(
-                        col,
-                        rowIndex ->
-                                varCharVector.isNull(rowIndex)
-                                        ? null
-                                        : new String(varCharVector.get(rowIndex)));
                 break;
             case "ARRAY":
                 ListVector listVector = (ListVector) fieldVector;
@@ -325,7 +402,61 @@ public class RowBatch {
                                 return null;
                             }
                             List<?> listVectorObject = listVector.getObject(rowIndex);
+                            if (listVectorObject.get(0) instanceof BigDecimal
+                                    || listVectorObject.get(0) instanceof Text) {
+                                return listVectorObject.stream()
+                                        .map(Object::toString)
+                                        .toArray(String[]::new);
+                            }
+                            if (listVectorObject.get(0) instanceof Boolean) {
+                                return listVectorObject.stream()
+                                        .map(x -> (Boolean) x ? (short) 1 : (short) 0)
+                                        .toArray(Short[]::new);
+                            }
+                            if (listVectorObject.get(0) instanceof Byte) {
+                                return listVectorObject.stream()
+                                        .map(x -> ((Byte) x).shortValue())
+                                        .toArray(Short[]::new);
+                            }
                             return listVectorObject.toArray();
+                        });
+                break;
+            case "MAP":
+                MapVector mapVector = (MapVector) fieldVector;
+                UnionMapReader reader = mapVector.getReader();
+                Preconditions.checkArgument(
+                        minorType.equals(MinorType.MAP),
+                        typeMismatchMessage(currentType, minorType));
+                addValueToRowForAllRows(
+                        col,
+                        rowIndex -> {
+                            if (mapVector.isNull(rowIndex)) {
+                                return null;
+                            }
+                            reader.setPosition(rowIndex);
+                            Map<Object, Object> mapValue = new HashMap<>();
+                            while (reader.next()) {
+                                mapValue.put(
+                                        reader.key().readObject().toString(),
+                                        reader.value().readObject().toString());
+                            }
+                            return mapValue;
+                        });
+
+                break;
+            case "STRUCT":
+                StructVector structVector = (StructVector) fieldVector;
+                Preconditions.checkArgument(
+                        minorType.equals(MinorType.STRUCT),
+                        typeMismatchMessage(currentType, minorType));
+                addValueToRowForAllRows(
+                        col,
+                        rowIndex -> {
+                            if (structVector.isNull(rowIndex)) {
+                                return null;
+                            }
+                            Map<String, ?> structValue = structVector.getObject(rowIndex);
+                            return structValue;
                         });
                 break;
             default:

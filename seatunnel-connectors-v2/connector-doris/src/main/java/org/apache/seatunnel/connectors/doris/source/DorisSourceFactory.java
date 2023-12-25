@@ -17,14 +17,26 @@
 
 package org.apache.seatunnel.connectors.doris.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
+import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
+import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 
 import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class DorisSourceFactory implements TableSourceFactory {
@@ -37,13 +49,36 @@ public class DorisSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        DorisConfig.FENODES,
-                        DorisConfig.USERNAME,
-                        DorisConfig.PASSWORD,
-                        DorisConfig.TABLE_IDENTIFIER,
-                        CatalogTableUtil.SCHEMA,
-                        DorisConfig.DORIS_FILTER_QUERY)
+                        DorisOptions.FENODES,
+                        DorisOptions.USERNAME,
+                        DorisOptions.PASSWORD,
+                        DorisOptions.TABLE_IDENTIFIER)
+                .optional(DorisOptions.DORIS_FILTER_QUERY)
+                .optional(DorisOptions.DORIS_READ_FIELD)
                 .build();
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        ReadonlyConfig options = context.getOptions();
+        CatalogTable table;
+        SeaTunnelRowType seaTunnelRowType;
+        if (options.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
+            table = CatalogTableUtil.buildWithConfig(options);
+            seaTunnelRowType = table.getSeaTunnelRowType();
+        } else {
+            DorisCatalogFactory dorisCatalogFactory = new DorisCatalogFactory();
+            DorisCatalog catalog =
+                    (DorisCatalog) dorisCatalogFactory.createCatalog("doris", options);
+            catalog.open();
+            TablePath tablePath = TablePath.of(options.get(DorisOptions.TABLE_IDENTIFIER));
+            table = catalog.getTable(tablePath);
+            seaTunnelRowType = table.getSeaTunnelRowType();
+        }
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new DorisSource(options, table, seaTunnelRowType);
     }
 
     @Override

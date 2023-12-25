@@ -44,12 +44,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static org.apache.seatunnel.connectors.doris.config.DorisConfig.DORIS_BATCH_SIZE_DEFAULT;
-import static org.apache.seatunnel.connectors.doris.config.DorisConfig.DORIS_DEFAULT_CLUSTER;
-import static org.apache.seatunnel.connectors.doris.config.DorisConfig.DORIS_DESERIALIZE_ARROW_ASYNC_DEFAULT;
-import static org.apache.seatunnel.connectors.doris.config.DorisConfig.DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT;
-import static org.apache.seatunnel.connectors.doris.config.DorisConfig.DORIS_EXEC_MEM_LIMIT_DEFAULT;
-import static org.apache.seatunnel.connectors.doris.config.DorisConfig.DORIS_REQUEST_QUERY_TIMEOUT_S_DEFAULT;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_DEFAULT_CLUSTER;
 import static org.apache.seatunnel.connectors.doris.util.ErrorMessages.SHOULD_NOT_HAPPEN_MESSAGE;
 
 @Slf4j
@@ -66,7 +61,7 @@ public class DorisValueReader {
     protected RowBatch rowBatch;
 
     // flag indicate if support deserialize Arrow to RowBatch asynchronously
-    protected Boolean deserializeArrowToRowBatchAsync;
+    protected boolean deserializeArrowToRowBatchAsync;
 
     protected BlockingQueue<RowBatch> rowBatchBlockingQueue;
     private TScanOpenParams openParams;
@@ -81,17 +76,11 @@ public class DorisValueReader {
         this.partition = partition;
         this.config = config;
         this.client = backendClient();
-        this.deserializeArrowToRowBatchAsync =
-                config.getDeserializeArrowAsync() == null
-                        ? DORIS_DESERIALIZE_ARROW_ASYNC_DEFAULT
-                        : config.getDeserializeArrowAsync();
+        this.deserializeArrowToRowBatchAsync = config.getDeserializeArrowAsync();
         this.seaTunnelRowType = seaTunnelRowType;
-        Integer blockingQueueSize =
-                config.getDeserializeQueueSize() == null
-                        ? DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT
-                        : config.getDeserializeQueueSize();
+        int blockingQueueSize = config.getDeserializeQueueSize();
         if (this.deserializeArrowToRowBatchAsync) {
-            this.rowBatchBlockingQueue = new ArrayBlockingQueue(blockingQueueSize);
+            this.rowBatchBlockingQueue = new ArrayBlockingQueue<>(blockingQueueSize);
         }
         init();
     }
@@ -128,18 +117,9 @@ public class DorisValueReader {
         params.tablet_ids = Arrays.asList(partition.getTabletIds().toArray(new Long[] {}));
         params.opaqued_query_plan = partition.getQueryPlan();
         // max row number of one read batch
-        Integer batchSize =
-                config.getRequestBatchSize() == null
-                        ? DORIS_BATCH_SIZE_DEFAULT
-                        : config.getRequestBatchSize();
-        Integer queryDorisTimeout =
-                config.getRequestQueryTimeoutS() == null
-                        ? DORIS_REQUEST_QUERY_TIMEOUT_S_DEFAULT
-                        : config.getRequestQueryTimeoutS();
-        Long execMemLimit =
-                config.getExecMemLimit() == null
-                        ? DORIS_EXEC_MEM_LIMIT_DEFAULT
-                        : config.getExecMemLimit();
+        Integer batchSize = config.getBatchSize();
+        Integer queryDorisTimeout = config.getRequestQueryTimeoutS();
+        Long execMemLimit = config.getExecMemLimit();
         params.setBatchSize(batchSize);
         params.setQueryTimeout(queryDorisTimeout);
         params.setMemLimit(execMemLimit);

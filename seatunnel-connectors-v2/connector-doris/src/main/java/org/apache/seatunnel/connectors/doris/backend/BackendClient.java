@@ -26,6 +26,7 @@ import org.apache.seatunnel.shade.org.apache.thrift.transport.TTransport;
 import org.apache.seatunnel.shade.org.apache.thrift.transport.TTransportException;
 
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.source.serialization.Routing;
@@ -59,15 +60,15 @@ public class BackendClient {
         this.routing = routing;
         this.connectTimeout =
                 readOptions.getRequestConnectTimeoutMs() == null
-                        ? DorisConfig.DORIS_REQUEST_CONNECT_TIMEOUT_MS_DEFAULT
+                        ? DorisOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS_DEFAULT
                         : readOptions.getRequestConnectTimeoutMs();
         this.socketTimeout =
                 readOptions.getRequestReadTimeoutMs() == null
-                        ? DorisConfig.DORIS_REQUEST_READ_TIMEOUT_MS_DEFAULT
+                        ? DorisOptions.DORIS_REQUEST_READ_TIMEOUT_MS_DEFAULT
                         : readOptions.getRequestReadTimeoutMs();
         this.retries =
                 readOptions.getRequestRetries() == null
-                        ? DorisConfig.DORIS_REQUEST_RETRIES_DEFAULT
+                        ? DorisOptions.DORIS_REQUEST_RETRIES_DEFAULT
                         : readOptions.getRequestRetries();
         log.trace(
                 "connect timeout set to '{}'. socket timeout set to '{}'. retries set to '{}'.",

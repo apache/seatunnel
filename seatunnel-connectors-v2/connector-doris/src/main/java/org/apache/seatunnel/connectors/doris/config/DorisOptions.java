@@ -42,6 +42,8 @@ public interface DorisOptions {
     int DEFAULT_SINK_BUFFER_SIZE = 256 * 1024;
     int DEFAULT_SINK_BUFFER_COUNT = 3;
 
+    String DORIS_DEFAULT_CLUSTER = "default_cluster";
+
     Map<String, String> DEFAULT_CREATE_PROPERTIES =
             ImmutableMap.of(
                     "replication_allocation", "tag.location.default: 3",

@@ -32,6 +32,7 @@ import java.util.Properties;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_DESERIALIZE_ARROW_ASYNC;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_DESERIALIZE_QUEUE_SIZE;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_EXEC_MEM_LIMIT;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_FILTER_QUERY;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_READ_FIELD;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS;
@@ -59,6 +60,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisOptions.USERNAME
 @ToString
 public class DorisConfig implements Serializable {
 
+    private static final long serialVersionUID = -4055101905143768124L;
     // common option
     private String frontends;
     private String username;
@@ -74,10 +76,10 @@ public class DorisConfig implements Serializable {
     private Integer requestReadTimeoutMs;
     private Integer requestQueryTimeoutS;
     private Integer requestRetries;
-    private boolean deserializeArrowAsync;
+    private Boolean deserializeArrowAsync;
     private int deserializeQueueSize;
-    private int batchSize;
-    private int execMemLimit;
+    private Integer batchSize;
+    private Long execMemLimit;
     private boolean useOldApi;
 
     // sink option
@@ -120,6 +122,7 @@ public class DorisConfig implements Serializable {
         dorisConfig.setDeserializeArrowAsync(config.get(DORIS_DESERIALIZE_ARROW_ASYNC));
         dorisConfig.setDeserializeQueueSize(config.get(DORIS_DESERIALIZE_QUEUE_SIZE));
         dorisConfig.setBatchSize(config.get(DORIS_BATCH_SIZE));
+        dorisConfig.setExecMemLimit(config.get(DORIS_EXEC_MEM_LIMIT));
 
         // sink option
         dorisConfig.setEnable2PC(config.get(SINK_ENABLE_2PC));
