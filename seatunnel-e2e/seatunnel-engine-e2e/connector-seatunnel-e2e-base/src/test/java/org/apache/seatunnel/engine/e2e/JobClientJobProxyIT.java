@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.common.container.seatunnel;
+package org.apache.seatunnel.engine.e2e;
 
-import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
-import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.apache.commons.lang3.StringUtils;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -30,30 +31,21 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
-import com.google.auto.service.AutoService;
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
-@NoArgsConstructor
-@Slf4j
-@AutoService(TestContainer.class)
-public class SeaTunnelContainer extends AbstractTestContainer {
+public class JobClientJobProxyIT extends SeaTunnelContainer {
     private static final String JDK_DOCKER_IMAGE = "openjdk:8";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
-    protected GenericContainer<?> server;
 
     @Override
+    @BeforeAll
     public void startUp() throws Exception {
-        server =
+        this.server =
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
                         .withCommand(
@@ -74,6 +66,13 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                 + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
 
+        // use seatunnel_fixed_slot_num.yaml replace seatunnel.yaml in container
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/seatunnel_fixed_slot_num.yaml"),
+                Paths.get(SEATUNNEL_HOME, "config/seatunnel.yaml").toString());
+
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
@@ -84,94 +83,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         executeExtraCommands(server);
     }
 
-    @Override
-    public void tearDown() throws Exception {
-        if (server != null) {
-            server.close();
-        }
-    }
-
-    @Override
-    protected String getDockerImage() {
-        return JDK_DOCKER_IMAGE;
-    }
-
-    @Override
-    protected String getStartModuleName() {
-        return "seatunnel-starter";
-    }
-
-    @Override
-    protected String getStartShellName() {
-        return CLIENT_SHELL;
-    }
-
-    @Override
-    protected String getConnectorModulePath() {
-        return "seatunnel-connectors-v2";
-    }
-
-    @Override
-    protected String getConnectorType() {
-        return "seatunnel";
-    }
-
-    @Override
-    protected String getConnectorNamePrefix() {
-        return "connector-";
-    }
-
-    @Override
-    protected List<String> getExtraStartShellCommands() {
-        return Collections.emptyList();
-    }
-
-    @Override
-    public TestContainerId identifier() {
-        return TestContainerId.SEATUNNEL;
-    }
-
-    @Override
-    protected String getSavePointCommand() {
-        return "-s";
-    }
-
-    @Override
-    protected String getRestoreCommand() {
-        return "-r";
-    }
-
-    @Override
-    public void executeExtraCommands(ContainerExtendedFactory extendedFactory)
-            throws IOException, InterruptedException {
-        extendedFactory.extend(server);
-    }
-
-    @Override
-    public Container.ExecResult executeJob(String confFile)
-            throws IOException, InterruptedException {
-        log.info("test in container: {}", identifier());
-        return executeJob(server, confFile);
-    }
-
-    @Override
-    public Container.ExecResult savepointJob(String jobId)
-            throws IOException, InterruptedException {
-        return savepointJob(server, jobId);
-    }
-
-    @Override
-    public Container.ExecResult restoreJob(String confFile, String jobId)
-            throws IOException, InterruptedException {
-        return restoreJob(server, confFile, jobId);
-    }
-
-    @Override
-    public String getServerLogs() {
-        return server.getLogs();
-    }
-
-    public GenericContainer getServer() {
-        return this.server;
+    @Test
+    public void testJobFailedWillThrowException() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelJob("/batch_slot_not_enough.conf");
+        Assertions.assertNotEquals(0, execResult.getExitCode());
+        Assertions.assertTrue(
+                StringUtils.isNotBlank(execResult.getStderr())
+                        && execResult
+                                .getStderr()
+                                .contains(
+                                        "org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException: can't apply resource request"));
     }
 }
