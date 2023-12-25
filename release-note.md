@@ -105,6 +105,7 @@
 
 - [Json] Remove assert key word. (#5919)
 - [Formats] Replace CommonErrorCodeDeprecated.JSON_OPERATION_FAILED. (#5948)
+- [Formats] Refactor exception catch for `ignoreParseErrors`. (#6065)
 
 ### Connector-V2
 
