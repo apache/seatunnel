@@ -44,11 +44,13 @@ import org.apache.paimon.data.serializer.InternalRowSerializer;
 import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypes;
 import org.apache.paimon.types.RowType;
+import org.apache.paimon.utils.DateTimeUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -279,7 +281,10 @@ public class RowConverter {
                     objects[i] = rowData.getBinary(i);
                     break;
                 case DATE:
-                    objects[i] = rowData.getTimestamp(i, 3).toLocalDateTime().toLocalDate();
+                    objects[i] = DateTimeUtils.toLocalDate(rowData.getInt(i));
+                    break;
+                case TIME:
+                    objects[i] = DateTimeUtils.toLocalTime(rowData.getInt(i));
                     break;
                 case TIMESTAMP:
                     // Now SeaTunnel not supported assigned the timezone for timestamp,
@@ -381,9 +386,13 @@ public class RowConverter {
                     break;
                 case DATE:
                     LocalDate date = (LocalDate) seaTunnelRow.getField(i);
-                    LocalTime time = LocalTime.of(0, 0, 0);
-                    binaryWriter.writeTimestamp(
-                            i, Timestamp.fromLocalDateTime(date.atTime(time)), 3);
+                    String dateStr = date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+                    binaryWriter.writeInt(i, DateTimeUtils.parseDate(dateStr));
+                    break;
+                case TIME:
+                    LocalTime time = (LocalTime) seaTunnelRow.getField(i);
+                    String timeStr = time.format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+                    binaryWriter.writeInt(i, DateTimeUtils.parseTime(timeStr));
                     break;
                 case TIMESTAMP:
                     LocalDateTime datetime = (LocalDateTime) seaTunnelRow.getField(i);

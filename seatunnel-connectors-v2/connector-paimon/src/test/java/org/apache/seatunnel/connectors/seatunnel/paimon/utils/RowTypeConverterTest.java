@@ -56,6 +56,7 @@ public class RowTypeConverterTest {
                             "c_bytes",
                             "c_boolean",
                             "c_date",
+                            "c_time",
                             "c_timestamp",
                             "c_map",
                             "c_array"
@@ -72,6 +73,7 @@ public class RowTypeConverterTest {
                             PrimitiveByteArrayType.INSTANCE,
                             BasicType.BOOLEAN_TYPE,
                             LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_TIME_TYPE,
                             LocalTimeType.LOCAL_DATE_TIME_TYPE,
                             new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
                             ArrayType.STRING_ARRAY_TYPE
@@ -89,10 +91,11 @@ public class RowTypeConverterTest {
                         new DataField(8, "c_bytes", DataTypes.BYTES()),
                         new DataField(9, "c_boolean", DataTypes.BOOLEAN()),
                         new DataField(10, "c_date", DataTypes.DATE()),
-                        new DataField(11, "c_timestamp", DataTypes.TIMESTAMP(6)),
+                        new DataField(11, "c_time", DataTypes.TIME()),
+                        new DataField(12, "c_timestamp", DataTypes.TIMESTAMP(6)),
                         new DataField(
-                                12, "c_map", DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
-                        new DataField(13, "c_array", DataTypes.ARRAY(DataTypes.STRING())));
+                                13, "c_map", DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
+                        new DataField(14, "c_array", DataTypes.ARRAY(DataTypes.STRING())));
     }
 
     @Test
