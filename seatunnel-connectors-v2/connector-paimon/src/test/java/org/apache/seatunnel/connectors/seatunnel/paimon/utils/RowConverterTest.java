@@ -146,7 +146,8 @@ public class RowConverterTest {
         binaryRowWriter.writeBinary(8, bytes);
         binaryRowWriter.writeBoolean(9, booleanValue);
         binaryRowWriter.writeInt(
-                10, DateTimeUtils.parseDate(date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))));
+                10,
+                DateTimeUtils.parseDate(date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))));
         binaryRowWriter.writeInt(
                 11, DateTimeUtils.parseTime(time.format(DateTimeFormatter.ofPattern("HH:mm:ss"))));
         binaryRowWriter.writeTimestamp(12, Timestamp.fromLocalDateTime(timestamp), 6);
