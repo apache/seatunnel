@@ -199,16 +199,8 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     @TestTemplate
     public void testCatalog(TestContainer container) throws IOException, InterruptedException {
         TablePath tablePathSqlserver = TablePath.of("master", "dbo", "source");
-        TablePath tablePathSqlserver_Sink = TablePath.of("master", "dbo", "sink_2");
-        SqlServerCatalog sqlServerCatalog =
-                new SqlServerCatalog(
-                        "mysql",
-                        "SA",
-                        "A_Str0ng_Required_Password",
-                        SqlServerURLParser.parse(
-                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
-                        "dbo");
-        sqlServerCatalog.open();
+        TablePath tablePathSqlserver_Sink = TablePath.of("master", "dbo", "sink_lw");
+        SqlServerCatalog sqlServerCatalog = (SqlServerCatalog) catalog;
         CatalogTable catalogTable = sqlServerCatalog.getTable(tablePathSqlserver);
         // sink tableExists ?
         boolean tableExistsBefore = sqlServerCatalog.tableExists(tablePathSqlserver_Sink);
@@ -222,7 +214,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         Assertions.assertFalse(existsDataBefore);
         // insert one data
         sqlServerCatalog.executeSql(
-                tablePathSqlserver_Sink, insertTable("dbo", "sink_2", "age", "name"));
+                tablePathSqlserver_Sink, "insert into sink_lw(age, name) values(12,'laowang')");
         boolean existsDataAfter = sqlServerCatalog.isExistsData(tablePathSqlserver_Sink);
         Assertions.assertTrue(existsDataAfter);
         // truncateTable
