@@ -92,11 +92,6 @@ public interface DorisOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("the doris password.");
-    Option<Integer> DORIS_BATCH_SIZE =
-            Options.key("doris.batch.size")
-                    .intType()
-                    .defaultValue(DORIS_BATCH_SIZE_DEFAULT)
-                    .withDescription("the batch size of the doris read/write.");
 
     // source config options
     Option<String> DORIS_READ_FIELD =
@@ -146,6 +141,22 @@ public interface DorisOptions {
                     .intType()
                     .defaultValue(DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT)
                     .withDescription("");
+    Option<Integer> DORIS_BATCH_SIZE =
+            Options.key("doris.batch.size")
+                    .intType()
+                    .defaultValue(DORIS_BATCH_SIZE_DEFAULT)
+                    .withDescription("");
+    Option<Long> DORIS_EXEC_MEM_LIMIT =
+            Options.key("doris.exec.mem.limit")
+                    .longType()
+                    .defaultValue(DORIS_EXEC_MEM_LIMIT_DEFAULT)
+                    .withDescription("");
+    Option<Boolean> SOURCE_USE_OLD_API =
+            Options.key("source.use-old-api")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to read data using the new interface defined according to the FLIP-27 specification,default false");
 
     // sink config options
     Option<Boolean> SINK_ENABLE_2PC =
@@ -215,9 +226,7 @@ public interface DorisOptions {
                     .withDescription("Create table statement template, used to create Doris table");
 
     OptionRule.Builder SINK_RULE =
-            OptionRule.builder()
-                    .required(FENODES, USERNAME, PASSWORD, TABLE_IDENTIFIER)
-                    .optional(DORIS_BATCH_SIZE);
+            OptionRule.builder().required(FENODES, USERNAME, PASSWORD, TABLE_IDENTIFIER);
 
     OptionRule.Builder CATALOG_RULE =
             OptionRule.builder().required(FENODES, QUERY_PORT, USERNAME, PASSWORD);
