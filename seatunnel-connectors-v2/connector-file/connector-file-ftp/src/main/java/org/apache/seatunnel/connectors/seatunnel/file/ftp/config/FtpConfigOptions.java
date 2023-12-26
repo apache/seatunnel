@@ -36,4 +36,10 @@ public class FtpConfigOptions extends BaseSourceConfigOptions {
             Options.key("host").stringType().noDefaultValue().withDescription("FTP server host");
     public static final Option<Integer> FTP_PORT =
             Options.key("port").intType().noDefaultValue().withDescription("FTP server port");
+
+    public static final Option<Boolean> FTP_ACTIVE_MODE_STATUS =
+            Options.key("active_model_status")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("FTP server model default active");
 }

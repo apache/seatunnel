@@ -62,6 +62,7 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
     public static final String FS_FTP_HOST = "fs.ftp.host";
     public static final String FS_FTP_HOST_PORT = "fs.ftp.host.port";
     public static final String FS_FTP_PASSWORD_PREFIX = "fs.ftp.password.";
+    public static final String FS_FTP_ACTIVE_MODEL_STATUS = "fs.ftp.data.connection.mode.";
     public static final String E_SAME_DIRECTORY_ONLY = "only same directory renames are supported";
 
     private URI uri;
@@ -151,6 +152,11 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
                             + " as user '"
                             + user
                             + "'");
+        }
+
+        // set passive mode
+        if (!conf.getBoolean(FS_FTP_ACTIVE_MODEL_STATUS + host, true)) {
+            client.enterLocalPassiveMode();
         }
 
         return client;
@@ -446,7 +452,6 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
             return new FileStatus(
                     length, isDir, blockReplication, blockSize, modTime, root.makeQualified(this));
         }
-        client.enterLocalPassiveMode();
         String pathName = parentPath.toUri().getPath();
         FTPFile[] ftpFiles = client.listFiles(pathName);
         if (ftpFiles != null) {
