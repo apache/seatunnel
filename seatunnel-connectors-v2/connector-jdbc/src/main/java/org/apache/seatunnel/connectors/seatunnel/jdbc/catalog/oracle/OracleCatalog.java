@@ -257,4 +257,16 @@ public class OracleCatalog extends AbstractJdbcCatalog {
         Connection defaultConnection = getConnection(defaultUrl);
         return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new OracleTypeMapper());
     }
+
+    @Override
+    protected String getTruncateTableSql(TablePath tablePath) {
+        return String.format(
+                "TRUNCATE TABLE \"%s\".\"%s\"",
+                tablePath.getSchemaName(), tablePath.getTableName());
+    }
+
+    public String getExistDataSql(TablePath tablePath) {
+        return String.format(
+                "select count(*) from %s.%s", tablePath.getSchemaName(), tablePath.getTableName());
+    }
 }
