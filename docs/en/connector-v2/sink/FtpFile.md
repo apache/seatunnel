@@ -30,7 +30,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|               name               |  type   | required |               default value                |                                                      remarks                                                      |
+| name                             |  type   | required |               default value                |                                                      remarks                                                      |
 |----------------------------------|---------|----------|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
 | host                             | string  | yes      | -                                          |                                                                                                                   |
 | port                             | int     | yes      | -                                          |                                                                                                                   |
@@ -38,7 +38,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | password                         | string  | yes      | -                                          |                                                                                                                   |
 | path                             | string  | yes      | -                                          |                                                                                                                   |
 | tmp_path                         | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir. |
-| active_model_status              | boolean | no       | true                                       |
+| active_mode_status               | boolean | no       | true                                       |
 | custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                                                                              |
 | file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                            |
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                            |
@@ -77,9 +77,9 @@ The target ftp password is required
 
 The target dir path is required.
 
-### active_model_status [boolean]
+### active_mode_status [boolean]
 
-The target ftp model status , default is active model
+The target ftp mode status , default is active mode
 
 ### custom_filename [boolean]
 

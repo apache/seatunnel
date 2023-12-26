@@ -36,7 +36,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Options
 
-|           name            |  type   | required |    default value    |
+| name                      |  type   | required |    default value    |
 |---------------------------|---------|----------|---------------------|
 | host                      | string  | yes      | -                   |
 | port                      | int     | yes      | -                   |
@@ -44,7 +44,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | password                  | string  | yes      | -                   |
 | path                      | string  | yes      | -                   |
 | file_format_type          | string  | yes      | -                   |
-| active_model_status       | boolean | no       | true                |
+| active_mode_status        | boolean | no       | true                |
 | delimiter/field_delimiter | string  | no       | \001                |
 | read_columns              | list    | no       | -                   |
 | parse_partition_from_path | boolean | no       | true                |
@@ -78,9 +78,9 @@ The target ftp password is required
 
 The source file path.
 
-### active_model_status [boolean]
+### active_mode_status [boolean]
 
-The target ftp model status , default is active model
+The target ftp mode status , default is active mode
 
 ### file_format_type [string]
 
