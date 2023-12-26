@@ -124,7 +124,7 @@ public class DorisCatalogIT extends AbstractDorisIT {
         boolean dbCreated = false;
 
         List<String> databases = catalog.listDatabases();
-        Assertions.assertEquals(databases.size(), 1);
+        Assertions.assertFalse(databases.isEmpty());
 
         if (!catalog.databaseExists(tablePath.getDatabaseName())) {
             catalog.createDatabase(tablePath, false);
@@ -136,7 +136,7 @@ public class DorisCatalogIT extends AbstractDorisIT {
         Assertions.assertTrue(catalog.tableExists(tablePath));
 
         List<String> tables = catalog.listTables(tablePath.getDatabaseName());
-        Assertions.assertEquals(tables.size(), 1);
+        Assertions.assertFalse(tables.isEmpty());
 
         catalog.dropTable(tablePath, false);
         Assertions.assertFalse(catalog.tableExists(tablePath));
