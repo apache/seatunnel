@@ -21,8 +21,6 @@ import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
-import org.apache.seatunnel.connectors.doris.rest.models.Backend;
-import org.apache.seatunnel.connectors.doris.rest.models.BackendRow;
 import org.apache.seatunnel.connectors.doris.rest.models.BackendV2;
 import org.apache.seatunnel.connectors.doris.util.ErrorMessages;
 
@@ -231,7 +229,7 @@ public class RestService implements Serializable {
 
     @VisibleForTesting
     public static String randomBackend(DorisConfig dorisConfig, Logger logger)
-            throws DorisConnectorException, IOException {
+            throws DorisConnectorException {
         List<BackendV2.BackendRowV2> backends = getBackendsV2(dorisConfig, logger);
         logger.trace("Parse beNodes '{}'.", backends);
         if (backends == null || backends.isEmpty()) {
@@ -256,47 +254,9 @@ public class RestService implements Serializable {
         }
     }
 
-    @Deprecated
-    static List<BackendRow> parseBackend(String response, Logger logger)
-            throws DorisConnectorException {
-        ObjectMapper mapper = new ObjectMapper();
-        Backend backend;
-        try {
-            backend = mapper.readValue(response, Backend.class);
-        } catch (JsonParseException e) {
-            String errMsg = "Doris BE's response is not a json. res: " + response;
-            logger.error(errMsg, e);
-            throw new DorisConnectorException(
-                    DorisConnectorErrorCode.REST_SERVICE_FAILED, errMsg, e);
-        } catch (JsonMappingException e) {
-            String errMsg = "Doris BE's response cannot map to schema. res: " + response;
-            logger.error(errMsg, e);
-            throw new DorisConnectorException(
-                    DorisConnectorErrorCode.REST_SERVICE_FAILED, errMsg, e);
-        } catch (IOException e) {
-            String errMsg = "Parse Doris BE's response to json failed. res: " + response;
-            logger.error(errMsg, e);
-            throw new DorisConnectorException(
-                    DorisConnectorErrorCode.REST_SERVICE_FAILED, errMsg, e);
-        }
-
-        if (backend == null) {
-            logger.error(ErrorMessages.SHOULD_NOT_HAPPEN_MESSAGE);
-            throw new DorisConnectorException(
-                    DorisConnectorErrorCode.REST_SERVICE_FAILED,
-                    ErrorMessages.SHOULD_NOT_HAPPEN_MESSAGE);
-        }
-        List<BackendRow> backendRows =
-                backend.getRows().stream()
-                        .filter(BackendRow::getAlive)
-                        .collect(Collectors.toList());
-        logger.debug("Parsing schema result is '{}'.", backendRows);
-        return backendRows;
-    }
-
     @VisibleForTesting
     public static List<BackendV2.BackendRowV2> getBackendsV2(DorisConfig dorisConfig, Logger logger)
-            throws DorisConnectorException, IOException {
+            throws DorisConnectorException {
         String feNodes = dorisConfig.getFrontends();
         List<String> feNodeList = allEndpoints(feNodes, logger);
         for (String feNode : feNodeList) {
@@ -318,7 +278,7 @@ public class RestService implements Serializable {
     }
 
     static List<BackendV2.BackendRowV2> parseBackendV2(String response, Logger logger)
-            throws DorisConnectorException, IOException {
+            throws DorisConnectorException {
         ObjectMapper mapper = new ObjectMapper();
         BackendV2 backend;
         try {
@@ -347,7 +307,6 @@ public class RestService implements Serializable {
         }
         List<BackendV2.BackendRowV2> backendRows = backend.getBackends();
         logger.debug("Parsing schema result is '{}'.", backendRows);
-        backendRows.get(0).setIp("localhost");
         return backendRows;
     }
 }
