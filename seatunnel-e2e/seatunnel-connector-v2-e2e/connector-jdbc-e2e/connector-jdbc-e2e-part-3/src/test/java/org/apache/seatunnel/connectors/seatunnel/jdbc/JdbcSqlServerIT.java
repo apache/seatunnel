@@ -17,14 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -189,5 +194,43 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                                 jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
                         SQLSERVER_SCHEMA);
         catalog.open();
+    }
+
+    @TestTemplate
+    public void testCatalog(TestContainer container) throws IOException, InterruptedException {
+        TablePath tablePathSqlserver = TablePath.of("master", "dbo", "source");
+        TablePath tablePathSqlserver_Sink = TablePath.of("master", "dbo", "sink_2");
+        SqlServerCatalog sqlServerCatalog =
+                new SqlServerCatalog(
+                        "mysql",
+                        "SA",
+                        "A_Str0ng_Required_Password",
+                        SqlServerURLParser.parse(
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
+                        "dbo");
+        sqlServerCatalog.open();
+        CatalogTable catalogTable = sqlServerCatalog.getTable(tablePathSqlserver);
+        // sink tableExists ?
+        boolean tableExistsBefore = sqlServerCatalog.tableExists(tablePathSqlserver_Sink);
+        Assertions.assertFalse(tableExistsBefore);
+        // create table
+        sqlServerCatalog.createTable(tablePathSqlserver_Sink, catalogTable, true);
+        boolean tableExistsAfter = sqlServerCatalog.tableExists(tablePathSqlserver_Sink);
+        Assertions.assertTrue(tableExistsAfter);
+        // isExistsData ?
+        boolean existsDataBefore = sqlServerCatalog.isExistsData(tablePathSqlserver_Sink);
+        Assertions.assertFalse(existsDataBefore);
+        // insert one data
+        sqlServerCatalog.executeSql(
+                tablePathSqlserver_Sink, insertTable("dbo", "sink_2", "age", "name"));
+        boolean existsDataAfter = sqlServerCatalog.isExistsData(tablePathSqlserver_Sink);
+        Assertions.assertTrue(existsDataAfter);
+        // truncateTable
+        sqlServerCatalog.truncateTable(tablePathSqlserver_Sink, true);
+        Assertions.assertFalse(sqlServerCatalog.isExistsData(tablePathSqlserver_Sink));
+        // drop table
+        sqlServerCatalog.dropTable(tablePathSqlserver_Sink, true);
+        Assertions.assertFalse(sqlServerCatalog.tableExists(tablePathSqlserver_Sink));
+        sqlServerCatalog.close();
     }
 }
