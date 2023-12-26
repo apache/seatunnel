@@ -70,10 +70,11 @@ import java.util.concurrent.ExecutionException;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_LOG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_LOG;
+
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
     private final Log4j2HttpGetCommandProcessor original;
@@ -111,7 +112,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 getSystemMonitoringInformation(httpGetCommand);
             } else if (uri.startsWith(GET_LOG)) {
                 handleLog(httpGetCommand);
-            }else {
+            } else {
                 original.handle(httpGetCommand);
             }
         } catch (IndexOutOfBoundsException e) {
@@ -168,7 +169,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     private void handleLog(HttpGetCommand command) throws IOException {
 
         String logPath = System.getProperty("seatunnel.logs.path");
-        String logName = System.getProperty("seatunnel.logs.file_name")+".log";
+        String logName = System.getProperty("seatunnel.logs.file_name") + ".log";
         Path path = Paths.get(logPath, logName);
         if (!Files.exists(path)) {
             this.prepareResponse(command, new JsonObject());

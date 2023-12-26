@@ -383,3 +383,31 @@ For more information about customize encryption, please refer to the documentati
 
 </details>
 
+### Get Log
+
+<details>
+<summary><code>GET</code> <code><b>/hazelcast/rest/maps/log</b></code> <code>(Returns detail log info.)</code></summary>
+
+#### Parameters
+
+#### Responses
+
+```text
+2023-12-26 09:12:38,881 WARN  [c.h.i.AddressPicker           ] [main] - [LOCAL] [seatunnel-620467] [5.1] You configured your member address as host name. Please be aware of that your dns can be spoofed. Make sure that your dns configurations are correct.
+2023-12-26 09:12:38,896 INFO  [c.h.i.AddressPicker           ] [main] - [LOCAL] [seatunnel-620467] [5.1] Resolving domain name 'localhost' to address(es): [127.0.0.1, 0:0:0:0:0:0:0:1]
+2023-12-26 09:12:38,897 INFO  [c.h.i.AddressPicker           ] [main] - [LOCAL] [seatunnel-620467] [5.1] Interfaces is disabled, trying to pick one address from TCP-IP config addresses: [localhost/127.0.0.1, localhost/0:0:0:0:0:0:0:1]
+2023-12-26 09:12:38,926 INFO  [o.a.s.e.s.SeaTunnelServer     ] [main] - SeaTunnel server start...
+2023-12-26 09:12:38,928 INFO  [c.h.system                    ] [main] - [localhost]:5801 [seatunnel-620467] [5.1] Based on Hazelcast IMDG version: 5.1.0 (20220228 - 21f20e7)
+2023-12-26 09:12:38,928 INFO  [c.h.system                    ] [main] - [localhost]:5801 [seatunnel-620467] [5.1] Cluster name: seatunnel-620467
+2023-12-26 09:12:38,928 INFO  [c.h.system                    ] [main] - [localhost]:5801 [seatunnel-620467] [5.1] 
+                                                         
+ _____               _____                             _ 
+/  ___|             |_   _|                           | |
+\ `--.   ___   __ _   | |   _   _  _ __   _ __    ___ | |
+ `--. \ / _ \ / _` |  | |  | | | || '_ \ | '_ \  / _ \| |
+/\__/ /|  __/| (_| |  | |  | |_| || | | || | | ||  __/| |
+\____/  \___| \__,_|  \_/   \__,_||_| |_||_| |_| \___||_|
+```
+
+</details>
+

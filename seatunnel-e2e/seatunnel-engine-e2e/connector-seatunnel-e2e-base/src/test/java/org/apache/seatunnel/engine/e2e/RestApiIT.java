@@ -43,11 +43,19 @@ import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import io.restassured.response.Response;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.restassured.RestAssured.given;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.LOG_FILE_NAME;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.LOG_PATH;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.lessThan;
 
@@ -64,6 +72,8 @@ public class RestApiIT {
 
     private static final String jobName = "test测试";
     private static final String paramJobName = "param_test测试";
+
+    private static final String content = "Hello, World!";
 
     @BeforeEach
     void beforeClass() throws Exception {
@@ -452,6 +462,42 @@ public class RestApiIT {
                                             "source[0].password",
                                             equalTo("c2VhdHVubmVsX3Bhc3N3b3Jk"));
                         });
+    }
+
+    @Test
+    public void testLog() throws IOException {
+
+        System.setProperty(LOG_PATH, "/tmp/seatunnel");
+        System.setProperty(LOG_FILE_NAME, "seatunnel");
+
+        String logPath = System.getProperty(LOG_PATH);
+        String logName = System.getProperty(LOG_FILE_NAME) + ".log";
+        File file = new File(Paths.get(logPath, logName).toString());
+        FileOutputStream fos = new FileOutputStream(file);
+        try (OutputStreamWriter writer = new OutputStreamWriter(fos, StandardCharsets.UTF_8)) {
+            writer.write(content);
+        }
+
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            String response =
+                                    given().get(
+                                                    HOST
+                                                            + instance.getCluster()
+                                                                    .getLocalMember()
+                                                                    .getAddress()
+                                                                    .getPort()
+                                                            + RestConstant.GET_LOG)
+                                            .then()
+                                            .contentType("text/plain")
+                                            .statusCode(200)
+                                            .extract()
+                                            .asString();
+                            Assertions.assertEquals(content, response);
+                        });
+
+        file.delete();
     }
 
     @AfterEach
