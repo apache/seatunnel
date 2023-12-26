@@ -114,7 +114,8 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
         } catch (SQLException e) {
             throw new TDengineConnectorException(
                     CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
-                    "get TDengine connection failed:" + jdbcUrl, e);
+                    "get TDengine connection failed:" + jdbcUrl,
+                    e);
         }
     }
 
