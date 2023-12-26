@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
@@ -86,10 +87,8 @@ public class ScpFileTransfer implements FileTransfer {
                     ScpClient.Option.TargetIsDirectory,
                     ScpClient.Option.PreserveAttributes);
         } catch (IOException e) {
-            throw new ClickhouseConnectorException(
-                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                    "Scp failed to transfer file: " + sourcePath + " to: " + targetPath,
-                    e);
+            throw CommonError.fileOperationFailed(
+                    "ClickhouseFile", "transfer", sourcePath + " -> " + targetPath, e);
         }
         // remote exec command to change file owner. Only file owner equal with server's clickhouse
         // user can
