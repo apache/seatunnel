@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
-import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -27,7 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConn
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.google.common.collect.Sets;
 import com.taosdata.jdbc.TSDBDriver;
 import lombok.extern.slf4j.Slf4j;
 
@@ -39,56 +37,57 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.utils.TDengineUtil.checkDriverExist;
 
 @Slf4j
 public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengineSourceSplit> {
-
-    private static final long THREAD_WAIT_TIME = 500L;
-
     private final TDengineSourceConfig config;
 
-    private final Set<TDengineSourceSplit> sourceSplits;
+    private final Deque<TDengineSourceSplit> sourceSplits;
 
     private final Context context;
 
     private Connection conn;
 
+    private volatile boolean noMoreSplit;
+
     public TDengineSourceReader(TDengineSourceConfig config, SourceReader.Context readerContext) {
         this.config = config;
-        this.sourceSplits = Sets.newHashSet();
+        this.sourceSplits = new ConcurrentLinkedDeque<>();
         this.context = readerContext;
     }
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> collector) throws InterruptedException {
-        if (sourceSplits.isEmpty()) {
-            Thread.sleep(THREAD_WAIT_TIME);
-            return;
-        }
         synchronized (collector.getCheckpointLock()) {
-            sourceSplits.forEach(
-                    split -> {
-                        try {
-                            read(split, collector);
-                        } catch (Exception e) {
-                            throw new TDengineConnectorException(
-                                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
-                                    "TDengine split read error",
-                                    e);
-                        }
-                    });
-        }
-
-        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
-            // signal to the source that we have reached the end of the data.
-            log.info("Closed the bounded TDengine source");
-            context.signalNoMoreElement();
+            log.info("polling new split from queue!");
+            TDengineSourceSplit split = sourceSplits.poll();
+            if (Objects.nonNull(split)) {
+                log.info(
+                        "starting run new split {}, query sql: {}!",
+                        split.splitId(),
+                        split.getQuery());
+                try {
+                    read(split, collector);
+                } catch (Exception e) {
+                    throw new TDengineConnectorException(
+                            CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
+                            "TDengine split read error",
+                            e);
+                }
+            } else if (noMoreSplit && sourceSplits.isEmpty()) {
+                // signal to the source that we have reached the end of the data.
+                log.info("Closed the bounded jdbc source");
+                context.signalNoMoreElement();
+            } else {
+                Thread.sleep(1000L);
+            }
         }
     }
 
@@ -108,15 +107,14 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
         // server
         // under docker network env
         // @bobo (tdengine)
-        connProps.setProperty(TSDBDriver.PROPERTY_KEY_BATCH_LOAD, "false");
+        connProps.setProperty(TSDBDriver.PROPERTY_KEY_BATCH_LOAD, "true");
         try {
-            // check td driver whether exist and if not, try to register
             checkDriverExist(jdbcUrl);
             conn = DriverManager.getConnection(jdbcUrl, connProps);
         } catch (SQLException e) {
             throw new TDengineConnectorException(
                     CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
-                    "get TDengine connection failed:" + jdbcUrl);
+                    "get TDengine connection failed:" + jdbcUrl, e);
         }
     }
 
@@ -151,6 +149,8 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
     }
 
     private Object convertDataType(Object object) {
+        if (Objects.isNull(object)) return null;
+
         if (Timestamp.class.equals(object.getClass())) {
             return ((Timestamp) object).toLocalDateTime();
         } else if (byte[].class.equals(object.getClass())) {
@@ -171,7 +171,8 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
 
     @Override
     public void handleNoMoreSplits() {
-        // do nothing
+        log.info("no more split accepted!");
+        noMoreSplit = true;
     }
 
     @Override
