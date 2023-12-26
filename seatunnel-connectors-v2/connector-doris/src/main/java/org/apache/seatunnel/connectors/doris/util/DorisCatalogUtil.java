@@ -214,6 +214,7 @@ public class DorisCatalogUtil {
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case "DECIMAL":
             case "DECIMALV2":
+            case "DECIMALV3":
                 int precision = rs.getInt(8);
                 int scale = rs.getInt(9);
                 return new DecimalType(precision, scale);
@@ -237,10 +238,10 @@ public class DorisCatalogUtil {
 
         switch (dataType.getSqlType()) {
             case STRING:
-                if (columnLength != null && columnLength > 65533) {
-                    return "STRING";
+                if (columnLength != null && columnLength <= 65533) {
+                    return String.format("VARCHAR(%d)", columnLength);
                 }
-                return String.format("VARCHAR(%d)", columnLength);
+                return "STRING";
             case NULL:
                 return "NULL_TYPE";
             case BOOLEAN:
@@ -260,7 +261,7 @@ public class DorisCatalogUtil {
                 return String.format(
                         "DECIMALV3(%d,%d)", decimalType.getPrecision(), decimalType.getScale());
             case TIME:
-                return "TIME";
+                return "VARCHAR(8)";
             case DATE:
                 return "DATEV2";
             case TIMESTAMP:

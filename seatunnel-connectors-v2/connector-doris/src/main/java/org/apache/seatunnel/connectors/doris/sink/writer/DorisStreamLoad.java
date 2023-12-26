@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.doris.sink.writer;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
@@ -82,13 +83,13 @@ public class DorisStreamLoad implements Serializable {
 
     public DorisStreamLoad(
             String hostPort,
+            TablePath tablePath,
             DorisConfig dorisConfig,
             LabelGenerator labelGenerator,
             CloseableHttpClient httpClient) {
         this.hostPort = hostPort;
-        String[] tableInfo = dorisConfig.getTableIdentifier().split("\\.");
-        this.db = tableInfo[0];
-        this.table = tableInfo[1];
+        this.db = tablePath.getDatabaseName();
+        this.table = tablePath.getTableName();
         this.user = dorisConfig.getUsername();
         this.passwd = dorisConfig.getPassword();
         this.labelGenerator = labelGenerator;
