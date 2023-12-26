@@ -32,7 +32,7 @@ Version Supported
 
 ## Sink Options
 
-|              Name              |  Type   | Required |           Default            |                                                                                                                                         Description                                                                                                                                          |
+| Name                           | Type    | Required | Default                      | Description                                                                                                                                                                                                                                                                                  |
 |--------------------------------|---------|----------|------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | fenodes                        | String  | Yes      | -                            | `Doris` cluster fenodes address, the format is `"fe_ip:fe_http_port, ..."`                                                                                                                                                                                                                   |
 | query-port                     | int     | No       | 9030                         | `Doris` Fenodes query_port                                                                                                                                                                                                                                                                   |
@@ -52,6 +52,7 @@ Version Supported
 | needs_unsupported_type_casting | boolean | No       | false                        | Whether to enable the unsupported type casting, such as Decimal64 to Double                                                                                                                                                                                                                  |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | the schema save mode, please refer to `schema_save_mode` below                                                                                                                                                                                                                               |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                                                   |
+| save_mode_create_template      | string  | no       | see below                    | see below                                                                                                                                                                                                                                                                                    |
 | custom_sql                     | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                                                   |
 | doris.config                   | map     | yes      | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql,and supported formats.                                                                                                                                                    |
 
@@ -71,6 +72,51 @@ Option introduction：
 `APPEND_DATA`：Preserve database structure, preserve data  
 `CUSTOM_PROCESSING`：User defined processing  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
+
+### save_mode_create_template
+
+We use templates to automatically create Doris tables,
+which will create corresponding table creation statements based on the type of upstream data and schema type,
+and the default template can be modified according to the situation.
+
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
+(
+    ${rowtype_fields}
+) ENGINE = OLAP UNIQUE KEY (${rowtype_primary_key})
+    DISTRIBUTED BY HASH (${rowtype_primary_key})
+    PROPERTIES
+(
+    "replication_num" = "1"
+);
+```
+
+If a custom field is filled in the template, such as adding an `id` field
+
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
+(   
+    id,
+    ${rowtype_fields}
+) ENGINE = OLAP UNIQUE KEY (${rowtype_primary_key})
+    DISTRIBUTED BY HASH (${rowtype_primary_key})
+    PROPERTIES
+(
+    "replication_num" = "1"
+);
+```
+
+The connector will automatically obtain the corresponding type from the upstream to complete the filling,
+and remove the id field from `rowtype_fields`. This method can be used to customize the modification of field types and attributes.
+
+You can use the following placeholders
+
+- database: Used to get the database in the upstream schema
+- table_name: Used to get the table name in the upstream schema
+- rowtype_fields: Used to get all the fields in the upstream schema, we will automatically map to the field
+  description of Doris
+- rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
+- rowtype_unique_key: Used to get the unique key in the upstream schema (maybe a list)
 
 ## Data Type Mapping
 

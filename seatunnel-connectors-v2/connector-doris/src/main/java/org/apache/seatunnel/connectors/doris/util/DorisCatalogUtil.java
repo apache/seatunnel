@@ -34,10 +34,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DorisCatalogUtil {
 
@@ -109,10 +112,22 @@ public class DorisCatalogUtil {
                             .map(r -> "`" + r + "`")
                             .collect(Collectors.joining(","));
         }
+        String uniqueKey = "";
+        if (!tableSchema.getConstraintKeys().isEmpty()) {
+            uniqueKey =
+                    tableSchema.getConstraintKeys().stream()
+                            .flatMap(c -> c.getColumnNames().stream())
+                            .map(r -> "`" + r.getColumnName() + "`")
+                            .collect(Collectors.joining(","));
+        }
         template =
                 template.replaceAll(
                         String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_PRIMARY_KEY),
                         primaryKey);
+        template =
+                template.replaceAll(
+                        String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_UNIQUE_KEY),
+                        uniqueKey);
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
         template = mergeColumnInTemplate(columnInTemplate, tableSchema, template);
@@ -120,15 +135,7 @@ public class DorisCatalogUtil {
         String rowTypeFields =
                 tableSchema.getColumns().stream()
                         .filter(column -> !columnInTemplate.containsKey(column.getName()))
-                        .map(
-                                column ->
-                                        String.format(
-                                                "`%s` %s %s ",
-                                                column.getName(),
-                                                fromSeaTunnelType(
-                                                        column.getDataType(),
-                                                        column.getColumnLength()),
-                                                column.isNullable() ? "NULL" : "NOT NULL"))
+                        .map(DorisCatalogUtil::columnToDorisType)
                         .collect(Collectors.joining(",\n"));
         return template.replaceAll(
                         String.format("\\$\\{%s\\}", SaveModeConstants.DATABASE),
@@ -149,18 +156,18 @@ public class DorisCatalogUtil {
         Map<String, Column> columnMap =
                 tableSchema.getColumns().stream()
                         .collect(Collectors.toMap(Column::getName, Function.identity()));
-        for (String col : columnInTemplate.keySet()) {
-            CreateTableParser.ColumnInfo columnInfo = columnInTemplate.get(col);
+        List<CreateTableParser.ColumnInfo> columnInfosInSeq =
+                columnInTemplate.values().stream()
+                        .sorted(
+                                Comparator.comparingInt(
+                                        CreateTableParser.ColumnInfo::getStartIndex))
+                        .collect(Collectors.toList());
+        for (CreateTableParser.ColumnInfo columnInfo : columnInfosInSeq) {
+            String col = columnInfo.getName();
             if (StringUtils.isEmpty(columnInfo.getInfo())) {
                 if (columnMap.containsKey(col)) {
                     Column column = columnMap.get(col);
-                    String newCol =
-                            String.format(
-                                    "`%s` %s %s ",
-                                    column.getName(),
-                                    fromSeaTunnelType(
-                                            column.getDataType(), column.getColumnLength()),
-                                    column.isNullable() ? "NULL" : "NOT NULL");
+                    String newCol = columnToDorisType(column);
                     String prefix = template.substring(0, columnInfo.getStartIndex() + offset);
                     String suffix = template.substring(offset + columnInfo.getEndIndex());
                     if (prefix.endsWith("`")) {
@@ -179,6 +186,21 @@ public class DorisCatalogUtil {
             }
         }
         return template;
+    }
+
+    private static String columnToDorisType(Column column) {
+        checkNotNull(column, "The column is required.");
+        return String.format(
+                "`%s` %s %s ",
+                column.getName(),
+                fromSeaTunnelType(
+                        column.getDataType(),
+                        Math.max(
+                                column.getColumnLength() == null ? 0 : column.getColumnLength(),
+                                column.getLongColumnLength() == null
+                                        ? 0
+                                        : column.getLongColumnLength())),
+                column.isNullable() ? "NULL" : "NOT NULL");
     }
 
     public static SeaTunnelDataType<?> fromDorisType(ResultSet rs) throws SQLException {
@@ -234,11 +256,11 @@ public class DorisCatalogUtil {
         }
     }
 
-    private static String fromSeaTunnelType(SeaTunnelDataType<?> dataType, Integer columnLength) {
+    private static String fromSeaTunnelType(SeaTunnelDataType<?> dataType, Long columnLength) {
 
         switch (dataType.getSqlType()) {
             case STRING:
-                if (columnLength != null && columnLength <= 65533) {
+                if (columnLength != null && columnLength <= 65533 && columnLength > 0) {
                     return String.format("VARCHAR(%d)", columnLength);
                 }
                 return "STRING";
@@ -268,6 +290,8 @@ public class DorisCatalogUtil {
                 return "DATETIME";
             case ROW:
                 return "JSONB";
+            case TINYINT:
+                return "TINYINT";
             default:
                 throw new CatalogException(String.format("Unsupported doris type: %s", dataType));
         }

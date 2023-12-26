@@ -91,7 +91,13 @@ public class DorisSinkWriter
         log.info("restore checkpointId {}", lastCheckpointId);
         log.info("labelPrefix " + dorisConfig.getLabelPrefix());
         this.labelPrefix =
-                dorisConfig.getLabelPrefix() + "_" + jobId + "_" + context.getIndexOfSubtask();
+                dorisConfig.getLabelPrefix()
+                        + "_"
+                        + catalogTable.getTablePath().getFullName().replaceAll("\\.", "_")
+                        + "_"
+                        + jobId
+                        + "_"
+                        + context.getIndexOfSubtask();
         this.labelGenerator = new LabelGenerator(labelPrefix, dorisConfig.getEnable2PC());
         this.scheduledExecutorService =
                 new ScheduledThreadPoolExecutor(
