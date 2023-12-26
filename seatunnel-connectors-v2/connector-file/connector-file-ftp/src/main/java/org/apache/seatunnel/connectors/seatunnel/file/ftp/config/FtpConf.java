@@ -54,7 +54,7 @@ public class FtpConf extends HadoopConf {
                 "fs.ftp.password." + host, config.getString(FtpConfigOptions.FTP_PASSWORD.key()));
         if (config.hasPath(FtpConfigOptions.FTP_ACTIVE_MODE_STATUS.key())) {
             ftpOptions.put(
-                    "fs.ftp.data.connection.mode." + host,
+                    "fs.ftp.connection.mode",
                     config.getString(FtpConfigOptions.FTP_ACTIVE_MODE_STATUS.key()));
         }
         hadoopConf.setExtraOptions(ftpOptions);
