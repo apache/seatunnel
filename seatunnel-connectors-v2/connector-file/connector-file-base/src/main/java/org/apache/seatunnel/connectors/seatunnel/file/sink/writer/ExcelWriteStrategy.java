@@ -58,8 +58,7 @@ public class ExcelWriteStrategy extends AbstractWriteStrategy {
                         fileOutputStream.close();
                     } catch (IOException e) {
                         throw new FileConnectorException(
-                                CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                                "can not get output file stream");
+                                CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, e);
                     }
                     needMoveFiles.put(k, getTargetLocation(k));
                 });

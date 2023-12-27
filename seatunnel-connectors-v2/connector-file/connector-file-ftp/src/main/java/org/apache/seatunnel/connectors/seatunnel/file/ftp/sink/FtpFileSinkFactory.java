@@ -85,7 +85,7 @@ public class FtpFileSinkFactory implements TableSinkFactory {
                 .optional(BaseSinkConfig.DATE_FORMAT)
                 .optional(BaseSinkConfig.DATETIME_FORMAT)
                 .optional(BaseSinkConfig.TIME_FORMAT)
-                .optional(FtpConfigOptions.FTP_ACTIVE_MODE_STATUS)
+                .optional(FtpConfigOptions.FTP_CONNECTION_MODE)
                 .build();
     }
 }

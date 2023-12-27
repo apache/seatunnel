@@ -62,7 +62,7 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
     public static final String FS_FTP_HOST = "fs.ftp.host";
     public static final String FS_FTP_HOST_PORT = "fs.ftp.host.port";
     public static final String FS_FTP_PASSWORD_PREFIX = "fs.ftp.password.";
-    public static final String FS_FTP_ACTIVE_MODEL_STATUS = "fs.ftp.connection.mode";
+    public static final String FS_FTP_CONNECTION_MODE = "fs.ftp.connection.mode";
 
     public static final String E_SAME_DIRECTORY_ONLY = "only same directory renames are supported";
 
@@ -155,12 +155,29 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
                             + "'");
         }
 
-        // set passive mode
-        if (!conf.getBoolean(FS_FTP_ACTIVE_MODEL_STATUS, true)) {
-            client.enterLocalPassiveMode();
-        }
+        setFsFtpConnectionMode(
+                client, conf.get(FS_FTP_CONNECTION_MODE, FtpConnectionModeEnum.DEFAULT.getMode()));
 
         return client;
+    }
+
+    /**
+     * Set FTP connection mode. *
+     *
+     * @param client FTPClient
+     * @param mode mode
+     */
+    private void setFsFtpConnectionMode(FTPClient client, String mode) {
+        switch (FtpConnectionModeEnum.fromMode(mode)) {
+            case ACTIVE_LOCAL_DATA_CONNECTION_MODE:
+                client.enterLocalActiveMode();
+                break;
+            case PASSIVE_LOCAL_DATA_CONNECTION_MODE:
+                client.enterLocalPassiveMode();
+                break;
+            default:
+                break;
+        }
     }
 
     /**
