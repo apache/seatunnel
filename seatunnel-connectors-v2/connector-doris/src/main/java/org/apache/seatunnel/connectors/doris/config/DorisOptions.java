@@ -232,15 +232,25 @@ public interface DorisOptions {
 
     OptionRule.Builder SINK_RULE =
             OptionRule.builder()
-                    .required(FENODES, USERNAME, PASSWORD)
+                    .required(
+                            FENODES,
+                            USERNAME,
+                            PASSWORD,
+                            SINK_LABEL_PREFIX,
+                            DORIS_SINK_CONFIG_PREFIX,
+                            DATA_SAVE_MODE,
+                            SCHEMA_SAVE_MODE)
                     .optional(
                             DATABASE,
                             TABLE,
                             TABLE_IDENTIFIER,
+                            QUERY_PORT,
                             DORIS_BATCH_SIZE,
-                            DATA_SAVE_MODE,
-                            SCHEMA_SAVE_MODE,
-                            MULTI_TABLE_SINK_REPLICA)
+                            SINK_ENABLE_2PC,
+                            SINK_ENABLE_DELETE,
+                            MULTI_TABLE_SINK_REPLICA,
+                            SAVE_MODE_CREATE_TEMPLATE,
+                            NEEDS_UNSUPPORTED_TYPE_CASTING)
                     .conditional(DATA_SAVE_MODE, DataSaveMode.CUSTOM_PROCESSING, CUSTOM_SQL);
 
     OptionRule.Builder CATALOG_RULE =
