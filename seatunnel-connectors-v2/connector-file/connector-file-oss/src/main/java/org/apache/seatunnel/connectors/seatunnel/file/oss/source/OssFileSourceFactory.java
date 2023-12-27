@@ -19,9 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.file.oss.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -29,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfigOption
 
 import com.google.auto.service.AutoService;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
 @AutoService(Factory.class)
@@ -39,14 +43,23 @@ public class OssFileSourceFactory implements TableSourceFactory {
     }
 
     @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new OssFileSource(context.getOptions());
+    }
+
+    @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(OssConfigOptions.FILE_PATH)
-                .required(OssConfigOptions.BUCKET)
-                .required(OssConfigOptions.ACCESS_KEY)
-                .required(OssConfigOptions.ACCESS_SECRET)
-                .required(OssConfigOptions.ENDPOINT)
-                .required(BaseSourceConfigOptions.FILE_FORMAT_TYPE)
+                .optional(
+                        org.apache.seatunnel.connectors.seatunnel.file.config
+                                .BaseSourceConfigOptions.TABLE_CONFIGS)
+                .optional(OssConfigOptions.FILE_PATH)
+                .optional(OssConfigOptions.BUCKET)
+                .optional(OssConfigOptions.ACCESS_KEY)
+                .optional(OssConfigOptions.ACCESS_SECRET)
+                .optional(OssConfigOptions.ENDPOINT)
+                .optional(BaseSourceConfigOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,

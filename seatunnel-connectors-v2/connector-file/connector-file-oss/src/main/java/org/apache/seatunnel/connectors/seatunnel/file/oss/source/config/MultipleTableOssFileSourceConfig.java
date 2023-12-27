@@ -15,25 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.oss.sink;
+package org.apache.seatunnel.connectors.seatunnel.file.oss.source.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssHadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 
-import com.google.auto.service.AutoService;
+public class MultipleTableOssFileSourceConfig extends BaseMultipleTableFileSourceConfig {
 
-@AutoService(SeaTunnelSink.class)
-public class OssFileSink extends BaseMultipleTableFileSink {
-    public OssFileSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
-        super(OssHadoopConf.buildWithConfig(readonlyConfig), readonlyConfig, catalogTable);
+    public MultipleTableOssFileSourceConfig(ReadonlyConfig ossFileSourceRootConfig) {
+        super(ossFileSourceRootConfig);
     }
 
     @Override
-    public String getPluginName() {
-        return FileSystemType.OSS.getFileSystemPluginName();
+    public BaseFileSourceConfig getBaseSourceConfig(ReadonlyConfig readonlyConfig) {
+        return new OssFileSourceConfig(readonlyConfig);
     }
 }
