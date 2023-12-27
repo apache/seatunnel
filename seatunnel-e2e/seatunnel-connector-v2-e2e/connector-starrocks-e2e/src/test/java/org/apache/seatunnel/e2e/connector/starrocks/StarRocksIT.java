@@ -75,7 +75,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
     private static final String DATABASE = "test";
-    private static final String URL = "jdbc:mysql://%s:" + SR_PORT + "/" + DATABASE;
+    private static final String URL = "jdbc:mysql://%s:" + SR_PORT;
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
     private static final String SR_DRIVER_JAR =
