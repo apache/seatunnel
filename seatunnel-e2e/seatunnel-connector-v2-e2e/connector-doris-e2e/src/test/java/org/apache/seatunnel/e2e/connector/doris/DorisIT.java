@@ -158,8 +158,8 @@ public class DorisIT extends TestSuiteBase implements TestResource {
                     Arrays.stream(COLUMN_STRING.split(","))
                             .map(x -> x.trim())
                             .collect(Collectors.toList());
-            Statement sourceStatement = jdbcConnection.createStatement();
-            Statement sinkStatement = jdbcConnection.createStatement();
+            Statement sourceStatement = jdbcConnection.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
+            Statement sinkStatement = jdbcConnection.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
             ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
             ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
             Assertions.assertEquals(
