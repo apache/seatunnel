@@ -58,7 +58,8 @@ public class ExcelWriteStrategy extends AbstractWriteStrategy {
                         fileOutputStream.close();
                     } catch (IOException e) {
                         throw new FileConnectorException(
-                                CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, e);
+                            CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
+                            "can not get output file stream");
                     }
                     needMoveFiles.put(k, getTargetLocation(k));
                 });
@@ -69,7 +70,7 @@ public class ExcelWriteStrategy extends AbstractWriteStrategy {
         ExcelGenerator excelGenerator = this.beingWrittenWriter.get(filePath);
         if (excelGenerator == null) {
             excelGenerator =
-                    new ExcelGenerator(sinkColumnsIndexInRow, seaTunnelRowType, fileSinkConfig);
+                new ExcelGenerator(sinkColumnsIndexInRow, seaTunnelRowType, fileSinkConfig);
             this.beingWrittenWriter.put(filePath, excelGenerator);
         }
         return excelGenerator;
