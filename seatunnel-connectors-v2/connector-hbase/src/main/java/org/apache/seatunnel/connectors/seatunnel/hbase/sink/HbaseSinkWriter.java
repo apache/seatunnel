@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
@@ -179,6 +176,10 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 return Bytes.toBytes((Double) field);
             case BOOLEAN:
                 return Bytes.toBytes((Boolean) field);
+            case ARRAY:
+                String arrayAsString = field.toString().replaceAll("\\[|\\]|\\s", "");
+                return arrayAsString.getBytes(
+                        Charset.forName(hbaseParameters.getEnCoding().toString()));
             case STRING:
                 return field.toString()
                         .getBytes(Charset.forName(hbaseParameters.getEnCoding().toString()));

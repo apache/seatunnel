@@ -22,6 +22,8 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
@@ -36,6 +38,7 @@ import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.apache.hadoop.hbase.io.compress.Compression;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -139,6 +142,34 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         ArrayList<Result> results = new ArrayList<>();
         ResultScanner scanner = hbaseTable.getScanner(scan);
         for (Result result : scanner) {
+            results.add(result);
+        }
+        Assertions.assertEquals(results.size(), 5);
+    }
+
+    @TestTemplate
+    public void testHbaseSinkWithArray(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/fake-to-hbase-array.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Table hbaseTable = hbaseConnection.getTable(table);
+        Scan scan = new Scan();
+        ArrayList<Result> results = new ArrayList<>();
+        ResultScanner scanner = hbaseTable.getScanner(scan);
+        for (Result result : scanner) {
+            System.out.println("Row Key: " + Bytes.toString(result.getRow()));
+            for (Cell cell : result.listCells()) {
+                String columnFamily = Bytes.toString(CellUtil.cloneFamily(cell));
+                String columnName = Bytes.toString(CellUtil.cloneQualifier(cell));
+                String value = Bytes.toString(CellUtil.cloneValue(cell));
+                System.out.println(
+                        "Column Family: "
+                                + columnFamily
+                                + ", Column Name: "
+                                + columnName
+                                + ", Value: "
+                                + value);
+            }
             results.add(result);
         }
         Assertions.assertEquals(results.size(), 5);
