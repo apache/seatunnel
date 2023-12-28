@@ -222,7 +222,17 @@ public class StarRocksCatalog implements Catalog {
     @Override
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
-        throw new UnsupportedOperationException();
+        try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
+            if (ignoreIfNotExists) {
+                conn.createStatement().execute("DROP TABLE IF EXISTS " + tablePath.getFullName());
+            } else {
+                conn.createStatement()
+                        .execute(String.format("DROP TABLE %s", tablePath.getFullName()));
+            }
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format("Failed listing database in catalog %s", catalogName), e);
+        }
     }
 
     public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
