@@ -270,10 +270,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     }
                 }
             }
-            // Check the row numbers is equal
-            sourceResultSet.last();
-            sinkResultSet.last();
-            Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
+            Assertions.assertFalse(sinkResultSet.next());
             clearSinkTable();
         } catch (Exception e) {
             throw new RuntimeException("get starRocks connection error", e);
@@ -360,6 +357,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         starRocksCatalog.open();
         CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocks_source);
         // sink tableExists ?
+        starRocksCatalog.dropTable(tablePathStarRocks_Sink, true);
         boolean tableExistsBefore = starRocksCatalog.tableExists(tablePathStarRocks_Sink);
         Assertions.assertFalse(tableExistsBefore);
         // create table

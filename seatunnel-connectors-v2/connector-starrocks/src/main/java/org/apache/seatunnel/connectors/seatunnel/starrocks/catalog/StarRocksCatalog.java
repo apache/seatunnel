@@ -254,7 +254,7 @@ public class StarRocksCatalog implements Catalog {
 
     public boolean isExistsData(TablePath tablePath) {
         try (Connection connection = DriverManager.getConnection(defaultUrl, username, pwd)) {
-            String sql = String.format("select * from %s limit 1", tablePath.getTableName());
+            String sql = String.format("select * from %s limit 1", tablePath.getFullName());
             PreparedStatement ps = connection.prepareStatement(sql);
             ResultSet resultSet = ps.executeQuery();
             if (resultSet == null) {
