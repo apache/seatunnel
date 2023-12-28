@@ -36,18 +36,15 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigDecimal;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.PreparedStatement;
@@ -253,7 +250,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             String sinkSql = String.format("select * from %s.%s", DATABASE, SINK_TABLE);
             List<String> columnList =
                     Arrays.stream(COLUMN_STRING.split(","))
-                            .map(x -> x.trim())
+                            .map(String::trim)
                             .collect(Collectors.toList());
             Statement sourceStatement = jdbcConnection.createStatement();
             Statement sinkStatement = jdbcConnection.createStatement();
@@ -268,13 +265,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         Object source = sourceResultSet.getObject(column);
                         Object sink = sinkResultSet.getObject(column);
                         if (!Objects.deepEquals(source, sink)) {
-                            InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
-                            InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
-                            String sourceValue =
-                                    IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
-                            String sinkValue =
-                                    IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
-                            Assertions.assertEquals(sourceValue, sinkValue);
+                            Assertions.assertEquals(String.valueOf(source), String.valueOf(sink));
                         }
                     }
                 }
