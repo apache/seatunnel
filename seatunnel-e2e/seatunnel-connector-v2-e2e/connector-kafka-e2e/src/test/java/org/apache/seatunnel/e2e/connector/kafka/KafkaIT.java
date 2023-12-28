@@ -68,6 +68,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -296,16 +297,99 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @DisabledOnContainer(TestContainerId.SPARK_2_4)
+    @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
     public void testFakeSourceToKafkaAvroFormat(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/avro/fake_source_to_kafka_avro_format.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        String[] subField = {
+            "c_map",
+            "c_array",
+            "c_string",
+            "c_boolean",
+            "c_tinyint",
+            "c_smallint",
+            "c_int",
+            "c_bigint",
+            "c_float",
+            "c_double",
+            "c_bytes",
+            "c_date",
+            "c_decimal",
+            "c_timestamp"
+        };
+        SeaTunnelDataType<?>[] subFieldTypes = {
+            new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
+            ArrayType.INT_ARRAY_TYPE,
+            BasicType.STRING_TYPE,
+            BasicType.BOOLEAN_TYPE,
+            BasicType.BYTE_TYPE,
+            BasicType.SHORT_TYPE,
+            BasicType.INT_TYPE,
+            BasicType.LONG_TYPE,
+            BasicType.FLOAT_TYPE,
+            BasicType.DOUBLE_TYPE,
+            PrimitiveByteArrayType.INSTANCE,
+            LocalTimeType.LOCAL_DATE_TYPE,
+            new DecimalType(38, 18),
+            LocalTimeType.LOCAL_DATE_TIME_TYPE
+        };
+        SeaTunnelRowType subRow = new SeaTunnelRowType(subField, subFieldTypes);
+        String[] fieldNames = {
+            "c_map",
+            "c_array",
+            "c_string",
+            "c_boolean",
+            "c_tinyint",
+            "c_smallint",
+            "c_int",
+            "c_bigint",
+            "c_float",
+            "c_double",
+            "c_bytes",
+            "c_date",
+            "c_decimal",
+            "c_timestamp",
+            "c_row"
+        };
+        SeaTunnelDataType<?>[] fieldTypes = {
+            new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
+            ArrayType.INT_ARRAY_TYPE,
+            BasicType.STRING_TYPE,
+            BasicType.BOOLEAN_TYPE,
+            BasicType.BYTE_TYPE,
+            BasicType.SHORT_TYPE,
+            BasicType.INT_TYPE,
+            BasicType.LONG_TYPE,
+            BasicType.FLOAT_TYPE,
+            BasicType.DOUBLE_TYPE,
+            PrimitiveByteArrayType.INSTANCE,
+            LocalTimeType.LOCAL_DATE_TYPE,
+            new DecimalType(38, 18),
+            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+            subRow
+        };
+        SeaTunnelRowType fake_source_row_type = new SeaTunnelRowType(fieldNames, fieldTypes);
+        AvroDeserializationSchema avroDeserializationSchema =
+                new AvroDeserializationSchema(fake_source_row_type);
+        List<SeaTunnelRow> kafkaSTRow =
+                getKafkaSTRow(
+                        "test_avro_topic_fake_source",
+                        value -> {
+                            try {
+                                return avroDeserializationSchema.deserialize(value);
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        Assertions.assertEquals(90, kafkaSTRow.size());
+        kafkaSTRow.forEach(
+                row -> Assertions.assertEquals("fake_source_avro", row.getField(2).toString()));
     }
 
     @TestTemplate
-    @DisabledOnContainer(TestContainerId.SPARK_2_4)
+    @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
     public void testKafkaAvroToAssert(TestContainer container)
             throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
@@ -314,7 +398,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         SEATUNNEL_ROW_TYPE,
                         MessageFormat.AVRO,
                         DEFAULT_FIELD_DELIMITER);
-        generateTestData(row -> serializer.serializeRow(row), 0, 100);
+        int start = 0;
+        int end = 100;
+        generateTestData(row -> serializer.serializeRow(row), start, end);
         Container.ExecResult execResult = container.executeJob("/avro/kafka_avro_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
@@ -331,9 +417,30 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                             }
                         });
         Assertions.assertEquals(100, kafkaSTRow.size());
-        kafkaSTRow.forEach(row -> Assertions.assertEquals("string", row.getField(3).toString()));
-        kafkaSTRow.forEach(row -> Assertions.assertEquals(false, row.getField(4)));
-        kafkaSTRow.forEach(row -> Assertions.assertEquals(Byte.parseByte("1"), row.getField(5)));
+        kafkaSTRow.forEach(
+                row -> {
+                    Assertions.assertTrue(
+                            (long) row.getField(0) >= start && (long) row.getField(0) < end);
+                    Assertions.assertEquals(
+                            Collections.singletonMap("key", Short.parseShort("1")),
+                            (Map<String, Short>) row.getField(1));
+                    Assertions.assertArrayEquals(
+                            new Byte[] {Byte.parseByte("1")}, (Byte[]) row.getField(2));
+                    Assertions.assertEquals("string", row.getField(3).toString());
+                    Assertions.assertEquals(false, row.getField(4));
+                    Assertions.assertEquals(Byte.parseByte("1"), row.getField(5));
+                    Assertions.assertEquals(Short.parseShort("1"), row.getField(6));
+                    Assertions.assertEquals(Integer.parseInt("1"), row.getField(7));
+                    Assertions.assertEquals(Long.parseLong("1"), row.getField(8));
+                    Assertions.assertEquals(Float.parseFloat("1.1"), row.getField(9));
+                    Assertions.assertEquals(Double.parseDouble("1.1"), row.getField(10));
+                    Assertions.assertEquals(BigDecimal.valueOf(11, 1), row.getField(11));
+                    Assertions.assertArrayEquals(
+                            "test".getBytes(), ((ByteBuffer) row.getField(12)).array());
+                    Assertions.assertEquals(LocalDate.of(2024, 1, 1), row.getField(13));
+                    Assertions.assertEquals(
+                            LocalDateTime.of(2024, 1, 1, 12, 59, 23), row.getField(14));
+                });
     }
 
     public void testKafkaLatestToConsole(TestContainer container)
@@ -426,8 +533,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                                 Double.parseDouble("1.1"),
                                 BigDecimal.valueOf(11, 1),
                                 "test".getBytes(),
-                                LocalDate.now(),
-                                LocalDateTime.now()
+                                LocalDate.of(2024, 1, 1),
+                                LocalDateTime.of(2024, 1, 1, 12, 59, 23)
                             });
             ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
             producer.send(producerRecord);

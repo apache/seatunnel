@@ -19,6 +19,7 @@ package org.apache.seatunnel.format.avro;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -34,7 +35,9 @@ import org.apache.avro.io.DatumReader;
 
 import java.io.Serializable;
 import java.lang.reflect.Array;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class AvroToRowConverter implements Serializable {
 
@@ -82,9 +85,7 @@ public class AvroToRowConverter implements Serializable {
         switch (dataType.getSqlType()) {
             case STRING:
                 return val.toString();
-            case MAP:
             case BOOLEAN:
-            case SMALLINT:
             case INT:
             case BIGINT:
             case FLOAT:
@@ -95,6 +96,8 @@ public class AvroToRowConverter implements Serializable {
             case DECIMAL:
             case TIMESTAMP:
                 return val;
+            case SMALLINT:
+                return ((Integer) val).shortValue();
             case TINYINT:
                 Class<?> typeClass = dataType.getTypeClass();
                 if (typeClass == Byte.class) {
@@ -102,6 +105,16 @@ public class AvroToRowConverter implements Serializable {
                     return integer.byteValue();
                 }
                 return val;
+            case MAP:
+                MapType<?, ?> mapType = (MapType<?, ?>) dataType;
+                Map<Object, Object> res = new HashMap<>();
+                Map map = (Map) val;
+                for (Object o : map.entrySet()) {
+                    res.put(
+                            convertField(mapType.getKeyType(), ((Map.Entry) o).getKey()),
+                            convertField(mapType.getValueType(), ((Map.Entry) o).getValue()));
+                }
+                return res;
             case ARRAY:
                 BasicType<?> basicType = ((ArrayType<?, ?>) dataType).getElementType();
                 List<Object> list = (List<Object>) val;
