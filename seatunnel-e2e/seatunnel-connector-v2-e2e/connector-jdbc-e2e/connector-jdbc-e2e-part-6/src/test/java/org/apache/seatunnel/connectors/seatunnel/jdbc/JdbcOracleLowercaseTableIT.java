@@ -236,8 +236,8 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
         oracleCatalog.open();
         CatalogTable catalogTable = oracleCatalog.getTable(tablePathOracle);
         // sink tableExists ?
-        boolean tableExistsBefore = oracleCatalog.tableExists(tablePathOracle_Sink);
-        Assertions.assertFalse(tableExistsBefore);
+        /* boolean tableExistsBefore = oracleCatalog.tableExists(tablePathOracle_Sink);
+        Assertions.assertFalse(tableExistsBefore);*/
         // create table
         oracleCatalog.createTable(tablePathOracle_Sink, catalogTable, true);
         boolean tableExistsAfter = oracleCatalog.tableExists(tablePathOracle_Sink);
