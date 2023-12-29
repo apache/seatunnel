@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -264,6 +265,8 @@ public class DorisCatalogUtil {
                     return String.format("VARCHAR(%d)", columnLength);
                 }
                 return "STRING";
+            case BYTES:
+                return "STRING";
             case NULL:
                 return "NULL_TYPE";
             case BOOLEAN:
@@ -288,6 +291,12 @@ public class DorisCatalogUtil {
                 return "DATEV2";
             case TIMESTAMP:
                 return "DATETIME";
+            case ARRAY:
+                return "ARRAY<"
+                        + fromSeaTunnelType(
+                                ((ArrayType<?, ?>) dataType).getElementType(), Long.MAX_VALUE)
+                        + ">";
+            case MAP:
             case ROW:
                 return "JSONB";
             case TINYINT:
