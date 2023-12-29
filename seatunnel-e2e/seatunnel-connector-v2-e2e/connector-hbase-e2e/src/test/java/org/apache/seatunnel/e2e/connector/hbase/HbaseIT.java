@@ -157,21 +157,19 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         ArrayList<Result> results = new ArrayList<>();
         ResultScanner scanner = hbaseTable.getScanner(scan);
         for (Result result : scanner) {
-            System.out.println("Row Key: " + Bytes.toString(result.getRow()));
+            String rowKey = Bytes.toString(result.getRow());
             for (Cell cell : result.listCells()) {
-                String columnFamily = Bytes.toString(CellUtil.cloneFamily(cell));
                 String columnName = Bytes.toString(CellUtil.cloneQualifier(cell));
                 String value = Bytes.toString(CellUtil.cloneValue(cell));
-                System.out.println(
-                        "Column Family: "
-                                + columnFamily
-                                + ", Column Name: "
-                                + columnName
-                                + ", Value: "
-                                + value);
+                if ("A".equals(rowKey) && "info:c_array_string".equals(columnName)) {
+                    Assertions.assertEquals(value, "\"a\",\"b\",\"c\"");
+                }
+                if ("B".equals(rowKey) && "info:c_array_int".equals(columnName)) {
+                    Assertions.assertEquals(value, "4,5,6");
+                }
             }
             results.add(result);
         }
-        Assertions.assertEquals(results.size(), 5);
+        Assertions.assertEquals(results.size(), 3);
     }
 }
