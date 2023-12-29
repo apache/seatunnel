@@ -18,10 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.system;
 
 /** Ftp connection mode enum. href="http://commons.apache.org/net/">Apache Commons Net</a>. */
-public enum FtpConnectionModeEnum {
+public enum FtpConnectionMode {
 
-    /** DEFAULT */
-    DEFAULT("default"),
     /** ACTIVE_LOCAL_DATA_CONNECTION_MODE */
     ACTIVE_LOCAL_DATA_CONNECTION_MODE("active_local"),
 
@@ -30,7 +28,7 @@ public enum FtpConnectionModeEnum {
 
     private final String mode;
 
-    FtpConnectionModeEnum(String mode) {
+    FtpConnectionMode(String mode) {
         this.mode = mode;
     }
 
@@ -38,8 +36,8 @@ public enum FtpConnectionModeEnum {
         return mode;
     }
 
-    public static FtpConnectionModeEnum fromMode(String mode) {
-        for (FtpConnectionModeEnum ftpConnectionModeEnum : FtpConnectionModeEnum.values()) {
+    public static FtpConnectionMode fromMode(String mode) {
+        for (FtpConnectionMode ftpConnectionModeEnum : FtpConnectionMode.values()) {
             if (ftpConnectionModeEnum.getMode().equals(mode)) {
                 return ftpConnectionModeEnum;
             }
