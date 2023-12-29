@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -104,9 +105,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         try {
             writer.write(record);
         } catch (IOException e) {
-            String errorMsg = String.format("Write data to file [%s] error", filePath);
-            throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, errorMsg, e);
+            throw CommonError.fileOperationFailed("ParquetFile", "write", filePath, e);
         }
     }
 

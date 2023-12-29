@@ -17,15 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.oss.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 import org.apache.hadoop.fs.aliyun.oss.Constants;
 
 import java.util.HashMap;
 
-public class OssConf extends HadoopConf {
+public class OssHadoopConf extends HadoopConf {
     private static final String HDFS_IMPL = "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem";
     private static final String SCHEMA = "oss";
 
@@ -39,19 +38,16 @@ public class OssConf extends HadoopConf {
         return SCHEMA;
     }
 
-    public OssConf(String hdfsNameKey) {
+    public OssHadoopConf(String hdfsNameKey) {
         super(hdfsNameKey);
     }
 
-    public static HadoopConf buildWithConfig(Config config) {
-        HadoopConf hadoopConf = new OssConf(config.getString(OssConfigOptions.BUCKET.key()));
+    public static HadoopConf buildWithConfig(ReadonlyConfig config) {
+        HadoopConf hadoopConf = new OssHadoopConf(config.get(OssConfigOptions.BUCKET));
         HashMap<String, String> ossOptions = new HashMap<>();
-        ossOptions.put(
-                Constants.ACCESS_KEY_ID, config.getString(OssConfigOptions.ACCESS_KEY.key()));
-        ossOptions.put(
-                Constants.ACCESS_KEY_SECRET,
-                config.getString(OssConfigOptions.ACCESS_SECRET.key()));
-        ossOptions.put(Constants.ENDPOINT_KEY, config.getString(OssConfigOptions.ENDPOINT.key()));
+        ossOptions.put(Constants.ACCESS_KEY_ID, config.get(OssConfigOptions.ACCESS_KEY));
+        ossOptions.put(Constants.ACCESS_KEY_SECRET, config.get(OssConfigOptions.ACCESS_SECRET));
+        ossOptions.put(Constants.ENDPOINT_KEY, config.get(OssConfigOptions.ENDPOINT));
         hadoopConf.setExtraOptions(ossOptions);
         return hadoopConf;
     }

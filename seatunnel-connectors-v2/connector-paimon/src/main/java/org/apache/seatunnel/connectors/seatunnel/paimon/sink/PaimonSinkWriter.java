@@ -27,12 +27,11 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkSta
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowConverter;
 
 import org.apache.paimon.data.InternalRow;
-import org.apache.paimon.operation.Lock;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.BatchTableCommit;
 import org.apache.paimon.table.sink.BatchTableWrite;
+import org.apache.paimon.table.sink.BatchWriteBuilder;
 import org.apache.paimon.table.sink.CommitMessage;
-import org.apache.paimon.table.sink.InnerTableCommit;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -51,6 +50,8 @@ public class PaimonSinkWriter
 
     private String commitUser = UUID.randomUUID().toString();
 
+    private final BatchWriteBuilder tableWriteBuilder;
+
     private final BatchTableWrite tableWrite;
 
     private long checkpointId = 0;
@@ -65,7 +66,8 @@ public class PaimonSinkWriter
 
     public PaimonSinkWriter(Context context, Table table, SeaTunnelRowType seaTunnelRowType) {
         this.table = table;
-        this.tableWrite = this.table.newBatchWriteBuilder().newWrite();
+        this.tableWriteBuilder = this.table.newBatchWriteBuilder().withOverwrite();
+        this.tableWrite = tableWriteBuilder.newWrite();
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
     }
@@ -76,7 +78,8 @@ public class PaimonSinkWriter
             SeaTunnelRowType seaTunnelRowType,
             List<PaimonSinkState> states) {
         this.table = table;
-        this.tableWrite = this.table.newBatchWriteBuilder().newWrite();
+        this.tableWriteBuilder = this.table.newBatchWriteBuilder().withOverwrite();
+        this.tableWrite = tableWriteBuilder.newWrite();
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
         if (Objects.isNull(states) || states.isEmpty()) {
@@ -84,9 +87,7 @@ public class PaimonSinkWriter
         }
         this.commitUser = states.get(0).getCommitUser();
         this.checkpointId = states.get(0).getCheckpointId();
-        try (BatchTableCommit tableCommit =
-                ((InnerTableCommit) table.newBatchWriteBuilder().newCommit())
-                        .withLock(Lock.emptyFactory().create())) {
+        try (BatchTableCommit tableCommit = tableWriteBuilder.newCommit()) {
             List<CommitMessage> commitables =
                     states.stream()
                             .map(PaimonSinkState::getCommittables)

@@ -51,15 +51,18 @@ public abstract class BaseFileSourceConfig implements Serializable {
     private final FileFormat fileFormat;
     private final ReadStrategy readStrategy;
     private final List<String> filePaths;
+    private final ReadonlyConfig baseFileSourceConfig;
 
     public abstract HadoopConf getHadoopConfig();
 
     public abstract String getPluginName();
 
     public BaseFileSourceConfig(ReadonlyConfig readonlyConfig) {
+        this.baseFileSourceConfig = readonlyConfig;
         this.fileFormat = readonlyConfig.get(BaseSourceConfigOptions.FILE_FORMAT_TYPE);
         this.readStrategy = ReadStrategyFactory.of(readonlyConfig, getHadoopConfig());
         this.filePaths = parseFilePaths(readonlyConfig);
+
         this.catalogTable = parseCatalogTable(readonlyConfig);
     }
 
