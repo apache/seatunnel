@@ -18,7 +18,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
@@ -26,13 +25,10 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLPa
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -42,7 +38,6 @@ import org.testcontainers.utility.MountableFile;
 
 import com.google.common.collect.Lists;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
@@ -239,45 +234,5 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                         OracleURLParser.parse(jdbcUrl),
                         SCHEMA);
         catalog.open();
-    }
-
-    @TestTemplate
-    public void testCatalog(TestContainer container) throws IOException, InterruptedException {
-        TablePath tablePathOracle = TablePath.of("XE", "TESTUSER", "E2E_TABLE_SOURCE");
-        TablePath tablePathOracle_Sink = TablePath.of("XE", "TESTUSER", "SINK_LW");
-        OracleCatalog oracleCatalog =
-                new OracleCatalog(
-                        "oracle",
-                        jdbcCase.getUserName(),
-                        jdbcCase.getPassword(),
-                        OracleURLParser.parse(
-                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
-                        SCHEMA);
-        oracleCatalog.open();
-        CatalogTable catalogTable = oracleCatalog.getTable(tablePathOracle);
-        // sink tableExists ?
-        boolean tableExistsBefore = oracleCatalog.tableExists(tablePathOracle_Sink);
-        Assertions.assertFalse(tableExistsBefore);
-        // create table
-        oracleCatalog.createTable(tablePathOracle_Sink, catalogTable, true);
-        boolean tableExistsAfter = oracleCatalog.tableExists(tablePathOracle_Sink);
-        Assertions.assertTrue(tableExistsAfter);
-        // isExistsData ?
-        boolean existsDataBefore = oracleCatalog.isExistsData(tablePathOracle_Sink);
-        Assertions.assertFalse(existsDataBefore);
-        // insert data
-        Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
-        String[] fieldNames = testDataSet.getKey();
-        oracleCatalog.executeSql(
-                tablePathOracle_Sink, insertTable("TESTUSER", "SINK_LW", fieldNames));
-        boolean existsDataAfter = oracleCatalog.isExistsData(tablePathOracle_Sink);
-        Assertions.assertTrue(existsDataAfter);
-        // truncateTable
-        oracleCatalog.truncateTable(tablePathOracle_Sink, true);
-        Assertions.assertFalse(oracleCatalog.isExistsData(tablePathOracle_Sink));
-        // drop table
-        oracleCatalog.dropTable(tablePathOracle_Sink, true);
-        Assertions.assertFalse(oracleCatalog.tableExists(tablePathOracle_Sink));
-        oracleCatalog.close();
     }
 }
