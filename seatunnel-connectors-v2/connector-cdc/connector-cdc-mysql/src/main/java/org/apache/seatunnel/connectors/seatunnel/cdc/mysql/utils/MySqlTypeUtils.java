@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.CommonError;
 
 import io.debezium.relational.Column;
 import lombok.extern.slf4j.Slf4j;
@@ -161,10 +162,7 @@ public class MySqlTypeUtils {
             case MYSQL_UNKNOWN:
             default:
                 final String columnName = column.name();
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Doesn't support MySQL type '%s' on column '%s'  yet.",
-                                typeName, columnName));
+                throw CommonError.convertToSeaTunnelTypeError("MySQL-CDC", typeName, columnName);
         }
     }
 }
