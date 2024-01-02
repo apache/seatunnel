@@ -304,7 +304,7 @@
                         </goals>
                         <phase>package</phase>
                         <configuration>
-                            <createSourcesJar>true</createSourcesJar>
+                            <createSourcesJar>false</createSourcesJar>
                             <shadeSourcesContent>true</shadeSourcesContent>
                             <shadedArtifactAttached>false</shadedArtifactAttached>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
