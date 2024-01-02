@@ -145,4 +145,26 @@ public class TextFormatSchemaTest {
         Assertions.assertEquals(seaTunnelRow.getField(2), "tyrantlucifer");
         Assertions.assertEquals(data, content);
     }
+
+    @Test
+    public void testConvertTinyInt() {
+        TextDeserializationSchema textDeserializationSchema =
+                TextDeserializationSchema.builder().seaTunnelRowType(seaTunnelRowType).build();
+        TextSerializationSchema textSerializationSchema =
+                TextSerializationSchema.builder().seaTunnelRowType(seaTunnelRowType).build();
+        String tinyIntSerialization = textSerializationSchema.convert(0, BasicType.BYTE_TYPE, 0);
+        Object tinyIntDeserialization =
+                textDeserializationSchema.convert(tinyIntSerialization, BasicType.BYTE_TYPE, 0);
+        Assertions.assertEquals(0, tinyIntDeserialization);
+
+        tinyIntSerialization = textSerializationSchema.convert(122, BasicType.BYTE_TYPE, 0);
+        tinyIntDeserialization =
+                textDeserializationSchema.convert(tinyIntSerialization, BasicType.BYTE_TYPE, 0);
+        Assertions.assertEquals(122, tinyIntDeserialization);
+
+        tinyIntSerialization = textSerializationSchema.convert(255, BasicType.BYTE_TYPE, 0);
+        tinyIntDeserialization =
+                textDeserializationSchema.convert(tinyIntSerialization, BasicType.BYTE_TYPE, 0);
+        Assertions.assertEquals(255, tinyIntDeserialization);
+    }
 }

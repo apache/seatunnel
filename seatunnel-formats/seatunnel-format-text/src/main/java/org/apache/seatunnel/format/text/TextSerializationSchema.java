@@ -31,6 +31,7 @@ import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.NonNull;
 
 import java.time.LocalDate;
@@ -124,7 +125,8 @@ public class TextSerializationSchema implements SerializationSchema {
         return String.join(separators[0], strings).getBytes();
     }
 
-    private String convert(Object field, SeaTunnelDataType<?> fieldType, int level) {
+    @VisibleForTesting
+    String convert(Object field, SeaTunnelDataType<?> fieldType, int level) {
         if (field == null) {
             return "";
         }
@@ -134,11 +136,18 @@ public class TextSerializationSchema implements SerializationSchema {
             case INT:
             case STRING:
             case BOOLEAN:
-            case TINYINT:
             case SMALLINT:
             case BIGINT:
             case DECIMAL:
                 return field.toString();
+            case TINYINT:
+                if (field instanceof Byte) {
+                    return String.valueOf((byte) field);
+                } else {
+                    int value = Integer.parseInt(field.toString());
+                    byte byteValue = (byte) value;
+                    return String.valueOf(byteValue);
+                }
             case DATE:
                 return DateUtils.toString((LocalDate) field, dateFormatter);
             case TIME:

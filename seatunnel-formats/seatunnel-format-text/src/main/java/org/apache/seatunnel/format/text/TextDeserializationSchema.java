@@ -33,6 +33,7 @@ import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.NonNull;
 
 import java.io.IOException;
@@ -144,7 +145,8 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         return splitsMap;
     }
 
-    private Object convert(String field, SeaTunnelDataType<?> fieldType, int level) {
+    @VisibleForTesting
+    Object convert(String field, SeaTunnelDataType<?> fieldType, int level) {
         if (StringUtils.isBlank(field)) {
             return null;
         }
@@ -201,7 +203,9 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             case BOOLEAN:
                 return Boolean.parseBoolean(field);
             case TINYINT:
-                return Byte.parseByte(field);
+                byte b = Byte.parseByte(field);
+                // Compatibility with UNSIGNED_TINYINT
+                return (byte) (b & 0xff);
             case SMALLINT:
                 return Short.parseShort(field);
             case INT:
