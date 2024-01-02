@@ -114,7 +114,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
             defaultValue =
                     defaultValue.toString().replace("(", "").replace("'", "").replace(")", "");
         }
-        boolean isNullable = resultSet.getBoolean("is_nullable");
+        boolean isNullable = resultSet.getString("IS_NULLABLE").equals("YES");
         long bitLen = 0;
         StringBuilder sb = new StringBuilder(sourceType);
         Pair<SqlServerType, Map<String, Object>> parse = SqlServerType.parse(sourceType);
