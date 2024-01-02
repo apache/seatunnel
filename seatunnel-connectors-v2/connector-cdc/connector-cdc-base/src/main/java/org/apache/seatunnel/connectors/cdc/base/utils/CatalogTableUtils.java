@@ -81,7 +81,7 @@ public class CatalogTableUtils {
         }
         PrimaryKey primaryKeys =
                 PrimaryKey.of(
-                        "pk" + Math.abs(config.getPrimaryKeys().hashCode()),
+                        "pk" + (config.getPrimaryKeys().hashCode() & Integer.MAX_VALUE),
                         config.getPrimaryKeys());
         List<Column> columns =
                 table.getTableSchema().getColumns().stream()
