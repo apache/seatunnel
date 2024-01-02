@@ -148,7 +148,7 @@ public class JdbcSourceOptions extends SourceOptions {
                     .listType(JdbcSourceTableConfig.class)
                     .noDefaultValue()
                     .withDescription(
-                            "Config table configs. example: "
+                            "Config table configs. Example: "
                                     + "["
                                     + "   {"
                                     + "       \"table\": \"db1.schema1.table1\","
