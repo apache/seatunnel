@@ -48,23 +48,25 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
             new SqlServerDataTypeConvertor();
 
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
-            "SELECT tbl.name AS table_name,\n"
-                    + "       col.name AS column_name,\n"
-                    + "       ext.value AS comment,\n"
-                    + "       col.column_id AS column_id,\n"
-                    + "       types.name AS type,\n"
-                    + "       col.max_length AS max_length,\n"
-                    + "       col.precision AS precision,\n"
-                    + "       col.scale AS scale,\n"
-                    + "       col.is_nullable AS is_nullable,\n"
-                    + "       def.definition AS default_value\n"
-                    + "FROM sys.tables tbl\n"
-                    + "    INNER JOIN sys.columns col ON tbl.object_id = col.object_id\n"
-                    + "    LEFT JOIN sys.types types ON col.user_type_id = types.user_type_id\n"
-                    + "    LEFT JOIN sys.extended_properties ext ON ext.major_id = col.object_id AND ext.minor_id = col.column_id\n"
-                    + "    LEFT JOIN sys.default_constraints def ON col.default_object_id = def.object_id AND ext.minor_id = col.column_id AND ext.name = 'MS_Description'\n"
-                    + "WHERE schema_name(tbl.schema_id) = '%s' %s\n"
-                    + "ORDER BY tbl.name, col.column_id";
+            "SELECT col.TABLE_NAME AS table_name,\n"
+                    + "       col.COLUMN_NAME AS column_name,\n"
+                    + "       prop.VALUE AS comment,\n"
+                    + "       col.ORDINAL_POSITION AS column_id,\n"
+                    + "       col.DATA_TYPE AS type,\n"
+                    + "       CASE WHEN col.DATA_TYPE in ('nchar','nvarchar','ntext') THEN col.CHARACTER_MAXIMUM_LENGTH\n"
+                    + "         ELSE col.CHARACTER_OCTET_LENGTH end  AS max_length,\n"
+                    + "       CASE WHEN col.DATA_TYPE in ('datetime','datetime2','datetimeoffset','date','time','smalldatetime' ) THEN col.DATETIME_PRECISION \n"
+                    + "         ELSE col.NUMERIC_PRECISION end AS precision,\n"
+                    + "       col.NUMERIC_SCALE AS scale,\n"
+                    + "       col.IS_NULLABLE AS is_nullable,\n"
+                    + "       col.COLUMN_DEFAULT AS default_value\n"
+                    + "FROM INFORMATION_SCHEMA.COLUMNS col\n"
+                    + "     LEFT JOIN sys.extended_properties prop\n"
+                    + "         ON prop.major_id = OBJECT_ID(col.TABLE_SCHEMA + '.' + col.TABLE_NAME)\n"
+                    + "         AND prop.minor_id = col.ORDINAL_POSITION\n"
+                    + "         AND prop.name = 'MS_Description'\n"
+                    + "WHERE   col.TABLE_SCHEMA='%s' %s \n"
+                    + "ORDER BY col.TABLE_NAME, col.ORDINAL_POSITION";
 
     public SqlServerCatalog(
             String catalogName,
@@ -91,7 +93,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     protected String getSelectColumnsSql(TablePath tablePath) {
         String tableSql =
                 StringUtils.isNotEmpty(tablePath.getTableName())
-                        ? "AND tbl.name = '" + tablePath.getTableName() + "'"
+                        ? "AND col.TABLE_NAME = '" + tablePath.getTableName() + "'"
                         : "";
 
         return String.format(SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(), tableSql);
@@ -129,7 +131,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                 }
                 break;
             case TIMESTAMP:
-                bitLen = columnLength << 3;
+                bitLen = 64L;
                 break;
             case VARCHAR:
             case NCHAR:
