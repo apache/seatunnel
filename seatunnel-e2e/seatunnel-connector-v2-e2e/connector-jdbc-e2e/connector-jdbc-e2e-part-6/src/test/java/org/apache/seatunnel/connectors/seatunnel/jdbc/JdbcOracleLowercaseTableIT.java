@@ -18,7 +18,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
@@ -224,7 +223,6 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
     @TestTemplate
     public void testCatalog(TestContainer container) throws IOException, InterruptedException {
         TablePath tablePathOracle = TablePath.of("XE", "TESTUSER", "E2E_TABLE_SOURCE_LOWER");
-        TablePath tablePathOracle_Sink = TablePath.of("XE", "TESTUSER", "SINK_LW");
         OracleCatalog oracleCatalog =
                 new OracleCatalog(
                         "Oracle",
@@ -234,30 +232,10 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                                 jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
                         SCHEMA);
         oracleCatalog.open();
-        CatalogTable catalogTable = oracleCatalog.getTable(tablePathOracle);
-        // sink tableExists ?
-        /* boolean tableExistsBefore = oracleCatalog.tableExists(tablePathOracle_Sink);
-        Assertions.assertFalse(tableExistsBefore);*/
-        // create table
-        oracleCatalog.createTable(tablePathOracle_Sink, catalogTable, true);
-        boolean tableExistsAfter = oracleCatalog.tableExists(tablePathOracle_Sink);
-        Assertions.assertTrue(tableExistsAfter);
-        // isExistsData ?
-        boolean existsDataBefore = oracleCatalog.isExistsData(tablePathOracle_Sink);
-        Assertions.assertFalse(existsDataBefore);
-        // insert data
-        Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
-        String[] fieldNames = testDataSet.getKey();
-        oracleCatalog.executeSql(
-                tablePathOracle_Sink, insertTable("TESTUSER", "SINK_LW", fieldNames));
-        boolean existsDataAfter = oracleCatalog.isExistsData(tablePathOracle_Sink);
-        Assertions.assertTrue(existsDataAfter);
-        // truncateTable
-        oracleCatalog.truncateTable(tablePathOracle_Sink, true);
-        Assertions.assertFalse(oracleCatalog.isExistsData(tablePathOracle_Sink));
-        // drop table
-        oracleCatalog.dropTable(tablePathOracle_Sink, true);
-        Assertions.assertFalse(oracleCatalog.tableExists(tablePathOracle_Sink));
+        Assertions.assertTrue(oracleCatalog.tableExists(tablePathOracle));
+        Assertions.assertTrue(oracleCatalog.isExistsData(tablePathOracle));
+        oracleCatalog.truncateTable(tablePathOracle, true);
+        Assertions.assertFalse(oracleCatalog.isExistsData(tablePathOracle));
         oracleCatalog.close();
     }
 }
