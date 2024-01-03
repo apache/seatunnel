@@ -11,7 +11,7 @@ I set a precise Checkpoint for this job
 
 ```
 env {
-  execution.parallelism = 1  
+  parallelism = 1  
   flink.execution.checkpointing.unaligned.enabled=true
 }
 ```
@@ -25,8 +25,13 @@ This is a simple job that runs on Flink Randomly generated data is printed to th
 
 ```
 env {
-  execution.parallelism = 1
-  flink.execution.checkpointing.interval=5000
+  # common parameter
+  parallelism = 1
+  checkpoint.interval = 5000
+
+  # flink special parameter
+  flink.execution.checkpointing.mode = "EXACTLY_ONCE"
+  flink.execution.checkpointing.timeout = 600000
 }
 
 source {

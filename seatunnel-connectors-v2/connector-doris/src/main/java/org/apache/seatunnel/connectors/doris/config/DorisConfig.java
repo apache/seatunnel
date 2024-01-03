@@ -65,6 +65,7 @@ public class DorisConfig implements Serializable {
     private String password;
     private Integer queryPort;
     private String tableIdentifier;
+    private int batchSize;
 
     // source option
     private String readField;
@@ -76,7 +77,6 @@ public class DorisConfig implements Serializable {
     private Integer requestRetries;
     private boolean deserializeArrowAsync;
     private int deserializeQueueSize;
-    private int batchSize;
     private int execMemLimit;
     private boolean useOldApi;
 

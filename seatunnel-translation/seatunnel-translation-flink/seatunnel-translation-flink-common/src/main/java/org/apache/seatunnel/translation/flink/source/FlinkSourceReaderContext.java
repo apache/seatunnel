@@ -17,17 +17,20 @@
 
 package org.apache.seatunnel.translation.flink.source;
 
-import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.translation.flink.metric.FlinkMetricContext;
 
 import org.apache.flink.api.connector.source.SourceReaderContext;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
+import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -84,7 +87,16 @@ public class FlinkSourceReaderContext implements SourceReader.Context {
 
     @Override
     public MetricsContext getMetricsContext() {
-        return new AbstractMetricsContext() {};
+        try {
+            Field field = readerContext.getClass().getDeclaredField("this$0");
+            field.setAccessible(true);
+            AbstractStreamOperator<?> operator =
+                    (AbstractStreamOperator<?>) field.get(readerContext);
+            StreamingRuntimeContext runtimeContext = operator.getRuntimeContext();
+            return new FlinkMetricContext(runtimeContext);
+        } catch (Exception e) {
+            throw new IllegalStateException("Initialize source metrics failed", e);
+        }
     }
 
     public boolean isSendNoMoreElementEvent() {

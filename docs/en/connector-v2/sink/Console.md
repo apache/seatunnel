@@ -38,7 +38,7 @@ Used to send data to Console. Both support streaming and batch mode.
 
 ```
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
 }
 
@@ -67,7 +67,7 @@ sink {
 
 ```
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
 }
 

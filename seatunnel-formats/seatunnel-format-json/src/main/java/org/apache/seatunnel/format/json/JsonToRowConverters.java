@@ -394,9 +394,9 @@ public class JsonToRowConverters implements Serializable {
                 }
                 try {
                     return converter.convert(jsonNode);
-                } catch (Throwable t) {
+                } catch (RuntimeException e) {
                     if (!ignoreParseErrors) {
-                        throw t;
+                        throw e;
                     }
                     return null;
                 }
