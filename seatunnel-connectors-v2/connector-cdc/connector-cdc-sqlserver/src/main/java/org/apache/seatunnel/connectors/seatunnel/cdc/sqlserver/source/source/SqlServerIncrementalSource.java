@@ -114,7 +114,7 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
 
     @Override
     public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig config) {
-        return new SqlServerDialect((SqlServerSourceConfigFactory) configFactory);
+        return new SqlServerDialect((SqlServerSourceConfigFactory) configFactory, catalogTables);
     }
 
     @Override
