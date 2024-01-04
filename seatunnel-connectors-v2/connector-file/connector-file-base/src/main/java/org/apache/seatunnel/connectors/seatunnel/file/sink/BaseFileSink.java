@@ -17,12 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
-import org.apache.seatunnel.api.sink.*;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
@@ -34,7 +40,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.List;
 import java.util.Optional;
@@ -108,8 +113,8 @@ public abstract class BaseFileSink
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
-        this.schemaSaveMode=readonlyConfig.get(BaseSinkConfig.SCHEMA_SAVE_MODE);
-        this.dataSaveMode=readonlyConfig.get(BaseSinkConfig.DATA_SAVE_MODE);
+        this.schemaSaveMode = readonlyConfig.get(BaseSinkConfig.SCHEMA_SAVE_MODE);
+        this.dataSaveMode = readonlyConfig.get(BaseSinkConfig.DATA_SAVE_MODE);
     }
 
     protected WriteStrategy createWriteStrategy() {

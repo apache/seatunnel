@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
@@ -28,6 +27,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
+import org.apache.hadoop.fs.FileStatus;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
@@ -36,61 +37,71 @@ public class FileSaveModeHandler implements SaveModeHandler {
     private final DataSaveMode dataSaveMode;
 
     private final SchemaSaveMode schemaSaveMode;
-    private final HadoopFileSystemProxy  hadoopFileSystemProxy;
+    private final HadoopFileSystemProxy hadoopFileSystemProxy;
 
     protected final String path;
 
-    private boolean emptyDir =false;
+    private boolean emptyDir = false;
 
-    public FileSaveModeHandler(HadoopConf hadoopConf, String path,
-                               SchemaSaveMode schemaSaveMode,
-                               DataSaveMode dataSaveMode) {
+    public FileSaveModeHandler(
+            HadoopConf hadoopConf,
+            String path,
+            SchemaSaveMode schemaSaveMode,
+            DataSaveMode dataSaveMode) {
 
-        this.hadoopFileSystemProxy=new HadoopFileSystemProxy(hadoopConf);
+        this.hadoopFileSystemProxy = new HadoopFileSystemProxy(hadoopConf);
         this.dataSaveMode = dataSaveMode;
-        this.path=path;
+        this.path = path;
         this.schemaSaveMode = schemaSaveMode;
     }
-
 
     @Override
     public void handleSchemaSaveMode() {
         try {
             switch (schemaSaveMode) {
-                case RECREATE_SCHEMA: {
-                    recreateDir();
-                    break;
-                }case CREATE_SCHEMA_WHEN_NOT_EXIST:{
-                    createWhenNotExists();break;
-                }case ERROR_WHEN_SCHEMA_NOT_EXIST:{
-                    errorWhenNotExist();break;
-                }default:
-                    throw new UnsupportedOperationException("Unsupported save mode: " + dataSaveMode);
+                case RECREATE_SCHEMA:
+                    {
+                        recreateDir();
+                        break;
+                    }
+                case CREATE_SCHEMA_WHEN_NOT_EXIST:
+                    {
+                        createWhenNotExists();
+                        break;
+                    }
+                case ERROR_WHEN_SCHEMA_NOT_EXIST:
+                    {
+                        errorWhenNotExist();
+                        break;
+                    }
+                default:
+                    throw new UnsupportedOperationException(
+                            "Unsupported save mode: " + dataSaveMode);
             }
-        }catch (IOException e){
-            throw new FileConnectorException(
-                    FileConnectorErrorCode.FILE_READ_FAILED, e);
+        } catch (IOException e) {
+            throw new FileConnectorException(FileConnectorErrorCode.FILE_READ_FAILED, e);
         }
     }
 
     @Override
     public void handleDataSaveMode() {
-        if(emptyDir==true) return;
+        if (emptyDir == true) return;
         try {
 
             switch (dataSaveMode) {
-                case DROP_DATA: {
-                    dropFile();
-                    break;
-                }
-                case ERROR_WHEN_DATA_EXISTS: {
-                    errorWhenDataExists();
-                    break;
-                }
+                case DROP_DATA:
+                    {
+                        dropFile();
+                        break;
+                    }
+                case ERROR_WHEN_DATA_EXISTS:
+                    {
+                        errorWhenDataExists();
+                        break;
+                    }
             }
-        }catch (IOException e){
-            throw new FileConnectorException(
-                    FileConnectorErrorCode.FILE_READ_FAILED, e);
+        } catch (IOException e) {
+            throw new FileConnectorException(FileConnectorErrorCode.FILE_READ_FAILED, e);
         }
     }
 
@@ -99,29 +110,27 @@ public class FileSaveModeHandler implements SaveModeHandler {
         hadoopFileSystemProxy.close();
     }
 
-
-    protected void recreateDir() throws IOException{
-        if(hadoopFileSystemProxy.fileExist(path)){
+    protected void recreateDir() throws IOException {
+        if (hadoopFileSystemProxy.fileExist(path)) {
             hadoopFileSystemProxy.deleteFile(path);
-        }else{
-            emptyDir =true;
+        } else {
+            emptyDir = true;
         }
         hadoopFileSystemProxy.createDir(path);
     }
 
-
-    protected void createWhenNotExists() throws IOException{
-        if(!hadoopFileSystemProxy.fileExist(path)){
+    protected void createWhenNotExists() throws IOException {
+        if (!hadoopFileSystemProxy.fileExist(path)) {
             hadoopFileSystemProxy.createDir(path);
-            emptyDir=true;
+            emptyDir = true;
         }
     }
 
+    protected void errorWhenNotExist() throws IOException {
+        if (!hadoopFileSystemProxy.fileExist(path)) {
 
-    protected void errorWhenNotExist() throws IOException{
-        if(!hadoopFileSystemProxy.fileExist(path)){
-
-            throw new  SeaTunnelRuntimeException(SeaTunnelAPIErrorCode.SINK_TABLE_NOT_EXIST,
+            throw new SeaTunnelRuntimeException(
+                    SeaTunnelAPIErrorCode.SINK_TABLE_NOT_EXIST,
                     SeaTunnelAPIErrorCode.SINK_TABLE_NOT_EXIST.getDescription());
         }
     }
@@ -135,11 +144,12 @@ public class FileSaveModeHandler implements SaveModeHandler {
 
     protected void errorWhenDataExists() throws IOException {
         try {
-            if(hadoopFileSystemProxy.listStatus(path).length>0){
-                throw new SeaTunnelRuntimeException(SeaTunnelAPIErrorCode.SOURCE_ALREADY_HAS_DATA,
+            if (hadoopFileSystemProxy.listStatus(path).length > 0) {
+                throw new SeaTunnelRuntimeException(
+                        SeaTunnelAPIErrorCode.SOURCE_ALREADY_HAS_DATA,
                         SeaTunnelAPIErrorCode.SOURCE_ALREADY_HAS_DATA.getDescription());
             }
-        }catch (FileNotFoundException ignore){}
-
+        } catch (FileNotFoundException ignore) {
+        }
     }
 }
